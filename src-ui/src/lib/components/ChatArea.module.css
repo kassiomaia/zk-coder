@@ -1,0 +1,47 @@
+/**
+ * ChatArea Component Styles
+ * Main chat layout container
+ */
+
+.chatArea {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--color-bg-primary);
+}
+
+.inputContainer {
+	flex-shrink: 0;
+	padding: var(--space-4);
+	padding-top: 0;
+	background: var(--color-bg-primary);
+	max-width: var(--content-max-width);
+	margin: 0 auto;
+	width: 100%;
+}
+
+/* Desktop sticky input */
+
+@media (min-width: 768px) {
+	.inputContainer {
+		position: sticky;
+		bottom: 0;
+		padding: var(--space-4);
+		border-top: 1px solid transparent;
+		background: linear-gradient(
+			to top,
+			var(--color-bg-primary) 0%,
+			var(--color-bg-primary) 80%,
+			transparent 100%
+		);
+	}
+}
+
+/* Responsive */
+
+@media (max-width: 600px) {
+	.inputContainer {
+		padding: var(--space-3);
+		padding-top: 0;
+	}
+}

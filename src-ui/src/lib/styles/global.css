@@ -1,0 +1,213 @@
+/**
+ * Global Styles for Coder Application
+ */
+
+@import './design-system.css';
+
+/* Font imports */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* Reset and base styles */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+html {
+	font-size: 16px;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+}
+
+body {
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+	line-height: var(--leading-normal);
+	color: var(--color-text-primary);
+	background-color: var(--color-bg-primary);
+	min-height: 100vh;
+	transition:
+		background-color var(--transition-normal),
+		color var(--transition-normal);
+}
+
+/* Default to dark theme */
+:root {
+	data-theme: 'dark';
+}
+
+/* Apply dark theme by default */
+body {
+	--color-bg-primary: var(--color-neutral-900);
+	--color-bg-secondary: var(--color-neutral-800);
+	--color-bg-tertiary: var(--color-neutral-700);
+	--color-bg-elevated: var(--color-neutral-800);
+
+	--color-text-primary: var(--color-neutral-50);
+	--color-text-secondary: var(--color-neutral-300);
+	--color-text-tertiary: var(--color-neutral-400);
+	--color-text-muted: var(--color-neutral-500);
+
+	--color-border-primary: var(--color-neutral-700);
+	--color-border-secondary: var(--color-neutral-600);
+
+	--color-surface: var(--color-neutral-800);
+	--color-surface-hover: var(--color-neutral-700);
+	--color-surface-active: var(--color-neutral-600);
+}
+
+/* Typography base */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-family: var(--font-display);
+	font-weight: var(--font-semibold);
+	line-height: var(--leading-tight);
+	color: var(--color-text-primary);
+}
+
+h1 {
+	font-size: var(--text-4xl);
+}
+h2 {
+	font-size: var(--text-3xl);
+}
+h3 {
+	font-size: var(--text-2xl);
+}
+h4 {
+	font-size: var(--text-xl);
+}
+h5 {
+	font-size: var(--text-lg);
+}
+h6 {
+	font-size: var(--text-base);
+}
+
+p {
+	color: var(--color-text-secondary);
+}
+
+a {
+	color: var(--color-primary-400);
+	text-decoration: none;
+	transition: color var(--transition-fast);
+}
+
+a:hover {
+	color: var(--color-primary-300);
+}
+
+code,
+pre {
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+}
+
+code {
+	background-color: var(--color-bg-tertiary);
+	padding: var(--space-1) var(--space-2);
+	border-radius: var(--radius-md);
+}
+
+pre {
+	background-color: var(--color-bg-secondary);
+	padding: var(--space-4);
+	border-radius: var(--radius-lg);
+	overflow-x: auto;
+}
+
+pre code {
+	background: none;
+	padding: 0;
+}
+
+/* Focus styles */
+:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--color-neutral-600);
+	border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--color-neutral-500);
+}
+
+/* Selection */
+::selection {
+	background-color: var(--color-primary-600);
+	color: var(--color-neutral-0);
+}
+
+/* Buttons base */
+button {
+	font-family: var(--font-sans);
+	cursor: pointer;
+	border: none;
+	background: none;
+}
+
+/* Input base */
+input,
+textarea,
+select {
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+	color: var(--color-text-primary);
+	background-color: var(--color-bg-secondary);
+	border: 1px solid var(--color-border-primary);
+	border-radius: var(--radius-md);
+	padding: var(--space-2) var(--space-3);
+	transition:
+		border-color var(--transition-fast),
+		box-shadow var(--transition-fast);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+	outline: none;
+	border-color: var(--color-primary-500);
+	box-shadow: 0 0 0 3px rgb(99 102 241 / 0.2);
+}
+
+input::placeholder,
+textarea::placeholder {
+	color: var(--color-text-muted);
+}
+
+/* Utility classes */
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border-width: 0;
+}
