@@ -1,7 +1,7 @@
 # Chat Interface Implementation Progress
 
 **Last Updated**: 2026-02-28
-**Status**: Phase 6 COMPLETE - Ready for Phase 7 (Backend Integration)
+**Status**: Phase 7 IN PROGRESS - Backend Integration (NLP Connected)
 
 ---
 
@@ -178,22 +178,34 @@ The chat interface is now fully implemented and ready for testing.
 ---
 
 ### Phase 7: Backend Integration
-**Status**: Not Started
+**Status**: 🔄 IN PROGRESS
 **Task ID**: #7
 **Blocked By**: Phase 6
+**Started**: 2026-02-28
+
+**Note**: Backend NLP implementation is COMPLETE (see `docs/backend-progress.md`). This phase integrates the frontend with the existing backend NLP commands.
 
 | Subtask | Status | Notes |
 |---------|--------|-------|
-| Create chat.rs commands | Pending | Tauri command file |
-| send_message command | Pending | IPC command |
-| load_conversations command | Pending | IPC command |
-| create_conversation command | Pending | IPC command |
-| load_threads command | Pending | IPC command |
-| create_thread command | Pending | IPC command |
-| Register commands | Pending | Tauri registry |
-| Frontend IPC client | Pending | TypeScript client |
-| SQLite persistence | Pending | Data storage |
-| Error handling | Pending | Loading states |
+| Create NLP types (types/nlp.ts) | ✅ Done | TypeScript types matching Rust backend |
+| Create API client (api/nlp.ts) | ✅ Done | Tauri IPC wrappers for all NLP commands |
+| Create chat stores (stores/chat.ts) | ✅ Done | Svelte stores for state management |
+| Update IntentIndicator | ✅ Done | Connected to backend NLP |
+| Update ChatInput | ✅ Done | Backend NLP integration with fallback |
+| Create chat persistence commands | ⏳ Pending | Need backend chat.rs for conversation storage |
+| Frontend conversation persistence | ⏳ Pending | Connect stores to backend storage |
+| Error handling | ⏳ Pending | Loading states, error boundaries |
+| End-to-end testing | ⏳ Pending | Integration tests |
+
+**Backend NLP Commands Available** (implemented in `src-tauri/src/commands/nlp.rs`):
+- `classify_intent` - Intent classification from user input
+- `get_conversation_context` - Get conversation context
+- `add_context_message` - Add message to context
+- `detect_multi_intent` - Detect multiple intents
+- `detect_ambiguities` - Detect ambiguities in input
+- `analyze_code` - Code analysis with tree-sitter
+- `update_project_files` - Update project file list
+- `clear_conversation_context` - Clear conversation context
 
 ---
 
@@ -224,7 +236,15 @@ src-ui/src/lib/
 ├── types/
 │   ├── message.ts          # Message types
 │   ├── thread.ts           # Thread types
-│   └── command.ts          # Command types
+│   ├── command.ts          # Command types
+│   ├── nlp.ts              # ✅ NEW: NLP types matching backend
+│   └── index.ts            # Central exports (updated)
+├── api/
+│   ├── nlp.ts              # ✅ NEW: Tauri IPC client for NLP
+│   └── index.ts            # ✅ NEW: API exports
+├── stores/
+│   ├── chat.ts             # ✅ NEW: Chat state management
+│   └── index.ts            # ✅ NEW: Store exports
 ├── components/
 │   ├── chat/
 │   │   ├── ChatArea.svelte           # Enhanced
@@ -242,39 +262,39 @@ src-ui/src/lib/
 │   │   ├── CodeBlock.svelte          # Existing
 │   │   ├── CodeBlock.module.css      # Existing
 │   │   ├── input/
-│   │   │   ├── ChatInput.svelte      # ✅ DONE
+│   │   │   ├── ChatInput.svelte      # ✅ UPDATED: Backend NLP integration
 │   │   │   ├── ChatInput.module.css  # ✅ DONE
 │   │   │   ├── CommandPalette.svelte # ✅ DONE
 │   │   │   ├── CommandPalette.module.css# ✅ DONE
-│   │   │   ├── IntentIndicator.svelte# ✅ DONE
-│   │   │   ├── IntentIndicator.module.css# ✅ DONE
+│   │   │   ├── IntentIndicator.svelte# ✅ UPDATED: Backend NLP types
+│   │   │   ├── IntentIndicator.module.css# ✅ UPDATED: Loading state
 │   │   │   ├── MentionMenu.svelte    # ✅ DONE
 │   │   │   ├── MentionMenu.module.css# ✅ DONE
 │   │   │   ├── MarkdownPreview.svelte# ✅ DONE
 │   │   │   └── MarkdownPreview.module.css# ✅ DONE
 │   │   ├── thread/
-│   │   │   ├── ThreadView.svelte     # NEW
-│   │   │   ├── ThreadView.module.css # NEW
-│   │   │   ├── ThreadItem.svelte     # NEW
-│   │   │   ├── ThreadItem.module.css # NEW
-│   │   │   ├── ThreadPanel.svelte    # NEW
-│   │   │   ├── ThreadPanel.module.css# NEW
-│   │   │   ├── ThreadBreadcrumbs.svelte# NEW
-│   │   │   ├── ThreadBreadcrumbs.module.css# NEW
-│   │   │   ├── NewThreadButton.svelte# NEW
-│   │   │   └── NewThreadButton.module.css# NEW
+│   │   │   ├── ThreadView.svelte     # ✅ DONE
+│   │   │   ├── ThreadView.module.css # ✅ DONE
+│   │   │   ├── ThreadItem.svelte     # ✅ DONE
+│   │   │   ├── ThreadItem.module.css # ✅ DONE
+│   │   │   ├── ThreadPanel.svelte    # ✅ DONE
+│   │   │   ├── ThreadPanel.module.css# ✅ DONE
+│   │   │   ├── ThreadBreadcrumbs.svelte# ✅ DONE
+│   │   │   ├── ThreadBreadcrumbs.module.css# ✅ DONE
+│   │   │   ├── NewThreadButton.svelte# ✅ DONE
+│   │   │   └── NewThreadButton.module.css# ✅ DONE
 │   │   └── sidebar/
-│   │       ├── ConversationSidebar.svelte# NEW
-│   │       ├── ConversationSidebar.module.css# NEW
-│   │       ├── ConversationItem.svelte# NEW
-│   │       ├── ConversationItem.module.css# NEW
-│   │       ├── ConversationActions.svelte# NEW
-│   │       ├── ConversationActions.module.css# NEW
-│   │       ├── SearchBar.svelte      # NEW
-│   │       └── SearchBar.module.css  # NEW
+│   │       ├── ConversationSidebar.svelte# ✅ DONE
+│   │       ├── ConversationSidebar.module.css# ✅ DONE
+│   │       ├── ConversationItem.svelte# ✅ DONE
+│   │       ├── ConversationItem.module.css# ✅ DONE
+│   │       ├── ConversationActions.svelte# ✅ DONE
+│   │       ├── ConversationActions.module.css# ✅ DONE
+│   │       ├── SearchBar.svelte      # ✅ DONE
+│   │       └── SearchBar.module.css  # ✅ DONE
 │   ├── layout/
-│   │   ├── ChatLayout.svelte         # NEW
-│   │   └── ChatLayout.module.css     # NEW
+│   │   ├── ChatLayout.svelte         # ✅ DONE
+│   │   └── ChatLayout.module.css     # ✅ DONE
 │   ├── ChatDemo.svelte               # Updated
 │   ├── ChatDemo.module.css           # Existing
 │   └── InputBox.svelte               # Keep for backward compat

@@ -2,6 +2,7 @@
 	/**
 	 * ChatInput Component
 	 * Enhanced multi-line text input with command palette, mentions, and intent detection.
+	 * Supports both frontend-only mode (simple patterns) and backend NLP mode.
 	 */
 	import styles from './ChatInput.module.css';
 	import CommandPalette from './CommandPalette.svelte';
@@ -9,6 +10,9 @@
 	import MentionMenu from './MentionMenu.svelte';
 	import type { Command } from '$lib/types/command';
 	import { BUILT_IN_COMMANDS, filterCommands } from '$lib/types/command';
+	import type { IntentClassification } from '$lib/types/nlp';
+	import { chatStore, nlpState } from '$lib/stores';
+	import { isBackendAvailable } from '$lib/api/nlp';
 
 	interface FileAttachment {
 		id: string;
@@ -54,6 +58,8 @@
 		showIntent?: boolean;
 		/** Enable markdown preview */
 		enableMarkdownPreview?: boolean;
+		/** Use backend NLP for intent detection (default: true when available) */
+		useBackendNlp?: boolean;
 	}
 
 	let {
@@ -70,7 +76,8 @@
 		commands = BUILT_IN_COMMANDS,
 		mentionItems = [],
 		showIntent = true,
-		enableMarkdownPreview = true
+		enableMarkdownPreview = true,
+		useBackendNlp = true
 	}: Props = $props();
 
 	let textareaRef: HTMLTextAreaElement | undefined = $state();
@@ -84,13 +91,25 @@
 	let isPreviewMode = $state(false);
 	let cursorPosition = $state(0);
 
+	// Get NLP state from store
+	let $nlpState = $state(nlpState);
+
 	// Derived values
 	let filteredCommands = $derived(filterCommands(commands, commandQuery));
 	let filteredMentions = $derived(
 		mentionItems.filter((item) => item.name.toLowerCase().includes(mentionQuery.toLowerCase()))
 	);
 
-	let detectedIntent = $derived(detectIntent(value));
+	// Intent detection: use backend if available and enabled, otherwise fallback to frontend
+	let detectedIntent = $derived(() => {
+		if (useBackendNlp && $nlpState.backendAvailable && $nlpState.detectedIntent) {
+			return $nlpState.detectedIntent;
+		}
+		// Fallback to frontend detection
+		return detectIntentFrontend(value);
+	});
+
+	let intentLoading = $derived(useBackendNlp && $nlpState.processing);
 	let characterCount = $derived(value.length);
 	let isOverLimit = $derived(maxLength !== undefined && characterCount > maxLength);
 	let canSubmit = $derived(!disabled && !loading && value.trim() && !isOverLimit);
@@ -109,25 +128,39 @@
 		}
 	});
 
-	function detectIntent(text: string): string | null {
+	// Trigger backend intent classification when value changes
+	$effect(() => {
+		if (useBackendNlp && value.trim().length > 3) {
+			chatStore.classifyInput(value);
+		}
+	});
+
+	/**
+	 * Frontend-only intent detection (fallback when backend is unavailable).
+	 */
+	function detectIntentFrontend(text: string): IntentClassification | null {
 		const lowerText = text.toLowerCase().trim();
 
 		if (!lowerText) return null;
 
 		// Simple intent detection patterns
 		const patterns: { pattern: RegExp; intent: string }[] = [
-			{ pattern: /^(generate|create|write|build|make)\s/i, intent: 'generate' },
-			{ pattern: /^(explain|what|why|how|describe)\s/i, intent: 'explain' },
-			{ pattern: /^(fix|debug|solve|resolve|repair)\s/i, intent: 'fix' },
-			{ pattern: /^(refactor|improve|optimize|clean)\s/i, intent: 'refactor' },
-			{ pattern: /^(test|spec|verify)\s/i, intent: 'test' },
-			{ pattern: /^(review|check|analyze)\s/i, intent: 'review' },
-			{ pattern: /^(document|doc|comment)\s/i, intent: 'document' }
+			{ pattern: /^(generate|create|write|build|make)\s/i, intent: 'generate_code' },
+			{ pattern: /^(explain|what|why|how|describe)\s/i, intent: 'explain_code' },
+			{ pattern: /^(fix|debug|solve|resolve|repair)\s/i, intent: 'find_bugs' },
+			{ pattern: /^(refactor|improve|optimize|clean)\s/i, intent: 'refactor_code' },
+			{ pattern: /^(test|spec|verify)\s/i, intent: 'generate_test' },
+			{ pattern: /^(review|check|analyze)\s/i, intent: 'analyze_code' },
+			{ pattern: /^(document|doc|comment)\s/i, intent: 'document_code' }
 		];
 
 		for (const { pattern, intent } of patterns) {
 			if (pattern.test(lowerText)) {
-				return intent;
+				return {
+					intent: intent as any,
+					confidence: 0.7,
+					alternative_intents: []
+				};
 			}
 		}
 
@@ -287,9 +320,15 @@
 	{/if}
 
 	<!-- Intent indicator -->
-	{#if showIntent && detectedIntent}
+	{#if showIntent && detectedIntent()}
 		<div class={styles.intentWrapper}>
-			<IntentIndicator intent={detectedIntent} />
+			<IntentIndicator
+				intent={detectedIntent()!.intent}
+				confidence={detectedIntent()!.confidence}
+				showConfidence={true}
+				loading={intentLoading}
+				classification={detectedIntent()}
+			/>
 		</div>
 	{/if}
 

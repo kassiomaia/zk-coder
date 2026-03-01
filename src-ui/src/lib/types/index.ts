@@ -6,7 +6,7 @@
 // Message types
 export type {
 	Message,
-	MessageRole,
+	MessageRole as MessageRoleType,
 	MessageStatus,
 	MessageMetadata,
 	Attachment,
@@ -36,3 +36,48 @@ export {
 	groupCommandsByCategory,
 	getCategoryLabel
 } from './command.js';
+
+// NLP types
+export type {
+	Intent,
+	IntentClassification,
+	IntentParams,
+	MessageRole,
+	ContextMessage,
+	SymbolKind,
+	SymbolReference,
+	FileInfo,
+	ContextMetadata,
+	ConversationContext,
+	TextSpan,
+	DetectedIntent,
+	IntentRelationship,
+	MultiIntentResult,
+	AmbiguityType,
+	AmbiguitySeverity,
+	ClarificationOption,
+	ClarificationRequest,
+	AmbiguitySuggestion,
+	Ambiguity,
+	ProgrammingLanguage,
+	FunctionInfo,
+	ClassInfo,
+	CodeStructure,
+	ComplexityRating,
+	ComplexityMetrics,
+	CodeUnderstanding
+} from './nlp.js';
+
+// NLP constants and utilities
+export {
+	INTENT_LABELS,
+	INTENT_RELATIONSHIP_LABELS,
+	AMBIGUITY_TYPE_LABELS,
+	PROGRAMMING_LANGUAGE_EXTENSIONS,
+	PROGRAMMING_LANGUAGE_NAMES,
+	COMPLEXITY_RATING_LABELS,
+	getIntentLabel,
+	getAmbiguityTypeLabel,
+	getComplexityRatingLabel,
+	detectLanguageFromExtension
+} from './nlp.js';

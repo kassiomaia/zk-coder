@@ -21,6 +21,62 @@
 	color: var(--color-primary-400);
 }
 
+/* Confidence level variants */
+.badge.confidence-high {
+	background: var(--color-success-100);
+	color: var(--color-success-700);
+}
+
+[data-theme='dark'] .badge.confidence-high {
+	background: rgba(34, 197, 94, 0.15);
+	color: var(--color-success-400);
+}
+
+.badge.confidence-medium {
+	background: var(--color-warning-100);
+	color: var(--color-warning-700);
+}
+
+[data-theme='dark'] .badge.confidence-medium {
+	background: rgba(234, 179, 8, 0.15);
+	color: var(--color-warning-400);
+}
+
+.badge.confidence-low {
+	background: var(--color-neutral-100);
+	color: var(--color-neutral-600);
+}
+
+[data-theme='dark'] .badge.confidence-low {
+	background: rgba(115, 115, 115, 0.15);
+	color: var(--color-neutral-400);
+}
+
+/* Loading state */
+.badge.loading {
+	opacity: 0.7;
+}
+
+.spinner {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.spinner svg {
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
 .icon {
 	display: flex;
 	align-items: center;
@@ -66,6 +122,10 @@
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
 	.badge {
+		animation: none;
+	}
+
+	.spinner svg {
 		animation: none;
 	}
 }

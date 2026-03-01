@@ -1,7 +1,7 @@
 # Backend (NLP) Implementation Progress
 
 **Last Updated**: 2026-02-28
-**Status**: ✅ Phase 7 Complete - Ready for Frontend Integration
+**Status**: ✅ Phase 7 Complete - Frontend Integration Started
 
 ---
 
@@ -128,7 +128,7 @@ The backend NLP implementation is complete and ready for frontend integration te
 | commands/nlp.rs | ✅ Done | IPC command definitions |
 | Register commands | ✅ Done | Tauri registry in lib.rs |
 | AppState setup | ✅ Done | NlpState with Arc<ClaudeClient> |
-| Frontend integration test | ⏳ Pending | Requires frontend Phase 7 |
+| Frontend integration test | 🔄 In Progress | Frontend Phase 7 started |
 
 ---
 
@@ -219,10 +219,13 @@ tree-sitter-python = "0.21"
 
 ## Next Steps
 
-1. **Frontend Integration** (Frontend Team)
-   - Create TypeScript types in `src-ui/src/lib/types/nlp.ts`
-   - Implement API wrappers for Tauri commands
-   - Connect UI components to backend
+1. **Frontend Integration** (In Progress)
+   - ✅ TypeScript types created in `src-ui/src/lib/types/nlp.ts`
+   - ✅ API wrappers implemented in `src-ui/src/lib/api/nlp.ts`
+   - ✅ Chat stores created in `src-ui/src/lib/stores/chat.ts`
+   - ✅ IntentIndicator connected to backend
+   - ⏳ End-to-end testing
+   - ⏳ Chat persistence (needs backend chat.rs)
 
 2. **Testing**
    - End-to-end integration tests
