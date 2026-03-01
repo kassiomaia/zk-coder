@@ -66,7 +66,9 @@ export interface ClassifyIntentOptions {
  * @param options - Classification options
  * @returns Intent classification result
  */
-export async function classifyIntent(options: ClassifyIntentOptions): Promise<IntentClassification> {
+export async function classifyIntent(
+	options: ClassifyIntentOptions
+): Promise<IntentClassification> {
 	return safeInvoke<IntentClassification>('classify_intent', {
 		input: options.input,
 		conversation_id: options.conversationId
@@ -145,7 +147,9 @@ export interface DetectMultiIntentOptions {
  * @param options - Detection options
  * @returns Multi-intent detection result
  */
-export async function detectMultiIntent(options: DetectMultiIntentOptions): Promise<MultiIntentResult> {
+export async function detectMultiIntent(
+	options: DetectMultiIntentOptions
+): Promise<MultiIntentResult> {
 	return safeInvoke<MultiIntentResult>('detect_multi_intent', {
 		input: options.input,
 		conversation_id: options.conversationId
