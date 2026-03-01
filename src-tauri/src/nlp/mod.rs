@@ -1,0 +1,36 @@
+//! NLP (Natural Language Processing) module for the Coder application.
+//!
+//! This module provides intent recognition, context management,
+//! multi-intent detection, ambiguity resolution, and code understanding.
+
+pub mod ambiguity;
+pub mod ambiguity_resolver;
+pub mod classifier;
+pub mod code_analyzer;
+pub mod code_understanding;
+pub mod context;
+pub mod context_manager;
+pub mod execution_planner;
+pub mod intent;
+pub mod multi_detector;
+pub mod multi_intent;
+pub mod nl_to_code;
+pub mod patterns;
+
+// Re-export commonly used types
+pub use ambiguity::{Ambiguity, AmbiguitySeverity, AmbiguityType, ClarificationRequest};
+pub use ambiguity_resolver::AmbiguityResolver;
+pub use classifier::{ClassifierError, IntentClassifier};
+pub use code_analyzer::{AnalyzerError, CodeAnalyzer};
+pub use code_understanding::{
+    ClassInfo, CodeStructure, CodeUnderstanding, ComplexityMetrics, FunctionInfo,
+    ProgrammingLanguage,
+};
+pub use context::{ContextMessage, ContextWindow, ConversationContext, MessageRole};
+pub use context_manager::{ContextError, ContextManager};
+pub use execution_planner::{ExecutionPlan, ExecutionPlanner};
+pub use intent::{Intent, IntentClassification, IntentParams};
+pub use multi_detector::{DetectorError, MultiIntentDetector};
+pub use multi_intent::{DetectedIntent, IntentRelationship, MultiIntentResult, TextSpan};
+pub use nl_to_code::{CodeConcept, NLToCodeMapper};
+pub use patterns::IntentPatterns;
