@@ -270,7 +270,7 @@
 		border-top: 1px solid var(--color-border-primary);
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
-		z-index: var(--z-toast);
+		z-index: var(--z-sticky);
 	}
 
 	.status {

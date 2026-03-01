@@ -169,13 +169,12 @@
 	padding: var(--space-4) var(--space-5);
 	padding-top: 0;
 	background: var(--color-bg-primary);
-	max-width: var(--content-max-width);
-	margin: 0 auto;
 	width: 100%;
+	position: relative;
 }
 
 /* Desktop sticky input */
-@media (min-width: 768px) {
+@media (min-width: 769px) {
 	.inputContainer {
 		position: sticky;
 		bottom: 0;
@@ -187,6 +186,8 @@
 			var(--color-bg-primary) 85%,
 			transparent 100%
 		);
+		max-width: var(--content-max-width);
+		margin: 0 auto;
 	}
 }
 
@@ -304,7 +305,27 @@
 	margin: 0;
 }
 
-/* Responsive */
+/* Tablet layout */
+@media (min-width: 601px) and (max-width: 768px) {
+	.inputContainer {
+		padding-left: var(--space-4);
+		padding-right: var(--space-4);
+	}
+
+	/* Ensure input stays within bounds on tablet with sidebar */
+	.inputContainer::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		width: 40%;
+		background: transparent;
+		z-index: -1;
+	}
+}
+
+/* Mobile layout */
 @media (max-width: 600px) {
 	.messagesWrapper {
 		padding: var(--space-4);
@@ -313,6 +334,18 @@
 	.inputContainer {
 		padding: var(--space-3) var(--space-4);
 		padding-top: 0;
+	}
+
+	/* Ensure input stays within bounds on mobile with sidebar */
+	.inputContainer::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		width: 85%;
+		background: transparent;
+		z-index: -1;
 	}
 
 	.groupMessages {
