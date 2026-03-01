@@ -1,0 +1,71 @@
+/**
+ * IntentIndicator Component Styles
+ * Badge showing detected intent from user input.
+ */
+
+.badge {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-2);
+	background: var(--color-primary-100);
+	color: var(--color-primary-700);
+	border-radius: var(--radius-full);
+	font-size: var(--text-xs);
+	font-weight: var(--font-medium);
+	transition: all var(--transition-fast);
+}
+
+[data-theme='dark'] .badge {
+	background: rgba(99, 102, 241, 0.15);
+	color: var(--color-primary-400);
+}
+
+.icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.label {
+	white-space: nowrap;
+}
+
+.confidence {
+	padding-left: var(--space-1);
+	border-left: 1px solid currentColor;
+	opacity: 0.7;
+	font-size: var(--text-2xs);
+}
+
+/* Animation on appear */
+.badge {
+	animation: fadeIn var(--transition-fast) var(--ease-out);
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+	.badge {
+		font-size: var(--text-2xs);
+		padding: var(--space-1) var(--space-2);
+	}
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.badge {
+		animation: none;
+	}
+}

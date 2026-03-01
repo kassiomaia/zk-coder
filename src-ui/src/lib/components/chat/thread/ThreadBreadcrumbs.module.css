@@ -1,0 +1,90 @@
+/**
+ * ThreadBreadcrumbs Component Styles
+ * Navigation breadcrumbs for thread hierarchy.
+ */
+
+.breadcrumbs {
+	font-size: var(--text-xs);
+}
+
+.list {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+
+.link {
+	padding: 0;
+	background: transparent;
+	border: none;
+	font-size: inherit;
+	color: var(--color-text-muted);
+	cursor: pointer;
+	transition: color var(--transition-fast);
+	max-width: 120px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.link:hover:not(:disabled) {
+	color: var(--color-text-primary);
+}
+
+.link:disabled {
+	cursor: default;
+}
+
+.link:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+.separator {
+	flex-shrink: 0;
+	color: var(--color-text-muted);
+	opacity: 0.5;
+}
+
+.ellipsis {
+	color: var(--color-text-muted);
+	padding: 0 var(--space-1);
+}
+
+.current {
+	color: var(--color-text-primary);
+	font-weight: var(--font-medium);
+	max-width: 150px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+	.link {
+		max-width: 80px;
+	}
+
+	.current {
+		max-width: 100px;
+	}
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.link {
+		transition: none;
+	}
+}
