@@ -5,7 +5,7 @@
 	 */
 	import styles from './ProviderCard.module.css';
 	import type { Provider } from '$lib/types/config';
-	import { getProviderIconClass } from '$lib/types/config';
+	import { getProviderIconClass, getProviderDefaultModels } from '$lib/types/config';
 
 	interface Props {
 		provider: Provider;
@@ -29,10 +29,10 @@
 	<div class={styles.name}>{provider.name}</div>
 	<div class={styles.models}>
 		{#if provider.isCustom}
-			Custom Provider
-	{:else}
-			LLM Provider
-	{/if}
+			{provider.baseUrl ?? 'Custom Provider'}
+		{:else}
+			{getProviderDefaultModels(provider.id)}
+		{/if}
 	</div>
 	<div class={styles.status}>
 		{#if provider.isConfigured}

@@ -144,3 +144,15 @@ export function getProviderIconClass(providerId: string): string {
 	if (providerId === 'google') return 'google';
 	return 'custom';
 }
+
+/** Default model names for each provider */
+const PROVIDER_DEFAULT_MODELS: Record<string, string> = {
+	anthropic: 'Claude 3.5, Claude 3 Opus, Claude 3 Sonnet',
+	openai: 'GPT-4o, GPT-4 Turbo, GPT-3.5',
+	google: 'Gemini Pro, Gemini Flash, Gemma'
+};
+
+/** Get default model names for a provider */
+export function getProviderDefaultModels(providerId: string): string {
+	return PROVIDER_DEFAULT_MODELS[providerId] ?? 'LLM Provider';
+}
