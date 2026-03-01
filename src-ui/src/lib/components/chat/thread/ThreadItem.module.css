@@ -3,51 +3,51 @@
  * Individual thread item in the list.
  *
  * Design Features:
- * - Card-like appearance with elevation
- * - Clear status indicators
- * - Smooth hover and selected states
+ * - Clean, minimal appearance matching ConversationItem
+ * - Clear status indicators via StatusBadge
+ * - Smooth hover and selected states (no transform)
+ * - Consistent border-radius with other list items
  */
 
 .item {
 	position: relative;
 	list-style: none;
-	margin: var(--space-1) 0;
+	margin: var(--space-0-5) 0;
 }
 
 .item:first-child {
 	margin-top: 0;
 }
 
+.item:last-child {
+	margin-bottom: 0;
+}
+
 .button {
 	display: flex;
-	align-items: flex-start;
+	align-items: center;
 	justify-content: space-between;
 	width: 100%;
-	padding: var(--space-3);
-	background: var(--color-surface);
-	border: 1px solid transparent;
+	height: 56px;
+	padding: 0 var(--space-3);
+	background: transparent;
+	border: none;
 	border-radius: var(--radius-lg);
 	cursor: pointer;
 	text-align: left;
-	transition: all var(--transition-fast);
-	gap: var(--space-2);
+	transition: background var(--transition-fast);
+	gap: var(--space-3);
 }
 
 .button:hover {
 	background: var(--color-surface-hover);
-	border-color: var(--color-border-subtle);
-	transform: translateX(2px);
-}
-
-.button:active {
-	transform: translateX(1px);
 }
 
 /* Selected state */
 .item.selected .button {
 	background: var(--color-interactive-selected);
-	border-color: var(--color-primary-500);
-	box-shadow: var(--shadow-glow-sm);
+	border: 1px solid var(--color-primary-500);
+	padding: 0 calc(var(--space-3) - 1px);
 }
 
 .item.selected .button:hover {
@@ -57,7 +57,6 @@
 .button:focus-visible {
 	outline: 2px solid var(--color-primary-500);
 	outline-offset: 1px;
-	border-color: var(--color-primary-500);
 }
 
 .content {
@@ -65,7 +64,7 @@
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-1-5);
+	gap: var(--space-1);
 }
 
 .title {
@@ -99,20 +98,6 @@
 	white-space: nowrap;
 }
 
-/* Resolved badge - enhanced visibility */
-.resolvedBadge {
-	flex-shrink: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 22px;
-	height: 22px;
-	background: var(--color-success);
-	color: var(--color-neutral-0);
-	border-radius: var(--radius-full);
-	box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
-}
-
 /* Actions - smooth reveal */
 .actions {
 	position: absolute;
@@ -125,10 +110,10 @@
 	border: 1px solid var(--color-border-primary);
 	border-radius: var(--radius-lg);
 	padding: var(--space-1);
-	box-shadow: var(--shadow-lg);
+	box-shadow: var(--shadow-md);
 	opacity: 0;
 	pointer-events: none;
-	transition: opacity var(--transition-fast), transform var(--transition-fast);
+	transition: opacity var(--transition-fast);
 }
 
 .item:hover .actions,
@@ -170,12 +155,12 @@
 /* Responsive */
 @media (max-width: 600px) {
 	.button {
-		padding: var(--space-3-5);
-		border-radius: var(--radius-xl);
+		height: 52px;
+		padding: 0 var(--space-2-5);
 	}
 
 	.title {
-		font-size: var(--text-base);
+		font-size: var(--text-sm);
 	}
 
 	.actions {
@@ -194,9 +179,5 @@
 	.actions,
 	.action {
 		transition: none;
-	}
-
-	.button:hover {
-		transform: none;
 	}
 }

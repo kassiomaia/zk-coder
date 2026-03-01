@@ -4,15 +4,16 @@
  *
  * Design Features:
  * - Card-like appearance with subtle elevation
- * - Smooth hover transitions
+ * - Smooth hover transitions (background only, no transform)
  * - Clear selected state
  * - Enhanced focus visibility
+ * - Standardized 56px height
  */
 
 .item {
 	position: relative;
 	list-style: none;
-	margin: var(--space-1) 0;
+	margin: var(--space-0-5) 0;
 }
 
 .item:first-child {
@@ -25,33 +26,28 @@
 
 .button {
 	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
+	align-items: center;
+	gap: var(--space-3);
 	width: 100%;
-	padding: var(--space-3);
-	background: var(--color-surface);
-	border: 1px solid transparent;
+	height: 56px;
+	padding: 0 var(--space-3);
+	background: transparent;
+	border: none;
 	border-radius: var(--radius-lg);
 	cursor: pointer;
 	text-align: left;
-	transition: all var(--transition-fast);
+	transition: background var(--transition-fast);
 }
 
 .button:hover {
 	background: var(--color-surface-hover);
-	border-color: var(--color-border-subtle);
-	transform: translateX(2px);
-}
-
-.button:active {
-	transform: translateX(1px);
 }
 
 /* Selected state - prominent and clear */
 .item.selected .button {
 	background: var(--color-interactive-selected);
-	border-color: var(--color-primary-500);
-	box-shadow: var(--shadow-glow-sm);
+	border: 1px solid var(--color-primary-500);
+	padding: 0 calc(var(--space-3) - 1px);
 }
 
 .item.selected .button:hover {
@@ -61,7 +57,29 @@
 .button:focus-visible {
 	outline: 2px solid var(--color-primary-500);
 	outline-offset: 1px;
-	border-color: var(--color-primary-500);
+}
+
+/* Icon container */
+.icon {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	background: var(--color-bg-tertiary);
+	border-radius: var(--radius-lg);
+	color: var(--color-text-tertiary);
+	transition: all var(--transition-fast);
+}
+
+.item.selected .icon {
+	background: var(--color-primary-500);
+	color: var(--color-neutral-0);
+}
+
+.button:hover .icon {
+	color: var(--color-text-secondary);
 }
 
 .content {
@@ -69,7 +87,8 @@
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-1-5);
+	gap: var(--space-1);
+	justify-content: center;
 }
 
 .title {
@@ -96,8 +115,7 @@
 
 .threadCount {
 	white-space: nowrap;
-	color: var(--color-accent-primary);
-	font-weight: var(--font-medium);
+	color: var(--color-text-muted);
 }
 
 .dot {
@@ -134,26 +152,28 @@
 /* Responsive */
 @media (max-width: 600px) {
 	.button {
-		padding: var(--space-3-5);
-		border-radius: var(--radius-xl);
+		height: 52px;
+		padding: 0 var(--space-2-5);
+	}
+
+	.icon {
+		width: 28px;
+		height: 28px;
 	}
 
 	.title {
-		font-size: var(--text-base);
+		font-size: var(--text-sm);
 	}
 
 	.meta {
-		font-size: var(--text-sm);
+		font-size: var(--text-xs);
 	}
 }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-	.button {
+	.button,
+	.icon {
 		transition: none;
-	}
-
-	.button:hover {
-		transform: none;
 	}
 }

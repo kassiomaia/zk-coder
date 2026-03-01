@@ -65,6 +65,10 @@
 		if (hours < 24) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 		return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 	}
+
+	function formatThreadCount(count: number): string {
+		return count === 1 ? '1 thread' : `${count} threads`;
+	}
 </script>
 
 <li
@@ -93,11 +97,25 @@
 			aria-label="Select conversation: {conversation.title}"
 			type="button"
 		>
+			<div class={styles.icon}>
+				<svg
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+				</svg>
+			</div>
 			<div class={styles.content}>
 				<span class={styles.title}>{conversation.title}</span>
 				<span class={styles.meta}>
 					{#if conversation.threads.length > 0}
-						<span class={styles.threadCount}>{conversation.threads.length} threads</span>
+						<span class={styles.threadCount}>{formatThreadCount(conversation.threads.length)}</span>
 						<span class={styles.dot}>·</span>
 					{/if}
 					<span class={styles.time}>{formatTime(conversation.updatedAt)}</span>

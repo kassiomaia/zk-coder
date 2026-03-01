@@ -4,6 +4,7 @@
 	 * Individual thread item in the thread list.
 	 */
 	import styles from './ThreadItem.module.css';
+	import StatusBadge from '../shared/StatusBadge.svelte';
 	import type { Thread } from '$lib/types/thread';
 
 	interface Props {
@@ -61,20 +62,7 @@
 		</div>
 
 		{#if thread.metadata.resolved}
-			<span class={styles.resolvedBadge} aria-label="Resolved">
-				<svg
-					width="12"
-					height="12"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<polyline points="20 6 9 17 4 12" />
-				</svg>
-			</span>
+			<StatusBadge variant="resolved" compact={true} showIcon={true} />
 		{/if}
 	</button>
 
