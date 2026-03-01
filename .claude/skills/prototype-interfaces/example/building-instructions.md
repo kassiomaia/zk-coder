@@ -338,13 +338,109 @@ The README is a **feature design specification**, not prototype implementation d
 - **Functional Requirements**: What the system must do
 - **UI Components**: Component hierarchy and responsibilities
 - **Interaction Flows**: Step-by-step user journeys
+- **User Journeys and Logic**: Conditional logic with ASCII diagrams (see below)
 - **Visual Design Specifications**: Layout, typography, colors, spacing
 - **States and Variants**: Component states table
 - **Accessibility Requirements**: Keyboard, screen reader, focus
 - **Implementation Notes**: Technical considerations
 - **Out of Scope**: What's explicitly not included
 
-### 4.2 Add Code Comments
+### 4.2 Document User Journeys and Logic
+
+The **User Journeys and Logic** section is critical for communicating behavioral logic to product design. Use natural language IF/THEN statements paired with ASCII flow diagrams.
+
+**Writing Conditional Logic:**
+- Use clear, consistent format: `IF [condition] THEN [result]`
+- Cover all branches of decision points
+- Include error cases and fallbacks
+- Describe state transitions
+
+**Example:**
+```markdown
+### Journey: Provider Configuration
+
+**Conditional Logic:**
+- IF user clicks provider card THEN configuration modal opens
+- IF API key field is empty THEN validate button is disabled
+- IF user clicks validate THEN validation starts (show loading)
+- IF validation succeeds THEN success message shown, save button enabled
+- IF validation fails THEN error message shown with retry option
+- IF user clicks save AND validation passed THEN provider marked as configured
+- IF modal is closed without saving THEN no changes persisted
+```
+
+**Creating ASCII Flow Diagrams:**
+Use box-drawing characters for clarity. Keep diagrams simple and readable.
+
+**Basic Structure:**
+```
+    ┌─────────┐
+    │ [Start] │
+    └────┬────┘
+         │
+         ▼
+    ┌─────────┐
+    │ Action  │
+    └────┬────┘
+         │
+         ▼
+    ┌─────────┐
+    │  [End]  │
+    └─────────┘
+```
+
+**Decision Branch:**
+```
+         │
+         ▼
+    ┌─────────┐
+    │  Check  │
+    └────┬────┘
+         │
+    ┌────┴────┐
+    │         │
+   Yes        No
+    │         │
+    ▼         ▼
+ ┌─────┐   ┌─────┐
+ │  A  │   │  B  │
+ └──┬──┘   └──┬──┘
+    │         │
+    └────┬────┘
+         │
+         ▼
+```
+
+**Multiple Paths:**
+```
+              │
+              ▼
+        ┌──────────┐
+        │ Decision │
+        └────┬─────┘
+             │
+    ┌────────┼────────┐
+    │        │        │
+   Opt1     Opt2     Opt3
+    │        │        │
+    ▼        ▼        ▼
+ ┌─────┐  ┌─────┐  ┌─────┐
+ │  A  │  │  B  │  │  C  │
+ └──┬──┘  └──┬──┘  └──┬──┘
+    │        │        │
+    └────────┴────────┘
+             │
+             ▼
+```
+
+**Characters Reference:**
+- Box corners: `┌ ┐ └ ┘`
+- Horizontal: `─`
+- Vertical: `│`
+- T-junctions: `├ ┤ ┬ ┴ ┼`
+- Arrows: `▼ ▲ ► ◄` (optional, use ▼ for down flow)
+
+### 4.3 Add Code Comments
 
 Comment complex logic in both HTML and JS:
 
@@ -385,6 +481,8 @@ Test in at least:
 
 Before considering complete:
 - [ ] All user flows documented at feature design level
+- [ ] User journeys documented with IF/THEN conditional logic
+- [ ] ASCII flow diagrams included for all journeys
 - [ ] Design tokens used throughout (no hardcoded colors/spacing)
 - [ ] Accessibility attributes present
 - [ ] README fully completed with required sections

@@ -51,6 +51,7 @@ prototypes/
 - **HTML5** - Semantic markup
 - **CSS** - CSS modules following project design system
 - **Alpine.js** (CDN) - Lightweight reactivity for state management
+- **Lucide Icons** (ESM CDN) - Icon library for all icons
 - No build tools required - open `index.html` directly in browser
 
 ### 3. Design System Alignment
@@ -76,21 +77,103 @@ prototypes/
   - Module script imports referencing external files
 - Alpine.js inline expressions (`@click="method()"`, `x-show="condition"`) are acceptable as they reference state defined in `js/state.js`
 
-**Rationale:** Separation improves maintainability, makes styles reusable, and keeps HTML semantic and readable.
+**Icon Rules (CRITICAL):**
+- **NO inline SVG elements** in HTML - use Lucide Icons library instead
+- Import Lucide Icons via ESM CDN: `<script src="https://unpkg.com/lucide@latest"></script>`
+- Use `<i data-lucide="icon-name"></i>` for icons
+- Initialize icons with `lucide.createIcons()` in `js/state.js` init function
+- Available icons: https://lucide.dev/icons/
 
-### 5. Documentation
+**Rationale:** Separation improves maintainability, makes styles reusable, and keeps HTML semantic and readable. Using an icon library ensures consistency and reduces HTML bloat.
+
+### 5. Scope Definition (CRITICAL)
+**Every prototype MUST clearly define what components are IN SCOPE vs. CONTEXTUAL BACKDROP.**
+
+Many prototypes include contextual UI elements (app shell, sidebar, navigation) that provide visual context but are NOT part of the feature being prototyped. These MUST be clearly documented.
+
+**Scope Rules:**
+- The README Overview MUST include a note distinguishing in-scope components from contextual backdrop
+- Component hierarchy MUST mark contextual elements (e.g., `[Contextual - Not in Scope]`)
+- Component Responsibilities table SHOULD include a Scope column
+- Only document interactions/states for in-scope components
+- Do NOT document user journeys for contextual UI elements
+
+**Format for README:**
+```markdown
+## Overview
+
+> **Note**: This prototype focuses on [feature name]. The [contextual elements, e.g., app shell, sidebar]
+> shown in the prototype are purely contextual backdrop and not part of the feature scope.
+
+### Component Hierarchy
+
+[Contextual Elements - Not in Scope]
+└── ...
+
+[Feature Components - IN SCOPE]
+└── ...
+```
+
+**Examples:**
+- Config flow prototype: Modals are in scope, app shell is contextual
+- Settings page prototype: Settings sections are in scope, navigation is contextual
+- Feature modal prototype: Modal content is in scope, parent app is contextual
+
+**Rationale:** Clear scope definition prevents confusion about what needs to be implemented and what's just visual context for the prototype.
+
+### 6. Documentation
 Every prototype MUST include a `README.md` with:
 
 **Required Sections:**
-- **Overview** - Feature description and business context
+- **Overview** - Feature description and business context (MUST include scope note)
 - **User Stories** - Who uses this feature and why
 - **Functional Requirements** - What the feature must do
-- **UI Components** - Component hierarchy and responsibilities
+- **UI Components** - Component hierarchy with scope markers
 - **Interaction Flows** - Step-by-step user journeys
+- **User Journeys and Logic** - Conditional logic in natural language with ASCII diagrams
 - **Visual Design Specifications** - Colors, typography, spacing, layout
 - **States and Variants** - Component states (default, hover, active, disabled, error, loading)
 - **Accessibility Requirements** - ARIA labels, keyboard navigation, focus management
 - **Implementation Notes** - Technical considerations for developers
+
+**User Journeys and Logic Section:**
+This section documents all user journeys using natural language conditionals (IF/THEN) and ASCII flow diagrams. It captures the complete behavioral logic that product design must understand.
+
+Format:
+```markdown
+## User Journeys and Logic
+
+### Journey 1: <Journey Name>
+
+**Conditional Logic:**
+- IF user clicks [element] THEN [action/response]
+- IF [condition] is true THEN [behavior]
+- IF [condition] is false THEN [alternative behavior]
+- IF [property] is not available THEN [fallback behavior]
+
+**Flow Diagram:**
+```
+    [Start]
+       │
+       ▼
+   ┌───────────┐
+   │ Condition │
+   └─────┬─────┘
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+ [Yes]      [No]
+    │         │
+    ▼         ▼
+[Action A] [Action B]
+    │         │
+    └────┬────┘
+         │
+         ▼
+      [End]
+```
+```
 
 **Documentation Tone:**
 - Write at a **feature design level**, not implementation level
@@ -98,6 +181,8 @@ Every prototype MUST include a `README.md` with:
 - Use language that product designers and developers can understand
 - Avoid prototype-specific implementation details (Alpine.js, file structure)
 - Describe behavior and appearance, not the code that produces it
+- Use clear IF/THEN statements for all conditional logic
+- Include ASCII diagrams for visual clarity of flows
 
 ## Workflow
 
@@ -190,6 +275,11 @@ Existing prototypes for reference:
 Before considering a prototype complete:
 
 - [ ] `README.md` fully documented at feature design level
+- [ ] Overview includes clear scope note (in-scope vs. contextual)
+- [ ] Component hierarchy marks scope for all elements
+- [ ] Component Responsibilities table includes Scope column
+- [ ] User journeys documented with IF/THEN logic
+- [ ] ASCII flow diagrams included for all journeys
 - [ ] Design system tokens used (not hardcoded values)
 - [ ] Semantic HTML with accessibility attributes
 - [ ] Alpine.js state clearly structured in external JS file
@@ -199,4 +289,5 @@ Before considering a prototype complete:
 - [ ] Implementation notes provided for developers
 - [ ] **No inline CSS** - all styles in `css/` files
 - [ ] **No inline JavaScript logic** - all logic in `js/` files
+- [ ] **No inline SVG** - using Lucide Icons library
 - [ ] README avoids prototype implementation details

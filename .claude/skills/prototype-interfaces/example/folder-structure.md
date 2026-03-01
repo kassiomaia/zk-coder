@@ -107,6 +107,100 @@ Business context and feature description. What problem does this solve? Who is i
 ### Flow 2: <Flow Name>
 ...
 
+## User Journeys and Logic
+
+This section documents all user journeys using natural language conditionals and ASCII flow diagrams. It captures the complete behavioral logic that product design must understand.
+
+### Journey 1: <Journey Name>
+
+**Description:** Brief description of this user journey
+
+**Conditional Logic:**
+- IF user clicks [element] THEN [action/response occurs]
+- IF [condition] is true THEN [behavior is triggered]
+- IF [condition] is false THEN [alternative behavior]
+- IF [property] is not available THEN [fallback behavior]
+- IF [validation] fails THEN [error state is shown]
+- IF user cancels THEN [return to previous state]
+
+**Flow Diagram:**
+```
+    ┌─────────────┐
+    │   [Start]   │
+    └──────┬──────┘
+           │
+           ▼
+    ┌──────────────┐
+    │ User Action  │
+    └──────┬───────┘
+           │
+           ▼
+    ┌──────────────┐
+    │  Condition?  │
+    └──────┬───────┘
+           │
+      ┌────┴────┐
+      │         │
+     Yes        No
+      │         │
+      ▼         ▼
+┌──────────┐ ┌──────────┐
+│ Action A │ │ Action B │
+└────┬─────┘ └────┬─────┘
+     │            │
+     └─────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │    [End]    │
+    └─────────────┘
+```
+
+### Journey 2: <Journey Name>
+
+**Description:** Brief description of this user journey
+
+**Conditional Logic:**
+- IF user selects [option] THEN [consequence]
+- IF [data] is loading THEN [show loading state]
+- IF [data] load fails THEN [show error message]
+- IF user retries THEN [reload data]
+
+**Flow Diagram:**
+```
+         [Start]
+            │
+            ▼
+     ┌──────────────┐
+     │ Fetch Data   │
+     └──────┬───────┘
+            │
+       ┌────┴────┐
+       │         │
+    Success   Failure
+       │         │
+       ▼         ▼
+ ┌──────────┐ ┌──────────┐
+ │ Show     │ │ Show     │
+ │ Content  │ │ Error    │
+ └────┬─────┘ └────┬─────┘
+      │            │
+      │     ┌──────┴──────┐
+      │     │             │
+      │   Retry        Cancel
+      │     │             │
+      │     └──────┬──────┘
+      │            │
+      └─────┬──────┘
+            │
+            ▼
+         [End]
+```
+
+### Journey 3: <Journey Name>
+
+...additional journeys as needed...
+
 ## Visual Design Specifications
 
 ### Layout
