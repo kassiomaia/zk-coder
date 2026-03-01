@@ -1,10 +1,18 @@
 /**
  * Modal Component Styles
+ * Matches prototype pattern: .modal-overlay wrapper with centered .modal
  */
+
+/* ============================================================================
+   OVERLAY WRAPPER
+   ============================================================================ */
 
 .overlay {
 	position: fixed;
 	inset: 0;
+	display: none;
+	align-items: center;
+	justify-content: center;
 	background: rgba(0, 0, 0, 0.6);
 	backdrop-filter: blur(4px);
 	z-index: var(--z-modal);
@@ -12,71 +20,80 @@
 	transition: opacity var(--transition-normal);
 }
 
-.open .overlay {
+.overlay.open {
+	display: flex;
 	opacity: 1;
 }
 
+/* Stacked modals - higher z-index for modals opened from other modals */
+.overlay.top {
+	z-index: calc(var(--z-modal) + 10);
+}
+
+/* ============================================================================
+   MODAL
+   ============================================================================ */
+
 .modal {
-	position: fixed;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%) scale(0.95);
 	background: var(--color-surface);
 	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-xl);
+	border-radius: var(--radius-2xl);
 	box-shadow: var(--shadow-2xl);
-	z-index: calc(var(--z-modal) + 1);
-	max-height: 90vh;
-	display: flex;
+	width: 90%;
+	max-width: 520px;
+	max-height: 85vh;
+	overflow: hidden;
+	display: none;
 	flex-direction: column;
 	opacity: 0;
-	visibility: hidden;
-	transition: all var(--transition-normal);
+	transform: translateY(20px);
+	transition: opacity var(--transition-normal), transform var(--transition-normal);
 }
 
 .modal.open {
+	display: flex;
 	opacity: 1;
-	visibility: visible;
-	transform: translate(-50%, -50%) scale(1);
-}
-
-.modal.default {
-	width: 90%;
-	max-width: 480px;
+	transform: translateY(0);
 }
 
 .modal.lg {
-	width: 90%;
-	max-width: 720px;
+	max-width: 760px;
 }
+
+/* ============================================================================
+   HEADER
+   ============================================================================ */
 
 .header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: var(--space-4) var(--space-5);
+	padding: var(--space-5);
 	border-bottom: 1px solid var(--color-border-subtle);
+	flex-shrink: 0;
 }
 
 .title {
-	font-size: var(--text-lg);
+	font-size: var(--text-xl);
 	font-weight: var(--font-semibold);
 	color: var(--color-text-primary);
+	letter-spacing: var(--tracking-tight);
 	margin: 0;
 }
 
 .closeBtn {
+	width: 32px;
+	height: 32px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 32px;
-	height: 32px;
 	background: transparent;
 	border: none;
 	border-radius: var(--radius-lg);
-	color: var(--color-text-secondary);
+	color: var(--color-text-tertiary);
 	cursor: pointer;
 	transition: all var(--transition-fast);
+	flex-shrink: 0;
 }
 
 .closeBtn:hover {
@@ -84,30 +101,46 @@
 	color: var(--color-text-primary);
 }
 
-.body {
-	flex: 1;
-	overflow-y: auto;
-	padding: var(--space-5);
+.closeBtn:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
 }
+
+/* ============================================================================
+   BODY
+   ============================================================================ */
+
+.body {
+	padding: var(--space-5);
+	overflow-y: auto;
+	flex: 1;
+}
+
+/* ============================================================================
+   FOOTER
+   ============================================================================ */
 
 .footer {
 	display: flex;
-	align-items: center;
 	justify-content: flex-end;
-	gap: var(--space-3);
+	gap: var(--space-2);
 	padding: var(--space-4) var(--space-5);
 	border-top: 1px solid var(--color-border-subtle);
+	flex-shrink: 0;
 }
 
-/* Animation */
+/* ============================================================================
+   ANIMATIONS
+   ============================================================================ */
+
 @keyframes slideUp {
 	from {
 		opacity: 0;
-		transform: translate(-50%, -48%) scale(0.95);
+		transform: translateY(20px);
 	}
 	to {
 		opacity: 1;
-		transform: translate(-50%, -50%) scale(1);
+		transform: translateY(0);
 	}
 }
 
@@ -115,10 +148,13 @@
 	animation: slideUp var(--transition-normal) ease-out;
 }
 
-/* Reduced motion */
+/* ============================================================================
+   REDUCED MOTION
+   ============================================================================ */
+
 @media (prefers-reduced-motion: reduce) {
-	.modal,
-	.overlay {
+	.overlay,
+	.modal {
 		transition: none;
 	}
 
