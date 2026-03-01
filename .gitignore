@@ -31,3 +31,4 @@ src-tauri/target/
 # Svelte
 src-ui/.svelte-kit/
 src-ui/build/
+/src-tauri/coder_context.db
