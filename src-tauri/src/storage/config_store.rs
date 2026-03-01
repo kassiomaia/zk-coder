@@ -195,7 +195,7 @@ impl ConfigStore {
                         updated_at    TEXT NOT NULL
                     );
 
-                    -- Copy data from old table, fixing built-in providers' api_type and is_custom
+                    -- Copy data from old table, fixing built-in providers' api_type, is_custom, and is_configured
                     INSERT INTO providers
                     SELECT id, name, icon,
                            CASE WHEN id IN ('anthropic', 'openai', 'google') THEN FALSE ELSE is_custom END,
@@ -204,7 +204,9 @@ impl ConfigStore {
                                WHEN id = 'google' THEN 'google'
                                ELSE api_type
                            END,
-                           base_url, is_configured, created_at, updated_at
+                           base_url,
+                           CASE WHEN id IN ('anthropic', 'openai', 'google') THEN FALSE ELSE is_configured END,
+                           created_at, updated_at
                     FROM providers_old;
 
                     -- Drop old table
@@ -273,6 +275,21 @@ impl ConfigStore {
                 params![id, name, icon, api_type, now],
             )?;
         }
+
+        // Ensure built-in providers always have correct values (fixes any corrupted data)
+        conn.execute_batch(
+            r#"
+            UPDATE providers
+            SET is_custom = FALSE, is_configured = FALSE, api_type =
+                CASE
+                    WHEN id = 'anthropic' THEN 'anthropic'
+                    WHEN id = 'google' THEN 'google'
+                    WHEN id = 'openai' THEN 'openai'
+                    ELSE api_type
+                END
+            WHERE id IN ('anthropic', 'openai', 'google');
+            "#,
+        )?;
 
         Ok(())
     }
