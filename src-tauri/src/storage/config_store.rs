@@ -109,6 +109,15 @@ impl ConfigStore {
                 operation   TEXT PRIMARY KEY CHECK(operation IN ('analysis', 'code', 'vision', 'audio', 'tips', 'review')),
                 model_id    TEXT REFERENCES models(id) ON DELETE SET NULL
             );
+
+            -- API Keys table
+            CREATE TABLE IF NOT EXISTS api_keys (
+                provider_id TEXT PRIMARY KEY,
+                api_key     TEXT NOT NULL,
+                created_at  TEXT NOT NULL,
+                updated_at  TEXT NOT NULL,
+                FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
+            );
             "#,
         )?;
         Ok(())
@@ -708,6 +717,97 @@ impl ConfigStore {
 
         Ok(())
     }
+
+    // =========================================================================
+    // API Key Operations
+    // =========================================================================
+
+    /// Stores an API key for a provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn store_api_key(&self, provider_id: &str, api_key: &str) -> Result<(), ConfigStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO api_keys (provider_id, api_key, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?3)
+             ON CONFLICT(provider_id) DO UPDATE SET
+                api_key = excluded.api_key,
+                updated_at = excluded.updated_at",
+            params![provider_id, api_key, now],
+        )?;
+
+        Ok(())
+    }
+
+    /// Retrieves an API key for a provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the key is not found or database operation fails.
+    pub fn retrieve_api_key(&self, provider_id: &str) -> Result<String, ConfigStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let api_key: String = conn
+            .query_row(
+                "SELECT api_key FROM api_keys WHERE provider_id = ?1",
+                params![provider_id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| ConfigStoreError::NotFound("API key for provider", provider_id.to_string()))?;
+
+        Ok(api_key)
+    }
+
+    /// Deletes an API key for a provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn delete_api_key(&self, provider_id: &str) -> Result<(), ConfigStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        conn.execute(
+            "DELETE FROM api_keys WHERE provider_id = ?1",
+            params![provider_id],
+        )?;
+
+        Ok(())
+    }
+
+    /// Checks if an API key exists for a provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn has_api_key(&self, provider_id: &str) -> Result<bool, ConfigStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM api_keys WHERE provider_id = ?1)",
+                params![provider_id],
+                |row| row.get(0),
+            )?;
+
+        Ok(exists)
+    }
 }
 
 /// Parses a datetime string from the database.
@@ -785,5 +885,82 @@ mod tests {
         assert_eq!(defaults.len(), 1);
         assert_eq!(defaults[0].operation, OperationType::Code);
         assert_eq!(defaults[0].model_id, Some("openai-gpt-4".to_string()));
+    }
+
+    #[test]
+    fn test_store_and_retrieve_api_key() {
+        let store = ConfigStore::in_memory().expect("Failed to create store");
+
+        // Store API key for built-in provider
+        store
+            .store_api_key("openai", "sk-test-key-12345")
+            .expect("Failed to store API key");
+
+        // Retrieve it
+        let key = store.retrieve_api_key("openai").expect("Failed to retrieve API key");
+        assert_eq!(key, "sk-test-key-12345");
+    }
+
+    #[test]
+    fn test_retrieve_nonexistent_api_key() {
+        let store = ConfigStore::in_memory().expect("Failed to create store");
+
+        let result = store.retrieve_api_key("nonexistent");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_has_api_key() {
+        let store = ConfigStore::in_memory().expect("Failed to create store");
+
+        // Should not exist initially
+        let exists = store.has_api_key("openai").expect("Failed to check API key");
+        assert!(!exists);
+
+        // Store the key
+        store
+            .store_api_key("openai", "sk-test-key")
+            .expect("Failed to store API key");
+
+        // Should exist now
+        let exists = store.has_api_key("openai").expect("Failed to check API key");
+        assert!(exists);
+    }
+
+    #[test]
+    fn test_delete_api_key() {
+        let store = ConfigStore::in_memory().expect("Failed to create store");
+
+        // Store and delete
+        store
+            .store_api_key("openai", "sk-test-key")
+            .expect("Failed to store API key");
+
+        store
+            .delete_api_key("openai")
+            .expect("Failed to delete API key");
+
+        // Should not exist anymore
+        let exists = store.has_api_key("openai").expect("Failed to check API key");
+        assert!(!exists);
+    }
+
+    #[test]
+    fn test_update_api_key() {
+        let store = ConfigStore::in_memory().expect("Failed to create store");
+
+        // Store initial key
+        store
+            .store_api_key("openai", "sk-old-key")
+            .expect("Failed to store API key");
+
+        // Update with new key
+        store
+            .store_api_key("openai", "sk-new-key")
+            .expect("Failed to update API key");
+
+        // Should have new key
+        let key = store.retrieve_api_key("openai").expect("Failed to retrieve API key");
+        assert_eq!(key, "sk-new-key");
     }
 }
