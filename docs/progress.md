@@ -2,12 +2,31 @@
 
 **Last Updated**: 2026-03-01
 **Status**: Phase 7 ✅ COMPLETE - Backend Integration Finished
+**Thread Fix**: Phase 1 ✅ COMPLETE - Thread display fixed
 
 ---
 
 ## Overview
 
 This document tracks the implementation progress of the chat interface for the Coder AI desktop application. The implementation follows the plan defined in `docs/chat-interface-implementation-plan.md`.
+
+## Recent Changes (2026-03-01)
+
+### Thread Feature Fix
+Fixed critical bug where threads were not displaying due to data flow mismatch:
+- Added `threads` prop to ChatLayout (separate from conversations)
+- Updated +page.svelte to pass threads from `currentThreads` store
+- Made `threads` optional in Conversation type (backend doesn't embed threads)
+- Added collapsible thread panel that shows when conversation has threads
+- Added thread count badge on toggle button
+
+### Thread Panel UX Improvements (Phase 2)
+- Persisted panel state in localStorage (`coder:threadPanelOpen`)
+- Added desktop floating toggle button when panel is collapsed
+- Added collapse button (chevron) in ThreadView header for desktop
+- Improved responsive behavior for thread panel
+
+See `docs/thread-feature-fix-plan.md` for details.
 
 ## Current State
 
