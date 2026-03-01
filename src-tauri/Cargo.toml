@@ -34,8 +34,12 @@ chrono = { version = "0.4", features = ["serde"] }
 # Database
 rusqlite = { version = "0.31", features = ["bundled"] }
 
-# HTTP client for Claude API
-reqwest = { version = "0.12", features = ["json"] }
+# HTTP client for LLM APIs
+reqwest = { version = "0.12", features = ["json", "stream"] }
+
+# Async streaming support
+futures = "0.3"
+async-stream = "0.3"
 
 # Keychain for secure API key storage
 keyring = "3"

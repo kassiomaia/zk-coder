@@ -25,3 +25,32 @@ export type {
 	DetectAmbiguitiesOptions,
 	AnalyzeCodeOptions
 } from './nlp.js';
+
+// LLM API
+export {
+	LlmApiError,
+	sendChatMessage,
+	sendChatMessageStreaming,
+	cancelChatRequest,
+	messageResponseToClient,
+	isStartedEvent,
+	isChunkEvent,
+	isCompleteEvent,
+	isErrorEvent
+} from './llm.js';
+
+export type {
+	UsageStats,
+	SendChatMessageOptions,
+	SendChatMessageResponse,
+	StreamChatOptions,
+	StreamChatResult,
+	LlmEventType,
+	LlmEventBase,
+	LlmStartedEvent,
+	LlmChunkEvent,
+	LlmCompleteEvent,
+	LlmErrorEvent,
+	LlmEvent,
+	LlmEventCallback
+} from './llm.js';

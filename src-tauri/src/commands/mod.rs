@@ -6,11 +6,13 @@ use serde::{Deserialize, Serialize};
 
 pub mod chat;
 pub mod config;
+pub mod llm;
 pub mod nlp;
 
 // Re-export state types for convenience
 pub use chat::ChatState;
 pub use config::ConfigState;
+pub use llm::LlmState;
 pub use nlp::NlpState;
 
 /// Simple health check command to verify the backend is running.

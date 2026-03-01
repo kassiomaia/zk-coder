@@ -7,11 +7,12 @@ pub mod ai;
 pub mod api;
 pub mod commands;
 pub mod keychain;
+pub mod llm;
 pub mod nlp;
 pub mod storage;
 pub mod utils;
 
-use commands::{ChatState, ConfigState, NlpState};
+use commands::{ChatState, ConfigState, LlmState, NlpState};
 use std::path::PathBuf;
 use tauri::Manager;
 
@@ -49,10 +50,15 @@ pub fn run() {
             let config_state = ConfigState::new(&data_dir.join("coder_config.db").to_string_lossy())
                 .expect("Failed to initialize Config state");
 
+            // Initialize LLM state (uses same database as config)
+            let llm_state = LlmState::new(&data_dir.join("coder_config.db").to_string_lossy())
+                .expect("Failed to initialize LLM state");
+
             // Manage states
             app.manage(nlp_state);
             app.manage(chat_state);
             app.manage(config_state);
+            app.manage(llm_state);
 
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -106,6 +112,10 @@ pub fn run() {
             commands::config::get_operation_defaults,
             commands::config::set_operation_default,
             commands::config::get_models,
+            // LLM commands
+            commands::llm::send_chat_message,
+            commands::llm::send_chat_message_streaming,
+            commands::llm::cancel_chat_request,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
