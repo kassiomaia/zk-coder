@@ -49,8 +49,8 @@ async function safeInvoke<T>(command: string, args?: Record<string, unknown>): P
  */
 export interface ChatMessageResponse {
 	id: string;
-	conversation_id: string;
-	thread_id: string | null;
+	conversationId: string;
+	threadId: string | null;
 	role: 'user' | 'assistant' | 'system';
 	content: string;
 	timestamp: string;
@@ -69,13 +69,13 @@ export interface ChatMessageResponse {
 export interface ConversationResponse {
 	id: string;
 	title: string;
-	created_at: string;
-	updated_at: string;
+	createdAt: string;
+	updatedAt: string;
 	settings: {
 		model: string;
 		temperature: number;
-		max_tokens: number;
-		system_prompt?: string;
+		maxTokens: number;
+		systemPrompt?: string;
 	};
 }
 
@@ -84,12 +84,12 @@ export interface ConversationResponse {
  */
 export interface ThreadResponse {
 	id: string;
-	conversation_id: string;
-	parent_id: string | null;
+	conversationId: string;
+	parentId: string | null;
 	title: string;
-	created_at: string;
-	updated_at: string;
-	message_count: number;
+	createdAt: string;
+	updatedAt: string;
+	messageCount: number;
 	metadata: {
 		resolved: boolean;
 		tags: string[];
@@ -167,9 +167,7 @@ export async function deleteConversation(id: string): Promise<void> {
  * @returns Array of threads
  */
 export async function loadThreads(conversationId: string): Promise<Thread[]> {
-	const response = await safeInvoke<ThreadResponse[]>('load_threads', {
-		conversation_id: conversationId
-	});
+	const response = await safeInvoke<ThreadResponse[]>('load_threads', { conversationId });
 	return response.map(threadToClient);
 }
 
@@ -181,10 +179,7 @@ export async function loadThreads(conversationId: string): Promise<Thread[]> {
  * @returns The created thread
  */
 export async function createThread(conversationId: string, title: string): Promise<Thread> {
-	const response = await safeInvoke<ThreadResponse>('create_thread', {
-		conversation_id: conversationId,
-		title
-	});
+	const response = await safeInvoke<ThreadResponse>('create_thread', { conversationId, title });
 	return threadToClient(response);
 }
 
@@ -218,9 +213,7 @@ export async function deleteThread(id: string): Promise<void> {
  * @returns Array of messages
  */
 export async function loadMessages(conversationId: string): Promise<Message[]> {
-	const response = await safeInvoke<ChatMessageResponse[]>('load_messages', {
-		conversation_id: conversationId
-	});
+	const response = await safeInvoke<ChatMessageResponse[]>('load_messages', { conversationId });
 	return response.map(msgToClient);
 }
 
@@ -231,9 +224,7 @@ export async function loadMessages(conversationId: string): Promise<Message[]> {
  * @returns Array of messages
  */
 export async function loadThreadMessages(threadId: string): Promise<Message[]> {
-	const response = await safeInvoke<ChatMessageResponse[]>('load_thread_messages', {
-		thread_id: threadId
-	});
+	const response = await safeInvoke<ChatMessageResponse[]>('load_thread_messages', { threadId });
 	return response.map(msgToClient);
 }
 
@@ -259,10 +250,10 @@ export interface SendMessageOptions {
  */
 export async function sendMessage(options: SendMessageOptions): Promise<Message> {
 	const response = await safeInvoke<ChatMessageResponse>('send_message', {
-		conversation_id: options.conversationId,
+		conversationId: options.conversationId,
 		content: options.content,
 		role: options.role,
-		thread_id: options.threadId ?? null
+		threadId: options.threadId ?? null
 	});
 	return msgToClient(response);
 }
@@ -300,14 +291,14 @@ function convToClient(conv: ConversationResponse): Conversation {
 	return {
 		id: conv.id,
 		title: conv.title,
-		createdAt: new Date(conv.created_at),
-		updatedAt: new Date(conv.updated_at),
+		createdAt: new Date(conv.createdAt),
+		updatedAt: new Date(conv.updatedAt),
 		threads: [],
 		settings: {
 			model: conv.settings.model,
 			temperature: conv.settings.temperature,
-			maxTokens: conv.settings.max_tokens,
-			systemPrompt: conv.settings.system_prompt
+			maxTokens: conv.settings.maxTokens,
+			systemPrompt: conv.settings.systemPrompt
 		}
 	};
 }
@@ -318,12 +309,12 @@ function convToClient(conv: ConversationResponse): Conversation {
 function threadToClient(thread: ThreadResponse): Thread {
 	return {
 		id: thread.id,
-		conversationId: thread.conversation_id,
-		parentId: thread.parent_id,
+		conversationId: thread.conversationId,
+		parentId: thread.parentId,
 		title: thread.title,
-		createdAt: new Date(thread.created_at),
-		updatedAt: new Date(thread.updated_at),
-		messageCount: thread.message_count,
+		createdAt: new Date(thread.createdAt),
+		updatedAt: new Date(thread.updatedAt),
+		messageCount: thread.messageCount,
 		metadata: {
 			resolved: thread.metadata.resolved,
 			tags: thread.metadata.tags,
@@ -340,18 +331,18 @@ function threadToClient(thread: ThreadResponse): Thread {
 function msgToClient(msg: ChatMessageResponse): Message {
 	return {
 		id: msg.id,
-		conversationId: msg.conversation_id,
+		conversationId: msg.conversationId,
 		role: msg.role,
 		content: msg.content,
 		timestamp: new Date(msg.timestamp),
 		status: msg.status,
 		metadata: msg.metadata
 			? {
-					intent: msg.metadata.intent,
-					confidence: msg.metadata.confidence,
-					tokens: msg.metadata.tokens,
-					model: msg.metadata.model
-				}
+				intent: msg.metadata.intent,
+				confidence: msg.metadata.confidence,
+				tokens: msg.metadata.tokens,
+				model: msg.metadata.model
+			}
 			: undefined
 	};
 }
