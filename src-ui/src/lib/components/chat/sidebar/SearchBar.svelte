@@ -60,12 +60,7 @@
 	/>
 
 	{#if value}
-		<button
-			class={styles.clear}
-			onclick={clearSearch}
-			aria-label="Clear search"
-			type="button"
-		>
+		<button class={styles.clear} onclick={clearSearch} aria-label="Clear search" type="button">
 			<svg
 				width="14"
 				height="14"

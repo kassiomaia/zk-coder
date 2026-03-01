@@ -23,10 +23,7 @@
 		let html = text;
 
 		// Escape HTML
-		html = html
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;');
+		html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 		// Code blocks (must be before inline code)
 		html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
@@ -53,7 +50,10 @@
 		html = html.replace(/~~(.+?)~~/g, `<del class="${styles.del}">$1</del>`);
 
 		// Links
-		html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, `<a href="$2" class="${styles.link}" target="_blank" rel="noopener noreferrer">$1</a>`);
+		html = html.replace(
+			/\[([^\]]+)\]\(([^)]+)\)/g,
+			`<a href="$2" class="${styles.link}" target="_blank" rel="noopener noreferrer">$1</a>`
+		);
 
 		// Lists
 		html = html.replace(/^- (.+)$/gm, `<li class="${styles.li}">$1</li>`);
@@ -63,7 +63,10 @@
 		html = html.replace(/^\d+\. (.+)$/gm, `<li class="${styles.li}">$1</li>`);
 
 		// Blockquotes
-		html = html.replace(/^&gt; (.+)$/gm, `<blockquote class="${styles.blockquote}">$1</blockquote>`);
+		html = html.replace(
+			/^&gt; (.+)$/gm,
+			`<blockquote class="${styles.blockquote}">$1</blockquote>`
+		);
 
 		// Horizontal rule
 		html = html.replace(/^---$/gm, `<hr class="${styles.hr}" />`);

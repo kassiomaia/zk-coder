@@ -5,7 +5,7 @@
  * Design Features:
  * - Prominent primary action styling
  * - Smooth hover and active states
- * - Glow effect on hover
+ * - Consistent with other primary buttons
  */
 
 .button {
@@ -22,31 +22,24 @@
 	font-weight: var(--font-semibold);
 	cursor: pointer;
 	transition: all var(--transition-fast);
-	box-shadow: var(--shadow-sm);
 }
 
 .button:hover:not(:disabled) {
 	background: var(--color-primary-600);
-	transform: translateY(-1px);
-	box-shadow: var(--shadow-md), var(--shadow-glow-sm);
 }
 
 .button:active:not(:disabled) {
-	transform: translateY(0);
-	box-shadow: var(--shadow-sm);
+	transform: scale(0.98);
 }
 
 .button:disabled {
 	opacity: var(--opacity-disabled);
 	cursor: not-allowed;
-	transform: none;
-	box-shadow: none;
 }
 
 .button:focus-visible {
 	outline: 2px solid var(--color-primary-400);
 	outline-offset: 2px;
-	box-shadow: var(--shadow-glow-md);
 }
 
 .icon {
@@ -90,7 +83,6 @@
 		transition: none;
 	}
 
-	.button:hover:not(:disabled),
 	.button:active:not(:disabled) {
 		transform: none;
 	}

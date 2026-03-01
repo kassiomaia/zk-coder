@@ -4,16 +4,9 @@
  */
 
 import { writable, derived, get } from 'svelte/store';
-import type {
-	Conversation,
-	Thread,
-	ConversationGroup
-} from '$lib/types/thread';
+import type { Conversation, Thread, ConversationGroup } from '$lib/types/thread';
 import type { Message, MessageGroup } from '$lib/types/message';
-import type {
-	IntentClassification,
-	Ambiguity
-} from '$lib/types/nlp';
+import type { IntentClassification, Ambiguity } from '$lib/types/nlp';
 import {
 	classifyIntent,
 	addContextMessage,
@@ -131,9 +124,7 @@ function createChatStore() {
 		updateConversation(id: string, updates: Partial<Conversation>) {
 			update((state) => ({
 				...state,
-				conversations: state.conversations.map((c) =>
-					c.id === id ? { ...c, ...updates } : c
-				)
+				conversations: state.conversations.map((c) => (c.id === id ? { ...c, ...updates } : c))
 			}));
 		},
 
@@ -239,9 +230,7 @@ function createChatStore() {
 		updateMessage(id: string, updates: Partial<Message>) {
 			update((state) => ({
 				...state,
-				messages: state.messages.map((m) =>
-					m.id === id ? { ...m, ...updates } : m
-				)
+				messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m))
 			}));
 		},
 
@@ -373,81 +362,75 @@ export const currentThreads = derived(
 /**
  * Messages grouped by time (for ChatArea display).
  */
-export const messageGroups = derived(
-	chatStore,
-	($chat): MessageGroup[] => {
-		if ($chat.messages.length === 0) return [];
+export const messageGroups = derived(chatStore, ($chat): MessageGroup[] => {
+	if ($chat.messages.length === 0) return [];
 
-		const groups: MessageGroup[] = [];
-		let currentGroup: Message[] = [];
-		let lastTime = 0;
-		const GROUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+	const groups: MessageGroup[] = [];
+	let currentGroup: Message[] = [];
+	let lastTime = 0;
+	const GROUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-		for (const message of $chat.messages) {
-			const messageTime = message.timestamp.getTime();
+	for (const message of $chat.messages) {
+		const messageTime = message.timestamp.getTime();
 
-			// Start new group if time gap exceeds threshold
-			if (lastTime > 0 && messageTime - lastTime > GROUP_INTERVAL_MS) {
-				if (currentGroup.length > 0) {
-					groups.push({ messages: currentGroup });
-				}
-				currentGroup = [];
+		// Start new group if time gap exceeds threshold
+		if (lastTime > 0 && messageTime - lastTime > GROUP_INTERVAL_MS) {
+			if (currentGroup.length > 0) {
+				groups.push({ messages: currentGroup });
 			}
-
-			currentGroup.push(message);
-			lastTime = messageTime;
+			currentGroup = [];
 		}
 
-		// Add final group
-		if (currentGroup.length > 0) {
-			groups.push({ messages: currentGroup });
-		}
-
-		return groups;
+		currentGroup.push(message);
+		lastTime = messageTime;
 	}
-);
+
+	// Add final group
+	if (currentGroup.length > 0) {
+		groups.push({ messages: currentGroup });
+	}
+
+	return groups;
+});
 
 /**
  * Conversations grouped by time for sidebar.
  */
-export const conversationGroups = derived(
-	chatStore,
-	($chat): ConversationGroup[] => {
-		const now = new Date();
-		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-		const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-		const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+export const conversationGroups = derived(chatStore, ($chat): ConversationGroup[] => {
+	const now = new Date();
+	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+	const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-		const groups: Record<string, Conversation[]> = {
-			Today: [],
-			Yesterday: [],
-			'This Week': [],
-			Older: []
-		};
+	const groups: Record<string, Conversation[]> = {
+		Today: [],
+		Yesterday: [],
+		'This Week': [],
+		Older: []
+	};
 
-		for (const conversation of $chat.conversations) {
-			const date = new Date(conversation.updatedAt);
-			if (date >= today) {
-				groups['Today'].push(conversation);
-			} else if (date >= yesterday) {
-				groups['Yesterday'].push(conversation);
-			} else if (date >= weekAgo) {
-				groups['This Week'].push(conversation);
-			} else {
-				groups['Older'].push(conversation);
-			}
+	for (const conversation of $chat.conversations) {
+		const date = new Date(conversation.updatedAt);
+		if (date >= today) {
+			groups['Today'].push(conversation);
+		} else if (date >= yesterday) {
+			groups['Yesterday'].push(conversation);
+		} else if (date >= weekAgo) {
+			groups['This Week'].push(conversation);
+		} else {
+			groups['Older'].push(conversation);
 		}
-
-		return Object.entries(groups)
-			.filter(([, conversations]) => conversations.length > 0)
-			.map(([label, conversations]) => ({
-				label,
-				conversations: conversations.sort(
-					(a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-				)
-			}));
 	}
-);
+
+	return Object.entries(groups)
+		.filter(([, conversations]) => conversations.length > 0)
+		.map(([label, conversations]) => ({
+			label,
+			conversations: conversations.sort(
+				(a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+			)
+		}));
+});
 
 /**
  * NLP state derived store.

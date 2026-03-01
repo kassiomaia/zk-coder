@@ -127,7 +127,13 @@ export interface ContextMessage {
 /**
  * Kind of code symbol.
  */
-export type SymbolKind = 'function' | 'class' | 'variable' | 'interface' | 'constant' | 'type_alias';
+export type SymbolKind =
+	| 'function'
+	| 'class'
+	| 'variable'
+	| 'interface'
+	| 'constant'
+	| 'type_alias';
 
 /**
  * Reference to a code symbol.

@@ -18,8 +18,4 @@ export {
 	createNewMessage
 } from './chat.js';
 
-export type {
-	LoadingState,
-	NlpState,
-	ChatState
-} from './chat.js';
+export type { LoadingState, NlpState, ChatState } from './chat.js';

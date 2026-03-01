@@ -20,7 +20,7 @@
 <button
 	class={[styles.button, styles[variant]].filter(Boolean).join(' ')}
 	{disabled}
-	onclick={onclick}
+	{onclick}
 	aria-label="Create new thread"
 	title="New thread"
 	type="button"

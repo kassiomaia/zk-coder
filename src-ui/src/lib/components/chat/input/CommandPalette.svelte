@@ -93,10 +93,9 @@
 						{#each cmds as command, cmdIndex}
 							{@const globalIndex = flatCommands.indexOf(command)}
 							<button
-								class={[
-									styles.item,
-									globalIndex === selectedIndex && styles.selected
-								].filter(Boolean).join(' ')}
+								class={[styles.item, globalIndex === selectedIndex && styles.selected]
+									.filter(Boolean)
+									.join(' ')}
 								role="option"
 								aria-selected={globalIndex === selectedIndex}
 								data-selected={globalIndex === selectedIndex}
@@ -138,7 +137,9 @@
 											<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
 										{:else if command.icon === 'trash'}
 											<polyline points="3 6 5 6 21 6" />
-											<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+											<path
+												d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+											/>
 										{:else if command.icon === 'download'}
 											<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
 											<polyline points="7 10 12 15 17 10" />

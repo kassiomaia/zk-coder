@@ -21,7 +21,13 @@
 		classification?: IntentClassification | null;
 	}
 
-	let { intent, confidence = 0, showConfidence = false, loading = false, classification }: Props = $props();
+	let {
+		intent,
+		confidence = 0,
+		showConfidence = false,
+		loading = false,
+		classification
+	}: Props = $props();
 
 	// Map legacy/simple intents to display icons
 	const intentIcons: Record<string, string> = {
@@ -78,7 +84,11 @@
 </script>
 
 <div
-	class={[styles.badge, loading && styles.loading, confidenceLevel() && styles[`confidence-${confidenceLevel()}`]]
+	class={[
+		styles.badge,
+		loading && styles.loading,
+		confidenceLevel() && styles[`confidence-${confidenceLevel()}`]
+	]
 		.filter(Boolean)
 		.join(' ')}
 	role="status"
@@ -86,7 +96,14 @@
 >
 	{#if loading}
 		<span class={styles.spinner}>
-			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+			<svg
+				width="14"
+				height="14"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
 				<circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="20">
 					<animateTransform
 						attributeName="transform"
@@ -140,13 +157,11 @@
 					<circle cx="11" cy="11" r="8" />
 					<line x1="21" y1="21" x2="16.65" y2="16.65" />
 				{:else if iconName === 'bug'}
+					<path d="m8 2 1.88 1.88M14.12 3.88 16 2M9 7.13v-1a3.003 3.003 0 1 1 6 0v1.003" />
+					<path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6" />
 					<path
-						d="m8 2 1.88 1.88M14.12 3.88 16 2M9 7.13v-1a3.003 3.003 0 1 1 6 0v1.003"
+						d="M12 20v-9M6.53 9C4.6 8.8 3 7.1 3 5M6 13H2M6 17H3M17.47 9C19.4 8.8 21 7.1 21 5M18 13h4M18 17h4"
 					/>
-					<path
-						d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"
-					/>
-					<path d="M12 20v-9M6.53 9C4.6 8.8 3 7.1 3 5M6 13H2M6 17H3M17.47 9C19.4 8.8 21 7.1 21 5M18 13h4M18 17h4" />
 				{:else if iconName === 'file'}
 					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 					<polyline points="14 2 14 8 20 8" />
@@ -162,7 +177,9 @@
 					<circle cx="6" cy="18" r="3" />
 					<path d="M18 9a9 9 0 0 1-9 9" />
 				{:else if iconName === 'box'}
-					<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+					<path
+						d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+					/>
 					<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
 					<line x1="12" y1="22.08" x2="12" y2="12" />
 				{:else if iconName === 'align-left'}

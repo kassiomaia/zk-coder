@@ -173,13 +173,7 @@
 	{/if}
 
 	{#if showRetry}
-		<button
-			class={styles.action}
-			onclick={onRetry}
-			aria-label="Retry"
-			type="button"
-			title="Retry"
-		>
+		<button class={styles.action} onclick={onRetry} aria-label="Retry" type="button" title="Retry">
 			<svg
 				width="16"
 				height="16"
