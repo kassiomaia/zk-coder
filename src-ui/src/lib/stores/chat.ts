@@ -30,6 +30,7 @@ import {
 	sendMessage as apiSendMessage,
 	deleteMessage as apiDeleteMessage,
 	updateMessageStatus as apiUpdateMessageStatus,
+	createThreadWithMessage as apiCreateThreadWithMessage,
 	type SendMessageOptions
 } from '$lib/api/chat';
 
@@ -253,7 +254,9 @@ function createChatStore() {
 		},
 
 		/**
-		 * Select a conversation and load its messages and threads.
+		 * Select a conversation and load its threads.
+		 * If threads exist, auto-select the most recent one and load its messages.
+		 * If no threads exist, show empty state prompting user to create a thread.
 		 */
 		async selectConversation(id: string | null) {
 			update((state) => ({
@@ -262,30 +265,40 @@ function createChatStore() {
 				selectedThreadId: null,
 				messages: [],
 				threads: [],
-				messagesLoading: id ? 'loading' : 'idle',
+				messagesLoading: 'idle',
 				threadsLoading: id ? 'loading' : 'idle',
 				error: null
 			}));
 
 			if (id) {
 				try {
-					// Load messages from backend persistence
-					const [messages, threads] = await Promise.all([
-						loadMessages(id),
-						loadThreads(id)
-					]);
+					// Load threads first
+					const threads = await loadThreads(id);
 
+					// Update conversation with thread count for sidebar display
 					update((state) => ({
 						...state,
-						messages,
 						threads,
-						messagesLoading: 'success',
-						threadsLoading: 'success'
+						threadsLoading: 'success',
+						conversations: state.conversations.map((c) =>
+							c.id === id ? { ...c, threads } : c
+						)
 					}));
+
+					// If there are threads, auto-select the most recent one
+					if (threads.length > 0) {
+						// Sort by updatedAt descending and get the most recent
+						const sortedThreads = [...threads].sort(
+							(a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+						);
+						const mostRecentThread = sortedThreads[0];
+
+						// Auto-select the most recent thread and load its messages
+						await this.selectThread(mostRecentThread.id);
+					}
 				} catch (error) {
 					update((state) => ({
 						...state,
-						messagesLoading: 'error',
 						threadsLoading: 'error',
 						error: error instanceof Error ? error.message : 'Failed to load conversation'
 					}));
@@ -324,6 +337,7 @@ function createChatStore() {
 
 		/**
 		 * Create a new thread in the current conversation.
+		 * Auto-selects the newly created thread.
 		 */
 		async createThread(title: string = 'New Thread'): Promise<Thread | null> {
 			const state = get({ subscribe });
@@ -336,8 +350,18 @@ function createChatStore() {
 				const thread = await apiCreateThread(state.selectedConversationId, title);
 				update((s) => ({
 					...s,
-					threads: [...s.threads, thread]
+					threads: [...s.threads, thread],
+					// Update conversation with new thread count
+					conversations: s.conversations.map((c) =>
+						c.id === state.selectedConversationId
+							? { ...c, threads: [...(c.threads || []), thread] }
+							: c
+					)
 				}));
+
+				// Auto-select the newly created thread
+				await this.selectThread(thread.id);
+
 				return thread;
 			} catch (error) {
 				update((s) => ({
@@ -372,36 +396,10 @@ function createChatStore() {
 			}
 		},
 
-		/**
-		 * Delete a thread.
-		 */
-		async deleteThread(id: string): Promise<boolean> {
-			try {
-				await apiDeleteThread(id);
-				update((state) => ({
-					...state,
-					threads: state.threads.filter((t) => t.id !== id),
-					selectedThreadId: state.selectedThreadId === id ? null : state.selectedThreadId
-				}));
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to delete thread'
-				}));
-				return false;
-			}
-		},
-
-		/**
-		 * Set messages directly.
-		 */
-		setMessages(messages: Message[]) {
-			update((state) => ({ ...state, messages }));
-		},
 
 		/**
 		 * Send a message to the current conversation via backend.
+		 * If no thread is selected and none exist, auto-creates a thread first.
 		 */
 		async sendMessage(
 			content: string,
@@ -413,10 +411,58 @@ function createChatStore() {
 				return null;
 			}
 
-			// Create optimistic message
+			let targetThreadId = state.selectedThreadId;
+
+			// If no thread selected, check if threads exist or create one
+			if (!targetThreadId) {
+				const existingThreads = state.threads.filter(
+					(t) => t.conversationId === state.selectedConversationId
+				);
+
+				if (existingThreads.length === 0) {
+					// No threads exist - create thread with message atomically
+					const threadTitle = this.deriveThreadTitle(content);
+
+					try {
+						const { thread, message } = await apiCreateThreadWithMessage({
+							conversationId: state.selectedConversationId,
+							threadTitle,
+							content,
+							role
+						});
+
+						update((s) => ({
+							...s,
+							threads: [...s.threads, thread],
+							selectedThreadId: thread.id,
+							messages: [...s.messages, message]
+						}));
+
+						return message;
+					} catch (error) {
+						update((s) => ({
+							...s,
+							error:
+								error instanceof Error ? error.message : 'Failed to create thread'
+						}));
+						return null;
+					}
+				} else {
+					// Threads exist but none selected - select most recent
+					const sortedThreads = [...existingThreads].sort(
+						(a, b) =>
+							new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+					);
+					targetThreadId = sortedThreads[0].id;
+					await this.selectThread(targetThreadId);
+				}
+			}
+
+			// Create optimistic message with guaranteed threadId
 			const optimisticMessage: Message = {
 				id: `temp-${Date.now()}`,
 				conversationId: state.selectedConversationId,
+				threadId: targetThreadId,
 				role,
 				content,
 				timestamp: new Date(),
@@ -433,13 +479,9 @@ function createChatStore() {
 				const options: SendMessageOptions = {
 					conversationId: state.selectedConversationId,
 					content,
-					role
+					role,
+					threadId: targetThreadId
 				};
-
-				// Add thread ID if viewing a thread
-				if (state.selectedThreadId) {
-					options.threadId = state.selectedThreadId;
-				}
 
 				const savedMessage = await apiSendMessage(options);
 
@@ -463,6 +505,30 @@ function createChatStore() {
 				}));
 				return null;
 			}
+		},
+
+		/**
+		 * Derives a thread title from message content.
+		 * Uses first ~50 characters, cleaned up for display.
+		 */
+		deriveThreadTitle(content: string): string {
+			const cleaned = content
+				.replace(/[#*_`]/g, '')
+				.replace(/\n/g, ' ')
+				.trim();
+
+			if (!cleaned) {
+				return 'New Thread';
+			}
+
+			if (cleaned.length <= 50) {
+				return cleaned;
+			}
+
+			const truncated = cleaned.substring(0, 50);
+			const lastSpace = truncated.lastIndexOf(' ');
+
+			return (lastSpace > 20 ? truncated.substring(0, lastSpace) : truncated) + '...';
 		},
 
 		/**
@@ -829,12 +895,14 @@ export function createNewThread(conversationId: string, title: string = 'New Thr
  */
 export function createNewMessage(
 	conversationId: string,
+	threadId: string,
 	role: 'user' | 'assistant' | 'system',
 	content: string
 ): Message {
 	return {
 		id: generateId(),
 		conversationId,
+		threadId,
 		role,
 		content,
 		timestamp: new Date(),
