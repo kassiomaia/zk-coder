@@ -26,6 +26,14 @@ Fixed critical bug where threads were not displaying due to data flow mismatch:
 - Added collapse button (chevron) in ThreadView header for desktop
 - Improved responsive behavior for thread panel
 
+### Thread-Message Integration (Phase 3)
+- Added `threadId` field to Message type (optional, matches backend)
+- Updated API client to include threadId in message conversion
+- Created `ThreadIndicator.svelte` component for showing thread membership
+- Updated `ChatMessage.svelte` to show thread indicator in message footer
+- Updated `ChatArea.svelte` to pass threads and handle thread navigation
+- Added `handleSelectThreadById` handler for clicking thread indicators
+
 See `docs/thread-feature-fix-plan.md` for details.
 
 ## Current State

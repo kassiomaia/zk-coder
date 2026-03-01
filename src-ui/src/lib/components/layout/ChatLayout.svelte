@@ -117,6 +117,13 @@
 		onSelectThread?.(thread);
 	}
 
+	function handleSelectThreadById(threadId: string) {
+		const thread = threads.find((t) => t.id === threadId);
+		if (thread) {
+			onSelectThread?.(thread);
+		}
+	}
+
 	// Handle sending message
 	function handleSendMessage(content: string) {
 		onSendMessage?.(content);
@@ -276,7 +283,13 @@
 								{loading}
 							/>
 						{:else}
-							<ChatArea {messages} {loading} onSendMessage={handleSendMessage} />
+							<ChatArea
+								{messages}
+								{threads}
+								{loading}
+								onSendMessage={handleSendMessage}
+								onThreadClick={handleSelectThreadById}
+							/>
 						{/if}
 					</div>
 				</div>

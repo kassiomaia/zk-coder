@@ -332,6 +332,7 @@ function msgToClient(msg: ChatMessageResponse): Message {
 	return {
 		id: msg.id,
 		conversationId: msg.conversationId,
+		threadId: msg.threadId ?? undefined,
 		role: msg.role,
 		content: msg.content,
 		timestamp: new Date(msg.timestamp),

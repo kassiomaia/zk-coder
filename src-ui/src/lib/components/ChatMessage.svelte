@@ -4,6 +4,7 @@
 	 * Displays individual messages in a conversation with support for user, assistant, and system roles.
 	 */
 	import styles from './ChatMessage.module.css';
+	import ThreadIndicator from './chat/ThreadIndicator.svelte';
 	import type { MessageStatus } from '$lib/types/message';
 
 	interface Props {
@@ -22,6 +23,15 @@
 		/** Message status */
 		status?: MessageStatus;
 
+		/** Thread ID if message belongs to a thread */
+		threadId?: string;
+
+		/** Thread title for display (required if threadId is set) */
+		threadTitle?: string;
+
+		/** Handler when thread indicator is clicked */
+		onThreadClick?: () => void;
+
 		/** Edit handler */
 		onEdit?: () => void;
 
@@ -38,6 +48,9 @@
 		content,
 		timestamp,
 		status = 'sent',
+		threadId,
+		threadTitle,
+		onThreadClick,
 		onEdit,
 		onDelete,
 		onRetry
@@ -77,6 +90,14 @@
 	</div>
 
 	<footer class={styles.footer}>
+		{#if threadId && threadTitle}
+			<ThreadIndicator
+				thread={{ id: threadId, title: threadTitle } as any}
+				onclick={onThreadClick}
+				compact
+			/>
+		{/if}
+
 		<time datetime={timestamp.toISOString()} class={styles.timestamp}>
 			{formatTime(timestamp)}
 		</time>

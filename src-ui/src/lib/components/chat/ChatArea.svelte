@@ -5,12 +5,17 @@
 	 */
 	import ChatInput from './input/ChatInput.svelte';
 	import TypingIndicator from './TypingIndicator.svelte';
+	import ThreadIndicator from './ThreadIndicator.svelte';
 	import type { Message } from '$lib/types/message';
+	import type { Thread } from '$lib/types/thread';
 	import styles from './ChatArea.module.css';
 
 	interface Props {
 		/** Array of messages to display */
 		messages: Message[];
+
+		/** Available threads for looking up thread info */
+		threads?: Thread[];
 
 		/** Loading state */
 		loading?: boolean;
@@ -38,10 +43,14 @@
 
 		/** Retry message handler (for failed messages) */
 		onRetryMessage?: (id: string) => void;
+
+		/** Thread click handler */
+		onThreadClick?: (threadId: string) => void;
 	}
 
 	let {
 		messages,
+		threads = [],
 		loading = false,
 		isTyping = false,
 		error,
@@ -50,7 +59,8 @@
 		onRetry,
 		onEditMessage,
 		onDeleteMessage,
-		onRetryMessage
+		onRetryMessage,
+		onThreadClick
 	}: Props = $props();
 
 	// Input state
@@ -126,6 +136,14 @@
 		if (status === 'sending') return styles.messageSending;
 		return '';
 	}
+
+	/**
+	 * Get thread title by ID.
+	 */
+	function getThreadTitle(threadId: string | undefined): string | undefined {
+		if (!threadId) return undefined;
+		return threads.find((t) => t.id === threadId)?.title;
+	}
 </script>
 
 <div class={styles.chatArea}>
@@ -187,6 +205,14 @@
 					<div class={styles.groupMessages}>
 						{#each group.messages as message (message.id)}
 							<div class={[styles.message, styles[getRoleClass(message.role)], getMessageStatusClass(message.status)].filter(Boolean).join(' ')}>
+								<!-- Thread indicator -->
+								{#if message.threadId && getThreadTitle(message.threadId)}
+									<ThreadIndicator
+										thread={{ id: message.threadId, title: getThreadTitle(message.threadId)! } as any}
+										onclick={() => onThreadClick?.(message.threadId!)}
+										compact
+									/>
+								{/if}
 								<div class={styles.messageContent}>
 									{message.content}
 								</div>

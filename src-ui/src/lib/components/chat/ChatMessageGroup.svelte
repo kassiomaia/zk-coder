@@ -6,6 +6,7 @@
 	 */
 	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import type { Message } from '$lib/types/message';
+	import type { Thread } from '$lib/types/thread';
 	import styles from './ChatMessageGroup.module.css';
 
 	interface Props {
@@ -15,6 +16,9 @@
 		/** Optional label for the group (e.g., "Today") */
 		label?: string;
 
+		/** Available threads for looking up thread info */
+		threads?: Thread[];
+
 		/** Handler for editing a message */
 		onEdit?: (id: string) => void;
 
@@ -23,9 +27,20 @@
 
 		/** Handler for retrying a failed message */
 		onRetry?: (id: string) => void;
+
+		/** Handler when clicking a thread indicator */
+		onThreadClick?: (threadId: string) => void;
 	}
 
-	let { messages, label, onEdit, onDelete, onRetry }: Props = $props();
+	let { messages, label, threads = [], onEdit, onDelete, onRetry, onThreadClick }: Props = $props();
+
+	/**
+	 * Get thread title by ID.
+	 */
+	function getThreadTitle(threadId: string | undefined): string | undefined {
+		if (!threadId) return undefined;
+		return threads.find((t) => t.id === threadId)?.title;
+	}
 
 	/**
 	 * Format the timestamp for the group header.
@@ -118,6 +133,9 @@
 					content={message.content}
 					timestamp={message.timestamp}
 					status={message.status}
+					threadId={message.threadId}
+					threadTitle={getThreadTitle(message.threadId)}
+					onThreadClick={onThreadClick && message.threadId ? () => onThreadClick(message.threadId!) : undefined}
 					onEdit={onEdit ? () => onEdit(message.id) : undefined}
 					onDelete={onDelete ? () => onDelete(message.id) : undefined}
 					onRetry={onRetry ? () => onRetry(message.id) : undefined}

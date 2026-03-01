@@ -33,15 +33,18 @@
 | Collapse button in ThreadView | ✅ Done | Chevron button in panel header |
 | Show thread count badge on conversation | Deferred | Requires backend `thread_count` field |
 
-### Phase 3: Thread-Message Integration
+### Phase 3: Thread-Message Integration ✅ COMPLETE
 **Priority**: Low
-**Status**: Not Started
+**Completed**: 2026-03-01
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Show thread indicator on messages | Pending | Badge showing which thread a message belongs to |
-| Threaded message visualization | Pending | Visual distinction in chat area |
-| Click to open thread from message | Pending | Navigation enhancement |
+| Add threadId to Message type | ✅ Done | Optional field for thread membership |
+| Update API client for threadId | ✅ Done | msgToClient includes threadId |
+| Create ThreadIndicator component | ✅ Done | Compact badge for messages |
+| Update ChatMessage for thread display | ✅ Done | Shows thread indicator in footer |
+| Update ChatArea for thread display | ✅ Done | Passes threads, shows indicators |
+| Click to open thread from message | ✅ Done | handleSelectThreadById handler |
 
 ### Phase 4: Backend Enhancements (Optional)
 **Priority**: Low
