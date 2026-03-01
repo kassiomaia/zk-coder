@@ -57,9 +57,7 @@
 	/**
 	 * Classes for the group container.
 	 */
-	let containerClasses = $derived(
-		[styles.group, styles[groupRole]].filter(Boolean).join(' ')
-	);
+	let containerClasses = $derived([styles.group, styles[groupRole]].filter(Boolean).join(' '));
 </script>
 
 <div class={containerClasses} role="group" aria-label="{groupRole} message group">
@@ -70,6 +68,41 @@
 	{/if}
 
 	<div class={styles.header}>
+		<div class={styles.avatar}>
+			{#if groupRole === 'user'}
+				<svg
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+					<circle cx="12" cy="7" r="4" />
+				</svg>
+			{:else}
+				<svg
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path d="M12 8V4H8" />
+					<rect width="16" height="12" x="4" y="8" rx="2" />
+					<path d="M2 14h2" />
+					<path d="M20 14h2" />
+					<path d="M15 13v2" />
+					<path d="M9 13v2" />
+				</svg>
+			{/if}
+		</div>
 		<span class={styles.role}>{groupRole === 'user' ? 'You' : 'Assistant'}</span>
 		<time class={styles.time} datetime={messages[0]?.timestamp.toISOString()}>
 			{formatGroupTime(messages)}

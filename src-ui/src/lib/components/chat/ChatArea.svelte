@@ -146,18 +146,20 @@
 			</div>
 		{:else if messages.length === 0}
 			<div class={styles.empty}>
-				<svg
-					class={styles.emptyIcon}
-					width="64"
-					height="64"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.5"
-				>
-					<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-				</svg>
-				<p class={styles.emptyText}>Start a conversation</p>
+				<div class={styles.emptyHeader}>
+					<svg
+						class={styles.emptyIcon}
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+					</svg>
+					<span class={styles.emptyText}>Start a conversation</span>
+				</div>
 				<p class={styles.emptyHint}>Type a message below to begin</p>
 			</div>
 		{:else}
