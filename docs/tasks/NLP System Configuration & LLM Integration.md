@@ -94,6 +94,233 @@ This task establishes the foundation for AI-powered capabilities in FocusFlow by
 
 ---
 
+## Impact on Existing Codebase
+
+This section details the required changes to existing files to support multi-provider LLM integration.
+
+### Files Requiring Modification
+
+#### 1. `src-tauri/src/ai/mod.rs`
+**Current:**
+```rust
+mod claude;
+pub use claude::{ClaudeClient, ClaudeError};
+```
+**Impact:** HIGH - Must add provider abstraction
+**Changes:**
+- Add `mod provider;`, `mod openai;`, `mod models;`
+- Re-export `LlmProvider` trait and `ProviderRegistry`
+- Update to support dynamic provider loading
+
+---
+
+#### 2. `src-tauri/src/ai/claude.rs`
+**Current:** Direct implementation with hardcoded model
+```rust
+pub struct ClaudeClient {
+    client: Client,
+    api_key: String,
+    model: String,  // Hardcoded "claude-sonnet-4-20250514"
+}
+```
+**Impact:** HIGH - Must implement provider trait
+**Changes:**
+- Implement `LlmProvider` trait
+- Add `list_models()` method
+- Add `validate_api_key()` method
+- Accept model as parameter in `complete()` instead of struct field
+- Update error handling to use common `ProviderError`
+
+---
+
+#### 3. `src-tauri/src/commands/nlp.rs`
+**Current:** Hardcoded API key
+```rust
+pub fn new(api_key: &str, db_path: &str) -> Result<Self, String> {
+    let claude = Arc::new(ClaudeClient::new(api_key));
+    // ...
+}
+
+pub fn new_dev(db_path: &str) -> Result<Self, String> {
+    Self::new("dev-api-key", db_path)  // ← PROBLEM
+}
+```
+**Impact:** HIGH - Must use config system
+**Changes:**
+- Replace `Arc<ClaudeClient>` with `ProviderRegistry`
+- Load API keys from `SecretsStore` (keyring)
+- Remove hardcoded `"dev-api-key"`
+- Add `ConfigState` parameter or access
+- Update all methods to use provider registry
+
+**Affected Struct:**
+```rust
+pub struct NlpState {
+    pub classifier: IntentClassifier,       // Uses ClaudeClient internally
+    pub context_manager: ContextManager,    // Uses ClaudeClient internally
+    pub multi_detector: MultiIntentDetector,// Uses ClaudeClient internally
+    pub ambiguity_resolver: AmbiguityResolver,
+    pub code_analyzer: CodeAnalyzer,
+    pub project_files: Arc<Mutex<Vec<String>>>,
+}
+```
+**Change to:**
+```rust
+pub struct NlpState {
+    pub provider_registry: Arc<ProviderRegistry>,  // NEW
+    pub classifier: IntentClassifier,
+    pub context_manager: ContextManager,
+    pub multi_detector: MultiIntentDetector,
+    pub ambiguity_resolver: AmbiguityResolver,
+    pub code_analyzer: CodeAnalyzer,
+    pub project_files: Arc<Mutex<Vec<String>>>,
+}
+```
+
+---
+
+#### 4. `src-tauri/src/nlp/classifier.rs`
+**Current:** Tightly coupled to ClaudeClient
+```rust
+pub struct IntentClassifier {
+    claude: Arc<ClaudeClient>,  // ← Direct dependency
+    patterns: IntentPatterns,
+}
+```
+**Impact:** MEDIUM - Abstract to use provider trait
+**Changes:**
+- Change `claude: Arc<ClaudeClient>` to `provider: Arc<dyn LlmProvider>`
+- Update error type from `ClaudeError` to `ProviderError`
+- No changes to public API, only internal implementation
+
+---
+
+#### 5. `src-tauri/src/nlp/context_manager.rs`
+**Current:** Tightly coupled to ClaudeClient
+```rust
+pub struct ContextManager {
+    store: ContextStore,
+    claude: Arc<ClaudeClient>,  // ← Direct dependency
+}
+```
+**Impact:** MEDIUM - Abstract to use provider trait
+**Changes:**
+- Change `claude: Arc<ClaudeClient>` to `provider: Arc<dyn LlmProvider>`
+- Update `compress()` and `generate_summary()` to use trait
+- Update error handling
+
+---
+
+#### 6. `src-tauri/src/nlp/multi_detector.rs`
+**Current:** Tightly coupled to ClaudeClient
+```rust
+pub struct MultiIntentDetector {
+    claude: Arc<ClaudeClient>,  // ← Direct dependency
+    patterns: IntentPatterns,
+    conjunctions: Vec<&'static str>,
+}
+```
+**Impact:** MEDIUM - Abstract to use provider trait
+**Changes:**
+- Change `claude: Arc<ClaudeClient>` to `provider: Arc<dyn LlmProvider>`
+- Update error type from `ClaudeError` to `ProviderError`
+
+---
+
+#### 7. `src-tauri/src/lib.rs`
+**Current:** Creates NlpState with hardcoded key
+```rust
+let nlp_state = NlpState::new_dev("coder_context.db")
+    .expect("Failed to initialize NLP state");
+```
+**Impact:** HIGH - Must load config before init
+**Changes:**
+- Initialize config module first
+- Load provider settings from storage
+- Initialize provider registry with configured providers
+- Pass registry to NlpState
+- Add config commands to invoke handler
+
+**New initialization flow:**
+```rust
+// 1. Load config
+let config_state = ConfigState::new("coder_config.db")?;
+
+// 2. Initialize provider registry
+let provider_registry = Arc::new(ProviderRegistry::new());
+
+// 3. Configure providers from stored settings
+for provider_config in config_state.load_providers()? {
+    provider_registry.register(provider_config)?;
+}
+
+// 4. Create NLP state with registry
+let nlp_state = NlpState::new(provider_registry, "coder_context.db")?;
+```
+
+---
+
+#### 8. `src-tauri/src/nlp/chat.rs`
+**Current:** Has model field in ConversationSettings
+```rust
+pub struct ConversationSettings {
+    pub model: String,  // Already exists, good!
+    pub temperature: f32,
+    pub max_tokens: u32,
+    pub system_prompt: Option<String>,
+}
+```
+**Impact:** LOW - Minor enhancement needed
+**Changes:**
+- Add `provider: String` field to `ConversationSettings`
+- Update `Default` implementation
+- No breaking changes to existing code
+
+---
+
+#### 9. `src-tauri/src/storage/chat_store.rs`
+**Current:** Stores settings as JSON
+**Impact:** LOW - Add migration
+**Changes:**
+- Add migration for `provider` field in settings JSON
+- Handle old records without provider field (default to "anthropic")
+
+---
+
+### Summary of Impact Levels
+
+| File | Impact | Risk | Effort |
+|------|--------|------|--------|
+| `ai/mod.rs` | HIGH | Low | 1-2h |
+| `ai/claude.rs` | HIGH | Medium | 4-6h |
+| `commands/nlp.rs` | HIGH | Medium | 4-6h |
+| `nlp/classifier.rs` | MEDIUM | Low | 2-3h |
+| `nlp/context_manager.rs` | MEDIUM | Low | 2-3h |
+| `nlp/multi_detector.rs` | MEDIUM | Low | 1-2h |
+| `lib.rs` | HIGH | Medium | 2-3h |
+| `nlp/chat.rs` | LOW | Low | 0.5h |
+| `storage/chat_store.rs` | LOW | Low | 1h |
+
+**Total Estimated Effort for Modifications:** 18-27 hours
+
+---
+
+### Backward Compatibility
+
+**Breaking Changes:**
+- `ClaudeClient::new()` signature may change
+- `NlpState::new()` signature will change
+- Error types will change from `ClaudeError` to `ProviderError`
+
+**Migration Strategy:**
+1. Create new `LlmProvider` trait without modifying existing code
+2. Implement trait for `ClaudeClient` (adapter pattern)
+3. Update consumers one at a time
+4. Add config system in parallel
+5. Switch over initialization in `lib.rs` last
+
+---
+
 ## Analysis & Current State
 
 **Date:** 2026-03-01
@@ -232,6 +459,364 @@ This task establishes the foundation for AI-powered capabilities in FocusFlow by
 - [ ] Create `ModelSelector.svelte` component
 - [ ] Create `SettingsPage.svelte` (container)
 
+---
+
+## Frontend Impact Analysis
+
+### Current UI Architecture
+
+The application uses a **three-panel layout**:
+1. **Left Sidebar** (`ConversationSidebar`) - Conversation list with search
+2. **Main Content** (`ChatArea` / `ThreadPanel`) - Messages and input
+3. **Right Panel** (`ThreadView`) - Thread navigation (conditional)
+
+**Key Files:**
+- `src-ui/src/routes/+page.svelte` - Main page with mock data
+- `src-ui/src/lib/components/layout/ChatLayout.svelte` - Responsive layout
+- `src-ui/src/lib/components/chat/sidebar/ConversationSidebar.svelte` - Sidebar
+- `src-ui/src/lib/types/thread.ts` - `ConversationSettings` interface
+
+### Existing Settings Structure
+
+```typescript
+// Already exists in thread.ts
+interface ConversationSettings {
+  model: string;        // ← Already has model field
+  temperature: number;
+  maxTokens: number;
+  systemPrompt?: string;
+}
+```
+
+**Gap:** No `provider` field, no global settings, no UI for configuration.
+
+---
+
+### User Flow Analysis
+
+#### Flow 1: First-Time Setup (No API Key)
+```
+App Launch → Detect No API Key → Show Setup Modal
+                                    ↓
+                            Select Provider
+                                    ↓
+                            Enter API Key
+                                    ↓
+                            Validate → Success → Start Chat
+                                     ↓
+                                   Error → Retry
+```
+
+#### Flow 2: Changing Provider/Model
+```
+Settings Button → Settings Modal/Panel
+                        ↓
+                ┌───────┴───────┐
+                ↓               ↓
+         Provider Tab      Model Tab
+                ↓               ↓
+         Add/Edit Keys    Select Default
+                ↓               ↓
+         Validate         Per-Conversation
+                                Override
+```
+
+#### Flow 3: Per-Conversation Model Override
+```
+Conversation Header → Model Dropdown → Select Model → Apply
+                                                ↓
+                                    Updates ConversationSettings
+```
+
+---
+
+### UI Components Required
+
+#### 1. Settings Entry Point
+
+**Location Options:**
+| Option | Pros | Cons |
+|--------|------|------|
+| Sidebar footer | Consistent with chat apps | Limited space |
+| Header gear icon | Visible, accessible | Clutters header |
+| Keyboard shortcut | Power user friendly | Hidden |
+| **Recommendation:** Sidebar footer + keyboard shortcut (`Cmd+,`) |
+
+**Component:** `SettingsButton.svelte`
+- Add to `ConversationSidebar` footer
+- Opens settings modal/panel
+
+---
+
+#### 2. Settings Modal/Panel
+
+**Structure:**
+```
+┌─────────────────────────────────────────────────┐
+│ Settings                                    [X] │
+├─────────────────────────────────────────────────┤
+│ [Providers] [Models] [General]                  │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  PROVIDERS TAB                                  │
+│  ┌─────────────────────────────────────────────┐│
+│  │ Anthropic Claude                      [Edit]││
+│  │ Status: ● Connected                         ││
+│  │ Models: claude-3-opus, claude-3-sonnet      ││
+│  └─────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────┐│
+│  │ OpenAI                                [Add] ││
+│  │ Status: ○ Not configured                    ││
+│  └─────────────────────────────────────────────┘│
+│                                                 │
+│  [+ Add Provider]                               │
+│                                                 │
+├─────────────────────────────────────────────────┤
+│                              [Cancel] [Save]    │
+└─────────────────────────────────────────────────┘
+```
+
+**Components:**
+- `SettingsModal.svelte` - Container with tabs
+- `ProviderTab.svelte` - Provider list and management
+- `ModelTab.svelte` - Model selection and defaults
+- `GeneralTab.svelte` - App settings (future)
+
+---
+
+#### 3. API Key Input Modal
+
+**Triggered when:** Adding new provider or editing existing
+
+```
+┌─────────────────────────────────────────────────┐
+│ Configure Anthropic Claude                      │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  API Key                                        │
+│  ┌─────────────────────────────────────────────┐│
+│  │ sk-ant-•••••••••••••••••••••••••      [👁] ││
+│  └─────────────────────────────────────────────┘│
+│                                                 │
+│  ℹ️ Your API key is stored securely in your     │
+│     system keychain and never sent to our       │
+│     servers.                                    │
+│                                                 │
+│  [Validate Key]                                 │
+│                                                 │
+├─────────────────────────────────────────────────┤
+│                    [Cancel] [Save]              │
+└─────────────────────────────────────────────────┘
+```
+
+**Components:**
+- `ApiKeyInput.svelte` - Secure input with validation
+- `ProviderIcon.svelte` - Provider logo/indicator
+
+---
+
+#### 4. Model Selector (Inline)
+
+**Location:** Conversation header or input area
+
+**Option A: In Conversation Header**
+```
+┌─────────────────────────────────────────────────┐
+│ JavaScript Algorithms    [claude-3-opus ▾]      │
+└─────────────────────────────────────────────────┘
+```
+
+**Option B: In Input Area**
+```
+┌─────────────────────────────────────────────────┐
+│                                                 │
+│  [Message input...]                             │
+│                                                 │
+├─────────────────────────────────────────────────┤
+│ [claude-3-opus ▾]               [Send]          │
+└─────────────────────────────────────────────────┘
+```
+
+**Recommendation:** Option B - More discoverable, contextual
+
+**Components:**
+- `ModelSelector.svelte` - Dropdown with provider grouping
+- `ModelBadge.svelte` - Display current model with provider color
+
+---
+
+#### 5. First-Run Setup Wizard
+
+**Triggered when:** No API keys configured
+
+```
+┌─────────────────────────────────────────────────┐
+│                                                 │
+│            Welcome to Coder                     │
+│                                                 │
+│  Choose your AI provider to get started:        │
+│                                                 │
+│  ┌─────────────┐  ┌─────────────┐              │
+│  │  Anthropic  │  │   OpenAI    │              │
+│  │   Claude    │  │   GPT-4     │              │
+│  │   [●]       │  │   [ ]       │              │
+│  └─────────────┘  └─────────────┘              │
+│                                                 │
+│  API Key: [________________________]            │
+│                                                 │
+│  [Skip for now]              [Continue]         │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+**Components:**
+- `SetupWizard.svelte` - Full-screen modal
+- `ProviderCard.svelte` - Selectable provider option
+
+---
+
+### Layout Impact
+
+#### ConversationSidebar Changes
+
+**Current Structure:**
+```
+┌──────────────────┐
+│ Header (title +) │
+│ SearchBar        │
+│ ─────────────────│
+│ ConversationList │
+│                  │
+│                  │
+└──────────────────┘
+```
+
+**New Structure:**
+```
+┌──────────────────┐
+│ Header (title +) │
+│ SearchBar        │
+│ ─────────────────│
+│ ConversationList │
+│                  │
+├──────────────────┤
+│ Settings Button  │ ← NEW
+│ Model Indicator  │ ← NEW (current default)
+└──────────────────┘
+```
+
+**Files to Modify:**
+- `ConversationSidebar.svelte` - Add footer section
+- `ConversationSidebar.module.css` - Footer styles
+
+---
+
+### Files to Modify (Frontend)
+
+| File | Impact | Changes |
+|------|--------|---------|
+| `types/thread.ts` | LOW | Add `provider` to `ConversationSettings` |
+| `components/chat/sidebar/ConversationSidebar.svelte` | MEDIUM | Add settings footer |
+| `components/chat/input/ChatInput.svelte` | MEDIUM | Add model selector |
+| `routes/+page.svelte` | LOW | Add settings modal trigger |
+| `routes/+layout.svelte` | LOW | Add setup wizard check |
+
+---
+
+### New Files to Create (Frontend)
+
+```
+src-ui/src/lib/
+├── api/
+│   └── config.ts                    # Config API client
+├── types/
+│   └── config.ts                    # Config types
+├── stores/
+│   └── settings.ts                  # Settings store (reactive)
+└── components/
+    └── settings/
+        ├── SettingsModal.module.css
+        ├── SettingsModal.svelte
+        ├── ProviderTab.module.css
+        ├── ProviderTab.svelte
+        ├── ModelTab.module.css
+        ├── ModelTab.svelte
+        ├── ApiKeyInput.module.css
+        ├── ApiKeyInput.svelte
+        ├── ModelSelector.module.css
+        ├── ModelSelector.svelte
+        ├── ModelBadge.module.css
+        ├── ModelBadge.svelte
+        ├── SetupWizard.module.css
+        └── SetupWizard.svelte
+```
+
+---
+
+### Design System Considerations
+
+**Use existing tokens:**
+- Colors: `--color-primary-*` for provider accents
+- Status: `--color-success` for connected, `--color-error` for failed
+- Spacing: `--space-*` for consistent padding
+- Radius: `--radius-lg` for cards, `--radius-md` for inputs
+- Shadows: `--shadow-lg` for modals
+
+**Provider Colors (suggested):**
+```css
+--color-provider-anthropic: #d97706;  /* Orange */
+--color-provider-openai: #10b981;     /* Green */
+--color-provider-google: #4285f4;     /* Blue */
+```
+
+---
+
+### Accessibility Requirements
+
+1. **Keyboard Navigation:**
+   - Tab through settings fields
+   - Enter to submit
+   - Escape to close modals
+
+2. **Screen Reader:**
+   - Announce provider connection status
+   - Announce validation results
+   - Label all form fields
+
+3. **Focus Management:**
+   - Trap focus in modals
+   - Return focus on close
+   - Focus first field on open
+
+---
+
+### State Management
+
+**New Store:** `settingsStore.ts`
+
+```typescript
+interface SettingsState {
+  // Provider configs
+  providers: ProviderConfig[];
+  activeProvider: string | null;
+
+  // Model settings
+  defaultModel: string;
+  models: ModelInfo[];
+
+  // UI state
+  setupComplete: boolean;
+  settingsOpen: boolean;
+}
+```
+
+**Reactive Behavior:**
+- Provider change → Re-fetch models
+- Model change → Update conversations using default
+- API key validation → Update connection status
+
+---
+
 ### Phase 4: Integration & Testing (Week 4-5)
 
 **Goal:** Connect all components and validate
@@ -254,7 +839,9 @@ This task establishes the foundation for AI-powered capabilities in FocusFlow by
 
 ---
 
-## Files to Create
+## Files Summary
+
+### Backend Files to Create
 
 ```
 src-tauri/src/
@@ -269,18 +856,61 @@ src-tauri/src/
 │   └── secrets.rs       # Secure token storage
 └── commands/
     └── config.rs        # Config Tauri commands
+```
 
+### Backend Files to Modify
+
+| File | Impact |
+|------|--------|
+| `ai/mod.rs` | HIGH - Add provider exports |
+| `ai/claude.rs` | HIGH - Implement LlmProvider trait |
+| `commands/nlp.rs` | HIGH - Use ProviderRegistry |
+| `nlp/classifier.rs` | MEDIUM - Use dyn LlmProvider |
+| `nlp/context_manager.rs` | MEDIUM - Use dyn LlmProvider |
+| `nlp/multi_detector.rs` | MEDIUM - Use dyn LlmProvider |
+| `nlp/chat.rs` | LOW - Add provider field |
+| `lib.rs` | HIGH - New initialization flow |
+| `storage/chat_store.rs` | LOW - Migration |
+
+### Frontend Files to Create
+
+```
 src-ui/src/lib/
 ├── api/
-│   └── config.ts        # Config API client
+│   └── config.ts                    # Config API client
 ├── types/
-│   └── config.ts        # Config types
+│   └── config.ts                    # Config types
+├── stores/
+│   └── settings.ts                  # Settings store
 └── components/
     └── settings/
-        ├── ProviderSettings.svelte
+        ├── SettingsModal.module.css
+        ├── SettingsModal.svelte
+        ├── ProviderTab.module.css
+        ├── ProviderTab.svelte
+        ├── ModelTab.module.css
+        ├── ModelTab.svelte
+        ├── ApiKeyInput.module.css
+        ├── ApiKeyInput.svelte
+        ├── ModelSelector.module.css
         ├── ModelSelector.svelte
-        └── SettingsPage.svelte
+        ├── ModelBadge.module.css
+        ├── ModelBadge.svelte
+        ├── SetupWizard.module.css
+        └── SetupWizard.svelte
 ```
+
+### Frontend Files to Modify
+
+| File | Impact |
+|------|--------|
+| `types/thread.ts` | LOW - Add provider to ConversationSettings |
+| `components/chat/sidebar/ConversationSidebar.svelte` | MEDIUM - Add settings footer |
+| `components/chat/input/ChatInput.svelte` | MEDIUM - Add model selector |
+| `routes/+page.svelte` | LOW - Add settings modal |
+| `routes/+layout.svelte` | LOW - Add setup wizard check |
+
+---
 
 ## Dependencies to Add
 
@@ -291,6 +921,18 @@ keyring = "2.0"  # OS keychain access
 
 ---
 
+## Effort Summary
+
+| Phase | Backend | Frontend | Total |
+|-------|---------|----------|-------|
+| Phase 1: Provider Abstraction | 12-16h | - | 12-16h |
+| Phase 2: Configuration System | 10-14h | - | 10-14h |
+| Phase 3: Model Selection | 4-6h | 16-24h | 20-30h |
+| Phase 4: Integration & Testing | 8-12h | 4-6h | 12-18h |
+| **Total** | **34-48h** | **20-30h** | **54-78h** |
+
+---
+
 ## Success Metrics
 
 - [ ] Can configure 2+ LLM providers with secure token storage
@@ -298,3 +940,5 @@ keyring = "2.0"  # OS keychain access
 - [ ] API keys never logged or exposed in plaintext
 - [ ] Token validation provides immediate feedback
 - [ ] Model list updates dynamically from provider APIs
+- [ ] First-run setup wizard guides new users
+- [ ] Settings accessible from sidebar + keyboard shortcut
