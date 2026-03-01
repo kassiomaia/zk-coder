@@ -731,6 +731,9 @@ function createChatStore() {
 		 * Send a message and get an LLM response with streaming.
 		 * This combines message sending with LLM response generation.
 		 *
+		 * The backend will automatically use the model configured for the 'code' operation
+		 * if no modelId is explicitly provided.
+		 *
 		 * @param content - The user's message content
 		 * @param options - Optional configuration for the LLM request
 		 * @returns The user message that was sent, or null on error
@@ -738,7 +741,7 @@ function createChatStore() {
 		async sendMessageWithLlm(
 			content: string,
 			options?: {
-				/** Model ID to use (e.g., "openai-gpt-4"). If not provided, uses default for 'code' operation */
+				/** Model ID to use (e.g., "openai-gpt-4"). If not provided, backend uses 'code' operation default */
 				modelId?: string;
 				/** System prompt override */
 				systemPrompt?: string;
@@ -762,24 +765,37 @@ function createChatStore() {
 				return null;
 			}
 
-			// Get the model to use
-			let modelId: string | undefined = options?.modelId;
-			if (!modelId) {
-				// Try to get default model for 'code' operation
-				const defaultModel = configStore.getDefault('code');
-				if (defaultModel) {
-					modelId = defaultModel;
+			// Check if we have a model to use - either explicitly specified or configured as default
+			const codeDefault = configStore.getDefault('code');
+			const modelToUse = options?.modelId ?? codeDefault;
+
+			if (!modelToUse) {
+				// No model specified and no default configured
+				const availableModels = configStore.getAvailableModels('code');
+				if (availableModels.length === 0) {
+					update((s) => ({
+						...s,
+						error: 'No model configured. Please go to Settings > Providers and configure an API provider first.'
+					}));
 				} else {
-					// Fallback: get first available model for code
-					const availableModels = configStore.getAvailableModels('code');
-					if (availableModels.length === 0) {
-						update((s) => ({
-							...s,
-							error: 'No model configured. Please configure a provider first.'
-						}));
-						return null;
-					}
-					modelId = availableModels[0].id;
+					update((s) => ({
+						...s,
+						error: 'No default model set for code operations. Please go to Settings > Models and set a default model for the "Code" operation.'
+					}));
+				}
+				return null;
+			}
+
+			// If user explicitly specified a model, validate it exists
+			if (options?.modelId) {
+				const availableModels = configStore.getAvailableModels('code');
+				const modelExists = availableModels.some((m) => m.id === options.modelId);
+				if (!modelExists) {
+					update((s) => ({
+						...s,
+						error: `Model '${options.modelId}' not found. Please configure a valid model.`
+					}));
+					return null;
 				}
 			}
 
@@ -809,17 +825,18 @@ function createChatStore() {
 					isStreaming: true,
 					requestId: null,
 					streamingContent: '',
-					model: modelId ?? null
+					model: options?.modelId ?? null
 				}
 			}));
 
 			try {
 				// Start streaming request
+				// If modelId is not provided, backend will use the 'code' operation default
 				const result = await sendChatMessageStreaming({
 					conversationId: state.selectedConversationId,
 					threadId: state.selectedThreadId ?? undefined,
 					content,
-					modelId: modelId!,
+					...(options?.modelId && { modelId: options.modelId }),
 					systemPrompt: options?.systemPrompt,
 					temperature: options?.temperature,
 					maxTokens: options?.maxTokens,

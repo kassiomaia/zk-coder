@@ -63,8 +63,8 @@ export interface SendChatMessageOptions {
 	threadId?: string;
 	/** The user's message content */
 	content: string;
-	/** Model ID to use (e.g., "openai-gpt-4") */
-	modelId: string;
+	/** Model ID to use (e.g., "openai-gpt-4"). If not provided, uses the 'code' operation default. */
+	modelId?: string;
 	/** System prompt (optional) */
 	systemPrompt?: string;
 	/** Temperature (optional, default 0.7) */
@@ -180,13 +180,15 @@ export type LlmEventCallback = (event: LlmEvent) => void;
  */
 export async function sendChatMessage(options: SendChatMessageOptions): Promise<SendChatMessageResponse> {
 	return safeInvoke<SendChatMessageResponse>('send_chat_message', {
-		conversationId: options.conversationId,
-		threadId: options.threadId,
-		content: options.content,
-		modelId: options.modelId,
-		systemPrompt: options.systemPrompt,
-		temperature: options.temperature,
-		maxTokens: options.maxTokens
+		request: {
+			conversationId: options.conversationId,
+			threadId: options.threadId,
+			content: options.content,
+			modelId: options.modelId,
+			systemPrompt: options.systemPrompt,
+			temperature: options.temperature,
+			maxTokens: options.maxTokens
+		}
 	});
 }
 
@@ -230,13 +232,15 @@ export async function sendChatMessageStreaming(options: StreamChatOptions): Prom
 	// Start the streaming request
 	try {
 		const requestId = await safeInvoke<string>('send_chat_message_streaming', {
-			conversationId: options.conversationId,
-			threadId: options.threadId,
-			content: options.content,
-			modelId: options.modelId,
-			systemPrompt: options.systemPrompt,
-			temperature: options.temperature,
-			maxTokens: options.maxTokens
+			request: {
+				conversationId: options.conversationId,
+				threadId: options.threadId,
+				content: options.content,
+				modelId: options.modelId,
+				systemPrompt: options.systemPrompt,
+				temperature: options.temperature,
+				maxTokens: options.maxTokens
+			}
 		});
 
 		return {

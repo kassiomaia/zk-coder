@@ -107,7 +107,8 @@
 	}
 
 	async function handleSendMessage(content: string) {
-		await chatStore.sendMessage(content);
+		// Use LLM streaming - backend will use 'code' operation default model
+		await chatStore.sendMessageWithLlm(content);
 	}
 
 	async function handleCreateConversation() {
