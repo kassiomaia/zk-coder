@@ -259,7 +259,7 @@ pub struct ConversationContext {
 impl ConversationContext {
     /// Creates an empty context.
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             recent_messages: Vec::new(),
             metadata: ContextMetadata::default(),
