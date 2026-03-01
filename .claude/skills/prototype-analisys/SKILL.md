@@ -60,6 +60,7 @@ This skill follows specific rules defined in `./rules/`. Read and apply these ru
 | **Plan Generation** | `04-plan-generation.md` | Plan structure and content |
 | **Backend Planning** | `05-backend-planning.md` | Tauri backend requirements |
 | **Golden Rules** | `06-golden-rules.md` | Inviolable principles |
+| **Parallel Analysis** | `07-parallel-analysis.md` | Task orchestration and prompts |
 
 **All rules MUST be followed when analyzing prototypes.**
 
