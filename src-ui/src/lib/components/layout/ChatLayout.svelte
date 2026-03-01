@@ -113,6 +113,14 @@
 		closeSidebar();
 	}
 
+	function handleOpenChatWithThreads(conversation: Conversation) {
+		// Select the conversation first
+		onSelectConversation?.(conversation);
+		// Open the thread panel
+		setThreadPanelOpen(true);
+		closeSidebar();
+	}
+
 	function handleSelectThread(thread: Thread) {
 		onSelectThread?.(thread);
 	}
@@ -219,6 +227,7 @@
 				{conversations}
 				selectedId={selectedConversation?.id}
 				onSelect={handleSelectConversation}
+				onOpenChat={handleOpenChatWithThreads}
 				{onSearch}
 				onCreateNew={onCreateConversation}
 				onDelete={onDeleteConversation}

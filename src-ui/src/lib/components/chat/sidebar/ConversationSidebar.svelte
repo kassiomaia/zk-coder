@@ -15,6 +15,8 @@
 		selectedId?: string;
 		/** Handler when a conversation is selected */
 		onSelect: (conversation: Conversation) => void;
+		/** Handler when a conversation is double-clicked (typically opens thread panel) */
+		onOpenChat?: (conversation: Conversation) => void;
 		/** Handler for search input */
 		onSearch?: (query: string) => void;
 		/** Handler to create new conversation */
@@ -31,6 +33,7 @@
 		conversations,
 		selectedId,
 		onSelect,
+		onOpenChat,
 		onSearch,
 		onCreateNew,
 		onDelete,
@@ -161,6 +164,7 @@
 								conversation={conv}
 								selected={conv.id === selectedId}
 								onclick={() => onSelect(conv)}
+								ondoubleclick={onOpenChat ? () => onOpenChat(conv) : undefined}
 								ondelete={onDelete ? () => onDelete(conv) : undefined}
 								onrename={onRename ? (title) => onRename(conv, title) : undefined}
 							/>

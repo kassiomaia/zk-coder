@@ -14,13 +14,15 @@
 		selected?: boolean;
 		/** Click handler */
 		onclick: () => void;
+		/** Double-click handler (typically opens thread panel if threads exist) */
+		ondoubleclick?: () => void;
 		/** Delete handler */
 		ondelete?: () => void;
 		/** Rename handler */
 		onrename?: (newTitle: string) => void;
 	}
 
-	let { conversation, selected = false, onclick, ondelete, onrename }: Props = $props();
+	let { conversation, selected = false, onclick, ondoubleclick, ondelete, onrename }: Props = $props();
 
 	let showActions = $state(false);
 	let isEditing = $state(false);
@@ -101,6 +103,12 @@
 		<button
 			class={styles.button}
 			onclick={onclick}
+			ondblclick={() => {
+				// Only trigger double-click action if conversation has threads
+				if (conversation.threads && conversation.threads.length > 0) {
+					ondoubleclick?.();
+				}
+			}}
 			aria-label="Select conversation: {conversation.title}"
 			type="button"
 		>
