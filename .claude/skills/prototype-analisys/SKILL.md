@@ -63,58 +63,296 @@ This skill follows specific rules defined in `./rules/`. Read and apply these ru
 
 **All rules MUST be followed when analyzing prototypes.**
 
-## Workflow
+---
 
-### Phase 1: Discovery & Validation
+## Parallel Analysis Architecture
 
-#### 1.1 Read Prototype README
-- Understand feature purpose and business context
-- Identify user stories and functional requirements
-- Note the scope definition (in-scope vs contextual elements)
-- Review user journeys and conditional logic
+This skill uses parallel tasks to efficiently analyze prototypes. The orchestrator coordinates specialized analysis tasks.
 
-#### 1.2 Validate Prototype Quality
-Check the prototype against quality criteria:
+### Flow Diagram
 
-**Documentation Quality:**
-- [ ] README has clear overview with scope note
-- [ ] User stories are defined
-- [ ] Functional requirements are listed
-- [ ] Component hierarchy marks scope for all elements
-- [ ] User journeys have IF/THEN conditional logic
-- [ ] ASCII flow diagrams are present
-- [ ] States and variants are documented
-- [ ] Accessibility requirements are specified
+```
+                           ┌─────────────────────────┐
+                           │      USER REQUEST       │
+                           │  "Analyze prototype X"  │
+                           └───────────┬─────────────┘
+                                       │
+                                       ▼
+                           ┌─────────────────────────┐
+                           │    LOCATION CHECK       │
+                           │  ./prototypes/<name>/   │
+                           └───────────┬─────────────┘
+                                       │
+                            ┌──────────┴──────────┐
+                            │                     │
+                     Valid Location        Invalid Location
+                            │                     │
+                            ▼                     ▼
+                   ┌────────────────┐    ┌────────────────┐
+                   │  ORCHESTRATOR  │    │  STOP & WARN   │
+                   │  LAUNCH TASKS  │    │  Wrong path!   │
+                   └────────┬───────┘    └────────────────┘
+                            │
+         ┌──────────────────┼──────────────────┬──────────────────┐
+         │                  │                  │                  │
+         ▼                  ▼                  ▼                  ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│    TASK 1       │ │    TASK 2       │ │    TASK 3       │ │    TASK 4       │
+│    README       │ │    STYLES       │ │    LOGIC        │ │    STRUCTURE    │
+│    Analysis     │ │    Analysis     │ │    Analysis     │ │    Analysis     │
+│                 │ │                 │ │                 │ │                 │
+│  Read README.md │ │  Read CSS files │ │  Read state.js  │ │  Read HTML      │
+│  Extract scope  │ │  Check tokens   │ │  Map state      │ │  Find components│
+│  User journeys  │ │  Find hardcoded │ │  Find methods   │ │  Alpine.js dirs │
+└────────┬────────┘ └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+         │                  │                  │                  │
+         └──────────────────┴──────────────────┴──────────────────┘
+                                       │
+                                       ▼
+                           ┌─────────────────────────┐
+                           │      ORCHESTRATOR       │
+                           │   Aggregate Reports     │
+                           │   Cross-Validate        │
+                           └───────────┬─────────────┘
+                                       │
+                         ┌─────────────┴─────────────┐
+                         │                           │
+                    All Checks Pass           Issues Found
+                         │                           │
+                         ▼                           ▼
+              ┌─────────────────────┐    ┌─────────────────────┐
+              │  ASK CLARIFICATION  │    │  ASK CLARIFICATION  │
+              │  QUESTIONS          │    │  + FLAG ISSUES      │
+              └──────────┬──────────┘    └──────────┬──────────┘
+                         │                          │
+                         ▼                          ▼
+              ┌─────────────────────┐    ┌─────────────────────┐
+              │  GENERATE PLAN      │    │  GENERATE PLAN      │
+              │  Status: READY      │    │  Status: NOT READY  │
+              └─────────────────────┘    └─────────────────────┘
+```
 
-**Code Quality:**
-- [ ] No inline CSS (all styles in `css/` files)
-- [ ] No inline JavaScript logic (all logic in `js/` files)
-- [ ] Uses Lucide Icons (no inline SVGs)
-- [ ] Design system tokens used (not hardcoded values)
-- [ ] Alpine.js state clearly structured in external file
+### Task Definitions
 
-#### 1.3 Analyze HTML Structure
+#### Task 1: README Analysis
+
+**Input:** `./prototypes/<name>/README.md`
+
+**Responsibilities:**
+- Extract feature purpose and business context
+- Identify user stories
+- List functional requirements
+- Document scope (in-scope vs contextual)
+- Extract user journeys with IF/THEN logic
+- Note accessibility requirements
+
+**Output Report:**
+```
+README ANALYSIS REPORT
+======================
+Feature: <name>
+Purpose: <description>
+
+SCOPE:
+  In-Scope: [list]
+  Contextual: [list]
+
+USER STORIES: [list]
+
+FUNCTIONAL REQUIREMENTS: [list]
+
+USER JOURNEYS: [list with conditions]
+
+ACCESSIBILITY: [requirements]
+
+ISSUES FOUND: [list any missing documentation]
+```
+
+---
+
+#### Task 2: Styles Analysis
+
+**Input:**
+- `./prototypes/<name>/css/components.css`
+- `./prototypes/<name>/css/animations.css` (optional)
+- `./prototypes/<name>/css/design-system.css`
+
+**Responsibilities:**
+- List all CSS classes and their purposes
+- Check for design token usage
+- Identify hardcoded values (colors, spacing)
+- Document animations
+- Note responsive breakpoints
+
+**Output Report:**
+```
+STYLES ANALYSIS REPORT
+======================
+Prototype: <name>
+
+CSS CLASSES:
+  - .class-name: <purpose>
+
+DESIGN TOKEN USAGE:
+  Using tokens: [list of tokens used]
+  Hardcoded values found: [list with file:line]
+
+ANIMATIONS:
+  - @keyframes <name>: <description>
+
+RESPONSIVE:
+  Breakpoints: [list]
+
+ISSUES FOUND:
+  - [list hardcoded colors/spacing that should use tokens]
+```
+
+---
+
+#### Task 3: Logic/State Analysis
+
+**Input:** `./prototypes/<name>/js/state.js`
+
+**Responsibilities:**
+- Document state properties and types
+- Identify computed properties (getters)
+- List all methods and their purposes
+- Map to Svelte 5 patterns ($state, $derived)
+- Identify async operations
+- Note side effects
+
+**Output Report:**
+```
+LOGIC/STATE ANALYSIS REPORT
+===========================
+Prototype: <name>
+
+STATE PROPERTIES:
+  - propertyName: <type> → Svelte: $state()
+
+COMPUTED PROPERTIES:
+  - computedName → Svelte: $derived()
+
+METHODS:
+  - methodName(): <purpose>
+
+ASYNC OPERATIONS:
+  - [list async methods]
+
+SIDEEFFECTS:
+  - [list any side effects]
+
+MAPPING TO SVELTE:
+  [table of Alpine.js → Svelte 5 conversions]
+
+ISSUES FOUND:
+  - [list any logic concerns]
+```
+
+---
+
+#### Task 4: Structure/HTML Analysis
+
+**Input:** `./prototypes/<name>/index.html`
+
+**Responsibilities:**
 - Identify component boundaries
-- Map Alpine.js directives to expected Svelte patterns
-- List all interactive elements
-- Document component hierarchy
+- Document Alpine.js directives used
+- List interactive elements
+- Map component hierarchy
+- Check for inline styles/scripts (violations)
+- Identify Lucide Icons usage
 
-#### 1.4 Analyze CSS
-- Review `components.css` for component styles
-- Check for design token usage vs hardcoded values
-- Identify animations in `animations.css`
-- Note any responsive breakpoints
+**Output Report:**
+```
+STRUCTURE ANALYSIS REPORT
+=========================
+Prototype: <name>
 
-#### 1.5 Analyze JavaScript/State
-- Read `js/state.js` for state structure
-- Map Alpine.js state properties to Svelte stores/runes
-- Identify computed properties ($derived)
-- Document methods and their purposes
-- Note any side effects or async operations
+COMPONENT HIERARCHY:
+  Container
+  ├── Header
+  │   └── Navigation
+  ├── Content
+  │   ├── ComponentA
+  │   └── ComponentB
+  └── Footer
+
+ALPINE.JS DIRECTIVES:
+  - x-data: [list]
+  - x-show: [list]
+  - x-for: [list]
+  - @click: [list]
+
+INTERACTIVE ELEMENTS:
+  - [list buttons, inputs, etc.]
+
+VIOLATIONS CHECK:
+  Inline styles: [PASS/FAIL - details]
+  Inline scripts: [PASS/FAIL - details]
+  Inline SVGs: [PASS/FAIL - details]
+
+ISSUES FOUND:
+  - [list any structural issues]
+```
+
+---
+
+## Orchestrator Process
+
+### Step 1: Location Validation
+
+Before launching tasks, verify the prototype location:
+
+```javascript
+if (!path.startsWith('./prototypes/')) {
+  STOP("Invalid prototype location. Must be at ./prototypes/<name>/");
+}
+```
+
+### Step 2: Launch Parallel Tasks
+
+Launch all 4 analysis tasks simultaneously:
+
+```
+Task 1: README Analysis    → Reading README.md
+Task 2: Styles Analysis    → Reading CSS files
+Task 3: Logic Analysis     → Reading state.js
+Task 4: Structure Analysis → Reading index.html
+```
+
+### Step 3: Aggregate Reports
+
+Collect all task reports and cross-validate:
+
+| Check | Source Tasks | Validation |
+|-------|--------------|------------|
+| Scope alignment | README + Structure | Components match documented scope |
+| State usage | Logic + Structure | Alpine.js state matches JS definitions |
+| Style consistency | Styles + Structure | CSS classes exist for HTML elements |
+| Completeness | All | All documentation sections covered |
+
+### Step 4: Decision Gate
+
+```
+IF all checks pass AND no issues found:
+  status = "READY TO IMPLEMENT"
+  questions = standard_clarification_questions()
+
+ELSE IF issues found:
+  status = "NOT READY TO IMPLEMENT"
+  questions = clarification_questions + issue_questions
+
+GENERATE PLAN with status and questions
+```
+
+---
+
+## Workflow After Parallel Analysis
 
 ### Phase 2: Clarification Questions
 
-**MANDATORY:** Before proceeding with the plan, ask the user clarifying questions.
+**MANDATORY:** Before finalizing the plan, ask the user clarifying questions based on analysis reports.
 
 #### Required Questions:
 
@@ -135,8 +373,7 @@ Check the prototype against quality criteria:
 
 ### Phase 3: Component Analysis
 
-#### 3.1 Map to Existing Svelte Components
-Search the project for similar components:
+After questions are answered, map to existing Svelte components:
 
 ```bash
 # Search for existing components
@@ -149,7 +386,16 @@ For each prototype component, determine:
 - **New:** No existing component, create from scratch
 - **Reuse Opportunity:** Can be generalized for future reuse
 
-#### 3.2 State Management Mapping
+### Phase 4: Plan Generation
+
+Generate the implementation plan at:
+```
+./docs/<prototype-name>/prototype-implementation-plan.md
+```
+
+---
+
+## State Management Mapping Reference
 
 | Alpine.js Pattern | Svelte 5 Equivalent |
 |-------------------|---------------------|
@@ -162,19 +408,9 @@ For each prototype component, determine:
 | `get computedProp()` | `$derived()` |
 | Methods | Functions in `<script>` |
 
-#### 3.3 CSS Module Mapping
-- Convert `.component-class` to CSS module pattern
-- Ensure design tokens are preserved
-- Create `ComponentName.module.css` for each component
+---
 
-### Phase 4: Plan Generation
-
-Generate the implementation plan at:
-```
-./docs/<prototype-name>/prototype-implementation-plan.md
-```
-
-#### Plan Template:
+## Plan Template
 
 ```markdown
 # Implementation Plan: <Feature Name>
@@ -204,7 +440,6 @@ Generate the implementation plan at:
 | Component | Path | Description | Priority |
 |-----------|------|-------------|----------|
 | ComponentA | src-ui/src/lib/components/... | ... | P1 |
-| ComponentB | src-ui/src/lib/components/... | ... | P2 |
 
 #### Components to Extend
 
@@ -212,25 +447,17 @@ Generate the implementation plan at:
 |--------------------|---------------|----------|
 | ExistingComponent | Add X, Y | P1 |
 
-#### Reusable Components to Create
-
-| Component | Path | Can Be Used By |
-|-----------|------|----------------|
-| SharedComponent | src-ui/src/lib/components/shared/ | Feature A, Feature B |
-
 ### State Management
 
 | State Property | Type | Svelte Pattern | Store Location |
 |----------------|------|----------------|----------------|
 | isOpen | boolean | $state | Component local |
-| items | Item[] | Svelte store | src-ui/src/lib/stores/ |
 
 ### CSS Updates
 
 | File | Changes |
 |------|---------|
 | ComponentA.module.css | New file with styles from prototype |
-| design-system.css | Add new tokens if needed (justify) |
 
 ### Implementation Steps
 
@@ -247,14 +474,11 @@ Generate the implementation plan at:
 
 > **Status:** REQUIRED / NOT REQUIRED / NEEDS CLARIFICATION
 
-<If required, include Tauri-specific sections below>
-
-### Tauri Commands Examples
+### Tauri Commands
 
 | Command | File | Description |
 |---------|------|-------------|
 | `get_resources` | commands/module.rs | Fetch all items |
-| `create_resource` | commands/module.rs | Create new item |
 
 ### Data Models (Rust)
 
@@ -263,7 +487,6 @@ Generate the implementation plan at:
 pub struct Resource {
     pub id: String,
     pub name: String,
-    pub created_at: i64,
 }
 ```
 
@@ -277,15 +500,6 @@ pub struct Resource {
 ### Modified Files
 - `src-ui/src/lib/components/...`
 
-### Files to Review
-- `src-ui/src/lib/styles/design-system.css`
-
----
-
-## Risks & Considerations
-
-- <List any technical risks or edge cases>
-
 ---
 
 ## Acceptance Criteria
@@ -298,16 +512,18 @@ pub struct Resource {
 - [ ] No hardcoded design values
 ```
 
+---
+
 ## Golden Rules
 
 ### 1. Never Generate a Plan Without Questions
-Always ask clarifying questions before generating the implementation plan. Understanding is more important than speed.
+Always ask clarifying questions before generating the implementation plan.
 
 ### 2. Flag Uncertainties
-If any aspect is unclear, mark the plan as "NOT READY TO IMPLEMENT" and list questions in a dedicated section.
+If any aspect is unclear, mark the plan as "NOT READY TO IMPLEMENT" and list questions.
 
 ### 3. Prioritize Reuse
-Always search for existing components before planning new ones. Extend existing components when possible.
+Always search for existing components before planning new ones.
 
 ### 4. Design System Compliance
 Ensure all planned CSS uses design tokens. Flag any prototype styles that use hardcoded values.
@@ -316,13 +532,18 @@ Ensure all planned CSS uses design tokens. Flag any prototype styles that use ha
 Backend implementation requires its own plan following the same analysis process.
 
 ### 6. Scope Discipline
-Only plan for components marked as "in-scope" in the prototype README. Ignore contextual backdrop elements.
+Only plan for components marked as "in-scope" in the prototype README.
+
+### 7. Use Parallel Analysis
+Always launch all 4 analysis tasks in parallel for efficiency.
+
+---
 
 ## Reference
 
 - Prototype creation skill: `.claude/skills/prototype-interfaces/SKILL.md`
 - Design system: `src-ui/src/lib/styles/design-system.css`
 - Existing components: `src-ui/src/lib/components/`
-tant in- Tauri commands: `src-tauri/src/commands/`
+- Tauri commands: `src-tauri/src/commands/`
 - Tauri storage: `src-tauri/src/storage/`
 - Backend rules: `rules/05-backend-planning.md`
