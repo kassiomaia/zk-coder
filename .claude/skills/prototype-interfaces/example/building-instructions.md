@@ -384,12 +384,15 @@ Test in at least:
 ### 5.3 Quality Checklist
 
 Before considering complete:
-- [ ] All user flows documented
-- [ ] Design tokens used throughout
-- [ ] No hardcoded colors/spacing
+- [ ] All user flows documented at feature design level
+- [ ] Design tokens used throughout (no hardcoded colors/spacing)
 - [ ] Accessibility attributes present
-- [ ] README fully completed
+- [ ] README fully completed with required sections
+- [ ] README avoids implementation details (no Alpine.js, JS files, CSS files mentioned)
 - [ ] Works without server (file:// protocol)
+- [ ] **No inline CSS** - all styles in `css/` files
+- [ ] **No inline JavaScript logic** - all logic in `js/` files
+- [ ] HTML contains only semantic structure and Alpine.js directives
 
 ## Common Patterns
 
