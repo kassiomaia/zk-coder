@@ -19,6 +19,8 @@
 	font-size: var(--text-sm);
 	font-weight: var(--font-medium);
 	color: var(--color-text-primary);
+	/* Improved contrast for better readability */
+	opacity: 0.9;
 }
 
 /* Radio Group */
@@ -45,14 +47,24 @@
 	background: var(--color-surface-hover);
 }
 
+.radio:hover:has(input:checked) {
+	background: var(--color-interactive-selected-hover);
+}
+
 .radio input[type="radio"] {
 	margin-top: var(--space-1);
 	accent-color: var(--color-primary-500);
 }
 
+.radio:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 1px;
+	background: var(--color-interactive-selected);
+}
+
 .radio:has(input:checked) {
-	border-color: var(--color-primary-500);
-	background: var(--color-primary-50);
+	background: var(--color-interactive-selected);
+	border: 1px solid var(--color-primary-500);
 }
 
 .radioLabel {
@@ -65,11 +77,25 @@
 	font-size: var(--text-sm);
 	font-weight: var(--font-medium);
 	color: var(--color-text-primary);
+	/* Improved contrast for better readability */
+	opacity: 0.95;
+}
+
+.radio:has(input:checked) .radioTitle {
+	font-weight: var(--font-semibold);
+	color: var(--color-text-primary);
 }
 
 .radioDesc {
 	font-size: var(--text-xs);
 	color: var(--color-text-secondary);
+	/* Improved contrast for better readability */
+	opacity: 0.85;
+}
+
+.radio:has(input:checked) .radioDesc {
+	color: var(--color-text-secondary);
+	opacity: 0.9;
 }
 
 /* Error */
@@ -82,6 +108,8 @@
 	color: var(--color-error);
 	border-radius: var(--radius-lg);
 	font-size: var(--text-sm);
+	/* Improved contrast for better readability */
+	font-weight: var(--font-medium);
 }
 
 /* Info */
@@ -94,6 +122,8 @@
 	border-radius: var(--radius-lg);
 	font-size: var(--text-xs);
 	color: var(--color-text-secondary);
+	/* Improved contrast for better readability */
+	opacity: 0.85;
 }
 
 .info svg {
