@@ -6,6 +6,10 @@
 
 ---
 
+> **📋 Detailed Rust Backend Implementation**: See [nlp-backend-implementation.md](./nlp-backend-implementation.md) for complete code samples, file structure, error types, and implementation order.
+
+---
+
 ## Overview
 
 This plan details the implementation of Natural Language Processing (NLP) capabilities for the Coder AI desktop application. The NLP system will enable intelligent understanding of developer commands, maintain context across conversations, detect multiple intents, resolve ambiguities, and understand code-specific language.
