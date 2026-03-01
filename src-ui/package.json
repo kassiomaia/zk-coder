@@ -35,6 +35,10 @@
 		"vitest": "^3.0.0"
 	},
 	"dependencies": {
-		"@tauri-apps/api": "^2.0.0"
+		"@tauri-apps/api": "^2.0.0",
+		"fuse.js": "^7.1.0",
+		"highlight.js": "^11.11.1",
+		"markdown-it": "^14.1.1",
+		"svelte-virtual-list": "^3.0.1"
 	}
 }
