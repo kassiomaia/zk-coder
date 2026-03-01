@@ -65,25 +65,34 @@ pub async fn save_provider(
     let store = state.store.lock().await;
 
     let provider = if let Some(id) = request.id {
-        // Update existing provider
-        let existing = store
-            .get_provider(&id)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("Provider {} not found", id))?;
+        // Check if this is an update or a create with specific ID
+        let existing = store.get_provider(&id).map_err(|e| e.to_string())?;
 
-        Provider {
-            id,
-            name: request.name,
-            icon: request.icon,
-            is_custom: existing.is_custom,
-            api_type: request.api_type,
-            base_url: request.base_url,
-            is_configured: existing.is_configured,
-            created_at: existing.created_at,
-            updated_at: chrono::Utc::now(),
+        if let Some(existing) = existing {
+            // Update existing provider
+            Provider {
+                id,
+                name: request.name,
+                icon: request.icon,
+                is_custom: existing.is_custom,
+                api_type: request.api_type,
+                base_url: request.base_url,
+                is_configured: existing.is_configured,
+                created_at: existing.created_at,
+                updated_at: chrono::Utc::now(),
+            }
+        } else {
+            // Create new custom provider with the specified ID
+            Provider::custom_with_id(
+                &id,
+                &request.name,
+                &request.icon,
+                request.api_type,
+                request.base_url,
+            )
         }
     } else {
-        // Create new custom provider
+        // Create new custom provider with auto-generated ID
         Provider::custom(&request.name, &request.icon, request.api_type, request.base_url)
     };
 

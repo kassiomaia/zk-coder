@@ -147,8 +147,16 @@ impl ConfigStore {
                 )?;
             } else {
                 // Need to migrate - recreate the table with the new constraint
+                // Note: We must drop dependent tables first to avoid breaking foreign keys
                 conn.execute_batch(
                     r#"
+                    -- Save models data before dropping
+                    CREATE TABLE IF NOT EXISTS models_backup AS SELECT * FROM models;
+
+                    -- Drop dependent tables (they will be recreated with correct foreign keys)
+                    DROP TABLE IF EXISTS operation_defaults;
+                    DROP TABLE IF EXISTS models;
+
                     -- Start migration: recreate providers table with updated constraint
                     ALTER TABLE providers RENAME TO providers_old;
 
@@ -175,9 +183,40 @@ impl ConfigStore {
                     -- Drop old table
                     DROP TABLE providers_old;
 
-                    -- Recreate index
+                    -- Recreate providers index
                     CREATE INDEX IF NOT EXISTS idx_providers_name
                     ON providers(name COLLATE NOCASE);
+
+                    -- Recreate models table with correct foreign key
+                    CREATE TABLE IF NOT EXISTS models (
+                        id                  TEXT PRIMARY KEY,
+                        provider_id         TEXT NOT NULL,
+                        name                TEXT NOT NULL,
+                        supports_analysis   BOOLEAN NOT NULL DEFAULT TRUE,
+                        supports_code       BOOLEAN NOT NULL DEFAULT TRUE,
+                        supports_vision     BOOLEAN NOT NULL DEFAULT FALSE,
+                        supports_audio      BOOLEAN NOT NULL DEFAULT FALSE,
+                        supports_tips       BOOLEAN NOT NULL DEFAULT TRUE,
+                        supports_review     BOOLEAN NOT NULL DEFAULT TRUE,
+                        last_fetched        TEXT NOT NULL,
+                        FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
+                    );
+
+                    -- Restore models data if it existed
+                    INSERT OR IGNORE INTO models SELECT * FROM models_backup;
+
+                    -- Recreate models index
+                    CREATE INDEX IF NOT EXISTS idx_models_provider
+                    ON models(provider_id);
+
+                    -- Recreate operation_defaults table
+                    CREATE TABLE IF NOT EXISTS operation_defaults (
+                        operation   TEXT PRIMARY KEY CHECK(operation IN ('analysis', 'code', 'vision', 'audio', 'tips', 'review')),
+                        model_id    TEXT REFERENCES models(id) ON DELETE SET NULL
+                    );
+
+                    -- Cleanup backup table
+                    DROP TABLE IF EXISTS models_backup;
                     "#,
                 )?;
             }

@@ -87,9 +87,21 @@ impl Provider {
     #[must_use]
     pub fn custom(name: &str, icon: &str, api_type: ApiType, base_url: Option<String>) -> Self {
         let id = Self::generate_custom_id(name);
+        Self::custom_with_id(&id, name, icon, api_type, base_url)
+    }
+
+    /// Creates a new custom provider with a specific ID.
+    #[must_use]
+    pub fn custom_with_id(
+        id: &str,
+        name: &str,
+        icon: &str,
+        api_type: ApiType,
+        base_url: Option<String>,
+    ) -> Self {
         let now = Utc::now();
         Self {
-            id,
+            id: id.to_string(),
             name: name.to_string(),
             icon: icon.to_string(),
             is_custom: true,
