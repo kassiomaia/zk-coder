@@ -4,9 +4,11 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod chat;
 pub mod nlp;
 
-// Re-export NLP types for convenience
+// Re-export state types for convenience
+pub use chat::ChatState;
 pub use nlp::NlpState;
 
 /// Simple health check command to verify the backend is running.

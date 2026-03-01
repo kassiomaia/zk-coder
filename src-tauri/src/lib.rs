@@ -9,13 +9,17 @@ pub mod nlp;
 pub mod storage;
 pub mod utils;
 
-use commands::NlpState;
+use commands::{ChatState, NlpState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Initialize NLP state
     let nlp_state = NlpState::new_dev("coder_context.db")
         .expect("Failed to initialize NLP state");
+
+    // Initialize Chat state
+    let chat_state = ChatState::new("coder_chat.db")
+        .expect("Failed to initialize Chat state");
 
     tauri::Builder::default()
         .setup(|app| {
@@ -29,9 +33,12 @@ pub fn run() {
             Ok(())
         })
         .manage(nlp_state)
+        .manage(chat_state)
         .invoke_handler(tauri::generate_handler![
+            // Core commands
             commands::health_check,
             commands::get_app_info,
+            // NLP commands
             commands::nlp::classify_intent,
             commands::nlp::get_conversation_context,
             commands::nlp::add_context_message,
@@ -40,6 +47,21 @@ pub fn run() {
             commands::nlp::analyze_code,
             commands::nlp::update_project_files,
             commands::nlp::clear_conversation_context,
+            // Chat commands
+            commands::chat::load_conversations,
+            commands::chat::create_conversation,
+            commands::chat::load_conversation,
+            commands::chat::rename_conversation,
+            commands::chat::delete_conversation,
+            commands::chat::load_threads,
+            commands::chat::create_thread,
+            commands::chat::resolve_thread,
+            commands::chat::delete_thread,
+            commands::chat::load_messages,
+            commands::chat::load_thread_messages,
+            commands::chat::send_message,
+            commands::chat::delete_message,
+            commands::chat::update_message_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
