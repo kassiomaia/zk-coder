@@ -196,7 +196,7 @@ mod tests {
     use super::*;
 
     fn create_test_detector() -> MultiIntentDetector {
-        MultiIntentDetector::new(ClaudeClient::new("test-key"))
+        MultiIntentDetector::new(Arc::new(ClaudeClient::new("test-key")))
     }
 
     #[test]

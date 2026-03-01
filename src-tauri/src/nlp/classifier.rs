@@ -222,7 +222,7 @@ mod tests {
     use super::*;
 
     fn create_test_classifier() -> IntentClassifier {
-        IntentClassifier::new(ClaudeClient::new("test-key"))
+        IntentClassifier::new(Arc::new(ClaudeClient::new("test-key")))
     }
 
     #[test]

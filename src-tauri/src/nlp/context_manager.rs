@@ -203,7 +203,7 @@ mod tests {
 
     fn create_test_manager() -> ContextManager {
         let store = ContextStore::in_memory().expect("Failed to create store");
-        let claude = ClaudeClient::new("test-key");
+        let claude = Arc::new(ClaudeClient::new("test-key"));
         ContextManager::new(store, claude)
     }
 
