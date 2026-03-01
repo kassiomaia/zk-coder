@@ -35,6 +35,8 @@
 		onResolveThread?: (thread: Thread) => void;
 		/** Handler to delete conversation */
 		onDeleteConversation?: (conversation: Conversation) => void;
+		/** Handler to rename conversation */
+		onRenameConversation?: (conversation: Conversation, newTitle: string) => void;
 		/** Handler for search */
 		onSearch?: (query: string) => void;
 		/** Loading state */
@@ -53,6 +55,7 @@
 		onCreateThread,
 		onResolveThread,
 		onDeleteConversation,
+		onRenameConversation,
 		onSearch,
 		loading = false
 	}: Props = $props();
@@ -185,6 +188,7 @@
 				{onSearch}
 				onCreateNew={onCreateConversation}
 				onDelete={onDeleteConversation}
+				onRename={onRenameConversation}
 			/>
 		</div>
 
