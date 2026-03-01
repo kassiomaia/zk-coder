@@ -47,6 +47,8 @@ export interface NlpState {
 export interface ChatState {
 	/** All conversations */
 	conversations: Conversation[];
+	/** Loading state for conversations */
+	conversationsLoading: LoadingState;
 	/** Currently selected conversation ID */
 	selectedConversationId: string | null;
 	/** Currently selected thread ID */
@@ -55,8 +57,14 @@ export interface ChatState {
 	messages: Message[];
 	/** Loading state for messages */
 	messagesLoading: LoadingState;
+	/** Threads for current conversation */
+	threads: Thread[];
+	/** Loading state for threads */
+	threadsLoading: LoadingState;
 	/** NLP state */
 	nlp: NlpState;
+	/** Global error message */
+	error: string | null;
 }
 
 // ============================================================================
