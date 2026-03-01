@@ -110,6 +110,16 @@
 	flex-shrink: 0;
 }
 
+/* Loading state */
+.loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-8);
+	color: var(--color-text-secondary);
+	font-size: var(--text-sm);
+}
+
 /* Footer */
 .footer {
 	display: flex;

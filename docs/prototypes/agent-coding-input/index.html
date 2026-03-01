@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Agent Coding Input - Coder Prototype</title>
+
+	<!-- Fonts -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+	<!-- Alpine.js - using jsDelivr as more reliable CDN -->
+	<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.0/dist/cdn.min.js"></script>
+
+	<!-- Styles (order matters) -->
+	<link rel="stylesheet" href="css/design-system.css">
+	<link rel="stylesheet" href="css/animations.css">
+	<link rel="stylesheet" href="css/icons.css">
+	<link rel="stylesheet" href="css/components.css">
+
+	<!-- Inline SVG Icons Definitions -->
+	<script>
+		// Icon SVG strings for reuse
+		const ICONS = {
+			'layout-list': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>',
+			'code': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
+			'chevron-down': '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>',
+			'check': '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+			'git-branch': '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>',
+			'git-commit': '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="3" x2="12" y2="9"></line><line x1="12" y1="15" x2="12" y2="21"></line></svg>',
+			'sparkles': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><path d="M5.6 5.6l12.8 12.8"></path><path d="M3 12h18"></path><path d="M5.6 18.4l12.8-12.8"></path></svg>',
+			'file': '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>',
+			'x': '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+			'book': '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+			'refresh': '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>',
+			'check-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>',
+			'message-square': '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
+			'send': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>',
+			'sun-moon': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"></path></svg>',
+			'trash': '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>',
+			'loader-2': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>'
+		};
+
+		// Function to render icon by name
+		function renderIcon(name, className = '') {
+			const svg = ICONS[name] || ICONS['file'];
+			return `<span class="icon ${className}">${svg}</span>`;
+		}
+	</script>
+</head>
+<body x-data="prototypeState()" x-init="init()" @keydown.window="handleGlobalKeydown($event)">
+	<div class="doc-page">
+		<!-- Documentation Sidebar (Contextual - Not in Scope) -->
+		<aside class="doc-sidebar">
+			<div class="doc-sidebar-title">Coder Components</div>
+			<nav class="doc-nav">
+				<a href="#overview" class="doc-nav-link">Overview</a>
+				<a href="#usage" class="doc-nav-link">Usage</a>
+				<a href="#examples" class="doc-nav-link">Examples</a>
+				<a href="#api" class="doc-nav-link">API Reference</a>
+			</nav>
+		</aside>
+
+		<!-- Documentation Content (Contextual - Not in Scope) -->
+		<main class="doc-content">
+			<header class="doc-header">
+				<h1 class="doc-title">Agent Coding Input</h1>
+				<p class="doc-subtitle">
+					A sophisticated input component for submitting coding instructions to the AI agent.
+					Supports plan/edit modes, provider selection, file attachments, and command palette integration.
+				</p>
+			</header>
+
+			<!-- Overview Section -->
+			<section id="overview" class="doc-section">
+				<h2 class="doc-section-title">Overview</h2>
+				<p class="doc-text">
+					The Agent Coding Input component provides a comprehensive interface for users to interact
+					with the Coder AI assistant. It features a rich text input with special character support,
+					mode selection for planning vs. direct editing, AI provider configuration, and git branch
+					selection for context-aware code generation.
+				</p>
+				<p class="doc-text">
+					Key features include file reference via @mentions, command palette via /commands,
+					and an AI-powered text improvement feature for enhancing user prompts.
+				</p>
+			</section>
+
+			<!-- Usage Section -->
+			<section id="usage" class="doc-section">
+				<h2 class="doc-section-title">Usage</h2>
+				<p class="doc-text">
+					Basic usage with default configuration:
+				</p>
+				<div class="doc-code-block">
+&lt;AgentInput
+	mode="plan"
+	provider="anthropic"
+	model="claude-opus-4"
+	branch="main"
+	onSend={(instruction) => handleSend(instruction)}
+/&gt;
+				</div>
+
+				<h3 class="doc-section-subtitle">Interactive Example</h3>
+				<p class="doc-text">
+					Try the live component below. Use <kbd>@</kbd> to reference files and <kbd>/</kbd> to open the command palette.
+				</p>
+
+				<!-- Agent Coding Input Component (IN SCOPE) - Main Interactive Example -->
+				<div class="agent-input">
+					<!-- Header with Mode Selector and Controls -->
+					<div class="agent-input-header">
+						<!-- Left Section: Mode Selector -->
+						<div class="agent-input-header-left">
+							<div class="mode-selector">
+								<button
+									class="mode-button"
+									:class="mode === 'plan' ? 'active' : ''"
+									@click="toggleMode('plan')"
+									type="button"
+								>
+									<span class="mode-icon" x-html="ICONS['layout-list']"></span>
+									<span>Plan Mode</span>
+								</button>
+								<button
+									class="mode-button"
+									:class="mode === 'edit' ? 'active' : ''"
+									@click="toggleMode('edit')"
+									type="button"
+								>
+									<span class="mode-icon" x-html="ICONS['code']"></span>
+									<span>Edit Mode</span>
+								</button>
+							</div>
+						</div>
+
+						<!-- Center Section: Controls -->
+						<div class="agent-input-controls">
+							<!-- Provider Dropdown -->
+							<div class="dropdown">
+								<button
+									class="dropdown-button"
+									:aria-expanded="providerDropdownOpen"
+									@click="toggleProviderDropdown()"
+									type="button"
+								>
+									<span x-text="providers.find(p => p.id === selectedProvider)?.name"></span>
+									<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+								</button>
+								<div
+									class="dropdown-menu"
+									x-show="providerDropdownOpen"
+									@click.stop
+									x-transition:enter="transition ease-out duration-150"
+									x-transition:enter-start="opacity-0 scale-95"
+									x-transition:enter-end="opacity-100 scale-100"
+									x-transition:leave="transition ease-in duration-100"
+									x-transition:leave-start="opacity-100 scale-100"
+									x-transition:leave-end="opacity-0 scale-95"
+								>
+									<template x-for="provider in providers" :key="provider.id">
+										<button
+											class="dropdown-item"
+											:class="selectedProvider === provider.id ? 'selected' : ''"
+											@click="selectProvider(provider.id)"
+											type="button"
+										>
+											<span class="dropdown-item-label">
+												<span x-text="provider.name"></span>
+											</span>
+											<span
+												class="dropdown-item-check"
+												x-show="selectedProvider === provider.id"
+												x-html="ICONS['check']"
+											></span>
+										</button>
+									</template>
+								</div>
+							</div>
+
+							<!-- Model Dropdown -->
+							<div class="dropdown">
+								<button
+									class="dropdown-button"
+									:aria-expanded="modelDropdownOpen"
+									@click="toggleModelDropdown()"
+									type="button"
+								>
+									<span x-text="availableModels.find(m => m.id === selectedModel)?.name"></span>
+									<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+								</button>
+								<div
+									class="dropdown-menu"
+									x-show="modelDropdownOpen"
+									@click.stop
+									x-transition:enter="transition ease-out duration-150"
+									x-transition:enter-start="opacity-0 scale-95"
+									x-transition:enter-end="opacity-100 scale-100"
+									x-transition:leave="transition ease-in duration-100"
+									x-transition:leave-start="opacity-100 scale-100"
+									x-transition:leave-end="opacity-0 scale-95"
+								>
+									<template x-for="model in availableModels" :key="model.id">
+										<button
+											class="dropdown-item"
+											:class="selectedModel === model.id ? 'selected' : ''"
+											@click="selectModel(model.id)"
+											type="button"
+										>
+											<span class="dropdown-item-label">
+												<span x-text="model.name"></span>
+												<span class="dropdown-item-tier" x-text="model.tier"></span>
+											</span>
+											<span
+												class="dropdown-item-check"
+												x-show="selectedModel === model.id"
+												x-html="ICONS['check']"
+											></span>
+										</button>
+									</template>
+								</div>
+							</div>
+
+							<!-- Branch Selector -->
+							<div class="dropdown branch-dropdown">
+								<button
+									class="branch-selector"
+									:aria-expanded="branchDropdownOpen"
+									@click="toggleBranchDropdown()"
+									type="button"
+								>
+									<span class="branch-icon" x-html="ICONS['git-branch']"></span>
+									<span class="branch-name" x-text="selectedBranch"></span>
+									<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+								</button>
+								<div
+									class="dropdown-menu dropdown-menu-right"
+									x-show="branchDropdownOpen"
+									@click.stop
+									x-transition:enter="transition ease-out duration-150"
+									x-transition:enter-start="opacity-0 scale-95"
+									x-transition:enter-end="opacity-100 scale-100"
+									x-transition:leave="transition ease-in duration-100"
+									x-transition:leave-start="opacity-100 scale-100"
+									x-transition:leave-end="opacity-0 scale-95"
+								>
+									<template x-for="branch in branches" :key="branch">
+										<button
+											class="dropdown-item"
+											:class="selectedBranch === branch ? 'selected' : ''"
+											@click="selectBranch(branch)"
+											type="button"
+										>
+											<span class="dropdown-item-label">
+												<span x-text="branch"></span>
+											</span>
+											<span
+												class="dropdown-item-check"
+												x-show="selectedBranch === branch"
+												x-html="ICONS['check']"
+											></span>
+										</button>
+									</template>
+								</div>
+							</div>
+						</div>
+
+						<!-- Right Section: Improve Button -->
+						<div class="agent-input-header-right">
+							<button
+								class="improve-button"
+								:class="{ loading: improveLoading }"
+								:disabled="!inputText.trim() || improveLoading"
+								@click="improveWithAI()"
+								type="button"
+							>
+								<span class="improve-icon" x-html="ICONS['sparkles']"></span>
+								<span>Improve with AI</span>
+							</button>
+						</div>
+					</div>
+
+					<!-- Input Body -->
+					<div class="agent-input-body">
+						<div class="input-wrapper">
+							<textarea
+								x-ref="textarea"
+								class="input-textarea"
+								x-model="inputText"
+								@input="handleInput($event)"
+								@keydown="handleKeydown($event)"
+								placeholder=" "
+								rows="5"
+							></textarea>
+							<label class="input-label" x-show="!inputText">Ask Coder to write code...</label>
+						</div>
+
+						<!-- File Attachments -->
+						<div class="file-attachments" x-show="attachedFiles.length > 0">
+							<template x-for="file in attachedFiles" :key="file">
+								<div class="file-chip">
+									<span class="file-chip-icon" x-html="ICONS['file']"></span>
+									<span class="file-chip-name" x-text="file"></span>
+									<button
+										class="file-chip-remove"
+										@click="removeFile(file)"
+										type="button"
+										aria-label="Remove file"
+										x-html="ICONS['x']"
+									></button>
+								</div>
+							</template>
+						</div>
+					</div>
+
+					<!-- Footer with Send Button -->
+					<div class="agent-input-footer">
+						<div class="input-hints">
+							<span class="input-hint">
+								<kbd>@</kbd> files
+							</span>
+							<span class="input-hint">
+								<kbd>/</kbd> commands
+							</span>
+							<span class="input-hint">
+								<kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send
+							</span>
+						</div>
+						<button
+							class="send-button"
+							:class="{ running: isSending }"
+							:disabled="!canSend && !isSending"
+							@click="sendInstruction()"
+							type="button"
+						>
+							<span x-show="!isSending">Send</span>
+							<span x-show="isSending">Stop</span>
+							<span class="send-button-icon" x-show="!isSending" x-html="ICONS['send']"></span>
+							<span class="send-button-icon send-button-spinner" x-show="isSending" x-html="ICONS['loader-2']"></span>
+						</button>
+					</div>
+				</div>
+
+				<!-- Floating Command Palettes (Outside component layout) -->
+				<!-- Command Palette (Files) - Floating Popup -->
+				<div
+					class="command-palette"
+					x-show="commandPaletteOpen && commandPaletteType === 'files'"
+					x-bind:style="{ top: commandPalettePosition.top, left: commandPalettePosition.left, width: commandPalettePosition.width }"
+					x-transition:enter="transition ease-out duration-150"
+					x-transition:enter-start="opacity-0 translate-y-2"
+					x-transition:enter-end="opacity-100 translate-y-0"
+					x-transition:leave="transition ease-in duration-100"
+					x-transition:leave-start="opacity-100 translate-y-0"
+					x-transition:leave-end="opacity-0 translate-y-2"
+				>
+					<div class="command-palette-header">
+						<span class="command-palette-title">Reference File</span>
+						<span class="command-palette-query">@<span x-text="commandQuery"></span></span>
+					</div>
+					<ul class="command-palette-list">
+						<template x-for="(file, index) in filteredFiles" :key="file.name">
+							<li>
+								<button
+									class="command-item"
+									:class="selectedCommandIndex === index ? 'selected' : ''"
+									@mouseenter="selectedCommandIndex = index"
+									@click="selectCommandItem(file)"
+									type="button"
+								>
+									<span class="command-item-icon" x-html="ICONS['file']"></span>
+									<span class="command-item-content">
+										<span class="command-item-name" x-text="file.name"></span>
+										<span class="command-item-desc" x-text="file.type"></span>
+									</span>
+								</button>
+							</li>
+						</template>
+					</ul>
+					<div class="command-palette-footer">
+						<span class="command-palette-hint">
+							<kbd>↑↓</kbd> to navigate
+							<kbd>Enter</kbd> to select
+							<kbd>Esc</kbd> to close
+						</span>
+					</div>
+				</div>
+
+				<!-- Command Palette (Commands) - Floating Popup -->
+				<div
+					class="command-palette"
+					x-show="commandPaletteOpen && commandPaletteType === 'commands'"
+					x-bind:style="{ top: commandPalettePosition.top, left: commandPalettePosition.left, width: commandPalettePosition.width }"
+					x-transition:enter="transition ease-out duration-150"
+					x-transition:enter-start="opacity-0 translate-y-2"
+					x-transition:enter-end="opacity-100 translate-y-0"
+					x-transition:leave="transition ease-in duration-100"
+					x-transition:leave-start="opacity-100 translate-y-0"
+					x-transition:leave-end="opacity-0 translate-y-2"
+				>
+					<div class="command-palette-header">
+						<span class="command-palette-title">Commands</span>
+						<span class="command-palette-query" x-show="commandQuery">/<span x-text="commandQuery"></span></span>
+					</div>
+					<ul class="command-palette-list">
+						<template x-for="(commands, category) in groupedCommands">
+							<li class="command-category">
+								<span class="command-category-label" x-text="category"></span>
+								<ul class="command-category-list">
+									<template x-for="(command, cmdIndex) in commands" :key="command.id">
+										<li>
+											<button
+												class="command-item"
+												:class="selectedCommandIndex === cmdIndex ? 'selected' : ''"
+												@mouseenter="selectedCommandIndex = cmdIndex"
+												@click="selectCommandItem(command)"
+												type="button"
+											>
+												<span class="command-item-icon" x-html="getCommandIcon(command.icon)"></span>
+												<span class="command-item-content">
+													<span class="command-item-name" x-text="'/' + command.name"></span>
+													<span class="command-item-desc" x-text="command.description"></span>
+												</span>
+												<span class="command-item-shortcut" x-show="command.shortcut" x-text="command.shortcut"></span>
+											</button>
+										</li>
+									</template>
+								</ul>
+							</li>
+						</template>
+					</ul>
+					<div class="command-palette-footer">
+						<span class="command-palette-hint">
+							<kbd>↑↓</kbd> to navigate
+							<kbd>Enter</kbd> to select
+							<kbd>Esc</kbd> to close
+						</span>
+					</div>
+				</div>
+
+				<!-- Theme Toggle -->
+				<div class="theme-toggle-wrapper">
+					<button
+						class="theme-toggle-button"
+						@click="toggleTheme()"
+						type="button"
+					>
+						<span class="theme-toggle-icon" x-html="ICONS['sun-moon']"></span>
+						<span x-text="theme === 'dark' ? 'Light Mode' : 'Dark Mode'"></span>
+					</button>
+				</div>
+			</section>
+
+			<!-- Examples Section -->
+			<section id="examples" class="doc-section">
+				<h2 class="doc-section-title">Examples</h2>
+
+				<!-- Example 1: With Attached Files -->
+				<div class="example-container">
+					<div class="example-label">Example with Attached Files</div>
+					<p class="doc-text">
+						Type <code>@</code> to see file suggestions and attach files to your instruction.
+					</p>
+
+					<!-- Rendered Example with Files -->
+					<div class="agent-input agent-input-example">
+						<div class="agent-input-header">
+							<div class="agent-input-header-left">
+								<div class="mode-selector">
+									<button class="mode-button active">
+										<span class="mode-icon" x-html="ICONS['layout-list']"></span>
+										<span>Plan Mode</span>
+									</button>
+									<button class="mode-button">
+										<span class="mode-icon" x-html="ICONS['code']"></span>
+										<span>Edit Mode</span>
+									</button>
+								</div>
+							</div>
+							<div class="agent-input-controls">
+								<!-- Provider Dropdown -->
+								<div class="dropdown">
+									<button class="dropdown-button">
+										<span>Anthropic</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+								<!-- Model Dropdown -->
+								<div class="dropdown">
+									<button class="dropdown-button">
+										<span>Claude Opus 4</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+								<!-- Branch Selector -->
+								<div class="dropdown branch-dropdown">
+									<button class="branch-selector">
+										<span class="branch-icon" x-html="ICONS['git-branch']"></span>
+										<span class="branch-name">main</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+							</div>
+							<div class="agent-input-header-right">
+								<button class="improve-button">
+									<span class="improve-icon" x-html="ICONS['sparkles']"></span>
+									<span>Improve with AI</span>
+								</button>
+							</div>
+						</div>
+						<div class="agent-input-body">
+							<div class="input-wrapper">
+								<textarea class="input-textarea" readonly style="resize: none;">Help me refactor the authentication flow in</textarea>
+							</div>
+							<div class="file-attachments">
+								<div class="file-chip">
+									<span class="file-chip-icon" x-html="ICONS['file']"></span>
+									<span class="file-chip-name">src-ui/src/lib/components/AgentInput.svelte</span>
+								</div>
+								<div class="file-chip">
+									<span class="file-chip-icon" x-html="ICONS['file']"></span>
+									<span class="file-chip-name">src-ui/src/lib/types/command.ts</span>
+								</div>
+							</div>
+						</div>
+						<div class="agent-input-footer">
+							<div class="input-hints">
+								<span class="input-hint"><kbd>@</kbd> files</span>
+								<span class="input-hint"><kbd>/</kbd> commands</span>
+								<span class="input-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send</span>
+							</div>
+							<button class="send-button">
+								<span>Send</span>
+								<span class="send-button-icon" x-html="ICONS['send']"></span>
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<!-- Example 2: Command Palette Open -->
+				<div class="example-container">
+					<div class="example-label">Command Palette Open</div>
+					<p class="doc-text">
+						Type <code>/</code> to open the command palette and select a command.
+					</p>
+
+					<!-- Rendered Example with Command Palette -->
+					<div class="agent-input agent-input-example">
+						<div class="agent-input-header">
+							<div class="agent-input-header-left">
+								<div class="mode-selector">
+									<button class="mode-button active">
+										<span class="mode-icon" x-html="ICONS['layout-list']"></span>
+										<span>Plan Mode</span>
+									</button>
+									<button class="mode-button">
+										<span class="mode-icon" x-html="ICONS['code']"></span>
+										<span>Edit Mode</span>
+									</button>
+								</div>
+							</div>
+							<div class="agent-input-controls">
+								<!-- Provider Dropdown -->
+								<div class="dropdown">
+									<button class="dropdown-button">
+										<span>Anthropic</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+								<!-- Model Dropdown -->
+								<div class="dropdown">
+									<button class="dropdown-button">
+										<span>Claude Opus 4</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+								<!-- Branch Selector -->
+								<div class="dropdown branch-dropdown">
+									<button class="branch-selector">
+										<span class="branch-icon" x-html="ICONS['git-branch']"></span>
+										<span class="branch-name">main</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+							</div>
+							<div class="agent-input-header-right">
+								<button class="improve-button">
+									<span class="improve-icon" x-html="ICONS['sparkles']"></span>
+									<span>Improve with AI</span>
+								</button>
+							</div>
+						</div>
+						<div class="agent-input-body">
+							<div class="input-wrapper">
+								<textarea class="input-textarea" readonly style="resize: none;">/</textarea>
+							</div>
+						</div>
+						<div class="agent-input-footer">
+							<div class="input-hints">
+								<span class="input-hint"><kbd>@</kbd> files</span>
+								<span class="input-hint"><kbd>/</kbd> commands</span>
+								<span class="input-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send</span>
+							</div>
+							<button class="send-button" disabled>
+								<span>Send</span>
+								<span class="send-button-icon" x-html="ICONS['send']"></span>
+							</button>
+						</div>
+					</div>
+
+					<!-- Command Palette (Static Example - Floating) -->
+					<div class="command-palette command-palette-static" style="position: relative; margin-top: var(--space-3); width: 100%;">
+						<div class="command-palette-header">
+							<span class="command-palette-title">Commands</span>
+						</div>
+						<ul class="command-palette-list">
+							<li class="command-category">
+								<span class="command-category-label">Code</span>
+								<ul class="command-category-list">
+									<li>
+										<button class="command-item selected">
+											<span class="command-item-icon" x-html="ICONS['code']"></span>
+											<span class="command-item-content">
+												<span class="command-item-name">/generate</span>
+												<span class="command-item-desc">Generate code from description</span>
+											</span>
+										</button>
+									</li>
+									<li>
+										<button class="command-item">
+											<span class="command-item-icon" x-html="ICONS['book']"></span>
+											<span class="command-item-content">
+												<span class="command-item-name">/explain</span>
+												<span class="command-item-desc">Explain selected code</span>
+											</span>
+										</button>
+									</li>
+									<li>
+										<button class="command-item">
+											<span class="command-item-icon" x-html="ICONS['refresh']"></span>
+											<span class="command-item-content">
+												<span class="command-item-name">/refactor</span>
+												<span class="command-item-desc">Refactor selected code</span>
+											</span>
+										</button>
+									</li>
+									<li>
+										<button class="command-item">
+											<span class="command-item-icon" x-html="ICONS['check-circle']"></span>
+											<span class="command-item-content">
+												<span class="command-item-name">/test</span>
+												<span class="command-item-desc">Generate tests for code</span>
+											</span>
+										</button>
+									</li>
+								</ul>
+							</li>
+							<li class="command-category">
+								<span class="command-category-label">Conversation</span>
+								<ul class="command-category-list">
+									<li>
+										<button class="command-item">
+											<span class="command-item-icon" x-html="ICONS['message-square']"></span>
+											<span class="command-item-content">
+												<span class="command-item-name">/new-chat</span>
+												<span class="command-item-desc">Start a new conversation</span>
+											</span>
+											<span class="command-item-shortcut">Ctrl+N</span>
+										</button>
+									</li>
+								</ul>
+							</li>
+						</ul>
+						<div class="command-palette-footer">
+							<span class="command-palette-hint">
+								<kbd>↑↓</kbd> to navigate
+								<kbd>Enter</kbd> to select
+								<kbd>Esc</kbd> to close
+							</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Example 3: Files and Palette Combined -->
+				<div class="example-container">
+					<div class="example-label">File Reference with Command Palette</div>
+					<p class="doc-text">
+						Combining file attachments with the command palette for complex instructions.
+					</p>
+
+					<!-- Rendered Example with Files and Palette -->
+					<div class="agent-input agent-input-example">
+						<div class="agent-input-header">
+							<div class="agent-input-header-left">
+								<div class="mode-selector">
+									<button class="mode-button active">
+										<span class="mode-icon" x-html="ICONS['layout-list']"></span>
+										<span>Plan Mode</span>
+									</button>
+									<button class="mode-button">
+										<span class="mode-icon" x-html="ICONS['code']"></span>
+										<span>Edit Mode</span>
+									</button>
+								</div>
+							</div>
+							<div class="agent-input-controls">
+								<!-- Provider Dropdown -->
+								<div class="dropdown">
+									<button class="dropdown-button">
+										<span>Anthropic</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+								<!-- Model Dropdown -->
+								<div class="dropdown">
+									<button class="dropdown-button">
+										<span>Claude Opus 4</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+								<!-- Branch Selector -->
+								<div class="dropdown branch-dropdown">
+									<button class="branch-selector">
+										<span class="branch-icon" x-html="ICONS['git-branch']"></span>
+										<span class="branch-name">main</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+							</div>
+							<div class="agent-input-header-right">
+								<button class="improve-button">
+									<span class="improve-icon" x-html="ICONS['sparkles']"></span>
+									<span>Improve with AI</span>
+								</button>
+							</div>
+						</div>
+						<div class="agent-input-body">
+							<div class="input-wrapper">
+								<textarea class="input-textarea" readonly style="resize: none;">Can you explain how the</textarea>
+							</div>
+							<div class="file-attachments">
+								<div class="file-chip">
+									<span class="file-chip-icon" x-html="ICONS['file']"></span>
+									<span class="file-chip-name">src-ui/src/lib/components/AgentInput.svelte</span>
+								</div>
+							</div>
+						</div>
+						<div class="agent-input-footer">
+							<div class="input-hints">
+								<span class="input-hint"><kbd>@</kbd> files</span>
+								<span class="input-hint"><kbd>/</kbd> commands</span>
+								<span class="input-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send</span>
+							</div>
+							<button class="send-button" disabled>
+								<span>Send</span>
+								<span class="send-button-icon" x-html="ICONS['send']"></span>
+							</button>
+						</div>
+					</div>
+
+					<!-- File Palette (Static Example - Floating) -->
+					<div class="command-palette command-palette-static" style="position: relative; margin-top: var(--space-3); width: 100%;">
+						<div class="command-palette-header">
+							<span class="command-palette-title">Reference File</span>
+							<span class="command-palette-query">@</span>
+						</div>
+						<ul class="command-palette-list">
+							<li>
+								<button class="command-item">
+									<span class="command-item-icon" x-html="ICONS['file']"></span>
+									<span class="command-item-content">
+										<span class="command-item-name">Cargo.toml</span>
+										<span class="command-item-desc">config</span>
+									</span>
+								</button>
+							</li>
+							<li>
+								<button class="command-item selected">
+									<span class="command-item-icon" x-html="ICONS['file']"></span>
+									<span class="command-item-content">
+										<span class="command-item-name">README.md</span>
+										<span class="command-item-desc">docs</span>
+									</span>
+								</button>
+							</li>
+							<li>
+								<button class="command-item">
+									<span class="command-item-icon" x-html="ICONS['file']"></span>
+									<span class="command-item-content">
+										<span class="command-item-name">src-ui/src/lib/components/AgentInput.svelte</span>
+										<span class="command-item-desc">component</span>
+									</span>
+								</button>
+							</li>
+							<li>
+								<button class="command-item">
+									<span class="command-item-icon" x-html="ICONS['file']"></span>
+									<span class="command-item-content">
+										<span class="command-item-name">src-ui/src/lib/styles/design-system.css</span>
+										<span class="command-item-desc">styles</span>
+									</span>
+								</button>
+							</li>
+						</ul>
+						<div class="command-palette-footer">
+							<span class="command-palette-hint">
+								<kbd>↑↓</kbd> to navigate
+								<kbd>Enter</kbd> to select
+								<kbd>Esc</kbd> to close
+							</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Example 4: Dropdown Open State -->
+				<div class="example-container">
+					<div class="example-label">Provider Dropdown Open</div>
+					<p class="doc-text">
+						Click on a provider, model, or branch selector to see available options.
+					</p>
+
+					<!-- Rendered Example with Open Dropdown -->
+					<div class="agent-input agent-input-example">
+						<div class="agent-input-header">
+							<div class="agent-input-header-left">
+								<div class="mode-selector">
+									<button class="mode-button active">
+										<span class="mode-icon" x-html="ICONS['layout-list']"></span>
+										<span>Plan Mode</span>
+									</button>
+									<button class="mode-button">
+										<span class="mode-icon" x-html="ICONS['code']"></span>
+										<span>Edit Mode</span>
+									</button>
+								</div>
+							</div>
+							<div class="agent-input-controls">
+								<!-- Provider Dropdown (Open State) -->
+								<div class="dropdown">
+									<button class="dropdown-button" aria-expanded="true">
+										<span>Anthropic</span>
+										<span class="dropdown-icon" style="transform: rotate(180deg);" x-html="ICONS['chevron-down']"></span>
+									</button>
+									<div class="dropdown-menu" style="display: block;">
+										<button class="dropdown-item selected">
+											<span class="dropdown-item-label">
+												<span>Anthropic</span>
+											</span>
+											<span class="dropdown-item-check" x-html="ICONS['check']"></span>
+										</button>
+										<button class="dropdown-item">
+											<span class="dropdown-item-label">
+												<span>OpenAI</span>
+											</span>
+										</button>
+										<button class="dropdown-item">
+											<span class="dropdown-item-label">
+												<span>Google</span>
+											</span>
+										</button>
+										<button class="dropdown-item">
+											<span class="dropdown-item-label">
+												<span>Local LLM</span>
+											</span>
+										</button>
+									</div>
+								</div>
+								<!-- Model Dropdown -->
+								<div class="dropdown">
+									<button class="dropdown-button">
+										<span>Claude Opus 4</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+								<!-- Branch Selector -->
+								<div class="dropdown branch-dropdown">
+									<button class="branch-selector">
+										<span class="branch-icon" x-html="ICONS['git-branch']"></span>
+										<span class="branch-name">main</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+							</div>
+							<div class="agent-input-header-right">
+								<button class="improve-button">
+									<span class="improve-icon" x-html="ICONS['sparkles']"></span>
+									<span>Improve with AI</span>
+								</button>
+							</div>
+						</div>
+						<div class="agent-input-body">
+							<div class="input-wrapper">
+								<textarea class="input-textarea" readonly style="resize: none;" placeholder=" "></textarea>
+								<label class="input-label">Ask Coder to write code...</label>
+							</div>
+						</div>
+						<div class="agent-input-footer">
+							<div class="input-hints">
+								<span class="input-hint"><kbd>@</kbd> files</span>
+								<span class="input-hint"><kbd>/</kbd> commands</span>
+								<span class="input-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send</span>
+							</div>
+							<button class="send-button" disabled>
+								<span>Send</span>
+								<span class="send-button-icon" x-html="ICONS['send']"></span>
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<!-- Example 5: Model Dropdown Open -->
+				<div class="example-container">
+					<div class="example-label">Model Dropdown Open</div>
+					<p class="doc-text">
+						Model dropdowns show tier labels (Premium, Standard, Fast) to help you choose the right model.
+					</p>
+
+					<!-- Rendered Example with Model Dropdown Open -->
+					<div class="agent-input agent-input-example">
+						<div class="agent-input-header">
+							<div class="agent-input-header-left">
+								<div class="mode-selector">
+									<button class="mode-button active">
+										<span class="mode-icon" x-html="ICONS['layout-list']"></span>
+										<span>Plan Mode</span>
+									</button>
+									<button class="mode-button">
+										<span class="mode-icon" x-html="ICONS['code']"></span>
+										<span>Edit Mode</span>
+									</button>
+								</div>
+							</div>
+							<div class="agent-input-controls">
+								<!-- Provider Dropdown -->
+								<div class="dropdown">
+									<button class="dropdown-button">
+										<span>Anthropic</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+								<!-- Model Dropdown (Open State) -->
+								<div class="dropdown">
+									<button class="dropdown-button" aria-expanded="true">
+										<span>Claude Opus 4</span>
+										<span class="dropdown-icon" style="transform: rotate(180deg);" x-html="ICONS['chevron-down']"></span>
+									</button>
+									<div class="dropdown-menu" style="display: block;">
+										<button class="dropdown-item selected">
+											<span class="dropdown-item-label">
+												<span>Claude Opus 4</span>
+												<span class="dropdown-item-tier">Premium</span>
+											</span>
+											<span class="dropdown-item-check" x-html="ICONS['check']"></span>
+										</button>
+										<button class="dropdown-item">
+											<span class="dropdown-item-label">
+												<span>Claude Sonnet 4</span>
+												<span class="dropdown-item-tier">Standard</span>
+											</span>
+										</button>
+										<button class="dropdown-item">
+											<span class="dropdown-item-label">
+												<span>Claude Haiku 4</span>
+												<span class="dropdown-item-tier">Fast</span>
+											</span>
+										</button>
+									</div>
+								</div>
+								<!-- Branch Selector -->
+								<div class="dropdown branch-dropdown">
+									<button class="branch-selector">
+										<span class="branch-icon" x-html="ICONS['git-branch']"></span>
+										<span class="branch-name">main</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+							</div>
+							<div class="agent-input-header-right">
+								<button class="improve-button">
+									<span class="improve-icon" x-html="ICONS['sparkles']"></span>
+									<span>Improve with AI</span>
+								</button>
+							</div>
+						</div>
+						<div class="agent-input-body">
+							<div class="input-wrapper">
+								<textarea class="input-textarea" readonly style="resize: none;" placeholder=" "></textarea>
+								<label class="input-label">Ask Coder to write code...</label>
+							</div>
+						</div>
+						<div class="agent-input-footer">
+							<div class="input-hints">
+								<span class="input-hint"><kbd>@</kbd> files</span>
+								<span class="input-hint"><kbd>/</kbd> commands</span>
+								<span class="input-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send</span>
+							</div>
+							<button class="send-button" disabled>
+								<span>Send</span>
+								<span class="send-button-icon" x-html="ICONS['send']"></span>
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<!-- Example 6: Branch Dropdown Open -->
+				<div class="example-container">
+					<div class="example-label">Branch Dropdown Open</div>
+					<p class="doc-text">
+						Select the git branch to use as context for code generation.
+					</p>
+
+					<!-- Rendered Example with Branch Dropdown Open -->
+					<div class="agent-input agent-input-example">
+						<div class="agent-input-header">
+							<div class="agent-input-header-left">
+								<div class="mode-selector">
+									<button class="mode-button active">
+										<span class="mode-icon" x-html="ICONS['layout-list']"></span>
+										<span>Plan Mode</span>
+									</button>
+									<button class="mode-button">
+										<span class="mode-icon" x-html="ICONS['code']"></span>
+										<span>Edit Mode</span>
+									</button>
+								</div>
+							</div>
+							<div class="agent-input-controls">
+								<!-- Provider Dropdown -->
+								<div class="dropdown">
+									<button class="dropdown-button">
+										<span>Anthropic</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+								<!-- Model Dropdown -->
+								<div class="dropdown">
+									<button class="dropdown-button">
+										<span>Claude Opus 4</span>
+										<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+									</button>
+								</div>
+								<!-- Branch Selector (Open State) -->
+								<div class="dropdown branch-dropdown">
+									<button class="branch-selector" aria-expanded="true">
+										<span class="branch-icon" x-html="ICONS['git-branch']"></span>
+										<span class="branch-name">main</span>
+										<span class="dropdown-icon" style="transform: rotate(180deg);" x-html="ICONS['chevron-down']"></span>
+									</button>
+									<div class="dropdown-menu dropdown-menu-right" style="display: block;">
+										<button class="dropdown-item selected">
+											<span class="dropdown-item-label">
+												<span>main</span>
+											</span>
+											<span class="dropdown-item-check" x-html="ICONS['check']"></span>
+										</button>
+										<button class="dropdown-item">
+											<span class="dropdown-item-label">
+												<span>develop</span>
+											</span>
+										</button>
+										<button class="dropdown-item">
+											<span class="dropdown-item-label">
+												<span>feature/auth-flow</span>
+											</span>
+										</button>
+										<button class="dropdown-item">
+											<span class="dropdown-item-label">
+												<span>bugfix/input-validation</span>
+											</span>
+										</button>
+									</div>
+								</div>
+							</div>
+							<div class="agent-input-header-right">
+								<button class="improve-button">
+									<span class="improve-icon" x-html="ICONS['sparkles']"></span>
+									<span>Improve with AI</span>
+								</button>
+							</div>
+						</div>
+						<div class="agent-input-body">
+							<div class="input-wrapper">
+								<textarea class="input-textarea" readonly style="resize: none;" placeholder=" "></textarea>
+								<label class="input-label">Ask Coder to write code...</label>
+							</div>
+						</div>
+						<div class="agent-input-footer">
+							<div class="input-hints">
+								<span class="input-hint"><kbd>@</kbd> files</span>
+								<span class="input-hint"><kbd>/</kbd> commands</span>
+								<span class="input-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send</span>
+							</div>
+							<button class="send-button" disabled>
+								<span>Send</span>
+								<span class="send-button-icon" x-html="ICONS['send']"></span>
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<!-- Example 7: Send/Stop Button States -->
+				<div class="example-container">
+					<div class="example-label">Send Button States</div>
+					<p class="doc-text">
+						The send button transforms into a stop button when the agent is processing. Click again to cancel.
+					</p>
+
+					<!-- Two states side by side -->
+					<div style="display: flex; gap: var(--space-8); flex-wrap: wrap;">
+						<!-- Normal State -->
+						<div style="flex: 1; min-width: 400px;">
+							<p class="doc-text" style="margin-bottom: var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted);">
+								Normal State
+							</p>
+							<div class="agent-input agent-input-example">
+								<div class="agent-input-header">
+									<div class="agent-input-header-left">
+										<div class="mode-selector">
+											<button class="mode-button active">
+												<span class="mode-icon" x-html="ICONS['layout-list']"></span>
+												<span>Plan Mode</span>
+											</button>
+											<button class="mode-button">
+												<span class="mode-icon" x-html="ICONS['code']"></span>
+												<span>Edit Mode</span>
+											</button>
+										</div>
+									</div>
+									<div class="agent-input-controls">
+										<div class="dropdown">
+											<button class="dropdown-button">
+												<span>Anthropic</span>
+												<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+											</button>
+										</div>
+										<div class="dropdown">
+											<button class="dropdown-button">
+												<span>Claude Opus 4</span>
+												<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+											</button>
+										</div>
+										<div class="dropdown branch-dropdown">
+											<button class="branch-selector">
+												<span class="branch-icon" x-html="ICONS['git-branch']"></span>
+												<span class="branch-name">main</span>
+												<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+											</button>
+										</div>
+									</div>
+									<div class="agent-input-header-right">
+										<button class="improve-button">
+											<span class="improve-icon" x-html="ICONS['sparkles']"></span>
+											<span>Improve with AI</span>
+										</button>
+									</div>
+								</div>
+								<div class="agent-input-body">
+									<div class="input-wrapper">
+										<textarea class="input-textarea" readonly style="resize: none;">Create a user authentication system with JWT tokens</textarea>
+									</div>
+								</div>
+								<div class="agent-input-footer">
+									<div class="input-hints">
+										<span class="input-hint"><kbd>@</kbd> files</span>
+										<span class="input-hint"><kbd>/</kbd> commands</span>
+										<span class="input-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send</span>
+									</div>
+									<button class="send-button">
+										<span>Send</span>
+										<span class="send-button-icon" x-html="ICONS['send']"></span>
+									</button>
+								</div>
+							</div>
+						</div>
+
+						<!-- Running State -->
+						<div style="flex: 1; min-width: 400px;">
+							<p class="doc-text" style="margin-bottom: var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted);">
+								Running State (Click to Stop)
+							</p>
+							<div class="agent-input agent-input-example">
+								<div class="agent-input-header">
+									<div class="agent-input-header-left">
+										<div class="mode-selector">
+											<button class="mode-button active">
+												<span class="mode-icon" x-html="ICONS['layout-list']"></span>
+												<span>Plan Mode</span>
+											</button>
+											<button class="mode-button">
+												<span class="mode-icon" x-html="ICONS['code']"></span>
+												<span>Edit Mode</span>
+											</button>
+										</div>
+									</div>
+									<div class="agent-input-controls">
+										<div class="dropdown">
+											<button class="dropdown-button">
+												<span>Anthropic</span>
+												<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+											</button>
+										</div>
+										<div class="dropdown">
+											<button class="dropdown-button">
+												<span>Claude Opus 4</span>
+												<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+											</button>
+										</div>
+										<div class="dropdown branch-dropdown">
+											<button class="branch-selector">
+												<span class="branch-icon" x-html="ICONS['git-branch']"></span>
+												<span class="branch-name">main</span>
+												<span class="dropdown-icon" x-html="ICONS['chevron-down']"></span>
+											</button>
+										</div>
+									</div>
+									<div class="agent-input-header-right">
+										<button class="improve-button" disabled>
+											<span class="improve-icon" x-html="ICONS['sparkles']"></span>
+											<span>Improve with AI</span>
+										</button>
+									</div>
+								</div>
+								<div class="agent-input-body">
+									<div class="input-wrapper">
+										<textarea class="input-textarea" readonly style="resize: none;">Create a user authentication system with JWT tokens</textarea>
+									</div>
+								</div>
+								<div class="agent-input-footer">
+									<div class="input-hints">
+										<span class="input-hint"><kbd>@</kbd> files</span>
+										<span class="input-hint"><kbd>/</kbd> commands</span>
+										<span class="input-hint" style="color: var(--color-accent-primary);">Processing...</span>
+									</div>
+									<button class="send-button running">
+										<span>Stop</span>
+										<span class="send-button-icon send-button-spinner" x-html="ICONS['loader-2']"></span>
+									</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<!-- API Reference Section -->
+			<section id="api" class="doc-section">
+				<h2 class="doc-section-title">API Reference</h2>
+
+				<h3 class="doc-section-subtitle">Props</h3>
+				<table class="api-table">
+					<thead>
+						<tr>
+							<th>Prop</th>
+							<th>Type</th>
+							<th>Default</th>
+							<th>Description</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="api-table-prop">mode</td>
+							<td class="api-table-type">'plan' | 'edit'</td>
+							<td class="api-table-default">'plan'</td>
+							<td class="api-table-desc">Initial mode selection</td>
+						</tr>
+						<tr>
+							<td class="api-table-prop">provider</td>
+							<td class="api-table-type">string</td>
+							<td class="api-table-default">'anthropic'</td>
+							<td class="api-table-desc">AI provider ID</td>
+						</tr>
+						<tr>
+							<td class="api-table-prop">model</td>
+							<td class="api-table-type">string</td>
+							<td class="api-table-default">'claude-opus-4'</td>
+							<td class="api-table-desc">Model identifier</td>
+						</tr>
+						<tr>
+							<td class="api-table-prop">branch</td>
+							<td class="api-table-type">string</td>
+							<td class="api-table-default">'main'</td>
+							<td class="api-table-desc">Git branch for context</td>
+						</tr>
+						<tr>
+							<td class="api-table-prop">onSend</td>
+							<td class="api-table-type">(instruction) => void</td>
+							<td class="api-table-default">—</td>
+							<td class="api-table-desc">Callback when send is clicked</td>
+						</tr>
+					</tbody>
+				</table>
+
+				<h3 class="doc-section-subtitle">Events</h3>
+				<div class="doc-code-block">
+onSend: (instruction: {
+	mode: 'plan' | 'edit';
+	provider: string;
+	model: string;
+	branch: string;
+	text: string;
+	files: string[];
+}) => void
+				</div>
+			</section>
+		</main>
+	</div>
+
+	<script src="js/state.js"></script>
+</body>
+</html>

@@ -10,7 +10,6 @@
 	import { configStore, type ValidationState } from '$lib/stores/configStore';
 	import type { Provider, ApiType } from '$lib/types/config';
 	import { getProviderIconClass } from '$lib/types/config';
-	import { get } from 'svelte/store';
 
 	interface Props {
 		open: boolean;
@@ -29,7 +28,12 @@
 	});
 	let isSaving = $state(false);
 
-	let provider = $derived(providerId ? get(configStore).providers.find(p => p.id === providerId) ?? null : null);
+	// Use reactive store subscription for proper reactivity
+	let provider = $derived.by(() => {
+		if (!providerId) return null;
+		const state = $configStore;
+		return state.providers.find(p => p.id === providerId) ?? null;
+	});
 	let iconClass = $derived(provider ? getProviderIconClass(provider.id) : '');
 
 	async function handleValidate() {
@@ -150,8 +154,8 @@
 </script>
 
 <Modal title={provider ? `Configure ${provider.name}` : 'Configure Provider'} {open} onclose={handleClose}>
-	{#if provider}
-		{#snippet children()}
+	{#snippet children()}
+		{#if provider}
 			<div class={styles.header}>
 				<div class={[styles.icon, styles[iconClass]].join(' ')}>
 					<span>{provider.icon}</span>
@@ -212,9 +216,13 @@
 				</svg>
 				<span>Your API key is stored securely in your system keychain.</span>
 			</div>
-		{/snippet}
+		{:else}
+			<div class={styles.loading}>Loading provider...</div>
+		{/if}
+	{/snippet}
 
-		{#snippet footer()}
+	{#snippet footer()}
+		{#if provider}
 			<div class={styles.footer}>
 				<Button variant="secondary" onclick={handleClose} disabled={isSaving}>Cancel</Button>
 				<Button variant="secondary" onclick={handleValidate} disabled={isSaving}>
@@ -224,8 +232,8 @@
 					{isSaving ? 'Saving...' : 'Save'}
 				</Button>
 			</div>
-		{/snippet}
-	{/if}
+		{/if}
+	{/snippet}
 </Modal>
 
 <style>
