@@ -22,6 +22,14 @@
 
 	let configuredCount = $derived($configStore.providers.filter((p) => p.isConfigured).length);
 	let canContinue = $derived(configuredCount > 0);
+
+	// Debug logging
+	$effect(() => {
+		if (open) {
+			console.log('[ProvidersModal] Modal opened, providers in store:', $configStore.providers);
+			console.log('[ProvidersModal] Providers count:', $configStore.providers.length);
+		}
+	});
 </script>
 
 <Modal title="Configure Providers" {open} onclose={onclose} size="lg" contentClass={styles.modalBody}>

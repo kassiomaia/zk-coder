@@ -69,7 +69,16 @@
 			}
 		}
 	}
-</script>
+
+	// Debug logging when modal opens
+	$effect(() => {
+		if (open) {
+			console.log('[SettingsModal] Modal opened');
+			console.log('[SettingsModal] Providers in store:', $configStore.providers);
+			console.log('[SettingsModal] Providers count:', $configStore.providers.length);
+			console.log('[SettingsModal] Provider IDs:', $configStore.providers.map(p => p.id));
+		}
+	});</script>
 
 <Modal title="Settings" {open} size="lg" onclose={onclose}>
 	{#snippet children()}
