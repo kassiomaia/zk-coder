@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Configuration Flow - Coder</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/animations.css">
+
+    <!-- State Management (must load before Alpine initializes) -->
+    <script src="js/state.js"></script>
+</head>
+<body x-data="configFlow()">
+
+    <!-- Flow Indicator -->
+    <div class="flow-indicator" x-show="currentFlow !== 'done'">
+        <span class="flow-step" :class="{ 'active': currentFlow === 'welcome', 'completed': flowIndex > 0 }">1. Welcome</span>
+        <i class="flow-separator" data-lucide="chevron-right"></i>
+        <span class="flow-step" :class="{ 'active': currentFlow === 'providers', 'completed': flowIndex > 1 }">2. Providers</span>
+        <i class="flow-separator" data-lucide="chevron-right"></i>
+        <span class="flow-step" :class="{ 'active': currentFlow === 'settings', 'completed': flowIndex > 2 }">3. Settings</span>
+        <i class="flow-separator" data-lucide="chevron-right"></i>
+        <span class="flow-step" :class="{ 'active': currentFlow === 'done', 'completed': flowIndex > 3 }">4. Done</span>
+    </div>
+
+    <!-- Flow Navigation -->
+    <div class="flow-nav" x-show="currentFlow !== 'done'">
+        <button class="flow-nav-btn" :class="{ 'active': currentFlow === 'welcome' }" @click="currentFlow = 'welcome'" title="Welcome">
+            <i data-lucide="home"></i>
+        </button>
+        <button class="flow-nav-btn" :class="{ 'active': currentFlow === 'providers' }" @click="currentFlow = 'providers'" title="Providers">
+            <i data-lucide="users"></i>
+        </button>
+        <button class="flow-nav-btn" :class="{ 'active': currentFlow === 'settings' }" @click="currentFlow = 'settings'" title="Settings">
+            <i data-lucide="settings"></i>
+        </button>
+        <button class="flow-nav-btn" :class="{ 'active': currentFlow === 'done' }" @click="currentFlow = 'done'" title="Done">
+            <i data-lucide="check-circle"></i>
+        </button>
+    </div>
+
+    <!-- ========================
+         APP SHELL
+         ======================== -->
+    <div class="app-shell" x-show="currentFlow === 'done'">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="app-title">
+                    <i data-lucide="layers"></i>
+                    Coder
+                </div>
+            </div>
+
+            <div class="sidebar-content">
+                <div class="sidebar-section">
+                    <div class="sidebar-label">Conversations</div>
+                    <div class="sidebar-item active">
+                        <i data-lucide="message-square"></i>
+                        JavaScript Algorithms
+                    </div>
+                    <div class="sidebar-item">
+                        <i data-lucide="message-square"></i>
+                        Rust Patterns
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="current-model">
+                    <span class="provider-dot" :class="displayModelProvider"></span>
+                    <span x-text="displayModelName"></span>
+                </div>
+                <button class="settings-btn" @click="settingsOpen = true">
+                    <i data-lucide="settings"></i>
+                    Settings
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="chat-area">
+                <div class="messages">
+                    <div class="message animate-fade-in">
+                        <div class="message-header">
+                            <div class="message-avatar user">U</div>
+                            <span class="message-author">You</span>
+                        </div>
+                        <div class="message-bubble">
+                            Help me implement a binary search tree in Rust.
+                        </div>
+                    </div>
+                    <div class="message animate-fade-in" style="animation-delay: 0.05s;">
+                        <div class="message-header">
+                            <div class="message-avatar ai">AI</div>
+                            <span class="message-author" x-text="displayModelName"></span>
+                        </div>
+                        <div class="message-bubble">
+                            I'll help you implement a binary search tree in Rust. Let's start with the basic structure...
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <div class="chat-input-wrapper">
+                            <textarea class="chat-input" placeholder="Ask me anything about your code..." rows="1"></textarea>
+                            <button class="send-btn">
+                                <i data-lucide="send"></i>
+                            </button>
+                        </div>
+                        <div class="input-footer">
+                            <div class="model-trigger">
+                                <span class="provider-dot" :class="displayModelProvider"></span>
+                                <span x-text="displayModelName"></span>
+                                <i data-lucide="chevron-down"></i>
+                            </div>
+                            <span class="char-count">0 / 4000</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ========================
+         WELCOME MODAL
+         ======================== -->
+    <div class="modal-overlay" x-show="currentFlow === 'welcome'" :class="{ 'open': currentFlow === 'welcome' }">
+        <div class="modal open animate-slide-up">
+            <div class="modal-body">
+                <div class="welcome-logo">
+                    <i data-lucide="layers"></i>
+                </div>
+                <h1 class="welcome-title">Welcome to Coder</h1>
+                <p class="welcome-subtitle">Configure your AI providers to get started. Add multiple providers and switch between them anytime.</p>
+
+                <div class="info-banner">
+                    <i data-lucide="info"></i>
+                    <span class="info-banner-text">At least one provider must be configured to use AI features.</span>
+                </div>
+
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <i data-lucide="check"></i>
+                        <span>Add multiple AI providers (Anthropic, OpenAI, Google, or Custom)</span>
+                    </div>
+                    <div class="feature-item">
+                        <i data-lucide="check"></i>
+                        <span>Select default models for each operation type</span>
+                    </div>
+                    <div class="feature-item">
+                        <i data-lucide="check"></i>
+                        <span>Switch providers per conversation</span>
+                    </div>
+                    <div class="feature-item">
+                        <i data-lucide="check"></i>
+                        <span>API keys stored securely in your system keychain</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @click="currentFlow = 'done'">Skip for now</button>
+                <button class="btn btn-primary" @click="currentFlow = 'providers'">
+                    Get Started
+                    <i data-lucide="arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================
+         PROVIDERS MODAL
+         ======================== -->
+    <div class="modal-overlay" x-show="currentFlow === 'providers'" :class="{ open: currentFlow === 'providers' }">
+        <div class="modal modal-lg open animate-slide-up">
+            <div class="modal-header">
+                <h2 class="modal-title">Configure Providers</h2>
+                <button class="close-btn" @click="currentFlow = 'welcome'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">
+                    Configure one or more AI providers. At least one provider is required to continue.
+                </p>
+
+                <!-- Configured Summary -->
+                <div class="configured-summary" x-show="configuredCount > 0" :class="{ show: configuredCount > 0 }">
+                    <i data-lucide="check"></i>
+                    <span class="configured-summary-text" x-text="configuredCount + ' provider' + (configuredCount > 1 ? 's' : '') + ' configured'"></span>
+                </div>
+
+                <div class="provider-grid">
+                    <template x-for="provider in providersList" :key="provider.id">
+                        <div class="provider-card"
+                             :class="{ 'configured': provider.configured }"
+                             :data-provider="provider.id"
+                             @click="openProviderConfig(provider.id)">
+                            <div class="provider-icon" :class="provider.iconClass" :style="provider.isCustom ? 'background: linear-gradient(135deg, #6366f1, #8b5cf6);' : ''">
+                                <span x-text="provider.icon"></span>
+                            </div>
+                            <div class="provider-name" x-text="provider.name"></div>
+                            <div class="provider-models" x-text="provider.models.join(', ')"></div>
+                            <div class="provider-status">
+                                <span class="provider-status-dot" x-show="!provider.configured"></span>
+                                <span class="provider-status-text" x-show="!provider.configured">Click to configure</span>
+                                <span class="provider-status-configured" x-show="provider.configured">
+                                    <i data-lucide="check"></i>
+                                    Configured
+                                </span>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Add Custom Provider Card -->
+                    <div class="provider-card add-provider-card" @click="openAddCustomProvider()">
+                        <div class="add-provider-icon">
+                            <i data-lucide="plus-circle"></i>
+                        </div>
+                        <div class="provider-name">Add Custom Provider</div>
+                        <div class="provider-models">OpenAI, Anthropic, or custom API</div>
+                        <div class="provider-status">
+                            <span class="provider-status-dot add"></span>
+                            <span>Click to add</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @click="currentFlow = 'welcome'">Back</button>
+                <button class="btn btn-ghost" @click="openAddCustomProvider()">
+                    <i data-lucide="plus"></i>
+                    Add Provider
+                </button>
+                <button class="btn btn-primary" :disabled="configuredCount === 0" @click="currentFlow = 'settings'">
+                    Continue to Settings
+                    <i data-lucide="arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================
+         CONFIG MODAL (Edit Provider)
+         ======================== -->
+    <div class="modal-overlay modal-overlay-top" x-show="configOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" :class="{ open: configOpen }">
+        <template x-if="configOpen && currentProvider">
+        <div class="modal open animate-slide-up">
+            <div class="modal-header">
+                <h2 class="modal-title" x-text="'Configure ' + currentProvider.name"></h2>
+                <button class="close-btn" @click="configOpen = false">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="config-header">
+                    <div class="provider-icon" :class="currentProvider.iconClass">
+                        <span x-text="currentProvider.icon"></span>
+                    </div>
+                    <div class="config-details">
+                        <div class="config-name" x-text="currentProvider.name"></div>
+                        <div class="config-models" x-text="currentProvider.models.join(', ')"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="apiKey">API Key</label>
+                    <input type="password" id="apiKey" class="form-input" x-model="currentProvider.apiKey" placeholder="sk-ant-...">
+                    <div class="form-helper">Get your API key from the provider's dashboard</div>
+                </div>
+
+                <div class="validation-msg" x-show="validationMessage" :class="validationClass">
+                    <i x-show="validationIcon" :data-lucide="validationIcon"></i>
+                    <span x-text="validationMessage"></span>
+                </div>
+
+                <div class="info-banner">
+                    <i data-lucide="lock"></i>
+                    <span class="info-banner-text">Your API key is stored securely in your system keychain.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @click="configOpen = false">Cancel</button>
+                <button class="btn btn-secondary" @click="validateApiKey()">
+                    <i data-lucide="check"></i>
+                    Validate
+                </button>
+                <button class="btn btn-primary" @click="saveProvider()">
+                    Save
+                    <i data-lucide="check"></i>
+                </button>
+            </div>
+        </div>
+        </template>
+    </div>
+
+    <!-- ========================
+         ADD CUSTOM PROVIDER MODAL
+         ======================== -->
+    <div class="modal-overlay modal-overlay-top" x-show="customProviderOpen" :class="{ open: customProviderOpen }">
+        <template x-if="customProviderOpen">
+        <div class="modal open animate-slide-up">
+            <div class="modal-header">
+                <h2 class="modal-title">Add Custom Provider</h2>
+                <button class="close-btn" @click="customProviderOpen = false">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" for="customName">Provider Name</label>
+                    <input type="text" id="customName" class="form-input" x-model="customProvider.name" placeholder="My Custom Provider">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">API Compatibility</label>
+                    <div class="compatibility-options">
+                        <label class="compatibility-option" :class="{ 'selected': customProvider.apiType === 'openai' }">
+                            <input type="radio" class="hidden-radio" x-model="customProvider.apiType" value="openai">
+                            <div class="compatibility-icon openai">
+                                <i data-lucide="box"></i>
+                            </div>
+                            <div class="compatibility-info">
+                                <div class="compatibility-name">OpenAI Compatible</div>
+                                <div class="compatibility-desc">Uses /v1/chat/completions endpoint</div>
+                            </div>
+                            <div class="compatibility-check" x-show="customProvider.apiType === 'openai'">
+                                <i data-lucide="check"></i>
+                            </div>
+                        </label>
+                        <label class="compatibility-option" :class="{ 'selected': customProvider.apiType === 'anthropic' }">
+                            <input type="radio" class="hidden-radio" x-model="customProvider.apiType" value="anthropic">
+                            <div class="compatibility-icon anthropic">
+                                <i data-lucide="info"></i>
+                            </div>
+                            <div class="compatibility-info">
+                                <div class="compatibility-name">Anthropic Compatible</div>
+                                <div class="compatibility-desc">Uses /v1/messages endpoint</div>
+                            </div>
+                            <div class="compatibility-check" x-show="customProvider.apiType === 'anthropic'">
+                                <i data-lucide="check"></i>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="customBaseUrl">Base URL (Optional)</label>
+                    <input type="text" id="customBaseUrl" class="form-input" x-model="customProvider.baseUrl" placeholder="https://api.example.com">
+                    <div class="form-helper">Override the default API endpoint URL</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="customApiKey">API Key</label>
+                    <input type="password" id="customApiKey" class="form-input" x-model="customProvider.apiKey" placeholder="sk-...">
+                    <div class="form-helper">Enter your API key to test connection and fetch models</div>
+                </div>
+
+                <div class="form-group-actions">
+                    <button class="btn btn-secondary action-btn"
+                            @click="testConnection()"
+                            :disabled="!customProvider.apiKey || customProvider.isTestingConnection"
+                            :data-status="customProvider.connectionStatus">
+                        <template x-if="customProvider.isTestingConnection">
+                            <i data-lucide="loader-2" class="spin"></i>
+                            <span>Testing Connection...</span>
+                        </template>
+                        <template x-if="!customProvider.isTestingConnection && customProvider.connectionStatus === 'success'">
+                            <i data-lucide="check-circle"></i>
+                            <span>Connection OK</span>
+                        </template>
+                        <template x-if="!customProvider.isTestingConnection && customProvider.connectionStatus === 'error'">
+                            <i data-lucide="refresh-cw"></i>
+                            <span>Retry Test</span>
+                        </template>
+                        <template x-if="!customProvider.isTestingConnection && !customProvider.connectionStatus">
+                            <i data-lucide="plug"></i>
+                            <span>Test Connection</span>
+                        </template>
+                    </button>
+                    <button class="btn btn-secondary action-btn"
+                            @click="fetchModels()"
+                            :disabled="!customProvider.apiKey || customProvider.isFetchingModels"
+                            :data-status="customProvider.fetchStatus">
+                        <template x-if="customProvider.isFetchingModels">
+                            <i data-lucide="loader-2" class="spin"></i>
+                            <span>Fetching Models...</span>
+                        </template>
+                        <template x-if="!customProvider.isFetchingModels && customProvider.fetchStatus === 'success'">
+                            <i data-lucide="check-circle"></i>
+                            <span>Models Fetched</span>
+                        </template>
+                        <template x-if="!customProvider.isFetchingModels && customProvider.fetchStatus === 'error'">
+                            <i data-lucide="refresh-cw"></i>
+                            <span>Retry Fetch</span>
+                        </template>
+                        <template x-if="!customProvider.isFetchingModels && !customProvider.fetchStatus">
+                            <i data-lucide="list"></i>
+                            <span>Fetch Models</span>
+                        </template>
+                    </button>
+                </div>
+
+                <div class="validation-msg" x-show="customProvider.fetchError" :class="'error'">
+                    <i data-lucide="alert-circle"></i>
+                    <span x-text="customProvider.fetchError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="customModels">Available Models</label>
+                    <input type="text" id="customModels" class="form-input" x-model="customProvider.modelsInput" placeholder="model-1, model-2, model-3">
+                    <div class="form-helper">Comma-separated list of model names (or fetch automatically)</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @click="customProviderOpen = false">Cancel</button>
+                <button class="btn btn-primary" :disabled="!customProvider.name || !customProvider.apiType" @click="addCustomProvider()">
+                    Add Provider
+                    <i data-lucide="plus"></i>
+                </button>
+            </div>
+        </div>
+        </template>
+    </div>
+
+    <!-- ========================
+         SETTINGS MODAL (Flow Step 3 & App Settings)
+         ======================== -->
+    <div class="modal-overlay" x-show="currentFlow === 'settings' || settingsOpen" :class="{ open: currentFlow === 'settings' || settingsOpen }">
+        <div class="modal modal-lg open animate-slide-up">
+            <div class="modal-header">
+                <h2 class="modal-title" x-text="currentFlow === 'settings' ? 'Configure Models' : 'Settings'"></h2>
+                <button class="close-btn" @click="settingsOpen ? settingsOpen = false : currentFlow = 'providers'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Providers Section -->
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <i data-lucide="users"></i>
+                        <span>Providers</span>
+                        <button class="btn btn-primary btn-sm add-provider-btn" @click="openAddCustomProvider()">
+                            <i data-lucide="plus"></i>
+                            Add Provider
+                        </button>
+                    </div>
+                    <div class="providers-list">
+                        <template x-for="provider in providersList" :key="provider.id">
+                            <div class="provider-list-item" :class="{ 'configured': provider.configured }">
+                                <div class="provider-list-info">
+                                    <div class="provider-icon" :class="provider.iconClass" :style="provider.isCustom ? 'background: linear-gradient(135deg, #6366f1, #8b5cf6);' : ''">
+                                        <span x-text="provider.icon"></span>
+                                    </div>
+                                    <div class="provider-list-details">
+                                        <div class="provider-list-name" x-text="provider.name"></div>
+                                        <div class="provider-list-meta">
+                                            <span x-text="provider.models.length + ' models'"></span>
+                                            <span x-show="provider.apiType" class="api-type-badge" x-text="provider.apiType"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="provider-list-actions">
+                                    <template x-if="provider.configured">
+                                        <span class="configured-badge">
+                                            <i data-lucide="check"></i>
+                                            Connected
+                                        </span>
+                                    </template>
+                                    <button class="btn btn-ghost btn-sm" @click="openProviderConfig(provider.id)">
+                                        <i data-lucide="pencil"></i>
+                                        <span x-text="provider.configured ? 'Edit' : 'Configure'"></span>
+                                    </button>
+                                    <button x-show="provider.isCustom" class="btn btn-ghost btn-sm btn-danger" @click="removeProvider(provider.id)">
+                                        <i data-lucide="trash-2"></i>
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                        <div class="empty-state" x-show="providersList.length === 0">
+                            <i data-lucide="alert-circle"></i>
+                            <span>No providers configured. Add a provider to get started.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Models Section -->
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <i data-lucide="box"></i>
+                        <span>Default Models by Operation</span>
+                    </div>
+
+                    <template x-for="tab in modelTabs" :key="tab.id">
+                        <div class="operation-group">
+                            <div class="operation-header">
+                                <i class="operation-icon" :data-lucide="tab.icon" :style="`color: ${tab.color}`"></i>
+                                <div class="operation-title">
+                                    <span class="operation-name" x-text="tab.name"></span>
+                                    <span class="operation-desc" x-text="tab.description"></span>
+                                </div>
+                                <div class="operation-selected" x-show="selectedModels[tab.id]">
+                                    <span class="selected-label" x-text="getModelShortName(selectedModels[tab.id])"></span>
+                                </div>
+                            </div>
+                            <div class="settings-model-grid">
+                                <template x-for="model in getAvailableModels(tab.id)" :key="model.id">
+                                    <div class="settings-model-card"
+                                         :class="{ 'selected': selectedModels[tab.id] === model.id }"
+                                         @click="selectModel(tab.id, model.id)">
+                                        <div class="settings-model-header">
+                                            <span class="settings-model-badge" :class="model.providerIconClass" x-text="model.providerIcon"></span>
+                                            <div class="settings-model-check">
+                                                <i data-lucide="check"></i>
+                                            </div>
+                                        </div>
+                                        <div class="settings-model-name" x-text="model.name"></div>
+                                        <div class="settings-model-provider" x-text="model.providerName"></div>
+                                    </div>
+                                </template>
+                                <div class="empty-state empty-state-sm" x-show="getAvailableModels(tab.id).length === 0">
+                                    <span>No models available - configure a provider first</span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <!-- Flow Step 3: Configure Models -->
+                <template x-if="currentFlow === 'settings'">
+                    <div class="modal-footer-actions">
+                        <button class="btn btn-secondary" @click="currentFlow = 'providers'">Back</button>
+                        <button class="btn btn-primary" :disabled="!Object.values(selectedModels).some(m => m)" @click="currentFlow = 'done'">
+                            Complete Setup
+                            <i data-lucide="check"></i>
+                        </button>
+                    </div>
+                </template>
+                <!-- App Settings (accessed from sidebar) -->
+                <template x-if="settingsOpen && currentFlow !== 'settings'">
+                    <div class="modal-footer-actions">
+                        <button class="btn btn-secondary" @click="settingsOpen = false">Cancel</button>
+                        <button class="btn btn-primary" @click="settingsOpen = false">
+                            Save Changes
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================
+         SCRIPTS (Alpine.js + Lucide Icons)
+         ======================== -->
+    <script>
+        // Initialize Lucide icons after Alpine.js loads
+        document.addEventListener('alpine:init', () => {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        });
+    </script>
+</body>
+</html>
