@@ -47,6 +47,22 @@ If a prototype is referenced from any other location, STOP and inform the user t
         └── state.js            # Alpine.js state management
 ```
 
+## Rules
+
+This skill follows specific rules defined in `./rules/`. Read and apply these rules in order:
+
+| Rule | File | Purpose |
+|------|------|---------|
+| **Location** | `00-location-rule.md` | Prototype must be at `./prototypes/` |
+| **Validation** | `01-validation.md` | Quality checks before planning |
+| **Clarification** | `02-clarification.md` | Mandatory questions to ask |
+| **Component Mapping** | `03-component-mapping.md` | Alpine.js to Svelte conversion |
+| **Plan Generation** | `04-plan-generation.md` | Plan structure and content |
+| **Backend Planning** | `05-backend-planning.md` | Tauri backend requirements |
+| **Golden Rules** | `06-golden-rules.md` | Inviolable principles |
+
+**All rules MUST be followed when analyzing prototypes.**
+
 ## Workflow
 
 ### Phase 1: Discovery & Validation
