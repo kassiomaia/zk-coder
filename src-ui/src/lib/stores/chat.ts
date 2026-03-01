@@ -7,6 +7,7 @@ import { writable, derived, get } from 'svelte/store';
 import type { Conversation, Thread, ConversationGroup } from '$lib/types/thread';
 import type { Message, MessageGroup } from '$lib/types/message';
 import type { IntentClassification, Ambiguity } from '$lib/types/nlp';
+import type { OperationType } from '$lib/types/config';
 import {
 	classifyIntent,
 	addContextMessage,
@@ -33,6 +34,17 @@ import {
 	createThreadWithMessage as apiCreateThreadWithMessage,
 	type SendMessageOptions
 } from '$lib/api/chat';
+import {
+	sendChatMessageStreaming,
+	cancelChatRequest,
+	isStartedEvent,
+	isChunkEvent,
+	isCompleteEvent,
+	isErrorEvent,
+	type LlmEvent,
+	type StreamChatResult
+} from '$lib/api/llm';
+import { configStore } from './configStore';
 
 // ============================================================================
 // Types
@@ -60,6 +72,20 @@ export interface NlpState {
 }
 
 /**
+ * LLM streaming state.
+ */
+export interface LlmStreamingState {
+	/** Whether LLM is currently generating a response */
+	isStreaming: boolean;
+	/** Current request ID (if streaming) */
+	requestId: string | null;
+	/** Accumulated content during streaming */
+	streamingContent: string;
+	/** Model being used for current stream */
+	model: string | null;
+}
+
+/**
  * Chat store state.
  */
 export interface ChatState {
@@ -81,6 +107,8 @@ export interface ChatState {
 	threadsLoading: LoadingState;
 	/** NLP state */
 	nlp: NlpState;
+	/** LLM streaming state */
+	llm: LlmStreamingState;
 	/** Global error message */
 	error: string | null;
 }
@@ -109,6 +137,12 @@ function createChatStore() {
 			processing: false,
 			error: null
 		},
+		llm: {
+			isStreaming: false,
+			requestId: null,
+			streamingContent: '',
+			model: null
+		},
 		error: null
 	};
 
@@ -116,6 +150,9 @@ function createChatStore() {
 
 	// Debounced intent classifier
 	const classifier = createDebouncedClassifier(300);
+
+	// Active stream tracking for cancellation
+	let activeStream: StreamChatResult | null = null;
 
 	return {
 		subscribe,
@@ -686,6 +723,257 @@ function createChatStore() {
 			}));
 		},
 
+		// ========================================================================
+		// LLM Integration Methods
+		// ========================================================================
+
+		/**
+		 * Send a message and get an LLM response with streaming.
+		 * This combines message sending with LLM response generation.
+		 *
+		 * @param content - The user's message content
+		 * @param options - Optional configuration for the LLM request
+		 * @returns The user message that was sent, or null on error
+		 */
+		async sendMessageWithLlm(
+			content: string,
+			options?: {
+				/** Model ID to use (e.g., "openai-gpt-4"). If not provided, uses default for 'code' operation */
+				modelId?: string;
+				/** System prompt override */
+				systemPrompt?: string;
+				/** Temperature override (0-1) */
+				temperature?: number;
+				/** Max tokens override */
+				maxTokens?: number;
+			}
+		): Promise<Message | null> {
+			const state = get({ subscribe });
+
+			// Must have a conversation selected
+			if (!state.selectedConversationId) {
+				update((s) => ({ ...s, error: 'No conversation selected' }));
+				return null;
+			}
+
+			// Must not already be streaming
+			if (state.llm.isStreaming) {
+				console.warn('Already streaming, ignoring new request');
+				return null;
+			}
+
+			// Get the model to use
+			let modelId: string | undefined = options?.modelId;
+			if (!modelId) {
+				// Try to get default model for 'code' operation
+				const defaultModel = configStore.getDefault('code');
+				if (defaultModel) {
+					modelId = defaultModel;
+				} else {
+					// Fallback: get first available model for code
+					const availableModels = configStore.getAvailableModels('code');
+					if (availableModels.length === 0) {
+						update((s) => ({
+							...s,
+							error: 'No model configured. Please configure a provider first.'
+						}));
+						return null;
+					}
+					modelId = availableModels[0].id;
+				}
+			}
+
+			// Send the user message first (using existing logic)
+			const userMessage = await this.sendMessage(content, 'user');
+			if (!userMessage) {
+				return null;
+			}
+
+			// Create optimistic assistant message for streaming
+			const assistantMessageId = `streaming-${Date.now()}`;
+			const optimisticAssistant: Message = {
+				id: assistantMessageId,
+				conversationId: state.selectedConversationId,
+				threadId: state.selectedThreadId ?? '',
+				role: 'assistant',
+				content: '',
+				timestamp: new Date(),
+				status: 'sending'
+			};
+
+			// Add optimistic assistant message and start streaming
+			update((s) => ({
+				...s,
+				messages: [...s.messages, optimisticAssistant],
+				llm: {
+					isStreaming: true,
+					requestId: null,
+					streamingContent: '',
+					model: modelId ?? null
+				}
+			}));
+
+			try {
+				// Start streaming request
+				const result = await sendChatMessageStreaming({
+					conversationId: state.selectedConversationId,
+					threadId: state.selectedThreadId ?? undefined,
+					content,
+					modelId: modelId!,
+					systemPrompt: options?.systemPrompt,
+					temperature: options?.temperature,
+					maxTokens: options?.maxTokens,
+					onEvent: (event: LlmEvent) => {
+						if (isChunkEvent(event)) {
+							// Update streaming content
+							update((s) => {
+								const newContent = s.llm.streamingContent + event.delta;
+								return {
+									...s,
+									llm: {
+										...s.llm,
+										streamingContent: newContent
+									},
+									messages: s.messages.map((m) =>
+										m.id === assistantMessageId
+											? { ...m, content: newContent }
+											: m
+									)
+								};
+							});
+						} else if (isCompleteEvent(event)) {
+							// Streaming complete - update with final content
+							update((s) => ({
+								...s,
+								messages: s.messages.map((m) =>
+									m.id === assistantMessageId
+										? {
+												...m,
+												content: event.content,
+												status: 'sent' as const,
+												metadata: event.usage
+													? {
+															tokens: event.usage.totalTokens,
+															model: s.llm.model ?? undefined
+														}
+													: undefined
+											}
+										: m
+								),
+								llm: {
+									isStreaming: false,
+									requestId: null,
+									streamingContent: '',
+									model: null
+								}
+							}));
+							// Clear active stream
+							activeStream = null;
+						} else if (isErrorEvent(event)) {
+							// Error during streaming
+							console.error('LLM streaming error:', event.error);
+							update((s) => ({
+								...s,
+								messages: s.messages.map((m) =>
+									m.id === assistantMessageId
+										? { ...m, status: 'error' as const }
+										: m
+								),
+								llm: {
+									isStreaming: false,
+									requestId: null,
+									streamingContent: '',
+									model: null
+								},
+								error: event.error
+							}));
+							activeStream = null;
+						} else if (isStartedEvent(event)) {
+							// Store request ID for cancellation
+							update((s) => ({
+								...s,
+								llm: {
+									...s.llm,
+									requestId: event.requestId,
+									model: event.model
+								}
+							}));
+						}
+					}
+				});
+
+				// Store active stream for cancellation
+				activeStream = result;
+
+				// Update with request ID
+				update((s) => ({
+					...s,
+					llm: {
+						...s.llm,
+						requestId: result.requestId
+					}
+				}));
+
+				return userMessage;
+			} catch (error) {
+				// Clean up on error
+				update((s) => ({
+					...s,
+					messages: s.messages.map((m) =>
+						m.id === assistantMessageId ? { ...m, status: 'error' as const } : m
+					),
+					llm: {
+						isStreaming: false,
+						requestId: null,
+						streamingContent: '',
+						model: null
+					},
+					error: error instanceof Error ? error.message : 'Failed to get LLM response'
+				}));
+				activeStream = null;
+				return userMessage;
+			}
+		},
+
+		/**
+		 * Cancel the current LLM streaming request.
+		 */
+		async cancelLlmStream(): Promise<void> {
+			if (!activeStream) return;
+
+			try {
+				await activeStream.cancel();
+				activeStream.unsubscribe();
+			} catch (error) {
+				console.error('Failed to cancel LLM stream:', error);
+			} finally {
+				activeStream = null;
+				update((s) => ({
+					...s,
+					llm: {
+						isStreaming: false,
+						requestId: null,
+						streamingContent: '',
+						model: null
+					}
+				}));
+			}
+		},
+
+		/**
+		 * Check if LLM is currently streaming.
+		 */
+		isLlmStreaming(): boolean {
+			return get({ subscribe }).llm.isStreaming;
+		},
+
+		/**
+		 * Get the current streaming content.
+		 */
+		getStreamingContent(): string {
+			return get({ subscribe }).llm.streamingContent;
+		},
+
 		/**
 		 * Clear error state.
 		 */
@@ -698,6 +986,12 @@ function createChatStore() {
 		 */
 		reset() {
 			classifier.cancel();
+			// Cancel any active stream
+			if (activeStream) {
+				activeStream.cancel().catch(console.error);
+				activeStream.unsubscribe();
+				activeStream = null;
+			}
 			set(initialState);
 		}
 	};
@@ -808,6 +1102,21 @@ export const conversationGroups = derived(chatStore, ($chat): ConversationGroup[
  * NLP state derived store.
  */
 export const nlpState = derived(chatStore, ($chat) => $chat.nlp);
+
+/**
+ * LLM streaming state derived store.
+ */
+export const llmState = derived(chatStore, ($chat) => $chat.llm);
+
+/**
+ * Whether LLM is currently streaming.
+ */
+export const isLlmStreaming = derived(chatStore, ($chat) => $chat.llm.isStreaming);
+
+/**
+ * Current streaming content (for real-time display).
+ */
+export const streamingContent = derived(chatStore, ($chat) => $chat.llm.streamingContent);
 
 /**
  * Conversations loading state.

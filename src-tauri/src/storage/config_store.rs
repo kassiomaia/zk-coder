@@ -784,6 +784,6 @@ mod tests {
         let defaults = store.get_operation_defaults().expect("Failed to get defaults");
         assert_eq!(defaults.len(), 1);
         assert_eq!(defaults[0].operation, OperationType::Code);
-        assert_eq!(defaults[0].model_id, "openai-gpt-4");
+        assert_eq!(defaults[0].model_id, Some("openai-gpt-4".to_string()));
     }
 }

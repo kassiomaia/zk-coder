@@ -25,6 +25,8 @@ fn create_client() -> Result<Client, String> {
 
 /// Validates an OpenAI API key.
 ///
+/// Uses a minimal chat completion request to validate.
+///
 /// # Errors
 ///
 /// Returns an error string if the validation fails.
@@ -33,29 +35,62 @@ pub async fn validate_openai_key(
     base_url: Option<&str>,
 ) -> Result<ValidationResult, String> {
     let client = create_client()?;
-    let url = format!(
-        "{}/models",
-        base_url.unwrap_or("https://api.openai.com/v1")
-    );
+
+    // Handle base_url that might already include the endpoint
+    let base = base_url.unwrap_or("https://api.openai.com/v1");
+    let url = if base.ends_with("/chat/completions") || base.contains("/chat/completions") {
+        base.to_string()
+    } else {
+        format!("{}/chat/completions", base.trim_end_matches('/'))
+    };
 
     let response = client
-        .get(&url)
+        .post(&url)
         .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "max_tokens": 1
+        }))
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
 
-    if response.status().is_success() {
-        Ok(ValidationResult::success(
-            "API key validated successfully",
-        ))
-    } else {
-        let status = response.status();
-        Ok(ValidationResult::failure(format!(
-            "Validation failed: {}",
-            status
-        )))
+    let status = response.status();
+
+    if status.as_u16() == 401 {
+        return Ok(ValidationResult::failure("Invalid API key"));
     }
+
+    if status.is_success() || status.as_u16() == 400 {
+        // 400 might be model not found, but key is valid
+        return Ok(ValidationResult::success(
+            "API key validated successfully",
+        ));
+    }
+
+    // Get error details
+    let error_body = response
+        .text()
+        .await
+        .unwrap_or_else(|_| "Unable to read error details".to_string());
+
+    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&error_body) {
+        if let Some(error_msg) = json["error"]["message"].as_str() {
+            return Ok(ValidationResult::failure(format!(
+                "OpenAI API error ({}): {}",
+                status.as_u16(),
+                error_msg
+            )));
+        }
+    }
+
+    Ok(ValidationResult::failure(format!(
+        "Validation failed ({}): {}",
+        status.as_u16(),
+        error_body.chars().take(200).collect::<String>()
+    )))
 }
 
 /// Fetches available models from OpenAI.
@@ -68,10 +103,14 @@ pub async fn fetch_openai_models(
     base_url: Option<&str>,
 ) -> Result<FetchModelsResult, String> {
     let client = create_client()?;
-    let url = format!(
-        "{}/models",
-        base_url.unwrap_or("https://api.openai.com/v1")
-    );
+
+    // Handle base_url that might already include the endpoint
+    let base = base_url.unwrap_or("https://api.openai.com/v1");
+    let url = if base.ends_with("/models") {
+        base.to_string()
+    } else {
+        format!("{}/models", base.trim_end_matches('/'))
+    };
 
     let response = client
         .get(&url)
@@ -81,9 +120,33 @@ pub async fn fetch_openai_models(
         .map_err(|e| format!("Request failed: {}", e))?;
 
     if !response.status().is_success() {
+        let status = response.status();
+        let error_body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unable to read error details".to_string());
+
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&error_body) {
+            if let Some(error_msg) = json["error"]["message"].as_str() {
+                return Ok(FetchModelsResult::failure(format!(
+                    "OpenAI API error ({}): {}",
+                    status.as_u16(),
+                    error_msg
+                )));
+            }
+            if let Some(error_msg) = json["error"].as_str() {
+                return Ok(FetchModelsResult::failure(format!(
+                    "OpenAI API error ({}): {}",
+                    status.as_u16(),
+                    error_msg
+                )));
+            }
+        }
+
         return Ok(FetchModelsResult::failure(format!(
-            "API error: {}",
-            response.status()
+            "API error ({}): {}",
+            status.as_u16(),
+            error_body.chars().take(200).collect::<String>()
         )));
     }
 
@@ -92,23 +155,17 @@ pub async fn fetch_openai_models(
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-    let models: Vec<Model> = api_response
+    let models: Vec<String> = api_response
         .data
         .into_iter()
         .filter(|m| {
-            // Filter out non-chat models
             let id = m.id.to_lowercase();
             id.contains("gpt") || id.contains("o1") || id.contains("o3")
         })
-        .map(|m| {
-            let caps = ModelCapabilities::infer_from_name(&m.id);
-            Model::new("openai", &m.id, caps)
-        })
+        .map(|m| m.id)
         .collect();
 
-    let model_names: Vec<String> = models.iter().map(|m| m.name.clone()).collect();
-
-    Ok(FetchModelsResult::success(model_names))
+    Ok(FetchModelsResult::success(models))
 }
 
 #[derive(Deserialize)]
@@ -135,10 +192,14 @@ pub async fn validate_google_key(
     base_url: Option<&str>,
 ) -> Result<ValidationResult, String> {
     let client = create_client()?;
-    let url = format!(
-        "{}/models",
-        base_url.unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai")
-    );
+
+    // Handle base_url that might already include the endpoint
+    let base = base_url.unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai");
+    let url = if base.ends_with("/models") {
+        base.to_string()
+    } else {
+        format!("{}/models", base.trim_end_matches('/'))
+    };
 
     let response = client
         .get(&url)
@@ -153,9 +214,28 @@ pub async fn validate_google_key(
         ))
     } else {
         let status = response.status();
+        // Try to get error details from response body
+        let error_body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unable to read error details".to_string());
+
+        // Parse Google error format if possible
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&error_body) {
+            if let Some(error_msg) = json["error"]["message"].as_str() {
+                return Ok(ValidationResult::failure(format!(
+                    "Google API error ({}): {}",
+                    status.as_u16(),
+                    error_msg
+                )));
+            }
+        }
+
+        // Fallback to status + body
         Ok(ValidationResult::failure(format!(
-            "Validation failed: {}",
-            status
+            "Validation failed ({}): {}",
+            status.as_u16(),
+            error_body.chars().take(200).collect::<String>()
         )))
     }
 }
@@ -170,10 +250,14 @@ pub async fn fetch_google_models(
     base_url: Option<&str>,
 ) -> Result<FetchModelsResult, String> {
     let client = create_client()?;
-    let url = format!(
-        "{}/models",
-        base_url.unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai")
-    );
+
+    // Handle base_url that might already include the endpoint
+    let base = base_url.unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai");
+    let url = if base.ends_with("/models") {
+        base.to_string()
+    } else {
+        format!("{}/models", base.trim_end_matches('/'))
+    };
 
     let response = client
         .get(&url)
@@ -183,9 +267,29 @@ pub async fn fetch_google_models(
         .map_err(|e| format!("Request failed: {}", e))?;
 
     if !response.status().is_success() {
+        let status = response.status();
+        // Try to get error details from response body
+        let error_body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unable to read error details".to_string());
+
+        // Parse Google error format if possible
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&error_body) {
+            if let Some(error_msg) = json["error"]["message"].as_str() {
+                return Ok(FetchModelsResult::failure(format!(
+                    "Google API error ({}): {}",
+                    status.as_u16(),
+                    error_msg
+                )));
+            }
+        }
+
+        // Fallback to status + body
         return Ok(FetchModelsResult::failure(format!(
-            "API error: {}",
-            response.status()
+            "API error ({}): {}",
+            status.as_u16(),
+            error_body.chars().take(200).collect::<String>()
         )));
     }
 
