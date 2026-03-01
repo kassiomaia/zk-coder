@@ -73,6 +73,24 @@ Start with the template from `folder-structure.md`. Ensure:
 
 ## Phase 3: Building
 
+### 3.0 Code Separation Rules (MANDATORY)
+
+**Before writing any code, understand the separation requirements:**
+
+**CSS Separation:**
+- ❌ NO `style="..."` attributes on any HTML element
+- ❌ NO `<style>` blocks in `index.html`
+- ✅ ALL styles in `css/components.css` or `css/animations.css`
+- ✅ Use CSS classes for all styling
+
+**JavaScript Separation:**
+- ❌ NO `<script>` blocks containing logic in `index.html`
+- ❌ NO inline event handlers like `onclick="function()"`
+- ✅ ALL JavaScript logic in `js/` files
+- ✅ Use Alpine.js directives (`@click`, `x-show`, etc.) which reference `js/state.js`
+
+**Why this matters:** Clean separation makes prototypes easier to maintain, styles reusable, and HTML semantic. The prototype should demonstrate the feature, not the implementation technique.
+
 ### 3.1 Define State Structure
 
 In `js/state.js`, define your state:
@@ -305,16 +323,26 @@ In `css/animations.css`:
 
 ### 4.1 Complete README.md
 
-Fill in all required sections (see `folder-structure.md` for template):
+The README is a **feature design specification**, not prototype implementation documentation. It should be written for product designers and developers to understand the feature, not how the prototype works.
 
-- **Overview**: What this prototype demonstrates
-- **Goals**: What we're trying to learn/validate
-- **Features**: What's implemented
-- **Components**: What's included and excluded
-- **State Structure**: Document the state object
-- **Interactions**: User flow documentation
-- **Design Decisions**: Rationale for choices made
-- **Notes for Implementation**: Guidance for developers
+**Writing Guidelines:**
+- Write at feature design level (WHAT and WHY), not implementation level (HOW)
+- Describe behavior and appearance, not code or file structure
+- Use language accessible to non-technical stakeholders
+- Focus on user-facing functionality and design decisions
+- Do NOT mention Alpine.js, JavaScript files, CSS files, or prototype structure
+
+**Fill in all required sections** (see `folder-structure.md` for template):
+- **Overview**: Business context and feature purpose
+- **User Stories**: Who uses this and why
+- **Functional Requirements**: What the system must do
+- **UI Components**: Component hierarchy and responsibilities
+- **Interaction Flows**: Step-by-step user journeys
+- **Visual Design Specifications**: Layout, typography, colors, spacing
+- **States and Variants**: Component states table
+- **Accessibility Requirements**: Keyboard, screen reader, focus
+- **Implementation Notes**: Technical considerations
+- **Out of Scope**: What's explicitly not included
 
 ### 4.2 Add Code Comments
 

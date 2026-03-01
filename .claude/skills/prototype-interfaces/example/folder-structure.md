@@ -61,54 +61,102 @@ Main HTML file containing:
 
 ### `README.md`
 
+Feature design specification document. This is NOT implementation documentation - it describes the feature at a product/design level for stakeholders and developers.
+
 **Required sections:**
 
 ```markdown
-# <Feature Name> - Prototype
+# <Feature Name>
 
 ## Overview
-Brief description of what this prototype demonstrates.
+Business context and feature description. What problem does this solve? Who is it for?
 
-## Goals
-1. Goal 1
-2. Goal 2
-3. Goal 3
+## User Stories
+- As a [user type], I want to [action] so that [benefit]
+- As a [user type], I want to [action] so that [benefit]
 
-## Features
-- Feature 1: Description
-- Feature 2: Description
+## Functional Requirements
+1. The system shall [functional requirement]
+2. The system shall [functional requirement]
+3. The system shall [functional requirement]
 
-## Components Included
-- Component A
-- Component B
+## UI Components
 
-## Components Excluded
-- Component C (reason: not relevant to this prototype)
-- Component D (reason: exists elsewhere, using placeholder)
+### <Component Name>
+**Purpose:** What this component does
+**Responsibilities:**
+- Responsibility 1
+- Responsibility 2
 
-## State Structure
-\`\`\`javascript
-const state = {
-    propertyName: defaultValue,
-    // ... other properties
-};
-\`\`\`
+**Variants:**
+- Default: Description
+- Active: Description
+- Disabled: Description
 
-## Interactions
-1. User does X → System responds with Y
-2. User does A → System responds with B
+### <Component Name>
+...
 
-## Design Decisions
-- Decision 1: Rationale
-- Decision 2: Rationale
+## Interaction Flows
 
-## Notes for Implementation
-- Consideration 1
-- Consideration 2
+### Flow 1: <Flow Name>
+1. User initiates action by [trigger]
+2. System responds with [response]
+3. User can then [next action]
+4. Flow completes when [end condition]
 
-## Future Enhancements (Optional)
-- [ ] Enhancement 1
-- [ ] Enhancement 2
+### Flow 2: <Flow Name>
+...
+
+## Visual Design Specifications
+
+### Layout
+- Component arrangement and hierarchy
+- Spacing and alignment rules
+- Responsive breakpoints
+
+### Typography
+- Font families, sizes, weights per element
+- Line heights and letter spacing
+
+### Colors
+- Background colors per element
+- Text colors per context
+- Border and divider colors
+- State colors (hover, active, error, success)
+
+### Spacing
+- Padding and margins per component
+- Gap between elements
+
+## States and Variants
+
+### <Component> States
+| State | Appearance | Trigger |
+|-------|------------|---------|
+| Default | Description | Initial render |
+| Hover | Description | Mouse enter |
+| Active | Description | Mouse down |
+| Focus | Description | Tab navigation |
+| Disabled | Description | Condition |
+| Loading | Description | Async operation |
+| Error | Description | Validation failure |
+
+## Accessibility Requirements
+- Keyboard navigation: [specifics]
+- Screen reader announcements: [specifics]
+- Focus management: [specifics]
+- Color contrast: [WCAG level]
+
+## Implementation Notes
+Technical considerations for development:
+- API requirements
+- State management approach
+- Performance considerations
+- Edge cases to handle
+
+## Out of Scope
+- Feature/behavior explicitly not included
+- Future considerations deferred
 ```
 
 ### `css/design-system.css`
