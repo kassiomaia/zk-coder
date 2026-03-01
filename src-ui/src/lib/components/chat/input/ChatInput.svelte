@@ -63,7 +63,7 @@
 	}
 
 	let {
-		placeholder = 'Type your message... (/ for commands, @ for mentions)',
+		placeholder = '',
 		value,
 		onchange,
 		onsubmit,
@@ -76,7 +76,7 @@
 		commands = BUILT_IN_COMMANDS,
 		mentionItems = [],
 		showIntent = true,
-		enableMarkdownPreview = true,
+		enableMarkdownPreview = false,
 		useBackendNlp = true
 	}: Props = $props();
 
@@ -91,8 +91,7 @@
 	let isPreviewMode = $state(false);
 	let cursorPosition = $state(0);
 
-	// Get NLP state from store
-	let $nlpState = $state(nlpState);
+	// Note: $nlpState auto-subscribes to nlpState store from $lib/stores
 
 	// Derived values
 	let filteredCommands = $derived(filterCommands(commands, commandQuery));
@@ -229,8 +228,7 @@
 		const afterCursor = value.slice(cursorPosition);
 		const lastSlashIndex = beforeCursor.lastIndexOf('/');
 
-		const newValue =
-			beforeCursor.slice(0, lastSlashIndex) + `/${command.name} ` + afterCursor;
+		const newValue = beforeCursor.slice(0, lastSlashIndex) + `/${command.name} ` + afterCursor;
 
 		onchange(newValue);
 		showCommandPalette = false;
@@ -434,9 +432,7 @@
 		<div class={styles.rightActions}>
 			{#if maxLength}
 				<span
-					class={[styles.characterCount, isOverLimit && styles.overLimit]
-						.filter(Boolean)
-						.join(' ')}
+					class={[styles.characterCount, isOverLimit && styles.overLimit].filter(Boolean).join(' ')}
 				>
 					{characterCount}/{maxLength}
 				</span>

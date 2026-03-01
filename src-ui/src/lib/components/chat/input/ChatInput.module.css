@@ -3,28 +3,26 @@
  * Enhanced multi-line input with command palette and mentions support.
  *
  * Design Features:
- * - Prominent focus state with glow effect
- * - Clear send button with hover animation
+ * - Clean borderless design
+ * - Simplified send button without glow
+ * - Reduced visual weight for action buttons
  * - Smooth transitions throughout
  */
 
 .container {
 	background: var(--color-surface);
-	border: 1px solid var(--color-border-primary);
+	border: none;
 	border-radius: var(--radius-2xl);
 	padding: var(--space-3);
-	transition:
-		border-color var(--transition-fast),
-		box-shadow var(--transition-fast);
+	transition: background var(--transition-fast);
 }
 
 .container:hover {
-	border-color: var(--color-border-secondary);
+	background: var(--color-surface-hover);
 }
 
 .container:focus-within {
-	border-color: var(--color-primary-500);
-	box-shadow: 0 0 0 3px var(--color-accent-primary-muted), var(--shadow-glow-sm);
+	background: var(--color-surface);
 }
 
 .container.disabled {
@@ -68,7 +66,7 @@
 }
 
 .fileIcon {
-	color: var(--color-accent-primary);
+	color: var(--color-text-tertiary);
 	flex-shrink: 0;
 }
 
@@ -134,7 +132,14 @@
 	background: transparent;
 	border: none;
 	outline: none;
+	box-shadow: none;
 	resize: none;
+}
+
+.textarea:focus {
+	outline: none;
+	border: none;
+	box-shadow: none;
 }
 
 .textarea::placeholder {
@@ -153,15 +158,16 @@
 .rightActions {
 	display: flex;
 	align-items: center;
-	gap: var(--space-1);
+	gap: var(--space-0-5);
 }
 
+/* Action buttons - reduced visual weight */
 .actionButton {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 36px;
-	height: 36px;
+	width: 32px;
+	height: 32px;
 	padding: 0;
 	background: transparent;
 	border: none;
@@ -173,11 +179,7 @@
 
 .actionButton:hover:not(:disabled) {
 	background: var(--color-surface-hover);
-	color: var(--color-text-primary);
-}
-
-.actionButton:active:not(:disabled) {
-	transform: scale(0.95);
+	color: var(--color-text-secondary);
 }
 
 .actionButton.active {
@@ -211,44 +213,38 @@
 	font-weight: var(--font-semibold);
 }
 
-/* Send button - Enhanced prominence */
+/* Send button - simplified without glow */
 .sendButton {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 40px;
-	height: 40px;
+	width: 36px;
+	height: 36px;
 	background: var(--color-primary-500);
 	color: var(--color-neutral-0);
 	border: none;
 	border-radius: var(--radius-full);
 	cursor: pointer;
 	transition: all var(--transition-fast);
-	box-shadow: var(--shadow-md);
 }
 
 .sendButton:hover:not(.disabled) {
 	background: var(--color-primary-600);
-	transform: scale(1.08);
-	box-shadow: var(--shadow-lg), var(--shadow-glow-sm);
 }
 
 .sendButton:active:not(.disabled) {
-	transform: scale(0.98);
-	box-shadow: var(--shadow-sm);
+	transform: scale(0.95);
 }
 
 .sendButton.disabled {
 	background: var(--color-neutral-700);
 	cursor: not-allowed;
-	transform: none;
-	box-shadow: none;
 }
 
 .sendButton:focus-visible {
 	outline: 2px solid var(--color-primary-400);
 	outline-offset: 2px;
-	box-shadow: var(--shadow-glow-md);
+	box-shadow: 0 0 0 3px var(--color-accent-primary-muted);
 }
 
 /* Spinner animation */
@@ -277,13 +273,13 @@
 	}
 
 	.sendButton {
-		width: 36px;
-		height: 36px;
+		width: 34px;
+		height: 34px;
 	}
 
 	.actionButton {
-		width: 32px;
-		height: 32px;
+		width: 30px;
+		height: 30px;
 	}
 }
 
@@ -297,8 +293,7 @@
 		transition: none;
 	}
 
-	.sendButton:hover:not(.disabled),
-	.actionButton:active:not(:disabled) {
+	.sendButton:active:not(.disabled) {
 		transform: none;
 	}
 
