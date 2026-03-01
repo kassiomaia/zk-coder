@@ -200,7 +200,7 @@ mod tests {
             "src/main.rs".to_string(),
             "src/lib.rs".to_string(),
             "src/auth.rs".to_string(),
-            "tests/auth_test.rs".to_string(),
+            "tests/auth.rs".to_string(),  // This will match "auth.rs" via contains
         ]
     }
 
