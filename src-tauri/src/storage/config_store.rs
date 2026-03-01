@@ -113,8 +113,30 @@ impl ConfigStore {
         Ok(())
     }
 
-    /// Migrates the api_type constraint to include 'google' for existing databases.
+    /// Migrates the api_type constraint to include 'google' for existing databases
+    /// and fixes is_custom for built-in providers.
     fn migrate_api_type_constraint(conn: &Connection) -> Result<(), ConfigStoreError> {
+        // First, fix built-in providers that may have incorrect is_custom or api_type values
+        // This handles cases where providers were created through the UI before proper seeding
+        conn.execute_batch(
+            r#"
+            -- Fix Anthropic provider
+            UPDATE providers
+            SET is_custom = FALSE, api_type = 'anthropic'
+            WHERE id = 'anthropic';
+
+            -- Fix OpenAI provider
+            UPDATE providers
+            SET is_custom = FALSE, api_type = 'openai'
+            WHERE id = 'openai';
+
+            -- Fix Google provider
+            UPDATE providers
+            SET is_custom = FALSE, api_type = 'google'
+            WHERE id = 'google';
+            "#,
+        )?;
+
         // Check if migration is needed by trying to insert a google provider
         // If the constraint doesn't allow 'google', we need to recreate the table
         let needs_migration: bool = conn
@@ -142,7 +164,7 @@ impl ConfigStore {
                 // Fix any Google provider that was inserted with wrong api_type
                 // This can happen if the constraint was updated but data wasn't
                 conn.execute(
-                    "UPDATE providers SET api_type = 'google' WHERE id = 'google' AND api_type != 'google'",
+                    "UPDATE providers SET api_type = 'google', is_custom = FALSE WHERE id = 'google' AND (api_type != 'google' OR is_custom != FALSE)",
                     [],
                 )?;
             } else {
@@ -173,10 +195,15 @@ impl ConfigStore {
                         updated_at    TEXT NOT NULL
                     );
 
-                    -- Copy data from old table, fixing Google's api_type
+                    -- Copy data from old table, fixing built-in providers' api_type and is_custom
                     INSERT INTO providers
-                    SELECT id, name, icon, is_custom,
-                           CASE WHEN id = 'google' THEN 'google' ELSE api_type END,
+                    SELECT id, name, icon,
+                           CASE WHEN id IN ('anthropic', 'openai', 'google') THEN FALSE ELSE is_custom END,
+                           CASE
+                               WHEN id = 'anthropic' THEN 'anthropic'
+                               WHEN id = 'google' THEN 'google'
+                               ELSE api_type
+                           END,
                            base_url, is_configured, created_at, updated_at
                     FROM providers_old;
 

@@ -56,6 +56,9 @@ pub async fn get_providers(state: tauri::State<'_, ConfigState>) -> Result<Vec<P
     store.get_providers().map_err(|e| e.to_string())
 }
 
+/// Built-in provider IDs that cannot be used for custom providers
+const BUILTIN_PROVIDER_IDS: &[&str] = &["anthropic", "openai", "google"];
+
 /// Saves a provider (create or update).
 #[tauri::command]
 pub async fn save_provider(
@@ -69,7 +72,7 @@ pub async fn save_provider(
         let existing = store.get_provider(&id).map_err(|e| e.to_string())?;
 
         if let Some(existing) = existing {
-            // Update existing provider
+            // Update existing provider (preserve is_custom for built-in providers)
             Provider {
                 id,
                 name: request.name,
@@ -82,6 +85,13 @@ pub async fn save_provider(
                 updated_at: chrono::Utc::now(),
             }
         } else {
+            // Prevent creating custom providers with built-in IDs
+            if BUILTIN_PROVIDER_IDS.contains(&id.as_str()) {
+                return Err(format!(
+                    "Cannot create custom provider with reserved ID '{}'",
+                    id
+                ));
+            }
             // Create new custom provider with the specified ID
             Provider::custom_with_id(
                 &id,
@@ -332,5 +342,37 @@ mod tests {
         store
             .delete_provider(&provider.id)
             .expect("Failed to delete provider");
+    }
+
+    #[tokio::test]
+    async fn test_builtin_providers_not_custom() {
+        let state = ConfigState::in_memory().expect("Failed to create state");
+        let store = state.store.lock().await;
+        let providers = store.get_providers().expect("Failed to get providers");
+
+        // Verify all built-in providers have is_custom = false
+        for provider in providers {
+            assert!(
+                !provider.is_custom,
+                "Built-in provider {} should have is_custom = false",
+                provider.id
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_cannot_delete_builtin_providers() {
+        let state = ConfigState::in_memory().expect("Failed to create state");
+        let store = state.store.lock().await;
+
+        // Try to delete built-in providers - should fail
+        for builtin_id in BUILTIN_PROVIDER_IDS {
+            let result = store.delete_provider(builtin_id);
+            assert!(
+                result.is_err(),
+                "Should not be able to delete built-in provider {}",
+                builtin_id
+            );
+        }
     }
 }
