@@ -6,6 +6,7 @@
 use std::sync::Mutex;
 
 use chrono::{DateTime, Utc};
+use log;
 use rusqlite::{params, Connection, OptionalExtension};
 use thiserror::Error;
 
@@ -304,15 +305,18 @@ impl ConfigStore {
     ///
     /// Returns an error if the database operation fails.
     pub fn get_providers(&self) -> Result<Vec<Provider>, ConfigStoreError> {
+        log::info!("ConfigStore::get_providers: Acquiring lock...");
         let conn = self
             .conn
             .lock()
             .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+        log::info!("ConfigStore::get_providers: Lock acquired, preparing query...");
 
         let mut stmt = conn.prepare(
             "SELECT id, name, icon, is_custom, api_type, base_url, is_configured, created_at, updated_at
              FROM providers ORDER BY name",
         )?;
+        log::info!("ConfigStore::get_providers: Query prepared, executing...");
 
         let providers = stmt
             .query_map([], |row| {
@@ -320,6 +324,13 @@ impl ConfigStore {
                 let api_type = ApiType::from_str(&api_type_str);
                 let created_at_str: String = row.get(7)?;
                 let updated_at_str: String = row.get(8)?;
+
+                log::debug!(
+                    "ConfigStore::get_providers: Row id={}, name={}, is_configured={}",
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, bool>(6)?
+                );
 
                 Ok(Provider {
                     id: row.get(0)?,

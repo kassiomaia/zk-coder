@@ -13,6 +13,9 @@ use crate::nlp::config::{
 };
 use crate::storage::ConfigStore;
 
+// Re-export log macros for debugging
+use log::{info, error};
+
 /// Application state for configuration commands.
 pub struct ConfigState {
     /// Config store for persistence
@@ -52,8 +55,20 @@ impl ConfigState {
 /// Gets all providers.
 #[tauri::command]
 pub async fn get_providers(state: tauri::State<'_, ConfigState>) -> Result<Vec<Provider>, String> {
+    info!("get_providers: Starting to fetch providers...");
     let store = state.store.lock().await;
-    store.get_providers().map_err(|e| e.to_string())
+    let providers = store.get_providers().map_err(|e| {
+        error!("get_providers: Failed to get providers: {}", e);
+        e.to_string()
+    })?;
+    info!("get_providers: Returning {} providers", providers.len());
+    for p in &providers {
+        info!(
+            "get_providers: Provider id={}, name={}, is_custom={}, is_configured={}",
+            p.id, p.name, p.is_custom, p.is_configured
+        );
+    }
+    Ok(providers)
 }
 
 /// Built-in provider IDs that cannot be used for custom providers
