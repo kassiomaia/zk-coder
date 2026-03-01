@@ -1,7 +1,8 @@
 <script lang="ts">
 	/**
 	 * Modal Component
-	 * Reusable modal with overlay, header, body, and footer slots.
+	 * Reusable modal with overlay wrapper, header, body, and footer slots.
+	 * Matches the prototype pattern: .modal-overlay wraps .modal
 	 */
 	import styles from './Modal.module.css';
 	import type { Snippet } from 'svelte';
@@ -19,13 +20,31 @@
 		showClose?: boolean;
 		/** Additional class for modal content */
 		contentClass?: string;
+		/** Stacked modal - higher z-index for modals opened from other modals */
+		stacked?: boolean;
 		/** Children */
 		children?: Snippet;
 		/** Footer snippet */
 		footer?: Snippet;
 	}
 
-	let { title = '', open, onclose, size = 'default', showClose = true, contentClass = '', children, footer }: Props = $props();
+	let {
+		title = '',
+		open,
+		onclose,
+		size = 'default',
+		showClose = true,
+		contentClass = '',
+		stacked = false,
+		children,
+		footer
+	}: Props = $props();
+
+	let wrapperClasses = $derived([
+		styles.overlay,
+		stacked && styles.top,
+		open && styles.open
+	].filter(Boolean).join(' '));
 
 	let modalClasses = $derived([
 		styles.modal,
@@ -39,6 +58,7 @@
 		}
 	}
 
+	// Prevent body scroll when modal is open
 	$effect(() => {
 		if (open) {
 			document.addEventListener('keydown', handleKeydown);
@@ -52,39 +72,69 @@
 </script>
 
 {#if open}
-	<!-- svelte-ignore a11y-no-static-element-interactions -->
-	<div class={styles.overlay} onclick={onclose} role="presentation"></div>
-	<div class={modalClasses} role="dialog" aria-modal="true" aria-labelledby={title ? 'modal-title' : undefined}>
-		{#if title || showClose}
-			<header class={styles.header}>
-				{#if title}
-					<h2 id="modal-title" class={styles.title}>{title}</h2>
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class={wrapperClasses}
+		onclick={(e) => {
+			// Close only when clicking the overlay, not the modal content
+			if (e.target === e.currentTarget) onclose();
+		}}
+		onkeydown={(e) => {
+			// Allow closing with Escape key
+			if (e.key === 'Escape') onclose();
+		}}
+		role="presentation"
+	>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div
+			class={modalClasses}
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby={title ? 'modal-title' : undefined}
+			tabindex="-1"
+			onclick={(e) => e.stopPropagation()}
+		>
+			{#if title || showClose}
+				<header class={styles.header}>
+					{#if title}
+						<h2 id="modal-title" class={styles.title}>{title}</h2>
+					{/if}
+					{#if showClose}
+						<button
+							class={styles.closeBtn}
+							onclick={onclose}
+							type="button"
+							aria-label="Close modal"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="20"
+								height="20"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<line x1="18" y1="6" x2="6" y2="18"></line>
+								<line x1="6" y1="6" x2="18" y2="18"></line>
+							</svg>
+						</button>
+					{/if}
+				</header>
+			{/if}
+			<div class={[styles.body, contentClass].filter(Boolean).join(' ')}>
+				{#if children}
+					{@render children()}
 				{/if}
-				{#if showClose}
-					<button
-						class={styles.closeBtn}
-						onclick={onclose}
-						type="button"
-						aria-label="Close modal"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<line x1="18" y1="6" x2="6" y2="18"></line>
-							<line x1="6" y1="6" x2="18" y2="18"></line>
-						</svg>
-					</button>
-				{/if}
-			</header>
-		{/if}
-		<div class={[styles.body, contentClass].filter(Boolean).join(' ')}>
-			{#if children}
-				{@render children()}
+			</div>
+			{#if footer}
+				<footer class={styles.footer}>
+					{@render footer()}
+				</footer>
 			{/if}
 		</div>
-		{#if footer}
-			<footer class={styles.footer}>
-				{@render footer()}
-			</footer>
-		{/if}
 	</div>
 {/if}
 
