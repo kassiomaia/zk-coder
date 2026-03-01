@@ -9,6 +9,7 @@ pub mod chat;
 pub mod classifier;
 pub mod code_analyzer;
 pub mod code_understanding;
+pub mod config;
 pub mod context;
 pub mod context_manager;
 pub mod execution_planner;
@@ -40,4 +41,10 @@ pub use patterns::IntentPatterns;
 pub use chat::{
     ChatMessage, Conversation, ConversationSettings, MessageMetadata, MessageStatus,
     Thread, ThreadMetadata, ThreadPriority,
+};
+
+// Config types for LLM provider management
+pub use config::{
+    ApiType, FetchModelsResult, Model, ModelCapabilities, OperationDefault, OperationType,
+    Provider, SaveProviderRequest, ValidationResult,
 };
