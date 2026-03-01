@@ -5,6 +5,7 @@
 
 pub mod ambiguity;
 pub mod ambiguity_resolver;
+pub mod chat;
 pub mod classifier;
 pub mod code_analyzer;
 pub mod code_understanding;
@@ -34,3 +35,9 @@ pub use multi_detector::{DetectorError, MultiIntentDetector};
 pub use multi_intent::{DetectedIntent, IntentRelationship, MultiIntentResult, TextSpan};
 pub use nl_to_code::{CodeConcept, NLToCodeMapper};
 pub use patterns::IntentPatterns;
+
+// Chat types (MessageRole is defined in context module, re-exported here)
+pub use chat::{
+    ChatMessage, Conversation, ConversationSettings, MessageMetadata, MessageStatus,
+    Thread, ThreadMetadata, ThreadPriority,
+};
