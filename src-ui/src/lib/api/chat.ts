@@ -238,8 +238,8 @@ export interface SendMessageOptions {
 	content: string;
 	/** Role (user, assistant, system) */
 	role: 'user' | 'assistant' | 'system';
-	/** Optional thread ID */
-	threadId?: string;
+	/** Thread ID (required - every message must belong to a thread) */
+	threadId: string;
 }
 
 /**
@@ -253,9 +253,54 @@ export async function sendMessage(options: SendMessageOptions): Promise<Message>
 		conversationId: options.conversationId,
 		content: options.content,
 		role: options.role,
-		threadId: options.threadId ?? null
+		threadId: options.threadId
 	});
 	return msgToClient(response);
+}
+
+/**
+ * Options for creating a thread with a message.
+ */
+export interface CreateThreadWithMessageOptions {
+	/** Conversation ID */
+	conversationId: string;
+	/** Thread title */
+	threadTitle: string;
+	/** Message content */
+	content: string;
+	/** Role (user, assistant, system) */
+	role: 'user' | 'assistant' | 'system';
+}
+
+/**
+ * Response from creating a thread with a message.
+ */
+export interface CreateThreadWithMessageResponse {
+	/** The created thread */
+	thread: ThreadResponse;
+	/** The created message */
+	message: ChatMessageResponse;
+}
+
+/**
+ * Creates a thread with its first message atomically.
+ *
+ * @param options - Creation options
+ * @returns The created thread and message
+ */
+export async function createThreadWithMessage(
+	options: CreateThreadWithMessageOptions
+): Promise<{ thread: Thread; message: Message }> {
+	const response = await safeInvoke<CreateThreadWithMessageResponse>('create_thread_with_message', {
+		conversationId: options.conversationId,
+		threadTitle: options.threadTitle,
+		content: options.content,
+		role: options.role
+	});
+	return {
+		thread: threadToClient(response.thread),
+		message: msgToClient(response.message)
+	};
 }
 
 /**
@@ -332,7 +377,7 @@ function msgToClient(msg: ChatMessageResponse): Message {
 	return {
 		id: msg.id,
 		conversationId: msg.conversationId,
-		threadId: msg.threadId ?? undefined,
+		threadId: msg.threadId ?? '',
 		role: msg.role,
 		content: msg.content,
 		timestamp: new Date(msg.timestamp),

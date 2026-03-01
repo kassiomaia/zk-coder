@@ -19,8 +19,8 @@ export interface Message {
 	/** ID of the conversation this message belongs to */
 	conversationId: string;
 
-	/** ID of the thread this message belongs to (if part of a thread) */
-	threadId?: string;
+	/** ID of the thread this message belongs to (required - every message must be in a thread) */
+	threadId: string;
 
 	/** Role of the message sender */
 	role: MessageRole;

@@ -219,13 +219,13 @@ pub async fn load_thread_messages(
         .map_err(|e| e.to_string())
 }
 
-/// Sends a message to a conversation.
+/// Sends a message to a conversation (requires thread_id).
 #[tauri::command]
 pub async fn send_message(
     conversation_id: String,
     content: String,
     role: String,
-    thread_id: Option<String>,
+    thread_id: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<ChatMessage, String> {
     let message = match role.as_str() {
@@ -237,11 +237,7 @@ pub async fn send_message(
         _ => ChatMessage::user(&conversation_id, &content),
     };
 
-    let message = if let Some(tid) = thread_id {
-        message.with_thread(&tid)
-    } else {
-        message
-    };
+    let message = message.with_thread(&thread_id);
 
     let store = state.store.lock().await;
     store
