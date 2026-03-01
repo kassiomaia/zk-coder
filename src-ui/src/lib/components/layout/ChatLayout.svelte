@@ -45,10 +45,14 @@
 		onRenameConversation?: (conversation: Conversation, newTitle: string) => void;
 		/** Handler for search */
 		onSearch?: (query: string) => void;
+		/** Handler for settings button click */
+		onSettings?: () => void;
 		/** Loading state */
 		loading?: boolean;
 		/** Threads loading state */
 		threadsLoading?: boolean;
+		/** Whether any provider is configured */
+		hasConfiguredProvider?: boolean;
 	}
 
 	let {
@@ -66,8 +70,10 @@
 		onDeleteConversation,
 		onRenameConversation,
 		onSearch,
+		onSettings,
 		loading = false,
-		threadsLoading = false
+		threadsLoading = false,
+		hasConfiguredProvider = true
 	}: Props = $props();
 
 	// UI state for responsive behavior
@@ -232,6 +238,8 @@
 				onCreateNew={onCreateConversation}
 				onDelete={onDeleteConversation}
 				onRename={onRenameConversation}
+				{onSettings}
+				{hasConfiguredProvider}
 			/>
 		</div>
 

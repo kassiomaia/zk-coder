@@ -6,6 +6,10 @@
 	import { onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import ChatLayout from '$lib/components/layout/ChatLayout.svelte';
+	import ProvidersModal from '$lib/components/config/ProvidersModal.svelte';
+	import ConfigModal from '$lib/components/config/ConfigModal.svelte';
+	import CustomProviderModal from '$lib/components/config/CustomProviderModal.svelte';
+	import SettingsModal from '$lib/components/config/SettingsModal.svelte';
 	import {
 		chatStore,
 		selectedConversation,
@@ -15,7 +19,9 @@
 		chatError,
 		isLoading,
 		currentThreads,
-		threadsLoading
+		threadsLoading,
+		configStore,
+		hasConfiguredProvider
 	} from '$lib/stores';
 	import type { Conversation, Thread, ConversationGroup } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
@@ -32,6 +38,12 @@
 	let currentThreadsLoading = $state<LoadingState>('idle');
 
 	type LoadingState = 'idle' | 'loading' | 'success' | 'error';
+
+	// Config modal state
+	type ModalState = 'closed' | 'providers' | 'config' | 'custom-provider' | 'settings';
+	let activeModal = $state<ModalState>('closed');
+	let selectedProviderId = $state<string | null>(null);
+	let configInitialized = $state(false);
 
 	// Subscribe to chat store changes
 	$effect(() => {
@@ -73,6 +85,15 @@
 
 		// Initialize chat store (loads conversations from backend)
 		await chatStore.initialize();
+
+		// Initialize config store and show providers modal if no providers configured
+		await configStore.initialize();
+		configInitialized = true;
+
+		// Show providers modal if no providers are configured
+		if (!$hasConfiguredProvider) {
+			activeModal = 'providers';
+		}
 	});
 
 	// Handlers - connected to chat store
@@ -123,6 +144,33 @@
 		chatStore.clearError();
 	}
 
+	// Config modal handlers
+	function handleOpenSettings() {
+		activeModal = 'settings';
+	}
+
+	function handleCloseModal() {
+		activeModal = 'closed';
+		selectedProviderId = null;
+	}
+
+	function handleConfigureProvider(providerId: string) {
+		selectedProviderId = providerId;
+		activeModal = 'config';
+	}
+
+	function handleAddCustomProvider() {
+		activeModal = 'custom-provider';
+	}
+
+	async function handleRemoveProvider(providerId: string) {
+		try {
+			await configStore.removeProvider(providerId);
+		} catch (error) {
+			console.error('Failed to remove provider:', error);
+		}
+	}
+
 	// Flatten conversation groups for ChatLayout
 	function flattenGroups(groups: ConversationGroup[]): Conversation[] {
 		return groups.flatMap((group) => group.conversations);
@@ -148,8 +196,10 @@
 	onDeleteConversation={handleDeleteConversation}
 	onRenameConversation={handleRenameConversation}
 	onSearch={handleSearch}
+	onSettings={handleOpenSettings}
 	loading={$isLoading}
 	threadsLoading={currentThreadsLoading === 'loading'}
+	hasConfiguredProvider={$hasConfiguredProvider}
 />
 
 <!-- Status indicator -->
@@ -166,6 +216,45 @@
 		<span class="version">{appInfo.name} v{appInfo.version}</span>
 	{/if}
 </div>
+
+<!-- Configuration Modals -->
+{#if configInitialized}
+	<!-- Providers Modal (shown when no providers configured) -->
+	<ProvidersModal
+		open={activeModal === 'providers'}
+		onclose={handleCloseModal}
+		oncontinue={handleCloseModal}
+		onconfigure={handleConfigureProvider}
+		onaddcustom={handleAddCustomProvider}
+	/>
+
+	<!-- Config Modal (for entering API key) -->
+	<ConfigModal
+		open={activeModal === 'config'}
+		onclose={handleCloseModal}
+		providerId={selectedProviderId}
+		onsaved={handleCloseModal}
+	/>
+
+	<!-- Custom Provider Modal -->
+	<CustomProviderModal
+		open={activeModal === 'custom-provider'}
+		onclose={() => activeModal = 'providers'}
+		onsaved={(providerId: string) => {
+			selectedProviderId = providerId;
+			activeModal = 'config';
+		}}
+	/>
+
+	<!-- Settings Modal (full settings) -->
+	<SettingsModal
+		open={activeModal === 'settings'}
+		onclose={handleCloseModal}
+		onconfigure={handleConfigureProvider}
+		onaddcustom={handleAddCustomProvider}
+		onremoveprovider={handleRemoveProvider}
+	/>
+{/if}
 
 <style>
 	.status-bar {
