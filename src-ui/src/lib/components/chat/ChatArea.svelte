@@ -21,6 +21,9 @@
 		/** Error message to display */
 		error?: string;
 
+		/** Loading state for messages */
+		messagesLoading?: 'idle' | 'loading' | 'success' | 'error';
+
 		/** Send message handler */
 		onSendMessage?: (content: string) => void;
 
@@ -32,6 +35,9 @@
 
 		/** Delete message handler */
 		onDeleteMessage?: (id: string) => void;
+
+		/** Retry message handler (for failed messages) */
+		onRetryMessage?: (id: string) => void;
 	}
 
 	let {
@@ -39,10 +45,12 @@
 		loading = false,
 		isTyping = false,
 		error,
+		messagesLoading = 'idle',
 		onSendMessage,
 		onRetry,
 		onEditMessage,
-		onDeleteMessage
+		onDeleteMessage,
+		onRetryMessage
 	}: Props = $props();
 
 	// Input state
@@ -112,17 +120,23 @@
 	function getRoleClass(role: string): string {
 		return `role-${role}`;
 	}
+
+	function getMessageStatusClass(status: string | undefined): string {
+		if (status === 'error') return styles.messageError;
+		if (status === 'sending') return styles.messageSending;
+		return '';
+	}
 </script>
 
 <div class={styles.chatArea}>
 	<!-- Messages area -->
 	<div class={styles.messagesWrapper}>
-		{#if loading}
+		{#if messagesLoading === 'loading'}
 			<div class={styles.loading}>
 				<div class={styles.spinner}></div>
 				<span>Loading messages...</span>
 			</div>
-		{:else if error}
+		{:else if messagesLoading === 'error' || error}
 			<div class={styles.error}>
 				<svg
 					class={styles.errorIcon}
@@ -137,7 +151,7 @@
 					<line x1="12" y1="8" x2="12" y2="12" />
 					<line x1="12" y1="16" x2="12.01" y2="16" />
 				</svg>
-				<p class={styles.errorMessage}>{error}</p>
+				<p class={styles.errorMessage}>{error || 'Failed to load messages'}</p>
 				{#if onRetry}
 					<button class={styles.retryButton} onclick={handleRetry} type="button">
 						Retry
@@ -172,10 +186,30 @@
 					</div>
 					<div class={styles.groupMessages}>
 						{#each group.messages as message (message.id)}
-							<div class={[styles.message, styles[getRoleClass(message.role)]].filter(Boolean).join(' ')}>
+							<div class={[styles.message, styles[getRoleClass(message.role)], getMessageStatusClass(message.status)].filter(Boolean).join(' ')}>
 								<div class={styles.messageContent}>
 									{message.content}
 								</div>
+								<!-- Message status indicator -->
+								{#if message.status === 'sending'}
+									<div class={styles.statusIndicator} aria-label="Sending">
+										<div class={styles.sendingDot}></div>
+									</div>
+								{:else if message.status === 'error'}
+									<div class={styles.statusIndicator} aria-label="Failed to send">
+										<button
+											class={styles.retryIconButton}
+											onclick={() => onRetryMessage?.(message.id)}
+											title="Retry sending"
+											type="button"
+										>
+											<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+												<path d="M1 4v6h6" />
+												<path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+											</svg>
+										</button>
+									</div>
+								{/if}
 							</div>
 						{/each}
 					</div>
