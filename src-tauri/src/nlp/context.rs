@@ -246,7 +246,7 @@ pub enum SymbolKind {
 }
 
 /// Simplified context for AI prompts.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ConversationContext {
     /// Recent messages (last N)
     pub recent_messages: Vec<ContextMessage>,
