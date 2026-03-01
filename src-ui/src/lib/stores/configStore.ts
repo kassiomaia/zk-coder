@@ -81,9 +81,28 @@ function createConfigStore() {
 				console.log('Config store: loaded providers:', providers);
 				console.log('Config store: loaded defaults:', defaults);
 
+				// Load models for all configured providers from the database
+				const modelsByProvider: Record<string, Model[]> = {};
+				for (const provider of providers) {
+					if (provider.isConfigured) {
+						try {
+							const models = await apiGetModels(provider.id);
+							if (models.length > 0) {
+								modelsByProvider[provider.id] = models;
+								console.log(`Config store: loaded ${models.length} models for ${provider.id}`);
+							}
+						} catch (error) {
+							console.warn(`Config store: failed to load models for ${provider.id}:`, error);
+						}
+					}
+				}
+
+				console.log('Config store: loaded models:', modelsByProvider);
+
 				update((state) => ({
 					...state,
 					providers,
+					modelsByProvider,
 					operationDefaults: defaults,
 					providersLoading: 'success',
 					defaultsLoading: 'success'
