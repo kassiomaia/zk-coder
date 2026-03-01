@@ -70,6 +70,7 @@ impl MessageRole {
 
 /// Additional metadata for a message.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct MessageMetadata {
     /// Detected intent from NLP
     pub intent: Option<String>,
@@ -83,6 +84,7 @@ pub struct MessageMetadata {
 
 /// Represents a single chat message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatMessage {
     /// Unique identifier for the message
     pub id: String,
@@ -143,6 +145,7 @@ impl ChatMessage {
 
 /// Metadata for a thread.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ThreadMetadata {
     /// Whether the thread has been resolved
     pub resolved: bool,
@@ -158,6 +161,7 @@ pub struct ThreadMetadata {
 
 /// Represents a thread within a conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Thread {
     /// Unique identifier for the thread
     pub id: String,
@@ -196,23 +200,40 @@ impl Thread {
 
 /// Settings for a conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ConversationSettings {
     /// AI model to use
+    #[serde(default = "default_model")]
     pub model: String,
     /// Temperature for response generation
+    #[serde(default = "default_temperature")]
     pub temperature: f32,
     /// Maximum tokens for responses
+    #[serde(default = "default_max_tokens")]
     pub max_tokens: u32,
     /// Custom system prompt
+    #[serde(default)]
     pub system_prompt: Option<String>,
+}
+
+fn default_model() -> String {
+    "claude-sonnet-4-20250514".to_string()
+}
+
+fn default_temperature() -> f32 {
+    0.7
+}
+
+fn default_max_tokens() -> u32 {
+    4096
 }
 
 impl Default for ConversationSettings {
     fn default() -> Self {
         Self {
-            model: "claude-sonnet-4-20250514".to_string(),
-            temperature: 0.7,
-            max_tokens: 4096,
+            model: default_model(),
+            temperature: default_temperature(),
+            max_tokens: default_max_tokens(),
             system_prompt: None,
         }
     }
@@ -220,6 +241,7 @@ impl Default for ConversationSettings {
 
 /// Represents a full conversation with its threads.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Conversation {
     /// Unique identifier for the conversation
     pub id: String,
