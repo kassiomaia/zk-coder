@@ -167,7 +167,12 @@
 	<div class={styles.main}>
 		<!-- Sidebar backdrop (mobile) -->
 		{#if sidebarOpen}
-			<button class={styles.backdrop} onclick={closeSidebar} aria-label="Close sidebar" type="button">
+			<button
+				class={styles.backdrop}
+				onclick={closeSidebar}
+				aria-label="Close sidebar"
+				type="button"
+			>
 			</button>
 		{/if}
 
@@ -177,7 +182,7 @@
 				{conversations}
 				selectedId={selectedConversation?.id}
 				onSelect={handleSelectConversation}
-				onSearch={onSearch}
+				{onSearch}
 				onCreateNew={onCreateConversation}
 				onDelete={onDeleteConversation}
 			/>
@@ -188,13 +193,17 @@
 			{#if selectedThread}
 				<!-- Thread view with panel -->
 				<div class={styles.threadLayout}>
-					<div class={[styles.threadPanelWrapper, threadPanelOpen && styles.open].filter(Boolean).join(' ')}>
+					<div
+						class={[styles.threadPanelWrapper, threadPanelOpen && styles.open]
+							.filter(Boolean)
+							.join(' ')}
+					>
 						<ThreadView
 							threads={selectedConversation?.threads || []}
 							selectedThreadId={selectedThread.id}
 							onSelect={handleSelectThread}
-							onCreateThread={onCreateThread}
-							onResolveThread={onResolveThread}
+							{onCreateThread}
+							{onResolveThread}
 						/>
 					</div>
 
@@ -203,7 +212,7 @@
 						<ThreadPanel
 							thread={selectedThread}
 							{messages}
-							breadcrumbPath={breadcrumbPath}
+							{breadcrumbPath}
 							onSendMessage={handleSendMessage}
 							{loading}
 						/>
@@ -211,11 +220,7 @@
 				</div>
 			{:else}
 				<!-- Standard chat area -->
-				<ChatArea
-					{messages}
-					{loading}
-					onSendMessage={handleSendMessage}
-				/>
+				<ChatArea {messages} {loading} onSendMessage={handleSendMessage} />
 			{/if}
 		</div>
 

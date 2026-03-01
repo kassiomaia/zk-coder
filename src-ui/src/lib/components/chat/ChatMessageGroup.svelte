@@ -4,7 +4,7 @@
 	 * Groups related messages together with a shared header.
 	 * Messages are grouped by time (5-minute intervals) and role.
 	 */
-	import ChatMessage from '../ChatMessage.svelte';
+	import ChatMessage from '$lib/components/ChatMessage.svelte';
 	import type { Message } from '$lib/types/message';
 	import styles from './ChatMessageGroup.module.css';
 
