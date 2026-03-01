@@ -80,6 +80,7 @@ function createConfigStore() {
 
 				console.log('Config store: loaded providers:', providers);
 				console.log('Config store: loaded defaults:', defaults);
+				console.log('Config store: provider IDs:', providers.map(p => ({ id: p.id, name: p.name, isConfigured: p.isConfigured })));
 
 				// Load models for all configured providers from the database
 				const modelsByProvider: Record<string, Model[]> = {};
@@ -148,9 +149,9 @@ function createConfigStore() {
 		/**
 		 * Gets the default model for an operation.
 		 */
-		getDefault(operation: OperationType): string | undefined {
+		getDefault(operation: OperationType): string | null {
 			const defaults = get({ subscribe }).operationDefaults;
-			return defaults.find((d) => d.operation === operation)?.modelId;
+			return defaults.find((d) => d.operation === operation)?.modelId ?? null;
 		},
 
 		/**
@@ -211,7 +212,7 @@ function createConfigStore() {
 
 				// Clear any operation defaults that reference this provider
 				const operationDefaults = state.operationDefaults.filter(
-					(d) => !d.modelId.startsWith(providerId)
+					(d) => !d.modelId?.startsWith(providerId)
 				);
 
 				return { ...state, providers, modelsByProvider, operationDefaults };

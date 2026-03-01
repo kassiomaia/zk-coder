@@ -619,18 +619,31 @@ impl ConfigStore {
 
         let mut stmt = conn.prepare("SELECT operation, model_id FROM operation_defaults")?;
 
-        let defaults = stmt
+        let defaults: Vec<OperationDefault> = stmt
             .query_map([], |row| {
                 let operation_str: String = row.get(0)?;
                 let operation = OperationType::from_str(&operation_str)
                     .unwrap_or(OperationType::Analysis);
 
+                // Read model_id as Option<String> to handle NULL values
+                let model_id: Option<String> = row.get(1)?;
+
                 Ok(OperationDefault {
                     operation,
-                    model_id: row.get(1)?,
+                    model_id,
                 })
             })?
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?
+            // Filter out defaults with NULL model_id (orphaned entries)
+            .into_iter()
+            .filter(|d| d.model_id.is_some())
+            .collect();
+
+        // Clean up orphaned entries (where model_id is NULL)
+        let _ = conn.execute(
+            "DELETE FROM operation_defaults WHERE model_id IS NULL",
+            [],
+        );
 
         Ok(defaults)
     }

@@ -54,8 +54,8 @@ export interface Model {
 export interface OperationDefault {
 	/** Operation type */
 	operation: OperationType;
-	/** Model ID */
-	modelId: string;
+	/** Model ID (can be null if the default model was deleted) */
+	modelId: string | null;
 }
 
 /** Request to save a provider */

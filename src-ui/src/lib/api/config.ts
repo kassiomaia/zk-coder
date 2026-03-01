@@ -81,7 +81,7 @@ interface ModelResponse {
 
 interface OperationDefaultResponse {
 	operation: string;
-	modelId: string;
+	modelId: string | null;
 }
 
 // ============================================================================

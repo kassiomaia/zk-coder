@@ -275,8 +275,8 @@ impl OperationType {
 pub struct OperationDefault {
     /// The operation type
     pub operation: OperationType,
-    /// The model ID assigned as default
-    pub model_id: String,
+    /// The model ID assigned as default (can be null if the default model was deleted)
+    pub model_id: Option<String>,
 }
 
 /// Request to save a provider.
