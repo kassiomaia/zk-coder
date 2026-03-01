@@ -35,6 +35,43 @@
 	letter-spacing: var(--tracking-tight);
 }
 
+.headerActions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.collapseBtn {
+	display: none;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	color: var(--color-text-muted);
+	transition: all var(--transition-fast);
+}
+
+.collapseBtn:hover {
+	background: var(--color-surface-hover);
+	color: var(--color-text-primary);
+}
+
+.collapseBtn:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+}
+
+@media (min-width: 769px) {
+	.collapseBtn {
+		display: flex;
+	}
+}
+
 .content {
 	flex: 1;
 	overflow-y: auto;

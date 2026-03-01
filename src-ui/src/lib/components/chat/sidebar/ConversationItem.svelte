@@ -114,7 +114,7 @@
 			<div class={styles.content}>
 				<span class={styles.title}>{conversation.title}</span>
 				<span class={styles.meta}>
-					{#if conversation.threads.length > 0}
+					{#if conversation.threads && conversation.threads.length > 0}
 						<span class={styles.threadCount}>{formatThreadCount(conversation.threads.length)}</span>
 						<span class={styles.dot}>·</span>
 					{/if}

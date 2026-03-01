@@ -59,7 +59,9 @@ export interface ThreadMetadata {
 }
 
 /**
- * Represents a full conversation with its threads.
+ * Represents a full conversation.
+ * Note: Threads are loaded separately from the backend and stored
+ * in the chat store, not embedded in the conversation object.
  */
 export interface Conversation {
 	/** Unique identifier for the conversation */
@@ -74,8 +76,12 @@ export interface Conversation {
 	/** When the conversation was last updated */
 	updatedAt: Date;
 
-	/** Threads within this conversation */
-	threads: Thread[];
+	/**
+	 * Threads within this conversation.
+	 * @deprecated Threads are now stored separately in the chat store.
+	 * Use the `threads` prop from ChatLayout or subscribe to `currentThreads` store.
+	 */
+	threads?: Thread[];
 
 	/** Settings for this conversation */
 	settings: ConversationSettings;

@@ -14,7 +14,8 @@
 		messagesLoading,
 		chatError,
 		isLoading,
-		currentThreads
+		currentThreads,
+		threadsLoading
 	} from '$lib/stores';
 	import type { Conversation, Thread, ConversationGroup } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
@@ -23,10 +24,14 @@
 	let appInfo = $state<{ name: string; version: string } | null>(null);
 	let backendStatus = $state('Connecting...');
 
-	// Get messages directly from chat store via subscription
+	// Get messages and threads directly from chat store via subscription
 	let messages = $state<Message[]>([]);
+	let threads = $state<Thread[]>([]);
 	let conversations = $state<Conversation[]>([]);
 	let currentError = $state<string | null>(null);
+	let currentThreadsLoading = $state<LoadingState>('idle');
+
+	type LoadingState = 'idle' | 'loading' | 'success' | 'error';
 
 	// Subscribe to chat store changes
 	$effect(() => {
@@ -36,12 +41,20 @@
 		const unsubConv = chatStore.subscribe((state) => {
 			conversations = state.conversations;
 		});
+		const unsubThreads = currentThreads.subscribe((t) => {
+			threads = t;
+		});
+		const unsubThreadsLoading = threadsLoading.subscribe((l) => {
+			currentThreadsLoading = l;
+		});
 		const unsubErr = chatError.subscribe((err) => {
 			currentError = err;
 		});
 		return () => {
 			unsubMsg();
 			unsubConv();
+			unsubThreads();
+			unsubThreadsLoading();
 			unsubErr();
 		};
 	});
@@ -122,6 +135,7 @@
 
 <ChatLayout
 	conversations={conversations}
+	threads={threads}
 	selectedConversation={$selectedConversation ?? undefined}
 	selectedThread={$selectedThread ?? undefined}
 	{messages}
@@ -135,6 +149,7 @@
 	onRenameConversation={handleRenameConversation}
 	onSearch={handleSearch}
 	loading={$isLoading}
+	threadsLoading={currentThreadsLoading === 'loading'}
 />
 
 <!-- Status indicator -->
