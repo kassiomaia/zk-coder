@@ -42,6 +42,7 @@ impl ConfigStore {
     pub fn new(db_path: &str) -> Result<Self, ConfigStoreError> {
         let conn = Connection::open(db_path)?;
         Self::init_schema(&conn)?;
+        Self::migrate_api_type_constraint(&conn)?;
         let store = Self {
             conn: Mutex::new(conn),
         };
@@ -57,6 +58,7 @@ impl ConfigStore {
     pub fn in_memory() -> Result<Self, ConfigStoreError> {
         let conn = Connection::open_in_memory()?;
         Self::init_schema(&conn)?;
+        Self::migrate_api_type_constraint(&conn)?;
         let store = Self {
             conn: Mutex::new(conn),
         };
@@ -73,7 +75,7 @@ impl ConfigStore {
                 name          TEXT NOT NULL,
                 icon          TEXT NOT NULL,
                 is_custom     BOOLEAN NOT NULL DEFAULT FALSE,
-                api_type      TEXT NOT NULL CHECK(api_type IN ('openai', 'anthropic')),
+                api_type      TEXT NOT NULL CHECK(api_type IN ('openai', 'anthropic', 'google')),
                 base_url      TEXT,
                 is_configured BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at    TEXT NOT NULL,
@@ -108,6 +110,79 @@ impl ConfigStore {
             );
             "#,
         )?;
+        Ok(())
+    }
+
+    /// Migrates the api_type constraint to include 'google' for existing databases.
+    fn migrate_api_type_constraint(conn: &Connection) -> Result<(), ConfigStoreError> {
+        // Check if migration is needed by trying to insert a google provider
+        // If the constraint doesn't allow 'google', we need to recreate the table
+        let needs_migration: bool = conn
+            .query_row(
+                "SELECT 0 FROM providers WHERE api_type = 'google' LIMIT 1",
+                [],
+                |_| Ok(false),
+            )
+            .unwrap_or(true);
+
+        if needs_migration {
+            // Check if the constraint actually prevents google (table exists but constraint is old)
+            let constraint_allows_google: bool = conn
+                .execute(
+                    "INSERT OR ROLLBACK INTO providers (id, name, icon, is_custom, api_type, is_configured, created_at, updated_at)
+                     VALUES ('__migration_test__', 'Test', 'T', FALSE, 'google', FALSE, datetime('now'), datetime('now'))",
+                    [],
+                )
+                .is_ok();
+
+            if constraint_allows_google {
+                // Clean up test row
+                let _ = conn.execute("DELETE FROM providers WHERE id = '__migration_test__'", []);
+
+                // Fix any Google provider that was inserted with wrong api_type
+                // This can happen if the constraint was updated but data wasn't
+                conn.execute(
+                    "UPDATE providers SET api_type = 'google' WHERE id = 'google' AND api_type != 'google'",
+                    [],
+                )?;
+            } else {
+                // Need to migrate - recreate the table with the new constraint
+                conn.execute_batch(
+                    r#"
+                    -- Start migration: recreate providers table with updated constraint
+                    ALTER TABLE providers RENAME TO providers_old;
+
+                    -- Create new table with correct constraint
+                    CREATE TABLE providers (
+                        id            TEXT PRIMARY KEY,
+                        name          TEXT NOT NULL,
+                        icon          TEXT NOT NULL,
+                        is_custom     BOOLEAN NOT NULL DEFAULT FALSE,
+                        api_type      TEXT NOT NULL CHECK(api_type IN ('openai', 'anthropic', 'google')),
+                        base_url      TEXT,
+                        is_configured BOOLEAN NOT NULL DEFAULT FALSE,
+                        created_at    TEXT NOT NULL,
+                        updated_at    TEXT NOT NULL
+                    );
+
+                    -- Copy data from old table, fixing Google's api_type
+                    INSERT INTO providers
+                    SELECT id, name, icon, is_custom,
+                           CASE WHEN id = 'google' THEN 'google' ELSE api_type END,
+                           base_url, is_configured, created_at, updated_at
+                    FROM providers_old;
+
+                    -- Drop old table
+                    DROP TABLE providers_old;
+
+                    -- Recreate index
+                    CREATE INDEX IF NOT EXISTS idx_providers_name
+                    ON providers(name COLLATE NOCASE);
+                    "#,
+                )?;
+            }
+        }
+
         Ok(())
     }
 
