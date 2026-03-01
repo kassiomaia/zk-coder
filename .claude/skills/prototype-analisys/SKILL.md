@@ -61,8 +61,21 @@ This skill follows specific rules defined in `./rules/`. Read and apply these ru
 | **Backend Planning** | `05-backend-planning.md` | Tauri backend requirements |
 | **Golden Rules** | `06-golden-rules.md` | Inviolable principles |
 | **Parallel Analysis** | `07-parallel-analysis.md` | Task orchestration and prompts |
+| **Prototype Reference** | `08-prototype-reference.md` | **MANDATORY** - Plans must tie to prototype files |
 
 **All rules MUST be followed when analyzing prototypes.**
+
+### ⚠️ CRITICAL: Rule 08 - Prototype Reference
+
+**This rule MUST NOT be ignored.** Every implementation plan MUST include:
+
+1. **Prototype Reference Header** - Warning that prototype is source of truth
+2. **Prototype Files Reference Table** - Map of prototype files to implementation
+3. **Component-to-Prototype Mapping** - Exact line numbers for each component
+4. **Pre-Implementation Checklist** - Tasks to complete before coding
+5. **Prototype Verification Checklist** - Side-by-side comparison tables
+
+See `rules/08-prototype-reference.md` for full details.
 
 ---
 
@@ -420,6 +433,46 @@ Generate the implementation plan at:
 > **Generated:** <date>
 > **Prototype Source:** prototypes/<prototype-name>/
 
+## ⚠️ MANDATORY: Prototype Reference
+
+**Before implementing ANY component, the developer MUST reference the approved prototype.**
+
+The prototype at `prototypes/<prototype-name>/` is the **source of truth** for:
+- Visual design and styling
+- Component structure and hierarchy
+- Interaction patterns and behaviors
+- Animation and transition effects
+- State management logic
+
+### Prototype Files Reference
+
+| Prototype File | Purpose | Implementation Reference |
+|----------------|---------|-------------------------|
+| `index.html` | Component structure, Alpine.js directives | Convert HTML to Svelte, map Alpine.js to Svelte patterns |
+| `css/components.css` | All component styles | Convert to CSS modules, use design tokens |
+| `css/animations.css` | Animation keyframes | Add to global styles or component CSS |
+| `js/state.js` | State management, methods | Convert Alpine.js state to Svelte 5 `$state` runes |
+| `README.md` | Feature specification, user journeys | Reference for behavior and requirements |
+
+### Component-to-Prototype Mapping
+
+| Component | HTML Location | CSS Location |
+|-----------|---------------|--------------|
+| ComponentA | index.html:XX-XX | components.css:XX-XX |
+| ComponentB | index.html:XX-XX | components.css:XX-XX |
+
+### Pre-Implementation Checklist
+
+Before starting implementation, verify:
+
+- [ ] Open `prototypes/<prototype-name>/index.html` in browser to see working prototype
+- [ ] Read `prototypes/<prototype-name>/README.md` for full feature specification
+- [ ] Review `prototypes/<prototype-name>/css/components.css` for exact styling
+- [ ] Review `prototypes/<prototype-name>/js/state.js` for state patterns
+- [ ] Keep prototype files open for reference during implementation
+
+---
+
 ## Summary
 
 <Brief description of what will be implemented>
@@ -505,12 +558,47 @@ pub struct Resource {
 
 ## Acceptance Criteria
 
+### Functional Requirements
 - [ ] All in-scope components implemented
 - [ ] State management working correctly
-- [ ] CSS matches prototype visual design
 - [ ] Accessibility requirements met
 - [ ] Unit tests passing
-- [ ] No hardcoded design values
+
+### Prototype Compliance (MANDATORY)
+- [ ] Visual design matches prototype exactly (spacing, colors, typography)
+- [ ] Component structure follows prototype HTML structure
+- [ ] Hover/active/selected states match prototype
+- [ ] Animations match prototype timing and easing
+- [ ] Validation states match prototype (info, success, error)
+
+### Code Quality
+- [ ] CSS uses design tokens (no hardcoded colors/spacing)
+- [ ] No inline styles or scripts
+- [ ] Components follow project file size limits
+
+---
+
+## Prototype Verification Checklist
+
+### Visual Verification
+Open the prototype and implemented component side-by-side:
+
+| Component | Prototype States | Implementation Match |
+|-----------|------------------|---------------------|
+| ComponentA | Default, Hover, Active | [ ] Verified |
+| ComponentB | Default, Selected | [ ] Verified |
+
+### Interaction Verification
+- [ ] Hover effects match prototype
+- [ ] Selection states match prototype
+- [ ] Button states match prototype
+- [ ] Input focus states match prototype
+- [ ] Animations match prototype timing
+
+### State Verification
+- [ ] State behavior matches prototype
+- [ ] Validation states match prototype
+- [ ] Error handling matches prototype
 ```
 
 ---
@@ -537,6 +625,11 @@ Only plan for components marked as "in-scope" in the prototype README.
 
 ### 7. Use Parallel Analysis
 Always launch all 4 analysis tasks in parallel for efficiency.
+
+### 8. ⚠️ MANDATORY Prototype Reference
+**This rule MUST NOT be ignored.** Every implementation plan MUST include explicit references to the prototype files with exact line numbers. The prototype is the source of truth for implementation. Plans without prototype reference sections are INCOMPLETE and must be marked "NOT READY TO IMPLEMENT".
+
+See `rules/08-prototype-reference.md` for full requirements.
 
 ---
 

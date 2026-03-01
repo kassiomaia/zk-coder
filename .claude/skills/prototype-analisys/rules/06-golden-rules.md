@@ -139,6 +139,51 @@ For each component identified:
 
 ---
 
+## Rule 7: Use Parallel Analysis
+
+**PRINCIPLE:** Efficiency without sacrificing thoroughness.
+
+**REQUIREMENT:**
+1. Launch all 4 analysis tasks simultaneously
+2. Aggregate results before decision gate
+3. Cross-validate findings across tasks
+
+**RATIONALE:**
+- Reduces analysis time
+- Ensures comprehensive coverage
+- Enables cross-validation
+
+---
+
+## Rule 8: ⚠️ MANDATORY Prototype Reference
+
+**PRINCIPLE:** The approved prototype is the source of truth for implementation.
+
+**REQUIREMENT:**
+Every implementation plan MUST include:
+1. **Prototype Reference Header** - Warning that prototype is source of truth
+2. **Prototype Files Reference Table** - Map of prototype files to implementation
+3. **Component-to-Prototype Mapping** - Exact line numbers for each component
+4. **Pre-Implementation Checklist** - Tasks to complete before coding
+5. **Prototype Verification Checklist** - Side-by-side comparison tables
+
+**RATIONALE:**
+- Ensures design integrity
+- Gives developers exact locations for implementation details
+- Provides verification checklist to validate implementation
+- Creates clear link between prototype and production code
+- Reduces rework from deviations
+
+**VIOLATION:**
+If a plan is generated WITHOUT prototype reference sections:
+- The plan is INCOMPLETE
+- Status must be "NOT READY TO IMPLEMENT"
+- Add flag: "MISSING PROTOTYPE REFERENCE"
+
+**THIS RULE MUST NOT BE IGNORED.**
+
+---
+
 ## Summary
 
 | Rule | Violation Consequence |
@@ -149,5 +194,7 @@ For each component identified:
 | Enforce Design System Compliance | Visual inconsistency |
 | Separate Backend Plans | Coupled architecture |
 | Respect Scope Boundaries | Scope creep |
+| Use Parallel Analysis | Inefficient workflow |
+| **Mandatory Prototype Reference** | **Plan incomplete, design deviation** |
 
 **REMEMBER:** These rules exist to ensure quality implementation plans. Breaking them leads to technical debt and rework.
