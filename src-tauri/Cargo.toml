@@ -26,6 +26,22 @@ anyhow = "1.0"
 thiserror = "2"
 uuid = { version = "1", features = ["v4"] }
 
+# NLP dependencies
+regex = "1"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Database
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# HTTP client for Claude API
+reqwest = { version = "0.12", features = ["json"] }
+
+# Code parsing (for Phase 6 - Code Understanding)
+tree-sitter = "0.22"
+tree-sitter-rust = "0.21"
+tree-sitter-typescript = "0.21"
+tree-sitter-python = "0.21"
+
 [lints.clippy]
 pedantic = "warn"
 nursery = "warn"
