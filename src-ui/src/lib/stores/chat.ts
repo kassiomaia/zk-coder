@@ -94,17 +94,21 @@ export interface ChatState {
 function createChatStore() {
 	const initialState: ChatState = {
 		conversations: [],
+		conversationsLoading: 'idle',
 		selectedConversationId: null,
 		selectedThreadId: null,
 		messages: [],
 		messagesLoading: 'idle',
+		threads: [],
+		threadsLoading: 'idle',
 		nlp: {
 			backendAvailable: false,
 			detectedIntent: null,
 			ambiguities: [],
 			processing: false,
 			error: null
-		}
+		},
+		error: null
 	};
 
 	const { subscribe, set, update } = writable<ChatState>(initialState);
@@ -116,7 +120,7 @@ function createChatStore() {
 		subscribe,
 
 		/**
-		 * Initialize the store and check backend availability.
+		 * Initialize the store, check backend availability, and load conversations.
 		 */
 		async initialize() {
 			const available = await isBackendAvailable();
@@ -124,6 +128,35 @@ function createChatStore() {
 				...state,
 				nlp: { ...state.nlp, backendAvailable: available }
 			}));
+
+			// Load conversations from backend
+			await this.loadConversationsFromBackend();
+		},
+
+		/**
+		 * Load all conversations from the backend.
+		 */
+		async loadConversationsFromBackend() {
+			update((state) => ({
+				...state,
+				conversationsLoading: 'loading',
+				error: null
+			}));
+
+			try {
+				const conversations = await loadConversations();
+				update((state) => ({
+					...state,
+					conversations,
+					conversationsLoading: 'success'
+				}));
+			} catch (error) {
+				update((state) => ({
+					...state,
+					conversationsLoading: 'error',
+					error: error instanceof Error ? error.message : 'Failed to load conversations'
+				}));
+			}
 		},
 
 		/**
@@ -134,7 +167,27 @@ function createChatStore() {
 		},
 
 		/**
-		 * Add a new conversation.
+		 * Create a new conversation in the backend.
+		 */
+		async createConversation(title: string = 'New Conversation'): Promise<Conversation | null> {
+			try {
+				const conversation = await apiCreateConversation(title);
+				update((state) => ({
+					...state,
+					conversations: [conversation, ...state.conversations]
+				}));
+				return conversation;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to create conversation'
+				}));
+				return null;
+			}
+		},
+
+		/**
+		 * Add a new conversation (local only, for backward compatibility).
 		 */
 		addConversation(conversation: Conversation) {
 			update((state) => ({
@@ -144,7 +197,29 @@ function createChatStore() {
 		},
 
 		/**
-		 * Update a conversation.
+		 * Rename a conversation.
+		 */
+		async renameConversation(id: string, title: string): Promise<boolean> {
+			try {
+				const updated = await apiRenameConversation(id, title);
+				update((state) => ({
+					...state,
+					conversations: state.conversations.map((c) =>
+						c.id === id ? { ...c, title: updated.title, updatedAt: updated.updatedAt } : c
+					)
+				}));
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to rename conversation'
+				}));
+				return false;
+			}
+		},
+
+		/**
+		 * Update a conversation (local only).
 		 */
 		updateConversation(id: string, updates: Partial<Conversation>) {
 			update((state) => ({
@@ -156,17 +231,29 @@ function createChatStore() {
 		/**
 		 * Delete a conversation.
 		 */
-		deleteConversation(id: string) {
-			update((state) => ({
-				...state,
-				conversations: state.conversations.filter((c) => c.id !== id),
-				selectedConversationId:
-					state.selectedConversationId === id ? null : state.selectedConversationId
-			}));
+		async deleteConversation(id: string): Promise<boolean> {
+			try {
+				await apiDeleteConversation(id);
+				update((state) => ({
+					...state,
+					conversations: state.conversations.filter((c) => c.id !== id),
+					selectedConversationId:
+						state.selectedConversationId === id ? null : state.selectedConversationId,
+					messages: state.selectedConversationId === id ? [] : state.messages,
+					threads: state.selectedConversationId === id ? [] : state.threads
+				}));
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to delete conversation'
+				}));
+				return false;
+			}
 		},
 
 		/**
-		 * Select a conversation and load its messages.
+		 * Select a conversation and load its messages and threads.
 		 */
 		async selectConversation(id: string | null) {
 			update((state) => ({
@@ -174,22 +261,52 @@ function createChatStore() {
 				selectedConversationId: id,
 				selectedThreadId: null,
 				messages: [],
+				threads: [],
+				messagesLoading: id ? 'loading' : 'idle',
+				threadsLoading: id ? 'loading' : 'idle',
+				error: null
+			}));
+
+			if (id) {
+				try {
+					// Load messages from backend persistence
+					const [messages, threads] = await Promise.all([
+						loadMessages(id),
+						loadThreads(id)
+					]);
+
+					update((state) => ({
+						...state,
+						messages,
+						threads,
+						messagesLoading: 'success',
+						threadsLoading: 'success'
+					}));
+				} catch (error) {
+					update((state) => ({
+						...state,
+						messagesLoading: 'error',
+						threadsLoading: 'error',
+						error: error instanceof Error ? error.message : 'Failed to load conversation'
+					}));
+				}
+			}
+		},
+
+		/**
+		 * Select a thread and load its messages.
+		 */
+		async selectThread(id: string | null) {
+			update((state) => ({
+				...state,
+				selectedThreadId: id,
+				messages: [],
 				messagesLoading: id ? 'loading' : 'idle'
 			}));
 
 			if (id) {
 				try {
-					// Load messages from backend context
-					const context = await getConversationContext(id);
-					const messages: Message[] = context.recent_messages.map((msg) => ({
-						id: msg.id,
-						conversationId: id,
-						role: msg.role,
-						content: msg.content,
-						timestamp: new Date(msg.timestamp),
-						status: 'sent' as const
-					}));
-
+					const messages = await loadThreadMessages(id);
 					update((state) => ({
 						...state,
 						messages,
@@ -199,23 +316,81 @@ function createChatStore() {
 					update((state) => ({
 						...state,
 						messagesLoading: 'error',
-						nlp: {
-							...state.nlp,
-							error: error instanceof Error ? error.message : 'Failed to load messages'
-						}
+						error: error instanceof Error ? error.message : 'Failed to load thread messages'
 					}));
 				}
 			}
 		},
 
 		/**
-		 * Select a thread.
+		 * Create a new thread in the current conversation.
 		 */
-		selectThread(id: string | null) {
-			update((state) => ({
-				...state,
-				selectedThreadId: id
-			}));
+		async createThread(title: string = 'New Thread'): Promise<Thread | null> {
+			const state = get({ subscribe });
+			if (!state.selectedConversationId) {
+				update((s) => ({ ...s, error: 'No conversation selected' }));
+				return null;
+			}
+
+			try {
+				const thread = await apiCreateThread(state.selectedConversationId, title);
+				update((s) => ({
+					...s,
+					threads: [...s.threads, thread]
+				}));
+				return thread;
+			} catch (error) {
+				update((s) => ({
+					...s,
+					error: error instanceof Error ? error.message : 'Failed to create thread'
+				}));
+				return null;
+			}
+		},
+
+		/**
+		 * Resolve or unresolve a thread.
+		 */
+		async resolveThread(id: string, resolved: boolean): Promise<boolean> {
+			try {
+				await apiResolveThread(id, resolved);
+				update((state) => ({
+					...state,
+					threads: state.threads.map((t) =>
+						t.id === id
+							? { ...t, metadata: { ...t.metadata, resolved }, updatedAt: new Date() }
+							: t
+					)
+				}));
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to update thread'
+				}));
+				return false;
+			}
+		},
+
+		/**
+		 * Delete a thread.
+		 */
+		async deleteThread(id: string): Promise<boolean> {
+			try {
+				await apiDeleteThread(id);
+				update((state) => ({
+					...state,
+					threads: state.threads.filter((t) => t.id !== id),
+					selectedThreadId: state.selectedThreadId === id ? null : state.selectedThreadId
+				}));
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to delete thread'
+				}));
+				return false;
+			}
 		},
 
 		/**
@@ -226,7 +401,72 @@ function createChatStore() {
 		},
 
 		/**
-		 * Add a message to the current conversation.
+		 * Send a message to the current conversation via backend.
+		 */
+		async sendMessage(
+			content: string,
+			role: 'user' | 'assistant' | 'system' = 'user'
+		): Promise<Message | null> {
+			const state = get({ subscribe });
+			if (!state.selectedConversationId) {
+				update((s) => ({ ...s, error: 'No conversation selected' }));
+				return null;
+			}
+
+			// Create optimistic message
+			const optimisticMessage: Message = {
+				id: `temp-${Date.now()}`,
+				conversationId: state.selectedConversationId,
+				role,
+				content,
+				timestamp: new Date(),
+				status: 'sending'
+			};
+
+			// Add optimistically
+			update((s) => ({
+				...s,
+				messages: [...s.messages, optimisticMessage]
+			}));
+
+			try {
+				const options: SendMessageOptions = {
+					conversationId: state.selectedConversationId,
+					content,
+					role
+				};
+
+				// Add thread ID if viewing a thread
+				if (state.selectedThreadId) {
+					options.threadId = state.selectedThreadId;
+				}
+
+				const savedMessage = await apiSendMessage(options);
+
+				// Replace optimistic message with saved one
+				update((s) => ({
+					...s,
+					messages: s.messages.map((m) =>
+						m.id === optimisticMessage.id ? savedMessage : m
+					)
+				}));
+
+				return savedMessage;
+			} catch (error) {
+				// Update optimistic message to error state
+				update((s) => ({
+					...s,
+					messages: s.messages.map((m) =>
+						m.id === optimisticMessage.id ? { ...m, status: 'error' as const } : m
+					),
+					error: error instanceof Error ? error.message : 'Failed to send message'
+				}));
+				return null;
+			}
+		},
+
+		/**
+		 * Add a message to the current conversation (local only, for backward compatibility).
 		 */
 		async addMessage(message: Message) {
 			update((state) => ({
@@ -234,7 +474,7 @@ function createChatStore() {
 				messages: [...state.messages, message]
 			}));
 
-			// Sync with backend if available
+			// Sync with backend context if available (for NLP context)
 			const state = get({ subscribe });
 			if (state.nlp.backendAvailable && message.conversationId) {
 				try {
@@ -250,7 +490,47 @@ function createChatStore() {
 		},
 
 		/**
-		 * Update a message.
+		 * Delete a message.
+		 */
+		async deleteMessage(id: string): Promise<boolean> {
+			try {
+				await apiDeleteMessage(id);
+				update((state) => ({
+					...state,
+					messages: state.messages.filter((m) => m.id !== id)
+				}));
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to delete message'
+				}));
+				return false;
+			}
+		},
+
+		/**
+		 * Update a message status.
+		 */
+		async updateMessageStatus(
+			id: string,
+			status: 'sending' | 'sent' | 'delivered' | 'error'
+		): Promise<boolean> {
+			try {
+				await apiUpdateMessageStatus(id, status);
+				update((state) => ({
+					...state,
+					messages: state.messages.map((m) => (m.id === id ? { ...m, status } : m))
+				}));
+				return true;
+			} catch (error) {
+				console.error('Failed to update message status:', error);
+				return false;
+			}
+		},
+
+		/**
+		 * Update a message (local only).
 		 */
 		updateMessage(id: string, updates: Partial<Message>) {
 			update((state) => ({
