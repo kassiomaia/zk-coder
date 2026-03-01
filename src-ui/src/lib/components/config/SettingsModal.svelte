@@ -99,9 +99,6 @@
 								<div class={styles.providerDetails}>
 									<div class={styles.providerName}>{provider.name}</div>
 									<div class={styles.providerMeta}>
-										{#if provider.isCustom}
-											<span class={styles.badge}>Custom</span>
-										{/if}
 										<span class={styles.apiType}>{provider.apiType}</span>
 									</div>
 								</div>
