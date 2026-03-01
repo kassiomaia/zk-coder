@@ -15,6 +15,23 @@ import {
 	createDebouncedClassifier,
 	isBackendAvailable
 } from '$lib/api/nlp';
+import {
+	loadConversations,
+	createConversation as apiCreateConversation,
+	loadConversation,
+	renameConversation as apiRenameConversation,
+	deleteConversation as apiDeleteConversation,
+	loadThreads,
+	createThread as apiCreateThread,
+	resolveThread as apiResolveThread,
+	deleteThread as apiDeleteThread,
+	loadMessages,
+	loadThreadMessages,
+	sendMessage as apiSendMessage,
+	deleteMessage as apiDeleteMessage,
+	updateMessageStatus as apiUpdateMessageStatus,
+	type SendMessageOptions
+} from '$lib/api/chat';
 
 // ============================================================================
 // Types
