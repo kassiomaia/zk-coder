@@ -4,12 +4,14 @@
 
 pub mod agents;
 pub mod ai;
+pub mod api;
 pub mod commands;
+pub mod keychain;
 pub mod nlp;
 pub mod storage;
 pub mod utils;
 
-use commands::{ChatState, NlpState};
+use commands::{ChatState, ConfigState, NlpState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -20,6 +22,10 @@ pub fn run() {
     // Initialize Chat state
     let chat_state = ChatState::new("coder_chat.db")
         .expect("Failed to initialize Chat state");
+
+    // Initialize Config state
+    let config_state = ConfigState::new("coder_config.db")
+        .expect("Failed to initialize Config state");
 
     tauri::Builder::default()
         .setup(|app| {
@@ -34,6 +40,7 @@ pub fn run() {
         })
         .manage(nlp_state)
         .manage(chat_state)
+        .manage(config_state)
         .invoke_handler(tauri::generate_handler![
             // Core commands
             commands::health_check,
@@ -63,6 +70,20 @@ pub fn run() {
             commands::chat::delete_message,
             commands::chat::update_message_status,
             commands::chat::create_thread_with_message,
+            // Config commands
+            commands::config::get_providers,
+            commands::config::save_provider,
+            commands::config::remove_provider,
+            commands::config::validate_api_key,
+            commands::config::test_connection,
+            commands::config::fetch_models,
+            commands::config::store_api_key,
+            commands::config::retrieve_api_key,
+            commands::config::delete_api_key,
+            commands::config::has_api_key,
+            commands::config::get_operation_defaults,
+            commands::config::set_operation_default,
+            commands::config::get_models,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
