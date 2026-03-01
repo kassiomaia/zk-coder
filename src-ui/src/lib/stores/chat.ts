@@ -621,6 +621,13 @@ function createChatStore() {
 		},
 
 		/**
+		 * Clear error state.
+		 */
+		clearError() {
+			update((state) => ({ ...state, error: null }));
+		},
+
+		/**
 		 * Reset the entire store.
 		 */
 		reset() {
@@ -648,21 +655,15 @@ export const selectedConversation = derived(
 /**
  * Currently selected thread.
  */
-export const selectedThread = derived(
-	[chatStore, selectedConversation],
-	([$chat, $conversation]) => {
-		if (!$chat.selectedThreadId || !$conversation) return null;
-		return $conversation.threads.find((t) => t.id === $chat.selectedThreadId) ?? null;
-	}
-);
+export const selectedThread = derived(chatStore, ($chat) => {
+	if (!$chat.selectedThreadId) return null;
+	return $chat.threads.find((t) => t.id === $chat.selectedThreadId) ?? null;
+});
 
 /**
  * Threads for the current conversation.
  */
-export const currentThreads = derived(
-	selectedConversation,
-	($conversation) => $conversation?.threads ?? []
-);
+export const currentThreads = derived(chatStore, ($chat) => $chat.threads);
 
 /**
  * Messages grouped by time (for ChatArea display).
@@ -741,6 +742,38 @@ export const conversationGroups = derived(chatStore, ($chat): ConversationGroup[
  * NLP state derived store.
  */
 export const nlpState = derived(chatStore, ($chat) => $chat.nlp);
+
+/**
+ * Conversations loading state.
+ */
+export const conversationsLoading = derived(chatStore, ($chat) => $chat.conversationsLoading);
+
+/**
+ * Messages loading state.
+ */
+export const messagesLoading = derived(chatStore, ($chat) => $chat.messagesLoading);
+
+/**
+ * Threads loading state.
+ */
+export const threadsLoading = derived(chatStore, ($chat) => $chat.threadsLoading);
+
+/**
+ * Global error state.
+ */
+export const chatError = derived(chatStore, ($chat) => $chat.error);
+
+/**
+ * Is any loading in progress.
+ */
+export const isLoading = derived(
+	chatStore,
+	($chat) =>
+		$chat.conversationsLoading === 'loading' ||
+		$chat.messagesLoading === 'loading' ||
+		$chat.threadsLoading === 'loading' ||
+		$chat.nlp.processing
+);
 
 // ============================================================================
 // Utility Functions
