@@ -101,6 +101,63 @@
 	white-space: pre-wrap;
 }
 
+/* Message status states */
+.messageSending {
+	opacity: 0.7;
+}
+
+.messageError {
+	border-color: var(--color-error) !important;
+	background: var(--color-bg-error) !important;
+}
+
+.statusIndicator {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	margin-top: var(--space-2);
+}
+
+.sendingDot {
+	width: 6px;
+	height: 6px;
+	background: var(--color-text-muted);
+	border-radius: var(--radius-full);
+	animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0%, 100% {
+		opacity: 0.4;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+.retryIconButton {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-1);
+	background: var(--color-error);
+	border: none;
+	border-radius: var(--radius-sm);
+	color: white;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.retryIconButton:hover {
+	background: var(--color-error-hover);
+	transform: scale(1.1);
+}
+
+.retryIconButton:focus-visible {
+	outline: 2px solid var(--color-error);
+	outline-offset: 2px;
+}
+
 /* Typing indicator wrapper */
 .typingWrapper {
 	padding: var(--space-3) var(--space-5);
