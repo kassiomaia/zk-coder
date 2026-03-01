@@ -149,8 +149,34 @@
      Layout
      ===================== */
 	--sidebar-width: 280px;
+	--sidebar-width-collapsed: 64px;
 	--header-height: 56px;
 	--content-max-width: 1200px;
+	--thread-panel-width: 320px;
+	--input-height: 56px;
+
+	/* =====================
+     Responsive Breakpoints
+     ===================== */
+	--breakpoint-xs: 0px; /* Mobile first */
+	--breakpoint-sm: 640px; /* Small tablets */
+	--breakpoint-md: 768px; /* Tablets */
+	--breakpoint-lg: 1024px; /* Small desktops */
+	--breakpoint-xl: 1280px; /* Desktops */
+	--breakpoint-2xl: 1536px; /* Large desktops */
+
+	/* =====================
+     Animation Durations
+     ===================== */
+	--duration-fast: 150ms;
+	--duration-normal: 200ms;
+	--duration-slow: 300ms;
+
+	/* Animation easing */
+	--ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+	--ease-out: cubic-bezier(0, 0, 0.2, 1);
+	--ease-in: cubic-bezier(0.4, 0, 1, 1);
+	--ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 /* Dark Mode Theme */
