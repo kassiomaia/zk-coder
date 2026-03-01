@@ -92,9 +92,9 @@
 		}
 	}
 
-	// Derived state - show thread panel when conversation has threads
+	// Derived state - show thread panel when a conversation is selected
 	let hasThreads = $derived(threads.length > 0);
-	let showThreadPanel = $derived(hasThreads || !!selectedThread);
+	let showThreadPanel = $derived(!!selectedConversation);
 
 	function toggleSidebar() {
 		sidebarOpen = !sidebarOpen;
@@ -173,7 +173,7 @@
 			{/if}
 		</h1>
 
-		{#if hasThreads}
+		{#if selectedConversation}
 			<button
 				class={styles.menuButton}
 				onclick={toggleThreadPanel}
@@ -229,7 +229,7 @@
 		<!-- Main chat area -->
 		<div class={styles.content}>
 			<!-- Desktop thread toggle button -->
-			{#if hasThreads && !threadPanelOpen}
+			{#if selectedConversation && !threadPanelOpen}
 				<button
 					class={styles.threadToggle}
 					onclick={toggleThreadPanel}

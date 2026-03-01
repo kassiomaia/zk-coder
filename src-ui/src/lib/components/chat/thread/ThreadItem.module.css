@@ -13,6 +13,7 @@
 	position: relative;
 	list-style: none;
 	margin: var(--space-0-5) 0;
+	overflow: hidden;
 }
 
 .item:first-child {

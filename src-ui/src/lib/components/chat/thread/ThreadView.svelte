@@ -95,17 +95,17 @@
 				>
 					<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
 				</svg>
-				<p class={styles.emptyText}>No threads yet</p>
-				<p class={styles.emptyHint}>Start a conversation to create your first thread</p>
+				<p class={styles.emptyText}>No threads in this session</p>
+				<p class={styles.emptyHint}>Create a thread to organize your conversation</p>
 			</div>
 		{:else}
 			<!-- Open threads -->
 			{#if openThreads.length > 0}
 				<section class={styles.section}>
-					<h3 class={styles.sectionTitle}>
-						<span>Open</span>
+					<div class={styles.sectionHeader}>
+						<h3 class={styles.sectionTitle}>Open</h3>
 						<span class={styles.count}>{openThreads.length}</span>
-					</h3>
+					</div>
 					<ul class={styles.list} role="listbox" aria-label="Open threads">
 						{#each openThreads as thread (thread.id)}
 							<ThreadItem
@@ -123,10 +123,10 @@
 			<!-- Resolved threads -->
 			{#if resolvedThreads.length > 0}
 				<section class={styles.section}>
-					<h3 class={styles.sectionTitle}>
-						<span>Resolved</span>
+					<div class={styles.sectionHeader}>
+						<h3 class={styles.sectionTitle}>Resolved</h3>
 						<span class={styles.count}>{resolvedThreads.length}</span>
-					</h3>
+					</div>
 					<ul class={styles.list} role="listbox" aria-label="Resolved threads">
 						{#each resolvedThreads as thread (thread.id)}
 							<ThreadItem

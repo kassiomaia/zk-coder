@@ -55,8 +55,15 @@
 		}
 	}
 
-	function formatTime(date: Date): string {
-		const d = new Date(date);
+	function formatTime(date: Date | string): string {
+		// Handle both Date objects and ISO strings from backend
+		const d = date instanceof Date ? date : new Date(date);
+
+		// Check for invalid date
+		if (isNaN(d.getTime())) {
+			return '';
+		}
+
 		const now = new Date();
 		const diff = now.getTime() - d.getTime();
 		const hours = Math.floor(diff / 3600000);

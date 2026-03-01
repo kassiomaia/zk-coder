@@ -138,7 +138,7 @@
 }
 
 .threadPanelWrapper.open {
-	width: 280px;
+	width: var(--thread-panel-width);
 	opacity: 1;
 }
 

@@ -11,10 +11,12 @@
 .sidebar {
 	display: flex;
 	flex-direction: column;
-	width: var(--thread-panel-width);
+	width: 100%;
+	max-width: 100%;
 	height: 100%;
 	background: var(--color-bg-secondary);
 	border-right: 1px solid var(--color-border-subtle);
+	overflow: hidden;
 }
 
 .header {
@@ -85,6 +87,15 @@
 	padding: var(--space-1);
 	background: var(--color-bg-tertiary);
 	border-radius: var(--radius-xl);
+	overflow: hidden;
+}
+
+.sectionHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--space-2) var(--space-3);
+	min-height: 36px;
 }
 
 .section:last-child {
@@ -92,16 +103,13 @@
 }
 
 .sectionTitle {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: var(--space-2) var(--space-3);
 	font-size: var(--text-xs);
 	font-weight: var(--font-semibold);
 	color: var(--color-text-tertiary);
 	text-transform: uppercase;
 	letter-spacing: var(--tracking-wider);
 	margin: 0;
+	line-height: 1;
 }
 
 .count {
