@@ -56,21 +56,26 @@
 	--color-secondary-800: #166534;
 	--color-secondary-900: #14532d;
 
-	/* Accent Colors - Highlights and emphasis */
-	--color-accent-cyan: #06b6d4;
-	--color-accent-violet: #8b5cf6;
-	--color-accent-amber: #f59e0b;
-	--color-accent-rose: #f43f5e;
+	/* Accent Colors - Reserved for special cases only */
+	/* These colors are intentionally limited to reduce visual clutter */
+	/* Primary blue (#6366f1) and success green (#10b981) are the main accent colors */
 
-	/* Semantic Colors */
+	/* Semantic Colors - Primary palette for the application */
 	--color-success: #10b981;
 	--color-success-light: rgba(16, 185, 129, 0.15);
+	--color-success-subtle: rgba(16, 185, 129, 0.08);
 	--color-warning: #f59e0b;
 	--color-warning-light: rgba(245, 158, 11, 0.15);
 	--color-error: #ef4444;
 	--color-error-light: rgba(239, 68, 68, 0.15);
 	--color-info: #0ea5e9;
 	--color-info-light: rgba(14, 165, 233, 0.15);
+
+	/* Role-based message colors */
+	--color-role-user-bg: rgba(99, 102, 241, 0.12);
+	--color-role-user-bg-hover: rgba(99, 102, 241, 0.18);
+	--color-role-assistant-bg: var(--color-surface);
+	--color-role-assistant-bg-hover: var(--color-surface-hover);
 
 	/* =====================
      Typography
@@ -162,10 +167,10 @@
 	--shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 	--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
 
-	/* Glow shadows for interactive elements */
-	--shadow-glow-sm: 0 0 10px rgb(99 102 241 / 0.25);
-	--shadow-glow-md: 0 0 20px rgb(99 102 241 / 0.3);
-	--shadow-glow-lg: 0 0 30px rgb(99 102 241 / 0.35);
+	/* Glow shadows for interactive elements - intentionally subtle */
+	--shadow-glow-sm: 0 0 8px rgb(99 102 241 / 0.15);
+	--shadow-glow-md: 0 0 16px rgb(99 102 241 / 0.2);
+	--shadow-glow-lg: 0 0 24px rgb(99 102 241 / 0.25);
 
 	/* =====================
      Transitions
@@ -279,6 +284,12 @@
 	--color-accent-primary: var(--color-primary-400);
 	--color-accent-primary-hover: var(--color-primary-300);
 	--color-accent-primary-muted: rgba(99, 102, 241, 0.2);
+
+	/* Status badge colors */
+	--color-status-open-bg: var(--color-neutral-800);
+	--color-status-open-text: var(--color-text-tertiary);
+	--color-status-resolved-bg: var(--color-success-subtle);
+	--color-status-resolved-text: var(--color-success);
 }
 
 /* Light Mode Theme */
@@ -320,6 +331,12 @@
 	--color-accent-primary: var(--color-primary-600);
 	--color-accent-primary-hover: var(--color-primary-700);
 	--color-accent-primary-muted: rgba(99, 102, 241, 0.1);
+
+	/* Status badge colors */
+	--color-status-open-bg: var(--color-neutral-100);
+	--color-status-open-text: var(--color-text-tertiary);
+	--color-status-resolved-bg: var(--color-success-light);
+	--color-status-resolved-text: var(--color-success);
 }
 
 /* Fallback for legacy variables - maps to new system */
