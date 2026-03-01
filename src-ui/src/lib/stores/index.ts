@@ -24,3 +24,7 @@ export {
 } from './chat.js';
 
 export type { LoadingState, NlpState, ChatState } from './chat.js';
+
+// Config store
+export { configStore, configuredProviders, hasConfiguredProvider, isSetupComplete } from './configStore.js';
+export type { ConfigState, ValidationState } from './configStore.js';

@@ -1,0 +1,106 @@
+/**
+ * ProviderCard Component Styles
+ */
+
+.card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: var(--space-4);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border-primary);
+	border-radius: var(--radius-xl);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	text-align: center;
+}
+
+.card:hover {
+	border-color: var(--color-border-hover);
+	transform: translateY(-2px);
+	box-shadow: var(--shadow-md);
+}
+
+.card:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+}
+
+.card.configured {
+	border-color: var(--color-success);
+}
+
+.card.configured:hover {
+	border-color: var(--color-success);
+}
+
+/* Icon */
+.icon {
+	width: 48px;
+	height: 48px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--radius-lg);
+	font-size: var(--text-sm);
+	font-weight: var(--font-bold);
+	margin-bottom: var(--space-2);
+	color: white;
+}
+
+.icon.anthropic {
+	background: linear-gradient(135deg, #d97706, #92400e);
+}
+
+.icon.openai {
+	background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.icon.google {
+	background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.icon.custom {
+	background: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+
+/* Text */
+.name {
+	font-size: var(--text-sm);
+	font-weight: var(--font-semibold);
+	color: var(--color-text-primary);
+	margin-bottom: var(--space-1);
+}
+
+.models {
+	font-size: var(--text-xs);
+	color: var(--color-text-secondary);
+	margin-bottom: var(--space-2);
+}
+
+/* Status */
+.status {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	font-size: var(--text-xs);
+	color: var(--color-text-secondary);
+}
+
+.dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--color-text-muted);
+}
+
+.dot.configured {
+	background: var(--color-success);
+}
+
+.configuredText {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	color: var(--color-success);
+}

@@ -36,6 +36,9 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 # HTTP client for Claude API
 reqwest = { version = "0.12", features = ["json"] }
 
+# Keychain for secure API key storage
+keyring = "3"
+
 # Code parsing (for Phase 6 - Code Understanding)
 tree-sitter = "0.22"
 tree-sitter-rust = "0.21"

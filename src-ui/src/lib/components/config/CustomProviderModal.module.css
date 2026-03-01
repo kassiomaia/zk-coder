@@ -1,0 +1,121 @@
+/**
+ * CustomProviderModal Component Styles
+ */
+
+.form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+}
+
+/* Field */
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.label {
+	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
+	color: var(--color-text-primary);
+}
+
+/* Radio Group */
+.radioGroup {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.radio {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-3);
+	padding: var(--space-3);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border-primary);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.radio:hover {
+	border-color: var(--color-border-hover);
+	background: var(--color-surface-hover);
+}
+
+.radio input[type="radio"] {
+	margin-top: var(--space-1);
+	accent-color: var(--color-primary-500);
+}
+
+.radio:has(input:checked) {
+	border-color: var(--color-primary-500);
+	background: var(--color-primary-50);
+}
+
+.radioLabel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+}
+
+.radioTitle {
+	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
+	color: var(--color-text-primary);
+}
+
+.radioDesc {
+	font-size: var(--text-xs);
+	color: var(--color-text-secondary);
+}
+
+/* Error */
+.error {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
+	background: var(--color-error-light);
+	color: var(--color-error);
+	border-radius: var(--radius-lg);
+	font-size: var(--text-sm);
+}
+
+/* Info */
+.info {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
+	background: var(--color-surface-hover);
+	border-radius: var(--radius-lg);
+	font-size: var(--text-xs);
+	color: var(--color-text-secondary);
+}
+
+.info svg {
+	flex-shrink: 0;
+}
+
+/* Footer */
+.footer {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--space-3);
+	padding-top: var(--space-4);
+	border-top: 1px solid var(--color-border-subtle);
+}
+
+/* Spinner */
+.spinner {
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
