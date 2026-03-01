@@ -4,8 +4,9 @@
 	 * Clickable card displaying provider info and status.
 	 */
 	import styles from './ProviderCard.module.css';
+	import ProviderIcon from './ProviderIcon.svelte';
 	import type { Provider } from '$lib/types/config';
-	import { getProviderIconClass, getProviderDefaultModels } from '$lib/types/config';
+	import { getProviderDefaultModels } from '$lib/types/config';
 
 	interface Props {
 		provider: Provider;
@@ -18,13 +19,11 @@
 		styles.card,
 		provider.isConfigured && styles.configured
 	].filter(Boolean).join(' '));
-
-	let iconClass = $derived(getProviderIconClass(provider.id));
 </script>
 
 <button class={cardClasses} onclick={onclick} type="button" aria-label="Configure {provider.name}">
-	<div class={[styles.icon, styles[iconClass]].join(' ')}>
-		<span>{provider.icon}</span>
+	<div class={styles.iconWrapper}>
+		<ProviderIcon {provider} size={32} />
 	</div>
 	<div class={styles.name}>{provider.name}</div>
 	<div class={styles.models}>

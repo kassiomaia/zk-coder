@@ -8,8 +8,8 @@
 	import Button from '../shared/Button.svelte';
 	import { configStore, availableModelsByOperation } from '$lib/stores/configStore';
 	import { OPERATION_CONFIGS, type OperationType } from '$lib/types/config';
-	import { getProviderIconClass } from '$lib/types/config';
 	import ModelCard from './ModelCard.svelte';
+	import ProviderIcon from './ProviderIcon.svelte';
 
 	interface Props {
 		open: boolean;
@@ -93,8 +93,8 @@
 					{#each $configStore.providers as provider (provider.id)}
 						<div class={[styles.providerItem, provider.isConfigured && styles.configured].join(' ')}>
 							<div class={styles.providerInfo}>
-								<div class={[styles.providerIcon, styles[getProviderIconClass(provider.id)]].join(' ')}>
-									<span>{provider.icon}</span>
+								<div class={styles.providerIconWrapper}>
+									<ProviderIcon {provider} size={24} />
 								</div>
 								<div class={styles.providerDetails}>
 									<div class={styles.providerName}>{provider.name}</div>

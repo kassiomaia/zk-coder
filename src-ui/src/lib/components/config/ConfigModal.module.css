@@ -12,31 +12,13 @@
 	margin-bottom: var(--space-4);
 }
 
-.icon {
+.iconWrapper {
 	width: 48px;
 	height: 48px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: var(--radius-lg);
-	font-size: var(--text-lg);
-	color: white;
-}
-
-.icon.anthropic {
-	background: linear-gradient(135deg, #d97706, #92400e);
-}
-
-.icon.openai {
-	background: linear-gradient(135deg, #10b981, #059669);
-}
-
-.icon.google {
-	background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-}
-
-.icon.custom {
-	background: linear-gradient(135deg, #6366f1, #8b5cf6);
+	flex-shrink: 0;
 }
 
 .details {

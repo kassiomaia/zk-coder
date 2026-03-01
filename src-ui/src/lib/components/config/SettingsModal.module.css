@@ -73,33 +73,13 @@
 	flex: 1;
 }
 
-.providerIcon {
+.providerIconWrapper {
 	width: 40px;
 	height: 40px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: var(--radius-lg);
-	font-size: var(--text-sm);
-	font-weight: var(--font-bold);
-	color: white;
 	flex-shrink: 0;
-}
-
-.providerIcon.anthropic {
-	background: linear-gradient(135deg, #d97706, #92400e);
-}
-
-.providerIcon.openai {
-	background: linear-gradient(135deg, #10b981, #059669);
-}
-
-.providerIcon.google {
-	background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-}
-
-.providerIcon.custom {
-	background: linear-gradient(135deg, #6366f1, #8b5cf6);
 }
 
 .providerDetails {

@@ -9,7 +9,7 @@
 	import Input from '../shared/Input.svelte';
 	import { configStore, type ValidationState } from '$lib/stores/configStore';
 	import type { Provider, ApiType } from '$lib/types/config';
-	import { getProviderIconClass } from '$lib/types/config';
+	import ProviderIcon from './ProviderIcon.svelte';
 
 	interface Props {
 		open: boolean;
@@ -34,7 +34,6 @@
 		const state = $configStore;
 		return state.providers.find(p => p.id === providerId) ?? null;
 	});
-	let iconClass = $derived(provider ? getProviderIconClass(provider.id) : '');
 
 	async function handleValidate() {
 		if (!provider) return;
@@ -163,8 +162,8 @@
 	{#snippet children()}
 		{#if provider}
 			<div class={styles.header}>
-				<div class={[styles.icon, styles[iconClass]].join(' ')}>
-					<span>{provider.icon}</span>
+				<div class={styles.iconWrapper}>
+					<ProviderIcon {provider} size={48} />
 				</div>
 				<div class={styles.details}>
 					<div class={styles.name}>{provider.name}</div>
