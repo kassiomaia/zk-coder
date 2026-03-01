@@ -1,6 +1,11 @@
 /**
  * ChatArea Component Styles (Enhanced)
  * Main chat layout container with message grouping.
+ *
+ * Design Features:
+ * - Better message card design
+ * - Clear visual hierarchy
+ * - Improved spacing and typography
  */
 
 .chatArea {
@@ -15,74 +20,78 @@
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
-	padding: var(--space-4);
+	padding: var(--space-5);
 	scroll-behavior: smooth;
 }
 
-/* Message groups */
+/* Message groups - clearer separation */
 .messageGroup + .messageGroup {
-	margin-top: var(--space-4);
-	border-top: 1px solid var(--color-border-primary);
-	padding-top: var(--space-4);
+	margin-top: var(--space-6);
+	padding-top: var(--space-6);
+	border-top: 1px solid var(--color-border-subtle);
 }
 
 .groupHeader {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
-	margin-bottom: var(--space-3);
-	padding: 0 var(--space-4);
+	margin-bottom: var(--space-4);
+	padding: 0 var(--space-2);
 }
 
 .groupRole {
 	font-size: var(--text-xs);
 	font-weight: var(--font-semibold);
-	color: var(--color-text-muted);
+	color: var(--color-text-tertiary);
 	text-transform: uppercase;
-	letter-spacing: var(--tracking-wide);
+	letter-spacing: var(--tracking-wider);
 }
 
 .groupTime {
 	font-size: var(--text-xs);
 	color: var(--color-text-muted);
-	opacity: 0.7;
 }
 
 .groupMessages {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-3);
+	gap: var(--space-4);
 	padding-left: var(--space-4);
 }
 
-/* Individual messages */
+/* Individual messages - card design with elevation */
 .message {
-	padding: var(--space-3) var(--space-4);
-	border-radius: var(--radius-lg);
+	padding: var(--space-4) var(--space-5);
+	border-radius: var(--radius-xl);
 	max-width: 85%;
 	word-wrap: break-word;
+	transition: box-shadow var(--transition-fast);
+}
+
+.message:hover {
+	box-shadow: var(--shadow-sm);
 }
 
 .message.role-user {
-	background: var(--color-primary-100);
+	background: var(--color-interactive-selected);
+	border: 1px solid rgba(99, 102, 241, 0.3);
 	margin-left: auto;
 	margin-right: 0;
 }
 
-[data-theme='dark'] .message.role-user {
-	background: rgba(99, 102, 241, 0.2);
-}
-
 .message.role-assistant {
 	background: var(--color-surface);
+	border: 1px solid var(--color-border-subtle);
 	margin-left: 0;
 	margin-right: auto;
 }
 
 .message.role-system {
 	background: var(--color-bg-tertiary);
+	border: 1px dashed var(--color-border-secondary);
 	margin: 0 auto;
 	font-style: italic;
+	max-width: 70%;
 }
 
 .messageContent {
@@ -94,13 +103,13 @@
 
 /* Typing indicator wrapper */
 .typingWrapper {
-	padding: var(--space-2) var(--space-4);
+	padding: var(--space-3) var(--space-5);
 }
 
 /* Input container */
 .inputContainer {
 	flex-shrink: 0;
-	padding: var(--space-4);
+	padding: var(--space-4) var(--space-5);
 	padding-top: 0;
 	background: var(--color-bg-primary);
 	max-width: var(--content-max-width);
@@ -113,35 +122,35 @@
 	.inputContainer {
 		position: sticky;
 		bottom: 0;
-		padding: var(--space-4);
+		padding: var(--space-5);
 		border-top: 1px solid transparent;
 		background: linear-gradient(
 			to top,
 			var(--color-bg-primary) 0%,
-			var(--color-bg-primary) 80%,
+			var(--color-bg-primary) 85%,
 			transparent 100%
 		);
 	}
 }
 
-/* Loading state */
+/* Loading state - skeleton */
 .loading {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	padding: var(--space-8);
-	gap: var(--space-3);
+	padding: var(--space-10);
+	gap: var(--space-4);
 	color: var(--color-text-muted);
 }
 
 .spinner {
-	width: 24px;
-	height: 24px;
-	border: 2px solid var(--color-border-primary);
+	width: 28px;
+	height: 28px;
+	border: 3px solid var(--color-border-primary);
 	border-top-color: var(--color-primary-500);
 	border-radius: var(--radius-full);
-	animation: spin 1s linear infinite;
+	animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -150,14 +159,19 @@
 	}
 }
 
+.loadingText {
+	font-size: var(--text-sm);
+	color: var(--color-text-secondary);
+}
+
 /* Error state */
 .error {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	padding: var(--space-8);
-	gap: var(--space-3);
+	padding: var(--space-10);
+	gap: var(--space-4);
 }
 
 .errorIcon {
@@ -167,15 +181,21 @@
 .errorMessage {
 	color: var(--color-text-secondary);
 	font-size: var(--text-sm);
+	text-align: center;
 }
 
 .retryButton {
-	padding: var(--space-2) var(--space-4);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-2);
+	padding: var(--space-2-5) var(--space-5);
 	background: var(--color-surface);
 	border: 1px solid var(--color-border-primary);
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-lg);
 	color: var(--color-text-primary);
 	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
 	cursor: pointer;
 	transition: all var(--transition-fast);
 }
@@ -183,6 +203,12 @@
 .retryButton:hover {
 	background: var(--color-surface-hover);
 	border-color: var(--color-primary-500);
+	box-shadow: var(--shadow-sm);
+}
+
+.retryButton:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
 }
 
 /* Empty state */
@@ -191,19 +217,19 @@
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	padding: var(--space-8);
-	gap: var(--space-3);
+	padding: var(--space-12) var(--space-6);
+	gap: var(--space-4);
 	color: var(--color-text-muted);
 	flex: 1;
 }
 
 .emptyIcon {
-	opacity: 0.5;
+	opacity: 0.4;
 }
 
 .emptyText {
-	font-size: var(--text-lg);
-	font-weight: var(--font-medium);
+	font-size: var(--text-xl);
+	font-weight: var(--font-semibold);
 	color: var(--color-text-secondary);
 	margin: 0;
 }
@@ -212,16 +238,18 @@
 	font-size: var(--text-sm);
 	color: var(--color-text-muted);
 	margin: 0;
+	text-align: center;
+	max-width: 280px;
 }
 
 /* Responsive */
 @media (max-width: 600px) {
 	.messagesWrapper {
-		padding: var(--space-3);
+		padding: var(--space-4);
 	}
 
 	.inputContainer {
-		padding: var(--space-3);
+		padding: var(--space-3) var(--space-4);
 		padding-top: 0;
 	}
 
@@ -231,6 +259,29 @@
 
 	.message {
 		max-width: 90%;
-		padding: var(--space-2) var(--space-3);
+		padding: var(--space-3) var(--space-4);
+		border-radius: var(--radius-lg);
+	}
+
+	.empty {
+		padding: var(--space-8) var(--space-4);
+	}
+
+	.emptyText {
+		font-size: var(--text-lg);
+	}
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.spinner {
+		animation: none;
+		border-top-color: var(--color-primary-500);
+		opacity: 0.7;
+	}
+
+	.message,
+	.retryButton {
+		transition: none;
 	}
 }

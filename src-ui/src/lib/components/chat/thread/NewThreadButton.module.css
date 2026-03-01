@@ -1,40 +1,52 @@
 /**
  * NewThreadButton Component Styles
  * Button to create a new thread.
+ *
+ * Design Features:
+ * - Prominent primary action styling
+ * - Smooth hover and active states
+ * - Glow effect on hover
  */
 
 .button {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: var(--space-1);
+	gap: var(--space-1-5);
 	padding: var(--space-2) var(--space-3);
 	background: var(--color-primary-500);
 	color: var(--color-neutral-0);
 	border: none;
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-lg);
 	font-size: var(--text-xs);
-	font-weight: var(--font-medium);
+	font-weight: var(--font-semibold);
 	cursor: pointer;
 	transition: all var(--transition-fast);
+	box-shadow: var(--shadow-sm);
 }
 
 .button:hover:not(:disabled) {
 	background: var(--color-primary-600);
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-md), var(--shadow-glow-sm);
 }
 
 .button:active:not(:disabled) {
-	transform: scale(0.98);
+	transform: translateY(0);
+	box-shadow: var(--shadow-sm);
 }
 
 .button:disabled {
-	opacity: 0.5;
+	opacity: var(--opacity-disabled);
 	cursor: not-allowed;
+	transform: none;
+	box-shadow: none;
 }
 
 .button:focus-visible {
-	outline: 2px solid var(--color-primary-500);
+	outline: 2px solid var(--color-primary-400);
 	outline-offset: 2px;
+	box-shadow: var(--shadow-glow-md);
 }
 
 .icon {
@@ -49,29 +61,26 @@
 .compact {
 	padding: var(--space-2);
 	background: transparent;
-	color: var(--color-primary-500);
+	color: var(--color-accent-primary);
 	border: 1px solid var(--color-primary-500);
+	box-shadow: none;
 }
 
 .compact:hover:not(:disabled) {
-	background: var(--color-primary-100);
-	border-color: var(--color-primary-600);
-	color: var(--color-primary-600);
-}
-
-[data-theme='dark'] .compact:hover:not(:disabled) {
-	background: rgba(99, 102, 241, 0.15);
+	background: var(--color-accent-primary-muted);
+	border-color: var(--color-primary-400);
+	color: var(--color-primary-400);
 }
 
 /* Responsive */
 @media (max-width: 600px) {
 	.button {
-		padding: var(--space-1) var(--space-2);
-		font-size: var(--text-2xs);
+		padding: var(--space-1-5) var(--space-2-5);
+		font-size: var(--text-xs);
 	}
 
 	.compact {
-		padding: var(--space-1);
+		padding: var(--space-1-5);
 	}
 }
 
@@ -81,6 +90,7 @@
 		transition: none;
 	}
 
+	.button:hover:not(:disabled),
 	.button:active:not(:disabled) {
 		transform: none;
 	}

@@ -1,30 +1,45 @@
 /**
  * MessageActions Component Styles
  * Hover action toolbar for message actions.
+ *
+ * Design Features:
+ * - Elevated action bar design
+ * - Smooth hover reveals
+ * - Clear feedback states
  */
 
 .actions {
 	display: flex;
-	gap: var(--space-2);
+	gap: var(--space-1);
 	padding: var(--space-1);
-	background: transparent;
-	border-radius: var(--radius-md);
+	background: var(--color-bg-elevated);
+	border: 1px solid var(--color-border-primary);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-md);
 	opacity: 0;
+	pointer-events: none;
 	transition: opacity var(--transition-fast);
 }
 
+.messageWrapper:hover .actions,
+.messageWrapper:focus-within .actions {
+	opacity: 1;
+	pointer-events: auto;
+}
+
 .action {
-	padding: var(--space-2);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
 	background: transparent;
 	border: none;
 	border-radius: var(--radius-md);
 	cursor: pointer;
 	color: var(--color-text-muted);
 	transition: all var(--transition-fast);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	position: relative;
 }
 
 .action:hover {
@@ -32,9 +47,13 @@
 	color: var(--color-text-primary);
 }
 
+.action:active {
+	transform: scale(0.95);
+}
+
 .action:focus-visible {
 	outline: 2px solid var(--color-primary-500);
-	outline-offset: 2px;
+	outline-offset: 1px;
 }
 
 /* Copied state */
@@ -45,6 +64,7 @@
 /* Active/selected state */
 .active {
 	color: var(--color-primary-500);
+	background: var(--color-accent-primary-muted);
 }
 
 /* Feedback group */
@@ -91,11 +111,18 @@
 /* Responsive */
 @media (max-width: 600px) {
 	.actions {
-		gap: var(--space-1);
+		gap: var(--space-0-5);
+		opacity: 1;
+		pointer-events: auto;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		padding: 0;
 	}
 
 	.action {
-		padding: var(--space-1);
+		width: 32px;
+		height: 32px;
 	}
 
 	.feedbackGroup {
@@ -106,9 +133,14 @@
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
+	.action,
 	.feedbackIcon,
 	.checkIcon {
 		animation: none;
 		transition: none;
+	}
+
+	.action:active {
+		transform: none;
 	}
 }

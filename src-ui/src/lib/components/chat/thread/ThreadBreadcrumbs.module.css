@@ -1,6 +1,11 @@
 /**
  * ThreadBreadcrumbs Component Styles
  * Navigation breadcrumbs for thread hierarchy.
+ *
+ * Design Features:
+ * - Clear clickable links
+ * - Smooth hover states
+ * - Visual hierarchy
  */
 
 .breadcrumbs {
@@ -24,13 +29,14 @@
 }
 
 .link {
-	padding: 0;
+	padding: var(--space-1) var(--space-2);
 	background: transparent;
 	border: none;
+	border-radius: var(--radius-md);
 	font-size: inherit;
 	color: var(--color-text-muted);
 	cursor: pointer;
-	transition: color var(--transition-fast);
+	transition: all var(--transition-fast);
 	max-width: 120px;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -39,6 +45,7 @@
 
 .link:hover:not(:disabled) {
 	color: var(--color-text-primary);
+	background: var(--color-surface-hover);
 }
 
 .link:disabled {
@@ -47,14 +54,13 @@
 
 .link:focus-visible {
 	outline: 2px solid var(--color-primary-500);
-	outline-offset: 2px;
-	border-radius: var(--radius-sm);
+	outline-offset: 1px;
 }
 
 .separator {
 	flex-shrink: 0;
 	color: var(--color-text-muted);
-	opacity: 0.5;
+	opacity: 0.4;
 }
 
 .ellipsis {
@@ -64,11 +70,14 @@
 
 .current {
 	color: var(--color-text-primary);
-	font-weight: var(--font-medium);
+	font-weight: var(--font-semibold);
 	max-width: 150px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	padding: var(--space-1) var(--space-2);
+	background: var(--color-surface);
+	border-radius: var(--radius-md);
 }
 
 /* Responsive */

@@ -1,12 +1,26 @@
 /**
  * ConversationItem Component Styles
  * Individual conversation item in the list.
+ *
+ * Design Features:
+ * - Card-like appearance with subtle elevation
+ * - Smooth hover transitions
+ * - Clear selected state
+ * - Enhanced focus visibility
  */
 
 .item {
 	position: relative;
 	list-style: none;
-	margin: var(--space-1);
+	margin: var(--space-1) 0;
+}
+
+.item:first-child {
+	margin-top: 0;
+}
+
+.item:last-child {
+	margin-bottom: 0;
 }
 
 .button {
@@ -14,30 +28,40 @@
 	align-items: flex-start;
 	justify-content: space-between;
 	width: 100%;
-	padding: var(--space-2) var(--space-3);
-	background: transparent;
-	border: none;
-	border-radius: var(--radius-md);
+	padding: var(--space-3);
+	background: var(--color-surface);
+	border: 1px solid transparent;
+	border-radius: var(--radius-lg);
 	cursor: pointer;
 	text-align: left;
-	transition: background var(--transition-fast);
+	transition: all var(--transition-fast);
 }
 
 .button:hover {
 	background: var(--color-surface-hover);
+	border-color: var(--color-border-subtle);
+	transform: translateX(2px);
 }
 
+.button:active {
+	transform: translateX(1px);
+}
+
+/* Selected state - prominent and clear */
 .item.selected .button {
-	background: var(--color-primary-100);
+	background: var(--color-interactive-selected);
+	border-color: var(--color-primary-500);
+	box-shadow: var(--shadow-glow-sm);
 }
 
-[data-theme='dark'] .item.selected .button {
-	background: rgba(99, 102, 241, 0.15);
+.item.selected .button:hover {
+	background: var(--color-interactive-selected-hover);
 }
 
 .button:focus-visible {
 	outline: 2px solid var(--color-primary-500);
-	outline-offset: -2px;
+	outline-offset: 1px;
+	border-color: var(--color-primary-500);
 }
 
 .content {
@@ -45,7 +69,7 @@
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-1);
+	gap: var(--space-1-5);
 }
 
 .title {
@@ -55,22 +79,30 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	line-height: var(--leading-snug);
+}
+
+.item.selected .title {
+	color: var(--color-text-primary);
 }
 
 .meta {
 	display: flex;
 	align-items: center;
-	gap: var(--space-1);
+	gap: var(--space-1-5);
 	font-size: var(--text-xs);
 	color: var(--color-text-muted);
 }
 
 .threadCount {
 	white-space: nowrap;
+	color: var(--color-accent-primary);
+	font-weight: var(--font-medium);
 }
 
 .dot {
-	opacity: 0.5;
+	opacity: 0.4;
+	font-size: 0.5rem;
 }
 
 .time {
@@ -84,32 +116,34 @@
 
 .editInput {
 	width: 100%;
-	padding: var(--space-2);
+	padding: var(--space-2-5) var(--space-3);
 	font-family: var(--font-sans);
 	font-size: var(--text-sm);
 	color: var(--color-text-primary);
 	background: var(--color-surface);
-	border: 1px solid var(--color-primary-500);
-	border-radius: var(--radius-md);
+	border: 2px solid var(--color-primary-500);
+	border-radius: var(--radius-lg);
 	outline: none;
+	transition: box-shadow var(--transition-fast);
 }
 
 .editInput:focus {
-	box-shadow: 0 0 0 2px var(--color-primary-100);
-}
-
-[data-theme='dark'] .editInput:focus {
-	box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+	box-shadow: 0 0 0 3px var(--color-accent-primary-muted);
 }
 
 /* Responsive */
 @media (max-width: 600px) {
 	.button {
-		padding: var(--space-3);
+		padding: var(--space-3-5);
+		border-radius: var(--radius-xl);
 	}
 
 	.title {
 		font-size: var(--text-base);
+	}
+
+	.meta {
+		font-size: var(--text-sm);
 	}
 }
 
@@ -117,5 +151,9 @@
 @media (prefers-reduced-motion: reduce) {
 	.button {
 		transition: none;
+	}
+
+	.button:hover {
+		transform: none;
 	}
 }

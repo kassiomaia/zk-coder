@@ -1,6 +1,11 @@
 /**
  * ChatLayout Component Styles
  * Main responsive layout for the chat application.
+ *
+ * Design Features:
+ * - Subtle dividers between panels
+ * - Smooth panel transitions
+ * - Clear visual separation
  */
 
 .layout {
@@ -12,7 +17,7 @@
 	background: var(--color-bg-primary);
 }
 
-/* Header */
+/* Header - Mobile only */
 .header {
 	display: none;
 	align-items: center;
@@ -20,7 +25,7 @@
 	height: var(--header-height);
 	padding: var(--space-2) var(--space-4);
 	background: var(--color-bg-secondary);
-	border-bottom: 1px solid var(--color-border-primary);
+	border-bottom: 1px solid var(--color-border-subtle);
 	flex-shrink: 0;
 	z-index: var(--z-sticky);
 }
@@ -35,24 +40,31 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	letter-spacing: var(--tracking-tight);
 }
 
 .menuButton {
-	padding: var(--space-2);
-	background: transparent;
-	border: none;
-	border-radius: var(--radius-md);
-	cursor: pointer;
-	color: var(--color-text-muted);
-	transition: all var(--transition-fast);
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	width: 40px;
+	height: 40px;
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-lg);
+	cursor: pointer;
+	color: var(--color-text-muted);
+	transition: all var(--transition-fast);
 }
 
 .menuButton:hover {
 	background: var(--color-surface-hover);
 	color: var(--color-text-primary);
+}
+
+.menuButton:active {
+	transform: scale(0.95);
 }
 
 .menuButton:focus-visible {
@@ -72,6 +84,7 @@
 .sidebarWrapper {
 	flex-shrink: 0;
 	height: 100%;
+	border-right: 1px solid var(--color-border-subtle);
 }
 
 /* Content area */
@@ -81,6 +94,7 @@
 	height: 100%;
 	display: flex;
 	flex-direction: column;
+	padding-bottom: 28px; /* Space for fixed status bar */
 }
 
 /* Thread layout */
@@ -93,6 +107,7 @@
 .threadPanelWrapper {
 	flex-shrink: 0;
 	height: 100%;
+	border-right: 1px solid var(--color-border-subtle);
 }
 
 .threadContent {
@@ -101,16 +116,20 @@
 	height: 100%;
 }
 
-/* Backdrop */
+/* Backdrop - subtle blur effect */
 .backdrop {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.5);
+	background: rgba(0, 0, 0, 0.6);
+	backdrop-filter: blur(4px);
+	-webkit-backdrop-filter: blur(4px);
 	z-index: calc(var(--z-modal) - 1);
 	cursor: pointer;
 	border: none;
 	padding: 0;
+	opacity: 0;
+	transition: opacity var(--transition-normal);
 }
 
 .backdrop.right {
@@ -145,8 +164,8 @@
 		bottom: 0;
 		z-index: var(--z-modal);
 		transform: translateX(-100%);
-		transition: transform var(--transition-normal);
-		box-shadow: var(--shadow-xl);
+		transition: transform var(--transition-smooth);
+		box-shadow: var(--shadow-2xl);
 	}
 
 	.sidebarWrapper.open {
@@ -160,8 +179,8 @@
 		bottom: 0;
 		z-index: var(--z-modal);
 		transform: translateX(-100%);
-		transition: transform var(--transition-normal);
-		box-shadow: var(--shadow-xl);
+		transition: transform var(--transition-smooth);
+		box-shadow: var(--shadow-2xl);
 	}
 
 	.threadPanelWrapper.open {
@@ -170,6 +189,12 @@
 
 	.backdrop {
 		display: block;
+	}
+
+	.backdrop.open,
+	.sidebarWrapper.open ~ .backdrop,
+	.threadPanelWrapper.open ~ .backdrop {
+		opacity: 1;
 	}
 }
 
@@ -196,8 +221,8 @@
 		max-width: 300px;
 		z-index: var(--z-modal);
 		transform: translateX(-100%);
-		transition: transform var(--transition-normal);
-		box-shadow: var(--shadow-xl);
+		transition: transform var(--transition-smooth);
+		box-shadow: var(--shadow-2xl);
 	}
 
 	.sidebarWrapper.open {
@@ -213,8 +238,8 @@
 		max-width: 280px;
 		z-index: var(--z-modal);
 		transform: translateX(-100%);
-		transition: transform var(--transition-normal);
-		box-shadow: var(--shadow-xl);
+		transition: transform var(--transition-smooth);
+		box-shadow: var(--shadow-2xl);
 	}
 
 	.threadPanelWrapper.open {
@@ -225,12 +250,24 @@
 		display: block;
 		top: var(--header-height);
 	}
+
+	.backdrop.open,
+	.sidebarWrapper.open ~ .backdrop,
+	.threadPanelWrapper.open ~ .backdrop {
+		opacity: 1;
+	}
 }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
 	.sidebarWrapper,
-	.threadPanelWrapper {
+	.threadPanelWrapper,
+	.backdrop,
+	.menuButton {
 		transition: none;
+	}
+
+	.menuButton:active {
+		transform: none;
 	}
 }

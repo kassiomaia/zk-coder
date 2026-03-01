@@ -9,3 +9,4 @@ export { default as ChatMessageList } from './ChatMessageList.svelte';
 export { default as CodeBlock } from './CodeBlock.svelte';
 export { default as InputBox } from './InputBox.svelte';
 export { default as ChatDemo } from './ChatDemo.svelte';
+export { default as Skeleton } from './chat/Skeleton.svelte';

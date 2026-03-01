@@ -1,6 +1,11 @@
 /**
  * SearchBar Component Styles
  * Search input for filtering conversations.
+ *
+ * Design Features:
+ * - Prominent focus state with glow
+ * - Smooth transitions
+ * - Clear visual feedback
  */
 
 .search {
@@ -15,11 +20,16 @@
 	color: var(--color-text-muted);
 	pointer-events: none;
 	flex-shrink: 0;
+	transition: color var(--transition-fast);
+}
+
+.search:focus-within .icon {
+	color: var(--color-accent-primary);
 }
 
 .input {
 	width: 100%;
-	padding: var(--space-2) var(--space-3);
+	padding: var(--space-2-5) var(--space-3);
 	padding-left: calc(var(--space-3) + 20px);
 	padding-right: var(--space-8);
 	font-family: var(--font-sans);
@@ -27,18 +37,22 @@
 	color: var(--color-text-primary);
 	background: var(--color-surface);
 	border: 1px solid var(--color-border-primary);
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-xl);
 	outline: none;
-	transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+	transition:
+		border-color var(--transition-fast),
+		box-shadow var(--transition-fast),
+		background-color var(--transition-fast);
+}
+
+.input:hover {
+	border-color: var(--color-border-secondary);
 }
 
 .input:focus {
 	border-color: var(--color-primary-500);
-	box-shadow: 0 0 0 3px var(--color-primary-100);
-}
-
-[data-theme='dark'] .input:focus {
-	box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+	box-shadow: 0 0 0 3px var(--color-accent-primary-muted);
+	background: var(--color-bg-primary);
 }
 
 .input::placeholder {
@@ -46,8 +60,9 @@
 }
 
 .input:disabled {
-	opacity: 0.6;
+	opacity: var(--opacity-disabled);
 	cursor: not-allowed;
+	background: var(--color-bg-tertiary);
 }
 
 /* Remove default search styling */
@@ -62,19 +77,22 @@
 .clear {
 	position: absolute;
 	right: var(--space-2);
-	padding: var(--space-1);
-	background: transparent;
-	border: none;
-	border-radius: var(--radius-sm);
-	cursor: pointer;
-	color: var(--color-text-muted);
-	transition: color var(--transition-fast);
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	color: var(--color-text-muted);
+	transition: all var(--transition-fast);
 }
 
 .clear:hover {
+	background: var(--color-surface-hover);
 	color: var(--color-text-primary);
 }
 
@@ -87,12 +105,17 @@
 @media (max-width: 600px) {
 	.input {
 		font-size: var(--text-base); /* Prevent zoom on iOS */
+		padding: var(--space-3);
+		padding-left: calc(var(--space-3) + 20px);
+		padding-right: var(--space-8);
 	}
 }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-	.input {
+	.input,
+	.icon,
+	.clear {
 		transition: none;
 	}
 }

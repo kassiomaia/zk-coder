@@ -1,6 +1,11 @@
 /**
  * ConversationActions Component Styles
  * Context menu actions for conversations.
+ *
+ * Design Features:
+ * - Smooth reveal animation
+ * - Elevated card design
+ * - Clear delete state
  */
 
 .actions {
@@ -12,29 +17,33 @@
 	gap: var(--space-1);
 	background: var(--color-bg-elevated);
 	border: 1px solid var(--color-border-primary);
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-lg);
 	padding: var(--space-1);
-	box-shadow: var(--shadow-sm);
+	box-shadow: var(--shadow-lg);
 	opacity: 0;
-	transition: opacity var(--transition-fast);
+	pointer-events: none;
+	transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .item:hover .actions,
 .item:focus-within .actions {
 	opacity: 1;
+	pointer-events: auto;
 }
 
 .action {
-	padding: var(--space-1);
-	background: transparent;
-	border: none;
-	border-radius: var(--radius-sm);
-	cursor: pointer;
-	color: var(--color-text-muted);
-	transition: all var(--transition-fast);
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	color: var(--color-text-muted);
+	transition: all var(--transition-fast);
 }
 
 .action:hover {
@@ -43,7 +52,7 @@
 }
 
 .action.delete:hover {
-	background: rgba(244, 63, 94, 0.1);
+	background: var(--color-error-light);
 	color: var(--color-error);
 }
 
@@ -56,6 +65,7 @@
 @media (max-width: 600px) {
 	.actions {
 		opacity: 1;
+		pointer-events: auto;
 		background: var(--color-bg-secondary);
 		border: none;
 		box-shadow: none;

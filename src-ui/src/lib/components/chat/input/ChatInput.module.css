@@ -1,6 +1,11 @@
 /**
  * ChatInput Component Styles
  * Enhanced multi-line input with command palette and mentions support.
+ *
+ * Design Features:
+ * - Prominent focus state with glow effect
+ * - Clear send button with hover animation
+ * - Smooth transitions throughout
  */
 
 .container {
@@ -8,20 +13,22 @@
 	border: 1px solid var(--color-border-primary);
 	border-radius: var(--radius-2xl);
 	padding: var(--space-3);
-	transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+	transition:
+		border-color var(--transition-fast),
+		box-shadow var(--transition-fast);
+}
+
+.container:hover {
+	border-color: var(--color-border-secondary);
 }
 
 .container:focus-within {
 	border-color: var(--color-primary-500);
-	box-shadow: 0 0 0 3px var(--color-primary-100);
-}
-
-[data-theme='dark'] .container:focus-within {
-	box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+	box-shadow: 0 0 0 3px var(--color-accent-primary-muted), var(--shadow-glow-sm);
 }
 
 .container.disabled {
-	opacity: 0.6;
+	opacity: var(--opacity-disabled);
 	pointer-events: none;
 }
 
@@ -43,19 +50,25 @@
 	gap: var(--space-2);
 	padding: var(--space-2) var(--space-3);
 	background: var(--color-bg-tertiary);
-	border-radius: var(--radius-md);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-lg);
 	font-size: var(--text-xs);
+	transition: border-color var(--transition-fast);
+}
+
+.attachment:hover {
+	border-color: var(--color-border-secondary);
 }
 
 .attachmentPreview {
-	width: 24px;
-	height: 24px;
+	width: 28px;
+	height: 28px;
 	object-fit: cover;
-	border-radius: var(--radius-sm);
+	border-radius: var(--radius-md);
 }
 
 .fileIcon {
-	color: var(--color-text-muted);
+	color: var(--color-accent-primary);
 	flex-shrink: 0;
 }
 
@@ -65,6 +78,7 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	font-weight: var(--font-medium);
 }
 
 .attachmentSize {
@@ -72,25 +86,28 @@
 }
 
 .attachmentRemove {
-	padding: var(--space-1);
-	background: transparent;
-	border: none;
-	border-radius: var(--radius-sm);
-	cursor: pointer;
-	color: var(--color-text-muted);
-	transition: color var(--transition-fast);
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	color: var(--color-text-muted);
+	transition: all var(--transition-fast);
 }
 
 .attachmentRemove:hover {
+	background: var(--color-error-light);
 	color: var(--color-error);
 }
 
 .attachmentRemove:focus-visible {
 	outline: 2px solid var(--color-primary-500);
-	outline-offset: 2px;
+	outline-offset: 1px;
 }
 
 /* Intent indicator wrapper */
@@ -112,7 +129,7 @@
 	padding: 0;
 	font-family: var(--font-sans);
 	font-size: var(--text-sm);
-	line-height: var(--leading-normal);
+	line-height: var(--leading-relaxed);
 	color: var(--color-text-primary);
 	background: transparent;
 	border: none;
@@ -122,7 +139,7 @@
 
 .textarea::placeholder {
 	color: var(--color-text-muted);
-	opacity: 0.6;
+	opacity: 0.7;
 }
 
 /* Actions */
@@ -136,20 +153,22 @@
 .rightActions {
 	display: flex;
 	align-items: center;
-	gap: var(--space-2);
+	gap: var(--space-1);
 }
 
 .actionButton {
-	padding: var(--space-2);
-	background: transparent;
-	border: none;
-	border-radius: var(--radius-md);
-	cursor: pointer;
-	color: var(--color-text-muted);
-	transition: all var(--transition-fast);
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	width: 36px;
+	height: 36px;
+	padding: 0;
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-lg);
+	cursor: pointer;
+	color: var(--color-text-muted);
+	transition: all var(--transition-fast);
 }
 
 .actionButton:hover:not(:disabled) {
@@ -157,24 +176,23 @@
 	color: var(--color-text-primary);
 }
 
-.actionButton.active {
-	background: var(--color-primary-100);
-	color: var(--color-primary-600);
+.actionButton:active:not(:disabled) {
+	transform: scale(0.95);
 }
 
-[data-theme='dark'] .actionButton.active {
-	background: rgba(99, 102, 241, 0.2);
-	color: var(--color-primary-400);
+.actionButton.active {
+	background: var(--color-accent-primary-muted);
+	color: var(--color-accent-primary);
 }
 
 .actionButton:disabled {
-	opacity: 0.5;
+	opacity: var(--opacity-disabled);
 	cursor: not-allowed;
 }
 
 .actionButton:focus-visible {
 	outline: 2px solid var(--color-primary-500);
-	outline-offset: 2px;
+	outline-offset: 1px;
 }
 
 .fileInput {
@@ -185,42 +203,52 @@
 .characterCount {
 	font-size: var(--text-xs);
 	color: var(--color-text-muted);
+	padding: var(--space-1) var(--space-2);
 }
 
 .characterCount.overLimit {
 	color: var(--color-error);
-	font-weight: var(--font-medium);
+	font-weight: var(--font-semibold);
 }
 
-/* Send button */
+/* Send button - Enhanced prominence */
 .sendButton {
-	width: 36px;
-	height: 36px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	width: 40px;
+	height: 40px;
 	background: var(--color-primary-500);
 	color: var(--color-neutral-0);
 	border: none;
 	border-radius: var(--radius-full);
 	cursor: pointer;
-	transition: background var(--transition-fast), transform var(--transition-fast);
+	transition: all var(--transition-fast);
+	box-shadow: var(--shadow-md);
 }
 
 .sendButton:hover:not(.disabled) {
 	background: var(--color-primary-600);
-	transform: scale(1.05);
+	transform: scale(1.08);
+	box-shadow: var(--shadow-lg), var(--shadow-glow-sm);
+}
+
+.sendButton:active:not(.disabled) {
+	transform: scale(0.98);
+	box-shadow: var(--shadow-sm);
 }
 
 .sendButton.disabled {
-	background: var(--color-text-muted);
+	background: var(--color-neutral-700);
 	cursor: not-allowed;
 	transform: none;
+	box-shadow: none;
 }
 
 .sendButton:focus-visible {
-	outline: 2px solid var(--color-primary-500);
+	outline: 2px solid var(--color-primary-400);
 	outline-offset: 2px;
+	box-shadow: var(--shadow-glow-md);
 }
 
 /* Spinner animation */
@@ -240,7 +268,8 @@
 /* Responsive */
 @media (max-width: 600px) {
 	.container {
-		padding: var(--space-2);
+		padding: var(--space-2-5);
+		border-radius: var(--radius-xl);
 	}
 
 	.attachmentName {
@@ -248,11 +277,32 @@
 	}
 
 	.sendButton {
-		width: 32px;
-		height: 32px;
+		width: 36px;
+		height: 36px;
 	}
 
 	.actionButton {
-		padding: var(--space-1);
+		width: 32px;
+		height: 32px;
+	}
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.container,
+	.attachment,
+	.attachmentRemove,
+	.actionButton,
+	.sendButton {
+		transition: none;
+	}
+
+	.sendButton:hover:not(.disabled),
+	.actionButton:active:not(:disabled) {
+		transform: none;
+	}
+
+	.spinner {
+		animation: none;
 	}
 }
