@@ -275,23 +275,50 @@ pub async fn send_chat_message_streaming(
     };
 
     // Get model info
+    info!("send_chat_message_streaming: fetching model info for {}", model_id);
     let model = config_store
         .get_model(&model_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Model '{}' not found", model_id))?;
+        .map_err(|e| {
+            error!("send_chat_message_streaming: failed to get model: {}", e);
+            e.to_string()
+        })?
+        .ok_or_else(|| {
+            error!("send_chat_message_streaming: model '{}' not found", model_id);
+            format!("Model '{}' not found", model_id)
+        })?;
+    info!("send_chat_message_streaming: found model name={}, provider_id={}", model.name, model.provider_id);
 
     // Get provider info
+    info!("send_chat_message_streaming: fetching provider info for {}", model.provider_id);
     let provider = config_store
         .get_provider(&model.provider_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Provider '{}' not found", model.provider_id))?;
+        .map_err(|e| {
+            error!("send_chat_message_streaming: failed to get provider: {}", e);
+            e.to_string()
+        })?
+        .ok_or_else(|| {
+            error!("send_chat_message_streaming: provider '{}' not found", model.provider_id);
+            format!("Provider '{}' not found", model.provider_id)
+        })?;
+    info!("send_chat_message_streaming: found provider name={}, api_type={:?}", provider.name, provider.api_type);
 
     // Get API key
-    let api_key = get_api_key_for_provider(&provider.id, &config_store)?;
+    info!("send_chat_message_streaming: retrieving API key for provider {}", provider.id);
+    let api_key = match get_api_key_for_provider(&provider.id, &config_store) {
+        Ok(key) => {
+            info!("send_chat_message_streaming: API key retrieved (length={})", key.len());
+            key
+        }
+        Err(e) => {
+            error!("send_chat_message_streaming: failed to get API key: {}", e);
+            return Err(e);
+        }
+    };
 
     drop(config_store); // Release lock before async operations
 
     // Create client
+    info!("send_chat_message_streaming: creating LLM client for {:?}", provider.api_type);
     let client = create_client_for_provider(provider.api_type, api_key, provider.base_url);
 
     // Get chat state and load conversation history
@@ -300,7 +327,11 @@ pub async fn send_chat_message_streaming(
 
     let history = chat_store
         .load_messages(&request.conversation_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            error!("send_chat_message_streaming: failed to load messages: {}", e);
+            e.to_string()
+        })?;
+    info!("send_chat_message_streaming: loaded {} history messages", history.len());
 
     // Add the new user message to history for context
     let user_message = ChatMessage::user(&request.conversation_id, &request.content);
@@ -310,12 +341,17 @@ pub async fn send_chat_message_streaming(
     // Save user message
     chat_store
         .add_message(&user_message)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            error!("send_chat_message_streaming: failed to save user message: {}", e);
+            e.to_string()
+        })?;
+    info!("send_chat_message_streaming: saved user message");
 
     drop(chat_store); // Release lock before streaming
 
     // Convert messages for LLM
     let llm_messages = convert_messages(&context_messages);
+    info!("send_chat_message_streaming: converted {} messages for LLM", llm_messages.len());
 
     // Create chat request with streaming enabled
     let chat_request = ChatRequest::new(&model.name, llm_messages)
@@ -324,15 +360,21 @@ pub async fn send_chat_message_streaming(
         .with_max_tokens(request.max_tokens.unwrap_or(4096))
         .with_stream();
 
+    info!("send_chat_message_streaming: created chat request for model {}", model.name);
+
     // Get app handle for async task
     let app_handle_clone = app_handle.clone();
     let request_id_clone = request_id.clone();
     let conversation_id = request.conversation_id.clone();
+    let model_name_for_log = model.name.clone();
+
+    info!("send_chat_message_streaming: spawning streaming task for request_id={}", request_id);
 
     // Spawn streaming task
     tokio::spawn(async move {
+        info!("streaming_task: starting stream for request_id={}, model={}", request_id_clone, model_name_for_log);
         let stream = client.chat_stream(chat_request);
-        let events = crate::llm::stream_to_events(request_id_clone.clone(), model.name.clone(), stream);
+        let events = crate::llm::stream_to_events(request_id_clone.clone(), model_name_for_log.clone(), stream);
 
         #[allow(clippy::expect_used)]
         let mut events = std::pin::pin!(events);
@@ -343,17 +385,20 @@ pub async fn send_chat_message_streaming(
 
         while let Some(event) = events.next().await {
             match &event {
+                LlmEvent::Started { model, .. } => {
+                    info!("streaming_task: received Started event for model={}", model);
+                }
                 LlmEvent::Chunk { delta, .. } => {
                     final_content.push_str(delta);
                 }
                 LlmEvent::Complete { content, usage, .. } => {
+                    info!("streaming_task: received Complete event, content_length={}", content.len());
                     final_content = content.clone();
                     final_usage = usage.clone();
                 }
                 LlmEvent::Error { error, .. } => {
-                    error!("Streaming error: {}", error);
+                    error!("streaming_task: received Error event: {}", error);
                 }
-                _ => {}
             }
 
             // Emit event to frontend
