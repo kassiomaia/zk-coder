@@ -1,190 +1,50 @@
 <script lang="ts">
 	/**
-	 * Main Page - Chat Interface Demo
-	 * Demonstrates the chat interface with mock data.
+	 * Main Page - Chat Interface
+	 * Connected to the real backend via chat store.
 	 */
 	import { onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import ChatLayout from '$lib/components/layout/ChatLayout.svelte';
-	import type { Conversation, Thread } from '$lib/types/thread';
+	import {
+		chatStore,
+		selectedConversation,
+		selectedThread,
+		conversationGroups,
+		messagesLoading,
+		chatError,
+		isLoading,
+		currentThreads
+	} from '$lib/stores';
+	import type { Conversation, Thread, ConversationGroup } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
 
 	// App state
 	let appInfo = $state<{ name: string; version: string } | null>(null);
 	let backendStatus = $state('Connecting...');
 
-	// Chat state
-	let conversations = $state<Conversation[]>([]);
-	let selectedConversation = $state<Conversation | undefined>(undefined);
-	let selectedThread = $state<Thread | undefined>(undefined);
+	// Get messages directly from chat store via subscription
 	let messages = $state<Message[]>([]);
-	let loading = $state(false);
+	let conversations = $state<Conversation[]>([]);
+	let currentError = $state<string | null>(null);
 
-	// Mock data
-	function createMockData() {
-		const now = new Date();
-
-		const mockMessages: Message[] = [
-			{
-				id: 'm1',
-				conversationId: 'c1',
-				role: 'user',
-				content: 'Hello! Can you help me write a function to calculate the Fibonacci sequence?',
-				timestamp: new Date(now.getTime() - 300000),
-				status: 'delivered'
-			},
-			{
-				id: 'm2',
-				conversationId: 'c1',
-				role: 'assistant',
-				content: `Of course! Here's a recursive implementation of the Fibonacci sequence in JavaScript:
-
-\`\`\`javascript
-function fibonacci(n) {
-  if (n <= 1) return n;
-  return fibonacci(n - 1) + fibonacci(n - 2);
-}
-
-// Example usage:
-console.log(fibonacci(10)); // 55
-\`\`\`
-
-This is a simple recursive approach. For better performance with larger numbers, you might want to use memoization or an iterative approach.
-
-Would you like me to show you an optimized version?`,
-				timestamp: new Date(now.getTime() - 280000),
-				status: 'delivered',
-				metadata: {
-					tokens: 89,
-					model: 'claude-3-opus'
-				}
-			},
-			{
-				id: 'm3',
-				conversationId: 'c1',
-				role: 'user',
-				content: 'Yes, please show me the optimized version with memoization!',
-				timestamp: new Date(now.getTime() - 200000),
-				status: 'delivered'
-			},
-			{
-				id: 'm4',
-				conversationId: 'c1',
-				role: 'assistant',
-				content: `Here's an optimized version using memoization:
-
-\`\`\`javascript
-const fibonacci = (function() {
-  const cache = new Map();
-
-  return function fib(n) {
-    if (n <= 1) return n;
-
-    if (cache.has(n)) {
-      return cache.get(n);
-    }
-
-    const result = fib(n - 1) + fib(n - 2);
-    cache.set(n, result);
-    return result;
-  };
-})();
-
-// Or using an iterative approach (O(n) time, O(1) space):
-function fibonacciIterative(n) {
-  if (n <= 1) return n;
-
-  let prev = 0, curr = 1;
-  for (let i = 2; i <= n; i++) {
-    [prev, curr] = [curr, prev + curr];
-  }
-  return curr;
-}
-\`\`\`
-
-The **iterative approach** is generally preferred as it has O(n) time complexity and O(1) space complexity, while the recursive version has O(2^n) time complexity without memoization.`,
-				timestamp: new Date(now.getTime() - 180000),
-				status: 'delivered',
-				metadata: {
-					tokens: 156,
-					model: 'claude-3-opus'
-				}
-			}
-		];
-
-		const mockThreads: Thread[] = [
-			{
-				id: 't1',
-				conversationId: 'c1',
-				parentId: null,
-				title: 'Fibonacci Implementation',
-				createdAt: new Date(now.getTime() - 300000),
-				updatedAt: new Date(now.getTime() - 180000),
-				messageCount: 4,
-				metadata: {
-					resolved: false,
-					summary: 'Discussing different approaches to implement Fibonacci sequence'
-				}
-			},
-			{
-				id: 't2',
-				conversationId: 'c1',
-				parentId: null,
-				title: 'Code Review Questions',
-				createdAt: new Date(now.getTime() - 86400000),
-				updatedAt: new Date(now.getTime() - 80000000),
-				messageCount: 2,
-				metadata: {
-					resolved: true,
-					summary: 'Resolved: Code review best practices'
-				}
-			}
-		];
-
-		const mockConversations: Conversation[] = [
-			{
-				id: 'c1',
-				title: 'JavaScript Algorithms',
-				createdAt: new Date(now.getTime() - 86400000),
-				updatedAt: new Date(now.getTime() - 180000),
-				threads: mockThreads,
-				settings: {
-					model: 'claude-3-opus',
-					temperature: 0.7,
-					maxTokens: 4096
-				}
-			},
-			{
-				id: 'c2',
-				title: 'React Component Design',
-				createdAt: new Date(now.getTime() - 172800000),
-				updatedAt: new Date(now.getTime() - 172800000),
-				threads: [],
-				settings: {
-					model: 'claude-3-sonnet',
-					temperature: 0.7,
-					maxTokens: 2048
-				}
-			},
-			{
-				id: 'c3',
-				title: 'Database Schema Review',
-				createdAt: new Date(now.getTime() - 604800000),
-				updatedAt: new Date(now.getTime() - 604800000),
-				threads: [],
-				settings: {
-					model: 'claude-3-opus',
-					temperature: 0.5,
-					maxTokens: 4096
-				}
-			}
-		];
-
-		conversations = mockConversations;
-		selectedConversation = mockConversations[0];
-		selectedThread = mockThreads[0];
-		messages = mockMessages;
-	}
+	// Subscribe to chat store changes
+	$effect(() => {
+		const unsubMsg = chatStore.subscribe((state) => {
+			messages = state.messages;
+		});
+		const unsubConv = chatStore.subscribe((state) => {
+			conversations = state.conversations;
+		});
+		const unsubErr = chatError.subscribe((err) => {
+			currentError = err;
+		});
+		return () => {
+			unsubMsg();
+			unsubConv();
+			unsubErr();
+		};
+	});
 
 	// Initialize
 	onMount(async () => {
@@ -194,112 +54,65 @@ The **iterative approach** is generally preferred as it has O(n) time complexity
 			const info = await invoke<{ name: string; version: string }>('get_app_info');
 			appInfo = info;
 		} catch (error) {
-			backendStatus = 'Backend unavailable (using mock data)';
+			backendStatus = 'Backend unavailable';
 			console.log('Backend not available:', error);
 		}
 
-		// Load mock data
-		createMockData();
+		// Initialize chat store (loads conversations from backend)
+		await chatStore.initialize();
 	});
 
-	// Handlers
-	function handleSelectConversation(conversation: Conversation) {
-		selectedConversation = conversation;
-		selectedThread = conversation.threads[0];
-		messages = [];
-		// In a real app, fetch messages for the thread
+	// Handlers - connected to chat store
+	async function handleSelectConversation(conversation: Conversation) {
+		await chatStore.selectConversation(conversation.id);
 	}
 
-	function handleSelectThread(thread: Thread) {
-		selectedThread = thread;
-		// In a real app, fetch messages for this thread
+	async function handleSelectThread(thread: Thread) {
+		await chatStore.selectThread(thread.id);
 	}
 
-	function handleSendMessage(content: string) {
-		const newMessage: Message = {
-			id: `m${Date.now()}`,
-			conversationId: selectedConversation?.id || '',
-			role: 'user',
-			content,
-			timestamp: new Date(),
-			status: 'sending'
-		};
-		messages = [...messages, newMessage];
-
-		// Simulate AI response
-		setTimeout(() => {
-			const aiResponse: Message = {
-				id: `m${Date.now() + 1}`,
-				conversationId: selectedConversation?.id || '',
-				role: 'assistant',
-				content: `I received your message: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"\n\nThis is a demo response. In a real implementation, this would be generated by the AI backend.`,
-				timestamp: new Date(),
-				status: 'delivered',
-				metadata: {
-					tokens: Math.floor(Math.random() * 100) + 20,
-					model: 'claude-3-opus'
-				}
-			};
-			messages = [...messages, aiResponse];
-		}, 1000);
+	async function handleSendMessage(content: string) {
+		await chatStore.sendMessage(content);
 	}
 
-	function handleCreateConversation() {
-		const newConversation: Conversation = {
-			id: `c${Date.now()}`,
-			title: 'New Conversation',
-			createdAt: new Date(),
-			updatedAt: new Date(),
-			threads: [],
-			settings: {
-				model: 'claude-3-opus',
-				temperature: 0.7,
-				maxTokens: 4096
-			}
-		};
-		conversations = [newConversation, ...conversations];
-		selectedConversation = newConversation;
-		selectedThread = undefined;
-		messages = [];
-	}
-
-	function handleCreateThread() {
-		if (!selectedConversation) return;
-
-		const newThread: Thread = {
-			id: `t${Date.now()}`,
-			conversationId: selectedConversation.id,
-			parentId: null,
-			title: 'New Thread',
-			createdAt: new Date(),
-			updatedAt: new Date(),
-			messageCount: 0,
-			metadata: {
-				resolved: false
-			}
-		};
-
-		selectedConversation.threads = [newThread, ...selectedConversation.threads];
-		selectedThread = newThread;
-		messages = [];
-	}
-
-	function handleResolveThread(thread: Thread) {
-		thread.metadata.resolved = !thread.metadata.resolved;
-		conversations = [...conversations]; // Trigger reactivity
-	}
-
-	function handleDeleteConversation(conversation: Conversation) {
-		conversations = conversations.filter((c) => c.id !== conversation.id);
-		if (selectedConversation?.id === conversation.id) {
-			selectedConversation = conversations[0];
-			selectedThread = selectedConversation?.threads[0];
+	async function handleCreateConversation() {
+		const conversation = await chatStore.createConversation('New Conversation');
+		if (conversation) {
+			await chatStore.selectConversation(conversation.id);
 		}
 	}
 
+	async function handleCreateThread() {
+		const thread = await chatStore.createThread('New Thread');
+		if (thread) {
+			await chatStore.selectThread(thread.id);
+		}
+	}
+
+	async function handleResolveThread(thread: Thread) {
+		await chatStore.resolveThread(thread.id, !thread.metadata.resolved);
+	}
+
+	async function handleDeleteConversation(conversation: Conversation) {
+		await chatStore.deleteConversation(conversation.id);
+	}
+
+	async function handleRenameConversation(conversation: Conversation, newTitle: string) {
+		await chatStore.renameConversation(conversation.id, newTitle);
+	}
+
 	function handleSearch(query: string) {
-		// In a real app, filter conversations based on search
+		// TODO: Implement search via backend
 		console.log('Search:', query);
+	}
+
+	function handleErrorRetry() {
+		chatStore.clearError();
+	}
+
+	// Flatten conversation groups for ChatLayout
+	function flattenGroups(groups: ConversationGroup[]): Conversation[] {
+		return groups.flatMap((group) => group.conversations);
 	}
 </script>
 
@@ -308,9 +121,9 @@ The **iterative approach** is generally preferred as it has O(n) time complexity
 </svelte:head>
 
 <ChatLayout
-	{conversations}
-	{selectedConversation}
-	{selectedThread}
+	conversations={conversations}
+	selectedConversation={$selectedConversation ?? undefined}
+	selectedThread={$selectedThread ?? undefined}
 	{messages}
 	onSelectConversation={handleSelectConversation}
 	onSelectThread={handleSelectThread}
@@ -319,13 +132,21 @@ The **iterative approach** is generally preferred as it has O(n) time complexity
 	onCreateThread={handleCreateThread}
 	onResolveThread={handleResolveThread}
 	onDeleteConversation={handleDeleteConversation}
+	onRenameConversation={handleRenameConversation}
 	onSearch={handleSearch}
-	{loading}
+	loading={$isLoading}
 />
 
 <!-- Status indicator -->
 <div class="status-bar">
-	<span class="status">{backendStatus}</span>
+	<span class="status">
+		{#if currentError}
+			<span class="error">Error: {currentError}</span>
+			<button class="retry-btn" onclick={handleErrorRetry} type="button">Dismiss</button>
+		{:else}
+			{backendStatus}
+		{/if}
+	</span>
 	{#if appInfo}
 		<span class="version">{appInfo.name} v{appInfo.version}</span>
 	{/if}
@@ -350,6 +171,27 @@ The **iterative approach** is generally preferred as it has O(n) time complexity
 
 	.status {
 		font-family: var(--font-mono);
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.error {
+		color: var(--color-text-error);
+	}
+
+	.retry-btn {
+		padding: 2px 8px;
+		font-size: var(--text-2xs);
+		background: var(--color-bg-tertiary);
+		border: 1px solid var(--color-border-primary);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-primary);
+		cursor: pointer;
+	}
+
+	.retry-btn:hover {
+		background: var(--color-bg-hover);
 	}
 
 	.version {
