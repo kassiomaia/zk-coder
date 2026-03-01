@@ -158,6 +158,39 @@ pub async fn delete_thread(
         .map_err(|e| e.to_string())
 }
 
+/// Creates a thread with its first message atomically.
+#[tauri::command]
+pub async fn create_thread_with_message(
+    conversation_id: String,
+    thread_title: String,
+    content: String,
+    role: String,
+    state: tauri::State<'_, ChatState>,
+) -> Result<ThreadWithMessageResponse, String> {
+    let message_role = match role.as_str() {
+        "assistant" => MessageRole::Assistant,
+        "system" => MessageRole::System,
+        _ => MessageRole::User,
+    };
+
+    let store = state.store.lock().await;
+    let (thread, message) = store
+        .create_thread_with_message(&conversation_id, &thread_title, &content, message_role)
+        .map_err(|e| e.to_string())?;
+
+    Ok(ThreadWithMessageResponse { thread, message })
+}
+
+/// Response for creating a thread with a message.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadWithMessageResponse {
+    /// The created thread
+    pub thread: Thread,
+    /// The created message
+    pub message: ChatMessage,
+}
+
 // =========================================================================
 // Message Commands
 // =========================================================================
