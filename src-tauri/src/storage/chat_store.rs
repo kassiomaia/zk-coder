@@ -46,9 +46,15 @@ impl ChatStore {
     pub fn new(db_path: &str) -> Result<Self, ChatStoreError> {
         let conn = Connection::open(db_path)?;
         Self::init_schema(&conn)?;
-        Ok(Self {
+
+        let store = Self {
             conn: Mutex::new(conn),
-        })
+        };
+
+        // Run migration for orphan messages
+        store.migrate_orphan_messages_to_threads()?;
+
+        Ok(store)
     }
 
     /// Creates an in-memory chat store (for testing).
@@ -413,6 +419,80 @@ impl ChatStore {
         conn.execute("DELETE FROM threads WHERE id = ?1", params![id])?;
 
         Ok(())
+    }
+
+    /// Creates a thread with its first message atomically.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn create_thread_with_message(
+        &self,
+        conversation_id: &str,
+        thread_title: &str,
+        message_content: &str,
+        message_role: MessageRole,
+    ) -> Result<(Thread, ChatMessage), ChatStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let now = Utc::now();
+
+        // Create thread
+        let thread = Thread::new(conversation_id, thread_title);
+        let metadata_json = serde_json::to_string(&thread.metadata)?;
+
+        conn.execute(
+            "INSERT INTO threads (id, conversation_id, parent_id, title, created_at, updated_at, message_count, metadata)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                &thread.id,
+                &thread.conversation_id,
+                &thread.parent_id,
+                &thread.title,
+                &thread.created_at.to_rfc3339(),
+                &thread.updated_at.to_rfc3339(),
+                1i64, // Start with 1 message
+                &metadata_json,
+            ],
+        )?;
+
+        // Create message with thread_id
+        let message = ChatMessage {
+            id: uuid::Uuid::new_v4().to_string(),
+            conversation_id: conversation_id.to_string(),
+            thread_id: Some(thread.id.clone()),
+            role: message_role,
+            content: message_content.to_string(),
+            timestamp: now,
+            status: MessageStatus::Sent,
+            metadata: None,
+        };
+
+        conn.execute(
+            "INSERT INTO chat_messages (id, conversation_id, thread_id, role, content, timestamp, status, metadata)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                &message.id,
+                &message.conversation_id,
+                &message.thread_id,
+                message.role.as_str(),
+                &message.content,
+                &message.timestamp.to_rfc3339(),
+                message.status.as_str(),
+                None::<String>, // metadata
+            ],
+        )?;
+
+        // Update conversation's updated_at
+        conn.execute(
+            "UPDATE conversations SET updated_at = ?1 WHERE id = ?2",
+            params![now.to_rfc3339(), conversation_id],
+        )?;
+
+        Ok((thread, message))
     }
 
     // =========================================================================
