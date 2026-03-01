@@ -6,8 +6,10 @@
 	import styles from './ThreadPanel.module.css';
 	import ThreadBreadcrumbs from './ThreadBreadcrumbs.svelte';
 	import ChatArea from '../ChatArea.svelte';
+	import StatusBadge from '../shared/StatusBadge.svelte';
 	import type { Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
+	import type { StatusVariant } from '../shared/StatusBadge.svelte';
 
 	interface Props {
 		/** Current thread being displayed */
@@ -39,41 +41,18 @@
 		error
 	}: Props = $props();
 
-	let inputText = $state('');
-
-	function handleSubmit() {
-		if (inputText.trim() && onSendMessage) {
-			onSendMessage(inputText.trim());
-			inputText = '';
-		}
-	}
+	let statusVariant = $derived<StatusVariant>(thread.metadata.resolved ? 'resolved' : 'open');
 </script>
 
 <div class={styles.panel}>
 	<!-- Header with breadcrumbs -->
 	<header class={styles.header}>
 		{#if breadcrumbPath.length > 0}
-			<ThreadBreadcrumbs path={breadcrumbPath} onNavigate={onNavigate} />
+			<ThreadBreadcrumbs path={breadcrumbPath} {onNavigate} />
 		{/if}
 		<div class={styles.titleRow}>
 			<h1 class={styles.title}>{thread.title}</h1>
-			{#if thread.metadata.resolved}
-				<span class={styles.resolvedBadge}>
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<polyline points="20 6 9 17 4 12" />
-					</svg>
-					Resolved
-				</span>
-			{/if}
+			<StatusBadge variant={statusVariant} showIcon={thread.metadata.resolved} />
 		</div>
 		{#if thread.metadata.summary}
 			<p class={styles.summary}>{thread.metadata.summary}</p>
@@ -82,48 +61,11 @@
 
 	<!-- Chat area -->
 	<div class={styles.content}>
-		<ChatArea
-			{messages}
-			{loading}
-			{error}
-			onRetry={onRetry}
-		/>
+		<ChatArea {messages} {loading} {error} {onSendMessage} {onRetry} />
 	</div>
 
-	<!-- Input area -->
-	{#if !thread.metadata.resolved}
-		<div class={styles.input}>
-			<textarea
-				class={styles.textarea}
-				bind:value={inputText}
-				placeholder="Type your message..."
-				onkeydown={(e) => {
-					if (e.key === 'Enter' && !e.shiftKey) {
-						e.preventDefault();
-						handleSubmit();
-					}
-				}}
-				rows={1}
-				aria-label="Message input"
-			></textarea>
-			<button
-				class={styles.sendButton}
-				onclick={handleSubmit}
-				disabled={!inputText.trim()}
-				aria-label="Send message"
-				type="button"
-			>
-				<svg
-					width="18"
-					height="18"
-					viewBox="0 0 24 24"
-					fill="currentColor"
-				>
-					<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-				</svg>
-			</button>
-		</div>
-	{:else}
+	<!-- Resolved message - subtle styling -->
+	{#if thread.metadata.resolved}
 		<div class={styles.resolvedMessage}>
 			<p>This thread has been resolved. Reopen it to continue the conversation.</p>
 		</div>
