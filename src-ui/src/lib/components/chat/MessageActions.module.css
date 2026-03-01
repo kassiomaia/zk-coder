@@ -1,0 +1,100 @@
+/**
+ * MessageActions Component Styles
+ * Hover action toolbar for message actions.
+ */
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-1);
+  background: transparent;
+  border-radius: var(--radius-md);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.action {
+  padding: var(--space-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.action:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+.checkIcon {
+  opacity: 0;
+}
+
+/* Tooltip */
+.tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  background: var(--color-neutral-900);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.action:hover .tooltip,
+.action:focus-visible .tooltip,
+.tooltip:hover {
+  opacity: 1;
+}
+
+/* Feedback icons */
+.feedbackIcon {
+  width: 16px;
+  height: 16px;
+  transition: transform var(--transition-fast);
+}
+
+.feedbackIcon.active {
+  transform: scale(1.1);
+}
+
+/* Copied state */
+.copied {
+  color: var(--color-success);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .actions {
+    gap: var(--space-1);
+  }
+
+  .action {
+    padding: var(--space-1);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .feedbackIcon {
+    animation: none;
+  }
+
+  .action:hover .tooltip {
+    transform: none;
+  }
+}
