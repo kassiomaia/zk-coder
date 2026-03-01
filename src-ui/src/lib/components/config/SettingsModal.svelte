@@ -6,10 +6,10 @@
 	import styles from './SettingsModal.module.css';
 	import Modal from '../shared/Modal.svelte';
 	import Button from '../shared/Button.svelte';
-	import { configStore } from '$lib/stores/configStore';
-	import { OPERATION_CONFIGS, type OperationType, getProviderIconClass } from '$lib/types/config';
+	import { configStore, availableModelsByOperation } from '$lib/stores/configStore';
+	import { OPERATION_CONFIGS, type OperationType } from '$lib/types/config';
+	import { getProviderIconClass } from '$lib/types/config';
 	import ModelCard from './ModelCard.svelte';
-	import { get } from 'svelte/store';
 
 	interface Props {
 		open: boolean;
@@ -21,9 +21,34 @@
 
 	let { open, onclose, onconfigure, onaddcustom, onremoveprovider }: Props = $props();
 
-	function getConfigState() {
-		return get(configStore);
+	// Helper to get selected model ID from store (reactive via $configStore)
+	function getSelectedModelId(operation: OperationType): string | null {
+		const default_ = $configStore.operationDefaults.find((d) => d.operation === operation);
+		return default_?.modelId ?? null;
 	}
+
+	// Helper to get short name for selected model badge
+	function getSelectedModelShortName(operation: OperationType): string | null {
+		const modelId = getSelectedModelId(operation);
+		if (!modelId) return null;
+
+		// Find the model in available models
+		const models = $availableModelsByOperation[operation];
+		const model = models.find(m => m.id === modelId);
+		if (!model) return null;
+
+		// Return shortened name (e.g., "Claude Opus" -> "Opus")
+		const shortNames: Record<string, string> = {
+		 'claude opus': 'Opus',
+            'claude sonnet': 'Sonnet',
+            'claude haiku': 'Haiku',
+            'gpt-4 turbo': 'GPT-4T',
+            'gpt-4': 'GPT-4',
+            'gemini ultra': 'GemU',
+            'gemini pro': 'GemP'
+        };
+        return shortNames[model.name.toLowerCase()] ?? model.name.split(' ').pop()
+    }
 
 	async function handleSelectModel(operation: OperationType, modelId: string) {
 		try {
@@ -43,12 +68,6 @@
 				console.error('Failed to remove provider:', error);
 			}
 		}
-	}
-
-	function getSelectedModelId(operation: OperationType): string | null {
-		const state = getConfigState();
-		const default_ = state.operationDefaults.find((d) => d.operation === operation);
-		return default_?.modelId ?? null;
 	}
 </script>
 
@@ -133,7 +152,8 @@
 				</header>
 
 				{#each OPERATION_CONFIGS as op (op.id)}
-					{@const availableModels = configStore.getAvailableModels(op.id)}
+					{@const availableModels = $availableModelsByOperation[op.id]}
+					{@const selectedModelId = getSelectedModelId(op.id)}
 					<div class={styles.operationGroup}>
 						<header class={styles.operationHeader}>
 							<div class={styles.operationIcon} style:color={op.color}>
@@ -176,13 +196,19 @@
 								<span class={styles.operationName}>{op.name}</span>
 								<span class={styles.operationDesc}>{op.description}</span>
 							</div>
+							<!-- Selected model badge -->
+							{#if selectedModelId}
+								<div class={styles.operationSelected}>
+									<span class={styles.selectedLabel}>{getSelectedModelShortName(op.id)}</span>
+								</div>
+							{/if}
 						</header>
 
 						<div class={styles.modelGrid}>
 							{#each availableModels as model (model.id)}
 								<ModelCard
 									{model}
-									selected={getSelectedModelId(op.id) === model.id}
+									selected={selectedModelId === model.id}
 									onclick={() => handleSelectModel(op.id, model.id)}
 								/>
 							{/each}

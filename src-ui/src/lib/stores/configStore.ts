@@ -72,10 +72,14 @@ function createConfigStore() {
 			update((state) => ({ ...state, providersLoading: 'loading', error: null }));
 
 			try {
+				console.log('Config store: initializing...');
 				const [providers, defaults] = await Promise.all([
 					getProviders(),
 					getOperationDefaults()
 				]);
+
+				console.log('Config store: loaded providers:', providers);
+				console.log('Config store: loaded defaults:', defaults);
 
 				update((state) => ({
 					...state,
@@ -85,6 +89,7 @@ function createConfigStore() {
 					defaultsLoading: 'success'
 				}));
 			} catch (error) {
+				console.error('Config store: initialization failed:', error);
 				update((state) => ({
 					...state,
 					providersLoading: 'error',
@@ -323,4 +328,36 @@ export const hasConfiguredProvider = derived(configStore, ($config) =>
 export const isSetupComplete = derived(
 	[configStore],
 	([$config]) => $config.providers.some((p) => p.isConfigured)
+);
+
+/** Available models grouped by operation - reactive */
+export const availableModelsByOperation = derived(
+	configStore,
+	($config) => {
+		const result: Record<OperationType, Model[]> = {
+			analysis: [],
+			code: [],
+			vision: [],
+			audio: [],
+			tips: [],
+			review: []
+		};
+
+		for (const provider of $config.providers) {
+			if (!provider.isConfigured) continue;
+
+			const providerModels = $config.modelsByProvider[provider.id] || [];
+			for (const model of providerModels) {
+				const caps = model.capabilities;
+				if (caps.analysis) result.analysis.push(model);
+				if (caps.code) result.code.push(model);
+				if (caps.vision) result.vision.push(model);
+				if (caps.audio) result.audio.push(model);
+				if (caps.tips) result.tips.push(model);
+				if (caps.review) result.review.push(model);
+			}
+		}
+
+		return result;
+	}
 );

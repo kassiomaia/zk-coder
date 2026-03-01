@@ -30,9 +30,9 @@
 	<div class={styles.models}>
 		{#if provider.isCustom}
 			Custom Provider
-		{:else}
+	{:else}
 			LLM Provider
-		{/if}
+	{/if}
 	</div>
 	<div class={styles.status}>
 		{#if provider.isConfigured}

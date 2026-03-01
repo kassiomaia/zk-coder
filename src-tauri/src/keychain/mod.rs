@@ -94,18 +94,19 @@ mod tests {
 
     // Note: These tests interact with the actual OS keychain.
     // They may require user interaction on some systems.
+    // On Linux, the keyring crate has issues in test contexts due to D-Bus session
+    // differences. Use `cargo run --bin test_keyring` to verify keychain functionality.
 
+    /// Test storing and retrieving an API key.
+    /// Ignored on Linux due to keyring crate D-Bus session issues in test contexts.
+    #[cfg_attr(target_os = "linux", ignore)]
     #[test]
     fn test_store_and_retrieve() {
         let test_id = "test-provider-store";
         let test_key = "test-api-key-12345";
 
         // Store
-        let result = store_api_key(test_id, test_key);
-        if result.is_err() {
-            // Keychain may not be available in CI
-            return;
-        }
+        store_api_key(test_id, test_key).expect("Failed to store key");
 
         // Retrieve
         let retrieved = retrieve_api_key(test_id).expect("Failed to retrieve key");
@@ -121,23 +122,25 @@ mod tests {
         assert!(result.is_err());
     }
 
+    /// Test checking if an API key exists.
+    /// Ignored on Linux due to keyring crate D-Bus session issues in test contexts.
+    #[cfg_attr(target_os = "linux", ignore)]
     #[test]
     fn test_has_api_key() {
         let test_id = "test-provider-has";
 
         // Should not exist initially
-        if let Ok(exists) = has_api_key(test_id) {
-            assert!(!exists);
-        }
+        let exists = has_api_key(test_id).expect("Failed to check key");
+        assert!(!exists);
 
         // Store
-        if store_api_key(test_id, "test-key").is_ok() {
-            // Should exist now
-            let exists = has_api_key(test_id).expect("Failed to check key");
-            assert!(exists);
+        store_api_key(test_id, "test-key").expect("Failed to store key");
 
-            // Cleanup
-            let _ = delete_api_key(test_id);
-        }
+        // Should exist now
+        let exists = has_api_key(test_id).expect("Failed to check key");
+        assert!(exists);
+
+        // Cleanup
+        let _ = delete_api_key(test_id);
     }
 }

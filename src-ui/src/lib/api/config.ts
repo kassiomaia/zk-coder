@@ -132,8 +132,12 @@ function operationDefaultToClient(d: OperationDefaultResponse): OperationDefault
  * Gets all providers.
  */
 export async function getProviders(): Promise<Provider[]> {
+	console.log('API: Getting providers...');
 	const response = await safeInvoke<ProviderResponse[]>('get_providers');
-	return response.map(providerToClient);
+	console.log('API: Raw response from backend:', response);
+	const providers = response.map(providerToClient);
+	console.log('API: Converted providers:', providers);
+	return providers;
 }
 
 /**
