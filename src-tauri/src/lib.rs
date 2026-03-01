@@ -3,11 +3,20 @@
 //! This is the main library crate for the Coder application backend.
 
 pub mod agents;
+pub mod ai;
 pub mod commands;
+pub mod nlp;
+pub mod storage;
 pub mod utils;
+
+use commands::NlpState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Initialize NLP state
+    let nlp_state = NlpState::new_dev("coder_context.db")
+        .expect("Failed to initialize NLP state");
+
     tauri::Builder::default()
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -19,9 +28,18 @@ pub fn run() {
             }
             Ok(())
         })
+        .manage(nlp_state)
         .invoke_handler(tauri::generate_handler![
             commands::health_check,
             commands::get_app_info,
+            commands::nlp::classify_intent,
+            commands::nlp::get_conversation_context,
+            commands::nlp::add_context_message,
+            commands::nlp::detect_multi_intent,
+            commands::nlp::detect_ambiguities,
+            commands::nlp::analyze_code,
+            commands::nlp::update_project_files,
+            commands::nlp::clear_conversation_context,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

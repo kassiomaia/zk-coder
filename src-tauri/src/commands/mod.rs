@@ -4,6 +4,11 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod nlp;
+
+// Re-export NLP types for convenience
+pub use nlp::NlpState;
+
 /// Simple health check command to verify the backend is running.
 #[tauri::command]
 pub fn health_check() -> String {
