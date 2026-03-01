@@ -4,7 +4,7 @@
  */
 
 /** API provider type */
-export type ApiType = 'openai' | 'anthropic';
+export type ApiType = 'openai' | 'anthropic' | 'google';
 
 /** Operation type for model assignment */
 export type OperationType = 'analysis' | 'code' | 'vision' | 'audio' | 'tips' | 'review';

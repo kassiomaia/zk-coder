@@ -93,32 +93,38 @@
 
 		try {
 			// Store API key in keychain
+			console.log('[ConfigModal] Storing API key for provider:', provider.id);
 			await configStore.storeApiKey(provider.id, apiKey);
+			console.log('[ConfigModal] API key stored successfully');
 
-			// Fetch models from the provider
+			// Fetch models from the provider (this also marks provider as configured in backend)
 			validation = {
 				status: 'loading',
 				message: 'Fetching available models...',
 				icon: 'loader-2'
 			};
 
-			await configStore.fetchModels(
+			console.log('[ConfigModal] Fetching models for provider:', provider.id);
+			const models = await configStore.fetchModels(
 				provider.id,
 				apiKey,
 				provider.apiType,
 				provider.baseUrl
 			);
+			console.log('[ConfigModal] Models fetched:', models.length, 'models');
 
-			// Mark provider as configured
-			await configStore.saveProvider({
-				...provider,
-				isConfigured: true
-			});
+			// The backend's fetch_models command already marks the provider as configured,
+			// so we just need to update the local store state
+			console.log('[ConfigModal] Provider configured successfully');
 
 			// Call onsaved callback
+			console.log('[ConfigModal] Calling onsaved callback');
 			onsaved?.();
+
+			console.log('[ConfigModal] Closing modal');
 			onclose();
 		} catch (error) {
+			console.error('[ConfigModal] Save failed:', error);
 			validation = {
 				status: 'error',
 				message: error instanceof Error ? error.message : 'Failed to save configuration',
@@ -163,21 +169,49 @@
 				<div class={styles.details}>
 					<div class={styles.name}>{provider.name}</div>
 					<div class={styles.type}>
-						{provider.apiType === 'openai' ? 'OpenAI Compatible' : 'Anthropic Compatible'}
+						{#if provider.apiType === 'openai'}
+							OpenAI Compatible
+						{:else if provider.apiType === 'google'}
+							Google (Gemini) Compatible
+						{:else}
+							Anthropic Compatible
+						{/if}
 					</div>
 				</div>
 			</div>
 
 			<div class={styles.form}>
-				<Input
-					name="apiKey"
-					type="password"
-					value={apiKey}
-					onchange={(v) => apiKey = v}
-					label="API Key"
-					placeholder={provider.apiType === 'anthropic' ? 'sk-ant-...' : 'sk-...'}
-					helper="Get your API key from the provider's dashboard"
-				/>
+				{#if provider.apiType === 'anthropic'}
+					<Input
+						name="apiKey"
+						type="password"
+						value={apiKey}
+						onchange={(v) => apiKey = v}
+						label="API Key"
+						placeholder="sk-ant-..."
+						helper="Get your API key from the provider's dashboard"
+					/>
+				{:else if provider.apiType === 'google'}
+					<Input
+						name="apiKey"
+						type="password"
+						value={apiKey}
+						onchange={(v) => apiKey = v}
+						label="API Key"
+						placeholder="AIza..."
+						helper="Get your API key from the provider's dashboard"
+					/>
+				{:else}
+					<Input
+						name="apiKey"
+						type="password"
+						value={apiKey}
+						onchange={(v) => apiKey = v}
+						label="API Key"
+						placeholder="sk-..."
+						helper="Get your API key from the provider's dashboard"
+					/>
+				{/if}
 			</div>
 
 			{#if validation.status !== 'idle'}

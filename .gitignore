@@ -31,5 +31,13 @@ src-tauri/target/
 # Svelte
 src-ui/.svelte-kit/
 src-ui/build/
+
+# Database files (stored in data/ directory now)
+/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 /src-tauri/coder_context.db
 /src-tauri/coder_chat.db
+/src-tauri/coder_config.db

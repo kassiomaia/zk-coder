@@ -12,23 +12,48 @@ pub mod storage;
 pub mod utils;
 
 use commands::{ChatState, ConfigState, NlpState};
+use std::path::PathBuf;
+use tauri::Manager;
+
+/// Get the app data directory for storing databases.
+fn get_app_data_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
+    // Use Tauri's app data directory
+    let data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    // Create the directory if it doesn't exist
+    std::fs::create_dir_all(&data_dir)
+        .map_err(|e| format!("Failed to create data directory: {}", e))?;
+
+    Ok(data_dir)
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Initialize NLP state
-    let nlp_state = NlpState::new_dev("coder_context.db")
-        .expect("Failed to initialize NLP state");
-
-    // Initialize Chat state
-    let chat_state = ChatState::new("coder_chat.db")
-        .expect("Failed to initialize Chat state");
-
-    // Initialize Config state
-    let config_state = ConfigState::new("coder_config.db")
-        .expect("Failed to initialize Config state");
-
     tauri::Builder::default()
         .setup(|app| {
+            // Get the app data directory
+            let data_dir = get_app_data_dir(app.handle())?;
+
+            // Initialize NLP state
+            let nlp_state = NlpState::new_dev(&data_dir.join("coder_context.db").to_string_lossy())
+                .expect("Failed to initialize NLP state");
+
+            // Initialize Chat state
+            let chat_state = ChatState::new(&data_dir.join("coder_chat.db").to_string_lossy())
+                .expect("Failed to initialize Chat state");
+
+            // Initialize Config state
+            let config_state = ConfigState::new(&data_dir.join("coder_config.db").to_string_lossy())
+                .expect("Failed to initialize Config state");
+
+            // Manage states
+            app.manage(nlp_state);
+            app.manage(chat_state);
+            app.manage(config_state);
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -38,9 +63,6 @@ pub fn run() {
             }
             Ok(())
         })
-        .manage(nlp_state)
-        .manage(chat_state)
-        .manage(config_state)
         .invoke_handler(tauri::generate_handler![
             // Core commands
             commands::health_check,

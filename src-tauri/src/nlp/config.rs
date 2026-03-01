@@ -15,6 +15,8 @@ pub enum ApiType {
     OpenAI,
     /// Anthropic API
     Anthropic,
+    /// Google OpenAI-compatible API (Gemini)
+    Google,
 }
 
 impl ApiType {
@@ -24,6 +26,7 @@ impl ApiType {
         match self {
             Self::OpenAI => "openai",
             Self::Anthropic => "anthropic",
+            Self::Google => "google",
         }
     }
 
@@ -32,6 +35,7 @@ impl ApiType {
     pub fn from_str(s: &str) -> Self {
         match s {
             "anthropic" => Self::Anthropic,
+            "google" => Self::Google,
             _ => Self::OpenAI,
         }
     }

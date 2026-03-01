@@ -1,0 +1,19 @@
+# Ignore database files that change at runtime
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Specific database files
+coder_config.db
+coder_config.db-journal
+coder_config.db-wal
+coder_config.db-shm
+coder_context.db
+coder_context.db-journal
+coder_context.db-wal
+coder_context.db-shm
+coder_chat.db
+coder_chat.db-journal
+coder_chat.db-wal
+coder_chat.db-shm

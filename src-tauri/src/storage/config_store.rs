@@ -121,7 +121,7 @@ impl ConfigStore {
         let builtin_providers = [
             ("anthropic", "Anthropic", "AC", "anthropic"),
             ("openai", "OpenAI", "OA", "openai"),
-            ("google", "Google", "GC", "openai"),
+            ("google", "Google", "GC", "google"),
         ];
 
         let now = Utc::now().to_rfc3339();

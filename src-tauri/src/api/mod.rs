@@ -1,7 +1,7 @@
 //! API validation and model fetching for LLM providers.
 //!
 //! This module provides functions to validate API keys and fetch models
-//! from various LLM providers (OpenAI, Anthropic).
+//! from various LLM providers (OpenAI, Anthropic, Google).
 
 use reqwest::Client;
 use serde::Deserialize;
@@ -122,6 +122,98 @@ struct OpenAiModel {
 }
 
 // =============================================================================
+// Google API (OpenAI Compatible)
+// =============================================================================
+
+/// Validates a Google API key.
+///
+/// # Errors
+///
+/// Returns an error string if the validation fails.
+pub async fn validate_google_key(
+    api_key: &str,
+    base_url: Option<&str>,
+) -> Result<ValidationResult, String> {
+    let client = create_client()?;
+    let url = format!(
+        "{}/models",
+        base_url.unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai")
+    );
+
+    let response = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    if response.status().is_success() {
+        Ok(ValidationResult::success(
+            "API key validated successfully",
+        ))
+    } else {
+        let status = response.status();
+        Ok(ValidationResult::failure(format!(
+            "Validation failed: {}",
+            status
+        )))
+    }
+}
+
+/// Fetches available models from Google.
+///
+/// # Errors
+///
+/// Returns an error string if the fetch fails.
+pub async fn fetch_google_models(
+    api_key: &str,
+    base_url: Option<&str>,
+) -> Result<FetchModelsResult, String> {
+    let client = create_client()?;
+    let url = format!(
+        "{}/models",
+        base_url.unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai")
+    );
+
+    let response = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        return Ok(FetchModelsResult::failure(format!(
+            "API error: {}",
+            response.status()
+        )));
+    }
+
+    let api_response = response
+        .json::<OpenAiModelsResponse>()
+        .await
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    let models: Vec<Model> = api_response
+        .data
+        .into_iter()
+        .filter(|m| {
+            // Filter for Gemini models
+            let id = m.id.to_lowercase();
+            id.contains("gemini")
+        })
+        .map(|m| {
+            let caps = ModelCapabilities::infer_from_name(&m.id);
+            Model::new("google", &m.id, caps)
+        })
+        .collect();
+
+    let model_names: Vec<String> = models.iter().map(|m| m.name.clone()).collect();
+
+    Ok(FetchModelsResult::success(model_names))
+}
+
+// =============================================================================
 // Anthropic API
 // =============================================================================
 
@@ -203,6 +295,7 @@ pub async fn validate_api_key(
     match api_type {
         ApiType::OpenAI => validate_openai_key(api_key, base_url).await,
         ApiType::Anthropic => validate_anthropic_key(api_key, base_url).await,
+        ApiType::Google => validate_google_key(api_key, base_url).await,
     }
 }
 
@@ -219,6 +312,7 @@ pub async fn test_connection(
     match api_type {
         ApiType::OpenAI => validate_openai_key(api_key, Some(base_url)).await,
         ApiType::Anthropic => validate_anthropic_key(api_key, Some(base_url)).await,
+        ApiType::Google => validate_google_key(api_key, Some(base_url)).await,
     }
 }
 
@@ -235,6 +329,7 @@ pub async fn fetch_models(
     match api_type {
         ApiType::OpenAI => fetch_openai_models(api_key, base_url).await,
         ApiType::Anthropic => Ok(get_anthropic_models()),
+        ApiType::Google => fetch_google_models(api_key, base_url).await,
     }
 }
 

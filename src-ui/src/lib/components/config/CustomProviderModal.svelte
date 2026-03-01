@@ -173,6 +173,19 @@
 						<span class={styles.radioDesc}>Claude API format</span>
 					</span>
 				</label>
+				<label class={styles.radio}>
+					<input
+						type="radio"
+						name="apiType"
+						value="google"
+						checked={apiType === 'google'}
+						onchange={() => apiType = 'google'}
+					/>
+					<span class={styles.radioLabel}>
+						<span class={styles.radioTitle}>Google (Gemini) Compatible</span>
+						<span class={styles.radioDesc}>Google's OpenAI-compatible API</span>
+					</span>
+				</label>
 			</div>
 		</div>
 

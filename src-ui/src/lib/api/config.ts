@@ -145,10 +145,8 @@ export async function saveProvider(request: SaveProviderRequest): Promise<Provid
 			id: request.id,
 			name: request.name,
 			icon: request.icon,
-			isCustom: request.isCustom ?? false,
 			apiType: request.apiType,
-			baseUrl: request.baseUrl,
-			isConfigured: request.isConfigured ?? false
+			baseUrl: request.baseUrl
 		}
 	});
 	return providerToClient(response);
