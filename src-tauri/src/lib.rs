@@ -6,7 +6,6 @@ pub mod agents;
 pub mod ai;
 pub mod api;
 pub mod commands;
-pub mod keychain;
 pub mod llm;
 pub mod nlp;
 pub mod storage;

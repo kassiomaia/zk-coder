@@ -6,7 +6,6 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::api;
-use crate::keychain;
 use crate::nlp::config::{
     ApiType, FetchModelsResult, Model, ModelCapabilities, OperationDefault, OperationType,
     Provider, SaveProviderRequest, ValidationResult,
@@ -133,18 +132,18 @@ pub async fn remove_provider(
 ) -> Result<(), String> {
     let store = state.store.lock().await;
 
-    // Delete provider from database (cascade deletes models)
-    store
-        .delete_provider(&provider_id)
-        .map_err(|e| e.to_string())?;
+    // Delete API key from database (ignore errors if not found)
+    let _ = store.delete_api_key(&provider_id);
 
     // Clear operation defaults for this provider's models
     store
         .clear_defaults_for_provider(&provider_id)
         .map_err(|e| e.to_string())?;
 
-    // Delete API key from keychain (ignore errors if not found)
-    let _ = keychain::delete_api_key(&provider_id);
+    // Delete provider from database (cascade deletes models)
+    store
+        .delete_provider(&provider_id)
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -234,31 +233,54 @@ pub async fn fetch_models(
 }
 
 // =========================================================================
-// Keychain Commands
+// API Key Commands
 // =========================================================================
 
-/// Stores an API key in the OS keychain.
+/// Stores an API key in the database.
 #[tauri::command]
-pub async fn store_api_key(provider_id: String, api_key: String) -> Result<(), String> {
-    keychain::store_api_key(&provider_id, &api_key).map_err(|e| e.to_string())
+pub async fn store_api_key(
+    provider_id: String,
+    api_key: String,
+    state: tauri::State<'_, ConfigState>,
+) -> Result<(), String> {
+    let store = state.store.lock().await;
+    store
+        .store_api_key(&provider_id, &api_key)
+        .map_err(|e| e.to_string())
 }
 
-/// Retrieves an API key from the OS keychain.
+/// Retrieves an API key from the database.
 #[tauri::command]
-pub async fn retrieve_api_key(provider_id: String) -> Result<String, String> {
-    keychain::retrieve_api_key(&provider_id).map_err(|e| e.to_string())
+pub async fn retrieve_api_key(
+    provider_id: String,
+    state: tauri::State<'_, ConfigState>,
+) -> Result<String, String> {
+    let store = state.store.lock().await;
+    store
+        .retrieve_api_key(&provider_id)
+        .map_err(|e| e.to_string())
 }
 
-/// Deletes an API key from the OS keychain.
+/// Deletes an API key from the database.
 #[tauri::command]
-pub async fn delete_api_key(provider_id: String) -> Result<(), String> {
-    keychain::delete_api_key(&provider_id).map_err(|e| e.to_string())
+pub async fn delete_api_key(
+    provider_id: String,
+    state: tauri::State<'_, ConfigState>,
+) -> Result<(), String> {
+    let store = state.store.lock().await;
+    store
+        .delete_api_key(&provider_id)
+        .map_err(|e| e.to_string())
 }
 
 /// Checks if an API key exists for a provider.
 #[tauri::command]
-pub async fn has_api_key(provider_id: String) -> Result<bool, String> {
-    keychain::has_api_key(&provider_id).map_err(|e| e.to_string())
+pub async fn has_api_key(
+    provider_id: String,
+    state: tauri::State<'_, ConfigState>,
+) -> Result<bool, String> {
+    let store = state.store.lock().await;
+    store.has_api_key(&provider_id).map_err(|e| e.to_string())
 }
 
 // =========================================================================
@@ -327,6 +349,92 @@ pub async fn get_models(
     store.get_models(&provider_id).map_err(|e| e.to_string())
 }
 
+// =========================================================================
+// LLM Chat Configuration Helpers
+// =========================================================================
+
+/// Gets the model ID configured for the 'code' operation.
+///
+/// This is a helper function for LLM chat commands to resolve which model
+/// to use for code-related tasks.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - No model is configured for the 'code' operation
+/// - The configured model no longer exists in the database
+pub fn get_code_operation_model(store: &ConfigStore) -> Result<Model, String> {
+    let defaults = store
+        .get_operation_defaults()
+        .map_err(|e| format!("Failed to get operation defaults: {}", e))?;
+
+    let code_default = defaults
+        .into_iter()
+        .find(|d| d.operation == OperationType::Code)
+        .ok_or_else(|| {
+            "No model configured for 'code' operation. Please configure a model first.".to_string()
+        })?;
+
+    let model_id = code_default
+        .model_id
+        .ok_or_else(|| "Code operation has a NULL model_id (database inconsistency)".to_string())?;
+
+    store
+        .get_model(&model_id)
+        .map_err(|e| format!("Failed to get model {}: {}", model_id, e))?
+        .ok_or_else(|| format!("Model {} no longer exists", model_id))
+}
+
+/// Response containing the complete LLM configuration for the 'code' operation.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeLlmConfigResponse {
+    /// Model ID
+    pub id: String,
+    /// Model name (e.g., "gpt-4")
+    pub name: String,
+    /// Provider ID
+    pub provider_id: String,
+    /// Provider name
+    pub provider_name: String,
+    /// API type
+    pub api_type: ApiType,
+    /// Custom base URL (if any)
+    pub base_url: Option<String>,
+}
+
+/// Gets the complete LLM configuration for the 'code' operation.
+///
+/// This includes model details and provider information needed to create
+/// an LLM client. Does NOT include the API key - that must be retrieved
+/// separately from the database.
+///
+/// # Errors
+///
+/// Returns an error if no model is configured for 'code' operation or
+/// if the model/provider data is inconsistent.
+pub fn get_code_llm_config(store: &ConfigStore) -> Result<CodeLlmConfigResponse, String> {
+    let model = get_code_operation_model(store)?;
+
+    let provider = store
+        .get_provider(&model.provider_id)
+        .map_err(|e| format!("Failed to get provider {}: {}", model.provider_id, e))?
+        .ok_or_else(|| format!("Provider {} no longer exists", model.provider_id))?;
+
+    Ok(CodeLlmConfigResponse {
+        id: model.id,
+        name: model.name,
+        provider_id: provider.id,
+        provider_name: provider.name,
+        api_type: provider.api_type,
+        base_url: provider.base_url,
+    })
+}
+
+// =============================================================================
+// Tests
+// =============================================================================
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -389,5 +497,73 @@ mod tests {
                 builtin_id
             );
         }
+    }
+
+    // =========================================================================
+    // Phase 1 Tests: Configuration Query
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_get_code_operation_model_success() {
+        let state = ConfigState::in_memory().expect("Failed to create state");
+        let store = state.store.lock().await;
+
+        // Setup: Create a model for OpenAI
+        let model = Model::new("openai", "gpt-4", ModelCapabilities::default());
+        store
+            .save_models("openai", &[model.clone()])
+            .expect("Failed to save model");
+
+        // Set the code operation default
+        store
+            .set_operation_default(OperationType::Code, "openai-gpt-4")
+            .expect("Failed to set operation default");
+
+        // Test: Get the code operation model
+        let result = get_code_operation_model(&store)
+            .expect("Failed to get code operation model");
+
+        assert_eq!(result.name, "gpt-4");
+        assert_eq!(result.provider_id, "openai");
+        assert_eq!(result.id, "openai-gpt-4");
+    }
+
+    #[tokio::test]
+    async fn test_get_code_operation_model_not_configured() {
+        let state = ConfigState::in_memory().expect("Failed to create state");
+        let store = state.store.lock().await;
+
+        // Test: No code operation configured
+        let result = get_code_operation_model(&store);
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("No model configured for 'code' operation"));
+    }
+
+    #[tokio::test]
+    async fn test_get_code_llm_config_full() {
+        let state = ConfigState::in_memory().expect("Failed to create state");
+        let store = state.store.lock().await;
+
+        // Setup: Create a model for OpenAI
+        let model = Model::new("openai", "gpt-4-turbo", ModelCapabilities::default());
+        store
+            .save_models("openai", &[model.clone()])
+            .expect("Failed to save model");
+
+        // Set the code operation default
+        store
+            .set_operation_default(OperationType::Code, "openai-gpt-4-turbo")
+            .expect("Failed to set operation default");
+
+        // Test: Get full LLM config
+        let result = get_code_llm_config(&store)
+            .expect("Failed to get code LLM config");
+
+        assert_eq!(result.name, "gpt-4-turbo");
+        assert_eq!(result.provider_id, "openai");
+        assert_eq!(result.provider_name, "OpenAI");
+        assert_eq!(result.api_type, ApiType::OpenAI);
+        assert_eq!(result.base_url, None);
     }
 }
