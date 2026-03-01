@@ -104,6 +104,11 @@ pub async fn fetch_openai_models(
 ) -> Result<FetchModelsResult, String> {
     let client = create_client()?;
 
+    // Check if this is the official OpenAI API
+    let is_official_openai = base_url.map_or(true, |url| {
+        url.contains("api.openai.com")
+    });
+
     // Handle base_url that might already include the endpoint
     let base = base_url.unwrap_or("https://api.openai.com/v1");
     let url = if base.ends_with("/models") {
@@ -118,6 +123,12 @@ pub async fn fetch_openai_models(
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
+
+    // Handle 404 - models endpoint not available, fall back to known models
+    if response.status().as_u16() == 404 {
+        log::warn!("Models endpoint not available (404), using fallback model list");
+        return Ok(get_fallback_openai_models(is_official_openai));
+    }
 
     if !response.status().is_success() {
         let status = response.status();
@@ -155,17 +166,71 @@ pub async fn fetch_openai_models(
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
+    log::info!("OpenAI API returned {} models", api_response.data.len());
+
+    // Collect first 5 model IDs for logging before consuming the vector
+    let sample_ids: Vec<String> = api_response.data.iter().take(5).map(|m| m.id.clone()).collect();
+
     let models: Vec<String> = api_response
         .data
         .into_iter()
         .filter(|m| {
             let id = m.id.to_lowercase();
-            id.contains("gpt") || id.contains("o1") || id.contains("o3")
+            // Filter for chat models (gpt, o1, o3 series) and exclude other model types
+            let is_chat_model = id.contains("gpt") || id.contains("o1") || id.contains("o3");
+            // Exclude embeddings, audio, fine-tune, and other non-chat models
+            let is_excluded = id.contains("embedding")
+                || id.contains("davinci")
+                || id.contains("babbage")
+                || id.contains("curie")
+                || id.contains("ada")
+                || id.contains("whisper")
+                || id.contains("tts")
+                || id.contains("realtime")
+                || id.contains("speech");
+            is_chat_model && !is_excluded
         })
         .map(|m| m.id)
         .collect();
 
+    log::info!("Filtered to {} chat models", models.len());
+
+    // If no models matched, use fallback
+    if models.is_empty() {
+        log::warn!("No models matched the filter. First 5 model IDs: {:?}", sample_ids);
+        log::info!("Using fallback model list");
+        return Ok(get_fallback_openai_models(is_official_openai));
+    }
+
     Ok(FetchModelsResult::success(models))
+}
+
+/// Returns a fallback list of known OpenAI models.
+fn get_fallback_openai_models(is_official: bool) -> FetchModelsResult {
+    let models = if is_official {
+        vec![
+            "gpt-4o".to_string(),
+            "gpt-4o-mini".to_string(),
+            "gpt-4-turbo".to_string(),
+            "gpt-4".to_string(),
+            "gpt-3.5-turbo".to_string(),
+            "o1-preview".to_string(),
+            "o1-mini".to_string(),
+        ]
+    } else {
+        // For custom OpenAI-compatible APIs, include a broader range
+        vec![
+            "gpt-4o".to_string(),
+            "gpt-4o-mini".to_string(),
+            "gpt-4-turbo".to_string(),
+            "gpt-4".to_string(),
+            "gpt-3.5-turbo".to_string(),
+            "gpt-3.5-turbo-16k".to_string(),
+            "gpt-3.5-turbo-instruct".to_string(),
+        ]
+    };
+
+    FetchModelsResult::success(models)
 }
 
 #[derive(Deserialize)]
@@ -266,6 +331,12 @@ pub async fn fetch_google_models(
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
 
+    // Handle 404 - models endpoint not available, fall back to known models
+    if response.status().as_u16() == 404 {
+        log::warn!("Google models endpoint not available (404), using fallback model list");
+        return Ok(get_fallback_google_models());
+    }
+
     if !response.status().is_success() {
         let status = response.status();
         // Try to get error details from response body
@@ -298,6 +369,8 @@ pub async fn fetch_google_models(
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
+    log::info!("Google API returned {} models", api_response.data.len());
+
     let models: Vec<Model> = api_response
         .data
         .into_iter()
@@ -314,7 +387,27 @@ pub async fn fetch_google_models(
 
     let model_names: Vec<String> = models.iter().map(|m| m.name.clone()).collect();
 
+    // If no models matched, use fallback
+    if model_names.is_empty() {
+        log::warn!("No Gemini models found in response, using fallback");
+        return Ok(get_fallback_google_models());
+    }
+
     Ok(FetchModelsResult::success(model_names))
+}
+
+/// Returns a fallback list of known Google Gemini models.
+fn get_fallback_google_models() -> FetchModelsResult {
+    let models = vec![
+        "gemini-2.5-flash".to_string(),
+        "gemini-2.5-pro".to_string(),
+        "gemini-2.0-flash".to_string(),
+        "gemini-2.0-pro".to_string(),
+        "gemini-1.5-flash".to_string(),
+        "gemini-1.5-pro".to_string(),
+    ];
+
+    FetchModelsResult::success(models)
 }
 
 // =============================================================================

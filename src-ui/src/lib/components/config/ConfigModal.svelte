@@ -103,21 +103,21 @@
 				icon: 'loader-2'
 			};
 
-			console.log('[ConfigModal] Fetching models for provider:', provider.id);
+			console.log('[ConfigModal] Fetching models for provider:', provider.id, 'apiType:', provider.apiType, 'baseUrl:', provider.baseUrl);
 			const models = await configStore.fetchModels(
 				provider.id,
 				apiKey,
 				provider.apiType,
 				provider.baseUrl
 			);
-			console.log('[ConfigModal] Models fetched:', models.length, 'models');
+			console.log('[ConfigModal] Models fetched:', models.length, 'models:', models);
 
 			// Check if any models were fetched
 			if (models.length === 0) {
 				console.warn('[ConfigModal] No models were fetched for provider:', provider.id);
 				validation = {
 					status: 'error',
-					message: 'No models were found for this provider. Please check your API key and try again.',
+					message: `No models were found for ${provider.name}. Check the browser console for details and verify your API key is valid.`,
 					icon: 'alert-circle'
 				};
 				return;

@@ -15,7 +15,7 @@
 		/** Close handler */
 		onclose: () => void;
 		/** Size variant */
-		size?: 'default' | 'lg';
+		size?: 'default' | 'lg' | 'xl';
 		/** Show close button */
 		showClose?: boolean;
 		/** Additional class for modal content */

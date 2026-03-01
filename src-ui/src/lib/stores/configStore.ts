@@ -249,9 +249,13 @@ function createConfigStore() {
 			apiType: ApiType,
 			baseUrl?: string
 		): Promise<string[]> {
+			console.log('[ConfigStore] fetchModels called for provider:', providerId, 'apiType:', apiType);
 			const result = await apiFetchModels(providerId, apiKey, apiType, baseUrl ?? undefined);
+			console.log('[ConfigStore] fetchModels result:', result);
 
 			if (result.success) {
+				console.log('[ConfigStore] Fetch successful, models:', result.models);
+
 				// Convert model names to Model objects
 				const models: Model[] = result.models.map((name) => ({
 					id: `${providerId}-${name.toLowerCase().replace(/\s+/g, '-')}`,
@@ -286,6 +290,10 @@ function createConfigStore() {
 				console.log('[ConfigStore] Provider configured successfully, reloading providers from backend...');
 				// Reload providers from backend to ensure synchronization
 				await this.reloadProviders();
+			} else {
+				console.error('[ConfigStore] Fetch failed:', result.message);
+				// Throw an error with the message from the backend
+				throw new Error(result.message || 'Failed to fetch models');
 			}
 
 			return result.models;

@@ -80,7 +80,7 @@
 		}
 	});</script>
 
-<Modal title="Settings" {open} size="lg" onclose={onclose}>
+<Modal title="Settings" {open} size="xl" onclose={onclose}>
 	{#snippet children()}
 		<div class={styles.sections}>
 			<!-- Providers Section -->
