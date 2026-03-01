@@ -586,6 +586,122 @@ impl ChatStore {
 
         Ok(())
     }
+
+    // =========================================================================
+    // Migration Operations
+    // =========================================================================
+
+    /// Migrates orphan messages (messages without a thread) to new threads.
+    ///
+    /// For each conversation that has messages with NULL thread_id:
+    /// 1. Creates a new thread using the first message content as the title
+    /// 2. Updates all orphan messages in that conversation to reference the new thread
+    ///
+    /// This migration is idempotent (safe to run multiple times).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn migrate_orphan_messages_to_threads(&self) -> Result<(), ChatStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        // Find conversations with orphan messages
+        let orphan_conversations: Vec<(String, String, String)> = conn
+            .prepare(
+                "SELECT DISTINCT m.conversation_id, m.id, m.content
+                 FROM chat_messages m
+                 WHERE m.thread_id IS NULL
+                 ORDER BY m.timestamp ASC",
+            )?
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Group by conversation_id to get the first message per conversation
+        let mut first_messages: std::collections::HashMap<String, (String, String)> =
+            std::collections::HashMap::new();
+        for (conv_id, msg_id, content) in orphan_conversations {
+            if !first_messages.contains_key(&conv_id) {
+                first_messages.insert(conv_id.clone(), (msg_id, content));
+            }
+        }
+
+        // For each conversation with orphan messages, create a thread and update messages
+        let now = Utc::now();
+        for (conv_id, (_first_msg_id, first_msg_content)) in first_messages {
+            // Derive thread title from first message content (truncated to ~50 chars)
+            let thread_title = Self::derive_thread_title(&first_msg_content);
+
+            // Create thread
+            let thread_id = uuid::Uuid::new_v4().to_string();
+            let metadata_json = serde_json::to_string(&ThreadMetadata::default())?;
+
+            conn.execute(
+                "INSERT INTO threads (id, conversation_id, parent_id, title, created_at, updated_at, message_count, metadata)
+                 VALUES (?1, ?2, NULL, ?3, ?4, ?5, 0, ?6)",
+                params![
+                    &thread_id,
+                    &conv_id,
+                    &thread_title,
+                    now.to_rfc3339(),
+                    now.to_rfc3339(),
+                    &metadata_json,
+                ],
+            )?;
+
+            // Update orphan messages to reference the new thread
+            conn.execute(
+                "UPDATE chat_messages SET thread_id = ?1 WHERE conversation_id = ?2 AND thread_id IS NULL",
+                params![&thread_id, &conv_id],
+            )?;
+
+            // Update thread message count
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM chat_messages WHERE thread_id = ?1",
+                params![&thread_id],
+                |row| row.get(0),
+            )?;
+
+            conn.execute(
+                "UPDATE threads SET message_count = ?1 WHERE id = ?2",
+                params![count, &thread_id],
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Derives a thread title from message content.
+    fn derive_thread_title(content: &str) -> String {
+        let cleaned = content
+            .replace('#', "")
+            .replace('*', "")
+            .replace('`', "")
+            .replace('\n', " ")
+            .trim()
+            .to_string();
+
+        if cleaned.is_empty() {
+            return "New Thread".to_string();
+        }
+
+        if cleaned.len() <= 50 {
+            return cleaned;
+        }
+
+        let truncated = &cleaned[..50];
+        if let Some(last_space) = truncated.rfind(' ') {
+            if last_space > 20 {
+                format!("{}...", &truncated[..last_space])
+            } else {
+                format!("{}...", truncated)
+            }
+        } else {
+            format!("{}...", truncated)
+        }
+    }
 }
 
 // =========================================================================
