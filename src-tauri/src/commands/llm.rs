@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 use log::{error, info};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::keychain;
+use crate::commands::config::get_code_operation_model;
 use crate::llm::{ChatRequest, ChatResponse, LlmClient, LlmEvent, Message, create_client};
 use crate::nlp::chat::{ChatMessage, MessageRole};
 use crate::nlp::config::ApiType;
@@ -63,8 +63,9 @@ pub struct SendChatRequest {
     pub thread_id: Option<String>,
     /// The user's message content
     pub content: String,
-    /// Model ID to use (e.g., "openai-gpt-4")
-    pub model_id: String,
+    /// Model ID to use (e.g., "openai-gpt-4"). If not provided, uses the 'code' operation default.
+    #[serde(default)]
+    pub model_id: Option<String>,
     /// System prompt (optional)
     pub system_prompt: Option<String>,
     /// Temperature (optional)
@@ -91,9 +92,24 @@ pub struct SendChatResponse {
 // Helper Functions
 // =============================================================================
 
-/// Gets the API key for a provider from the keychain.
-async fn get_api_key_for_provider(provider_id: &str) -> Result<String, String> {
-    keychain::retrieve_api_key(provider_id).map_err(|e| {
+/// Resolves the model ID to use for a chat request.
+/// If model_id is provided, uses it directly. Otherwise, resolves from 'code' operation.
+async fn resolve_model_id(
+    model_id: Option<String>,
+    config_store: &ConfigStore,
+) -> Result<String, String> {
+    if let Some(id) = model_id {
+        return Ok(id);
+    }
+
+    // Resolve from 'code' operation default
+    let model = get_code_operation_model(config_store)?;
+    Ok(model.id)
+}
+
+/// Gets the API key for a provider from the database.
+fn get_api_key_for_provider(provider_id: &str, config_store: &ConfigStore) -> Result<String, String> {
+    config_store.retrieve_api_key(provider_id).map_err(|e| {
         format!(
             "API key not found for provider '{}'. Please configure it first. Error: {}",
             provider_id, e
@@ -139,7 +155,7 @@ pub async fn send_chat_message(
     app_handle: AppHandle,
 ) -> Result<SendChatResponse, String> {
     info!(
-        "send_chat_message: conversation_id={}, model_id={}",
+        "send_chat_message: conversation_id={}, model_id={:?}",
         request.conversation_id, request.model_id
     );
 
@@ -147,11 +163,14 @@ pub async fn send_chat_message(
     let llm_state = app_handle.state::<LlmState>();
     let config_store = llm_state.config_store.lock().await;
 
+    // Resolve model ID (use code operation default if not provided)
+    let model_id = resolve_model_id(request.model_id, &config_store).await?;
+
     // Get model info
     let model = config_store
-        .get_model(&request.model_id)
+        .get_model(&model_id)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Model '{}' not found", request.model_id))?;
+        .ok_or_else(|| format!("Model '{}' not found", model_id))?;
 
     // Get provider info
     let provider = config_store
@@ -159,10 +178,10 @@ pub async fn send_chat_message(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Provider '{}' not found", model.provider_id))?;
 
-    drop(config_store); // Release lock before async operations
-
     // Get API key
-    let api_key = get_api_key_for_provider(&provider.id).await?;
+    let api_key = get_api_key_for_provider(&provider.id, &config_store)?;
+
+    drop(config_store); // Release lock before async operations
 
     // Create client
     let client = create_client_for_provider(provider.api_type, api_key, provider.base_url);
@@ -230,22 +249,36 @@ pub async fn send_chat_message_streaming(
     app_handle: AppHandle,
 ) -> Result<String, String> {
     info!(
-        "send_chat_message_streaming: conversation_id={}, model_id={}",
+        "send_chat_message_streaming: conversation_id={}, model_id={:?}",
         request.conversation_id, request.model_id
     );
 
     // Generate request ID
     let request_id = uuid::Uuid::new_v4().to_string();
+    info!("send_chat_message_streaming: generated request_id={}", request_id);
 
     // Get config store
     let llm_state = app_handle.state::<LlmState>();
     let config_store = llm_state.config_store.lock().await;
 
+    // Resolve model ID (use code operation default if not provided)
+    info!("send_chat_message_streaming: resolving model_id...");
+    let model_id = match resolve_model_id(request.model_id, &config_store).await {
+        Ok(id) => {
+            info!("send_chat_message_streaming: resolved model_id={}", id);
+            id
+        }
+        Err(e) => {
+            error!("send_chat_message_streaming: failed to resolve model_id: {}", e);
+            return Err(e);
+        }
+    };
+
     // Get model info
     let model = config_store
-        .get_model(&request.model_id)
+        .get_model(&model_id)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Model '{}' not found", request.model_id))?;
+        .ok_or_else(|| format!("Model '{}' not found", model_id))?;
 
     // Get provider info
     let provider = config_store
@@ -253,10 +286,10 @@ pub async fn send_chat_message_streaming(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Provider '{}' not found", model.provider_id))?;
 
-    drop(config_store); // Release lock before async operations
-
     // Get API key
-    let api_key = get_api_key_for_provider(&provider.id).await?;
+    let api_key = get_api_key_for_provider(&provider.id, &config_store)?;
+
+    drop(config_store); // Release lock before async operations
 
     // Create client
     let client = create_client_for_provider(provider.api_type, api_key, provider.base_url);
