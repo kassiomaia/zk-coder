@@ -41,7 +41,7 @@
 	let searchQuery = $state('');
 
 	// Group conversations by date
-	let groupedConversations = $derived(() => {
+	function groupConversations(convList: Conversation[]): ConversationGroup[] {
 		const now = new Date();
 		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 		const yesterday = new Date(today.getTime() - 86400000);
@@ -54,7 +54,7 @@
 			{ label: 'Older', conversations: [] }
 		];
 
-		for (const conv of conversations) {
+		for (const conv of convList) {
 			const date = new Date(conv.updatedAt);
 
 			if (date >= today) {
@@ -69,7 +69,9 @@
 		}
 
 		return groups.filter((g) => g.conversations.length > 0);
-	})();
+	}
+
+	let groupedConversations = $derived(groupConversations(conversations));
 
 	function handleSearch(query: string) {
 		searchQuery = query;

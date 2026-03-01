@@ -7,7 +7,7 @@
 export type MessageRole = 'user' | 'assistant' | 'system';
 
 /** Status of a message */
-export type MessageStatus = 'sending' | 'sent' | 'error';
+export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'error';
 
 /**
  * Represents a single chat message.

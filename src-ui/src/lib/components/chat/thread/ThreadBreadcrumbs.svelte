@@ -22,20 +22,21 @@
 	let { path, onNavigate, maxVisible = 3 }: Props = $props();
 
 	// Determine which items to show
-	let visibleItems = $derived(() => {
-		if (path.length <= maxVisible) {
-			return { start: path, end: [] };
+	function getVisibleItems(items: BreadcrumbItem[]) {
+		if (items.length <= maxVisible) {
+			return { start: items, end: [] };
 		}
 
 		const startCount = 1;
 		const endCount = maxVisible - 1;
 
 		return {
-			start: path.slice(0, startCount),
-			end: path.slice(-endCount)
+			start: items.slice(0, startCount),
+			end: items.slice(-endCount)
 		};
-	})();
+	}
 
+	let visibleItems = $derived(getVisibleItems(path));
 	let showEllipsis = $derived(path.length > maxVisible);
 </script>
 

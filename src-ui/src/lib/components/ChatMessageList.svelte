@@ -44,10 +44,13 @@
 
 	// Auto-scroll to bottom when new messages arrive
 	$effect(() => {
-		if (containerRef && shouldAutoScroll) {
+		const ref = containerRef;
+		if (ref && shouldAutoScroll) {
 			// Use requestAnimationFrame to ensure DOM is updated
 			requestAnimationFrame(() => {
-				containerRef.scrollTop = containerRef.scrollHeight;
+				if (ref) {
+					ref.scrollTop = ref.scrollHeight;
+				}
 			});
 		}
 	});

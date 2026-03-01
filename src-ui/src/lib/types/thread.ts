@@ -46,13 +46,16 @@ export interface ThreadMetadata {
 	resolved: boolean;
 
 	/** Tags associated with the thread */
-	tags: string[];
+	tags?: string[];
 
 	/** Priority level of the thread */
-	priority: ThreadPriority;
+	priority?: ThreadPriority;
 
 	/** Detected intent for the thread */
 	intent?: string;
+
+	/** Summary of the thread */
+	summary?: string;
 }
 
 /**

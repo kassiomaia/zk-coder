@@ -4,6 +4,7 @@
 	 * Displays individual messages in a conversation with support for user, assistant, and system roles.
 	 */
 	import styles from './ChatMessage.module.css';
+	import type { MessageStatus } from '$lib/types/message';
 
 	interface Props {
 		/** Unique identifier for the message */
@@ -19,7 +20,7 @@
 		timestamp: Date;
 
 		/** Message status */
-		status?: 'sending' | 'sent' | 'error';
+		status?: MessageStatus;
 
 		/** Edit handler */
 		onEdit?: () => void;
