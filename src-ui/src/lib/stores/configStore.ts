@@ -232,7 +232,16 @@ function createConfigStore() {
 		},
 
 		/**
+		 * Reloads providers from the backend to ensure synchronization.
+		 */
+		async reloadProviders(): Promise<void> {
+			const providers = await getProviders();
+			update((state) => ({ ...state, providers }));
+		},
+
+		/**
 		 * Fetches and caches models for a provider.
+		 * After successful fetch, reloads providers from backend to ensure consistency.
 		 */
 		async fetchModels(
 			providerId: string,
@@ -259,21 +268,24 @@ function createConfigStore() {
 					}
 				}));
 
-				update((state) => ({
-					...state,
-					modelsByProvider: {
-						...state.modelsByProvider,
-						[providerId]: models
-					}
-				}));
-
-				// Update provider configured status
+				// Update both models and provider status in a single update for atomicity
 				update((state) => {
 					const providers = state.providers.map((p) =>
 						p.id === providerId ? { ...p, isConfigured: true } : p
 					);
-					return { ...state, providers };
+					return {
+						...state,
+						providers,
+						modelsByProvider: {
+							...state.modelsByProvider,
+							[providerId]: models
+						}
+					};
 				});
+
+				console.log('[ConfigStore] Provider configured successfully, reloading providers from backend...');
+				// Reload providers from backend to ensure synchronization
+				await this.reloadProviders();
 			}
 
 			return result.models;

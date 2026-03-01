@@ -112,6 +112,17 @@
 			);
 			console.log('[ConfigModal] Models fetched:', models.length, 'models');
 
+			// Check if any models were fetched
+			if (models.length === 0) {
+				console.warn('[ConfigModal] No models were fetched for provider:', provider.id);
+				validation = {
+					status: 'error',
+					message: 'No models were found for this provider. Please check your API key and try again.',
+					icon: 'alert-circle'
+				};
+				return;
+			}
+
 			// The backend's fetch_models command already marks the provider as configured,
 			// so we just need to update the local store state
 			console.log('[ConfigModal] Provider configured successfully');

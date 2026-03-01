@@ -42,6 +42,7 @@
 	// Config modal state
 	type ModalState = 'closed' | 'providers' | 'config' | 'custom-provider' | 'settings';
 	let activeModal = $state<ModalState>('closed');
+	let previousModal = $state<ModalState>('closed'); // Track previous modal to return after config
 	let selectedProviderId = $state<string | null>(null);
 	let configInitialized = $state(false);
 
@@ -151,12 +152,21 @@
 
 	function handleCloseModal() {
 		activeModal = 'closed';
+		previousModal = 'closed';
 		selectedProviderId = null;
 	}
 
 	function handleConfigureProvider(providerId: string) {
 		selectedProviderId = providerId;
+		// Track the previous modal so we can return to it after configuration
+		previousModal = activeModal;
 		activeModal = 'config';
+	}
+
+	function handleConfigSaved() {
+		// Return to the previous modal (settings or providers)
+		activeModal = previousModal === 'closed' ? 'settings' : previousModal;
+		previousModal = 'closed';
 	}
 
 	function handleAddCustomProvider() {
@@ -181,40 +191,42 @@
 	<title>{appInfo?.name || 'Coder'} - AI Assistant</title>
 </svelte:head>
 
-<ChatLayout
-	conversations={conversations}
-	threads={threads}
-	selectedConversation={$selectedConversation ?? undefined}
-	selectedThread={$selectedThread ?? undefined}
-	{messages}
-	onSelectConversation={handleSelectConversation}
-	onSelectThread={handleSelectThread}
-	onSendMessage={handleSendMessage}
-	onCreateConversation={handleCreateConversation}
-	onCreateThread={handleCreateThread}
-	onResolveThread={handleResolveThread}
-	onDeleteConversation={handleDeleteConversation}
-	onRenameConversation={handleRenameConversation}
-	onSearch={handleSearch}
-	onSettings={handleOpenSettings}
-	loading={$isLoading}
-	threadsLoading={currentThreadsLoading === 'loading'}
-	hasConfiguredProvider={$hasConfiguredProvider}
-/>
+<div class="page-container">
+	<ChatLayout
+		conversations={conversations}
+		threads={threads}
+		selectedConversation={$selectedConversation ?? undefined}
+		selectedThread={$selectedThread ?? undefined}
+		{messages}
+		onSelectConversation={handleSelectConversation}
+		onSelectThread={handleSelectThread}
+		onSendMessage={handleSendMessage}
+		onCreateConversation={handleCreateConversation}
+		onCreateThread={handleCreateThread}
+		onResolveThread={handleResolveThread}
+		onDeleteConversation={handleDeleteConversation}
+		onRenameConversation={handleRenameConversation}
+		onSearch={handleSearch}
+		onSettings={handleOpenSettings}
+		loading={$isLoading}
+		threadsLoading={currentThreadsLoading === 'loading'}
+		hasConfiguredProvider={$hasConfiguredProvider}
+	/>
 
-<!-- Status indicator -->
-<div class="status-bar">
-	<span class="status">
-		{#if currentError}
-			<span class="error">Error: {currentError}</span>
-			<button class="retry-btn" onclick={handleErrorRetry} type="button">Dismiss</button>
-		{:else}
-			{backendStatus}
+	<!-- Status indicator -->
+	<div class="status-bar">
+		<span class="status">
+			{#if currentError}
+				<span class="error">Error: {currentError}</span>
+				<button class="retry-btn" onclick={handleErrorRetry} type="button">Dismiss</button>
+			{:else}
+				{backendStatus}
+			{/if}
+		</span>
+		{#if appInfo}
+			<span class="version">{appInfo.name} v{appInfo.version}</span>
 		{/if}
-	</span>
-	{#if appInfo}
-		<span class="version">{appInfo.name} v{appInfo.version}</span>
-	{/if}
+	</div>
 </div>
 
 <!-- Configuration Modals -->
@@ -233,7 +245,7 @@
 		open={activeModal === 'config'}
 		onclose={handleCloseModal}
 		providerId={selectedProviderId}
-		onsaved={handleCloseModal}
+		onsaved={handleConfigSaved}
 	/>
 
 	<!-- Custom Provider Modal -->
@@ -257,11 +269,15 @@
 {/if}
 
 <style>
+	.page-container {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+		width: 100%;
+		overflow: hidden;
+	}
+
 	.status-bar {
-		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -270,7 +286,7 @@
 		border-top: 1px solid var(--color-border-primary);
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
-		z-index: var(--z-sticky);
+		flex-shrink: 0;
 	}
 
 	.status {
