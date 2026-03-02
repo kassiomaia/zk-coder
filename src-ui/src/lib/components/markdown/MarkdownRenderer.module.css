@@ -1,0 +1,422 @@
+/**
+ * Markdown Renderer Styles
+ * Comprehensive styling for all markdown elements following the design system
+ * Optimized for chat messages with compact spacing
+ */
+
+.markdown {
+	font-family: var(--font-sans);
+	font-size: var(--text-sm);
+	line-height: 1.5;
+	color: var(--color-text-primary);
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+}
+
+/* =====================
+   Typography - Headings (compact for chat)
+   ===================== */
+
+.markdown :global(h1),
+.markdown :global(h2),
+.markdown :global(h3),
+.markdown :global(h4),
+.markdown :global(h5),
+.markdown :global(h6) {
+	margin-top: var(--space-2);
+	margin-bottom: var(--space-1);
+	font-weight: var(--font-semibold);
+	line-height: 1.3;
+	color: var(--color-text-primary);
+}
+
+.markdown :global(h1) {
+	font-size: var(--text-xl);
+	font-weight: var(--font-bold);
+}
+
+.markdown :global(h2) {
+	font-size: var(--text-lg);
+}
+
+.markdown :global(h3) {
+	font-size: var(--text-base);
+}
+
+.markdown :global(h4),
+.markdown :global(h5),
+.markdown :global(h6) {
+	font-size: var(--text-sm);
+	color: var(--color-text-secondary);
+}
+
+/* Reset margin for first heading */
+.markdown :global(h1:first-child),
+.markdown :global(h2:first-child),
+.markdown :global(h3:first-child),
+.markdown :global(h4:first-child),
+.markdown :global(h5:first-child),
+.markdown :global(h6:first-child) {
+	margin-top: 0;
+}
+
+/* =====================
+   Paragraphs and Text (compact for chat)
+   ===================== */
+
+.markdown :global(p) {
+	margin: 0;
+	line-height: 1.5;
+}
+
+/* Only add margin between consecutive paragraphs */
+.markdown :global(p + p) {
+	margin-top: var(--space-2);
+}
+
+.markdown :global(strong) {
+	font-weight: var(--font-semibold);
+	color: var(--color-text-primary);
+}
+
+.markdown :global(em) {
+	font-style: italic;
+}
+
+.markdown :global(del) {
+	text-decoration: line-through;
+	color: var(--color-text-tertiary);
+}
+
+/* =====================
+   Links
+   ===================== */
+
+.markdown :global(a),
+.markdown :global(.markdown-link) {
+	color: var(--color-accent-primary);
+	text-decoration: none;
+	border-bottom: 1px solid transparent;
+	transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.markdown :global(a:hover),
+.markdown :global(.markdown-link:hover) {
+	color: var(--color-accent-primary-hover);
+	border-bottom-color: currentColor;
+}
+
+.markdown :global(a:focus-visible),
+.markdown :global(.markdown-link:focus-visible) {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+/* =====================
+   Code - Inline and Blocks
+   ===================== */
+
+/* Inline code */
+.markdown :global(code:not(.code-block code)) {
+	background: var(--color-bg-tertiary);
+	color: var(--color-primary-500);
+	padding: var(--space-0-5) var(--space-1-5);
+	border-radius: var(--radius-md);
+	font-family: var(--font-mono);
+	font-size: 0.875em;
+	border: 1px solid var(--color-border-subtle);
+}
+
+/* Code blocks */
+.markdown :global(.code-block) {
+	position: relative;
+	background: var(--color-neutral-900);
+	border: 1px solid var(--color-border-secondary);
+	border-radius: var(--radius-md);
+	padding: var(--space-3);
+	margin: var(--space-2) 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
+.markdown :global(.code-block code) {
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	line-height: var(--leading-relaxed);
+	color: var(--color-neutral-100);
+	background: transparent;
+	padding: 0;
+	border: none;
+}
+
+/* Language badge */
+.markdown :global(.code-block[data-language]:not([data-language="auto"]))::before {
+	content: attr(data-language);
+	position: absolute;
+	top: var(--space-1);
+	right: var(--space-2);
+	font-size: var(--text-2xs);
+	font-family: var(--font-sans);
+	font-weight: var(--font-medium);
+	color: var(--color-text-muted);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-wider);
+}
+
+/* Code block with language badge - add padding */
+.markdown :global(.code-block[data-language]:not([data-language="auto"])) {
+	padding-top: var(--space-6);
+}
+
+/* Highlight.js theme overrides for dark mode */
+.markdown :global(.hljs-keyword),
+.markdown :global(.hljs-selector-tag),
+.markdown :global(.hljs-built_in),
+.markdown :global(.hljs-name),
+.markdown :global(.hljs-tag) {
+	color: #c678dd; /* Purple for keywords */
+}
+
+.markdown :global(.hljs-string),
+.markdown :global(.hljs-title),
+.markdown :global(.hljs-section),
+.markdown :global(.hljs-attribute),
+.markdown :global(.hljs-literal),
+.markdown :global(.hljs-template-tag),
+.markdown :global(.hljs-template-variable),
+.markdown :global(.hljs-type) {
+	color: #98c379; /* Green for strings */
+}
+
+.markdown :global(.hljs-comment),
+.markdown :global(.hljs-deletion) {
+	color: #5c6370; /* Gray for comments */
+	font-style: italic;
+}
+
+.markdown :global(.hljs-number),
+.markdown :global(.hljs-regexp),
+.markdown :global(.hljs-addition) {
+	color: #d19a66; /* Orange for numbers */
+}
+
+.markdown :global(.hljs-function) {
+	color: #61afef; /* Blue for functions */
+}
+
+.markdown :global(.hljs-variable),
+.markdown :global(.hljs-params) {
+	color: #e06c75; /* Red for variables */
+}
+
+.markdown :global(.hljs-symbol),
+.markdown :global(.hljs-bullet),
+.markdown :global(.hljs-link),
+.markdown :global(.hljs-meta) {
+	color: #56b6c2; /* Cyan for symbols */
+}
+
+/* =====================
+   Blockquotes (compact)
+   ===================== */
+
+.markdown :global(blockquote) {
+	margin: var(--space-2) 0;
+	padding: var(--space-2) var(--space-3);
+	border-left: 3px solid var(--color-primary-500);
+	background: var(--color-bg-tertiary);
+	border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+	color: var(--color-text-secondary);
+}
+
+.markdown :global(blockquote p:last-child) {
+	margin-bottom: 0;
+}
+
+.markdown :global(blockquote code) {
+	background: var(--color-bg-secondary);
+}
+
+/* Nested blockquotes */
+.markdown :global(blockquote blockquote) {
+	margin: var(--space-1) 0;
+	border-left-color: var(--color-primary-400);
+}
+
+/* =====================
+   Lists (compact)
+   ===================== */
+
+.markdown :global(ul),
+.markdown :global(ol) {
+	margin: var(--space-2) 0;
+	padding-left: var(--space-5);
+}
+
+.markdown :global(li) {
+	margin: var(--space-0-5) 0;
+	line-height: var(--leading-relaxed);
+}
+
+.markdown :global(li > ul),
+.markdown :global(li > ol) {
+	margin: var(--space-0-5) 0;
+}
+
+/* Task lists */
+.markdown :global(.task-list-item) {
+	list-style: none;
+	margin-left: calc(-1 * var(--space-6));
+}
+
+.markdown :global(.task-list-item input[type="checkbox"]) {
+	appearance: none;
+	-webkit-appearance: none;
+	width: var(--space-4);
+	height: var(--space-4);
+	margin-right: var(--space-2);
+	vertical-align: middle;
+	border: 2px solid var(--color-border-secondary);
+	border-radius: var(--radius-sm);
+	background: var(--color-bg-base);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	position: relative;
+}
+
+.markdown :global(.task-list-item input[type="checkbox"]:checked) {
+	background: var(--color-primary-500);
+	border-color: var(--color-primary-500);
+}
+
+.markdown :global(.task-list-item input[type="checkbox"]:checked::after) {
+	content: '';
+	position: absolute;
+	left: 5px;
+	top: 2px;
+	width: 4px;
+	height: 8px;
+	border: solid white;
+	border-width: 0 2px 2px 0;
+	transform: rotate(45deg);
+}
+
+.markdown :global(.task-list-item input[type="checkbox"]:disabled) {
+	opacity: var(--opacity-disabled);
+	cursor: default;
+}
+
+/* =====================
+   Tables (compact)
+   ===================== */
+
+.markdown :global(table) {
+	width: 100%;
+	margin: var(--space-2) 0;
+	border-collapse: collapse;
+	border-radius: var(--radius-md);
+	overflow: hidden;
+	border: 1px solid var(--color-border-primary);
+}
+
+.markdown :global(thead) {
+	background: var(--color-bg-tertiary);
+}
+
+.markdown :global(th) {
+	padding: var(--space-1-5) var(--space-2);
+	text-align: left;
+	font-weight: var(--font-semibold);
+	font-size: var(--text-xs);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-wide);
+	color: var(--color-text-secondary);
+	border-bottom: 2px solid var(--color-border-secondary);
+}
+
+.markdown :global(td) {
+	padding: var(--space-1-5) var(--space-2);
+	border-bottom: 1px solid var(--color-border-subtle);
+	vertical-align: top;
+}
+
+.markdown :global(tbody tr:last-child td) {
+	border-bottom: none;
+}
+
+.markdown :global(tbody tr:hover) {
+	background: var(--color-interactive-hover);
+}
+
+/* =====================
+   Horizontal Rule
+   ===================== */
+
+.markdown :global(hr) {
+	margin: var(--space-3) 0;
+	border: none;
+	height: 1px;
+	background: var(--color-border-primary);
+}
+
+/* =====================
+   Images (including base64)
+   ===================== */
+
+.markdown :global(.markdown-image),
+.markdown :global(img) {
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--radius-md);
+	margin: var(--space-2) 0;
+	cursor: zoom-in;
+	transition: transform var(--transition-normal);
+}
+
+.markdown :global(.markdown-image:hover),
+.markdown :global(img:hover) {
+	transform: scale(1.01);
+	box-shadow: var(--shadow-lg);
+}
+
+/* Image in link (common pattern) */
+.markdown :global(a img) {
+	margin: 0;
+}
+
+/* =====================
+   Keyboard Input
+   ===================== */
+
+.markdown :global(kbd) {
+	display: inline-block;
+	padding: var(--space-0-5) var(--space-1);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	background: var(--color-bg-tertiary);
+	border: 1px solid var(--color-border-secondary);
+	border-radius: var(--radius-sm);
+	box-shadow: inset 0 -1px 0 var(--color-border-primary);
+}
+
+/* =====================
+   Mark/Highlight
+   ===================== */
+
+.markdown :global(mark) {
+	background: var(--color-warning-light);
+	color: var(--color-text-primary);
+	padding: var(--space-0-5) var(--space-1);
+	border-radius: var(--radius-sm);
+}
+
+/* =====================
+   Empty State
+   ===================== */
+
+.markdown:empty::before {
+	content: 'No content';
+	color: var(--color-text-muted);
+	font-style: italic;
+}
