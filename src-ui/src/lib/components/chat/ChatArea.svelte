@@ -10,7 +10,7 @@
 	import type { Message } from '$lib/types/message';
 	import type { Thread } from '$lib/types/thread';
 	import styles from './ChatArea.module.css';
-	import { isLlmStreaming } from '$lib/stores/chat';
+	import { isLlmStreaming, streamingContent } from '$lib/stores/chat';
 	import { notifyAssistantComplete, initNotifications } from '$lib/utils/notifications';
 	import {
 		saveScrollPosition,
@@ -27,7 +27,8 @@
         handleContentUpdate,
         handleUserScroll as controllerHandleUserScroll,
         scrollToBottom as controllerScrollToBottom,
-        enableAutoScroll as controllerEnableAutoScroll
+        enableAutoScroll as controllerEnableAutoScroll,
+        isAutoScrollEnabled as controllerIsAutoScrollEnabled
     } from '$lib/utils/scrollController';
     import { onMount } from 'svelte';
 
@@ -107,7 +108,7 @@
 
     // Scroll state
     let messagesWrapperRef: HTMLDivElement | undefined = $state();
-    let previousThreadId = $state<string | undefined>(threadId);
+    let previousThreadId = $state<string | undefined>(undefined);
     let isUserScrolling = $state(false);
 
     // Track if we should show "scroll to bottom" button
@@ -128,17 +129,26 @@
         const currentThreadId = threadId;
         const ref = messagesWrapperRef;
 
+        console.log('[ChatArea] streaming state effect:', {
+            streaming,
+            wasStreaming,
+            currentThreadId,
+            hasRef: !!ref
+        });
+
         if (!ref || !currentThreadId) return;
 
         // Detect transition from NOT streaming TO streaming
         if (!wasStreaming && streaming) {
             // Streaming just started - notify controller
+            console.log('[ChatArea] streaming START detected');
             handleStreamingStart(currentThreadId);
         }
 
         // Detect transition from streaming to NOT streaming (completion)
         if (wasStreaming && !streaming) {
             // Streaming just completed - notify controller
+            console.log('[ChatArea] streaming END detected');
             handleStreamingEnd(currentThreadId);
 
             // Check if user was scrolled up (auto-scroll was disabled)
@@ -148,7 +158,7 @@
                 // User was scrolled up - send notification
                 notifyAssistantComplete(
                     'Assistant Complete',
-                    'The assistant has finished responding. Click to see the response.'
+                    'The assistant has finished responded. Click to see the response.'
                 );
             }
         }
@@ -176,7 +186,7 @@
                     setTimeout(() => {
                         inputAnimatingIn = false;
                     }, 200);
-                );
+                }, 200);
             } else if (!wasResolved && nowResolved) {
                 // Transition: unlocked -> locked
                 // Animate input out (slide down), then banner will slide in
@@ -196,6 +206,12 @@
         const currentThreadId = threadId;
         const ref = messagesWrapperRef;
 
+        console.log('[ChatArea] thread registration effect:', {
+            currentThreadId,
+            previousThreadId,
+            hasRef: !!ref
+        });
+
         // Save position for previous thread
         if (previousThreadId && ref) {
             saveScrollPosition(previousThreadId, ref);
@@ -211,6 +227,7 @@
 
         // Register new thread with controller
         if (ref && currentThreadId && currentThreadId !== previousThreadId) {
+            console.log('[ChatArea] registering thread:', currentThreadId);
             registerThreadElement(currentThreadId, ref);
             initializeThreadScroll(currentThreadId);
         }
@@ -239,6 +256,17 @@
         // Trigger on messages length change
         void messages.length;
 
+        // Also trigger on streaming content changes to scroll during streaming
+        // This ensures we scroll when streaming content is being added to existing messages
+        void $streamingContent.length;
+
+        console.log('[ChatArea] content update effect:', {
+            hasRef: !!ref,
+            currentThreadId,
+            messagesLength: messages.length,
+            streamingContentLength: $streamingContent.length
+        });
+
         if (!ref || !currentThreadId) return;
 
         // Notify controller of content update
@@ -248,9 +276,6 @@
         const distanceFromBottom = ref.scrollHeight - ref.scrollTop - ref.clientHeight;
         showScrollButton = distanceFromBottom > SCROLL_BUTTON_THRESHOLD;
     });
-
-    // Track last scroll position to detect user scrolling UP
-    let lastScrollTop = $state(0);
 
     // Handle scroll events - using new controller
     function handleScroll() {
@@ -407,7 +432,7 @@
                 {/if}
             </div>
         {:else if messages.length === 0}
-            <div class={styles.empty}
+            <div class={styles.empty}>
                 <div class={styles.emptyHeader}>
                     <svg
                         class={styles.emptyIcon}
