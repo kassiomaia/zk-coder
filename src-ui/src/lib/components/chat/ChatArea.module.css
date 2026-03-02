@@ -22,6 +22,9 @@
 	overflow-y: auto;
 	padding: var(--space-5);
 	scroll-behavior: smooth;
+	max-width: 900px;
+	margin: 0 auto;
+	width: 100%;
 }
 
 /* Message groups - clearer separation */
@@ -41,7 +44,7 @@
 
 .groupRole {
 	font-size: var(--text-xs);
-	font-weight: var(--font-semibold);
+	font-weight: var(--font-medium);
 	color: var(--color-text-tertiary);
 	text-transform: uppercase;
 	letter-spacing: var(--tracking-wider);
@@ -59,36 +62,36 @@
 	padding-left: var(--space-4);
 }
 
-/* Individual messages - card design with elevation */
+/* Individual messages - subtle design */
 .message {
 	padding: var(--space-4) var(--space-5);
 	border-radius: var(--radius-xl);
 	max-width: 85%;
 	word-wrap: break-word;
-	transition: box-shadow var(--transition-fast);
+	transition: background var(--transition-fast);
 }
 
 .message:hover {
-	box-shadow: var(--shadow-sm);
+	background: var(--color-surface-hover);
 }
 
 .message.role-user {
-	background: var(--color-interactive-selected);
-	border: 1px solid rgba(99, 102, 241, 0.3);
+	background: var(--color-role-user-bg);
+	border: none;
 	margin-left: auto;
 	margin-right: 0;
 }
 
 .message.role-assistant {
-	background: var(--color-surface);
-	border: 1px solid var(--color-border-subtle);
+	background: transparent;
+	border: none;
 	margin-left: 0;
 	margin-right: auto;
 }
 
 .message.role-system {
 	background: var(--color-bg-tertiary);
-	border: 1px dashed var(--color-border-secondary);
+	border: none;
 	margin: 0 auto;
 	font-style: italic;
 	max-width: 70%;
@@ -186,8 +189,6 @@
 			var(--color-bg-primary) 85%,
 			transparent 100%
 		);
-		max-width: var(--content-max-width);
-		margin: 0 auto;
 	}
 }
 
@@ -206,7 +207,7 @@
 	width: 28px;
 	height: 28px;
 	border: 3px solid var(--color-border-primary);
-	border-top-color: var(--color-primary-500);
+	border-top-color: var(--color-text-muted);
 	border-radius: var(--radius-full);
 	animation: spin 0.8s linear infinite;
 }
@@ -260,12 +261,12 @@
 
 .retryButton:hover {
 	background: var(--color-surface-hover);
-	border-color: var(--color-primary-500);
+	border-color: var(--color-border-secondary);
 	box-shadow: var(--shadow-sm);
 }
 
 .retryButton:focus-visible {
-	outline: 2px solid var(--color-primary-500);
+	outline: 2px solid var(--color-border-secondary);
 	outline-offset: 2px;
 }
 
@@ -371,7 +372,7 @@
 @media (prefers-reduced-motion: reduce) {
 	.spinner {
 		animation: none;
-		border-top-color: var(--color-primary-500);
+		border-top-color: var(--color-text-muted);
 		opacity: 0.7;
 	}
 

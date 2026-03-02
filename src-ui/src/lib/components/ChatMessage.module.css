@@ -22,38 +22,37 @@
 
 .user {
 	margin-left: 0;
-	background: var(--color-primary-500);
-	color: var(--color-neutral-0);
-	border: 1px solid transparent;
+	background: var(--color-role-user-bg);
+	color: var(--color-text-primary);
+	border: none;
 }
 
 .user:hover {
-	box-shadow: var(--shadow-sm);
+	background: var(--color-role-user-bg-hover);
 }
 
 .user .timestamp {
-	color: rgba(255, 255, 255, 0.8);
+	color: var(--color-text-muted);
 }
 
 .user .actionButton {
-	color: rgba(255, 255, 255, 0.8);
+	color: var(--color-text-muted);
 }
 
 .user .actionButton:hover {
-	background: rgba(255, 255, 255, 0.2);
-	color: var(--color-neutral-0);
+	background: var(--color-surface-active);
+	color: var(--color-text-secondary);
 }
 
 .assistant {
 	margin-right: 0;
-	background: var(--color-surface);
+	background: var(--color-role-assistant-bg);
 	color: var(--color-text-primary);
-	border: 1px solid var(--color-border-subtle);
+	border: none;
 }
 
 .assistant:hover {
-	border-color: var(--color-border-primary);
-	box-shadow: var(--shadow-xs);
+	background: var(--color-role-assistant-bg-hover);
 }
 
 .system {
@@ -82,8 +81,8 @@
 .sender {
 	display: block;
 	font-size: var(--text-xs);
-	font-weight: var(--font-semibold);
-	color: var(--color-text-secondary);
+	font-weight: var(--font-medium);
+	color: var(--color-text-tertiary);
 	margin-bottom: var(--space-1);
 }
 
@@ -103,7 +102,7 @@
 }
 
 .content :global(code) {
-	background: rgba(0, 0, 0, 0.15);
+	background: var(--color-surface-hover);
 	padding: 0.125rem 0.25rem;
 	border-radius: var(--radius-sm);
 	font-family: var(--font-mono);
@@ -111,89 +110,89 @@
 }
 
 .user .content :global(code) {
-	background: rgba(255, 255, 255, 0.15);
+	background: var(--color-surface-active);
 }
 
-/* User message markdown overrides (blue background context) */
+/* User message markdown overrides (subtle background context) */
 .userMarkdown :global(a) {
-	color: rgba(255, 255, 255, 0.9);
-	border-bottom-color: rgba(255, 255, 255, 0.3);
+	color: var(--color-text-secondary);
+	border-bottom-color: var(--color-border-secondary);
 }
 
 .userMarkdown :global(a:hover) {
-	color: var(--color-neutral-0);
+	color: var(--color-text-primary);
 	border-bottom-color: currentColor;
 }
 
 .userMarkdown :global(code:not(.code-block code)) {
-	background: rgba(255, 255, 255, 0.2);
-	color: rgba(255, 255, 255, 0.95);
-	border-color: rgba(255, 255, 255, 0.1);
+	background: var(--color-surface-active);
+	color: var(--color-text-primary);
+	border-color: var(--color-border-subtle);
 }
 
 .userMarkdown :global(blockquote) {
-	background: rgba(255, 255, 255, 0.1);
-	border-left-color: rgba(255, 255, 255, 0.5);
-	color: rgba(255, 255, 255, 0.9);
+	background: var(--color-surface-hover);
+	border-left-color: var(--color-border-secondary);
+	color: var(--color-text-secondary);
 }
 
 .userMarkdown :global(table) {
-	border-color: rgba(255, 255, 255, 0.2);
+	border-color: var(--color-border-subtle);
 }
 
 .userMarkdown :global(th) {
-	background: rgba(255, 255, 255, 0.1);
-	border-color: rgba(255, 255, 255, 0.2);
-	color: rgba(255, 255, 255, 0.95);
+	background: var(--color-surface-hover);
+	border-color: var(--color-border-subtle);
+	color: var(--color-text-primary);
 }
 
 .userMarkdown :global(td) {
-	border-color: rgba(255, 255, 255, 0.15);
+	border-color: var(--color-border-subtle);
 }
 
 .userMarkdown :global(tbody tr:hover) {
-	background: rgba(255, 255, 255, 0.05);
+	background: var(--color-interactive-hover);
 }
 
 .userMarkdown :global(hr) {
-	background: rgba(255, 255, 255, 0.3);
+	background: var(--color-border-secondary);
 }
 
 .userMarkdown :global(kbd) {
-	background: rgba(255, 255, 255, 0.15);
-	border-color: rgba(255, 255, 255, 0.2);
-	color: var(--color-neutral-0);
+	background: var(--color-surface-active);
+	border-color: var(--color-border-secondary);
+	color: var(--color-text-primary);
 }
 
 .userMarkdown :global(mark) {
-	background: rgba(255, 255, 255, 0.3);
+	background: var(--color-surface-active);
 }
 
 .userMarkdown :global(strong) {
-	color: var(--color-neutral-0);
+	color: var(--color-text-primary);
 }
 
 /* Task list checkboxes in user messages */
 .userMarkdown :global(.task-list-item input[type="checkbox"]) {
-	border-color: rgba(255, 255, 255, 0.5);
+	border-color: var(--color-border-secondary);
 	background: transparent;
 }
 
 .userMarkdown :global(.task-list-item input[type="checkbox"]:checked) {
-	background: rgba(255, 255, 255, 0.9);
-	border-color: rgba(255, 255, 255, 0.9);
+	background: var(--color-surface-elevated);
+	border-color: var(--color-border-secondary);
 }
 
 .userMarkdown :global(.task-list-item input[type="checkbox"]:checked::after) {
-	border-color: var(--color-primary-600);
+	border-color: var(--color-text-primary);
 }
 
 .content :global(pre) {
 	margin: var(--space-3) 0;
-	background: var(--color-neutral-950);
+	background: var(--color-bg-tertiary);
 	border-radius: var(--radius-lg);
 	overflow: hidden;
-	border: 1px solid var(--color-border-subtle);
+	border: none;
 }
 
 .footer {
@@ -240,7 +239,7 @@
 }
 
 .actionButton:focus-visible {
-	outline: 2px solid var(--color-primary-500);
+	outline: 2px solid var(--color-border-secondary);
 	outline-offset: 2px;
 }
 
@@ -262,7 +261,7 @@
 }
 
 .retryButton:focus-visible {
-	outline: 2px solid var(--color-primary-500);
+	outline: 2px solid var(--color-border-secondary);
 	outline-offset: 2px;
 }
 

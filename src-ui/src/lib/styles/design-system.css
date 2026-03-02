@@ -72,10 +72,10 @@
 	--color-info-light: rgba(14, 165, 233, 0.15);
 
 	/* Role-based message colors - subtle differentiation */
-	--color-role-user-bg: rgba(99, 102, 241, 0.06);
-	--color-role-user-bg-hover: rgba(99, 102, 241, 0.1);
+	--color-role-user-bg: var(--color-surface-hover);
+	--color-role-user-bg-hover: var(--color-surface-active);
 	--color-role-assistant-bg: transparent;
-	--color-role-assistant-bg-hover: rgba(255, 255, 255, 0.02);
+	--color-role-assistant-bg-hover: var(--color-interactive-hover);
 
 	/* =====================
      Typography

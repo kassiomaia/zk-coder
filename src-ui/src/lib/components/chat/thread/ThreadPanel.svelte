@@ -4,7 +4,6 @@
 	 * Content panel showing messages within a thread.
 	 */
 	import styles from './ThreadPanel.module.css';
-	import ThreadBreadcrumbs from './ThreadBreadcrumbs.svelte';
 	import ChatArea from '../ChatArea.svelte';
 	import StatusBadge from '../shared/StatusBadge.svelte';
 	import type { Thread } from '$lib/types/thread';
@@ -45,10 +44,10 @@
 </script>
 
 <div class={styles.panel}>
-	<!-- Header with breadcrumbs -->
+	<!-- Header with context and title -->
 	<header class={styles.header}>
 		{#if breadcrumbPath.length > 0}
-			<ThreadBreadcrumbs path={breadcrumbPath} {onNavigate} />
+			<span class={styles.context}>{breadcrumbPath[0].title}</span>
 		{/if}
 		<div class={styles.titleRow}>
 			<h1 class={styles.title}>{thread.title}</h1>

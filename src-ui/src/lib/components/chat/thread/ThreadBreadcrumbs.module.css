@@ -53,7 +53,7 @@
 }
 
 .link:focus-visible {
-	outline: 2px solid var(--color-primary-500);
+	outline: 2px solid var(--color-border-secondary);
 	outline-offset: 1px;
 }
 
@@ -70,7 +70,7 @@
 
 .current {
 	color: var(--color-text-primary);
-	font-weight: var(--font-semibold);
+	font-weight: var(--font-medium);
 	max-width: 150px;
 	overflow: hidden;
 	text-overflow: ellipsis;
