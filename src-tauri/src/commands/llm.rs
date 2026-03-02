@@ -316,7 +316,6 @@ pub async fn send_chat_message_streaming(
 
     // Convert messages for LLM
     let llm_messages = convert_messages(&context_messages);
-    info!("send_chat_message_streaming: converted {} messages for LLM", llm_messages.len());
 
     // Create chat request with streaming enabled
     let chat_request = ChatRequest::new(&model.name, llm_messages)
@@ -325,19 +324,14 @@ pub async fn send_chat_message_streaming(
         .with_max_tokens(request.max_tokens.unwrap_or(4096))
         .with_stream();
 
-    info!("send_chat_message_streaming: created chat request for model {}", model.name);
-
     // Get app handle for async task
     let app_handle_clone = app_handle.clone();
     let request_id_clone = request_id.clone();
     let conversation_id = request.conversation_id.clone();
     let model_name_for_log = model.name.clone();
 
-    info!("send_chat_message_streaming: spawning streaming task for request_id={}", request_id);
-
     // Spawn streaming task
     tokio::spawn(async move {
-        info!("streaming_task: starting stream for request_id={}, model={}", request_id_clone, model_name_for_log);
         let stream = client.chat_stream(chat_request);
         let events = crate::llm::stream_to_events(request_id_clone.clone(), model_name_for_log.clone(), stream);
 
@@ -350,33 +344,32 @@ pub async fn send_chat_message_streaming(
 
         while let Some(event) = events.next().await {
             match &event {
-                LlmEvent::Started { model, .. } => {
-                    info!("streaming_task: received Started event for model={}", model);
-                }
                 LlmEvent::Chunk { delta, .. } => {
                     final_content.push_str(delta);
                 }
                 LlmEvent::Complete { content, usage, .. } => {
-                    info!("streaming_task: received Complete event, content_length={}", content.len());
                     final_content = content.clone();
                     final_usage = usage.clone();
                 }
                 LlmEvent::Error { error, .. } => {
-                    error!("streaming_task: received Error event: {}", error);
+                    error!("[LLM] Stream error: {}", error);
                 }
+                _ => {}
             }
 
             // Emit event to frontend
             if let Err(e) = app_handle_clone.emit("llm:event", &event) {
-                error!("streaming_task: failed to emit LLM event: {}", e);
+                error!("[LLM] Failed to emit event: {}", e);
             }
         }
 
-        info!("streaming_task: stream completed, final_content_length={}", final_content.len());
+        info!(
+            "[LLM] Stream completed: request_id={}, content_length={}",
+            request_id_clone, final_content.len()
+        );
 
         // Save assistant message after streaming completes
         if !final_content.is_empty() {
-            info!("streaming_task: saving assistant message to database");
             let mut assistant_message = ChatMessage::assistant(&conversation_id, &final_content);
 
             // Add metadata about model and tokens
@@ -389,12 +382,8 @@ pub async fn send_chat_message_streaming(
             let chat_state = app_handle_clone.state::<ChatState>();
             let chat_store = chat_state.store.lock().await;
             if let Err(e) = chat_store.add_message(&assistant_message) {
-                error!("streaming_task: failed to save assistant message: {}", e);
-            } else {
-                info!("streaming_task: assistant message saved successfully");
+                error!("[LLM] Failed to save assistant message: {}", e);
             }
-        } else {
-            info!("streaming_task: no content to save (final_content is empty)");
         }
     });
 
