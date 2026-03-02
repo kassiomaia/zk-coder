@@ -4,7 +4,6 @@
  *
  * Design Features:
  * - Enhanced header with better hierarchy
- * - Unified status badge via StatusBadge component
  * - Consistent styling with rest of app
  */
 
@@ -33,22 +32,23 @@
 	margin-bottom: var(--space-1);
 }
 
-.titleRow {
-	display: flex;
-	align-items: center;
-	gap: var(--space-3);
-}
-
 .title {
 	font-size: var(--text-xl);
 	font-weight: var(--font-medium);
 	color: var(--color-text-primary);
 	margin: 0;
-	flex: 1;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	letter-spacing: var(--tracking-tight);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+/* Resolved icon - inline with title */
+.resolvedIcon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--color-success);
+	flex-shrink: 0;
 }
 
 .summary {
