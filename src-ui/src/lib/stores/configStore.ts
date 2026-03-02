@@ -4,7 +4,7 @@
  */
 
 import { writable, derived, get } from 'svelte/store';
-import type { Provider, Model, OperationDefault, ApiType, OperationType, SaveProviderRequest } from '$lib/types/config';
+import type { Provider, Model, ModelsSource, ManualModelEntry, OperationDefault, ApiType, OperationType, SaveProviderRequest } from '$lib/types/config';
 import {
 	getProviders,
 	saveProvider as apiSaveProvider,
@@ -16,7 +16,11 @@ import {
 	retrieveApiKey as apiRetrieveApiKey,
 	deleteApiKey as apiDeleteApiKey,
 	getOperationDefaults,
-	setOperationDefault as apiSetOperationDefault
+	setOperationDefault as apiSetOperationDefault,
+	getManualModels as apiGetManualModels,
+	addManualModel as apiAddManualModel,
+	removeManualModel as apiRemoveManualModel,
+	setProviderModelsSource as apiSetProviderModelsSource
 } from '$lib/api/config';
 
 // ============================================================================
@@ -336,6 +340,40 @@ function createConfigStore() {
 					...state,
 					operationDefaults: [...state.operationDefaults, { operation, modelId }]
 				};
+			});
+		},
+
+		/**
+		 * Gets manual models for a provider.
+		 */
+		async getManualModels(providerId: string): Promise<ManualModelEntry[]> {
+			return apiGetManualModels(providerId);
+		},
+
+		/**
+		 * Adds a manual model for a provider.
+		 */
+		async addManualModel(providerId: string, name: string, capabilities?: ManualModelEntry['capabilities']): Promise<void> {
+			await apiAddManualModel(providerId, name, capabilities);
+		},
+
+		/**
+		 * Removes a manual model for a provider.
+		 */
+		async removeManualModel(providerId: string, modelName: string): Promise<void> {
+			await apiRemoveManualModel(providerId, modelName);
+		},
+
+		/**
+		 * Sets the models source mode for a provider.
+		 */
+		async setProviderModelsSource(providerId: string, modelsSource: ModelsSource): Promise<void> {
+			await apiSetProviderModelsSource(providerId, modelsSource);
+			update((state) => {
+				const providers = state.providers.map((p) =>
+					p.id === providerId ? { ...p, modelsSource } : p
+				);
+				return { ...state, providers };
 			});
 		},
 

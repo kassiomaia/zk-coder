@@ -92,6 +92,78 @@
 	flex-shrink: 0;
 }
 
+/* Model Source Section */
+.modelSourceSection {
+	padding: var(--space-4);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-lg);
+	margin-bottom: var(--space-4);
+}
+
+.modelSourceTitle {
+	margin: 0 0 var(--space-1) 0;
+	font-size: var(--text-sm);
+	font-weight: var(--font-semibold);
+	color: var(--color-text-primary);
+}
+
+.modelSourceDesc {
+	margin: 0 0 var(--space-3) 0;
+	font-size: var(--text-sm);
+	color: var(--color-text-tertiary);
+}
+
+.modelSourceOptions {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.modelSourceOption {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-3);
+	padding: var(--space-3);
+	background: var(--color-bg-tertiary);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.modelSourceOption:hover {
+	border-color: var(--color-border-primary);
+	background: var(--color-surface-hover);
+}
+
+.modelSourceOption.selected {
+	border-color: var(--color-primary-500);
+	background: var(--color-interactive-selected);
+}
+
+.modelSourceOption input[type="radio"] {
+	margin-top: var(--space-0-5);
+	accent-color: var(--color-primary-500);
+}
+
+.optionContent {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-0-5);
+}
+
+.optionName {
+	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
+	color: var(--color-text-primary);
+}
+
+.optionDesc {
+	font-size: var(--text-xs);
+	color: var(--color-text-tertiary);
+}
+
 /* Loading state */
 .loading {
 	display: flex;

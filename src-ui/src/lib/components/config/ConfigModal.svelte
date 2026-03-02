@@ -8,8 +8,9 @@
 	import Button from '../shared/Button.svelte';
 	import Input from '../shared/Input.svelte';
 	import { configStore, type ValidationState } from '$lib/stores/configStore';
-	import type { Provider, ApiType } from '$lib/types/config';
+	import type { Provider, ApiType, ModelsSource } from '$lib/types/config';
 	import ProviderIcon from './ProviderIcon.svelte';
+	import ManualModelList from '../ManualModelList.svelte';
 
 	interface Props {
 		open: boolean;
@@ -27,6 +28,8 @@
 		icon: ''
 	});
 	let isSaving = $state(false);
+	let modelsSource = $state<ModelsSource>('auto');
+	let isUpdatingModelsSource = $state(false);
 
 	// Use reactive store subscription for proper reactivity
 	let provider = $derived.by(() => {
@@ -151,11 +154,26 @@
 		onclose();
 	}
 
+	async function handleSetModelsSource(source: ModelsSource) {
+		if (!provider) return;
+
+		isUpdatingModelsSource = true;
+		try {
+			await configStore.setProviderModelsSource(provider.id, source);
+			modelsSource = source;
+		} catch (error) {
+			console.error('Failed to set models source:', error);
+		} finally {
+			isUpdatingModelsSource = false;
+		}
+	}
+
 	$effect(() => {
 		if (open && provider) {
 			// Reset state when modal opens
 			apiKey = '';
 			validation = { status: 'idle', message: '', icon: '' };
+			modelsSource = provider.modelsSource;
 
 			// Load existing API key if available
 			configStore.retrieveApiKey(provider.id)
@@ -223,6 +241,64 @@
 					/>
 				{/if}
 			</div>
+
+			<!-- Model Source Configuration -->
+			{#if provider.isConfigured}
+				<div class={styles.modelSourceSection}>
+					<h4 class={styles.modelSourceTitle}>Model Discovery Mode</h4>
+					<p class={styles.modelSourceDesc}>
+						Choose how models are discovered for this provider.
+					</p>
+					<div class={styles.modelSourceOptions}>
+						<label class={[styles.modelSourceOption, modelsSource === 'auto' && styles.selected].join(' ')}>
+							<input
+								type="radio"
+								name="modelsSource"
+								value="auto"
+								bind:group={modelsSource}
+								onchange={() => handleSetModelsSource('auto')}
+								disabled={isUpdatingModelsSource}
+							/>
+							<div class={styles.optionContent}>
+								<span class={styles.optionName}>Auto</span>
+								<span class={styles.optionDesc}>Automatically fetch models from provider API</span>
+							</div>
+						</label>
+						<label class={[styles.modelSourceOption, modelsSource === 'manual' && styles.selected].join(' ')}>
+							<input
+								type="radio"
+								name="modelsSource"
+								value="manual"
+								bind:group={modelsSource}
+								onchange={() => handleSetModelsSource('manual')}
+								disabled={isUpdatingModelsSource}
+							/>
+							<div class={styles.optionContent}>
+								<span class={styles.optionName}>Manual Only</span>
+								<span class={styles.optionDesc}>Use only manually configured models</span>
+							</div>
+						</label>
+						<label class={[styles.modelSourceOption, modelsSource === 'hybrid' && styles.selected].join(' ')}>
+							<input
+								type="radio"
+								name="modelsSource"
+								value="hybrid"
+								bind:group={modelsSource}
+								onchange={() => handleSetModelsSource('hybrid')}
+								disabled={isUpdatingModelsSource}
+							/>
+							<div class={styles.optionContent}>
+								<span class={styles.optionName}>Hybrid</span>
+								<span class={styles.optionDesc}>Combine API models with manual models</span>
+							</div>
+						</label>
+					</div>
+
+					{#if modelsSource !== 'auto' && providerId}
+						<ManualModelList providerId={providerId} />
+					{/if}
+				</div>
+			{/if}
 
 			{#if validation.status !== 'idle'}
 				<div class={[styles.validation, styles[validation.status]].join(' ')}>

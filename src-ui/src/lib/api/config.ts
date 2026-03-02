@@ -8,6 +8,8 @@ import type {
 	ApiType,
 	Provider,
 	Model,
+	ModelsSource,
+	ManualModelEntry,
 	OperationDefault,
 	SaveProviderRequest,
 	ValidationResult,
@@ -59,6 +61,7 @@ interface ProviderResponse {
 	apiType: ApiType;
 	baseUrl?: string;
 	isConfigured: boolean;
+	modelsSource: ModelsSource;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -96,7 +99,8 @@ function providerToClient(p: ProviderResponse): Provider {
 		isCustom: p.isCustom,
 		apiType: p.apiType,
 		baseUrl: p.baseUrl,
-		isConfigured: p.isConfigured
+		isConfigured: p.isConfigured,
+		modelsSource: p.modelsSource
 	};
 }
 
@@ -276,4 +280,77 @@ export async function setOperationDefault(
 	modelId: string
 ): Promise<void> {
 	await safeInvoke<void>('set_operation_default', { operation, modelId });
+}
+
+// ============================================================================
+// Manual Model Commands
+// ============================================================================
+
+interface ManualModelResponse {
+	name: string;
+	capabilities: {
+		analysis: boolean;
+		code: boolean;
+		vision: boolean;
+		audio: boolean;
+		tips: boolean;
+		review: boolean;
+	};
+}
+
+function manualModelToClient(m: ManualModelResponse): ManualModelEntry {
+	return {
+		name: m.name,
+		capabilities: {
+			analysis: m.capabilities.analysis,
+			code: m.capabilities.code,
+			vision: m.capabilities.vision,
+			audio: m.capabilities.audio,
+			tips: m.capabilities.tips,
+			review: m.capabilities.review,
+			streaming: true
+		}
+	};
+}
+
+/**
+ * Gets all manual models for a provider.
+ */
+export async function getManualModels(providerId: string): Promise<ManualModelEntry[]> {
+	const response = await safeInvoke<ManualModelResponse[]>('get_manual_models', { providerId });
+	return response.map(manualModelToClient);
+}
+
+/**
+ * Adds a manual model for a provider.
+ */
+export async function addManualModel(
+	providerId: string,
+	name: string,
+	capabilities?: ManualModelEntry['capabilities']
+): Promise<void> {
+	await safeInvoke<void>('add_manual_model', {
+		request: {
+			providerId,
+			name,
+			capabilities
+		}
+	});
+}
+
+/**
+ * Removes a manual model for a provider.
+ */
+export async function removeManualModel(providerId: string, modelName: string): Promise<void> {
+	await safeInvoke<void>('remove_manual_model', { providerId, modelName });
+}
+
+/**
+ * Sets the models source mode for a provider.
+ */
+export async function setProviderModelsSource(
+	providerId: string,
+	modelsSource: ModelsSource
+): Promise<void> {
+	await safeInvoke<void>('set_provider_models_source', { providerId, modelsSource });
 }
