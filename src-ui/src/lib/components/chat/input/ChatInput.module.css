@@ -3,26 +3,30 @@
  * Enhanced multi-line input with command palette and mentions support.
  *
  * Design Features:
- * - Clean borderless design
- * - Simplified send button without glow
- * - Reduced visual weight for action buttons
- * - Smooth transitions throughout
+ * - Clear input area with visible border
+ * - Multi-line textarea with proper height
+ * - Simplified send button
+ * - Max-width constraint for readability
  */
 
 .container {
 	background: var(--color-surface);
-	border: none;
+	border: 1px solid var(--color-border-primary);
 	border-radius: var(--radius-2xl);
 	padding: var(--space-3);
-	transition: background var(--transition-fast);
+	transition: all var(--transition-fast);
+	max-width: 900px;
+	margin: 0 auto;
 }
 
 .container:hover {
-	background: var(--color-surface-hover);
+	border-color: var(--color-border-secondary);
 }
 
 .container:focus-within {
 	background: var(--color-surface);
+	border-color: var(--color-primary-400);
+	box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
 
 .container.disabled {
@@ -116,24 +120,24 @@
 /* Input wrapper */
 .inputWrapper {
 	position: relative;
-	margin-bottom: var(--space-2);
 }
 
 /* Textarea */
 .textarea {
 	width: 100%;
 	min-height: 24px;
-	max-height: 200px;
-	padding: 0;
+	max-height: 72px;
+	padding: var(--space-1) 0;
 	font-family: var(--font-sans);
 	font-size: var(--text-sm);
-	line-height: var(--leading-relaxed);
+	line-height: 1.5;
 	color: var(--color-text-primary);
 	background: transparent;
 	border: none;
 	outline: none;
 	box-shadow: none;
 	resize: none;
+	overflow-y: auto;
 }
 
 .textarea:focus {
@@ -152,38 +156,41 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	padding-top: var(--space-2);
+	border-top: 1px solid var(--color-border-subtle);
+	margin-top: var(--space-2);
 }
 
 .leftActions,
 .rightActions {
 	display: flex;
 	align-items: center;
-	gap: var(--space-0-5);
+	gap: var(--space-1);
 }
 
-/* Action buttons - reduced visual weight */
+/* Action buttons - toolbar style */
 .actionButton {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 32px;
-	height: 32px;
+	width: 28px;
+	height: 28px;
 	padding: 0;
 	background: transparent;
 	border: none;
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-md);
 	cursor: pointer;
 	color: var(--color-text-muted);
 	transition: all var(--transition-fast);
 }
 
 .actionButton:hover:not(:disabled) {
-	background: var(--color-surface-hover);
+	background: var(--color-interactive-hover);
 	color: var(--color-text-secondary);
 }
 
 .actionButton.active {
-	background: var(--color-surface-hover);
+	background: var(--color-interactive-selected);
 	color: var(--color-text-primary);
 }
 
@@ -213,17 +220,17 @@
 	font-weight: var(--font-medium);
 }
 
-/* Send button - simplified without glow */
+/* Send button - compact toolbar style */
 .sendButton {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 36px;
-	height: 36px;
+	width: 28px;
+	height: 28px;
 	background: var(--color-surface-elevated);
 	color: var(--color-text-primary);
 	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-full);
+	border-radius: var(--radius-md);
 	cursor: pointer;
 	transition: all var(--transition-fast);
 }
@@ -238,15 +245,15 @@
 }
 
 .sendButton.disabled {
-	background: var(--color-surface);
+	background: transparent;
 	color: var(--color-text-disabled);
-	border-color: var(--color-border-subtle);
+	border-color: transparent;
 	cursor: not-allowed;
 }
 
 .sendButton:focus-visible {
 	outline: 2px solid var(--color-border-secondary);
-	outline-offset: 2px;
+	outline-offset: 1px;
 }
 
 /* Spinner animation */

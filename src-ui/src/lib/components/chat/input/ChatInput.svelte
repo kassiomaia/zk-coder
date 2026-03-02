@@ -119,11 +119,11 @@
 			.join(' ')
 	);
 
-	// Auto-resize textarea
+	// Auto-resize textarea (max 3 lines = ~72px)
 	$effect(() => {
 		if (textareaRef && !isPreviewMode) {
 			textareaRef.style.height = 'auto';
-			textareaRef.style.height = `${Math.min(textareaRef.scrollHeight, 200)}px`;
+			textareaRef.style.height = `${Math.min(textareaRef.scrollHeight, 72)}px`;
 		}
 	});
 
@@ -448,8 +448,8 @@
 				{#if loading}
 					<svg
 						class={styles.spinner}
-						width="20"
-						height="20"
+						width="16"
+						height="16"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -467,7 +467,7 @@
 						</circle>
 					</svg>
 				{:else}
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
 						<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
 					</svg>
 				{/if}
