@@ -5,6 +5,7 @@
 	 */
 	import styles from './ChatMessage.module.css';
 	import ThreadIndicator from './chat/ThreadIndicator.svelte';
+	import MarkdownRenderer from './markdown/MarkdownRenderer.svelte';
 	import type { MessageStatus } from '$lib/types/message';
 
 	interface Props {
@@ -86,7 +87,7 @@
 	{/if}
 
 	<div class={styles.content}>
-		{@html content}
+		<MarkdownRenderer content={content} class={role === 'user' ? styles.userMarkdown : ''} />
 	</div>
 
 	<footer class={styles.footer}>

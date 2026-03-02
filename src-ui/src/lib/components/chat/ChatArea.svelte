@@ -6,6 +6,7 @@
 	import ChatInput from './input/ChatInput.svelte';
 	import TypingIndicator from './TypingIndicator.svelte';
 	import ThreadIndicator from './ThreadIndicator.svelte';
+	import MarkdownRenderer from '../markdown/MarkdownRenderer.svelte';
 	import type { Message } from '$lib/types/message';
 	import type { Thread } from '$lib/types/thread';
 	import styles from './ChatArea.module.css';
@@ -214,7 +215,7 @@
 									/>
 								{/if}
 								<div class={styles.messageContent}>
-									{message.content}
+									<MarkdownRenderer content={message.content} />
 								</div>
 								<!-- Message status indicator -->
 								{#if message.status === 'sending'}
