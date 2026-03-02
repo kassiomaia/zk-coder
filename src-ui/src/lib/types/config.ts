@@ -6,6 +6,9 @@
 /** API provider type */
 export type ApiType = 'openai' | 'anthropic' | 'google';
 
+/** Model source mode for a provider */
+export type ModelsSource = 'auto' | 'manual' | 'hybrid';
+
 /** Operation type for model assignment */
 export type OperationType = 'analysis' | 'code' | 'vision' | 'audio' | 'tips' | 'review';
 
@@ -25,6 +28,8 @@ export interface Provider {
 	baseUrl?: string;
 	/** Whether the provider is configured with an API key */
 	isConfigured: boolean;
+	/** Model source mode */
+	modelsSource: ModelsSource;
 }
 
 /** Model capabilities */
@@ -36,6 +41,12 @@ export interface ModelCapabilities {
 	tips: boolean;
 	review: boolean;
 	streaming: boolean;
+}
+
+/** A manually configured model entry for a provider */
+export interface ManualModelEntry {
+	name: string;
+	capabilities: ModelCapabilities;
 }
 
 /** LLM model */

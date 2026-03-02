@@ -41,6 +41,41 @@ impl ApiType {
     }
 }
 
+/// Model source mode for a provider.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ModelsSource {
+    /// Automatically fetch models from provider API (with fallback to hardcoded list)
+    #[default]
+    Auto,
+    /// Use only manually configured models
+    Manual,
+    /// Combine API-fetched models with manual models
+    Hybrid,
+}
+
+impl ModelsSource {
+    /// Converts the models source to a string for database storage.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Manual => "manual",
+            Self::Hybrid => "hybrid",
+        }
+    }
+
+    /// Creates a models source from a string.
+    #[must_use]
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "manual" => Self::Manual,
+            "hybrid" => Self::Hybrid,
+            _ => Self::Auto,
+        }
+    }
+}
+
 /// LLM provider configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -59,6 +94,9 @@ pub struct Provider {
     pub base_url: Option<String>,
     /// Whether the provider has been configured with an API key
     pub is_configured: bool,
+    /// Model source mode (auto, manual, hybrid)
+    #[serde(default)]
+    pub models_source: ModelsSource,
     /// When the provider was created
     pub created_at: DateTime<Utc>,
     /// When the provider was last updated
@@ -78,6 +116,7 @@ impl Provider {
             api_type,
             base_url: None,
             is_configured: false,
+            models_source: ModelsSource::default(),
             created_at: now,
             updated_at: now,
         }
@@ -108,6 +147,7 @@ impl Provider {
             api_type,
             base_url,
             is_configured: false,
+            models_source: ModelsSource::default(),
             created_at: now,
             updated_at: now,
         }
@@ -176,6 +216,47 @@ impl ModelCapabilities {
             review: true,
         }
     }
+}
+
+/// A manually configured model entry for a provider.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManualModelEntry {
+    /// Model name (e.g., "gpt-4", "claude-3-opus-20240229")
+    pub name: String,
+    /// Model capabilities
+    pub capabilities: ModelCapabilities,
+}
+
+impl ManualModelEntry {
+    /// Creates a new manual model entry.
+    #[must_use]
+    pub fn new(name: impl Into<String>, capabilities: ModelCapabilities) -> Self {
+        Self {
+            name: name.into(),
+            capabilities,
+        }
+    }
+
+    /// Creates a manual model entry with inferred capabilities from the model name.
+    #[must_use]
+    pub fn infer_from_name(name: impl Into<String>) -> Self {
+        let name_str = name.into();
+        let capabilities = ModelCapabilities::infer_from_name(&name_str);
+        Self::new(name_str, capabilities)
+    }
+}
+
+/// Request to add or update a manual model for a provider.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManualModelRequest {
+    /// Provider ID
+    pub provider_id: String,
+    /// Model name
+    pub name: String,
+    /// Model capabilities (optional, will infer from name if not provided)
+    pub capabilities: Option<ModelCapabilities>,
 }
 
 /// LLM model available from a provider.
