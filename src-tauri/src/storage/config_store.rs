@@ -571,6 +571,57 @@ impl ConfigStore {
         Ok(())
     }
 
+    /// Adds a single model to the models table (without replacing existing models).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn add_model(&self, model: &Model) -> Result<(), ConfigStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        conn.execute(
+            "INSERT OR REPLACE INTO models (id, provider_id, name, supports_analysis, supports_code,
+             supports_vision, supports_audio, supports_tips, supports_review, last_fetched)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                &model.id,
+                &model.provider_id,
+                &model.name,
+                model.capabilities.analysis,
+                model.capabilities.code,
+                model.capabilities.vision,
+                model.capabilities.audio,
+                model.capabilities.tips,
+                model.capabilities.review,
+                &model.last_fetched.to_rfc3339(),
+            ],
+        )?;
+
+        Ok(())
+    }
+
+    /// Removes a model from the models table by provider ID and model name.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn delete_model_by_name(&self, provider_id: &str, model_name: &str) -> Result<(), ConfigStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        conn.execute(
+            "DELETE FROM models WHERE provider_id = ?1 AND name = ?2",
+            params![provider_id, model_name],
+        )?;
+
+        Ok(())
+    }
+
     /// Gets a model by ID.
     ///
     /// # Errors
@@ -807,6 +858,136 @@ impl ConfigStore {
             )?;
 
         Ok(exists)
+    }
+
+    // =========================================================================
+    // Manual Model Operations
+    // =========================================================================
+
+    /// Gets all manual models for a provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn get_manual_models(&self, provider_id: &str) -> Result<Vec<ManualModelEntry>, ConfigStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let mut stmt = conn.prepare(
+            "SELECT name, supports_analysis, supports_code, supports_vision,
+                    supports_audio, supports_tips, supports_review
+             FROM manual_models WHERE provider_id = ?1 ORDER BY name",
+        )?;
+
+        let models = stmt
+            .query_map(params![provider_id], |row| {
+                Ok(ManualModelEntry {
+                    name: row.get(0)?,
+                    capabilities: ModelCapabilities {
+                        analysis: row.get(1)?,
+                        code: row.get(2)?,
+                        vision: row.get(3)?,
+                        audio: row.get(4)?,
+                        tips: row.get(5)?,
+                        review: row.get(6)?,
+                    },
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(models)
+    }
+
+    /// Adds a manual model for a provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn add_manual_model(
+        &self,
+        provider_id: &str,
+        model: &ManualModelEntry,
+    ) -> Result<(), ConfigStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO manual_models (provider_id, name, supports_analysis, supports_code,
+             supports_vision, supports_audio, supports_tips, supports_review, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                provider_id,
+                &model.name,
+                model.capabilities.analysis,
+                model.capabilities.code,
+                model.capabilities.vision,
+                model.capabilities.audio,
+                model.capabilities.tips,
+                model.capabilities.review,
+                now,
+            ],
+        )?;
+
+        Ok(())
+    }
+
+    /// Removes a manual model for a provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn remove_manual_model(
+        &self,
+        provider_id: &str,
+        model_name: &str,
+    ) -> Result<(), ConfigStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let rows_affected = conn.execute(
+            "DELETE FROM manual_models WHERE provider_id = ?1 AND name = ?2",
+            params![provider_id, model_name],
+        )?;
+
+        if rows_affected == 0 {
+            return Err(ConfigStoreError::NotFound(
+                "Manual model",
+                format!("{} for provider {}", model_name, provider_id),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Sets the models source mode for a provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn set_provider_models_source(
+        &self,
+        provider_id: &str,
+        models_source: ModelsSource,
+    ) -> Result<(), ConfigStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE providers SET models_source = ?1, updated_at = ?2 WHERE id = ?3",
+            params![models_source.as_str(), now, provider_id],
+        )?;
+
+        Ok(())
     }
 }
 

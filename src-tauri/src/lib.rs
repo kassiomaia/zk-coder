@@ -111,6 +111,10 @@ pub fn run() {
             commands::config::get_operation_defaults,
             commands::config::set_operation_default,
             commands::config::get_models,
+            commands::config::get_manual_models,
+            commands::config::add_manual_model,
+            commands::config::remove_manual_model,
+            commands::config::set_provider_models_source,
             // LLM commands
             commands::llm::send_chat_message,
             commands::llm::send_chat_message_streaming,

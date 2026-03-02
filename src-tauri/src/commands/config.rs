@@ -7,8 +7,9 @@ use tokio::sync::Mutex;
 
 use crate::api;
 use crate::nlp::config::{
-    ApiType, FetchModelsResult, Model, ModelCapabilities, OperationDefault, OperationType,
-    Provider, SaveProviderRequest, ValidationResult,
+    ApiType, FetchModelsResult, ManualModelEntry, ManualModelRequest, Model, ModelCapabilities,
+    ModelsSource, OperationDefault, OperationType, Provider, SaveProviderRequest,
+    ValidationResult,
 };
 use crate::storage::ConfigStore;
 
@@ -86,7 +87,7 @@ pub async fn save_provider(
         let existing = store.get_provider(&id).map_err(|e| e.to_string())?;
 
         if let Some(existing) = existing {
-            // Update existing provider (preserve is_custom for built-in providers)
+            // Update existing provider (preserve is_custom and models_source for built-in providers)
             Provider {
                 id,
                 name: request.name,
@@ -95,6 +96,7 @@ pub async fn save_provider(
                 api_type: request.api_type,
                 base_url: request.base_url,
                 is_configured: existing.is_configured,
+                models_source: existing.models_source,
                 created_at: existing.created_at,
                 updated_at: chrono::Utc::now(),
             }
@@ -199,8 +201,32 @@ pub async fn fetch_models(
         return Ok(FetchModelsResult::failure("Please enter an API key first"));
     }
 
-    // Fetch models from API
-    let result = api::fetch_models(api_type, &api_key, base_url.as_deref()).await?;
+    // Get provider to check models_source setting
+    let store = state.store.lock().await;
+    let provider = store
+        .get_provider(&provider_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+
+    let models_source = provider.models_source;
+
+    // Get manual models for this provider
+    let manual_models = store
+        .get_manual_models(&provider_id)
+        .map_err(|e| e.to_string())?;
+
+    // Release lock before making API call
+    drop(store);
+
+    // Fetch models from API (or use manual models depending on mode)
+    let result = api::fetch_models_with_mode(
+        api_type,
+        &api_key,
+        base_url.as_deref(),
+        models_source,
+        &manual_models,
+    )
+    .await?;
 
     if !result.success {
         return Ok(result);
@@ -347,6 +373,108 @@ pub async fn get_models(
 ) -> Result<Vec<Model>, String> {
     let store = state.store.lock().await;
     store.get_models(&provider_id).map_err(|e| e.to_string())
+}
+
+// =========================================================================
+// Manual Model Commands
+// =========================================================================
+
+/// Gets all manual models for a provider.
+#[tauri::command]
+pub async fn get_manual_models(
+    provider_id: String,
+    state: tauri::State<'_, ConfigState>,
+) -> Result<Vec<ManualModelEntry>, String> {
+    let store = state.store.lock().await;
+    store.get_manual_models(&provider_id).map_err(|e| e.to_string())
+}
+
+/// Adds a manual model for a provider.
+#[tauri::command]
+pub async fn add_manual_model(
+    request: ManualModelRequest,
+    state: tauri::State<'_, ConfigState>,
+) -> Result<(), String> {
+    let store = state.store.lock().await;
+
+    // Validate model name
+    let name = request.name.trim();
+    if name.is_empty() {
+        return Err("Model name cannot be empty".to_string());
+    }
+
+    // Use provided capabilities or infer from model name
+    let capabilities = request
+        .capabilities
+        .unwrap_or_else(|| ModelCapabilities::infer_from_name(name));
+
+    let model = ManualModelEntry::new(name.clone(), capabilities.clone());
+
+    // Add to manual_models table
+    store
+        .add_manual_model(&request.provider_id, &model)
+        .map_err(|e| e.to_string())?;
+
+    // Also add to models table so it appears in SettingsModal
+    let db_model = Model::new(&request.provider_id, &name, capabilities);
+    store
+        .add_model(&db_model)
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Removes a manual model for a provider.
+#[tauri::command]
+pub async fn remove_manual_model(
+    provider_id: String,
+    model_name: String,
+    state: tauri::State<'_, ConfigState>,
+) -> Result<(), String> {
+    let store = state.store.lock().await;
+
+    // Remove from manual_models table
+    store
+        .remove_manual_model(&provider_id, &model_name)
+        .map_err(|e| e.to_string())?;
+
+    // Also remove from models table
+    store
+        .delete_model_by_name(&provider_id, &model_name)
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Sets the models source mode for a provider.
+#[tauri::command]
+pub async fn set_provider_models_source(
+    provider_id: String,
+    models_source: ModelsSource,
+    state: tauri::State<'_, ConfigState>,
+) -> Result<(), String> {
+    let store = state.store.lock().await;
+
+    // Update the provider's models_source setting
+    store
+        .set_provider_models_source(&provider_id, models_source)
+        .map_err(|e| e.to_string())?;
+
+    // If switching to manual or hybrid mode, sync existing manual models to the models table
+    if matches!(models_source, ModelsSource::Manual | ModelsSource::Hybrid) {
+        let manual_models = store
+            .get_manual_models(&provider_id)
+            .map_err(|e| e.to_string())?;
+
+        for manual_model in manual_models {
+            let db_model = Model::new(&provider_id, &manual_model.name, manual_model.capabilities);
+            store
+                .add_model(&db_model)
+                .map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(())
 }
 
 // =========================================================================

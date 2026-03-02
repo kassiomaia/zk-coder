@@ -6,7 +6,10 @@
 use reqwest::Client;
 use serde::Deserialize;
 
-use crate::nlp::config::{ApiType, FetchModelsResult, Model, ModelCapabilities, ValidationResult};
+use crate::nlp::config::{
+    ApiType, FetchModelsResult, ManualModelEntry, Model, ModelCapabilities, ModelsSource,
+    ValidationResult,
+};
 
 /// Default timeout for API requests (in seconds).
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
@@ -523,10 +526,63 @@ pub async fn fetch_models(
     api_key: &str,
     base_url: Option<&str>,
 ) -> Result<FetchModelsResult, String> {
-    match api_type {
-        ApiType::OpenAI => fetch_openai_models(api_key, base_url).await,
-        ApiType::Anthropic => Ok(get_anthropic_models()),
-        ApiType::Google => fetch_google_models(api_key, base_url).await,
+    fetch_models_with_mode(api_type, api_key, base_url, ModelsSource::Auto, &[]).await
+}
+
+/// Fetches models from the appropriate provider with support for manual/hybrid modes.
+///
+/// # Errors
+///
+/// Returns an error string if the fetch fails.
+pub async fn fetch_models_with_mode(
+    api_type: ApiType,
+    api_key: &str,
+    base_url: Option<&str>,
+    models_source: ModelsSource,
+    manual_models: &[ManualModelEntry],
+) -> Result<FetchModelsResult, String> {
+    match models_source {
+        ModelsSource::Manual => {
+            // Return only manually configured models
+            let model_names: Vec<String> = manual_models.iter().map(|m| m.name.clone()).collect();
+            Ok(FetchModelsResult::success(model_names))
+        }
+        ModelsSource::Auto => {
+            // Current behavior: fetch from API or use hardcoded fallbacks
+            match api_type {
+                ApiType::OpenAI => fetch_openai_models(api_key, base_url).await,
+                ApiType::Anthropic => Ok(get_anthropic_models()),
+                ApiType::Google => fetch_google_models(api_key, base_url).await,
+            }
+        }
+        ModelsSource::Hybrid => {
+            // Fetch from API and merge with manual models
+            let api_result = match api_type {
+                ApiType::OpenAI => fetch_openai_models(api_key, base_url).await?,
+                ApiType::Anthropic => get_anthropic_models(),
+                ApiType::Google => fetch_google_models(api_key, base_url).await?,
+            };
+
+            if !api_result.success {
+                // API fetch failed, but in hybrid mode we still return manual models
+                let model_names: Vec<String> = manual_models.iter().map(|m| m.name.clone()).collect();
+                if !model_names.is_empty() {
+                    return Ok(FetchModelsResult::success(model_names));
+                }
+                return Ok(api_result);
+            }
+
+            let mut models = api_result.models;
+
+            // Add manual models that aren't already in the API list
+            for manual in manual_models {
+                if !models.iter().any(|m| m == &manual.name) {
+                    models.push(manual.name.clone());
+                }
+            }
+
+            Ok(FetchModelsResult::success(models))
+        }
     }
 }
 
