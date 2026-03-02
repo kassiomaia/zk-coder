@@ -439,7 +439,20 @@ pub fn create_client(
 // Helper Functions
 // =============================================================================
 
+/// Batch interval in milliseconds for chunk aggregation.
+/// Chunks are batched and sent every ~50ms to reduce IPC overhead.
+const CHUNK_BATCH_INTERVAL_MS: u64 = 50;
+
+/// Minimum content length to trigger an immediate flush.
+/// If a single chunk or accumulated buffer exceeds this, flush immediately.
+const MIN_FLUSH_LENGTH: usize = 20;
+
 /// Creates a streaming helper for converting chunks to events.
+///
+/// This function batches chunks to reduce IPC overhead:
+/// - Chunks are accumulated and sent every ~50ms
+/// - If accumulated content exceeds MIN_FLUSH_LENGTH, it's sent immediately
+/// - This reduces ~150 IPC calls to ~20-30 per response
 pub fn stream_to_events(
     request_id: String,
     model: String,
@@ -455,20 +468,36 @@ pub fn stream_to_events(
         let mut final_usage = None;
         let mut final_finish_reason = None;
 
+        // Batch buffer for accumulating chunks
+        let mut batch_buffer = String::new();
+        let mut last_flush = std::time::Instant::now();
+
         #[allow(clippy::expect_used)]
         let mut chunks = std::pin::pin!(chunks);
 
         while let Some(chunk_result) = futures::StreamExt::next(&mut chunks).await {
             match chunk_result {
                 Ok(chunk) => {
-                    // Accumulate content
+                    // Accumulate content to batch buffer
                     if let Some(ref delta) = chunk.delta {
                         if let Some(content) = &delta.content {
                             full_content.push_str(content);
-                            yield LlmEvent::Chunk {
-                                request_id: request_id.clone(),
-                                delta: content.clone(),
-                            };
+                            batch_buffer.push_str(content);
+
+                            // Check if we should flush the batch
+                            let now = std::time::Instant::now();
+                            let elapsed_ms = now.duration_since(last_flush).as_millis() as u64;
+                            let should_flush = elapsed_ms >= CHUNK_BATCH_INTERVAL_MS
+                                || batch_buffer.len() >= MIN_FLUSH_LENGTH;
+
+                            if should_flush && !batch_buffer.is_empty() {
+                                yield LlmEvent::Chunk {
+                                    request_id: request_id.clone(),
+                                    delta: batch_buffer.clone(),
+                                };
+                                batch_buffer.clear();
+                                last_flush = now;
+                            }
                         }
                     }
 
@@ -479,6 +508,13 @@ pub fn stream_to_events(
                     }
                 }
                 Err(e) => {
+                    // Flush any remaining content before error
+                    if !batch_buffer.is_empty() {
+                        yield LlmEvent::Chunk {
+                            request_id: request_id.clone(),
+                            delta: batch_buffer.clone(),
+                        };
+                    }
                     yield LlmEvent::Error {
                         request_id: request_id.clone(),
                         error: e.to_string(),
@@ -487,6 +523,14 @@ pub fn stream_to_events(
                     return;
                 }
             }
+        }
+
+        // Flush any remaining buffered content
+        if !batch_buffer.is_empty() {
+            yield LlmEvent::Chunk {
+                request_id: request_id.clone(),
+                delta: batch_buffer,
+            };
         }
 
         yield LlmEvent::Complete {

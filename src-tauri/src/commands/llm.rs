@@ -248,69 +248,43 @@ pub async fn send_chat_message_streaming(
     request: SendChatRequest,
     app_handle: AppHandle,
 ) -> Result<String, String> {
-    info!(
-        "send_chat_message_streaming: conversation_id={}, model_id={:?}",
-        request.conversation_id, request.model_id
-    );
-
     // Generate request ID
     let request_id = uuid::Uuid::new_v4().to_string();
-    info!("send_chat_message_streaming: generated request_id={}", request_id);
+    info!(
+        "[LLM] Starting streaming request: request_id={}, conversation_id={}",
+        request_id, request.conversation_id
+    );
 
     // Get config store
     let llm_state = app_handle.state::<LlmState>();
     let config_store = llm_state.config_store.lock().await;
 
     // Resolve model ID (use code operation default if not provided)
-    info!("send_chat_message_streaming: resolving model_id...");
     let model_id = match resolve_model_id(request.model_id, &config_store).await {
-        Ok(id) => {
-            info!("send_chat_message_streaming: resolved model_id={}", id);
-            id
-        }
+        Ok(id) => id,
         Err(e) => {
-            error!("send_chat_message_streaming: failed to resolve model_id: {}", e);
+            error!("[LLM] Failed to resolve model_id: {}", e);
             return Err(e);
         }
     };
 
     // Get model info
-    info!("send_chat_message_streaming: fetching model info for {}", model_id);
     let model = config_store
         .get_model(&model_id)
-        .map_err(|e| {
-            error!("send_chat_message_streaming: failed to get model: {}", e);
-            e.to_string()
-        })?
-        .ok_or_else(|| {
-            error!("send_chat_message_streaming: model '{}' not found", model_id);
-            format!("Model '{}' not found", model_id)
-        })?;
-    info!("send_chat_message_streaming: found model name={}, provider_id={}", model.name, model.provider_id);
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Model '{}' not found", model_id))?;
 
     // Get provider info
-    info!("send_chat_message_streaming: fetching provider info for {}", model.provider_id);
     let provider = config_store
         .get_provider(&model.provider_id)
-        .map_err(|e| {
-            error!("send_chat_message_streaming: failed to get provider: {}", e);
-            e.to_string()
-        })?
-        .ok_or_else(|| {
-            error!("send_chat_message_streaming: provider '{}' not found", model.provider_id);
-            format!("Provider '{}' not found", model.provider_id)
-        })?;
-    info!("send_chat_message_streaming: found provider name={}, api_type={:?}", provider.name, provider.api_type);
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Provider '{}' not found", model.provider_id))?;
 
     // Get API key
-    info!("send_chat_message_streaming: retrieving API key for provider {}", provider.id);
     let api_key = match get_api_key_for_provider(&provider.id, &config_store) {
-        Ok(key) => {
-            info!("send_chat_message_streaming: API key retrieved (length={})", key.len());
-            key
-        }
+        Ok(key) => key,
         Err(e) => {
-            error!("send_chat_message_streaming: failed to get API key: {}", e);
+            error!("[LLM] Failed to get API key: {}", e);
             return Err(e);
         }
     };
@@ -318,7 +292,6 @@ pub async fn send_chat_message_streaming(
     drop(config_store); // Release lock before async operations
 
     // Create client
-    info!("send_chat_message_streaming: creating LLM client for {:?}", provider.api_type);
     let client = create_client_for_provider(provider.api_type, api_key, provider.base_url);
 
     // Get chat state and load conversation history
@@ -327,11 +300,7 @@ pub async fn send_chat_message_streaming(
 
     let history = chat_store
         .load_messages(&request.conversation_id)
-        .map_err(|e| {
-            error!("send_chat_message_streaming: failed to load messages: {}", e);
-            e.to_string()
-        })?;
-    info!("send_chat_message_streaming: loaded {} history messages", history.len());
+        .map_err(|e| e.to_string())?;
 
     // Add the new user message to history for context
     let user_message = ChatMessage::user(&request.conversation_id, &request.content);
@@ -341,11 +310,7 @@ pub async fn send_chat_message_streaming(
     // Save user message
     chat_store
         .add_message(&user_message)
-        .map_err(|e| {
-            error!("send_chat_message_streaming: failed to save user message: {}", e);
-            e.to_string()
-        })?;
-    info!("send_chat_message_streaming: saved user message");
+        .map_err(|e| e.to_string())?;
 
     drop(chat_store); // Release lock before streaming
 
@@ -403,17 +368,20 @@ pub async fn send_chat_message_streaming(
 
             // Emit event to frontend
             if let Err(e) = app_handle_clone.emit("llm:event", &event) {
-                error!("Failed to emit LLM event: {}", e);
+                error!("streaming_task: failed to emit LLM event: {}", e);
             }
         }
 
+        info!("streaming_task: stream completed, final_content_length={}", final_content.len());
+
         // Save assistant message after streaming completes
         if !final_content.is_empty() {
+            info!("streaming_task: saving assistant message to database");
             let mut assistant_message = ChatMessage::assistant(&conversation_id, &final_content);
 
             // Add metadata about model and tokens
             assistant_message.metadata = Some(crate::nlp::chat::MessageMetadata {
-                model: Some(model.name.clone()),
+                model: Some(model_name_for_log.clone()),
                 tokens: final_usage.as_ref().map(|u| u.total_tokens as usize),
                 ..Default::default()
             });
@@ -421,8 +389,12 @@ pub async fn send_chat_message_streaming(
             let chat_state = app_handle_clone.state::<ChatState>();
             let chat_store = chat_state.store.lock().await;
             if let Err(e) = chat_store.add_message(&assistant_message) {
-                error!("Failed to save assistant message: {}", e);
+                error!("streaming_task: failed to save assistant message: {}", e);
+            } else {
+                info!("streaming_task: assistant message saved successfully");
             }
+        } else {
+            info!("streaming_task: no content to save (final_content is empty)");
         }
     });
 
