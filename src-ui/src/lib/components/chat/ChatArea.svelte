@@ -10,10 +10,29 @@
 	import type { Message } from '$lib/types/message';
 	import type { Thread } from '$lib/types/thread';
 	import styles from './ChatArea.module.css';
+	import { isLlmStreaming } from '$lib/stores/chat';
+	import { notifyAssistantComplete, initNotifications } from '$lib/utils/notifications';
+	import {
+		scrollToBottom,
+		saveScrollPosition,
+		restoreScrollPosition,
+		hasSavedPosition,
+		handleScrollEvent,
+		initializeThreadScroll,
+		enableAutoScroll,
+		isAutoScrollEnabled,
+		scheduleAutoScrollResume,
+		cancelAutoScrollResume,
+		cleanupThreadScroll
+	} from '$lib/utils/scrollManager';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		/** Array of messages to display */
 		messages: Message[];
+
+		/** Current thread ID for scroll position tracking */
+		threadId?: string;
 
 		/** Available threads for looking up thread info */
 		threads?: Thread[];
@@ -54,6 +73,7 @@
 
 	let {
 		messages,
+		threadId,
 		threads = [],
 		loading = false,
 		isTyping = false,
@@ -76,6 +96,45 @@
 	let inputAnimatingOut = $state(false);
 	let showInput = $state(!threadResolved);
 	let previousResolved = $state(threadResolved);
+
+	// Scroll state
+	let messagesWrapperRef: HTMLDivElement | undefined = $state();
+	let previousThreadId = $state<string | undefined>(threadId);
+	let isUserScrolling = $state(false);
+
+	// Track if we should show "scroll to bottom" button
+	let showScrollButton = $state(false);
+
+	// Track previous streaming state to detect completion
+	let wasStreaming = $state(false);
+
+	// Initialize notifications on mount
+	onMount(() => {
+		initNotifications();
+	});
+
+	// Watch for streaming completion and notify if user is scrolled up
+	$effect(() => {
+		const streaming = $isLlmStreaming;
+		const currentThreadId = threadId;
+
+		// Detect transition from streaming to not streaming (completion)
+		if (wasStreaming && !streaming) {
+			// Streaming just completed
+			// Check if user was scrolled up (auto-scroll was disabled)
+			const autoScrollWasEnabled = isAutoScrollEnabled(currentThreadId ?? '');
+
+			if (!autoScrollWasEnabled && currentThreadId) {
+				// User was scrolled up - send notification
+				notifyAssistantComplete(
+					'Assistant Complete',
+					'The assistant has finished responding. Click to see the response.'
+				);
+			}
+		}
+
+		wasStreaming = streaming;
+	});
 
 	// Watch for threadResolved changes and animate transitions
 	$effect(() => {
@@ -111,6 +170,126 @@
 			// If !wasResolved and !nowResolved: both unlocked - no animation (stay visible)
 		}
 	});
+
+	// Handle thread switching - save/restore scroll positions
+	$effect(() => {
+		const currentThreadId = threadId;
+		const ref = messagesWrapperRef;
+
+		// Save position for previous thread
+		if (previousThreadId && ref) {
+			saveScrollPosition(previousThreadId, ref);
+		}
+
+		// Cleanup previous thread
+		if (previousThreadId && previousThreadId !== currentThreadId) {
+			cleanupThreadScroll(previousThreadId);
+		}
+
+		// Initialize new thread
+		if (currentThreadId) {
+			initializeThreadScroll(currentThreadId);
+		}
+
+		previousThreadId = currentThreadId;
+
+		// Restore position or scroll to bottom
+		if (ref && currentThreadId) {
+			if (hasSavedPosition(currentThreadId)) {
+				restoreScrollPosition(currentThreadId, ref);
+			} else {
+				// New thread - scroll to bottom
+				requestAnimationFrame(() => {
+					scrollToBottom(ref, false);
+				});
+			}
+		}
+	});
+
+	// Auto-scroll when messages change (if auto-scroll is enabled)
+	$effect(() => {
+		const ref = messagesWrapperRef;
+		const currentThreadId = threadId;
+
+		// Trigger on messages length change
+		void messages.length;
+
+		if (!ref || !currentThreadId) return;
+
+		// Only auto-scroll if enabled for this thread
+		if (isAutoScrollEnabled(currentThreadId)) {
+			requestAnimationFrame(() => {
+				scrollToBottom(ref, true);
+			});
+		}
+	});
+
+	// Auto-scroll during streaming (with user scroll detection)
+	$effect(() => {
+		const ref = messagesWrapperRef;
+		const currentThreadId = threadId;
+		const streaming = $isLlmStreaming;
+
+		if (!ref || !currentThreadId) return;
+
+		if (streaming && isAutoScrollEnabled(currentThreadId)) {
+			// Scroll to bottom during streaming
+			requestAnimationFrame(() => {
+				scrollToBottom(ref, true);
+			});
+		}
+	});
+
+	// Handle scroll events
+	function handleScroll() {
+		const ref = messagesWrapperRef;
+		const currentThreadId = threadId;
+		const streaming = $isLlmStreaming;
+		if (!ref || !currentThreadId) return;
+
+		const result = handleScrollEvent(ref, currentThreadId, streaming);
+
+		// Update UI state
+		showScrollButton = !result.isNearBottom;
+		isUserScrolling = result.userScrolledUp;
+
+		// If user scrolled up during streaming, schedule auto-scroll resume
+		if (result.userScrolledUp && streaming) {
+			scheduleAutoScrollResume(currentThreadId, () => {
+				// Only re-enable if still streaming
+				if ($isLlmStreaming && ref) {
+					enableAutoScroll(currentThreadId);
+					scrollToBottom(ref, true);
+				}
+				isUserScrolling = false;
+			});
+		}
+	}
+
+	// Manual scroll to bottom (when user clicks the button)
+	function handleScrollToBottom() {
+		const ref = messagesWrapperRef;
+		const currentThreadId = threadId;
+		if (!ref || !currentThreadId) return;
+
+		enableAutoScroll(currentThreadId);
+		scrollToBottom(ref, true);
+		showScrollButton = false;
+		isUserScrolling = false;
+	}
+
+	// Re-enable auto-scroll when user sends a new message
+	function handleSubmit() {
+		const currentThreadId = threadId;
+		if (currentThreadId) {
+			enableAutoScroll(currentThreadId);
+		}
+
+		if (inputValue.trim() && onSendMessage) {
+			onSendMessage(inputValue.trim());
+			inputValue = '';
+		}
+	}
 
 	// Group messages by time and role
 	interface MessageGroup {
@@ -158,13 +337,6 @@
 		return groups;
 	});
 
-	function handleSubmit() {
-		if (inputValue.trim() && onSendMessage) {
-			onSendMessage(inputValue.trim());
-			inputValue = '';
-		}
-	}
-
 	function handleRetry() {
 		onRetry?.();
 	}
@@ -194,7 +366,7 @@
 
 <div class={styles.chatArea}>
 	<!-- Messages area -->
-	<div class={styles.messagesWrapper}>
+	<div bind:this={messagesWrapperRef} class={styles.messagesWrapper} onscroll={handleScroll}>
 		{#if messagesLoading === 'loading'}
 			<div class={styles.loading}>
 				<div class={styles.spinner}></div>
@@ -290,6 +462,29 @@
 			{#if isTyping}
 				<AnsweringIndicator />
 			{/if}
+		{/if}
+
+		<!-- Scroll to bottom button -->
+		{#if showScrollButton}
+			<button
+				class={styles.scrollToBottom}
+				onclick={handleScrollToBottom}
+				aria-label="Scroll to latest messages"
+				type="button"
+			>
+				<svg
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<polyline points="6 9 12 15 18 9" />
+				</svg>
+			</button>
 		{/if}
 	</div>
 

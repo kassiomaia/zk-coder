@@ -317,6 +317,7 @@
 						{:else}
 							<ChatArea
 								{messages}
+								threadId={selectedThreadId}
 								{threads}
 								{loading}
 								onSendMessage={handleSendMessage}
@@ -327,7 +328,7 @@
 				</div>
 			{:else}
 				<!-- Standard chat area (no threads) -->
-				<ChatArea {messages} {loading} onSendMessage={handleSendMessage} />
+				<ChatArea {messages} threadId={selectedThreadId} {loading} onSendMessage={handleSendMessage} />
 			{/if}
 		</div>
 

@@ -163,6 +163,7 @@
 	<div class={styles.content}>
 		<ChatArea
 			{messages}
+			threadId={thread.id}
 			{loading}
 			{error}
 			{onSendMessage}
