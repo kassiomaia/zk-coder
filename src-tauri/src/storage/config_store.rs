@@ -11,7 +11,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 use thiserror::Error;
 
 use crate::nlp::config::{
-    ApiType, Model, ModelCapabilities, OperationDefault, OperationType, Provider,
+    ApiType, ManualModelEntry, Model, ModelCapabilities, ModelsSource, OperationDefault,
+    OperationType, Provider,
 };
 
 /// SQLite-based configuration store.
@@ -44,6 +45,7 @@ impl ConfigStore {
         let conn = Connection::open(db_path)?;
         Self::init_schema(&conn)?;
         Self::migrate_api_type_constraint(&conn)?;
+        Self::migrate_models_source(&conn)?;
         let store = Self {
             conn: Mutex::new(conn),
         };
@@ -60,6 +62,7 @@ impl ConfigStore {
         let conn = Connection::open_in_memory()?;
         Self::init_schema(&conn)?;
         Self::migrate_api_type_constraint(&conn)?;
+        Self::migrate_models_source(&conn)?;
         let store = Self {
             conn: Mutex::new(conn),
         };
@@ -72,15 +75,16 @@ impl ConfigStore {
             r#"
             -- Providers table
             CREATE TABLE IF NOT EXISTS providers (
-                id            TEXT PRIMARY KEY,
-                name          TEXT NOT NULL,
-                icon          TEXT NOT NULL,
-                is_custom     BOOLEAN NOT NULL DEFAULT FALSE,
-                api_type      TEXT NOT NULL CHECK(api_type IN ('openai', 'anthropic', 'google')),
-                base_url      TEXT,
-                is_configured BOOLEAN NOT NULL DEFAULT FALSE,
-                created_at    TEXT NOT NULL,
-                updated_at    TEXT NOT NULL
+                id             TEXT PRIMARY KEY,
+                name           TEXT NOT NULL,
+                icon           TEXT NOT NULL,
+                is_custom      BOOLEAN NOT NULL DEFAULT FALSE,
+                api_type       TEXT NOT NULL CHECK(api_type IN ('openai', 'anthropic', 'google')),
+                base_url       TEXT,
+                is_configured  BOOLEAN NOT NULL DEFAULT FALSE,
+                models_source  TEXT NOT NULL DEFAULT 'auto' CHECK(models_source IN ('auto', 'manual', 'hybrid')),
+                created_at     TEXT NOT NULL,
+                updated_at     TEXT NOT NULL
             );
 
             CREATE INDEX IF NOT EXISTS idx_providers_name
@@ -118,6 +122,25 @@ impl ConfigStore {
                 updated_at  TEXT NOT NULL,
                 FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
             );
+
+            -- Manual models table (user-configured models for providers)
+            CREATE TABLE IF NOT EXISTS manual_models (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider_id     TEXT NOT NULL,
+                name            TEXT NOT NULL,
+                supports_analysis   BOOLEAN NOT NULL DEFAULT TRUE,
+                supports_code       BOOLEAN NOT NULL DEFAULT TRUE,
+                supports_vision     BOOLEAN NOT NULL DEFAULT FALSE,
+                supports_audio      BOOLEAN NOT NULL DEFAULT FALSE,
+                supports_tips       BOOLEAN NOT NULL DEFAULT TRUE,
+                supports_review     BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at      TEXT NOT NULL,
+                FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE,
+                UNIQUE(provider_id, name)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_manual_models_provider
+            ON manual_models(provider_id);
             "#,
         )?;
         Ok(())
@@ -264,6 +287,63 @@ impl ConfigStore {
         Ok(())
     }
 
+    /// Migrates the providers table to add the models_source column for existing databases.
+    fn migrate_models_source(conn: &Connection) -> Result<(), ConfigStoreError> {
+        // Check if migration is needed by checking if the column exists
+        let has_column: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('providers') WHERE name = 'models_source'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        if has_column == 0 {
+            // Column doesn't exist, add it
+            conn.execute(
+                "ALTER TABLE providers ADD COLUMN models_source TEXT NOT NULL DEFAULT 'auto' CHECK(models_source IN ('auto', 'manual', 'hybrid'))",
+                [],
+            )?;
+            log::info!("Added models_source column to providers table");
+        }
+
+        // Check if manual_models table exists, create if not
+        let has_table: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='manual_models'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        if has_table == 0 {
+            conn.execute_batch(
+                r#"
+                CREATE TABLE manual_models (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    provider_id     TEXT NOT NULL,
+                    name            TEXT NOT NULL,
+                    supports_analysis   BOOLEAN NOT NULL DEFAULT TRUE,
+                    supports_code       BOOLEAN NOT NULL DEFAULT TRUE,
+                    supports_vision     BOOLEAN NOT NULL DEFAULT FALSE,
+                    supports_audio      BOOLEAN NOT NULL DEFAULT FALSE,
+                    supports_tips       BOOLEAN NOT NULL DEFAULT TRUE,
+                    supports_review     BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_at      TEXT NOT NULL,
+                    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE,
+                    UNIQUE(provider_id, name)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_manual_models_provider
+                ON manual_models(provider_id);
+                "#,
+            )?;
+            log::info!("Created manual_models table");
+        }
+
+        Ok(())
+    }
+
     fn seed_builtin_providers(&self) -> Result<(), ConfigStoreError> {
         let conn = self
             .conn
@@ -280,8 +360,8 @@ impl ConfigStore {
         let now = Utc::now().to_rfc3339();
         for (id, name, icon, api_type) in builtin_providers {
             conn.execute(
-                "INSERT OR IGNORE INTO providers (id, name, icon, is_custom, api_type, is_configured, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, FALSE, ?4, FALSE, ?5, ?5)",
+                "INSERT OR IGNORE INTO providers (id, name, icon, is_custom, api_type, is_configured, models_source, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, FALSE, ?4, FALSE, 'auto', ?5, ?5)",
                 params![id, name, icon, api_type, now],
             )?;
         }
@@ -296,7 +376,8 @@ impl ConfigStore {
                     WHEN id = 'google' THEN 'google'
                     WHEN id = 'openai' THEN 'openai'
                     ELSE api_type
-                END
+                END,
+                models_source = 'auto'
             WHERE id IN ('anthropic', 'openai', 'google');
             "#,
         )?;
@@ -322,7 +403,7 @@ impl ConfigStore {
         log::info!("ConfigStore::get_providers: Lock acquired, preparing query...");
 
         let mut stmt = conn.prepare(
-            "SELECT id, name, icon, is_custom, api_type, base_url, is_configured, created_at, updated_at
+            "SELECT id, name, icon, is_custom, api_type, base_url, is_configured, models_source, created_at, updated_at
              FROM providers ORDER BY name",
         )?;
         log::info!("ConfigStore::get_providers: Query prepared, executing...");
@@ -331,8 +412,10 @@ impl ConfigStore {
             .query_map([], |row| {
                 let api_type_str: String = row.get(4)?;
                 let api_type = ApiType::from_str(&api_type_str);
-                let created_at_str: String = row.get(7)?;
-                let updated_at_str: String = row.get(8)?;
+                let models_source_str: String = row.get(7)?;
+                let models_source = ModelsSource::from_str(&models_source_str);
+                let created_at_str: String = row.get(8)?;
+                let updated_at_str: String = row.get(9)?;
 
                 log::debug!(
                     "ConfigStore::get_providers: Row id={}, name={}, is_configured={}",
@@ -349,6 +432,7 @@ impl ConfigStore {
                     api_type,
                     base_url: row.get(5)?,
                     is_configured: row.get(6)?,
+                    models_source,
                     created_at: parse_datetime(&created_at_str),
                     updated_at: parse_datetime(&updated_at_str),
                 })
@@ -370,7 +454,7 @@ impl ConfigStore {
             .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
 
         let mut stmt = conn.prepare(
-            "SELECT id, name, icon, is_custom, api_type, base_url, is_configured, created_at, updated_at
+            "SELECT id, name, icon, is_custom, api_type, base_url, is_configured, models_source, created_at, updated_at
              FROM providers WHERE id = ?1",
         )?;
 
@@ -378,8 +462,10 @@ impl ConfigStore {
             .query_row(params![id], |row| {
                 let api_type_str: String = row.get(4)?;
                 let api_type = ApiType::from_str(&api_type_str);
-                let created_at_str: String = row.get(7)?;
-                let updated_at_str: String = row.get(8)?;
+                let models_source_str: String = row.get(7)?;
+                let models_source = ModelsSource::from_str(&models_source_str);
+                let created_at_str: String = row.get(8)?;
+                let updated_at_str: String = row.get(9)?;
 
                 Ok(Provider {
                     id: row.get(0)?,
@@ -389,6 +475,7 @@ impl ConfigStore {
                     api_type,
                     base_url: row.get(5)?,
                     is_configured: row.get(6)?,
+                    models_source,
                     created_at: parse_datetime(&created_at_str),
                     updated_at: parse_datetime(&updated_at_str),
                 })
@@ -410,14 +497,15 @@ impl ConfigStore {
             .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
 
         conn.execute(
-            "INSERT INTO providers (id, name, icon, is_custom, api_type, base_url, is_configured, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            "INSERT INTO providers (id, name, icon, is_custom, api_type, base_url, is_configured, models_source, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 icon = excluded.icon,
                 api_type = excluded.api_type,
                 base_url = excluded.base_url,
                 is_configured = excluded.is_configured,
+                models_source = excluded.models_source,
                 updated_at = excluded.updated_at",
             params![
                 &provider.id,
@@ -427,6 +515,7 @@ impl ConfigStore {
                 provider.api_type.as_str(),
                 &provider.base_url,
                 provider.is_configured,
+                provider.models_source.as_str(),
                 &provider.created_at.to_rfc3339(),
                 &provider.updated_at.to_rfc3339(),
             ],
