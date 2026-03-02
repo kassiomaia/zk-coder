@@ -423,12 +423,3 @@
 	border-radius: var(--radius-sm);
 }
 
-/* =====================
-   Empty State
-   ===================== */
-
-.markdown:empty::before {
-	content: 'No content';
-	color: var(--color-text-muted);
-	font-style: italic;
-}

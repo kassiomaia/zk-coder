@@ -4,7 +4,7 @@
 	 * Main chat interface with message display and input.
 	 */
 	import ChatInput from './input/ChatInput.svelte';
-	import TypingIndicator from './TypingIndicator.svelte';
+	import AnsweringIndicator from './AnsweringIndicator.svelte';
 	import ThreadIndicator from './ThreadIndicator.svelte';
 	import MarkdownRenderer from '../markdown/MarkdownRenderer.svelte';
 	import type { Message } from '$lib/types/message';
@@ -218,10 +218,8 @@
 									<MarkdownRenderer content={message.content} />
 								</div>
 								<!-- Message status indicator -->
-								{#if message.status === 'sending'}
-									<div class={styles.statusIndicator} aria-label="Sending">
-										<div class={styles.sendingDot}></div>
-									</div>
+								{#if message.status === 'sending' && message.content.trim() === ''}
+									<AnsweringIndicator />
 								{:else if message.status === 'error'}
 									<div class={styles.statusIndicator} aria-label="Failed to send">
 										<button
@@ -243,9 +241,9 @@
 				</div>
 			{/each}
 
-			<!-- Typing indicator -->
+			<!-- Answering indicator -->
 			{#if isTyping}
-				<TypingIndicator />
+				<AnsweringIndicator />
 			{/if}
 		{/if}
 	</div>
