@@ -14,6 +14,7 @@
 	import { notifyAssistantComplete, initNotifications } from '$lib/utils/notifications';
 	import {
 		scrollToBottom,
+		debouncedScrollToBottom,
 		saveScrollPosition,
 		restoreScrollPosition,
 		hasSavedPosition,
@@ -203,7 +204,10 @@
 		}
 	});
 
-	// Auto-scroll when messages change (only if user is at bottom)
+	// Threshold for showing scroll button (larger zone for visibility)
+	const SCROLL_BUTTON_THRESHOLD = 100;
+
+	// Auto-scroll when messages change (only if user is in auto-scroll zone)
 	$effect(() => {
 		const ref = messagesWrapperRef;
 		const currentThreadId = threadId;
@@ -213,15 +217,30 @@
 
 		if (!ref || !currentThreadId) return;
 
-		// Only auto-scroll if enabled AND user is near bottom
+		// Only auto-scroll if user is in the auto-scroll zone (near bottom)
 		if (isAutoScrollEnabled(currentThreadId)) {
-			// Check if user is actually near bottom before scrolling
-			const nearBottom = ref.scrollHeight - ref.scrollTop - ref.clientHeight < 100;
-			if (nearBottom) {
-				requestAnimationFrame(() => {
-					scrollToBottom(ref, true, currentThreadId);
-				});
+			const distanceFromBottom = ref.scrollHeight - ref.scrollTop - ref.clientHeight;
+			if (distanceFromBottom <= SCROLL_BUTTON_THRESHOLD) {
+				scrollToBottom(ref, true, currentThreadId);
 			}
+		}
+	});
+
+	// Auto-scroll during streaming with debounce (only if in auto-scroll zone)
+	$effect(() => {
+		const ref = messagesWrapperRef;
+		const currentThreadId = threadId;
+		const streaming = $isLlmStreaming;
+
+		if (!ref || !currentThreadId || !streaming) return;
+
+		// Check if user is in auto-scroll zone
+		const distanceFromBottom = ref.scrollHeight - ref.scrollTop - ref.clientHeight;
+		const inAutoScrollZone = distanceFromBottom <= SCROLL_BUTTON_THRESHOLD;
+
+		if (inAutoScrollZone && isAutoScrollEnabled(currentThreadId)) {
+			// Use debounced scroll for smooth, jitter-free streaming
+			debouncedScrollToBottom(currentThreadId, ref);
 		}
 	});
 
@@ -234,14 +253,15 @@
 
 		const result = handleScrollEvent(ref, currentThreadId, streaming);
 
-		// Update UI state - show button when not near bottom
-		showScrollButton = !result.isNearBottom;
+		// Show button when outside the scroll button threshold zone
+		const distanceFromBottom = ref.scrollHeight - ref.scrollTop - ref.clientHeight;
+		showScrollButton = distanceFromBottom > SCROLL_BUTTON_THRESHOLD;
 
-		// If user scrolled up, disable auto-scroll (no timer - user must actively return)
+		// If user scrolled out of auto-scroll zone, disable auto-scroll
 		if (result.userScrolledUp) {
 			isUserScrolling = true;
 		} else if (result.isNearBottom) {
-			// User scrolled to bottom - re-enable auto-scroll
+			// User scrolled back into auto-scroll zone - re-enable
 			isUserScrolling = false;
 		}
 	}
@@ -258,9 +278,11 @@
 		isUserScrolling = false;
 	}
 
-	// Re-enable auto-scroll when user sends a new message
+	// Re-enable auto-scroll and scroll to bottom when user sends a message
 	function handleSubmit() {
+		const ref = messagesWrapperRef;
 		const currentThreadId = threadId;
+
 		if (currentThreadId) {
 			enableAutoScroll(currentThreadId);
 		}
@@ -268,6 +290,15 @@
 		if (inputValue.trim() && onSendMessage) {
 			onSendMessage(inputValue.trim());
 			inputValue = '';
+		}
+
+		// Delay scroll slightly to ensure user's message appears in DOM first
+		if (ref && currentThreadId) {
+			setTimeout(() => {
+				scrollToBottom(ref, true, currentThreadId);
+				showScrollButton = false;
+				isUserScrolling = false;
+			}, 150);
 		}
 	}
 

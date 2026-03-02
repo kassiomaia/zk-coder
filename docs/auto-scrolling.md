@@ -6,55 +6,74 @@ Auto-scroll functionality ensures message content flows smoothly during chat con
 
 ## Behavior
 
+### Auto-Scroll Zone
+The "auto-scroll zone" is an imaginary area within **30px of the bottom**. When the user's scroll position is in this zone:
+- Auto-scroll is active during streaming
+- Content automatically scrolls down smoothly
+- Uses debounced scrolling (150ms) to prevent jitter
+
+### Outside the Zone
+When user scrolls **more than 30px from bottom**:
+- Auto-scroll is disabled
+- "Scroll to Bottom" button appears
+- Button pulses during streaming to indicate activity
+- User can read previous messages without interruption
+
+### Scroll Button Visibility
+The scroll-to-bottom button appears when user is **more than 100px from bottom** (larger visibility zone than auto-scroll zone).
+
+### Ways to Return to Bottom
+1. **Click scroll button** - Smooth scroll to bottom
+2. **Manually scroll to bottom** - Enter auto-scroll zone, auto-scroll engages
+3. **Send a message** - Enforced scroll to bottom (always scrolls, regardless of position)
+
 ### New Threads
-When a user opens a thread for the first time, the chat starts at the bottom (instant, no animation).
-
-### User Scroll Detection
-- **Scroll Position Memory**: When switching between threads, the scroll position is remembered (session-only, not persisted to storage)
-- **User Scrolls Up**: Auto-scroll is immediately disabled, allowing user to read previous messages
-- **Scroll to Bottom Button**: Appears when user scrolls up, with pulsing animation during streaming
-
-### Auto-Scroll Re-enable
-Auto-scroll only re-enables when user **actively** goes to the bottom:
-1. User scrolls to bottom manually
-2. User clicks "Scroll to Bottom" button
-3. User sends a new message
-
-**No timers** - user must actively return to bottom.
-
-### Pulsing Button
-When the assistant is streaming and user is scrolled up:
-- The "Scroll to Bottom" button pulses smoothly
-- Indicates active response being generated
-- Stops pulsing when streaming completes
+When opening a thread for the first time:
+- Scroll starts at bottom (instant, no animation)
+- No visual "flash" of seeing top before scrolling
 
 ### OS Notifications
-When the assistant finishes a message while the user is scrolled up (not near the bottom), a system notification is sent.
+When assistant finishes responding while user is scrolled up, a system notification is sent.
 
 ## Technical Details
 
-- **Smooth scrolling**: 300ms animation with easeOutQuad easing
-- **Scroll position memory**: Session-only Map-based storage by thread ID
-- **Near bottom threshold**: 100px from the bottom
-- **Initial scroll**: Instant (no animation) to prevent visual flash
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Auto-scroll zone | 30px | Threshold for active auto-scroll during streaming |
+| Button visibility | 100px | Threshold for showing scroll button |
+| Debounce delay | 150ms | Prevents jitter during streaming |
+| Scroll animation | 300ms | Smooth scroll duration |
+| Easing | easeOutQuad | Natural scroll feel |
+
+## User Flow
+
+```
+User at bottom (in zone)
+    │
+    ├── Streaming starts → Debounced auto-scroll keeps user at bottom
+    │
+    ├── User scrolls up (< 30px) → Still in zone, auto-scroll continues
+    │
+    └── User scrolls up (> 30px) → Out of zone
+            │
+            ├── Auto-scroll disabled
+            ├── Button appears (if > 100px)
+            ├── Button pulses if streaming
+            │
+            └── User returns to bottom via:
+                    ├── Manual scroll
+                    ├── Click button
+                    └── Send message (enforced scroll)
+```
 
 ## API Reference
 
 ### Scroll Manager (`scrollManager.ts`)
-- `isNearBottom(element)` - Check if user is scrolled near the bottom
+- `isNearBottom(element)` - Check if in auto-scroll zone (30px)
 - `scrollToBottom(element, smooth, threadId)` - Scroll to bottom
-- `saveScrollPosition(threadId, element)` - Save position for thread
-- `restoreScrollPosition(threadId, element)` - Restore saved position
-- `enableAutoScroll(threadId)` - Enable auto-scroll for thread
-- `disableAutoScroll(threadId)` - Disable auto-scroll for thread
-- `isAutoScrollEnabled(threadId)` - Check if auto-scroll is enabled
+- `debouncedScrollToBottom(threadId, element)` - Debounced scroll for streaming
+- `enableAutoScroll(threadId)` / `disableAutoScroll(threadId)` - Toggle auto-scroll
 
-### Notifications (`notifications.ts`)
-- `initNotifications()` - Initialize notification permissions
-- `notifyAssistantComplete(title, body)` - Send notification when assistant finishes
-
-### Scroll to Bottom Button
-- Floating button in bottom-right corner
-- Pulses during streaming (CSS animation)
-- Appears when user is not near bottom
-- Accessible via keyboard
+### CSS Classes
+- `.scrollToBottom` - Scroll button base styles
+- `.pulsing` - Pulsing animation during streaming (2s ease-in-out infinite)

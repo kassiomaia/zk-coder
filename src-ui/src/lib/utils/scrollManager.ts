@@ -3,8 +3,8 @@
  * Manages scroll positions for chat threads with session-only memory.
  */
 
-/** Threshold in pixels to determine if user is "near bottom" */
-const BOTTOM_THRESHOLD = 100;
+/** Threshold in pixels for the "auto-scroll zone" near bottom */
+const BOTTOM_THRESHOLD = 30;
 
 /** Delay in ms before auto-scroll resumes after user stops scrolling */
 const RESUME_DELAY = 1000;
