@@ -3,17 +3,17 @@
  * Individual conversation item in the list.
  *
  * Design Features:
- * - Card-like appearance with subtle elevation
+ * - Compact appearance
  * - Smooth hover transitions (background only, no transform)
- * - Clear selected state
+ * - Clear selected state with brighter title
  * - Enhanced focus visibility
- * - Standardized 56px height
+ * - Condensed 44px height
  */
 
 .item {
 	position: relative;
 	list-style: none;
-	margin: var(--space-0-5) 0;
+	margin: var(--space-0-25) 0;
 }
 
 .item:first-child {
@@ -27,10 +27,10 @@
 .button {
 	display: flex;
 	align-items: center;
-	gap: var(--space-3);
+	gap: var(--space-2-5);
 	width: 100%;
-	height: 56px;
-	padding: 0 var(--space-3);
+	height: 44px;
+	padding: 0 var(--space-2-5);
 	background: transparent;
 	border: none;
 	border-radius: var(--radius-lg);
@@ -47,7 +47,7 @@
 .item.selected .button {
 	background: var(--color-surface-hover);
 	border: 1px solid var(--color-border-secondary);
-	padding: 0 calc(var(--space-3) - 1px);
+	padding: 0 calc(var(--space-2-5) - 1px);
 }
 
 .item.selected .button:hover {
@@ -65,11 +65,11 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 32px;
-	height: 32px;
+	width: 28px;
+	height: 28px;
 	background: var(--color-bg-tertiary);
-	border-radius: var(--radius-lg);
-	color: var(--color-text-tertiary);
+	border-radius: var(--radius-md);
+	color: var(--color-text-muted);
 	transition: all var(--transition-fast);
 }
 
@@ -79,7 +79,7 @@
 }
 
 .button:hover .icon {
-	color: var(--color-text-secondary);
+	color: var(--color-text-tertiary);
 }
 
 .content {
@@ -87,14 +87,14 @@
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-1);
+	gap: var(--space-0-5);
 	justify-content: center;
 }
 
 .title {
 	font-size: var(--text-sm);
-	font-weight: var(--font-medium);
-	color: var(--color-text-primary);
+	font-weight: var(--font-normal);
+	color: var(--color-text-secondary);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -103,12 +103,13 @@
 
 .item.selected .title {
 	color: var(--color-text-primary);
+	font-weight: var(--font-medium);
 }
 
 .meta {
 	display: flex;
 	align-items: center;
-	gap: var(--space-1-5);
+	gap: var(--space-1);
 	font-size: var(--text-xs);
 	color: var(--color-text-muted);
 }

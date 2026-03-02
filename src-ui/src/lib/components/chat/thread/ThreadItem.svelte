@@ -4,7 +4,6 @@
 	 * Individual thread item in the thread list.
 	 */
 	import styles from './ThreadItem.module.css';
-	import StatusBadge from '../shared/StatusBadge.svelte';
 	import type { Thread } from '$lib/types/thread';
 
 	interface Props {
@@ -61,24 +60,39 @@
 		type="button"
 	>
 		<div class={styles.content}>
-			<span class={styles.title}>{thread.title}</span>
+			<span class={styles.title}>
+				{thread.title}
+				{#if thread.metadata.resolved}
+					<span class={styles.resolvedIcon} title="Resolved">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+							<polyline points="22 4 12 14.01 9 11.01" />
+						</svg>
+					</span>
+				{/if}
+			</span>
 			<span class={styles.meta}>
 				<span class={styles.messageCount}>{thread.messageCount} messages</span>
 				<span class={styles.dot}>·</span>
 				<span class={styles.time}>{formatTime(thread.updatedAt)}</span>
 			</span>
 		</div>
-
-		{#if thread.metadata.resolved}
-			<StatusBadge variant="resolved" compact={true} showIcon={true} />
-		{/if}
 	</button>
 
 	{#if showActions && (onresolve || ondelete)}
 		<div class={styles.actions}>
 			{#if onresolve}
 				<button
-					class={styles.action}
+					class={[styles.action, thread.metadata.resolved && styles.reopen].filter(Boolean).join(' ')}
 					onclick={(e) => {
 						e.stopPropagation();
 						onresolve();
@@ -87,23 +101,36 @@
 					title={thread.metadata.resolved ? 'Reopen' : 'Resolve'}
 					type="button"
 				>
-					<svg
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						{#if thread.metadata.resolved}
-							<polyline points="23 4 23 10 17 10" />
-							<path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-						{:else}
+					{#if thread.metadata.resolved}
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+							<path d="M3 3v5h5" />
+							<path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+							<path d="M16 21h5v-5" />
+						</svg>
+					{:else}
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
 							<polyline points="20 6 9 17 4 12" />
-						{/if}
-					</svg>
+						</svg>
+					{/if}
 				</button>
 			{/if}
 
@@ -119,8 +146,8 @@
 					type="button"
 				>
 					<svg
-						width="14"
-						height="14"
+						width="16"
+						height="16"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"

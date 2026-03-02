@@ -3,16 +3,16 @@
  * Individual thread item in the list.
  *
  * Design Features:
- * - Clean, minimal appearance matching ConversationItem
+ * - Compact appearance matching ConversationItem
  * - Clear status indicators via StatusBadge
  * - Smooth hover and selected states (no transform)
- * - Consistent border-radius with other list items
+ * - Condensed 44px height
  */
 
 .item {
 	position: relative;
 	list-style: none;
-	margin: var(--space-0-5) 0;
+	margin: var(--space-0-25) 0;
 	overflow: hidden;
 }
 
@@ -29,15 +29,15 @@
 	align-items: center;
 	justify-content: space-between;
 	width: 100%;
-	height: 56px;
-	padding: 0 var(--space-3);
+	height: 44px;
+	padding: 0 var(--space-2-5);
 	background: transparent;
 	border: none;
 	border-radius: var(--radius-lg);
 	cursor: pointer;
 	text-align: left;
 	transition: background var(--transition-fast);
-	gap: var(--space-3);
+	gap: var(--space-2-5);
 }
 
 .button:hover {
@@ -48,7 +48,7 @@
 .item.selected .button {
 	background: var(--color-surface-hover);
 	border: 1px solid var(--color-border-secondary);
-	padding: 0 calc(var(--space-3) - 1px);
+	padding: 0 calc(var(--space-2-5) - 1px);
 }
 
 .item.selected .button:hover {
@@ -65,23 +65,40 @@
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-1);
+	gap: var(--space-0-5);
 }
 
 .title {
 	font-size: var(--text-sm);
-	font-weight: var(--font-medium);
-	color: var(--color-text-primary);
+	font-weight: var(--font-normal);
+	color: var(--color-text-secondary);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	line-height: var(--leading-snug);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.item.selected .title {
+	color: var(--color-text-primary);
+	font-weight: var(--font-medium);
+}
+
+/* Resolved icon - inline with title, same as ThreadPanel */
+.resolvedIcon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--color-success);
+	flex-shrink: 0;
 }
 
 .meta {
 	display: flex;
 	align-items: center;
-	gap: var(--space-1-5);
+	gap: var(--space-1);
 	font-size: var(--text-xs);
 	color: var(--color-text-muted);
 }
@@ -102,16 +119,15 @@
 /* Actions - smooth reveal */
 .actions {
 	position: absolute;
-	right: var(--space-3);
+	right: var(--space-1);
 	top: 50%;
 	transform: translateY(-50%);
 	display: flex;
-	gap: var(--space-1);
-	background: var(--color-bg-elevated);
-	border: 1px solid var(--color-border-primary);
-	border-radius: var(--radius-lg);
-	padding: var(--space-1);
-	box-shadow: var(--shadow-md);
+	gap: var(--space-0-5);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-md);
+	padding: var(--space-0-5);
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity var(--transition-fast);
@@ -132,9 +148,9 @@
 	padding: 0;
 	background: transparent;
 	border: none;
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-sm);
 	cursor: pointer;
-	color: var(--color-text-muted);
+	color: var(--color-text-secondary);
 	transition: all var(--transition-fast);
 }
 
@@ -144,12 +160,12 @@
 }
 
 .action.delete:hover {
-	background: var(--color-error-light);
+	background: rgba(239, 68, 68, 0.1);
 	color: var(--color-error);
 }
 
 .action:focus-visible {
-	outline: 2px solid var(--color-primary-500);
+	outline: 2px solid var(--color-border-focus);
 	outline-offset: 1px;
 }
 
