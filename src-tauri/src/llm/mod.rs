@@ -11,8 +11,7 @@
 //! specific API details:
 //!
 //! - [`openai`] - OpenAI and OpenAI-compatible APIs
-//! - [`anthropic`] - Anthropic Claude API
-//! - [`google`] - Google Gemini API
+//! - [`anthropic`] - Anthropic Claude API (native implementation)
 //!
 //! # Example
 //!
@@ -29,6 +28,7 @@
 //! let response = client.chat(request).await?;
 //! ```
 
+pub mod anthropic;
 pub mod error;
 pub mod openai;
 
@@ -431,11 +431,7 @@ pub fn create_client(
     match api_type {
         ApiType::OpenAI => Box::new(openai::OpenAiClient::new(api_key, base_url)),
         ApiType::Google => Box::new(openai::OpenAiClient::new_google(api_key)),
-        ApiType::Anthropic => {
-            // Will be implemented in anthropic.rs
-            // For now, use OpenAI-compatible as placeholder
-            Box::new(openai::OpenAiClient::new(api_key, base_url))
-        }
+        ApiType::Anthropic => Box::new(anthropic::AnthropicClient::new(api_key, base_url)),
     }
 }
 

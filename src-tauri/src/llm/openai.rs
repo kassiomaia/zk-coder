@@ -6,6 +6,7 @@
 use async_stream::stream;
 use futures::future::BoxFuture;
 use futures::Stream;
+use log::{info, error};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
@@ -215,23 +216,38 @@ impl OpenAiClient {
             return None;
         }
 
-        // Parse data line
-        if let Some(data) = line.strip_prefix("data: ") {
-            // Check for stream end
-            if data == "[DONE]" {
-                return None;
-            }
-
-            // Parse JSON
-            match serde_json::from_str::<OpenAiStreamResponse>(data) {
-                Ok(response) => Some(Ok(response)),
-                Err(e) => Some(Err(LlmError::parse(format!(
-                    "Failed to parse stream chunk: {}",
-                    e
-                )))),
-            }
+        // Parse data line - handle both "data: " and plain JSON (some APIs omit the prefix)
+        let data = if let Some(d) = line.strip_prefix("data: ") {
+            d
         } else {
-            None
+            line
+        };
+
+        // Check for stream end
+        if data == "[DONE]" {
+            return None;
+        }
+
+        // Parse JSON
+        match serde_json::from_str::<OpenAiStreamResponse>(data) {
+            Ok(response) => Some(Ok(response)),
+            Err(e) => {
+                // Try parsing without the "data: " prefix if it was already stripped
+                if line.starts_with("data: ") {
+                    match serde_json::from_str::<OpenAiStreamResponse>(line.strip_prefix("data: ").unwrap()) {
+                        Ok(response) => Some(Ok(response)),
+                        Err(_) => Some(Err(LlmError::parse(format!(
+                            "Failed to parse stream chunk: {} | Line: {}",
+                            e, line
+                        )))),
+                    }
+                } else {
+                    Some(Err(LlmError::parse(format!(
+                        "Failed to parse stream chunk: {} | Line: {}",
+                        e, line
+                    ))))
+                }
+            }
         }
     }
 
@@ -305,19 +321,27 @@ impl LlmClient for OpenAiClient {
         let base_url = self.base_url.clone();
         let auth_header = self.auth_header();
         let openai_request = self.convert_request(request);
+        let url = format!("{}/chat/completions", base_url);
+
+        info!("openai::chat_stream: starting request to {}", url);
 
         Box::pin(stream! {
+            info!("openai::chat_stream: sending POST request");
             let response = client
-                .post(format!("{}/chat/completions", base_url))
-                .header("Authorization", auth_header)
+                .post(&url)
+                .header("Authorization", &auth_header)
                 .header("Content-Type", "application/json")
                 .json(&openai_request)
                 .send()
                 .await;
 
             let response = match response {
-                Ok(r) => r,
+                Ok(r) => {
+                    info!("openai::chat_stream: got response, status={}", r.status());
+                    r
+                }
                 Err(e) => {
+                    error!("openai::chat_stream: request failed: {}", e);
                     yield Err(LlmError::from(e));
                     return;
                 }
@@ -326,40 +350,77 @@ impl LlmClient for OpenAiClient {
             let status = response.status();
             if !status.is_success() {
                 let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                yield Err(LlmError::api(status.as_u16(), error_text));
+
+                // Special handling for 404 on z.ai endpoint
+                if status.as_u16() == 404 && url.contains("api.z.ai") {
+                    error!("openai::chat_stream: GLM provider endpoint not found. The z.ai endpoint {} does not exist. Please check your GLM provider configuration.", url);
+                    yield Err(LlmError::api(status.as_u16(),
+                        "GLM provider endpoint not found. Please check your provider configuration. The z.ai API endpoint structure may have changed.".to_string()));
+                } else {
+                    error!("openai::chat_stream: API error status={}, body={}", status, error_text);
+                    yield Err(LlmError::api(status.as_u16(), error_text));
+                }
                 return;
             }
+
+            info!("openai::chat_stream: starting to read stream");
 
             // Stream the response
             #[allow(clippy::expect_used)]
             let mut stream = response.bytes_stream();
             let mut buffer = String::new();
+            let mut chunk_count = 0;
+            let mut line_count = 0;
+            let mut has_content = false;
 
             while let Some(chunk_result) = futures::StreamExt::next(&mut stream).await {
                 let chunk = match chunk_result {
                     Ok(c) => c,
                     Err(e) => {
+                        error!("openai::chat_stream: error reading from stream: {}", e);
                         yield Err(LlmError::streaming(e.to_string()));
                         continue;
                     }
                 };
 
+                chunk_count += 1;
+
                 // Convert bytes to string and append to buffer
                 match String::from_utf8(chunk.to_vec()) {
-                    Ok(text) => buffer.push_str(&text),
-                    Err(_) => continue,
+                    Ok(text) => {
+                        if chunk_count <= 5 {
+                            // Log first few chunks for debugging
+                            info!("openai::chat_stream: received chunk #{}, length={} bytes", chunk_count, text.len());
+                            if !text.is_empty() {
+                                info!("openai::chat_stream: chunk content preview: {:?}", &text[..text.len().min(200)]);
+                            }
+                        }
+                        buffer.push_str(&text);
+                    }
+                    Err(e) => {
+                        error!("openai::chat_stream: failed to convert chunk to utf8: {}", e);
+                        continue;
+                    }
                 }
 
                 // Process complete lines
                 while let Some(newline_pos) = buffer.find('\n') {
+                    line_count += 1;
                     let line = buffer[..newline_pos].to_string();
                     buffer = buffer[newline_pos + 1..].to_string();
+
+                    if line_count <= 10 {
+                        info!("openai::chat_stream: processing line #{}, content={:?}", line_count, &line[..line.len().min(150)]);
+                    }
 
                     if let Some(result) = Self::parse_sse_line(&line) {
                         match result {
                             Ok(openai_response) => {
-                                let id = openai_response.id.clone();
-                                let model = openai_response.model.clone();
+                                has_content = true;
+                                // Only log every 50 chunks to reduce log spam
+                                if line_count % 50 == 0 {
+                                    info!("openai::chat_stream: parsed SSE response #{}, id={}, choices={}", line_count, openai_response.id, openai_response.choices.len());
+                                }
 
                                 // Extract delta from first choice
                                 if let Some(choice) = openai_response.choices.first() {
@@ -377,9 +438,13 @@ impl LlmClient for OpenAiClient {
                                         total_tokens: u.total_tokens,
                                     });
 
+                                    if line_count <= 10 {
+                                        info!("openai::chat_stream: yielding chunk with delta content={:?}", delta.as_ref().and_then(|d| d.content.clone()));
+                                    }
+
                                     yield Ok(StreamChunk {
-                                        id,
-                                        model,
+                                        id: openai_response.id,
+                                        model: openai_response.model,
                                         delta,
                                         usage,
                                         finish_reason,
@@ -388,10 +453,30 @@ impl LlmClient for OpenAiClient {
                                 }
                             }
                             Err(e) => {
+                                error!("openai::chat_stream: failed to parse SSE line {}: {}", line_count, e);
                                 yield Err(e);
                             }
                         }
+                    } else if !line.trim().is_empty() {
+                        if line_count <= 10 {
+                            info!("openai::chat_stream: skipping unparsable line (not SSE format): {:?}", &line[..line.len().min(100)]);
+                        }
                     }
+                }
+            }
+
+            // Final state logging
+            info!("openai::chat_stream: stream completed after {} chunks and {} lines", chunk_count, line_count);
+            info!("openai::chat_stream: final buffer size: {} bytes", buffer.len());
+            if !has_content {
+                error!("openai::chat_stream: no content received in stream - this indicates a server or protocol issue");
+            }
+
+            // Check if there's any remaining data in buffer that wasn't processed
+            if !buffer.is_empty() {
+                error!("openai::chat_stream: {} bytes remaining in buffer that weren't processed as complete lines", buffer.len());
+                if buffer.len() < 200 {
+                    info!("openai::chat_stream: remaining buffer content: {:?}", buffer);
                 }
             }
         })
