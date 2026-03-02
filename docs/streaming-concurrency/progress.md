@@ -13,196 +13,8 @@ Implementation of a priority-based scroll concurrency model to fix UI performanc
 | 3 | Create Priority Queue | ✅ Complete |
 | 4 | Create Live Target Animation | ✅ Complete |
 | 5 | Create Content Update Throttler | ✅ Complete |
-## Phase 7: Create Unified Scroll Controller
-
-**Status:** ✅ Complete
-
-**File created:** `src-ui/src/lib/utils/scrollController.ts`
-
-**Features implemented:**
-- `registerThreadElement(threadId, element)` - Register scrollable element
-- `unregisterThread(threadId)` - Unregister element
-  - `handleStreamingStart(threadId)` - Notify streaming started
-  - `handleStreamingEnd(threadId)` - Notify streaming ended
-  - `handleUserScrollUp(threadId, element)` - Handle user scrolling up
-  - `handleUserScrollToBottom(threadId, element, check if at bottom
-  - `handleUserClickScrollDown(threadId, element)` - Handle scroll button click
-  - `handleUserSendMessage(threadId, element)` - Handle send message
-  - `handleThreadChange(threadId, newThreadId, element, check) - If not at existing thread, register new thread
-  unregisterThread(oldThreadId);
-            cancelScrollToBottom(oldThreadId);
-          }
-        } else {
-          // Thread changed - reset everything
-          context.state = 'idle';
-        }
-      }
-    });
-  };
-
-  // Get current state
-  return state;
-}
-
-  // =================
-  // Public API
-  // ============================
-
-  /**
-   * Get the scroll controller for a thread.
-   *
-   * @param threadId - Thread ID
-   * @param priority - Priority of the scroll action
-   * @param animated - Whether to animate
-   */
-   */
-  resetScrollLock(threadId, false) - }
-    context.state = 'idle';
-    if (threadId) {
-      // Already registered
-      return;
-    }
-    if (animationId !== undefined) {
-      cancelAnimationFrame(animationId);
-      registeredThreads.delete(otherAnimId);
-    }
-    // Update state
-    stateMachine.send('streaming'
- event to updating
- priority
-  }
-
-  // Initialize scroll lock if starting
-  // streaming state
-  // user scrollUp detection: don't care, same UI updates
-  const isAutoScrollEnabled = = if (wasStreaming) {
-    isAutoScrollEnabled = true;
-    autoScrollLocked = true;
-    // if auto-scroll locked, already locked, lock it.auto-scroll for this streaming session
-    if (!isStreaming) {
-      context.state === 'idle' || !isAutoScrollEnabled) {
-      isAutoScrollEnabled = false;
-    }
-    // Lock will be released, lock
-    context.state = 'streaming';
-    // Schedule scroll animation
-            cancelScrollAnimation();
-            if (this.is first chunk after streaming started) {
-              // First chunk flushes immediately for responsive feel
-            startLiveAnimation(element, threadId, priority, animated, false);
-              return;
-            }
-          },
-            animated: false,
-            onComplete();
-          }
-        },
-        requestAnimationFrame(animateScroll);
-      }
-    } else {
-      return;
-    }
-  };
-
-  // Check if animation is already running
- cancel other running ones
-    if (!isStreaming(threadId) {
-      // If context.state === 'idle' or isAutoScrollLocked, false
-    }
-    return;
-  }
-}
-  if (!isStreaming(threadId) {
-      // Just completed streaming, clear the lock
-    scrollToBottom(element, element.scrollTop = element.scrollHeight - element.scrollTop - lastScrollTop;
-    if (newScrollTop > lastScrollTop && scrollDelta > 0) {
-      cancelAnimationFrame(animationId);
-      registeredThreads.delete(otherAnimId);
-    }
-  };
-
-  // If animated and !atBottom, scroll instantly
-  if (!isStreaming) && context.state === 'streaming') {
-        const distanceFromBottom = element.scrollHeight - element.scrollTop;
-        if (distanceFromBottom > threshold) {
-          isNearBottom = true;
-        }
-        if (distanceFromBottom < threshold) {
-          // Enable auto-scroll
-          autoScrollLocked = true;
-        }
-      }
-    }
-
-    // User scrolled up - release lock, reset scroll state
-    scrollToBottom(element, element.scrollTop = element.scrollHeight;
-    element.scrollTop = startScrollTop;
-  } else {
-            // Still at bottom
- live - no animation needed
-            instantTo bottom (no animation)
-            return;
-          }
-        }
-      },    } else {
-          if (isStreaming)) {
-            // locked or not locked,
-            // Already in auto-scroll zone
-            if (isAutoScrollEnabled) {
-              startLiveAnimation(element, threadId, priority, animated);
-              cancelScrollAnimation();
-            }
-          } else if (isAutoScrollEnabled && !isStreaming) {
-            // Still streaming, locked, autoScrollLocked is true
-            scheduleScrollToBottom(element, threadId, priority, animated)
-              cancelScrollAnimation();
-            }
-            if (needsImmediateScroll && isStreaming) {
-              scrollToBottom(ref, true;
-              if (!isStreaming) {
-                scheduleScrollToBottom(element, true)
-              } else {
-                scheduleScrollToBottom(element, element.scrollTop = startScrollTop
-          }
-        } else if (!isStreaming) {
-          if (context.state === 'streaming') {
-            // If !streamable, but autoScrollEnabled will be startLiveAnimation!
-            }
-            scheduleScrollToBottom(element, element, priority);
-              . else if (isStreaming && threadId) {
-                const isAtBottom = this.isAutoScrollEnabled();
-                scheduleScrollToBottom(element, element, priority);
-                updateLiveTarget(element, element.scrollHeight);
-              }
-            }
-          } else if (priority === 'programmatic' || isStreaming)) {
-            cancelAnimationFrame(animationId);
-          }
-          cancelScrollAnimation(threadId);
-        } else {
-          // User scrolled down but we it to bottom manually
-          isUserScrolling =Progress > 1?
-        }
-      } else if (isAutoScrollEnabled) {
-          scheduleScrollToBottom(element, element, priority);
-          cancelScrollAnimation(threadId);
-          isAutoScrollEnabled = false;
-        }
-      });
-
-      // If wasStreaming, streaming completes
- isAutoScrollLocked = true
-      scheduleScrollToBottom(element, element, priority)
-          cancelScrollAnimation(threadId)
-          animateScrollToBottom(element, element, false);
-          isAutoScrollEnabled = false;
-        }
-      });
-    });
-  });
-}
-
-| 7 | Create Unified Scroll Controller | ⏳ Pending |
+| 6 | Create Scroll State Machine | ✅ Complete |
+| 7 | Create Unified Scroll Controller | ✅ Complete |
 | 8 | Integrate into ChatArea | ⏳ Pending |
 | 9 | Integrate Throttler into Chat Store | ⏳ Pending |
 | 10 | Update Documentation | ⏳ Pending |
@@ -349,11 +161,11 @@ Implementation of a priority-based scroll concurrency model to fix UI performanc
 
 ## Phase 6: Create Scroll State Machine
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
 **Goal:** Explicit state management with clear transitions.
 
-**File to create:** `src-ui/src/lib/utils/scrollStateMachine.ts`
+**File created:** `src-ui/src/lib/utils/scrollStateMachine.ts`
 
 **States:** `idle` → `streaming` → `user_paused` → `resuming` → `idle`
 
@@ -364,21 +176,52 @@ Implementation of a priority-based scroll concurrency model to fix UI performanc
 - `USER_SEND_MESSAGE`
 - `THREAD_CHANGE`
 
+**Features implemented:**
+- `sendEvent(threadId, event)` - Send event to state machine
+- `getState(threadId)` - Get current state
+- `isInState(threadId, state)` - Check if in specific state
+- `isStreamingActive(threadId)` - Check if streaming is active
+- `shouldAutoScroll(threadId)` - Check if auto-scroll should be enabled
+- `isUserPaused(threadId)` - Check if user has paused
+- `resetThread(threadId)` - Reset state for thread
+- `onStateChange(listener)` - Listen for state changes
+- `getValidTransitions(threadId)` - Get valid transitions from current state
+- `getHistory(threadId)` - Get state history for debugging
+- `getDebugInfo(threadId)` - Debug information
+
 ---
 
 ## Phase 7: Create Unified Scroll Controller
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
 **Goal:** Facade coordinating all subsystems.
 
-**File to create:** `src-ui/src/lib/utils/scrollController.ts`
+**File created:** `src-ui/src/lib/utils/scrollController.ts`
 
-**Features:**
-- Register/unregister thread elements
-- Handle streaming events
-- Handle user interactions
-- Coordinate animations via priority queue
+**Features implemented:**
+- `registerThreadElement(threadId, element, options)` - Register scrollable element
+- `unregisterThread(threadId)` - Unregister element
+- `handleStreamingStart(threadId)` - Notify streaming started
+- `handleStreamingEnd(threadId)` - Notify streaming ended
+- `handleContentUpdate(threadId)` - Handle new content during streaming
+- `handleUserScroll(threadId)` - Handle user scroll events
+- `handleThreadChange(oldThreadId, newThreadId)` - Handle thread switch
+- `scrollToBottom(threadId, options)` - Programmatic scroll
+- `isAutoScrollEnabled(threadId)` - Check auto-scroll state
+- `getThreadScrollState(threadId)` - Get current scroll state
+- `isThreadStreaming(threadId)` - Check if streaming
+- `hasPendingOperations(threadId)` - Check for pending ops
+- `enableAutoScroll(threadId)` / `disableAutoScroll(threadId)` - Toggle auto-scroll
+- `resetScrollLock(threadId)` - Reset scroll state
+- `getDebugInfo(threadId)` - Debug information
+- `clearAll()` - Cleanup all threads
+
+**Key design decisions:**
+- Coordinates DOM Batcher, Priority Queue, Live Animation, and State Machine
+- Thread-isolated contexts prevent cross-thread interference
+- Automatic state transitions based on scroll events
+- Supports both animated and instant scrolling
 
 ---
 
