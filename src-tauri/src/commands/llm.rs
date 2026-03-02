@@ -243,6 +243,9 @@ pub async fn send_chat_message(
 
 /// Sends a chat message with streaming response.
 /// Events are emitted: llm:started, llm:chunk, llm:complete, llm:error
+///
+/// Note: The frontend is responsible for saving the user message BEFORE calling this.
+/// This function only saves the assistant message after streaming completes.
 #[tauri::command]
 pub async fn send_chat_message_streaming(
     request: SendChatRequest,
@@ -251,8 +254,8 @@ pub async fn send_chat_message_streaming(
     // Generate request ID
     let request_id = uuid::Uuid::new_v4().to_string();
     info!(
-        "[LLM] Starting streaming request: request_id={}, conversation_id={}",
-        request_id, request.conversation_id
+        "[LLM] Starting streaming request: request_id={}, conversation_id={}, thread_id={:?}",
+        request_id, request.conversation_id, request.thread_id
     );
 
     // Get config store
@@ -298,19 +301,22 @@ pub async fn send_chat_message_streaming(
     let chat_state = app_handle.state::<ChatState>();
     let chat_store = chat_state.store.lock().await;
 
-    let history = chat_store
-        .load_messages(&request.conversation_id)
-        .map_err(|e| e.to_string())?;
+    // Load thread messages if thread_id is provided, otherwise load all conversation messages
+    let history = if let Some(ref thread_id) = request.thread_id {
+        chat_store
+            .load_thread_messages(thread_id)
+            .map_err(|e| e.to_string())?
+    } else {
+        chat_store
+            .load_messages(&request.conversation_id)
+            .map_err(|e| e.to_string())?
+    };
 
-    // Add the new user message to history for context
-    let user_message = ChatMessage::user(&request.conversation_id, &request.content);
+    // DO NOT save user message here - frontend already saved it
+    // Just add to context for LLM
+    let user_context_message = ChatMessage::user(&request.conversation_id, &request.content);
     let mut context_messages = history;
-    context_messages.push(user_message.clone());
-
-    // Save user message
-    chat_store
-        .add_message(&user_message)
-        .map_err(|e| e.to_string())?;
+    context_messages.push(user_context_message);
 
     drop(chat_store); // Release lock before streaming
 
@@ -328,6 +334,7 @@ pub async fn send_chat_message_streaming(
     let app_handle_clone = app_handle.clone();
     let request_id_clone = request_id.clone();
     let conversation_id = request.conversation_id.clone();
+    let thread_id = request.thread_id.clone();
     let model_name_for_log = model.name.clone();
 
     // Spawn streaming task
@@ -371,6 +378,11 @@ pub async fn send_chat_message_streaming(
         // Save assistant message after streaming completes
         if !final_content.is_empty() {
             let mut assistant_message = ChatMessage::assistant(&conversation_id, &final_content);
+
+            // Set thread_id if provided - this is critical for proper message organization
+            if let Some(tid) = thread_id {
+                assistant_message = assistant_message.with_thread(&tid);
+            }
 
             // Add metadata about model and tokens
             assistant_message.metadata = Some(crate::nlp::chat::MessageMetadata {

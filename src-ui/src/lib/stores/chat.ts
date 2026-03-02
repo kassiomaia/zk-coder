@@ -153,6 +153,10 @@ function createChatStore() {
 
 	// Active stream tracking for cancellation
 	let activeStream: StreamChatResult | null = null;
+	// Pending thread creation tracking to prevent race conditions
+	// This promise resolves when the thread is FULLY ready (created AND selected)
+	let pendingThreadReady: Promise<Thread | null> | null = null;
+	let pendingThreadConversationId: string | null = null;
 
 	return {
 		subscribe,
@@ -296,6 +300,27 @@ function createChatStore() {
 		 * If no threads exist, show empty state prompting user to create a thread.
 		 */
 		async selectConversation(id: string | null) {
+			// Cancel any active stream before switching conversations to prevent
+			// messages from appearing in the wrong thread
+			if (activeStream) {
+				try {
+					await activeStream.cancel();
+					activeStream.unsubscribe();
+					activeStream = null;
+					update((s) => ({
+						...s,
+						llm: {
+							isStreaming: false,
+							requestId: null,
+							streamingContent: '',
+							model: null
+						}
+					}));
+				} catch (error) {
+					console.error('Failed to cancel stream on conversation switch:', error);
+				}
+			}
+
 			update((state) => ({
 				...state,
 				selectedConversationId: id,
@@ -383,29 +408,49 @@ function createChatStore() {
 				return null;
 			}
 
+			const conversationId = state.selectedConversationId;
+
+			// Create a promise that resolves when thread is FULLY ready (created AND selected)
+			// This prevents race conditions with sendMessage
+			const readyPromise = (async () => {
+				try {
+					const thread = await apiCreateThread(conversationId, title);
+
+					update((s) => ({
+						...s,
+						threads: [...s.threads, thread],
+						// Update conversation with new thread count
+						conversations: s.conversations.map((c) =>
+							c.id === conversationId
+								? { ...c, threads: [...(c.threads || []), thread] }
+								: c
+						)
+					}));
+
+					// Auto-select the newly created thread
+					await this.selectThread(thread.id);
+
+					return thread;
+				} catch (error) {
+					update((s) => ({
+						...s,
+						error: error instanceof Error ? error.message : 'Failed to create thread'
+					}));
+					return null;
+				}
+			})();
+
+			// Set tracking BEFORE awaiting
+			pendingThreadReady = readyPromise;
+			pendingThreadConversationId = conversationId;
+
 			try {
-				const thread = await apiCreateThread(state.selectedConversationId, title);
-				update((s) => ({
-					...s,
-					threads: [...s.threads, thread],
-					// Update conversation with new thread count
-					conversations: s.conversations.map((c) =>
-						c.id === state.selectedConversationId
-							? { ...c, threads: [...(c.threads || []), thread] }
-							: c
-					)
-				}));
-
-				// Auto-select the newly created thread
-				await this.selectThread(thread.id);
-
+				const thread = await readyPromise;
 				return thread;
-			} catch (error) {
-				update((s) => ({
-					...s,
-					error: error instanceof Error ? error.message : 'Failed to create thread'
-				}));
-				return null;
+			} finally {
+				// Clear pending tracking after the FULL operation completes
+				pendingThreadReady = null;
+				pendingThreadConversationId = null;
 			}
 		},
 
@@ -442,10 +487,28 @@ function createChatStore() {
 			content: string,
 			role: 'user' | 'assistant' | 'system' = 'user'
 		): Promise<Message | null> {
-			const state = get({ subscribe });
+			let state = get({ subscribe });
 			if (!state.selectedConversationId) {
 				update((s) => ({ ...s, error: 'No conversation selected' }));
 				return null;
+			}
+
+			// Capture conversation ID in a const for TypeScript type narrowing
+			const conversationId = state.selectedConversationId;
+
+			// Wait for any pending thread creation for this conversation to prevent race conditions
+			// We wait for the thread to be FULLY ready (created AND selected)
+			if (
+				pendingThreadReady &&
+				pendingThreadConversationId === conversationId
+			) {
+				try {
+					await pendingThreadReady;
+				} catch (error) {
+					console.warn('Pending thread creation failed:', error);
+				}
+				// Re-fetch state after waiting for pending thread to be fully ready
+				state = get({ subscribe });
 			}
 
 			let targetThreadId = state.selectedThreadId;
@@ -453,7 +516,7 @@ function createChatStore() {
 			// If no thread selected, check if threads exist or create one
 			if (!targetThreadId) {
 				const existingThreads = state.threads.filter(
-					(t) => t.conversationId === state.selectedConversationId
+					(t) => t.conversationId === conversationId
 				);
 
 				if (existingThreads.length === 0) {
@@ -462,7 +525,7 @@ function createChatStore() {
 
 					try {
 						const { thread, message } = await apiCreateThreadWithMessage({
-							conversationId: state.selectedConversationId,
+							conversationId,
 							threadTitle,
 							content,
 							role
@@ -472,7 +535,13 @@ function createChatStore() {
 							...s,
 							threads: [...s.threads, thread],
 							selectedThreadId: thread.id,
-							messages: [...s.messages, message]
+							messages: [...s.messages, message],
+							// Update conversation with new thread for sidebar display
+							conversations: s.conversations.map((c) =>
+								c.id === conversationId
+									? { ...c, threads: [...(c.threads || []), thread] }
+									: c
+							)
 						}));
 
 						return message;
@@ -498,7 +567,7 @@ function createChatStore() {
 			// Create optimistic message with guaranteed threadId
 			const optimisticMessage: Message = {
 				id: `temp-${Date.now()}`,
-				conversationId: state.selectedConversationId,
+				conversationId,
 				threadId: targetThreadId,
 				role,
 				content,
@@ -514,7 +583,7 @@ function createChatStore() {
 
 			try {
 				const options: SendMessageOptions = {
-					conversationId: state.selectedConversationId,
+					conversationId,
 					content,
 					role,
 					threadId: targetThreadId
@@ -805,14 +874,24 @@ function createChatStore() {
 				return null;
 			}
 
+			// Get FRESH state after sendMessage (which may have created a thread)
+			// This is critical to prevent messages appearing in wrong threads
+			const freshState = get({ subscribe });
+
+			// Capture context for validation during streaming to prevent cross-contamination
+			const streamingContext = {
+				conversationId: freshState.selectedConversationId!,
+				threadId: freshState.selectedThreadId
+			};
+
 			// Create optimistic assistant message for streaming
 			// Use crypto.randomUUID() for guaranteed unique IDs to prevent any collision issues
 			const assistantMessageId = `streaming-${crypto.randomUUID()}`;
 			console.log('[Stream] Creating new assistant message:', assistantMessageId);
 			const optimisticAssistant: Message = {
 				id: assistantMessageId,
-				conversationId: state.selectedConversationId,
-				threadId: state.selectedThreadId ?? '',
+				conversationId: freshState.selectedConversationId!,
+				threadId: freshState.selectedThreadId ?? '',
 				role: 'assistant',
 				content: '',
 				timestamp: new Date(),
@@ -842,8 +921,8 @@ function createChatStore() {
 				// Start streaming request
 				// If modelId is not provided, backend will use the 'code' operation default
 				const result = await sendChatMessageStreaming({
-					conversationId: state.selectedConversationId,
-					threadId: state.selectedThreadId ?? undefined,
+					conversationId: streamingContext.conversationId,
+					threadId: streamingContext.threadId ?? undefined,
 					content,
 					...(options?.modelId && { modelId: options.modelId }),
 					systemPrompt: options?.systemPrompt,
@@ -858,6 +937,21 @@ function createChatStore() {
 								eventRequestId: event.requestId,
 								currentRequestId,
 								eventType: event.type
+							});
+							return;
+						}
+
+						// Validate conversation/thread context to prevent cross-contamination
+						const currentState = get({ subscribe });
+						if (
+							currentState.selectedConversationId !== streamingContext.conversationId ||
+							currentState.selectedThreadId !== streamingContext.threadId
+						) {
+							console.log('[Stream] Ignoring event - context changed:', {
+								originalConversation: streamingContext.conversationId,
+								currentConversation: currentState.selectedConversationId,
+								originalThread: streamingContext.threadId,
+								currentThread: currentState.selectedThreadId
 							});
 							return;
 						}
