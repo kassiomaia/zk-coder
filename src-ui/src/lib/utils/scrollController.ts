@@ -38,6 +38,18 @@ interface ThreadContext {
 	lastScrollHeight: number;
 	/** Cleanup function for state listener */
 	stateListenerCleanup?: () => void;
+	/** Timestamp of last user scroll (for cooldown) */
+	lastUserScrollTime: number;
+	/** Last scroll top position (for detecting scroll direction) */
+	lastScrollTop: number;
+	/** Whether the last user scroll was upward (for extended cooldown) */
+	wasScrollingUp: boolean;
+	/** Flag to ignore scroll events from programmatic scrolls */
+	ignoreScrollEvents: boolean;
+	/** Whether user is currently dragging the scroll thumb */
+	isDraggingThumb: boolean;
+	/** Cleanup function for mouse event listeners */
+	mouseListenersCleanup?: () => void;
 }
 
 /** Options for scroll to bottom */
@@ -60,6 +72,12 @@ const AT_BOTTOM_THRESHOLD = 50;
 /** Threshold for detecting user scroll up */
 const SCROLL_UP_THRESHOLD = 10;
 
+/** Cooldown period after user scroll before auto-scroll can resume (ms) */
+const USER_SCROLL_COOLDOWN = 150;
+
+/** Extended cooldown when user is scrolling up (ms) - longer to prevent fighting */
+const USER_SCROLL_UP_COOLDOWN = 500;
+
 // ============================================================================
 // State
 // ============================================================================
@@ -79,6 +97,30 @@ let operationCounter = 0;
  */
 function generateOperationId(): string {
 	return `ctrl-${++operationCounter}`;
+}
+
+/**
+ * Execute a function with scroll events ignored (for programmatic scrolls).
+ */
+function withIgnoredScrollEvents(threadId: string, fn: () => void): void {
+	const context = threadContexts.get(threadId);
+	if (!context) {
+		fn();
+		return;
+	}
+
+	context.ignoreScrollEvents = true;
+	try {
+		fn();
+	} finally {
+		// Use setTimeout to ensure any pending scroll events are processed
+		// before we start listening again
+		setTimeout(() => {
+			context.ignoreScrollEvents = false;
+			// Update lastScrollTop to current position after programmatic scroll
+			context.lastScrollTop = context.element.scrollTop;
+		}, 0);
+	}
 }
 
 /**
@@ -128,14 +170,18 @@ function handleStateTransition(threadId: string, newState: ScrollState, previous
 	if (event === 'STREAM_END') {
 		// Streaming ended - ensure we're at bottom
 		if (context.autoScrollEnabled) {
-			scrollToBottomInstant(element);
+			withIgnoredScrollEvents(threadId, () => {
+				scrollToBottomInstant(element);
+			});
 		}
 	}
 
 	if (event === 'USER_SEND_MESSAGE') {
 		// User sent message - force scroll to bottom
 		context.autoScrollEnabled = true;
-		scrollToBottomInstant(element);
+		withIgnoredScrollEvents(threadId, () => {
+			scrollToBottomInstant(element);
+		});
 	}
 
 	if (event === 'THREAD_CHANGE') {
@@ -166,16 +212,27 @@ function scheduleScrollToBottom(threadId: string, options: ScrollToBottomOptions
 	if (!element.isConnected) return '';
 
 	if (animated) {
+		// Set ignore flag for the duration of the animation
+		context.ignoreScrollEvents = true;
 		startLiveAnimation(element, {
 			threadId,
 			priority,
 			animated: true,
 			onComplete: () => {
+				// Reset ignore flag after animation completes
+				setTimeout(() => {
+					if (context) {
+						context.ignoreScrollEvents = false;
+						context.lastScrollTop = context.element.scrollTop;
+					}
+				}, 0);
 				options.onComplete?.();
 			}
 		});
 	} else {
-		scrollToBottomInstant(element);
+		withIgnoredScrollEvents(threadId, () => {
+			scrollToBottomInstant(element);
+		});
 		options.onComplete?.();
 	}
 
@@ -186,35 +243,56 @@ function scheduleScrollToBottom(threadId: string, options: ScrollToBottomOptions
  * Handle user scroll detection (internal implementation).
  */
 function processUserScroll(threadId: string, element: HTMLElement): void {
-	const currentState = getState(threadId);
-	const { scrollTop, scrollHeight } = getScrollPosition(element);
 	const context = threadContexts.get(threadId);
 	if (!context) return;
 
-	// Check if user scrolled up
+	// Ignore scroll events from programmatic scrolls
+	if (context.ignoreScrollEvents) {
+		console.log('[ScrollController] processUserScroll: ignoring (programmatic scroll)');
+		return;
+	}
+
+	const currentState = getState(threadId);
+	const { scrollTop, scrollHeight } = getScrollPosition(element);
+
+	// Detect scroll direction
+	const scrollDelta = context.lastScrollTop - scrollTop; // positive = scrolled up, negative = scrolled down
+	const isScrollingUp = scrollDelta > 2; // 2px threshold to ignore minor changes
+
+	// Update tracking
+	context.lastScrollTop = scrollTop;
+	context.wasScrollingUp = isScrollingUp;
+
+	// Check distance from bottom
 	const distanceFromBottom = scrollHeight - scrollTop - element.clientHeight;
 
 	console.log('[ScrollController] processUserScroll:', {
 		threadId,
 		currentState,
 		distanceFromBottom,
+		scrollDelta,
+		isScrollingUp,
+		isDraggingThumb: context.isDraggingThumb,
 		threshold: AT_BOTTOM_THRESHOLD,
 		autoScrollEnabled: context.autoScrollEnabled
 	});
 
-	if (distanceFromBottom > AT_BOTTOM_THRESHOLD) {
-		// User is not at bottom
-		if (currentState === 'streaming' || currentState === 'resuming') {
-			// User scrolled up during streaming
-			console.log('[ScrollController] DISABLING auto-scroll - user scrolled up during streaming');
+	// If user is actively dragging the scroll thumb and scrolling up, disable auto-scroll
+	// This allows user to view older content during streaming
+	if (context.isDraggingThumb && isScrollingUp) {
+		if (context.autoScrollEnabled) {
+			console.log('[ScrollController] DISABLING auto-scroll - user is dragging scroll thumb up');
 			sendEvent(threadId, 'USER_SCROLL_UP');
 			context.autoScrollEnabled = false;
 			stopAnimation(threadId);
 		}
-	} else {
-		// User is at bottom
-		if (currentState === 'user_paused') {
-			// User scrolled back to bottom
+		return;
+	}
+
+	// Handle re-enabling auto-scroll when user scrolls back to bottom from paused state
+	if (currentState === 'user_paused') {
+		if (distanceFromBottom <= AT_BOTTOM_THRESHOLD) {
+			// User scrolled back to bottom while paused
 			console.log('[ScrollController] RE-ENABLING auto-scroll - user scrolled to bottom');
 			sendEvent(threadId, 'USER_SCROLL_TO_BOTTOM');
 			context.autoScrollEnabled = true;
@@ -245,7 +323,12 @@ export function registerThreadElement(threadId: string, element: HTMLElement, op
 	const context: ThreadContext = {
 		element,
 		autoScrollEnabled: options.autoScrollEnabled ?? true,
-		lastScrollHeight: element.scrollHeight
+		lastScrollHeight: element.scrollHeight,
+		lastUserScrollTime: 0,
+		lastScrollTop: element.scrollTop,
+		wasScrollingUp: false,
+		ignoreScrollEvents: false,
+		isDraggingThumb: false
 	};
 
 	threadContexts.set(threadId, context);
@@ -255,6 +338,43 @@ export function registerThreadElement(threadId: string, element: HTMLElement, op
 		handleStateTransition(threadId, state, previousState, event);
 	});
 	context.stateListenerCleanup = cleanup;
+
+	// Set up mouse event listeners to detect scroll thumb dragging
+	const handleMouseDown = (e: MouseEvent) => {
+		// Check if click is on the scrollbar area (right side of element)
+		const rect = element.getBoundingClientRect();
+		const scrollbarWidth = rect.width - element.clientWidth;
+		const isOnScrollbar = e.clientX >= rect.right - scrollbarWidth;
+
+		if (isOnScrollbar) {
+			context.isDraggingThumb = true;
+			console.log('[ScrollController] User started dragging scroll thumb');
+		}
+	};
+
+	const handleMouseUp = () => {
+		if (context.isDraggingThumb) {
+			context.isDraggingThumb = false;
+			console.log('[ScrollController] User stopped dragging scroll thumb');
+		}
+	};
+
+	const handleMouseLeave = () => {
+		if (context.isDraggingThumb) {
+			context.isDraggingThumb = false;
+			console.log('[ScrollController] User left element while dragging');
+		}
+	};
+
+	element.addEventListener('mousedown', handleMouseDown);
+	window.addEventListener('mouseup', handleMouseUp);
+	element.addEventListener('mouseleave', handleMouseLeave);
+
+	context.mouseListenersCleanup = () => {
+		element.removeEventListener('mousedown', handleMouseDown);
+		window.removeEventListener('mouseup', handleMouseUp);
+		element.removeEventListener('mouseleave', handleMouseLeave);
+	};
 
 	// Initialize state machine
 	resetStateMachine(threadId);
@@ -277,6 +397,9 @@ export function unregisterThread(threadId: string): void {
 
 	// Clean up state listener
 	context.stateListenerCleanup?.();
+
+	// Clean up mouse event listeners
+	context.mouseListenersCleanup?.();
 
 	// Remove context
 	threadContexts.delete(threadId);
@@ -315,7 +438,9 @@ export function handleStreamingEnd(threadId: string): void {
 
 	// Final scroll to bottom if auto-scroll is enabled
 	if (context.autoScrollEnabled) {
-		scrollToBottomInstant(context.element);
+		withIgnoredScrollEvents(threadId, () => {
+			scrollToBottomInstant(context.element);
+		});
 	}
 }
 
@@ -332,7 +457,8 @@ export function handleContentUpdate(threadId: string): void {
 		return;
 	}
 
-	const { element, autoScrollEnabled, lastScrollHeight } = context;
+	const { element, autoScrollEnabled } = context;
+	const currentState = getState(threadId);
 	const streamingActive = isStreamingActive(threadId);
 	const atBottom = isAtBottomSync(element);
 	const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
@@ -341,6 +467,7 @@ export function handleContentUpdate(threadId: string): void {
 		threadId,
 		autoScrollEnabled,
 		streamingActive,
+		currentState,
 		atBottom,
 		distanceFromBottom,
 		scrollHeight: element.scrollHeight,
@@ -354,13 +481,15 @@ export function handleContentUpdate(threadId: string): void {
 	// Update live target for running animations
 	updateLiveTarget(element);
 
-	// If auto-scroll is enabled and we're in streaming state, scroll
+	// If auto-scroll is enabled and we're in streaming state, scroll to bottom
+	// During streaming, auto-scroll stays enabled regardless of scroll position
 	if (autoScrollEnabled && streamingActive) {
-		// Check if we're already at bottom or have running animation
 		if (atBottom) {
 			// Already at bottom, just update position instantly
 			console.log('[ScrollController] scrolling instantly to bottom');
-			scrollToBottomInstant(element);
+			withIgnoredScrollEvents(threadId, () => {
+				scrollToBottomInstant(element);
+			});
 		} else if (!isAnimationRunning(threadId)) {
 			// Not at bottom and no animation running, start one
 			console.log('[ScrollController] starting animation to bottom');
@@ -397,8 +526,11 @@ export function handleUserClickScrollDown(threadId: string): void {
 
 	sendEvent(threadId, 'USER_CLICK_SCROLL_DOWN');
 	context.autoScrollEnabled = true;
+	// Clear cooldown and scroll direction since this is an explicit user action
+	context.lastUserScrollTime = 0;
+	context.wasScrollingUp = false;
 
-	// Immediate scroll to bottom with high priority
+	// Immediate scroll to bottom with high priority (uses scheduleScrollToBottom which handles ignore flag)
 	scheduleScrollToBottom(threadId, { priority: 'user', animated: true });
 }
 
@@ -413,9 +545,14 @@ export function handleUserSendMessage(threadId: string): void {
 
 	sendEvent(threadId, 'USER_SEND_MESSAGE');
 	context.autoScrollEnabled = true;
+	// Clear cooldown and scroll direction since this is an explicit user action
+	context.lastUserScrollTime = 0;
+	context.wasScrollingUp = false;
 
-	// Immediate scroll to bottom
-	scrollToBottomInstant(context.element);
+	// Immediate scroll to bottom (use wrapper to ignore scroll events)
+	withIgnoredScrollEvents(threadId, () => {
+		scrollToBottomInstant(context.element);
+	});
 }
 
 /**
@@ -452,7 +589,9 @@ export function scrollToBottom(threadId: string, options: ScrollToBottomOptions 
 	if (animated) {
 		scheduleScrollToBottom(threadId, { ...options, priority });
 	} else {
-		scrollToBottomInstant(element);
+		withIgnoredScrollEvents(threadId, () => {
+			scrollToBottomInstant(element);
+		});
 		options.onComplete?.();
 	}
 }
@@ -508,6 +647,9 @@ export function enableAutoScroll(threadId: string): void {
 	if (!context) return;
 
 	context.autoScrollEnabled = true;
+	// Clear cooldown and scroll direction since this is typically called for explicit user actions
+	context.lastUserScrollTime = 0;
+	context.wasScrollingUp = false;
 }
 
 /**
