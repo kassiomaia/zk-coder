@@ -114,6 +114,80 @@
 	background: rgba(255, 255, 255, 0.15);
 }
 
+/* User message markdown overrides (blue background context) */
+.userMarkdown :global(a) {
+	color: rgba(255, 255, 255, 0.9);
+	border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+.userMarkdown :global(a:hover) {
+	color: var(--color-neutral-0);
+	border-bottom-color: currentColor;
+}
+
+.userMarkdown :global(code:not(.code-block code)) {
+	background: rgba(255, 255, 255, 0.2);
+	color: rgba(255, 255, 255, 0.95);
+	border-color: rgba(255, 255, 255, 0.1);
+}
+
+.userMarkdown :global(blockquote) {
+	background: rgba(255, 255, 255, 0.1);
+	border-left-color: rgba(255, 255, 255, 0.5);
+	color: rgba(255, 255, 255, 0.9);
+}
+
+.userMarkdown :global(table) {
+	border-color: rgba(255, 255, 255, 0.2);
+}
+
+.userMarkdown :global(th) {
+	background: rgba(255, 255, 255, 0.1);
+	border-color: rgba(255, 255, 255, 0.2);
+	color: rgba(255, 255, 255, 0.95);
+}
+
+.userMarkdown :global(td) {
+	border-color: rgba(255, 255, 255, 0.15);
+}
+
+.userMarkdown :global(tbody tr:hover) {
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.userMarkdown :global(hr) {
+	background: rgba(255, 255, 255, 0.3);
+}
+
+.userMarkdown :global(kbd) {
+	background: rgba(255, 255, 255, 0.15);
+	border-color: rgba(255, 255, 255, 0.2);
+	color: var(--color-neutral-0);
+}
+
+.userMarkdown :global(mark) {
+	background: rgba(255, 255, 255, 0.3);
+}
+
+.userMarkdown :global(strong) {
+	color: var(--color-neutral-0);
+}
+
+/* Task list checkboxes in user messages */
+.userMarkdown :global(.task-list-item input[type="checkbox"]) {
+	border-color: rgba(255, 255, 255, 0.5);
+	background: transparent;
+}
+
+.userMarkdown :global(.task-list-item input[type="checkbox"]:checked) {
+	background: rgba(255, 255, 255, 0.9);
+	border-color: rgba(255, 255, 255, 0.9);
+}
+
+.userMarkdown :global(.task-list-item input[type="checkbox"]:checked::after) {
+	border-color: var(--color-primary-600);
+}
+
 .content :global(pre) {
 	margin: var(--space-3) 0;
 	background: var(--color-neutral-950);
