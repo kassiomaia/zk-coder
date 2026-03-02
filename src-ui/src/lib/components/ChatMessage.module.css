@@ -11,7 +11,7 @@
 
 .message {
 	max-width: 100%;
-	padding: var(--space-4);
+	padding: var(--space-2) var(--space-3);
 	border-radius: var(--radius-xl);
 	animation: messageSlideIn var(--transition-slow) ease-out;
 	position: relative;
@@ -94,7 +94,7 @@
 }
 
 .content :global(p) {
-	margin-bottom: var(--space-2);
+	margin-bottom: var(--space-1);
 }
 
 .content :global(p:last-child) {
@@ -188,7 +188,7 @@
 }
 
 .content :global(pre) {
-	margin: var(--space-3) 0;
+	margin: var(--space-2) 0;
 	background: var(--color-bg-tertiary);
 	border-radius: var(--radius-lg);
 	overflow: hidden;
@@ -199,7 +199,7 @@
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
-	margin-top: var(--space-3);
+	margin-top: var(--space-1);
 	font-size: var(--text-xs);
 }
 
@@ -292,7 +292,7 @@
 
 @media (max-width: 600px) {
 	.message {
-		padding: var(--space-3);
+		padding: var(--space-2);
 	}
 }
 
