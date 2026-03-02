@@ -6,6 +6,7 @@
 	import styles from './ChatMessage.module.css';
 	import ThreadIndicator from './chat/ThreadIndicator.svelte';
 	import MarkdownRenderer from './markdown/MarkdownRenderer.svelte';
+	import AnsweringIndicator from './chat/AnsweringIndicator.svelte';
 	import type { MessageStatus } from '$lib/types/message';
 
 	interface Props {
@@ -87,7 +88,11 @@
 	{/if}
 
 	<div class={styles.content}>
-		<MarkdownRenderer content={content} class={role === 'user' ? styles.userMarkdown : ''} />
+		{#if role === 'assistant' && (!content || content.trim() === '')}
+			<AnsweringIndicator />
+		{:else}
+			<MarkdownRenderer content={content} class={role === 'user' ? styles.userMarkdown : ''} />
+		{/if}
 	</div>
 
 	<footer class={styles.footer}>

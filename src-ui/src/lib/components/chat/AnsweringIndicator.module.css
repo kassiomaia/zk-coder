@@ -1,0 +1,120 @@
+/**
+ * Answering Indicator Styles
+ * Displays an animated "Answering..." message with a scanning light effect
+ * to indicate the assistant is thinking/processing
+ */
+
+.container {
+	display: flex;
+	align-items: center;
+	padding: var(--space-2) var(--space-3);
+}
+
+.text {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
+	color: var(--color-text-secondary);
+	line-height: 1.5;
+}
+
+.scanner {
+	position: relative;
+	display: inline-block;
+	background: linear-gradient(
+		90deg,
+		var(--color-text-tertiary) 0%,
+		var(--color-text-primary) 50%,
+		var(--color-text-tertiary) 100%
+	);
+	background-size: 200% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	animation: scanning 2s ease-in-out infinite;
+}
+
+@keyframes scanning {
+	0% {
+		background-position: 100% 0%;
+	}
+	50% {
+		background-position: 0% 0%;
+	}
+	100% {
+		background-position: 100% 0%;
+	}
+}
+
+.dot {
+	display: inline-block;
+	animation: dotPulse 1.5s ease-in-out infinite;
+	color: var(--color-text-tertiary);
+}
+
+@keyframes dotPulse {
+	0%, 100% {
+		opacity: 0.3;
+		transform: scale(0.8);
+	}
+	50%{
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+/* Alternative shimmer effect using pseudo-element */
+.scanner::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		rgba(255, 255, 255, 0.3) 50%,
+		transparent 100%
+	);
+	background-size: 200% 100%;
+	animation: shimmer 2s ease-in-out infinite;
+	pointer-events: none;
+}
+
+@keyframes shimmer {
+	0% {
+		background-position: -100% 0%;
+	}
+	100% {
+		background-position: 200% 0%;
+	}
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+	.scanner {
+		animation: none;
+		background: var(--color-text-secondary);
+		color: var(--color-text-secondary);
+	}
+
+	.dot {
+		animation: dotPulseSimple 1s ease-in-out infinite;
+	}
+
+	@keyframes dotPulseSimple {
+		0%, 100% {
+			opacity: 0.5;
+		}
+		50%{
+			opacity: 1;
+		}
+	}
+
+	.scanner::after {
+		animation: none;
+	}
+}
