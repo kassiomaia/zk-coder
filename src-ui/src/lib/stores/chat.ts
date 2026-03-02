@@ -806,7 +806,9 @@ function createChatStore() {
 			}
 
 			// Create optimistic assistant message for streaming
-			const assistantMessageId = `streaming-${Date.now()}`;
+			// Use crypto.randomUUID() for guaranteed unique IDs to prevent any collision issues
+			const assistantMessageId = `streaming-${crypto.randomUUID()}`;
+			console.log('[Stream] Creating new assistant message:', assistantMessageId);
 			const optimisticAssistant: Message = {
 				id: assistantMessageId,
 				conversationId: state.selectedConversationId,
@@ -816,6 +818,13 @@ function createChatStore() {
 				timestamp: new Date(),
 				status: 'sending'
 			};
+
+			// Track the request ID for this streaming session to prevent
+			// processing events from other requests (e.g., from stale listeners)
+			let currentRequestId: string | null = null;
+
+			// Local streaming content accumulator to avoid issues with global state
+			let localStreamingContent = '';
 
 			// Add optimistic assistant message and start streaming
 			update((s) => ({
@@ -841,25 +850,66 @@ function createChatStore() {
 					temperature: options?.temperature,
 					maxTokens: options?.maxTokens,
 					onEvent: (event: LlmEvent) => {
-						if (isChunkEvent(event)) {
-							// Update streaming content
+						// Filter events by requestId to prevent processing events
+						// from other requests (e.g., from stale listeners)
+						// Once we have a requestId, only process events matching it
+						if (currentRequestId !== null && event.requestId !== currentRequestId) {
+							console.log('[Stream] Ignoring event from different request:', {
+								eventRequestId: event.requestId,
+								currentRequestId,
+								eventType: event.type
+							});
+							return;
+						}
+
+						if (isStartedEvent(event)) {
+							// Store request ID for cancellation and event filtering FIRST
+							currentRequestId = event.requestId;
+							console.log('[Stream] Started event received:', {
+								requestId: event.requestId,
+								assistantMessageId
+							});
+							update((s) => ({
+								...s,
+								llm: {
+									...s.llm,
+									requestId: event.requestId,
+									model: event.model
+								}
+							}));
+						} else if (isChunkEvent(event)) {
+							// Use local accumulator instead of global state
+							localStreamingContent += event.delta;
+							const contentToUpdate = localStreamingContent;
+
 							update((s) => {
-								const newContent = s.llm.streamingContent + event.delta;
+								// Double-check: only update if the message still exists and has our ID
+								const messageExists = s.messages.some((m) => m.id === assistantMessageId);
+								if (!messageExists) {
+									console.warn('[Stream] Message not found:', assistantMessageId);
+									return s;
+								}
+
 								return {
 									...s,
 									llm: {
 										...s.llm,
-										streamingContent: newContent
+										streamingContent: contentToUpdate
 									},
 									messages: s.messages.map((m) =>
 										m.id === assistantMessageId
-											? { ...m, content: newContent }
+											? { ...m, content: contentToUpdate }
 											: m
 									)
 								};
 							});
 						} else if (isCompleteEvent(event)) {
 							// Streaming complete - update with final content
+							console.log('[Stream] Complete event received:', {
+								requestId: event.requestId,
+								assistantMessageId,
+								contentLength: event.content?.length
+							});
 							update((s) => ({
 								...s,
 								messages: s.messages.map((m) =>
@@ -884,11 +934,21 @@ function createChatStore() {
 									model: null
 								}
 							}));
-							// Clear active stream
+							// CRITICAL: Unsubscribe from events to prevent stale listeners
+							if (activeStream) {
+								activeStream.unsubscribe();
+							}
+							// Clear active stream and reset request ID tracking
 							activeStream = null;
+							currentRequestId = null;
+							localStreamingContent = '';
 						} else if (isErrorEvent(event)) {
 							// Error during streaming
-							console.error('LLM streaming error:', event.error);
+							console.error('[Stream] Error event received:', {
+								requestId: event.requestId,
+								assistantMessageId,
+								error: event.error
+							});
 							update((s) => ({
 								...s,
 								messages: s.messages.map((m) =>
@@ -904,17 +964,13 @@ function createChatStore() {
 								},
 								error: event.error
 							}));
+							// CRITICAL: Unsubscribe from events to prevent stale listeners
+							if (activeStream) {
+								activeStream.unsubscribe();
+							}
 							activeStream = null;
-						} else if (isStartedEvent(event)) {
-							// Store request ID for cancellation
-							update((s) => ({
-								...s,
-								llm: {
-									...s.llm,
-									requestId: event.requestId,
-									model: event.model
-								}
-							}));
+							currentRequestId = null;
+							localStreamingContent = '';
 						}
 					}
 				});
