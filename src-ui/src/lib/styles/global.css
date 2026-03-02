@@ -56,7 +56,7 @@ h4,
 h5,
 h6 {
 	font-family: var(--font-display);
-	font-weight: var(--font-semibold);
+	font-weight: var(--font-medium);
 	line-height: var(--leading-tight);
 	color: var(--color-text-primary);
 	letter-spacing: var(--tracking-tight);
@@ -64,7 +64,7 @@ h6 {
 
 h1 {
 	font-size: var(--text-4xl);
-	font-weight: var(--font-bold);
+	font-weight: var(--font-semibold);
 }
 h2 {
 	font-size: var(--text-3xl);
@@ -106,15 +106,14 @@ pre {
 
 code {
 	background-color: var(--color-bg-tertiary);
-	color: var(--color-accent-rose);
+	color: var(--color-text-secondary);
 	padding: var(--space-0-5) var(--space-1-5);
 	border-radius: var(--radius-md);
-	font-weight: var(--font-medium);
+	font-weight: var(--font-normal);
 }
 
 pre {
-	background-color: var(--color-bg-secondary);
-	border: 1px solid var(--color-border-subtle);
+	background-color: var(--color-bg-tertiary);
 	padding: var(--space-4);
 	border-radius: var(--radius-xl);
 	overflow-x: auto;
@@ -185,7 +184,7 @@ button:disabled {
 	opacity: var(--opacity-disabled);
 }
 
-/* Input base - enhanced focus states */
+/* Input base - subtle styling */
 input,
 textarea,
 select {
@@ -193,7 +192,7 @@ select {
 	font-size: var(--text-base);
 	color: var(--color-text-primary);
 	background-color: var(--color-surface);
-	border: 1px solid var(--color-border-primary);
+	border: 1px solid var(--color-border-subtle);
 	border-radius: var(--radius-lg);
 	padding: var(--space-2-5) var(--space-3);
 	transition:
@@ -205,7 +204,7 @@ select {
 input:hover,
 textarea:hover,
 select:hover {
-	border-color: var(--color-border-secondary);
+	border-color: var(--color-border-primary);
 }
 
 input:focus,

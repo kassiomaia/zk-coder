@@ -17,7 +17,7 @@
 	align-items: center;
 	gap: var(--space-2);
 	padding: var(--space-2) var(--space-3);
-	background: var(--color-success-light);
+	background: var(--color-success-subtle);
 	border-radius: var(--radius-lg);
 	color: var(--color-success);
 	font-size: var(--text-sm);
@@ -38,16 +38,17 @@
 	align-items: center;
 	padding: var(--space-4);
 	background: var(--color-surface);
-	border: 1px solid var(--color-border-primary);
+	border: 1px solid var(--color-border-subtle);
 	border-radius: var(--radius-xl);
 	cursor: pointer;
 	transition: all var(--transition-fast);
 }
 
 .card:hover {
-	border-color: var(--color-border-hover);
-	transform: translateY(-2px);
-	box-shadow: var(--shadow-md);
+	border-color: var(--color-border-primary);
+	background: var(--color-surface-hover);
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-sm);
 }
 
 .providerIcon {
@@ -63,28 +64,32 @@
 }
 
 .providerIcon.anthropic {
-	background: linear-gradient(135deg, #d97706, #92400e);
-	color: white;
+	background: linear-gradient(135deg, rgba(217, 119, 6, 0.15), rgba(146, 64, 14, 0.15));
+	color: rgba(217, 119, 6, 0.9);
+	border: 1px solid rgba(217, 119, 6, 0.2);
 }
 
 .providerIcon.openai {
-	background: linear-gradient(135deg, #10b981, #059669);
-	color: white;
+	background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.15));
+	color: rgba(16, 185, 129, 0.9);
+	border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .providerIcon.google {
-	background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-	color: white;
+	background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.15));
+	color: rgba(59, 130, 246, 0.9);
+	border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .providerIcon.custom {
-	background: linear-gradient(135deg, #6366f1, #8b5cf6);
-	color: white;
+	background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+	color: rgba(99, 102, 241, 0.9);
+	border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 .providerName {
 	font-size: var(--text-sm);
-	font-weight: var(--font-semibold);
+	font-weight: var(--font-medium);
 	color: var(--color-text-primary);
 	margin-bottom: var(--space-1);
 	text-align: center;
@@ -121,7 +126,7 @@
 }
 
 .statusDot.add {
-	background: var(--color-primary-500);
+	background: var(--color-text-tertiary);
 	animation: pulse 2s infinite;
 }
 
@@ -131,7 +136,8 @@
 }
 
 .card.configured {
-	border-color: var(--color-success);
+	border-color: rgba(16, 185, 129, 0.2);
+	background: rgba(16, 185, 129, 0.03);
 }
 
 .card.configured .statusDot {
@@ -146,13 +152,16 @@
 	justify-content: center;
 	border-radius: var(--radius-lg);
 	background: var(--color-surface-hover);
-	color: var(--color-primary-500);
+	color: var(--color-text-tertiary);
 	margin-bottom: var(--space-2);
+	border: 1px solid var(--color-border-subtle);
+	transition: all var(--transition-fast);
 }
 
 .addCard:hover .addIcon {
-	background: var(--color-primary-500);
-	color: white;
+	background: var(--color-surface-active);
+	color: var(--color-text-secondary);
+	border-color: var(--color-border-primary);
 }
 
 .footer {

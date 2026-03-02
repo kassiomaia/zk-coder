@@ -63,8 +63,8 @@
 
 /* Active/selected state */
 .active {
-	color: var(--color-primary-500);
-	background: var(--color-accent-primary-muted);
+	color: var(--color-text-primary);
+	background: var(--color-surface-active);
 }
 
 /* Feedback group */

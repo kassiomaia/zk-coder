@@ -8,7 +8,7 @@
 	align-items: center;
 	padding: var(--space-4);
 	background: var(--color-surface);
-	border: 1px solid var(--color-border-primary);
+	border: 1px solid var(--color-border-subtle);
 	border-radius: var(--radius-xl);
 	cursor: pointer;
 	transition: all var(--transition-fast);
@@ -16,22 +16,25 @@
 }
 
 .card:hover {
-	border-color: var(--color-border-hover);
-	transform: translateY(-2px);
-	box-shadow: var(--shadow-md);
+	border-color: var(--color-border-primary);
+	background: var(--color-surface-hover);
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-sm);
 }
 
 .card:focus-visible {
-	outline: 2px solid var(--color-primary-500);
+	outline: 2px solid var(--color-border-focus);
 	outline-offset: 2px;
 }
 
 .card.configured {
-	border-color: var(--color-success);
+	border-color: rgba(16, 185, 129, 0.2);
+	background: rgba(16, 185, 129, 0.03);
 }
 
 .card.configured:hover {
-	border-color: var(--color-success);
+	border-color: rgba(16, 185, 129, 0.3);
+	background: rgba(16, 185, 129, 0.05);
 }
 
 /* Icon wrapper */
@@ -47,14 +50,14 @@
 /* Text */
 .name {
 	font-size: var(--text-sm);
-	font-weight: var(--font-semibold);
+	font-weight: var(--font-medium);
 	color: var(--color-text-primary);
 	margin-bottom: var(--space-1);
 }
 
 .models {
 	font-size: var(--text-xs);
-	color: var(--color-text-secondary);
+	color: var(--color-text-tertiary);
 	margin-bottom: var(--space-2);
 }
 
@@ -64,7 +67,7 @@
 	align-items: center;
 	gap: var(--space-2);
 	font-size: var(--text-xs);
-	color: var(--color-text-secondary);
+	color: var(--color-text-tertiary);
 }
 
 .dot {
@@ -72,10 +75,12 @@
 	height: 6px;
 	border-radius: 50%;
 	background: var(--color-text-muted);
+	opacity: 0.6;
 }
 
 .dot.configured {
 	background: var(--color-success);
+	opacity: 1;
 }
 
 .configuredText {

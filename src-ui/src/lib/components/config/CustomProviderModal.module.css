@@ -18,9 +18,7 @@
 .label {
 	font-size: var(--text-sm);
 	font-weight: var(--font-medium);
-	color: var(--color-text-primary);
-	/* Improved contrast for better readability */
-	opacity: 0.9;
+	color: var(--color-text-secondary);
 }
 
 /* Radio Group */
@@ -36,35 +34,35 @@
 	gap: var(--space-3);
 	padding: var(--space-3);
 	background: var(--color-surface);
-	border: 1px solid var(--color-border-primary);
+	border: 1px solid var(--color-border-subtle);
 	border-radius: var(--radius-md);
 	cursor: pointer;
 	transition: all var(--transition-fast);
 }
 
 .radio:hover {
-	border-color: var(--color-border-hover);
+	border-color: var(--color-border-primary);
 	background: var(--color-surface-hover);
 }
 
 .radio:hover:has(input:checked) {
-	background: var(--color-interactive-selected-hover);
+	background: var(--color-surface-active);
 }
 
 .radio input[type="radio"] {
 	margin-top: var(--space-1);
-	accent-color: var(--color-primary-500);
+	accent-color: var(--color-text-tertiary);
 }
 
 .radio:focus-visible {
-	outline: 2px solid var(--color-primary-500);
+	outline: 2px solid var(--color-border-focus);
 	outline-offset: 1px;
-	background: var(--color-interactive-selected);
+	background: var(--color-surface-hover);
 }
 
 .radio:has(input:checked) {
-	background: var(--color-interactive-selected);
-	border: 1px solid var(--color-primary-500);
+	background: var(--color-surface-hover);
+	border: 1px solid var(--color-border-secondary);
 }
 
 .radioLabel {
@@ -77,25 +75,20 @@
 	font-size: var(--text-sm);
 	font-weight: var(--font-medium);
 	color: var(--color-text-primary);
-	/* Improved contrast for better readability */
-	opacity: 0.95;
 }
 
 .radio:has(input:checked) .radioTitle {
-	font-weight: var(--font-semibold);
+	font-weight: var(--font-medium);
 	color: var(--color-text-primary);
 }
 
 .radioDesc {
 	font-size: var(--text-xs);
-	color: var(--color-text-secondary);
-	/* Improved contrast for better readability */
-	opacity: 0.85;
+	color: var(--color-text-tertiary);
 }
 
 .radio:has(input:checked) .radioDesc {
 	color: var(--color-text-secondary);
-	opacity: 0.9;
 }
 
 /* Error */
@@ -118,12 +111,11 @@
 	align-items: center;
 	gap: var(--space-2);
 	padding: var(--space-2) var(--space-3);
-	background: var(--color-surface-hover);
+	background: var(--color-interactive-hover);
 	border-radius: var(--radius-lg);
 	font-size: var(--text-xs);
-	color: var(--color-text-secondary);
-	/* Improved contrast for better readability */
-	opacity: 0.85;
+	color: var(--color-text-tertiary);
+	border: 1px solid var(--color-border-subtle);
 }
 
 .info svg {

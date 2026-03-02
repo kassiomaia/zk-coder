@@ -7,8 +7,8 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		/** Button variant */
-		variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+		/** Button variant - use 'accent' for main CTAs only */
+		variant?: 'primary' | 'accent' | 'secondary' | 'ghost' | 'danger';
 		/** Button size */
 		size?: 'default' | 'sm';
 		/** Disabled state */

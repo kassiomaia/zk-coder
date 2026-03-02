@@ -32,41 +32,57 @@
 
 /* Variants */
 .primary {
+	background: var(--color-surface-hover);
+	color: var(--color-text-primary);
+	border-color: var(--color-border-subtle);
+}
+
+.primary:hover:not(:disabled) {
+	background: var(--color-surface-active);
+	border-color: var(--color-border-primary);
+}
+
+.primary:active:not(:disabled) {
+	background: var(--color-neutral-700);
+}
+
+/* Accent variant - use for main CTAs only */
+.accent {
 	background: var(--color-primary-500);
 	color: var(--color-neutral-0);
 	border-color: var(--color-primary-500);
 }
 
-.primary:hover:not(:disabled) {
+.accent:hover:not(:disabled) {
 	background: var(--color-primary-600);
 	border-color: var(--color-primary-600);
 }
 
-.primary:active:not(:disabled) {
+.accent:active:not(:disabled) {
 	background: var(--color-primary-700);
 }
 
 .secondary {
 	background: transparent;
 	color: var(--color-text-secondary);
-	border-color: var(--color-border-primary);
+	border-color: var(--color-border-subtle);
 }
 
 .secondary:hover:not(:disabled) {
 	background: var(--color-surface-hover);
-	color: var(--color-text-primary);
-	border-color: var(--color-border-focus);
+	color: var(--text-secondary);
+	border-color: var(--color-border-primary);
 }
 
 .ghost {
 	background: transparent;
-	color: var(--color-text-secondary);
+	color: var(--color-text-tertiary);
 	border-color: transparent;
 }
 
 .ghost:hover:not(:disabled) {
-	background: var(--color-surface-hover);
-	color: var(--color-text-primary);
+	background: var(--color-interactive-hover);
+	color: var(--color-text-secondary);
 }
 
 .danger {

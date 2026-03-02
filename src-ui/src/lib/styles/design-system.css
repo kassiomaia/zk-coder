@@ -71,11 +71,11 @@
 	--color-info: #0ea5e9;
 	--color-info-light: rgba(14, 165, 233, 0.15);
 
-	/* Role-based message colors */
-	--color-role-user-bg: rgba(99, 102, 241, 0.12);
-	--color-role-user-bg-hover: rgba(99, 102, 241, 0.18);
-	--color-role-assistant-bg: var(--color-surface);
-	--color-role-assistant-bg-hover: var(--color-surface-hover);
+	/* Role-based message colors - subtle differentiation */
+	--color-role-user-bg: rgba(99, 102, 241, 0.06);
+	--color-role-user-bg-hover: rgba(99, 102, 241, 0.1);
+	--color-role-assistant-bg: transparent;
+	--color-role-assistant-bg-hover: rgba(255, 255, 255, 0.02);
 
 	/* =====================
      Typography
@@ -167,10 +167,10 @@
 	--shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 	--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
 
-	/* Glow shadows for interactive elements - intentionally subtle */
-	--shadow-glow-sm: 0 0 8px rgb(99 102 241 / 0.15);
-	--shadow-glow-md: 0 0 16px rgb(99 102 241 / 0.2);
-	--shadow-glow-lg: 0 0 24px rgb(99 102 241 / 0.25);
+	/* Glow shadows for interactive elements - very subtle */
+	--shadow-glow-sm: 0 0 8px rgb(99 102 241 / 0.08);
+	--shadow-glow-md: 0 0 16px rgb(99 102 241 / 0.1);
+	--shadow-glow-lg: 0 0 24px rgb(99 102 241 / 0.12);
 
 	/* =====================
      Transitions
@@ -245,51 +245,51 @@
 	--ease-elastic: cubic-bezier(0.68, -0.6, 0.32, 1.6);
 }
 
-/* Dark Mode Theme - Enhanced contrast */
+/* Dark Mode Theme - Subtle, low-contrast design */
 [data-theme='dark'] {
-	/* Background colors - layered depth */
+	/* Background colors - minimal differentiation for cohesive look */
 	--color-bg-base: var(--color-neutral-950);
-	--color-bg-primary: var(--color-neutral-925);
-	--color-bg-secondary: var(--color-neutral-900);
-	--color-bg-tertiary: var(--color-neutral-850);
-	--color-bg-elevated: var(--color-neutral-800);
-	--color-bg-overlay: rgba(0, 0, 0, 0.5);
+	--color-bg-primary: var(--color-neutral-950);
+	--color-bg-secondary: var(--color-neutral-925);
+	--color-bg-tertiary: var(--color-neutral-925);
+	--color-bg-elevated: var(--color-neutral-900);
+	--color-bg-overlay: rgba(0, 0, 0, 0.6);
 
-	/* Surface colors - for cards and panels */
-	--color-surface: var(--color-neutral-900);
-	--color-surface-hover: var(--color-neutral-800);
-	--color-surface-active: var(--color-neutral-700);
-	--color-surface-elevated: var(--color-neutral-800);
+	/* Surface colors - for cards and panels, minimal contrast */
+	--color-surface: var(--color-neutral-925);
+	--color-surface-hover: var(--color-neutral-900);
+	--color-surface-active: var(--color-neutral-850);
+	--color-surface-elevated: var(--color-neutral-900);
 
-	/* Text colors - improved contrast */
-	--color-text-primary: var(--color-neutral-50);
-	--color-text-secondary: var(--color-neutral-200);
-	--color-text-tertiary: var(--color-neutral-400);
-	--color-text-muted: var(--color-neutral-500);
-	--color-text-disabled: var(--color-neutral-600);
+	/* Text colors - soft, non-fatiguing contrast */
+	--color-text-primary: var(--color-neutral-200);
+	--color-text-secondary: var(--color-neutral-400);
+	--color-text-tertiary: var(--color-neutral-500);
+	--color-text-muted: var(--color-neutral-600);
+	--color-text-disabled: var(--color-neutral-700);
 
-	/* Border colors */
-	--color-border-subtle: var(--color-neutral-850);
-	--color-border-primary: var(--color-neutral-800);
-	--color-border-secondary: var(--color-neutral-700);
+	/* Border colors - very subtle, almost invisible */
+	--color-border-subtle: rgba(255, 255, 255, 0.04);
+	--color-border-primary: rgba(255, 255, 255, 0.06);
+	--color-border-secondary: rgba(255, 255, 255, 0.08);
 	--color-border-focus: var(--color-primary-500);
 
-	/* Interactive states */
-	--color-interactive-hover: rgba(255, 255, 255, 0.05);
-	--color-interactive-active: rgba(255, 255, 255, 0.1);
-	--color-interactive-selected: rgba(99, 102, 241, 0.15);
-	--color-interactive-selected-hover: rgba(99, 102, 241, 0.2);
+	/* Interactive states - subtle feedback */
+	--color-interactive-hover: rgba(255, 255, 255, 0.03);
+	--color-interactive-active: rgba(255, 255, 255, 0.06);
+	--color-interactive-selected: rgba(99, 102, 241, 0.08);
+	--color-interactive-selected-hover: rgba(99, 102, 241, 0.12);
 
-	/* Primary accent for dark mode */
+	/* Primary accent for dark mode - muted intensity */
 	--color-accent-primary: var(--color-primary-400);
 	--color-accent-primary-hover: var(--color-primary-300);
-	--color-accent-primary-muted: rgba(99, 102, 241, 0.2);
+	--color-accent-primary-muted: rgba(99, 102, 241, 0.12);
 
 	/* Status badge colors */
-	--color-status-open-bg: var(--color-neutral-800);
+	--color-status-open-bg: rgba(255, 255, 255, 0.04);
 	--color-status-open-text: var(--color-text-tertiary);
-	--color-status-resolved-bg: var(--color-success-subtle);
-	--color-status-resolved-text: var(--color-success);
+	--color-status-resolved-bg: rgba(16, 185, 129, 0.08);
+	--color-status-resolved-text: rgba(16, 185, 129, 0.9);
 }
 
 /* Light Mode Theme */
@@ -341,22 +341,22 @@
 
 /* Fallback for legacy variables - maps to new system */
 [data-theme='dark'] {
-	--color-bg-primary: var(--color-neutral-925);
-	--color-bg-secondary: var(--color-neutral-900);
-	--color-bg-tertiary: var(--color-neutral-850);
-	--color-bg-elevated: var(--color-neutral-800);
+	--color-bg-primary: var(--color-neutral-950);
+	--color-bg-secondary: var(--color-neutral-925);
+	--color-bg-tertiary: var(--color-neutral-925);
+	--color-bg-elevated: var(--color-neutral-900);
 
-	--color-text-primary: var(--color-neutral-50);
-	--color-text-secondary: var(--color-neutral-200);
-	--color-text-tertiary: var(--color-neutral-400);
-	--color-text-muted: var(--color-neutral-500);
+	--color-text-primary: var(--color-neutral-200);
+	--color-text-secondary: var(--color-neutral-400);
+	--color-text-tertiary: var(--color-neutral-500);
+	--color-text-muted: var(--color-neutral-600);
 
-	--color-border-primary: var(--color-neutral-800);
-	--color-border-secondary: var(--color-neutral-700);
+	--color-border-primary: rgba(255, 255, 255, 0.06);
+	--color-border-secondary: rgba(255, 255, 255, 0.08);
 
-	--color-surface: var(--color-neutral-900);
-	--color-surface-hover: var(--color-neutral-800);
-	--color-surface-active: var(--color-neutral-700);
+	--color-surface: var(--color-neutral-925);
+	--color-surface-hover: var(--color-neutral-900);
+	--color-surface-active: var(--color-neutral-850);
 }
 
 [data-theme='light'] {

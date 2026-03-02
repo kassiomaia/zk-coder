@@ -43,19 +43,19 @@
 	background: var(--color-surface-hover);
 }
 
-/* Selected state - prominent and clear */
+/* Selected state - subtle neutral highlight */
 .item.selected .button {
-	background: var(--color-interactive-selected);
-	border: 1px solid var(--color-primary-500);
+	background: var(--color-surface-hover);
+	border: 1px solid var(--color-border-secondary);
 	padding: 0 calc(var(--space-3) - 1px);
 }
 
 .item.selected .button:hover {
-	background: var(--color-interactive-selected-hover);
+	background: var(--color-surface-active);
 }
 
 .button:focus-visible {
-	outline: 2px solid var(--color-primary-500);
+	outline: 2px solid var(--color-border-focus);
 	outline-offset: 1px;
 }
 
@@ -74,8 +74,8 @@
 }
 
 .item.selected .icon {
-	background: var(--color-primary-500);
-	color: var(--color-neutral-0);
+	background: var(--color-surface-active);
+	color: var(--color-text-secondary);
 }
 
 .button:hover .icon {
