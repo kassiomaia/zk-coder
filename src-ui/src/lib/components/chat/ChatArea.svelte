@@ -30,6 +30,9 @@
 		/** Loading state for messages */
 		messagesLoading?: 'idle' | 'loading' | 'success' | 'error';
 
+		/** Thread is resolved - disables input */
+		threadResolved?: boolean;
+
 		/** Send message handler */
 		onSendMessage?: (content: string) => void;
 
@@ -56,6 +59,7 @@
 		isTyping = false,
 		error,
 		messagesLoading = 'idle',
+		threadResolved = false,
 		onSendMessage,
 		onRetry,
 		onEditMessage,
@@ -66,6 +70,47 @@
 
 	// Input state
 	let inputValue = $state('');
+
+	// Animation state for input container
+	let inputAnimatingIn = $state(false);
+	let inputAnimatingOut = $state(false);
+	let showInput = $state(!threadResolved);
+	let previousResolved = $state(threadResolved);
+
+	// Watch for threadResolved changes and animate transitions
+	$effect(() => {
+		const currentResolved = threadResolved;
+
+		// Only animate when the resolved state actually changes
+		if (currentResolved !== previousResolved) {
+			const wasResolved = previousResolved;
+			const nowResolved = currentResolved;
+
+			previousResolved = currentResolved;
+
+			if (wasResolved && !nowResolved) {
+				// Transition: locked -> unlocked
+				// Wait for banner to slide out (300ms), then slide input up
+				setTimeout(() => {
+					showInput = true;
+					inputAnimatingIn = true;
+					setTimeout(() => {
+						inputAnimatingIn = false;
+					}, 300);
+				}, 300);
+			} else if (!wasResolved && nowResolved) {
+				// Transition: unlocked -> locked
+				// Animate input out (slide down), then banner will slide in
+				inputAnimatingOut = true;
+				setTimeout(() => {
+					showInput = false;
+					inputAnimatingOut = false;
+				}, 200);
+			}
+			// If wasResolved and nowResolved: both locked - no animation (stay hidden)
+			// If !wasResolved and !nowResolved: both unlocked - no animation (stay visible)
+		}
+	});
 
 	// Group messages by time and role
 	interface MessageGroup {
@@ -249,14 +294,16 @@
 	</div>
 
 	<!-- Input area -->
-	<div class={styles.inputContainer}>
-		<ChatInput
-			value={inputValue}
-			onchange={(v) => (inputValue = v)}
-			onsubmit={handleSubmit}
-			placeholder="Send a message..."
-			loading={loading}
-			showIntent={true}
-		/>
-	</div>
+	{#if showInput}
+		<div class={[styles.inputContainer, inputAnimatingIn && styles.animateIn].filter(Boolean).join(' ')}>
+			<ChatInput
+				value={inputValue}
+				onchange={(v) => (inputValue = v)}
+				onsubmit={handleSubmit}
+				placeholder="Send a message..."
+				loading={loading}
+				showIntent={true}
+			/>
+		</div>
+	{/if}
 </div>

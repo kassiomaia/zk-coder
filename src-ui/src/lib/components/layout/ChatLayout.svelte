@@ -143,6 +143,14 @@
 		onSendMessage?.(content);
 	}
 
+	// Handle reopening a resolved thread
+	function handleReopenThread() {
+		if (selectedThread && onResolveThread) {
+			// Toggle the thread to unresolved by calling resolve with resolved=false
+			onResolveThread({ ...selectedThread, metadata: { ...selectedThread.metadata, resolved: false } });
+		}
+	}
+
 	// Get breadcrumb path from thread hierarchy
 	let breadcrumbPath = $derived(
 		selectedThread
@@ -297,6 +305,7 @@
 								{messages}
 								{breadcrumbPath}
 								onSendMessage={handleSendMessage}
+								onReopenThread={handleReopenThread}
 								{loading}
 							/>
 						{:else}

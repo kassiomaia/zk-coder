@@ -166,7 +166,7 @@
 	padding: var(--space-3) var(--space-5);
 }
 
-/* Input container */
+/* Input container with slide/fade transitions */
 .inputContainer {
 	flex-shrink: 0;
 	padding: var(--space-4) var(--space-5);
@@ -174,6 +174,55 @@
 	background: var(--color-bg-primary);
 	width: 100%;
 	position: relative;
+}
+
+/* Only apply transition when not animating */
+.inputContainer:not(.animateIn):not(.animateOut) {
+	transition: all var(--transition-normal);
+}
+
+/* Slide in from bottom when appearing */
+.inputContainer.animateIn {
+	animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+		max-height: 0;
+		padding-top: 0;
+		padding-bottom: 0;
+		overflow: hidden;
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+		max-height: 200px;
+		padding-top: var(--space-4);
+		padding-bottom: 0;
+	}
+}
+
+/* Slide out when disappearing */
+.inputContainer.animateOut {
+	animation: slideOut 0.2s ease-in forwards;
+}
+
+@keyframes slideOut {
+	from {
+		opacity: 1;
+		transform: translateY(0);
+		max-height: 200px;
+	}
+	to {
+		opacity: 0;
+		transform: translateY(20px);
+		max-height: 0;
+		padding-top: 0;
+		padding-bottom: 0;
+		overflow: hidden;
+	}
 }
 
 /* Desktop sticky input */

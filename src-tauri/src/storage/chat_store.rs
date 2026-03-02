@@ -35,6 +35,9 @@ pub enum ChatStoreError {
     /// JSON error
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
+    /// Thread is resolved and cannot accept new messages
+    #[error("Thread '{0}' is resolved and cannot accept new messages. Reopen the thread to continue the conversation.")]
+    ThreadResolved(String),
 }
 
 impl ChatStore {
@@ -363,6 +366,40 @@ impl ChatStore {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(threads)
+    }
+
+    /// Loads a single thread by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the thread is not found or database fails.
+    pub fn load_thread(&self, id: &str) -> Result<Thread, ChatStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let row = conn
+            .query_row(
+                "SELECT id, conversation_id, parent_id, title, created_at, updated_at, message_count, metadata
+                 FROM threads WHERE id = ?1",
+                params![id],
+                |row| {
+                    Ok(Thread {
+                        id: row.get(0)?,
+                        conversation_id: row.get(1)?,
+                        parent_id: row.get(2)?,
+                        title: row.get(3)?,
+                        created_at: parse_datetime(&row.get::<_, String>(4)?),
+                        updated_at: parse_datetime(&row.get::<_, String>(5)?),
+                        message_count: row.get::<_, i64>(6)? as usize,
+                        metadata: serde_json::from_str(&row.get::<_, String>(7)?).unwrap_or_default(),
+                    })
+                },
+            )
+            .optional()?;
+
+        row.ok_or(ChatStoreError::NotFound("Thread", id.to_string()))
     }
 
     /// Updates a thread's resolved status.
@@ -859,6 +896,24 @@ mod tests {
     }
 
     #[test]
+    fn test_load_single_thread() {
+        let store = ChatStore::in_memory().expect("Failed to create store");
+
+        let conv = store
+            .create_conversation("Test")
+            .expect("Failed to create");
+
+        let thread = store
+            .create_thread(&conv.id, "Test Thread")
+            .expect("Failed to create thread");
+
+        let loaded = store.load_thread(&thread.id).expect("Failed to load thread");
+        assert_eq!(loaded.id, thread.id);
+        assert_eq!(loaded.title, thread.title);
+        assert!(!loaded.metadata.resolved);
+    }
+
+    #[test]
     fn test_add_and_load_messages() {
         let store = ChatStore::in_memory().expect("Failed to create store");
 
@@ -904,5 +959,45 @@ mod tests {
 
         let result = store.load_conversation(&conv.id);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_thread_resolved_status() {
+        let store = ChatStore::in_memory().expect("Failed to create store");
+
+        let conv = store
+            .create_conversation("Test")
+            .expect("Failed to create");
+
+        let thread = store
+            .create_thread(&conv.id, "Test Thread")
+            .expect("Failed to create thread");
+
+        // Initially not resolved
+        assert!(!thread.metadata.resolved);
+
+        // Resolve the thread
+        store
+            .update_thread_resolved(&thread.id, true)
+            .expect("Failed to resolve thread");
+
+        // Load and verify resolved status
+        let loaded = store.load_thread(&thread.id).expect("Failed to load thread");
+        assert!(loaded.metadata.resolved);
+
+        // Unresolve the thread
+        store
+            .update_thread_resolved(&thread.id, false)
+            .expect("Failed to unresolve thread");
+
+        let loaded = store.load_thread(&thread.id).expect("Failed to load thread");
+        assert!(!loaded.metadata.resolved);
+    }
+
+    #[test]
+    fn test_thread_resolved_error_message() {
+        let error = ChatStoreError::ThreadResolved("thread-123".to_string());
+        assert!(error.to_string().contains("resolved"));
+        assert!(error.to_string().contains("thread-123"));
     }
 }

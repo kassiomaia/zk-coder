@@ -228,6 +228,21 @@ pub async fn send_message(
     thread_id: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<ChatMessage, String> {
+    let store = state.store.lock().await;
+
+    // Check if thread is resolved before accepting the message
+    let thread = store
+        .load_thread(&thread_id)
+        .map_err(|e| e.to_string())?;
+
+    if thread.metadata.resolved {
+        return Err(format!(
+            "Thread '{}' is resolved and cannot accept new messages. Reopen the thread to continue the conversation.",
+            thread.title
+        ));
+    }
+
+    // Create the message
     let message = match role.as_str() {
         "assistant" => ChatMessage::assistant(&conversation_id, &content),
         "system" => ChatMessage {
@@ -239,7 +254,6 @@ pub async fn send_message(
 
     let message = message.with_thread(&thread_id);
 
-    let store = state.store.lock().await;
     store
         .add_message(&message)
         .map_err(|e| e.to_string())?;
