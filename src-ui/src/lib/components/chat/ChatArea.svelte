@@ -206,7 +206,7 @@
 		}
 	});
 
-	// Auto-scroll when messages change (if auto-scroll is enabled)
+	// Auto-scroll when messages change (only if user is at bottom)
 	$effect(() => {
 		const ref = messagesWrapperRef;
 		const currentThreadId = threadId;
@@ -216,27 +216,15 @@
 
 		if (!ref || !currentThreadId) return;
 
-		// Only auto-scroll if enabled for this thread
+		// Only auto-scroll if enabled AND user is near bottom
 		if (isAutoScrollEnabled(currentThreadId)) {
-			requestAnimationFrame(() => {
-				scrollToBottom(ref, true);
-			});
-		}
-	});
-
-	// Auto-scroll during streaming (with user scroll detection)
-	$effect(() => {
-		const ref = messagesWrapperRef;
-		const currentThreadId = threadId;
-		const streaming = $isLlmStreaming;
-
-		if (!ref || !currentThreadId) return;
-
-		if (streaming && isAutoScrollEnabled(currentThreadId)) {
-			// Scroll to bottom during streaming
-			requestAnimationFrame(() => {
-				scrollToBottom(ref, true);
-			});
+			// Check if user is actually near bottom before scrolling
+			const nearBottom = ref.scrollHeight - ref.scrollTop - ref.clientHeight < 100;
+			if (nearBottom) {
+				requestAnimationFrame(() => {
+					scrollToBottom(ref, true, currentThreadId);
+				});
+			}
 		}
 	});
 
@@ -249,20 +237,33 @@
 
 		const result = handleScrollEvent(ref, currentThreadId, streaming);
 
-		// Update UI state
+		// Update UI state - show button when not near bottom
 		showScrollButton = !result.isNearBottom;
-		isUserScrolling = result.userScrolledUp;
 
-		// If user scrolled up during streaming, schedule auto-scroll resume
-		if (result.userScrolledUp && streaming) {
+		// If user scrolled up, schedule auto-scroll resume after 1 second
+		if (result.userScrolledUp) {
+			isUserScrolling = true;
+
+			// Schedule resume check after user stops scrolling for 1 second
 			scheduleAutoScrollResume(currentThreadId, () => {
-				// Only re-enable if still streaming
-				if ($isLlmStreaming && ref) {
-					enableAutoScroll(currentThreadId);
-					scrollToBottom(ref, true);
-				}
 				isUserScrolling = false;
+
+				// Check streaming state at the time of resume
+				if ($isLlmStreaming && ref) {
+					// Still streaming - re-enable auto-scroll AND scroll to bottom
+					enableAutoScroll(currentThreadId);
+					scrollToBottom(ref, true, currentThreadId);
+					showScrollButton = false;
+				} else {
+					// Not streaming - just re-enable auto-scroll, don't move position
+					// User's scroll position is preserved
+					enableAutoScroll(currentThreadId);
+				}
 			});
+		} else if (result.isNearBottom) {
+			// User scrolled to bottom - re-enable auto-scroll immediately
+			isUserScrolling = false;
+			// Auto-scroll is already enabled by handleScrollEvent when near bottom
 		}
 	}
 
@@ -273,7 +274,7 @@
 		if (!ref || !currentThreadId) return;
 
 		enableAutoScroll(currentThreadId);
-		scrollToBottom(ref, true);
+		scrollToBottom(ref, true, currentThreadId);
 		showScrollButton = false;
 		isUserScrolling = false;
 	}

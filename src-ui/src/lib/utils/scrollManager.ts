@@ -7,7 +7,7 @@
 const BOTTOM_THRESHOLD = 100;
 
 /** Delay in ms before auto-scroll resumes after user stops scrolling */
-const RESUME_DELAY = 500;
+const RESUME_DELAY = 1000;
 
 /** Session-only storage for scroll positions per thread */
 const scrollPositions = new Map<string, number>();
@@ -106,6 +106,12 @@ export function disableAutoScroll(threadId: string): void {
 		clearTimeout(existingTimeout);
 		resumeTimeouts.delete(threadId);
 	}
+	// Cancel any pending debounced scroll
+	const debouncedTimeout = streamingScrollTimeouts.get(threadId);
+	if (debouncedTimeout) {
+		clearTimeout(debouncedTimeout);
+		streamingScrollTimeouts.delete(threadId);
+	}
 }
 
 /**
@@ -158,6 +164,15 @@ export function isUserScrolling(): boolean {
 /** Duration for smooth scroll animation in ms */
 const SCROLL_DURATION = 300;
 
+/** Debounce delay for streaming scroll updates in ms */
+const STREAMING_SCROLL_DEBOUNCE = 150;
+
+/** Track pending debounce timeouts for streaming scroll */
+const streamingScrollTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Track if a scroll animation is currently in progress */
+const scrollAnimationsInProgress = new Map<string, boolean>();
+
 /** Easing function for smooth scroll animation */
 function easeOutQuad(t: number): number {
 	return t * (2 - t);
@@ -165,26 +180,46 @@ function easeOutQuad(t: number): number {
 
 /**
  * Scroll to bottom smoothly using custom animation for precise timing control.
+ * @param element - The element to scroll
+ * @param smooth - Whether to use smooth animation
+ * @param threadId - Optional thread ID to track animation state
  */
-export function scrollToBottom(element: HTMLElement, smooth = true): void {
+export function scrollToBottom(
+	element: HTMLElement,
+	smooth = true,
+	threadId?: string
+): void {
 	if (!smooth) {
 		// Instant scroll
 		element.scrollTop = element.scrollHeight;
 		return;
 	}
 
-	// Custom smooth scroll animation
-	const startScrollTop = element.scrollTop;
+	// Check if already near bottom - skip if we're already there
 	const targetScrollTop = element.scrollHeight - element.clientHeight;
-	const distance = targetScrollTop - startScrollTop;
+	const distance = targetScrollTop - element.scrollTop;
 
 	if (distance <= 0) {
 		// Already at bottom
 		return;
 	}
 
+	// Cancel any existing animation for this thread
+	if (threadId && scrollAnimationsInProgress.get(threadId)) {
+		// Animation in progress, update target only if distance is significant
+		if (distance < 10) {
+			return; // Skip small adjustments during active animation
+		}
+	}
+
+	// Custom smooth scroll animation
+	const startScrollTop = element.scrollTop;
 	const startTime = performance.now();
 	const duration = SCROLL_DURATION;
+
+	if (threadId) {
+		scrollAnimationsInProgress.set(threadId, true);
+	}
 
 	function animateScroll(currentTime: number) {
 		const elapsed = currentTime - startTime;
@@ -196,10 +231,56 @@ export function scrollToBottom(element: HTMLElement, smooth = true): void {
 
 		if (progress < 1) {
 			requestAnimationFrame(animateScroll);
+		} else {
+			// Animation complete
+			if (threadId) {
+				scrollAnimationsInProgress.delete(threadId);
+			}
 		}
 	}
 
 	requestAnimationFrame(animateScroll);
+}
+
+/**
+ * Scroll to bottom with debounce - used during streaming to prevent jitter.
+ * @param threadId - Thread ID for tracking debounce state
+ * @param element - The element to scroll
+ * @param callback - Optional callback to execute after scroll
+ */
+export function debouncedScrollToBottom(
+	threadId: string,
+	element: HTMLElement,
+	callback?: () => void
+): void {
+	// Clear any existing timeout
+	const existingTimeout = streamingScrollTimeouts.get(threadId);
+	if (existingTimeout) {
+		clearTimeout(existingTimeout);
+	}
+
+	// Schedule new scroll
+	const timeout = setTimeout(() => {
+		streamingScrollTimeouts.delete(threadId);
+		// Only scroll if auto-scroll is still enabled (user may have scrolled up)
+		if (isAutoScrollEnabled(threadId)) {
+			scrollToBottom(element, true, threadId);
+			callback?.();
+		}
+	}, STREAMING_SCROLL_DEBOUNCE);
+
+	streamingScrollTimeouts.set(threadId, timeout);
+}
+
+/**
+ * Cancel any pending debounced scroll for a thread.
+ */
+export function cancelDebouncedScroll(threadId: string): void {
+	const existingTimeout = streamingScrollTimeouts.get(threadId);
+	if (existingTimeout) {
+		clearTimeout(existingTimeout);
+		streamingScrollTimeouts.delete(threadId);
+	}
 }
 
 /**
@@ -253,4 +334,6 @@ export function initializeThreadScroll(threadId: string): void {
  */
 export function cleanupThreadScroll(threadId: string): void {
 	cancelAutoScrollResume(threadId);
+	cancelDebouncedScroll(threadId);
+	scrollAnimationsInProgress.delete(threadId);
 }
