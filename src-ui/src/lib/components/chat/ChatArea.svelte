@@ -107,19 +107,40 @@
 	// Track previous streaming state to detect completion
 	let wasStreaming = $state(false);
 
+	// Track if auto-scroll is "locked" for the current streaming session
+	// Once streaming starts in the zone, we stay locked until user manually scrolls up
+	let autoScrollLocked = $state(false);
+
 	// Initialize notifications on mount
 	onMount(() => {
 		initNotifications();
 	});
 
-	// Watch for streaming completion and notify if user is scrolled up
+	// Watch for streaming state changes to manage auto-scroll lock
 	$effect(() => {
 		const streaming = $isLlmStreaming;
 		const currentThreadId = threadId;
+		const ref = messagesWrapperRef;
 
-		// Detect transition from streaming to not streaming (completion)
+		// Detect transition from NOT streaming TO streaming
+		if (!wasStreaming && streaming) {
+			// Streaming just started - check if user is in auto-scroll zone
+			if (ref && currentThreadId) {
+				const distanceFromBottom = ref.scrollHeight - ref.scrollTop - ref.clientHeight;
+				const inZone = distanceFromBottom <= SCROLL_BUTTON_THRESHOLD;
+
+				if (inZone && isAutoScrollEnabled(currentThreadId)) {
+					// User is in zone → lock auto-scroll for this streaming session
+					autoScrollLocked = true;
+				}
+			}
+		}
+
+		// Detect transition from streaming to NOT streaming (completion)
 		if (wasStreaming && !streaming) {
-			// Streaming just completed
+			// Streaming just completed - release the lock
+			autoScrollLocked = false;
+
 			// Check if user was scrolled up (auto-scroll was disabled)
 			const autoScrollWasEnabled = isAutoScrollEnabled(currentThreadId ?? '');
 
@@ -183,6 +204,9 @@
 		// Cleanup previous thread
 		if (previousThreadId && previousThreadId !== currentThreadId) {
 			cleanupThreadScroll(previousThreadId);
+			// Reset scroll tracking for new thread
+			autoScrollLocked = false;
+			lastScrollTop = 0;
 		}
 
 		// Initialize new thread
@@ -201,6 +225,8 @@
 				// This prevents the visual "flash" of seeing top before scrolling
 				ref.scrollTop = ref.scrollHeight;
 			}
+			// Update lastScrollTop after setting position
+			lastScrollTop = ref.scrollTop;
 		}
 	});
 
@@ -226,7 +252,7 @@
 		}
 	});
 
-	// Auto-scroll during streaming with debounce (only if in auto-scroll zone)
+	// Auto-scroll during streaming with debounce (only if locked or in zone)
 	$effect(() => {
 		const ref = messagesWrapperRef;
 		const currentThreadId = threadId;
@@ -234,15 +260,15 @@
 
 		if (!ref || !currentThreadId || !streaming) return;
 
-		// Check if user is in auto-scroll zone
-		const distanceFromBottom = ref.scrollHeight - ref.scrollTop - ref.clientHeight;
-		const inAutoScrollZone = distanceFromBottom <= SCROLL_BUTTON_THRESHOLD;
-
-		if (inAutoScrollZone && isAutoScrollEnabled(currentThreadId)) {
+		// Auto-scroll if: locked for this session OR currently in zone
+		if (autoScrollLocked || isAutoScrollEnabled(currentThreadId)) {
 			// Use debounced scroll for smooth, jitter-free streaming
 			debouncedScrollToBottom(currentThreadId, ref);
 		}
 	});
+
+	// Track last scroll position to detect user scrolling UP
+	let lastScrollTop = $state(0);
 
 	// Handle scroll events
 	function handleScroll() {
@@ -251,17 +277,22 @@
 		const streaming = $isLlmStreaming;
 		if (!ref || !currentThreadId) return;
 
+		const currentScrollTop = ref.scrollTop;
+		const scrolledUp = currentScrollTop < lastScrollTop - 5; // 5px threshold to ignore minor changes
+		lastScrollTop = currentScrollTop;
+
 		const result = handleScrollEvent(ref, currentThreadId, streaming);
 
 		// Show button when outside the scroll button threshold zone
 		const distanceFromBottom = ref.scrollHeight - ref.scrollTop - ref.clientHeight;
 		showScrollButton = distanceFromBottom > SCROLL_BUTTON_THRESHOLD;
 
-		// If user scrolled out of auto-scroll zone, disable auto-scroll
-		if (result.userScrolledUp) {
+		// If user manually scrolled UP, release the lock and disable auto-scroll
+		if (scrolledUp) {
+			autoScrollLocked = false;
 			isUserScrolling = true;
 		} else if (result.isNearBottom) {
-			// User scrolled back into auto-scroll zone - re-enable
+			// User scrolled to bottom - re-enable auto-scroll
 			isUserScrolling = false;
 		}
 	}
@@ -276,6 +307,12 @@
 		scrollToBottom(ref, true, currentThreadId);
 		showScrollButton = false;
 		isUserScrolling = false;
+		lastScrollTop = ref.scrollTop;
+
+		// If streaming, lock auto-scroll for this session
+		if ($isLlmStreaming) {
+			autoScrollLocked = true;
+		}
 	}
 
 	// Re-enable auto-scroll and scroll to bottom when user sends a message
@@ -298,6 +335,7 @@
 				scrollToBottom(ref, true, currentThreadId);
 				showScrollButton = false;
 				isUserScrolling = false;
+				// Lock will be set when streaming starts in response
 			}, 150);
 		}
 	}

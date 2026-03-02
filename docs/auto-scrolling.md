@@ -12,68 +12,65 @@ The "auto-scroll zone" is an imaginary area within **30px of the bottom**. When 
 - Content automatically scrolls down smoothly
 - Uses debounced scrolling (150ms) to prevent jitter
 
+### Streaming Lock Mechanism
+Once streaming starts and user is in the zone, auto-scroll is **locked** for that streaming session:
+- Even if content growth pushes scroll thumb "out of zone", auto-scroll continues
+- Only **manual user scroll UP** can release the lock
+- This prevents accidental disengagement during long responses
+
+### Releasing the Lock
+Auto-scroll lock is released when:
+1. **User manually scrolls UP** (drags scroll thumb upward)
+2. **Streaming completes**
+3. **User switches threads**
+
 ### Outside the Zone
-When user scrolls **more than 30px from bottom**:
+When user scrolls up (outside zone):
 - Auto-scroll is disabled
 - "Scroll to Bottom" button appears
 - Button pulses during streaming to indicate activity
-- User can read previous messages without interruption
 
 ### Scroll Button Visibility
-The scroll-to-bottom button appears when user is **more than 100px from bottom** (larger visibility zone than auto-scroll zone).
+The scroll-to-bottom button appears when user is **more than 100px from bottom**.
 
 ### Ways to Return to Bottom
-1. **Click scroll button** - Smooth scroll to bottom
-2. **Manually scroll to bottom** - Enter auto-scroll zone, auto-scroll engages
-3. **Send a message** - Enforced scroll to bottom (always scrolls, regardless of position)
+1. **Click scroll button** - Smooth scroll, locks if streaming
+2. **Manually scroll to bottom** - Enter zone, auto-scroll engages
+3. **Send a message** - Enforced scroll to bottom (150ms delay for message visibility)
 
 ### New Threads
 When opening a thread for the first time:
 - Scroll starts at bottom (instant, no animation)
 - No visual "flash" of seeing top before scrolling
 
-### OS Notifications
-When assistant finishes responding while user is scrolled up, a system notification is sent.
-
 ## Technical Details
 
 | Parameter | Value | Purpose |
 |-----------|-------|---------|
-| Auto-scroll zone | 30px | Threshold for active auto-scroll during streaming |
+| Auto-scroll zone | 30px | Threshold for engaging auto-scroll |
 | Button visibility | 100px | Threshold for showing scroll button |
+| User scroll detection | 5px | Threshold to detect manual scroll UP |
 | Debounce delay | 150ms | Prevents jitter during streaming |
 | Scroll animation | 300ms | Smooth scroll duration |
-| Easing | easeOutQuad | Natural scroll feel |
+| Send message delay | 150ms | Wait for message to render before scroll |
 
 ## User Flow
 
 ```
-User at bottom (in zone)
+Streaming starts + user in zone (≤30px)
     │
-    ├── Streaming starts → Debounced auto-scroll keeps user at bottom
+    ├── Lock engaged → Auto-scroll continues
     │
-    ├── User scrolls up (< 30px) → Still in zone, auto-scroll continues
+    ├── Content grows → Thumb moves but LOCK keeps scrolling
     │
-    └── User scrolls up (> 30px) → Out of zone
+    └── User manually scrolls UP (>5px)
             │
+            ├── Lock released
             ├── Auto-scroll disabled
-            ├── Button appears (if > 100px)
-            ├── Button pulses if streaming
+            ├── Button appears + pulses
             │
-            └── User returns to bottom via:
-                    ├── Manual scroll
-                    ├── Click button
-                    └── Send message (enforced scroll)
+            └── User returns via:
+                    ├── Click button (locks again if streaming)
+                    ├── Scroll to bottom
+                    └── Send message
 ```
-
-## API Reference
-
-### Scroll Manager (`scrollManager.ts`)
-- `isNearBottom(element)` - Check if in auto-scroll zone (30px)
-- `scrollToBottom(element, smooth, threadId)` - Scroll to bottom
-- `debouncedScrollToBottom(threadId, element)` - Debounced scroll for streaming
-- `enableAutoScroll(threadId)` / `disableAutoScroll(threadId)` - Toggle auto-scroll
-
-### CSS Classes
-- `.scrollToBottom` - Scroll button base styles
-- `.pulsing` - Pulsing animation during streaming (2s ease-in-out infinite)
