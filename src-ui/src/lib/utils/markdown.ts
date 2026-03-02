@@ -3,7 +3,6 @@
  * Supports: syntax highlighting, tables, task lists, and base64 images
  */
 import { marked } from 'marked';
-import { markedHighlight } from 'marked-highlight';
 import hljs from 'highlight.js';
 
 /**
@@ -18,28 +17,7 @@ function escapeHtml(str: string): string {
 		.replace(/'/g, '&#039;');
 }
 
-// Configure marked with syntax highlighting
-marked.use(
-	markedHighlight({
-		langPrefix: 'hljs language-',
-		highlight(code, lang) {
-			if (lang && hljs.getLanguage(lang)) {
-				try {
-					return hljs.highlight(code, { language: lang }).value;
-				} catch {
-					// Fall through
-				}
-			}
-			try {
-				return hljs.highlightAuto(code).value;
-			} catch {
-				return escapeHtml(code);
-			}
-		}
-	})
-);
-
-// Custom renderer for images and links
+// Custom renderer for images, links, and code blocks
 const renderer = {
 	image(token: any): string | false {
 		const src = token.href || '';

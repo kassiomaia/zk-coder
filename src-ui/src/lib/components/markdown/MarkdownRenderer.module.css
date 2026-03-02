@@ -169,52 +169,64 @@
 	padding-top: var(--space-5);
 }
 
-/* Highlight.js theme overrides for dark mode */
-.markdown :global(.hljs-keyword),
-.markdown :global(.hljs-selector-tag),
-.markdown :global(.hljs-built_in),
-.markdown :global(.hljs-name),
-.markdown :global(.hljs-tag) {
+/* Highlight.js syntax highlighting - scoped to code blocks for higher specificity */
+.markdown :global(.code-block .hljs-keyword),
+.markdown :global(.code-block .hljs-selector-tag),
+.markdown :global(.code-block .hljs-built_in),
+.markdown :global(.code-block .hljs-name),
+.markdown :global(.code-block .hljs-tag) {
 	color: #c678dd; /* Purple for keywords */
 }
 
-.markdown :global(.hljs-string),
-.markdown :global(.hljs-title),
-.markdown :global(.hljs-section),
-.markdown :global(.hljs-attribute),
-.markdown :global(.hljs-literal),
-.markdown :global(.hljs-template-tag),
-.markdown :global(.hljs-template-variable),
-.markdown :global(.hljs-type) {
-	color: #98c379; /* Green for strings */
+.markdown :global(.code-block .hljs-string),
+.markdown :global(.code-block .hljs-title),
+.markdown :global(.code-block .hljs-title.class_),
+.markdown :global(.code-block .hljs-title.function_),
+.markdown :global(.code-block .hljs-section),
+.markdown :global(.code-block .hljs-attribute),
+.markdown :global(.code-block .hljs-literal),
+.markdown :global(.code-block .hljs-template-tag),
+.markdown :global(.code-block .hljs-template-variable),
+.markdown :global(.code-block .hljs-type) {
+	color: #98c379; /* Green for strings/titles */
 }
 
-.markdown :global(.hljs-comment),
-.markdown :global(.hljs-deletion) {
+.markdown :global(.code-block .hljs-comment),
+.markdown :global(.code-block .hljs-deletion) {
 	color: #5c6370; /* Gray for comments */
 	font-style: italic;
 }
 
-.markdown :global(.hljs-number),
-.markdown :global(.hljs-regexp),
-.markdown :global(.hljs-addition) {
+.markdown :global(.code-block .hljs-number),
+.markdown :global(.code-block .hljs-regexp),
+.markdown :global(.code-block .hljs-addition) {
 	color: #d19a66; /* Orange for numbers */
 }
 
-.markdown :global(.hljs-function) {
+.markdown :global(.code-block .hljs-function),
+.markdown :global(.code-block .hljs-title.function_.call__) {
 	color: #61afef; /* Blue for functions */
 }
 
-.markdown :global(.hljs-variable),
-.markdown :global(.hljs-params) {
-	color: #e06c75; /* Red for variables */
+.markdown :global(.code-block .hljs-variable),
+.markdown :global(.code-block .hljs-params) {
+	color: #e06c75; /* Red for variables/params */
 }
 
-.markdown :global(.hljs-symbol),
-.markdown :global(.hljs-bullet),
-.markdown :global(.hljs-link),
-.markdown :global(.hljs-meta) {
-	color: #56b6c2; /* Cyan for symbols */
+.markdown :global(.code-block .hljs-symbol),
+.markdown :global(.code-block .hljs-bullet),
+.markdown :global(.code-block .hljs-link),
+.markdown :global(.code-block .hljs-meta),
+.markdown :global(.code-block .hljs-meta .hljs-keyword) {
+	color: #56b6c2; /* Cyan for symbols/meta */
+}
+
+.markdown :global(.code-block .hljs-addition) {
+	background-color: rgba(152, 195, 121, 0.1);
+}
+
+.markdown :global(.code-block .hljs-deletion) {
+	background-color: rgba(224, 108, 117, 0.1);
 }
 
 /* =====================
