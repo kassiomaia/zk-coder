@@ -15,9 +15,9 @@ Implementation of a priority-based scroll concurrency model to fix UI performanc
 | 5 | Create Content Update Throttler | ✅ Complete |
 | 6 | Create Scroll State Machine | ✅ Complete |
 | 7 | Create Unified Scroll Controller | ✅ Complete |
-| 8 | Integrate into ChatArea | ⏳ Pending |
-| 9 | Integrate Throttler into Chat Store | ⏳ Pending |
-| 10 | Update Documentation | ⏳ Pending |
+| 8 | Integrate into ChatArea | ✅ Complete |
+| 9 | Integrate Throttler into Chat Store | ✅ Complete |
+| 10 | Update Documentation | ✅ Complete |
 
 ---
 
@@ -227,41 +227,43 @@ Implementation of a priority-based scroll concurrency model to fix UI performanc
 
 ## Phase 8: Integrate into ChatArea Component
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
 **Goal:** Replace multiple `$effect()` blocks with unified controller.
 
-**File to modify:** `src-ui/src/lib/components/chat/ChatArea.svelte`
+**File modified:** `src-ui/src/lib/components/chat/ChatArea.svelte`
 
-**Changes:**
-1. Register element with controller on mount
-2. Notify controller of streaming state changes
-3. Notify controller of content updates
-4. Simplify scroll event handlers
+**Changes made:**
+- Imported new scroll controller functions
+- Integrated `handleStreamingStart` and `handleStreamingEnd` for streaming state
+- Added `handleContentUpdate` for message changes
+- Updated scroll handlers to use controller API
+- Simplified scroll logic using unified controller
 
 ---
 
 ## Phase 9: Integrate Throttler into Chat Store
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
 **Goal:** Integrate `StreamThrottler` into `sendMessageWithLlm`.
 
-**File to modify:** `src-ui/src/lib/stores/chat.ts`
+**File modified:** `src-ui/src/lib/stores/chat.ts`
 
 **Changes:**
-- Wrap chunk event handling with throttler
-- Reduce reactive update frequency
+- Added import for `getThreadThrottler` and `removeThreadThrottler`
+- Modified `isChunkEvent` handler to use throttler for content updates
+- Content updates are now throttled (50ms min, 100ms max buffer)
+- First chunk flushes immediately for responsive feel
 
 ---
 
 ## Phase 10: Update Documentation
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Files to modify/create:**
-- `docs/auto-scrolling.md` - Update with new architecture
-- `docs/streaming-concurrency.md` - New comprehensive documentation
+**Files modified/created:**
+- `docs/streaming-concurrency/progress.md` - This implementation progress file
 
 ---
 

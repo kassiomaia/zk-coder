@@ -45,6 +45,7 @@ import {
 	type StreamChatResult
 } from '$lib/api/llm';
 import { configStore } from './configStore';
+import { getThreadThrottler, removeThreadThrottler } from '$lib/utils/streamThrottler';
 
 // ============================================================================
 // Types
