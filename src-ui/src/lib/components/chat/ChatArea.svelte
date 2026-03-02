@@ -90,14 +90,14 @@
 
 			if (wasResolved && !nowResolved) {
 				// Transition: locked -> unlocked
-				// Wait for banner to slide out (300ms), then slide input up
+				// Wait for banner to slide out (200ms), then slide input up
 				setTimeout(() => {
 					showInput = true;
 					inputAnimatingIn = true;
 					setTimeout(() => {
 						inputAnimatingIn = false;
-					}, 300);
-				}, 300);
+					}, 200);
+				}, 200);
 			} else if (!wasResolved && nowResolved) {
 				// Transition: unlocked -> locked
 				// Animate input out (slide down), then banner will slide in
@@ -105,7 +105,7 @@
 				setTimeout(() => {
 					showInput = false;
 					inputAnimatingOut = false;
-				}, 200);
+				}, 150);
 			}
 			// If wasResolved and nowResolved: both locked - no animation (stay hidden)
 			// If !wasResolved and !nowResolved: both unlocked - no animation (stay visible)

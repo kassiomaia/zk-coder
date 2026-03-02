@@ -55,13 +55,16 @@
 	let previousThreadId = $state(thread.id);
 	let previousResolved = $state(isResolved);
 
-	// Watch for thread changes
+	// Watch for thread changes and resolved status changes
 	$effect(() => {
 		const currentThreadId = thread.id;
 		const currentResolved = isResolved;
 
-		// Check if thread changed
-		if (currentThreadId !== previousThreadId) {
+		// Check if thread changed OR if resolved status changed for the same thread
+		const threadChanged = currentThreadId !== previousThreadId;
+		const resolvedChanged = currentResolved !== previousResolved;
+
+		if (threadChanged || resolvedChanged) {
 			const wasResolved = previousResolved;
 			const nowResolved = currentResolved;
 
@@ -70,11 +73,8 @@
 			bannerAnimatingIn = false;
 
 			if (!wasResolved && nowResolved) {
-				// Switching TO a resolved thread (from unlocked)
-				// Keep banner hidden initially
-				bannerVisible = false;
-
-				// Wait for input to animate out (200ms), then show banner with slide-in animation
+				// Thread became resolved (either via switch or clicking resolve)
+				// Animate input out first, then show banner with slide-in animation
 				setTimeout(() => {
 					// Render the banner first
 					bannerVisible = true;
@@ -84,12 +84,12 @@
 						bannerAnimatingIn = true;
 						setTimeout(() => {
 							bannerAnimatingIn = false;
-						}, 300);
+						}, 200);
 					});
-				}, 200);
+				}, 150);
 			} else if (wasResolved && !nowResolved) {
-				// Switching FROM a resolved thread (to unlocked)
-				// Hide immediately
+				// Thread became unresolved (either via switch or clicking reopen)
+				// Hide banner immediately
 				bannerVisible = false;
 			} else if (nowResolved) {
 				// Already resolved, just show banner without animation
@@ -112,8 +112,8 @@
 		// First, animate the banner out (slide down)
 		bannerAnimatingOut = true;
 
-		// Wait for banner to finish sliding out (300ms)
-		await new Promise(resolve => setTimeout(resolve, 300));
+		// Wait for banner to finish sliding out (200ms)
+		await new Promise(resolve => setTimeout(resolve, 200));
 
 		bannerVisible = false;
 		bannerAnimatingOut = false;
@@ -122,7 +122,7 @@
 		await onReopenThread();
 
 		// Wait for input animation to complete
-		await new Promise(resolve => setTimeout(resolve, 300));
+		await new Promise(resolve => setTimeout(resolve, 200));
 
 		isReopening = false;
 	}

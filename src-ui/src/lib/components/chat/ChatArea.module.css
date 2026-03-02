@@ -181,47 +181,36 @@
 	transition: all var(--transition-normal);
 }
 
-/* Slide in from bottom when appearing */
+/* Fast slide in from bottom - snappy and quick */
 .inputContainer.animateIn {
-	animation: slideIn 0.3s ease-out;
+	animation: slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes slideIn {
 	from {
 		opacity: 0;
-		transform: translateY(20px);
-		max-height: 0;
-		padding-top: 0;
-		padding-bottom: 0;
-		overflow: hidden;
+		transform: translateY(16px) scale(0.98);
 	}
 	to {
 		opacity: 1;
-		transform: translateY(0);
-		max-height: 200px;
-		padding-top: var(--space-4);
-		padding-bottom: 0;
+		transform: translateY(0) scale(1);
 	}
 }
 
-/* Slide out when disappearing */
+/* Fast slide out - quick exit */
 .inputContainer.animateOut {
-	animation: slideOut 0.2s ease-in forwards;
+	animation: slideOut 0.15s cubic-bezier(0.7, 0, 0.84, 0);
+	animation-fill-mode: forwards;
 }
 
 @keyframes slideOut {
 	from {
 		opacity: 1;
-		transform: translateY(0);
-		max-height: 200px;
+		transform: translateY(0) scale(1);
 	}
 	to {
 		opacity: 0;
-		transform: translateY(20px);
-		max-height: 0;
-		padding-top: 0;
-		padding-bottom: 0;
-		overflow: hidden;
+		transform: translateY(16px) scale(0.98);
 	}
 }
 

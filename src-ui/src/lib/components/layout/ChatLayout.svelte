@@ -23,8 +23,8 @@
 		threads: Thread[];
 		/** Currently selected conversation */
 		selectedConversation?: Conversation;
-		/** Currently selected thread */
-		selectedThread?: Thread;
+		/** Currently selected thread ID */
+		selectedThreadId?: string;
 		/** Messages for the current view */
 		messages: Message[];
 		/** Handler when conversation is selected */
@@ -59,7 +59,7 @@
 		conversations,
 		threads,
 		selectedConversation,
-		selectedThread,
+		selectedThreadId,
 		messages,
 		onSelectConversation,
 		onSelectThread,
@@ -101,6 +101,11 @@
 	// Derived state - show thread panel when a conversation is selected
 	let hasThreads = $derived(threads.length > 0);
 	let showThreadPanel = $derived(!!selectedConversation);
+
+	// Derive selected thread from threads array to always get fresh data
+	let selectedThread = $derived(
+		selectedThreadId ? threads.find((t) => t.id === selectedThreadId) : undefined
+	);
 
 	function toggleSidebar() {
 		sidebarOpen = !sidebarOpen;
@@ -146,8 +151,9 @@
 	// Handle reopening a resolved thread
 	function handleReopenThread() {
 		if (selectedThread && onResolveThread) {
-			// Toggle the thread to unresolved by calling resolve with resolved=false
-			onResolveThread({ ...selectedThread, metadata: { ...selectedThread.metadata, resolved: false } });
+			// Pass the original thread - the handler will toggle its resolved state
+			// Since it's currently resolved (true), toggling will make it unresolved (false)
+			onResolveThread(selectedThread);
 		}
 	}
 

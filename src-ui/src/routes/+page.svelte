@@ -197,7 +197,7 @@
 		conversations={conversations}
 		threads={threads}
 		selectedConversation={$selectedConversation ?? undefined}
-		selectedThread={$selectedThread ?? undefined}
+		selectedThreadId={$selectedThread?.id}
 		{messages}
 		onSelectConversation={handleSelectConversation}
 		onSelectThread={handleSelectThread}
