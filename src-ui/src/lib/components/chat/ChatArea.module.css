@@ -379,6 +379,22 @@
 	outline-offset: 2px;
 }
 
+/* Pulsing animation for scroll button during streaming */
+.pulsing {
+	animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0%, 100% {
+		box-shadow: var(--shadow-md);
+		border-color: var(--color-border-primary);
+	}
+	50% {
+		box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2), var(--shadow-lg);
+		border-color: var(--color-primary);
+	}
+}
+
 /* Tablet layout */
 @media (min-width: 601px) and (max-width: 768px) {
 	.inputContainer {

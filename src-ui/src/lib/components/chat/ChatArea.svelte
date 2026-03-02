@@ -21,8 +21,6 @@
 		initializeThreadScroll,
 		enableAutoScroll,
 		isAutoScrollEnabled,
-		scheduleAutoScrollResume,
-		cancelAutoScrollResume,
 		cleanupThreadScroll
 	} from '$lib/utils/scrollManager';
 	import { onMount } from 'svelte';
@@ -198,10 +196,9 @@
 			if (hasSavedPosition(currentThreadId)) {
 				restoreScrollPosition(currentThreadId, ref);
 			} else {
-				// New thread - scroll to bottom
-				requestAnimationFrame(() => {
-					scrollToBottom(ref, false);
-				});
+				// New thread - scroll to bottom immediately (no animation, no RAF)
+				// This prevents the visual "flash" of seeing top before scrolling
+				ref.scrollTop = ref.scrollHeight;
 			}
 		}
 	});
@@ -240,30 +237,12 @@
 		// Update UI state - show button when not near bottom
 		showScrollButton = !result.isNearBottom;
 
-		// If user scrolled up, schedule auto-scroll resume after 1 second
+		// If user scrolled up, disable auto-scroll (no timer - user must actively return)
 		if (result.userScrolledUp) {
 			isUserScrolling = true;
-
-			// Schedule resume check after user stops scrolling for 1 second
-			scheduleAutoScrollResume(currentThreadId, () => {
-				isUserScrolling = false;
-
-				// Check streaming state at the time of resume
-				if ($isLlmStreaming && ref) {
-					// Still streaming - re-enable auto-scroll AND scroll to bottom
-					enableAutoScroll(currentThreadId);
-					scrollToBottom(ref, true, currentThreadId);
-					showScrollButton = false;
-				} else {
-					// Not streaming - just re-enable auto-scroll, don't move position
-					// User's scroll position is preserved
-					enableAutoScroll(currentThreadId);
-				}
-			});
 		} else if (result.isNearBottom) {
-			// User scrolled to bottom - re-enable auto-scroll immediately
+			// User scrolled to bottom - re-enable auto-scroll
 			isUserScrolling = false;
-			// Auto-scroll is already enabled by handleScrollEvent when near bottom
 		}
 	}
 
@@ -468,7 +447,7 @@
 		<!-- Scroll to bottom button -->
 		{#if showScrollButton}
 			<button
-				class={styles.scrollToBottom}
+				class={[styles.scrollToBottom, $isLlmStreaming && styles.pulsing].filter(Boolean).join(' ')}
 				onclick={handleScrollToBottom}
 				aria-label="Scroll to latest messages"
 				type="button"
