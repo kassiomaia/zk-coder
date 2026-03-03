@@ -19,6 +19,8 @@
 		onCreateThread?: () => void;
 		/** Handler to resolve a thread */
 		onResolveThread?: (thread: Thread) => void;
+		/** Handler to rename a thread */
+		onRenameThread?: (thread: Thread, newTitle: string) => void;
 		/** Handler to delete a thread */
 		onDeleteThread?: (thread: Thread) => void;
 		/** Handler to archive a thread */
@@ -35,6 +37,7 @@
 		onSelect,
 		onCreateThread,
 		onResolveThread,
+		onRenameThread,
 		onDeleteThread,
 		onArchiveThread,
 		onCollapse,
@@ -116,6 +119,7 @@
 								selected={thread.id === selectedThreadId}
 								onclick={() => onSelect(thread)}
 								onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
+								onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
 								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
 								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
 							/>
@@ -138,6 +142,7 @@
 								selected={thread.id === selectedThreadId}
 								onclick={() => onSelect(thread)}
 								onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
+								onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
 								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
 								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
 							/>
