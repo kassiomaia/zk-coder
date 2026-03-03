@@ -479,6 +479,35 @@ function createChatStore() {
 			}
 		},
 
+		/**
+		 * Delete a thread.
+		 */
+		async deleteThread(id: string): Promise<boolean> {
+			try {
+				await apiDeleteThread(id);
+				update((state) => ({
+					...state,
+					threads: state.threads.filter((t) => t.id !== id),
+					selectedThreadId:
+						state.selectedThreadId === id ? null : state.selectedThreadId,
+					messages: state.selectedThreadId === id ? [] : state.messages,
+					// Update conversation to remove the deleted thread from its list
+					conversations: state.conversations.map((c) =>
+						c.id === state.selectedConversationId
+							? { ...c, threads: (c.threads || []).filter((t) => t.id !== id) }
+							: c
+					)
+				}));
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to delete thread'
+				}));
+				return false;
+			}
+		},
+
 
 		/**
 		 * Send a message to the current conversation via backend.
