@@ -91,6 +91,8 @@
 	let mentionQuery = $state('');
 	let isPreviewMode = $state(false);
 	let cursorPosition = $state(0);
+	let isShaking = $state(false);
+	let isSending = $state(false);
 
 	// Note: $nlpState auto-subscribes to nlpState store from $lib/stores
 
@@ -115,7 +117,12 @@
 	let canSubmit = $derived(!disabled && !loading && value.trim() && !isOverLimit);
 
 	let containerClasses = $derived(
-		[styles.container, disabled && styles.disabled, isPreviewMode && styles.previewMode]
+		[
+			styles.container,
+			disabled && styles.disabled,
+			isPreviewMode && styles.previewMode,
+			isShaking && styles.shake
+		]
 			.filter(Boolean)
 			.join(' ')
 	);
@@ -134,6 +141,38 @@
 			chatStore.classifyInput(value);
 		}
 	});
+
+	// Reset isSending when value is cleared (successful send)
+	$effect(() => {
+		if (!value) {
+			isSending = false;
+		}
+	});
+
+	async function handleSendMessage() {
+		if (!value.trim() || isOverLimit) {
+			isShaking = true;
+			setTimeout(() => {
+				isShaking = false;
+			}, 400); // Duration of shake animation
+			return;
+		}
+
+		if (canSubmit) {
+			isSending = true;
+			// Small delay for the "fly out" animation
+			await new Promise((resolve) => setTimeout(resolve, 150));
+			onsubmit();
+
+			// Safety check: if loading hasn't started after a short delay and value persists,
+			// reset isSending so user isn't staring at invisible text (e.g. error or ignored submit)
+			setTimeout(() => {
+				if (!loading && value) {
+					isSending = false;
+				}
+			}, 200);
+		}
+	}
 
 	/**
 	 * Frontend-only intent detection (fallback when backend is unavailable).
@@ -218,9 +257,7 @@
 
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
-			if (canSubmit) {
-				onsubmit();
-			}
+			handleSendMessage();
 		}
 	}
 
@@ -339,7 +376,7 @@
 	<div class={styles.inputWrapper}>
 		<textarea
 			bind:this={textareaRef}
-			class={styles.textarea}
+			class={[styles.textarea, isSending && styles.sending].filter(Boolean).join(' ')}
 			{placeholder}
 			{value}
 			{disabled}
@@ -456,8 +493,9 @@
 				intent={canSubmit ? 'success' : 'default'}
 				size="sm"
 				disabled={!canSubmit}
-				loading={loading}
-				onclick={onsubmit}
+				loading={loading || isSending}
+				onclick={handleSendMessage}
+				class={styles.sendButton}
 			>
 				{#snippet icon()}
 					{#if loading}
