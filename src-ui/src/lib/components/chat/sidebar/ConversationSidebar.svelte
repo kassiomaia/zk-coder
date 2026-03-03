@@ -1,32 +1,55 @@
 <script lang="ts">
 	/**
 	 * ConversationSidebar Component
-	 * Main sidebar showing conversation history with grouping and search.
+	 * Main sidebar showing conversation history with inline thread navigation.
+	 *
+	 * Design Features:
+	 * - Unified header that adapts contextually (New Conversation vs New Thread)
+	 * - Inline thread rendering under selected conversation
+	 * - Hierarchical navigation with indentation
+	 * - Controlled reveal animation for thread expansion
 	 */
 	import styles from './ConversationSidebar.module.css';
 	import SearchBar from './SearchBar.svelte';
 	import ConversationItem from './ConversationItem.svelte';
-	import type { Conversation, ConversationGroup } from '$lib/types/thread';
+	import InlineThreadList from './InlineThreadList.svelte';
+	import type { Conversation, ConversationGroup, Thread } from '$lib/types/thread';
 
 	interface Props {
 		/** List of conversations to display */
 		conversations: Conversation[];
 		/** Currently selected conversation ID */
 		selectedId?: string;
+		/** Threads for the selected conversation (for inline rendering) */
+		threadsForSelected?: Thread[];
+		/** Currently selected thread ID */
+		selectedThreadId?: string;
 		/** Handler when a conversation is selected */
 		onSelect: (conversation: Conversation) => void;
-		/** Handler when a conversation is double-clicked (typically opens thread panel) */
+		/** Handler when a conversation is double-clicked */
 		onOpenChat?: (conversation: Conversation) => void;
+		/** Handler when a thread is selected */
+		onSelectThread?: (thread: Thread) => void;
 		/** Handler for search input */
 		onSearch?: (query: string) => void;
 		/** Handler to create new conversation */
 		onCreateNew?: () => void;
+		/** Handler to create new thread */
+		onCreateThread?: () => void;
 		/** Handler to delete conversation */
 		onDelete?: (conversation: Conversation) => void;
 		/** Handler to rename conversation */
 		onRename?: (conversation: Conversation, newTitle: string) => void;
 		/** Handler to archive conversation */
 		onArchive?: (conversation: Conversation) => void;
+		/** Handler to resolve thread */
+		onResolveThread?: (thread: Thread) => void;
+		/** Handler to rename thread */
+		onRenameThread?: (thread: Thread, newTitle: string) => void;
+		/** Handler to delete thread */
+		onDeleteThread?: (thread: Thread) => void;
+		/** Handler to archive thread */
+		onArchiveThread?: (thread: Thread) => void;
 		/** Handler for settings button click */
 		onSettings?: () => void;
 		/** Loading state */
@@ -38,19 +61,39 @@
 	let {
 		conversations,
 		selectedId,
+		threadsForSelected = [],
+		selectedThreadId,
 		onSelect,
 		onOpenChat,
+		onSelectThread,
 		onSearch,
 		onCreateNew,
+		onCreateThread,
 		onDelete,
 		onRename,
 		onArchive,
+		onResolveThread,
+		onRenameThread,
+		onDeleteThread,
+		onArchiveThread,
 		onSettings,
 		loading = false,
 		hasConfiguredProvider = true
 	}: Props = $props();
 
 	let searchQuery = $state('');
+
+	// Derived state for contextual UI
+	let hasSelectedConversation = $derived(!!selectedId);
+	let hasSelectedThread = $derived(!!selectedThreadId);
+	let hasThreads = $derived(threadsForSelected.length > 0);
+
+	// Status text based on selection state
+	let statusText = $derived(() => {
+		if (hasSelectedThread) return 'Active thread';
+		if (hasSelectedConversation) return 'Active conversation';
+		return 'Select a chat to begin';
+	});
 
 	// Group conversations by date
 	function groupConversations(convList: Conversation[]): ConversationGroup[] {
@@ -89,6 +132,26 @@
 		searchQuery = query;
 		onSearch?.(query);
 	}
+
+	// Contextual action: New Thread if conversation selected, else New Conversation
+	function handleContextualAction() {
+		if (hasSelectedConversation && onCreateThread) {
+			onCreateThread();
+		} else if (onCreateNew) {
+			onCreateNew();
+		}
+	}
+
+	// Get action button label based on context
+	let actionButtonLabel = $derived(
+		hasSelectedConversation && onCreateThread ? 'New thread' : 'New conversation'
+	);
+
+	let actionButtonIcon = $derived(
+		hasSelectedConversation && onCreateThread
+			? 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'
+			: 'M12 5v14M5 12h14'
+	);
 </script>
 
 <aside class={styles.sidebar} aria-label="Conversations">
@@ -97,16 +160,14 @@
 		<div class={styles.headerTop}>
 			<div>
 				<h2 class={styles.title}>CHATS</h2>
-				<p class={styles.statusText}>
-					{selectedId ? 'Active conversation' : 'Select a chat to begin'}
-				</p>
+				<p class={styles.statusText}>{statusText()}</p>
 			</div>
-			{#if onCreateNew}
+			{#if onCreateNew || (hasSelectedConversation && onCreateThread)}
 				<button
 					class={styles.newButton}
-					onclick={onCreateNew}
-					aria-label="New conversation"
-					title="New conversation"
+					onclick={handleContextualAction}
+					aria-label={actionButtonLabel}
+					title={actionButtonLabel}
 					type="button"
 				>
 					<svg
@@ -119,8 +180,7 @@
 						stroke-linecap="round"
 						stroke-linejoin="round"
 					>
-						<line x1="12" y1="5" x2="12" y2="19" />
-						<line x1="5" y1="12" x2="19" y2="12" />
+						<path d={actionButtonIcon} />
 					</svg>
 				</button>
 			{/if}
@@ -177,16 +237,33 @@
 					<h3 class={styles.groupLabel}>{group.label}</h3>
 					<ul class={styles.list} role="listbox" aria-label="{group.label} conversations">
 						{#each group.conversations as conv, index (conv.id)}
-							<ConversationItem
-								conversation={conv}
-								selected={conv.id === selectedId}
-								onclick={() => onSelect(conv)}
-								ondoubleclick={onOpenChat ? () => onOpenChat(conv) : undefined}
-								ondelete={onDelete ? () => onDelete(conv) : undefined}
-								onrename={onRename ? (title) => onRename(conv, title) : undefined}
-								onarchive={onArchive ? () => onArchive(conv) : undefined}
-								style="animation-delay: {(groupOffset + index) * 50}ms"
-							/>
+							{@const isExpanded = conv.id === selectedId && hasThreads}
+							<li class={styles.conversationWrapper}>
+								<ConversationItem
+									conversation={conv}
+									selected={conv.id === selectedId}
+									onclick={() => onSelect(conv)}
+									ondoubleclick={onOpenChat ? () => onOpenChat(conv) : undefined}
+									ondelete={onDelete ? () => onDelete(conv) : undefined}
+									onrename={onRename ? (title) => onRename(conv, title) : undefined}
+									onarchive={onArchive ? () => onArchive(conv) : undefined}
+									style="animation-delay: {(groupOffset + index) * 50}ms"
+									ariaExpanded={isExpanded}
+									ariaControls={isExpanded ? 'inline-threads' : undefined}
+								/>
+								{#if conv.id === selectedId && hasThreads && onSelectThread}
+									<InlineThreadList
+										threads={threadsForSelected}
+										{selectedThreadId}
+										expanded={true}
+										onSelectThread={onSelectThread}
+										onResolveThread={onResolveThread}
+										onRenameThread={onRenameThread}
+										onDeleteThread={onDeleteThread}
+										onArchiveThread={onArchiveThread}
+									/>
+								{/if}
+							</li>
 						{/each}
 					</ul>
 				</section>
@@ -198,7 +275,9 @@
 	{#if onSettings}
 		<footer class={styles.footer}>
 			<button
-				class={[styles.settingsButton, !hasConfiguredProvider && styles.warning].filter(Boolean).join(' ')}
+				class={[styles.settingsButton, !hasConfiguredProvider && styles.warning]
+					.filter(Boolean)
+					.join(' ')}
 				onclick={onSettings}
 				aria-label="Open settings"
 				title={!hasConfiguredProvider ? 'Configure LLM providers' : 'Settings'}
