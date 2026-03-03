@@ -47,6 +47,8 @@
 		onArchiveConversation?: (conversation: Conversation) => void;
 		/** Handler to archive thread */
 		onArchiveThread?: (thread: Thread) => void;
+		/** Handler to rename thread */
+		onRenameThread?: (thread: Thread, newTitle: string) => void;
 		/** Handler for search */
 		onSearch?: (query: string) => void;
 		/** Handler for settings button click */
@@ -75,6 +77,7 @@
 		onRenameConversation,
 		onArchiveConversation,
 		onArchiveThread,
+		onRenameThread,
 		onSearch,
 		onSettings,
 		loading = false,
@@ -305,6 +308,7 @@
 							onSelect={handleSelectThread}
 							{onCreateThread}
 							{onResolveThread}
+							onRenameThread={onRenameThread}
 							onArchiveThread={onArchiveThread}
 							onCollapse={toggleThreadPanel}
 							loading={threadsLoading}
