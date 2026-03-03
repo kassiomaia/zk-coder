@@ -72,11 +72,8 @@
 <div
 	class={[styles.container, hasInputActivity && styles.active, isTransitioning && styles.transitioning, context && styles[context]].filter(Boolean).join(' ')}
 >
-	<!-- Anticipatory shimmer/pulse effect on headline -->
-	<div
-		class={styles.headlineWrapper}
-		class:pulse={!hasInputActivity}
-	>
+	<!-- Clean headline wrapper without pulse -->
+	<div class={styles.headlineWrapper}>
 		<!-- Contextual icon -->
 		<div class={styles.emptyIcon}>
 			{#if context === 'none'}
@@ -116,12 +113,12 @@
 		</h2>
 	</div>
 
-	<!-- Progressive hint text with staggered reveal -->
+	<!-- Clean hint text -->
 	<p class={styles.hint}>
 		{#if !hasInputActivity}
 			{hintText()}
 		{:else}
-			<span class={styles.revealMask}>Press Enter to send</span>
+			Press Enter to send
 		{/if}
 	</p>
 
@@ -131,14 +128,4 @@
 			<span class={styles.actionText}>Or create a new conversation to get started</span>
 		</div>
 	{/if}
-
-	<!-- Ambient background glow (subtle) -->
-	<div class={styles.ambientGlow}></div>
-
-	<!-- Decorative particles for visual interest -->
-	<div class={styles.particles}>
-		{#each Array(3) as _, i}
-			<div class={styles.particle} style={`--delay: ${i * 0.8}s;`}></div>
-		{/each}
-	</div>
 </div>

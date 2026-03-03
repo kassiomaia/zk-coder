@@ -1,45 +1,61 @@
 /**
  * AnsweringIndicator Component Styles
- * Structured activity panel for assistant reasoning phases.
+ * Redesigned to follow a structured, Claude-style activity panel.
  */
 
 .container {
 	display: flex;
 	align-items: center;
-	/* Fixed height reservation to prevent layout shift */
-	height: 48px;
+	/* Reserved container above incoming message, fixed height */
+	height: 36px; 
 	width: 100%;
 	contain: layout;
+	margin-bottom: var(--space-2);
 }
 
 .panel {
 	display: flex;
 	align-items: center;
-	padding: 0 var(--space-4);
-	gap: var(--space-3);
-	background: var(--color-surface-hover);
-	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-full);
-	box-shadow: var(--shadow-sm);
+	padding: 0;
+	gap: var(--space-2);
+	background: transparent;
+	border: none;
+	border-radius: 0;
+	box-shadow: none;
 	position: relative;
 	overflow: hidden;
 	
-	/* Fixed dimensions for stability */
-	height: 32px;
-	/* Accommodates standardized 17-char phrases + padding */
-	width: 210px;
+	/* Fixed dimensions for stability & zero layout shift */
+	height: 28px;
+	/* Accommodates standardized phrases + padding */
+	width: auto;
+	min-width: 180px;
 	
-	/* Smooth transitions for container styling */
+	/* Single-state animation controller prevents overlapping transitions */
 	transition: 
-		background-color var(--duration-normal) var(--ease-out),
-		border-color var(--duration-normal) var(--ease-out),
-		box-shadow var(--duration-normal) var(--ease-out);
+		transform 0.4s cubic-bezier(0.2, 0, 0, 1);
+		
+	/* Use intensity variable to control vibrancy */
+	--accent-color: 99, 102, 241; /* Base Indigo RGB */
+	--current-intensity: var(--intensity, 0.6);
 }
 
-/* Subtle glow when active/stable */
+/* Stable state (during phases) */
 .panel.stable {
-	border-color: rgba(99, 102, 241, 0.3);
-	box-shadow: var(--shadow-sm), 0 0 12px rgba(99, 102, 241, 0.1);
+	background: transparent;
+	box-shadow: none;
+	border: none;
+}
+
+/* Complete state (final resolved state) */
+.panel.complete {
+	border: none;
+	background: transparent;
+	/* Visual weight normalization */
+	box-shadow: none;
+	opacity: 0.9;
+	/* Soft success pulse */
+	animation: successPulse 2s ease-out forwards;
 }
 
 .iconWrapper {
@@ -47,20 +63,18 @@
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	color: var(--color-primary-500);
-	opacity: 0.8;
-	/* Icon morph transition */
-	transition: opacity var(--duration-fast);
+	color: rgb(var(--accent-color));
+	opacity: var(--current-intensity);
+	
+	/* Contextual icon morphing */
+	transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Activate icon pulse and glow only when stable */
 .panel.stable .iconWrapper {
-	animation: iconPulse 2s var(--ease-in-out) infinite;
-	opacity: 1;
-	filter: drop-shadow(0 0 6px rgba(99, 102, 241, 0.4));
-	color: var(--color-primary-500);
+	transform: scale(1);
 }
 
+/* Label styling */
 .labelContainer {
 	flex: 1;
 	display: flex;
@@ -70,149 +84,50 @@
 }
 
 .label {
-	font-family: var(--font-mono); /* Monospace for stable scrambling */
+	font-family: var(--font-mono); /* Monospace for zero layout shift during shuffle */
 	font-size: var(--text-xs);
 	font-weight: var(--font-medium);
 	color: var(--color-text-secondary);
-	letter-spacing: var(--tracking-wide);
+	letter-spacing: 0.02em;
 	white-space: pre;
-	font-variant-numeric: tabular-nums;
 	
-	/* Disable opacity transitions */
-	transition: none;
+	/* Resolving characters left to right without fade */
+	opacity: 0.9;
 }
 
-/* Highlight sweep setup - hidden by default */
-.highlightSweep {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	background: linear-gradient(
-		90deg,
-		transparent 0%,
-		rgba(99, 102, 241, 0.1) 50%,
-		transparent 100%
-	);
-	background-size: 200% 100%;
-	pointer-events: none;
-	mix-blend-mode: overlay;
-	opacity: 0;
-	transition: opacity var(--duration-fast);
-}
+/* Highlight sweep removed */
 
-/* Activate sweep only when stable */
-.panel.stable .highlightSweep {
-	opacity: 1;
-	animation: panelSweep 3s linear infinite;
-}
-
-/* Text shimmer effect - suspended during scramble */
-.panel.stable .label {
-	/* Vibrant gradient: Primary Indigo -> Info Cyan -> Primary Indigo */
-	background: linear-gradient(
-		90deg,
-		var(--color-primary-500) 0%,
-		var(--color-info) 50%,
-		var(--color-primary-500) 100%
-	);
-	background-size: 200% auto;
-	-webkit-background-clip: text;
-	background-clip: text;
-	color: transparent;
-	animation: textSweep 3s linear infinite;
-	/* Enhance vibrancy with a subtle text shadow */
-	text-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
-}
-
-@keyframes textSweep {
+@keyframes successPulse {
 	0% {
-		background-position: 100% center;
-	}
-	100% {
-		background-position: -100% center;
-	}
-}
-
-@keyframes panelSweep {
-	0% {
-		transform: translateX(-100%);
-	}
-	100% {
-		transform: translateX(100%);
-	}
-}
-
-@keyframes iconPulse {
-	0%, 100% {
-		transform: scale(1);
 		opacity: 0.9;
 	}
-	50% {
-		transform: scale(1.15);
+	70% {
 		opacity: 1;
+	}
+	100% {
+		opacity: 0.8;
 	}
 }
 
 /* Dark mode adjustments */
 :global([data-theme='dark']) .panel {
-	background: var(--color-surface-active);
-	border-color: var(--color-border-primary);
+	--accent-color: 129, 140, 248; /* Lighter Indigo RGB */
+	background: transparent;
 }
 
 :global([data-theme='dark']) .panel.stable {
-	border-color: rgba(129, 140, 248, 0.3); /* Lighter indigo for dark mode */
-	box-shadow: var(--shadow-sm), 0 0 16px rgba(129, 140, 248, 0.15);
+	background: transparent;
 }
 
-:global([data-theme='dark']) .iconWrapper {
-	color: var(--color-primary-400);
-}
-
-:global([data-theme='dark']) .panel.stable .iconWrapper {
-	color: var(--color-primary-400);
-	filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.5));
-}
-
-:global([data-theme='dark']) .highlightSweep {
-	background: linear-gradient(
-		90deg,
-		transparent 0%,
-		rgba(129, 140, 248, 0.15) 50%,
-		transparent 100%
-	);
-}
-
-:global([data-theme='dark']) .panel.stable .label {
-	/* Dark mode gradient: Primary 400 (Lighter) -> Info (Cyan) -> Primary 400 */
-	background: linear-gradient(
-		90deg,
-		var(--color-primary-400) 0%,
-		#38bdf8 50%, /* Sky 400 for pop */
-		var(--color-primary-400) 100%
-	);
-	background-size: 200% auto;
-	-webkit-background-clip: text;
-	background-clip: text;
-	text-shadow: 0 0 20px rgba(129, 140, 248, 0.4);
+:global([data-theme='dark']) .panel.complete {
+	background: transparent;
+	border: none;
 }
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-	.iconWrapper, .label, .highlightSweep {
+	.iconWrapper, .label, .highlightSweep, .panel {
 		animation: none;
-	}
-	
-	.label {
-		background: none;
-		color: var(--color-text-secondary);
-		-webkit-background-clip: border-box;
-		background-clip: border-box;
-		text-shadow: none;
-	}
-	
-	.panel {
 		transition: none;
 	}
 }
