@@ -64,16 +64,14 @@
 	opacity: 0.5;
 }
 
-/* Last thread item completes the unified container's bottom corners */
+/* Last thread item - no special corner handling (flat container) */
 .itemWrapper:last-child {
-	/* Bottom corners for the unified container */
-	border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 	overflow: hidden;
 }
 
-/* Last thread button inherits the bottom corners */
+/* Last thread button - no corners */
 .itemWrapper:last-child :global(.button) {
-	border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+	border-radius: 0;
 }
 
 /* Reduced motion */

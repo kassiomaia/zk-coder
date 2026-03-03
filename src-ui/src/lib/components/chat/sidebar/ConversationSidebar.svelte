@@ -137,25 +137,9 @@
 		onSearch?.(query);
 	}
 
-	// Contextual action: New Thread if conversation selected, else New Conversation
-	function handleContextualAction() {
-		if (hasSelectedConversation && onCreateThread) {
-			onCreateThread();
-		} else if (onCreateNew) {
-			onCreateNew();
-		}
-	}
-
-	// Get action button label based on context
-	let actionButtonLabel = $derived(
-		hasSelectedConversation && onCreateThread ? 'New thread' : 'New conversation'
-	);
-
-	let actionButtonIcon = $derived(
-		hasSelectedConversation && onCreateThread
-			? 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'
-			: 'M12 5v14M5 12h14'
-	);
+	// Icons for action buttons
+	let newChatIcon = 'M12 5v14M5 12h14';
+	let newThreadIcon = 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z';
 </script>
 
 <aside class={styles.sidebar} aria-label="Conversations">
@@ -164,34 +148,61 @@
 		<div class={styles.headerTop}>
 			<div class={styles.headerInfo}>
 				<h2 class={styles.title}>CHATS</h2>
-				<p class={styles.statusText}>{statusText()}</p>
 			</div>
-			{#if onCreateNew || (hasSelectedConversation && onCreateThread)}
-				<button
-					class={[
-						styles.newButton,
-						hasSelectedConversation && onCreateThread && styles.contextualThread
-					].filter(Boolean).join(' ')}
-					onclick={handleContextualAction}
-					aria-label={actionButtonLabel}
-					title={actionButtonLabel}
-					type="button"
-				>
-					<svg
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
+			<div class={styles.headerActions}>
+				<!-- Always show New Chat button -->
+				{#if onCreateNew}
+					<button
+						class={styles.newButton}
+						onclick={onCreateNew}
+						aria-label="New conversation"
+						title="New conversation"
+						type="button"
 					>
-						<path d={actionButtonIcon} />
-					</svg>
-					<span class={styles.newButtonLabel}>{actionButtonLabel}</span>
-				</button>
-			{/if}
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d={newChatIcon} />
+						</svg>
+						<span class={styles.newButtonLabel}>New chat</span>
+					</button>
+				{/if}
+				<!-- Show New Thread button when conversation is selected -->
+				{#if hasSelectedConversation && onCreateThread}
+					<button
+						class={[styles.newButton, styles.contextualThread].join(' ')}
+						onclick={onCreateThread}
+						aria-label="New thread"
+						title="New thread in selected conversation"
+						type="button"
+					>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d={newThreadIcon} />
+						</svg>
+						<span class={styles.newButtonLabel}>New thread</span>
+					</button>
+				{/if}
+			</div>
+		</div>
+		<!-- Status row below title/buttons -->
+		<div class={styles.statusRow}>
+			<p class={styles.statusText}>{statusText()}</p>
 		</div>
 
 		<!-- Search -->
