@@ -1,41 +1,17 @@
 /**
  * ListItemActions Component Styles
  * Unified context menu actions for list items.
- *
- * Design Features:
- * - Elevated card design with subtle background
- * - Smooth hover states with clear action colors
- * - Consistent sizing and spacing
- * - Enhanced focus visibility
  */
 
-.actions {
+.container {
 	position: absolute;
-	right: var(--space-1);
+	right: var(--space-2);
 	top: 50%;
 	transform: translateY(-50%);
-	display: flex;
-	gap: var(--space-0-5);
-	background: var(--color-surface);
-	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-md);
-	padding: var(--space-0-5);
-	/* Entrance animation */
-	animation: fadeScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	z-index: 10;
 }
 
-@keyframes fadeScaleIn {
-	from {
-		opacity: 0;
-		transform: translateY(-50%) scale(0.9);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(-50%) scale(1);
-	}
-}
-
-.action {
+.trigger {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -50,14 +26,75 @@
 	transition: all var(--transition-fast);
 }
 
+.trigger:hover,
+.trigger:focus-visible,
+.trigger[aria-expanded="true"] {
+	background: var(--color-surface-hover);
+	color: var(--color-text-primary);
+	opacity: 1;
+}
+
+.trigger:focus-visible {
+	outline: 2px solid var(--color-border-focus);
+	outline-offset: 1px;
+}
+
+.menu {
+	position: fixed;
+	min-width: 160px;
+	background: var(--color-surface);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-md);
+	padding: var(--space-1);
+	box-shadow: var(--shadow-lg);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-0-5);
+	z-index: 1000;
+	/* Entrance animation */
+	animation: fadeScaleIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	transform-origin: top right;
+}
+
+@keyframes fadeScaleIn {
+	from {
+		opacity: 0;
+		transform: scale(0.95);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.action {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	padding: var(--space-1-5) var(--space-2);
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	color: var(--color-text-secondary);
+	font-size: var(--font-size-sm);
+	text-align: left;
+	transition: all var(--transition-fast);
+	white-space: nowrap;
+}
+
 .action:hover {
 	background: var(--color-surface-hover);
 	color: var(--color-text-primary);
 }
 
+.action.delete {
+	color: var(--color-error);
+}
+
 .action.delete:hover {
 	background: var(--color-error-light);
-	color: var(--color-error);
 }
 
 .action.archive:hover {
@@ -68,27 +105,4 @@
 .action.resolve:hover {
 	background: var(--color-success-light, rgba(34, 197, 94, 0.1));
 	color: var(--color-success);
-}
-
-.action:focus-visible {
-	outline: 2px solid var(--color-border-focus);
-	outline-offset: 1px;
-}
-
-/* Responsive */
-@media (max-width: 600px) {
-	.actions {
-		background: var(--color-bg-secondary);
-		border: none;
-		box-shadow: none;
-		padding: 0;
-		gap: 0;
-	}
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-	.action {
-		transition: none;
-	}
 }

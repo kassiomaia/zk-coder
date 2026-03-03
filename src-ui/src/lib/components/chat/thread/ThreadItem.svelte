@@ -30,7 +30,8 @@
 
 	let { thread, selected = false, onclick, onresolve, ondelete, onarchive, onrename, style = '' }: Props = $props();
 
-	let showActions = $state(false);
+	let isHovered = $state(false);
+	let isMenuOpen = $state(false);
 	let isEditing = $state(false);
 
 	function startEdit() {
@@ -44,12 +45,12 @@
 </script>
 
 <li
-	class={[styles.item, selected && styles.selected].filter(Boolean).join(' ')}
+	class={[styles.item, selected && styles.selected, isMenuOpen && styles.menuOpen].filter(Boolean).join(' ')}
 	role="option"
 	aria-selected={selected}
 	{style}
-	onmouseenter={() => (showActions = true)}
-	onmouseleave={() => (showActions = false)}
+	onmouseenter={() => (isHovered = true)}
+	onmouseleave={() => (isHovered = false)}
 >
 	{#if isEditing}
 		<InlineRenameInput
@@ -109,7 +110,7 @@
 		</div>
 	</button>
 
-	{#if !isEditing && showActions && (onresolve || onrename || ondelete || onarchive)}
+	{#if !isEditing && (isHovered || isMenuOpen) && (onresolve || onrename || ondelete || onarchive)}
 		<ListItemActions
 			onresolve={onresolve}
 			isResolved={thread.metadata.resolved}
@@ -117,6 +118,8 @@
 			onarchive={onarchive}
 			ondelete={ondelete}
 			iconSize={16}
+			onMenuOpen={() => (isMenuOpen = true)}
+			onMenuClose={() => (isMenuOpen = false)}
 		/>
 	{/if}
 </li>

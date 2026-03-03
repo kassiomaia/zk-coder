@@ -1,24 +1,43 @@
 /**
  * ModelCard Component Styles
+ * Refined density, state logic, and morph transitions for selection.
  */
 
 .card {
+	/* Fixed height for consistency */
+	height: 88px;
+
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-2);
-	padding: var(--space-3);
+	padding: var(--space-4);
 	background: var(--color-surface);
 	border: 1px solid var(--color-border-primary);
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-lg);
 	cursor: pointer;
-	transition: all var(--transition-fast);
 	text-align: left;
 	position: relative;
+	overflow: hidden;
+
+	/* Unified motion system */
+	transition:
+		border-color var(--card-duration-hover) var(--card-ease-hover),
+		background var(--card-duration-hover) var(--card-ease-hover),
+		transform var(--card-duration-hover) var(--card-ease-hover),
+		box-shadow var(--card-duration-hover) var(--card-ease-hover);
 }
 
 .card:hover {
-	border-color: var(--color-border-hover);
+	border-color: var(--color-border-secondary);
 	background: var(--color-surface-hover);
+	transform: scale(var(--card-scale-hover));
+	box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.12);
+}
+
+/* Active/pressed state - micro-bounce tap response */
+.card:active {
+	transform: scale(var(--card-scale-tap));
+	transition-duration: var(--card-duration-tap);
 }
 
 .card:focus-visible {
@@ -26,19 +45,39 @@
 	outline-offset: 2px;
 }
 
+/* ============================================================================
+   SELECTED STATE - Accent border stabilization with subtle glow
+   ============================================================================ */
+
 .card.selected {
 	border-color: var(--color-primary-500);
+	background: var(--color-interactive-selected);
+	box-shadow:
+		0 0 0 1px var(--color-primary-500),
+		0 0 16px -4px rgba(99, 102, 241, 0.2);
+	/* Damped stabilization - no transform change on selected hover */
+	transform: scale(1);
 }
 
 .card.selected:hover {
-	border-color: var(--color-primary-600);
+	border-color: var(--color-primary-400);
+	background: var(--color-interactive-selected-hover);
+	transform: scale(1);
+	box-shadow:
+		0 0 0 1px var(--color-primary-400),
+		0 0 20px -4px rgba(99, 102, 241, 0.25);
 }
 
-/* Model Info */
+/* ============================================================================
+   MODEL INFO
+   ============================================================================ */
+
 .modelInfo {
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-1);
+	flex: 1;
+	min-width: 0;
 }
 
 .modelName {
@@ -48,6 +87,7 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	line-height: var(--leading-tight);
 }
 
 .modelId {
@@ -57,9 +97,22 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	opacity: 0.8;
 }
 
-/* Check Icon */
+.card.selected .modelName {
+	color: var(--color-text-primary);
+}
+
+.card.selected .modelId {
+	color: var(--color-primary-300);
+	opacity: 1;
+}
+
+/* ============================================================================
+   CHECK ICON - Morph + opacity transition
+   ============================================================================ */
+
 .checkIcon {
 	position: absolute;
 	top: var(--space-2);
@@ -67,14 +120,60 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 20px;
-	height: 20px;
+	width: 22px;
+	height: 22px;
 	background: var(--color-primary-500);
 	color: white;
 	border-radius: var(--radius-full);
+
+	/* Morph transition */
+	opacity: 0;
+	transform: scale(0.5) rotate(-45deg);
+	animation: checkMorph var(--state-duration-morph) var(--card-ease-tap) forwards;
 }
 
-/* Capabilities */
+@keyframes checkMorph {
+	0% {
+		opacity: 0;
+		transform: scale(0.5) rotate(-45deg);
+	}
+	50% {
+		opacity: 0.8;
+		transform: scale(1.1) rotate(0deg);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1) rotate(0deg);
+	}
+}
+
+.checkIcon svg {
+	/* Icon morph within container */
+	animation: iconScale var(--state-duration-morph) var(--card-ease-tap) forwards;
+	animation-delay: 60ms;
+	opacity: 0;
+	transform: scale(0);
+}
+
+@keyframes iconScale {
+	0% {
+		opacity: 0;
+		transform: scale(0);
+	}
+	60% {
+		opacity: 1;
+		transform: scale(1.2);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+/* ============================================================================
+   CAPABILITIES
+   ============================================================================ */
+
 .capabilities {
 	display: flex;
 	gap: var(--space-1);
@@ -88,11 +187,39 @@
 	width: 20px;
 	height: 20px;
 	background: var(--color-bg-secondary);
-	color: var(--color-text-secondary);
+	color: var(--color-text-tertiary);
 	border-radius: var(--radius-sm);
+	transition: all var(--card-duration-hover) var(--card-ease-hover);
+}
+
+.capability:hover {
+	background: var(--color-bg-tertiary);
+	color: var(--color-text-secondary);
 }
 
 .card.selected .capability {
+	background: rgba(99, 102, 241, 0.15);
+	color: var(--color-primary-300);
+}
 
-	color: var(--color-primary-50);
+/* ============================================================================
+   REDUCED MOTION
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+	.card {
+		transition: border-color 150ms ease, background 150ms ease;
+	}
+
+	.card:hover,
+	.card:active {
+		transform: none;
+	}
+
+	.checkIcon,
+	.checkIcon svg {
+		animation: none;
+		opacity: 1;
+		transform: none;
+	}
 }
