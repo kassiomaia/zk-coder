@@ -36,11 +36,16 @@
 	border-radius: var(--radius-lg);
 	cursor: pointer;
 	text-align: left;
-	transition: background var(--transition-fast);
+	transition: background var(--transition-fast), opacity var(--transition-fast);
 }
 
 .button:hover {
 	background: var(--color-surface-hover);
+}
+
+.button.hidden {
+	opacity: 0;
+	pointer-events: none;
 }
 
 /* Selected state - subtle neutral highlight */
@@ -126,28 +131,6 @@
 
 .time {
 	white-space: nowrap;
-}
-
-/* Edit mode */
-.editWrapper {
-	padding: var(--space-1);
-}
-
-.editInput {
-	width: 100%;
-	padding: var(--space-2-5) var(--space-3);
-	font-family: var(--font-sans);
-	font-size: var(--text-sm);
-	color: var(--color-text-primary);
-	background: var(--color-surface);
-	border: 2px solid var(--color-primary-500);
-	border-radius: var(--radius-lg);
-	outline: none;
-	transition: box-shadow var(--transition-fast);
-}
-
-.editInput:focus {
-	box-shadow: 0 0 0 3px var(--color-accent-primary-muted);
 }
 
 /* Responsive */
