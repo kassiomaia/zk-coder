@@ -5,6 +5,7 @@
 	 * Matches the prototype pattern: .modal-overlay wraps .modal
 	 */
 	import styles from './Modal.module.css';
+	import IconButton from './IconButton.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -100,27 +101,30 @@
 						<h2 id="modal-title" class={styles.title}>{title}</h2>
 					{/if}
 					{#if showClose}
-						<button
-							class={styles.closeBtn}
+						<IconButton
+							label="Close modal"
+							tooltip="Close"
+							variant="ghost"
+							size="sm"
 							onclick={onclose}
-							type="button"
-							aria-label="Close modal"
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="20"
-								height="20"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<line x1="18" y1="6" x2="6" y2="18"></line>
-								<line x1="6" y1="6" x2="18" y2="18"></line>
-							</svg>
-						</button>
+							{#snippet icon()}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="20"
+									height="20"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<line x1="18" y1="6" x2="6" y2="18"></line>
+									<line x1="6" y1="6" x2="18" y2="18"></line>
+								</svg>
+							{/snippet}
+						</IconButton>
 					{/if}
 				</header>
 			{/if}
