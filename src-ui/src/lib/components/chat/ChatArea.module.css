@@ -36,11 +36,11 @@
 	min-height: 0;
 	overflow-y: auto;
 	padding: var(--space-5);
-	max-width: 900px;
 	margin: 0 auto;
-	width: 100%;
 	/* Reserve scrollbar space to prevent layout shifts */
 	scrollbar-gutter: stable;
+	width: 1400px;
+	max-width: 100%;
 
 	/* Smooth transition for content changes */
 	transition: all var(--duration-slow) var(--ease-in-out);
@@ -151,8 +151,8 @@
 .messageWrapper {
 	position: relative;
 	display: flex;
-	width: 100%;
 	margin-bottom: 2px;
+	min-width: 80%;
 
 	/* Content reflow animation - prevents jump cuts */
 	animation: messageReflow var(--duration-slow) var(--ease-in-out) backwards;

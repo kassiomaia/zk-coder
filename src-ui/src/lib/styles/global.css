@@ -29,6 +29,9 @@ html {
 	-moz-osx-font-smoothing: grayscale;
 	text-rendering: optimizeLegibility;
 	scroll-behavior: smooth;
+	/* Fill entire viewport for desktop app */
+	height: 100%;
+	width: 100%;
 }
 
 /* Default to dark theme */
@@ -42,7 +45,11 @@ body {
 	line-height: var(--leading-normal);
 	color: var(--color-text-primary);
 	background-color: var(--color-bg-primary);
+	/* Fill entire viewport for desktop app */
+	height: 100%;
+	width: 100%;
 	min-height: 100vh;
+	overflow: hidden;
 	transition:
 		background-color var(--transition-slow),
 		color var(--transition-slow);
