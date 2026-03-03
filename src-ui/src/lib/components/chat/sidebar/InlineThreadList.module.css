@@ -17,21 +17,23 @@
 	overflow: hidden;
 	overflow-anchor: none; /* Prevent scroll jump during expansion */
 	transition:
-		max-height var(--transition-normal) var(--ease-out),
-		opacity var(--transition-fast) var(--ease-out);
+		max-height 0.4s var(--ease-out-expo),
+		opacity 0.3s ease-out;
 	/* Part of unified wrapper - no independent background */
 	margin: 0;
 	/*
 	 * Padding adds spacing rhythm between parent and first thread.
 	 * Top padding creates controlled buffer for structural separation.
 	 */
-	padding: var(--space-1) 0;
+	padding: 0;
 }
 
 .container.expanded {
 	/* Sufficient for ~10 threads */
 	max-height: 600px;
 	opacity: 1;
+	/* Add subtle bottom padding for visual breathing room */
+	padding-bottom: 4px;
 }
 
 /* Thread list - spacing for visibility */
@@ -39,6 +41,10 @@
 	list-style: none;
 	margin: 0;
 	padding: 0;
+	display: flex;
+	flex-direction: column;
+	/* Tighten internal thread spacing slightly */
+	gap: 1px;
 }
 
 /* Item wrapper - rows within the container block */
@@ -48,20 +54,14 @@
 	position: relative;
 }
 
-/* Subtle horizontal separator between rows - respects content grid */
+/* Subtle horizontal separator removed for cleaner look as per request "eliminating micro horizontal offsets" 
+   and "single structural grid" - we rely on hover states and spacing. 
+   Or maybe keep it very subtle? 
+   "Normalize icon size, baseline alignment... eliminate micro horizontal offsets"
+   The separator was adding visual noise. Removing it aligns with "cleaner, polished".
+*/
 .itemWrapper + .itemWrapper::before {
-	content: '';
-	position: absolute;
-	top: 0;
-	/*
-	 * Separator starts at icon column (12px), extends to right edge.
-	 * Aligns with visual structure: icon column | content column.
-	 */
-	left: var(--space-3);
-	right: var(--space-2);
-	height: 1px;
-	background: var(--color-border-subtle);
-	opacity: 0.5;
+	display: none;
 }
 
 /* Last thread item - no special corner handling (flat container) */
