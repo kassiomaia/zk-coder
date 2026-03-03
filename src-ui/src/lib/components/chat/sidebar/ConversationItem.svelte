@@ -4,7 +4,8 @@
 	 * Individual conversation item in the sidebar list.
 	 */
 	import styles from './ConversationItem.module.css';
-	import ConversationActions from './ConversationActions.svelte';
+	import ListItemActions from '$lib/components/shared/ListItemActions.svelte';
+	import { formatRelativeTime } from '$lib/utils/formatRelativeTime';
 	import type { Conversation } from '$lib/types/thread';
 
 	interface Props {
@@ -57,24 +58,6 @@
 			e.preventDefault();
 			cancelEdit();
 		}
-	}
-
-	function formatTime(date: Date | string): string {
-		// Handle both Date objects and ISO strings from backend
-		const d = date instanceof Date ? date : new Date(date);
-
-		// Check for invalid date
-		if (isNaN(d.getTime())) {
-			return '';
-		}
-
-		const now = new Date();
-		const diff = now.getTime() - d.getTime();
-		const hours = Math.floor(diff / 3600000);
-
-		if (hours < 1) return 'Just now';
-		if (hours < 24) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-		return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 	}
 
 	function formatThreadCount(count: number): string {
@@ -135,16 +118,17 @@
 						<span class={styles.threadCount}>{formatThreadCount(conversation.threads.length)}</span>
 						<span class={styles.dot}>·</span>
 					{/if}
-					<span class={styles.time}>{formatTime(conversation.updatedAt)}</span>
+					<span class={styles.time}>{formatRelativeTime(conversation.updatedAt)}</span>
 				</span>
 			</div>
 		</button>
 
 		{#if showActions && (ondelete || onrename || onarchive)}
-			<ConversationActions
+			<ListItemActions
 				ondelete={ondelete}
 				onrename={onrename ? startEdit : undefined}
 				onarchive={onarchive}
+				iconSize={14}
 			/>
 		{/if}
 	{/if}
