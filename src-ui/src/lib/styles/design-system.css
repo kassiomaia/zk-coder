@@ -244,12 +244,22 @@
 	--ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 	--ease-elastic: cubic-bezier(0.68, -0.6, 0.32, 1.6);
 
+	/* ============================================================================
+	   MODAL MOTION SYSTEM - Attention-capture entrance with composed deceleration
+	   ============================================================================ */
 
 	/* Phase 1: Rapid attention-capture (fast reveal to secure focus) */
+	--modal-ease-capture: cubic-bezier(0.2, 0, 0, 1);
+	--modal-duration-capture: 160ms;
+	--modal-scale-capture: 0.96;
 
 	/* Phase 2: Deceleration settling (perceived control and intentional slowness) */
 	--modal-ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
 	--modal-duration-settle: 280ms;
+
+	/* Exit timing */
+	--modal-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+	--modal-duration-exit: 150ms;
 
 	/* Progressive disclosure stagger */
 	--modal-stagger-base: 60ms;
@@ -257,16 +267,19 @@
 	--modal-stagger-section-2: 160ms;
 	--modal-stagger-section-3: 240ms;
 
-	/* Card Motion System - Unified micro-interactions */
+	/* Content fade-in timing (slower than entrance for contrast) */
+	--modal-content-ease: cubic-bezier(0.16, 1, 0.3, 1);
+	--modal-content-duration: 220ms;
+
 	/* ============================================================================
 	   CARD MOTION SYSTEM - Micro-interactions with soft highlight sweep
 	   ============================================================================ */
 
 	--card-ease-hover: cubic-bezier(0.16, 1, 0.3, 1);
 	--card-ease-tap: cubic-bezier(0.34, 1.56, 0.64, 1);
-	--card-duration-hover: 180ms;
-	--card-duration-tap: 120ms;
-	--card-scale-hover: 1.01;
+	--card-duration-hover: 200ms;
+	--card-duration-tap: 100ms;
+	--card-scale-hover: 1.008;
 	--card-scale-tap: 0.98;
 
 	/* Highlight sweep effect */
@@ -274,9 +287,12 @@
 	--card-sweep-duration: 400ms;
 
 	/* ============================================================================
+	   STATE TRANSITION TIMING - Deliberately slower for composure
+	   ============================================================================ */
+
 	--state-ease: cubic-bezier(0.16, 1, 0.3, 1);
-	--state-duration: 200ms;
-	--state-duration-morph: 240ms;
+	--state-duration: 240ms;
+	--state-duration-morph: 280ms;
 
 	/* =====================
      Empty State Motion Tokens

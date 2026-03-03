@@ -256,7 +256,7 @@
 .body::-webkit-scrollbar-thumb {
 	background: var(--color-border-subtle);
 	border-radius: var(--radius-full);
-	transition: background var(--transition-fast);
+	transition: background var(--card-duration-hover) var(--card-ease-hover);
 }
 
 .body:hover::-webkit-scrollbar-thumb {
