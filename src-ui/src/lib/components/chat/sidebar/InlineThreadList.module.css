@@ -1,0 +1,80 @@
+/**
+ * InlineThreadList Component Styles
+ * Renders threads inline under the selected conversation.
+ *
+ * Design Features:
+ * - Subtle, non-intrusive appearance
+ * - Clear visual hierarchy with indentation
+ * - Smooth reveal animation
+ * - Minimal visual noise
+ */
+
+/* Container animation - controlled reveal */
+.container {
+	max-height: 0;
+	opacity: 0;
+	overflow: hidden;
+	overflow-anchor: none; /* Prevent scroll jump during expansion */
+	transition:
+		max-height var(--transition-normal) var(--ease-out),
+		opacity var(--transition-fast) var(--ease-out);
+	margin: 0 var(--space-2); /* Match ConversationItem margin */
+}
+
+.container.expanded {
+	/* Sufficient for ~8 threads */
+	max-height: 500px;
+	opacity: 1;
+}
+
+/* Section styling */
+.section {
+	margin-top: var(--space-1);
+}
+
+.section:first-child {
+	margin-top: var(--space-0-5);
+}
+
+/* Section header - minimal, only show when both open and resolved exist */
+.sectionHeader {
+	display: flex;
+	align-items: center;
+	padding: var(--space-0-5) var(--space-2);
+	margin-bottom: 0;
+}
+
+.sectionLabel {
+	font-size: 0.625rem; /* 10px - very subtle */
+	font-weight: var(--font-medium);
+	color: var(--color-text-muted);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-wider);
+	opacity: 0.7;
+}
+
+.count {
+	font-size: 0.625rem;
+	font-weight: var(--font-normal);
+	color: var(--color-text-muted);
+	opacity: 0.5;
+	margin-left: var(--space-1);
+}
+
+/* Thread list */
+.list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.container {
+		transition: none;
+	}
+
+	.container.expanded {
+		max-height: none; /* Allow natural height */
+	}
+}
