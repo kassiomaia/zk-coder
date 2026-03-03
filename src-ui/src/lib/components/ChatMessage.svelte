@@ -78,7 +78,6 @@
 
 <article
 	class={messageClasses}
-	role="article"
 	aria-label="{role} message"
 	onmouseenter={() => (isHovered = true)}
 	onmouseleave={() => (isHovered = false)}

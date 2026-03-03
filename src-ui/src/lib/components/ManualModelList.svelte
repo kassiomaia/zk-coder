@@ -183,8 +183,10 @@
 </div>
 
 {#if showAddDialog}
-	<div class={styles.dialogOverlay} onclick={() => showAddDialog = false}>
-		<div class={styles.dialog} onclick={(e) => e.stopPropagation()}>
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<div class={styles.dialogOverlay} onclick={() => showAddDialog = false} role="presentation">
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div class={styles.dialog} onclick={(e) => e.stopPropagation()} role="presentation">
 			<header class={styles.dialogHeader}>
 				<h3>Add Manual Model</h3>
 				<button

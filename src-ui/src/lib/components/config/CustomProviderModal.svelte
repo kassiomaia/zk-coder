@@ -145,7 +145,7 @@
 		/>
 
 		<div class={styles.field}>
-			<label class={styles.label}>API Type</label>
+			<span class={styles.label}>API Type</span>
 			<div class={styles.radioGroup}>
 				<label class={styles.radio}>
 					<input
