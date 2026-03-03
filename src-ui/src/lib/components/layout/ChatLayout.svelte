@@ -43,6 +43,10 @@
 		onDeleteConversation?: (conversation: Conversation) => void;
 		/** Handler to rename conversation */
 		onRenameConversation?: (conversation: Conversation, newTitle: string) => void;
+		/** Handler to archive conversation */
+		onArchiveConversation?: (conversation: Conversation) => void;
+		/** Handler to archive thread */
+		onArchiveThread?: (thread: Thread) => void;
 		/** Handler for search */
 		onSearch?: (query: string) => void;
 		/** Handler for settings button click */
@@ -69,6 +73,7 @@
 		onResolveThread,
 		onDeleteConversation,
 		onRenameConversation,
+		onArchiveConversation,
 		onSearch,
 		onSettings,
 		loading = false,

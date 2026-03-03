@@ -25,6 +25,8 @@
 		onDelete?: (conversation: Conversation) => void;
 		/** Handler to rename conversation */
 		onRename?: (conversation: Conversation, newTitle: string) => void;
+		/** Handler to archive conversation */
+		onArchive?: (conversation: Conversation) => void;
 		/** Handler for settings button click */
 		onSettings?: () => void;
 		/** Loading state */
@@ -42,6 +44,7 @@
 		onCreateNew,
 		onDelete,
 		onRename,
+		onArchive,
 		onSettings,
 		loading = false,
 		hasConfiguredProvider = true
