@@ -19,11 +19,44 @@
 		ondelete?: () => void;
 		/** Archive handler */
 		onarchive?: () => void;
+		/** Rename handler */
+		onrename?: (newTitle: string) => void;
 	}
 
-	let { thread, selected = false, onclick, onresolve, ondelete, onarchive }: Props = $props();
+	let { thread, selected = false, onclick, onresolve, ondelete, onarchive, onrename }: Props = $props();
 
 	let showActions = $state(false);
+	let isEditing = $state(false);
+	let editTitle = $state('');
+	let inputRef: HTMLInputElement | undefined = $state();
+
+	function startEdit() {
+		editTitle = thread.title;
+		isEditing = true;
+		setTimeout(() => inputRef?.focus(), 0);
+	}
+
+	function finishEdit() {
+		if (editTitle.trim() && editTitle !== thread.title) {
+			onrename?.(editTitle.trim());
+		}
+		isEditing = false;
+	}
+
+	function cancelEdit() {
+		isEditing = false;
+		editTitle = '';
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			finishEdit();
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			cancelEdit();
+		}
+	}
 
 	function formatTime(date: Date | string): string {
 		// Handle both Date objects and ISO strings from backend
@@ -55,141 +88,182 @@
 	onmouseenter={() => (showActions = true)}
 	onmouseleave={() => (showActions = false)}
 >
-	<button
-		class={styles.button}
-		onclick={onclick}
-		aria-label="Select thread: {thread.title}"
-		type="button"
-	>
-		<div class={styles.content}>
-			<span class={styles.title}>
-				{thread.title}
-				{#if thread.metadata.resolved}
-					<span class={styles.resolvedIcon} title="Resolved">
-						<svg
-							width="14"
-							height="14"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-							<polyline points="22 4 12 14.01 9 11.01" />
-						</svg>
-					</span>
-				{/if}
-			</span>
-			<span class={styles.meta}>
-				<span class={styles.messageCount}>{thread.messageCount} messages</span>
-				<span class={styles.dot}>·</span>
-				<span class={styles.time}>{formatTime(thread.updatedAt)}</span>
-			</span>
+	{#if isEditing}
+		<div class={styles.editWrapper}>
+			<input
+				bind:this={inputRef}
+				class={styles.editInput}
+				type="text"
+				bind:value={editTitle}
+				onkeydown={handleKeydown}
+				onblur={finishEdit}
+				maxlength={100}
+			/>
 		</div>
-	</button>
-
-	{#if showActions && (onresolve || ondelete || onarchive)}
-		<div class={styles.actions}>
-			{#if onresolve}
-				<button
-					class={[styles.action, thread.metadata.resolved && styles.reopen].filter(Boolean).join(' ')}
-					onclick={(e) => {
-						e.stopPropagation();
-						onresolve();
-					}}
-					aria-label={thread.metadata.resolved ? 'Reopen thread' : 'Resolve thread'}
-					title={thread.metadata.resolved ? 'Reopen' : 'Resolve'}
-					type="button"
-				>
+	{:else}
+		<button
+			class={styles.button}
+			onclick={onclick}
+			aria-label="Select thread: {thread.title}"
+			type="button"
+		>
+			<div class={styles.content}>
+				<span class={styles.title}>
+					{thread.title}
 					{#if thread.metadata.resolved}
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-							<path d="M3 3v5h5" />
-							<path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-							<path d="M16 21h5v-5" />
-						</svg>
-					{:else}
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<polyline points="20 6 9 17 4 12" />
-						</svg>
+						<span class={styles.resolvedIcon} title="Resolved">
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+								<polyline points="22 4 12 14.01 9 11.01" />
+							</svg>
+						</span>
 					{/if}
-				</button>
-			{/if}
+				</span>
+				<span class={styles.meta}>
+					<span class={styles.messageCount}>{thread.messageCount} messages</span>
+					<span class={styles.dot}>·</span>
+					<span class={styles.time}>{formatTime(thread.updatedAt)}</span>
+				</span>
+			</div>
+		</button>
 
-			{#if onarchive}
-				<button
-					class={[styles.action, styles.archive].filter(Boolean).join(' ')}
-					onclick={(e) => {
-						e.stopPropagation();
-						onarchive();
-					}}
-					aria-label="Archive thread"
-					title="Archive"
-					type="button"
-				>
-					<svg
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
+		{#if showActions && (onresolve || onrename || ondelete || onarchive)}
+			<div class={styles.actions}>
+				{#if onresolve}
+					<button
+						class={[styles.action, thread.metadata.resolved && styles.reopen].filter(Boolean).join(' ')}
+						onclick={(e) => {
+							e.stopPropagation();
+							onresolve();
+						}}
+						aria-label={thread.metadata.resolved ? 'Reopen thread' : 'Resolve thread'}
+						title={thread.metadata.resolved ? 'Reopen' : 'Resolve'}
+						type="button"
 					>
-						<polyline points="21 8 21 21 3 21 3 8" />
-						<rect x="1" y="3" width="22" height="5" />
-						<line x1="10" y1="12" x2="14" y2="12" />
-					</svg>
-				</button>
-			{/if}
+						{#if thread.metadata.resolved}
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+								<path d="M3 3v5h5" />
+								<path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+								<path d="M16 21h5v-5" />
+							</svg>
+						{:else}
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<polyline points="20 6 9 17 4 12" />
+							</svg>
+						{/if}
+					</button>
+				{/if}
 
-			{#if ondelete}
-				<button
-					class={[styles.action, styles.delete].filter(Boolean).join(' ')}
-					onclick={(e) => {
-						e.stopPropagation();
-						ondelete();
-					}}
-					aria-label="Delete thread"
-					title="Delete"
-					type="button"
-				>
-					<svg
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
+				{#if onrename}
+					<button
+						class={styles.action}
+						onclick={(e) => {
+							e.stopPropagation();
+							startEdit();
+						}}
+						aria-label="Rename thread"
+						title="Rename"
+						type="button"
 					>
-						<polyline points="3 6 5 6 21 6" />
-						<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-					</svg>
-				</button>
-			{/if}
-		</div>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+							<path d="m15 5 4 4" />
+						</svg>
+					</button>
+				{/if}
+
+				{#if onarchive}
+					<button
+						class={[styles.action, styles.archive].filter(Boolean).join(' ')}
+						onclick={(e) => {
+							e.stopPropagation();
+							onarchive();
+						}}
+						aria-label="Archive thread"
+						title="Archive"
+						type="button"
+					>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<polyline points="21 8 21 21 3 21 3 8" />
+							<rect x="1" y="3" width="22" height="5" />
+							<line x1="10" y1="12" x2="14" y2="12" />
+						</svg>
+					</button>
+				{/if}
+
+				{#if ondelete}
+					<button
+						class={[styles.action, styles.delete].filter(Boolean).join(' ')}
+						onclick={(e) => {
+							e.stopPropagation();
+							ondelete();
+						}}
+						aria-label="Delete thread"
+						title="Delete"
+						type="button"
+					>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<polyline points="3 6 5 6 21 6" />
+							<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+						</svg>
+					</button>
+				{/if}
+			</div>
+		{/if}
 	{/if}
 </li>
