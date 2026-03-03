@@ -1,0 +1,362 @@
+/**
+ * IconButton Component Styles
+ * Features cross-fade color transitions, press animations, and intent-based styling.
+ */
+
+.btn {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	border-radius: var(--radius-lg);
+	cursor: pointer;
+	background: transparent;
+	padding: 0;
+	font-family: var(--font-sans);
+	overflow: hidden;
+	transition:
+		transform var(--btn-transition-transform),
+		box-shadow var(--btn-transition-shadow);
+}
+
+.btn:disabled {
+	opacity: var(--opacity-disabled);
+	cursor: not-allowed;
+}
+
+.btn:focus-visible {
+	outline: none;
+	box-shadow: var(--shadow-btn-focus);
+}
+
+.iconWrapper {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: transform var(--btn-transition-transform);
+}
+
+/* =====================
+   Size Variants
+   ===================== */
+
+.xs {
+	width: 20px;
+	height: 20px;
+}
+
+.xs .iconWrapper {
+	width: 14px;
+	height: 14px;
+}
+
+.sm {
+	width: 28px;
+	height: 28px;
+}
+
+.sm .iconWrapper {
+	width: 16px;
+	height: 16px;
+}
+
+.md {
+	width: 32px;
+	height: 32px;
+}
+
+.md .iconWrapper {
+	width: 18px;
+	height: 18px;
+}
+
+.lg {
+	width: 40px;
+	height: 40px;
+}
+
+.lg .iconWrapper {
+	width: 20px;
+	height: 20px;
+}
+
+/* =====================
+   Visual Variants
+   ===================== */
+
+/* Ghost - subtle background on hover */
+.ghost {
+	background: transparent;
+	color: var(--color-text-tertiary);
+}
+
+.ghost::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: var(--color-interactive-hover);
+	border-radius: inherit;
+	opacity: 0;
+	transition: opacity var(--btn-transition-color);
+}
+
+.ghost:hover::before {
+	opacity: 1;
+}
+
+.ghost:hover:not(:disabled) {
+	color: var(--color-text-secondary);
+}
+
+.ghost:active:not(:disabled)::before {
+	background: var(--color-interactive-active);
+}
+
+/* Subtle - light background always visible */
+.subtle {
+	background: var(--color-surface);
+	color: var(--color-text-secondary);
+}
+
+.subtle::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: var(--color-surface-hover);
+	border-radius: inherit;
+	opacity: 0;
+	transition: opacity var(--btn-transition-color);
+}
+
+.subtle:hover::before {
+	opacity: 1;
+}
+
+.subtle:hover:not(:disabled) {
+	color: var(--color-text-primary);
+}
+
+.subtle:active:not(:disabled)::before {
+	background: var(--color-surface-active);
+}
+
+/* Solid - filled background */
+.solid {
+	background: var(--color-primary-500);
+	color: var(--color-neutral-0);
+}
+
+.solid::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: var(--color-primary-600);
+	border-radius: inherit;
+	opacity: 0;
+	transition: opacity var(--btn-transition-color);
+}
+
+.solid:hover::before {
+	opacity: 1;
+}
+
+.solid:active:not(:disabled)::before {
+	background: var(--color-primary-700);
+}
+
+/* Transparent - no background ever */
+.transparent {
+	background: transparent;
+	color: var(--color-text-tertiary);
+}
+
+.transparent::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: var(--color-interactive-hover);
+	border-radius: inherit;
+	opacity: 0;
+	transition: opacity var(--btn-transition-color);
+}
+
+.transparent:hover::before {
+	opacity: 0.5;
+}
+
+.transparent:hover:not(:disabled) {
+	color: var(--color-text-secondary);
+}
+
+/* =====================
+   Intent Variants
+   ===================== */
+
+/* Success intent */
+.success {
+	--btn-intent-color: var(--color-success);
+	--btn-intent-bg: var(--color-success-light);
+	--btn-intent-glow: var(--shadow-glow-success);
+}
+
+.success:hover:not(:disabled) {
+	color: var(--color-success);
+}
+
+.success.solid {
+	background: var(--color-success);
+	color: var(--color-neutral-0);
+}
+
+.success.solid::before {
+	background: var(--color-secondary-600);
+}
+
+.success.solid:hover:not(:disabled) {
+	box-shadow: var(--shadow-btn-hover), var(--shadow-glow-success);
+}
+
+/* Warning intent */
+.warning {
+	--btn-intent-color: var(--color-warning);
+	--btn-intent-bg: var(--color-warning-light);
+	--btn-intent-glow: var(--shadow-glow-warning);
+}
+
+.warning:hover:not(:disabled) {
+	color: var(--color-warning);
+}
+
+.warning.solid {
+	background: var(--color-warning);
+	color: var(--color-neutral-900);
+}
+
+.warning.solid::before {
+	background: #d97706;
+}
+
+.warning.solid:hover:not(:disabled) {
+	box-shadow: var(--shadow-btn-hover), var(--shadow-glow-warning);
+}
+
+/* Danger intent */
+.danger {
+	--btn-intent-color: var(--color-error);
+	--btn-intent-bg: var(--color-error-light);
+	--btn-intent-glow: var(--shadow-glow-danger);
+}
+
+.danger::before {
+	background: var(--color-error-light) !important;
+}
+
+.danger:hover:not(:disabled) {
+	color: var(--color-error);
+}
+
+.danger.solid {
+	background: var(--color-error);
+	color: var(--color-neutral-0);
+}
+
+.danger.solid::before {
+	background: #dc2626;
+}
+
+.danger.solid:hover:not(:disabled) {
+	box-shadow: var(--shadow-btn-hover), var(--shadow-glow-danger);
+}
+
+/* Danger hover animation */
+.danger:hover:not(:disabled) {
+	animation: dangerPulse 400ms var(--ease-in-out);
+}
+
+@keyframes dangerPulse {
+	0%, 100% { transform: scale(1); }
+	25% { transform: scale(1.02); }
+	50% { transform: scale(0.99); }
+	75% { transform: scale(1.01); }
+}
+
+/* =====================
+   State Classes
+   ===================== */
+
+.active {
+	background: var(--color-interactive-selected) !important;
+	color: var(--color-accent-primary) !important;
+}
+
+.active::before {
+	opacity: 0 !important;
+}
+
+.pressed:not(:disabled) {
+	transform: scale(var(--btn-press-scale));
+}
+
+.loading {
+	pointer-events: none;
+}
+
+.spinner {
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+/* =====================
+   Ripple Effect (for solid variant)
+   ===================== */
+
+.solid::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(circle at center, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+	opacity: 0;
+	transform: scale(0);
+	transition: transform 400ms var(--ease-out), opacity 400ms var(--ease-out);
+}
+
+.solid:active:not(:disabled)::after {
+	opacity: 1;
+	transform: scale(2);
+}
+
+/* =====================
+   Reduced Motion
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	.btn,
+	.btn::before,
+	.btn::after,
+	.iconWrapper {
+		transition: none;
+		animation: none;
+	}
+
+	.danger:hover:not(:disabled) {
+		animation: none;
+	}
+}
+
+.reduce-motion .btn,
+.reduce-motion .btn::before,
+.reduce-motion .btn::after,
+.reduce-motion .iconWrapper {
+	transition: none;
+	animation: none;
+}
+
+.reduce-motion .danger:hover:not(:disabled) {
+	animation: none;
+}
