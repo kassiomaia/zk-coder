@@ -114,6 +114,7 @@
 								onclick={() => onSelect(thread)}
 								onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
 								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
+								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
 							/>
 						{/each}
 					</ul>
@@ -135,6 +136,7 @@
 								onclick={() => onSelect(thread)}
 								onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
 								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
+								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
 							/>
 						{/each}
 					</ul>
