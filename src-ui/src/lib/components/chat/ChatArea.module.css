@@ -33,42 +33,31 @@
 	scrollbar-gutter: stable;
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling - matches global styles */
 .messagesWrapper::-webkit-scrollbar {
-	width: 6px;
-	background: transparent;
-}
-
-.messagesWrapper::-webkit-scrollbar-thumb {
-	background-color: var(--color-neutral-300);
-	border-radius: var(--radius-full);
-	transition: background-color var(--transition-normal);
-}
-
-.messagesWrapper::-webkit-scrollbar-thumb:hover {
-	background-color: var(--color-neutral-500);
+	width: 10px;
+	height: 10px;
 }
 
 .messagesWrapper::-webkit-scrollbar-track {
 	background: transparent;
 }
 
-[data-theme='dark'] .messagesWrapper::-webkit-scrollbar-thumb {
-	background-color: var(--color-neutral-700);
+.messagesWrapper::-webkit-scrollbar-thumb {
+	background: var(--color-neutral-700);
+	border-radius: var(--radius-full);
+	border: 2px solid transparent;
+	background-clip: padding-box;
 }
 
-[data-theme='dark'] .messagesWrapper::-webkit-scrollbar-thumb:hover {
-	background-color: var(--color-neutral-500);
+.messagesWrapper::-webkit-scrollbar-thumb:hover {
+	background: var(--color-neutral-600);
+	border: 2px solid transparent;
+	background-clip: padding-box;
 }
 
-/* Firefox scrollbar styling */
-.messagesWrapper {
-	scrollbar-width: thin;
-	scrollbar-color: var(--color-border-primary) transparent;
-}
-
-.messagesWrapper:hover {
-	scrollbar-color: var(--color-border-secondary) transparent;
+.messagesWrapper::-webkit-scrollbar-corner {
+	background: transparent;
 }
 
 /* =====================

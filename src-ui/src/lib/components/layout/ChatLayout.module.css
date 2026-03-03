@@ -150,30 +150,14 @@
 	height: 100%;
 	display: flex;
 	flex-direction: column;
-	/* Scrollbar stability */
-	scrollbar-gutter: stable;
 }
 
-/* Unified scrollbar styling for scrollable containers */
+/* Scrollbar styling - matches global styles */
 .threadContent::-webkit-scrollbar,
 .sidebarWrapper::-webkit-scrollbar,
 .threadPanelWrapper::-webkit-scrollbar {
-	width: 6px;
-	background: transparent;
-}
-
-.threadContent::-webkit-scrollbar-thumb,
-.sidebarWrapper::-webkit-scrollbar-thumb,
-.threadPanelWrapper::-webkit-scrollbar-thumb {
-	background-color: var(--color-neutral-300);
-	border-radius: var(--radius-full);
-	transition: background-color var(--transition-normal);
-}
-
-.threadContent::-webkit-scrollbar-thumb:hover,
-.sidebarWrapper::-webkit-scrollbar-thumb:hover,
-.threadPanelWrapper::-webkit-scrollbar-thumb:hover {
-	background-color: var(--color-neutral-500);
+	width: 10px;
+	height: 10px;
 }
 
 .threadContent::-webkit-scrollbar-track,
@@ -182,30 +166,27 @@
 	background: transparent;
 }
 
-[data-theme='dark'] .threadContent::-webkit-scrollbar-thumb,
-[data-theme='dark'] .sidebarWrapper::-webkit-scrollbar-thumb,
-[data-theme='dark'] .threadPanelWrapper::-webkit-scrollbar-thumb {
-	background-color: var(--color-neutral-700);
+.threadContent::-webkit-scrollbar-thumb,
+.sidebarWrapper::-webkit-scrollbar-thumb,
+.threadPanelWrapper::-webkit-scrollbar-thumb {
+	background: var(--color-neutral-700);
+	border-radius: var(--radius-full);
+	border: 2px solid transparent;
+	background-clip: padding-box;
 }
 
-[data-theme='dark'] .threadContent::-webkit-scrollbar-thumb:hover,
-[data-theme='dark'] .sidebarWrapper::-webkit-scrollbar-thumb:hover,
-[data-theme='dark'] .threadPanelWrapper::-webkit-scrollbar-thumb:hover {
-	background-color: var(--color-neutral-500);
+.threadContent::-webkit-scrollbar-thumb:hover,
+.sidebarWrapper::-webkit-scrollbar-thumb:hover,
+.threadPanelWrapper::-webkit-scrollbar-thumb:hover {
+	background: var(--color-neutral-600);
+	border: 2px solid transparent;
+	background-clip: padding-box;
 }
 
-/* Firefox scrollbar styling */
-.threadContent,
-.sidebarWrapper,
-.threadPanelWrapper {
-	scrollbar-width: thin;
-	scrollbar-color: var(--color-border-primary) transparent;
-}
-
-.threadContent:hover,
-.sidebarWrapper:hover,
-.threadPanelWrapper:hover {
-	scrollbar-color: var(--color-border-secondary) transparent;
+.threadContent::-webkit-scrollbar-corner,
+.sidebarWrapper::-webkit-scrollbar-corner,
+.threadPanelWrapper::-webkit-scrollbar-corner {
+	background: transparent;
 }
 
 /* Desktop thread toggle button */
@@ -420,12 +401,5 @@
 
 	.menuButton:active {
 		transform: none;
-	}
-
-	/* Disable scrollbar color transitions */
-	.threadContent,
-	.sidebarWrapper,
-	.threadPanelWrapper {
-		scrollbar-color: var(--color-border-primary) transparent;
 	}
 }
