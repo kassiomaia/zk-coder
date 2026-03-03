@@ -4,7 +4,7 @@
 	 * Unified context menu actions for list items (conversations and threads).
 	 * Displays a "..." button that opens a menu on click.
 	 */
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import styles from './ListItemActions.module.css';
 
 	interface Props {
@@ -42,6 +42,20 @@
 	let triggerRef: HTMLButtonElement | null = null;
 	let menuPosition = $state({ top: 0, right: 0 });
 	const id = Math.random().toString(36).substr(2, 9); // Unique ID for this instance
+
+	onMount(() => {
+		const handleCloseOtherMenus = (e: Event) => {
+			const customEvent = e as CustomEvent;
+			if (customEvent.detail.id !== id) {
+				closeMenu();
+			}
+		};
+
+		window.addEventListener('coder:close-other-menus', handleCloseOtherMenus);
+		return () => {
+			window.removeEventListener('coder:close-other-menus', handleCloseOtherMenus);
+		};
+	});
 
 	function toggleMenu(e: MouseEvent) {
 		e.stopPropagation();
@@ -85,12 +99,6 @@
 		}
 	}
 	
-	function handleCloseOtherMenus(e: CustomEvent) {
-		if (e.detail.id !== id) {
-			closeMenu();
-		}
-	}
-
 	/**
 	 * Simple portal action to move element to body
 	 */
@@ -110,7 +118,6 @@
 	onclick={handleWindowClick} 
 	onscroll={closeMenu} 
 	onresize={closeMenu} 
-	on:coder:close-other-menus={handleCloseOtherMenus as any}
 />
 
 <div class={styles.container} role="toolbar" aria-label="List item actions">
