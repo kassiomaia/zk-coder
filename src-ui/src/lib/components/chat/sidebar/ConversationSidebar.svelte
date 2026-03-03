@@ -173,6 +173,7 @@
 								ondoubleclick={onOpenChat ? () => onOpenChat(conv) : undefined}
 								ondelete={onDelete ? () => onDelete(conv) : undefined}
 								onrename={onRename ? (title) => onRename(conv, title) : undefined}
+								onarchive={onArchive ? () => onArchive(conv) : undefined}
 							/>
 						{/each}
 					</ul>

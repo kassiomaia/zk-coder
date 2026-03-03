@@ -252,6 +252,7 @@
 				onCreateNew={onCreateConversation}
 				onDelete={onDeleteConversation}
 				onRename={onRenameConversation}
+				onArchive={onArchiveConversation}
 				{onSettings}
 				{hasConfiguredProvider}
 			/>
