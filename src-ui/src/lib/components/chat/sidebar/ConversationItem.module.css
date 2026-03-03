@@ -12,68 +12,67 @@
 
 .item {
 	position: relative;
-	margin: 0 var(--space-2);
-	border-radius: var(--radius-lg);
+	margin: 0;
+	border-radius: var(--radius-md);
 	cursor: pointer;
 	transition:
-		background var(--transition-fast),
-		opacity var(--transition-fast);
-	/* Smooth appearance */
-	animation: slideIn 0.3s var(--ease-out) backwards;
+		background var(--transition-normal) cubic-bezier(0.2, 0, 0, 1),
+		transform var(--transition-fast) ease-out;
 	z-index: 1;
-	/* Fixed height to prevent layout shift during edit */
-	min-height: 48px;
+	min-height: 40px;
 }
 
 /* Expanded state - part of unified wrapper container */
 .item.expanded {
 	/*
 	 * Parent is part of unified container.
-	 * No independent background - wrapper owns the surface.
-	 * No rounded corners - wrapper handles all corner geometry.
+	 * Background matches wrapper surface to eliminate visual seams.
 	 */
 	background: transparent;
 	margin: 0;
-	border-radius: 0;
+	border-radius: var(--radius-md) var(--radius-md) 0 0;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 /* Increase separation between title and status chips when expanded */
 .item.expanded .content {
-	gap: var(--space-1);
+	gap: var(--space-2);
 }
 
-/* Parent button in expanded state - no corners */
+/* Parent button in expanded state */
 .item.expanded .button {
-	border-radius: 0;
+	border-radius: var(--radius-md) var(--radius-md) 0 0;
+	font-weight: 600;
 }
 
 /* Edit mode - morph transition state */
 .item:has(.container) {
 	/* Subtle background shift when entering edit */
-	background: var(--color-surface);
+	background: var(--color-bg-primary);
 }
 
 /* Maintain active state when menu is open */
 .item.menuOpen .button {
-	background: var(--color-surface-hover);
+	background: rgba(0, 0, 0, 0.03);
 }
 
 .item.menuOpen .icon {
-	color: var(--color-text-tertiary);
+	color: var(--color-text-primary);
 }
 
 .menuOpen {
 	z-index: 20;
 }
 
+/* Smooth enter animation */
 @keyframes slideIn {
 	from {
 		opacity: 0;
-		transform: translateX(-8px);
+		transform: translateY(4px);
 	}
 	to {
 		opacity: 1;
-		transform: translateX(0);
+		transform: translateY(0);
 	}
 }
 
@@ -90,21 +89,28 @@
 	align-items: center;
 	gap: var(--space-3);
 	width: 100%;
-	height: 48px;
+	height: 40px;
 	padding: 0 var(--space-3);
 	background: transparent;
 	border: none;
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-md);
 	cursor: pointer;
 	text-align: left;
-	/* Morph transition: opacity + scale for smooth edit mode */
+	/* Unify motion system */
 	transition:
-		background var(--transition-fast),
-		opacity var(--edit-duration-enter) var(--edit-ease-enter);
+		background 0.2s cubic-bezier(0.2, 0, 0, 1),
+		opacity 0.2s ease-out,
+		transform 0.1s ease-out;
 }
 
 .button:hover {
-	background: var(--color-surface-hover);
+	/* Subtle hover elevation */
+	background: rgba(0, 0, 0, 0.03);
+	transform: translateY(-0.5px);
+}
+
+.button:active {
+	transform: translateY(0) scale(0.995);
 }
 
 /* Hidden state - morph transition to edit mode */
@@ -113,89 +119,157 @@
 	pointer-events: none;
 }
 
-/* Selected state - subtle neutral highlight without blue tint */
+/* Selected state - softened contrast */
 .item.selected .button {
-	background: var(--color-surface-active);
+	background: rgba(0, 0, 0, 0.05);
+	color: var(--color-text-primary);
 }
 
 .item.selected .button:hover {
-	background: var(--color-surface-hover);
+	background: rgba(0, 0, 0, 0.07);
 }
 
 .button:focus-visible {
-	outline: 2px solid var(--color-border-focus);
-	outline-offset: 1px;
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: -2px;
+	background: rgba(0, 0, 0, 0.02);
 }
 
-/* Icon container */
+/* Icon container - Normalized size */
 .icon {
 	flex-shrink: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 26px;
-	height: 26px;
-	background: var(--color-bg-tertiary);
-	border-radius: var(--radius-md);
-	color: var(--color-text-muted);
-	transition: all var(--transition-fast);
+	width: 20px;
+	height: 20px;
+	border-radius: 4px;
+	color: var(--color-text-tertiary);
+	transition: color 0.2s ease;
 }
 
 .item.selected .icon {
-	background: var(--color-surface-active);
-	color: var(--color-text-secondary);
+	color: var(--color-text-primary);
+	/* Remove strong background contrast */
+	background: transparent;
 }
 
 .button:hover .icon {
-	color: var(--color-text-tertiary);
+	color: var(--color-text-secondary);
 }
 
 .content {
 	flex: 1;
 	min-width: 0;
 	display: flex;
-	flex-direction: column;
-	gap: var(--space-0-5);
-	justify-content: center;
+	align-items: baseline;
+	gap: var(--space-2);
+	/* Ensure consistent vertical rhythm */
+	padding-top: 1px;
 }
 
 .title {
-	font-size: var(--text-sm);
-	font-weight: var(--font-normal);
+	font-size: 13px;
+	font-weight: 500;
 	color: var(--color-text-secondary);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	line-height: var(--leading-snug);
+	line-height: 1.4;
+	transition: color 0.2s ease;
 }
 
 .item.selected .title {
 	color: var(--color-text-primary);
-	font-weight: var(--font-medium);
+	font-weight: 600;
 }
 
 .meta {
 	display: flex;
 	align-items: center;
-	gap: var(--space-1);
-	font-size: var(--text-xs);
-	color: var(--color-text-muted);
-	opacity: 0.7;
+	gap: 6px;
+	font-size: 11px;
+	color: var(--color-text-quaternary);
+	opacity: 0; /* Hide meta by default for cleaner look, reveal on hover/selected */
+	transition: opacity 0.2s ease;
+}
+
+.item:hover .meta,
+.item.selected .meta {
+	opacity: 1;
 }
 
 .threadCount {
 	white-space: nowrap;
-	color: var(--color-text-muted);
+	font-variant-numeric: tabular-nums;
 }
 
 .dot {
-	opacity: 0.5;
-	font-size: 0.5rem;
+	opacity: 0.3;
+	font-size: 8px;
 }
 
 .time {
 	white-space: nowrap;
-	opacity: 0.8;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.01em;
+}
+
+/* Status chips - compact inline indicators */
+.statusChips {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: auto; /* Push to right */
+}
+
+.chipSeparator {
+	color: var(--color-text-quaternary);
+	opacity: 0.5;
+	font-size: 8px;
+}
+
+.chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-size: 10px;
+	font-weight: 500;
+	line-height: 1;
+	background: rgba(0, 0, 0, 0.04);
+	color: var(--color-text-secondary);
+}
+
+.chipOpen {
+	color: var(--color-primary-600);
+	background: var(--color-primary-50);
+}
+
+.chipResolved {
+	color: var(--color-text-tertiary);
+	background: transparent;
+	border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+	.button {
+		padding: 0 var(--space-3);
+	}
+	
+	.title {
+		font-size: 14px;
+	}
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.button, .icon, .item, .title, .meta {
+		transition: none;
+		animation: none;
+		transform: none;
+	}
 }
 
 /* Status chips - compact inline indicators, informational not competitive */
