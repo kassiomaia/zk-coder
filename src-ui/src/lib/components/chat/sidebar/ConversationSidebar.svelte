@@ -158,21 +158,24 @@
 	<!-- Header -->
 	<header class={styles.header}>
 		<div class={styles.headerTop}>
-			<div>
+			<div class={styles.headerInfo}>
 				<h2 class={styles.title}>CHATS</h2>
 				<p class={styles.statusText}>{statusText()}</p>
 			</div>
 			{#if onCreateNew || (hasSelectedConversation && onCreateThread)}
 				<button
-					class={styles.newButton}
+					class={[
+						styles.newButton,
+						hasSelectedConversation && onCreateThread && styles.contextualThread
+					].filter(Boolean).join(' ')}
 					onclick={handleContextualAction}
 					aria-label={actionButtonLabel}
 					title={actionButtonLabel}
 					type="button"
 				>
 					<svg
-						width="18"
-						height="18"
+						width="16"
+						height="16"
 						viewBox="0 0 24 24"
 						fill="none"
 						stroke="currentColor"
@@ -182,6 +185,7 @@
 					>
 						<path d={actionButtonIcon} />
 					</svg>
+					<span class={styles.newButtonLabel}>{actionButtonLabel}</span>
 				</button>
 			{/if}
 		</div>

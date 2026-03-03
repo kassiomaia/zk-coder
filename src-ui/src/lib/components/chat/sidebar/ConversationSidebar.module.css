@@ -23,7 +23,7 @@
 
 /* Header */
 .header {
-	padding: var(--space-5) var(--space-4) var(--space-6);
+	padding: var(--space-4) var(--space-4) var(--space-5);
 	border-bottom: 1px solid var(--color-border-subtle);
 	flex-shrink: 0;
 	background: var(--color-bg-secondary);
@@ -31,13 +31,19 @@
 
 .headerTop {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: space-between;
-	margin-bottom: var(--space-5);
+	gap: var(--space-3);
+	margin-bottom: var(--space-4);
+}
+
+.headerInfo {
+	flex: 1;
+	min-width: 0;
 }
 
 .title {
-	font-size: var(--text-xl);
+	font-size: var(--text-lg);
 	font-weight: var(--font-bold);
 	color: var(--color-text-primary);
 	margin: 0;
@@ -49,39 +55,52 @@
 	color: var(--color-text-tertiary);
 	margin-top: var(--space-1);
 	font-weight: var(--font-medium);
-	opacity: 0.7;
+	opacity: 0.8;
 }
 
+/* Contextual action button with label */
 .newButton {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 36px;
-	height: 36px;
-	padding: 0;
-	background: var(--color-surface-hover);
-	border: 1px solid var(--color-border-subtle);
+	gap: var(--space-1-5);
+	padding: var(--space-2) var(--space-3);
+	background: var(--color-interactive-selected);
+	border: 1px solid transparent;
 	border-radius: var(--radius-lg);
 	cursor: pointer;
 	color: var(--color-text-primary);
+	font-size: var(--text-xs);
+	font-weight: var(--font-medium);
+	white-space: nowrap;
 	transition: all var(--transition-fast) var(--ease-out-expo);
 }
 
 .newButton:hover {
-	background: var(--color-surface-active);
+	background: var(--color-interactive-selected-hover);
 	border-color: var(--color-border-primary);
-	transform: scale(1.05);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .newButton:active {
-	transform: scale(0.95);
+	transform: scale(0.98);
 }
 
 .newButton:focus-visible {
-	outline: 2px solid var(--color-primary-500);
+	outline: 2px solid var(--color-border-focus);
 	outline-offset: 2px;
-	box-shadow: 0 0 0 4px var(--color-accent-primary-muted);
+}
+
+/* Contextual thread mode - slightly different appearance */
+.newButton.contextualThread {
+	background: var(--color-accent-primary-muted);
+}
+
+.newButton.contextualThread:hover {
+	background: rgba(99, 102, 241, 0.18);
+}
+
+.newButtonLabel {
+	line-height: 1;
 }
 
 /* Content */
