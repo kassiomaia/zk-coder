@@ -118,7 +118,7 @@
 						<span class={styles.count}>{openThreads.length}</span>
 					</div>
 					<ul class={styles.list} role="listbox" aria-label="Open threads">
-						{#each openThreads as thread (thread.id)}
+						{#each openThreads as thread, index (thread.id)}
 							<ThreadItem
 								{thread}
 								selected={thread.id === selectedThreadId}
@@ -127,6 +127,7 @@
 								onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
 								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
 								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
+								style="animation-delay: {index * 50}ms"
 							/>
 						{/each}
 					</ul>
@@ -141,7 +142,7 @@
 						<span class={styles.count}>{resolvedThreads.length}</span>
 					</div>
 					<ul class={styles.list} role="listbox" aria-label="Resolved threads">
-						{#each resolvedThreads as thread (thread.id)}
+						{#each resolvedThreads as thread, index (thread.id)}
 							<ThreadItem
 								{thread}
 								selected={thread.id === selectedThreadId}
@@ -150,6 +151,7 @@
 								onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
 								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
 								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
+								style="animation-delay: {(openThreads.length + index) * 50}ms"
 							/>
 						{/each}
 					</ul>

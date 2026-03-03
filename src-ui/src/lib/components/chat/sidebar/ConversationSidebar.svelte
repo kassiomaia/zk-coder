@@ -169,11 +169,14 @@
 				{/if}
 			</div>
 		{:else}
-			{#each groupedConversations as group (group.label)}
+			{#each groupedConversations as group, groupIndex (group.label)}
+				{@const groupOffset = groupedConversations
+					.slice(0, groupIndex)
+					.reduce((acc, g) => acc + g.conversations.length, 0)}
 				<section class={styles.group}>
 					<h3 class={styles.groupLabel}>{group.label}</h3>
 					<ul class={styles.list} role="listbox" aria-label="{group.label} conversations">
-						{#each group.conversations as conv (conv.id)}
+						{#each group.conversations as conv, index (conv.id)}
 							<ConversationItem
 								conversation={conv}
 								selected={conv.id === selectedId}
@@ -182,6 +185,7 @@
 								ondelete={onDelete ? () => onDelete(conv) : undefined}
 								onrename={onRename ? (title) => onRename(conv, title) : undefined}
 								onarchive={onArchive ? () => onArchive(conv) : undefined}
+								style="animation-delay: {(groupOffset + index) * 50}ms"
 							/>
 						{/each}
 					</ul>

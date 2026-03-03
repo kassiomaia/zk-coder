@@ -14,6 +14,20 @@
 	position: relative;
 	list-style: none;
 	margin: var(--space-0-25) 0;
+	/* Base animation properties - keyframes defined in parent scope/global or sidebar */
+	animation: slideIn 0.4s var(--ease-out-expo) forwards;
+	opacity: 0; /* Start hidden for animation */
+}
+
+@keyframes slideIn {
+	from {
+		opacity: 0;
+		transform: translateX(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
 }
 
 .item:first-child {
@@ -159,5 +173,10 @@
 	.button,
 	.icon {
 		transition: none;
+	}
+
+	.item {
+		animation: none;
+		opacity: 1;
 	}
 }
