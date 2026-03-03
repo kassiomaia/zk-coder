@@ -17,6 +17,9 @@ export type {
 // LLM Handler
 export { LlmHandler, type StoreUpdater, type LlmStreamInit, type ActiveStreamTracker } from './llm-handler';
 
+// Derived Stores Factory
+export { createDerivedStores, type DerivedStores } from './derived-stores';
+
 // Utilities
 export {
 	generateId,

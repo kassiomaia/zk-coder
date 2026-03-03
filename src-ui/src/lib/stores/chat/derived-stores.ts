@@ -1,173 +1,158 @@
 /**
  * Chat Derived Stores
  *
- * Derived Svelte stores computed from the main chat store.
+ * Factory functions to create derived Svelte stores from the chat store.
+ * Uses factory pattern to avoid circular dependency issues.
  */
 
-import { derived } from 'svelte/store';
-import type { ConversationGroup, Conversation } from '$lib/types/thread';
+import { derived, type Readable } from 'svelte/store';
+import type { ConversationGroup, Conversation, Thread } from '$lib/types/thread';
 import type { MessageGroup, Message } from '$lib/types/message';
-import { chatStore } from '../chat';
+import type { ChatState } from './types';
 import { sortThreadsByRecent } from './utils';
 
 // ============================================================================
-// Selection Derived Stores
+// Factory Function Types
+// ============================================================================
+
+export interface DerivedStores {
+	selectedConversation: Readable<Conversation | null>;
+	selectedThread: Readable<Thread | null>;
+	currentThreads: Readable<Thread[]>;
+	messageGroups: Readable<MessageGroup[]>;
+	conversationGroups: Readable<ConversationGroup[]>;
+	nlpState: Readable<ChatState['nlp']>;
+	llmState: Readable<ChatState['llm']>;
+	isLlmStreaming: Readable<boolean>;
+	streamingContent: Readable<string>;
+	conversationsLoading: Readable<ChatState['conversationsLoading']>;
+	messagesLoading: Readable<ChatState['messagesLoading']>;
+	threadsLoading: Readable<ChatState['threadsLoading']>;
+	chatError: Readable<string | null>;
+	isLoading: Readable<boolean>;
+}
+
+// ============================================================================
+// Derived Stores Factory
 // ============================================================================
 
 /**
- * Currently selected conversation.
+ * Create all derived stores from the chat store.
+ * @param store - The main chat store to derive from
  */
-export const selectedConversation = derived(
-	chatStore,
-	($chat) => $chat.conversations.find((c) => c.id === $chat.selectedConversationId) ?? null
-);
+export function createDerivedStores(store: Readable<ChatState>): DerivedStores {
+	// Selection derived stores
+	const selectedConversation = derived(
+		store,
+		($chat) => $chat.conversations.find((c) => c.id === $chat.selectedConversationId) ?? null
+	);
 
-/**
- * Currently selected thread.
- */
-export const selectedThread = derived(chatStore, ($chat) => {
-	if (!$chat.selectedThreadId) return null;
-	return $chat.threads.find((t) => t.id === $chat.selectedThreadId) ?? null;
-});
+	const selectedThread = derived(store, ($chat) => {
+		if (!$chat.selectedThreadId) return null;
+		return $chat.threads.find((t) => t.id === $chat.selectedThreadId) ?? null;
+	});
 
-/**
- * Threads for the current conversation.
- */
-export const currentThreads = derived(chatStore, ($chat) => $chat.threads);
+	const currentThreads = derived(store, ($chat) => $chat.threads);
 
-// ============================================================================
-// Message Display Derived Stores
-// ============================================================================
+	// Message display derived stores
+	const messageGroups = derived(store, ($chat): MessageGroup[] => {
+		if ($chat.messages.length === 0) return [];
 
-/**
- * Messages grouped by time (for ChatArea display).
- */
-export const messageGroups = derived(chatStore, ($chat): MessageGroup[] => {
-	if ($chat.messages.length === 0) return [];
+		const groups: MessageGroup[] = [];
+		let currentGroup: Message[] = [];
+		let lastTime = 0;
+		const GROUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-	const groups: MessageGroup[] = [];
-	let currentGroup: Message[] = [];
-	let lastTime = 0;
-	const GROUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+		for (const message of $chat.messages) {
+			const messageTime = message.timestamp.getTime();
 
-	for (const message of $chat.messages) {
-		const messageTime = message.timestamp.getTime();
-
-		if (lastTime > 0 && messageTime - lastTime > GROUP_INTERVAL_MS) {
-			if (currentGroup.length > 0) {
-				groups.push({ messages: currentGroup });
+			if (lastTime > 0 && messageTime - lastTime > GROUP_INTERVAL_MS) {
+				if (currentGroup.length > 0) {
+					groups.push({ messages: currentGroup });
+				}
+				currentGroup = [];
 			}
-			currentGroup = [];
+
+			currentGroup.push(message);
+			lastTime = messageTime;
 		}
 
-		currentGroup.push(message);
-		lastTime = messageTime;
-	}
+		if (currentGroup.length > 0) {
+			groups.push({ messages: currentGroup });
+		}
 
-	if (currentGroup.length > 0) {
-		groups.push({ messages: currentGroup });
-	}
+		return groups;
+	});
 
-	return groups;
-});
+	// Sidebar derived stores
+	const conversationGroups = derived(store, ($chat): ConversationGroup[] => {
+		const now = new Date();
+		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+		const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-// ============================================================================
-// Sidebar Derived Stores
-// ============================================================================
+		const groups: Record<string, Conversation[]> = {
+			Today: [],
+			Yesterday: [],
+			'This Week': [],
+			Older: []
+		};
 
-/**
- * Conversations grouped by time for sidebar.
- */
-export const conversationGroups = derived(chatStore, ($chat): ConversationGroup[] => {
-	const now = new Date();
-	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-	const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-	const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+		for (const conversation of $chat.conversations) {
+			const date = new Date(conversation.updatedAt);
+			if (date >= today) {
+				groups['Today'].push(conversation);
+			} else if (date >= yesterday) {
+				groups['Yesterday'].push(conversation);
+			} else if (date >= weekAgo) {
+				groups['This Week'].push(conversation);
+			} else {
+				groups['Older'].push(conversation);
+			}
+		}
 
-	const groups: Record<string, Conversation[]> = {
-		Today: [],
-		Yesterday: [],
-		'This Week': [],
-		Older: []
+		return Object.entries(groups)
+			.filter(([, conversations]) => conversations.length > 0)
+			.map(([label, conversations]) => ({
+				label,
+				conversations: sortThreadsByRecent(conversations)
+			}));
+	});
+
+	// State derived stores
+	const nlpState = derived(store, ($chat) => $chat.nlp);
+	const llmState = derived(store, ($chat) => $chat.llm);
+	const isLlmStreaming = derived(store, ($chat) => $chat.llm.isStreaming);
+	const streamingContent = derived(store, ($chat) => $chat.llm.streamingContent);
+
+	// Loading state derived stores
+	const conversationsLoading = derived(store, ($chat) => $chat.conversationsLoading);
+	const messagesLoading = derived(store, ($chat) => $chat.messagesLoading);
+	const threadsLoading = derived(store, ($chat) => $chat.threadsLoading);
+	const chatError = derived(store, ($chat) => $chat.error);
+	const isLoading = derived(
+		store,
+		($chat) =>
+			$chat.conversationsLoading === 'loading' ||
+			$chat.messagesLoading === 'loading' ||
+			$chat.threadsLoading === 'loading' ||
+			$chat.nlp.processing
+	);
+
+	return {
+		selectedConversation,
+		selectedThread,
+		currentThreads,
+		messageGroups,
+		conversationGroups,
+		nlpState,
+		llmState,
+		isLlmStreaming,
+		streamingContent,
+		conversationsLoading,
+		messagesLoading,
+		threadsLoading,
+		chatError,
+		isLoading
 	};
-
-	for (const conversation of $chat.conversations) {
-		const date = new Date(conversation.updatedAt);
-		if (date >= today) {
-			groups['Today'].push(conversation);
-		} else if (date >= yesterday) {
-			groups['Yesterday'].push(conversation);
-		} else if (date >= weekAgo) {
-			groups['This Week'].push(conversation);
-		} else {
-			groups['Older'].push(conversation);
-		}
-	}
-
-	return Object.entries(groups)
-		.filter(([, conversations]) => conversations.length > 0)
-		.map(([label, conversations]) => ({
-			label,
-			conversations: sortThreadsByRecent(conversations)
-		}));
-});
-
-// ============================================================================
-// State Derived Stores
-// ============================================================================
-
-/**
- * NLP state derived store.
- */
-export const nlpState = derived(chatStore, ($chat) => $chat.nlp);
-
-/**
- * LLM streaming state derived store.
- */
-export const llmState = derived(chatStore, ($chat) => $chat.llm);
-
-/**
- * Whether LLM is currently streaming.
- */
-export const isLlmStreaming = derived(chatStore, ($chat) => $chat.llm.isStreaming);
-
-/**
- * Current streaming content (for real-time display).
- */
-export const streamingContent = derived(chatStore, ($chat) => $chat.llm.streamingContent);
-
-// ============================================================================
-// Loading State Derived Stores
-// ============================================================================
-
-/**
- * Conversations loading state.
- */
-export const conversationsLoading = derived(chatStore, ($chat) => $chat.conversationsLoading);
-
-/**
- * Messages loading state.
- */
-export const messagesLoading = derived(chatStore, ($chat) => $chat.messagesLoading);
-
-/**
- * Threads loading state.
- */
-export const threadsLoading = derived(chatStore, ($chat) => $chat.threadsLoading);
-
-/**
- * Global error state.
- */
-export const chatError = derived(chatStore, ($chat) => $chat.error);
-
-/**
- * Is any loading in progress.
- */
-export const isLoading = derived(
-	chatStore,
-	($chat) =>
-		$chat.conversationsLoading === 'loading' ||
-		$chat.messagesLoading === 'loading' ||
-		$chat.threadsLoading === 'loading' ||
-		$chat.nlp.processing
-);
+}

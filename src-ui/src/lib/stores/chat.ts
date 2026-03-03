@@ -765,29 +765,34 @@ function createChatStore() {
 export const chatStore = createChatStore();
 
 // ============================================================================
+// Derived Stores (created via factory to avoid circular dependency)
+// ============================================================================
+
+import { createDerivedStores } from './chat/derived-stores';
+
+const derivedStores = createDerivedStores(chatStore);
+
+export const selectedConversation = derivedStores.selectedConversation;
+export const selectedThread = derivedStores.selectedThread;
+export const currentThreads = derivedStores.currentThreads;
+export const messageGroups = derivedStores.messageGroups;
+export const conversationGroups = derivedStores.conversationGroups;
+export const nlpState = derivedStores.nlpState;
+export const llmState = derivedStores.llmState;
+export const isLlmStreaming = derivedStores.isLlmStreaming;
+export const streamingContent = derivedStores.streamingContent;
+export const conversationsLoading = derivedStores.conversationsLoading;
+export const messagesLoading = derivedStores.messagesLoading;
+export const threadsLoading = derivedStores.threadsLoading;
+export const chatError = derivedStores.chatError;
+export const isLoading = derivedStores.isLoading;
+
+// ============================================================================
 // Re-exports
 // ============================================================================
 
 // Types are in ./chat/types.ts - re-exported for convenience
 export type { LoadingState, NlpState, LlmStreamingState, ChatState, LlmRequestOptions } from './chat/types';
-
-// Derived stores are in ./chat/derived-stores.ts - re-exported for convenience
-export {
-	selectedConversation,
-	selectedThread,
-	currentThreads,
-	messageGroups,
-	conversationGroups,
-	nlpState,
-	llmState,
-	isLlmStreaming,
-	streamingContent,
-	conversationsLoading,
-	messagesLoading,
-	threadsLoading,
-	chatError,
-	isLoading
-} from './chat/derived-stores';
 
 // Utility functions are in ./chat/utils.ts - re-exported for convenience
 export { generateId, createNewConversation, createNewThread, createNewMessage } from './chat/utils';
