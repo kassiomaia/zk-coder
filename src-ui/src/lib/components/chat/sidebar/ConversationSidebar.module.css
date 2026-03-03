@@ -144,12 +144,18 @@
 /* Conversation wrapper - contains item and inline threads */
 .conversationWrapper {
 	/* Container for conversation item and its inline threads */
+	transition: margin-bottom var(--transition-fast);
+}
+
+/* Add extra spacing when threads are expanded */
+.conversationWrapper:has([data-threads-expanded]) {
+	margin-bottom: var(--space-2);
 }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
 	.conversationWrapper {
-		/* Ensure no animation delays affect reduced motion */
+		transition: none;
 	}
 }
 
