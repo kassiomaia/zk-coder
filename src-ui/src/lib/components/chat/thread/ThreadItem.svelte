@@ -17,9 +17,11 @@
 		onresolve?: () => void;
 		/** Delete handler */
 		ondelete?: () => void;
+		/** Archive handler */
+		onarchive?: () => void;
 	}
 
-	let { thread, selected = false, onclick, onresolve, ondelete }: Props = $props();
+	let { thread, selected = false, onclick, onresolve, ondelete, onarchive }: Props = $props();
 
 	let showActions = $state(false);
 

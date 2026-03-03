@@ -21,6 +21,8 @@
 		onResolveThread?: (thread: Thread) => void;
 		/** Handler to delete a thread */
 		onDeleteThread?: (thread: Thread) => void;
+		/** Handler to archive a thread */
+		onArchiveThread?: (thread: Thread) => void;
 		/** Handler to collapse the panel (desktop) */
 		onCollapse?: () => void;
 		/** Loading state */
@@ -34,6 +36,7 @@
 		onCreateThread,
 		onResolveThread,
 		onDeleteThread,
+		onArchiveThread,
 		onCollapse,
 		loading = false
 	}: Props = $props();
