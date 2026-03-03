@@ -4,10 +4,10 @@
  *
  * Design Features:
  * - Compact appearance with unified edit mode styling
- * - Smooth hover transitions (background only, no transform)
- * - Clear selected state with brighter title
+ * - Smooth hover transitions (background only, no borders)
+ * - Clear selected state with brighter title - NO border to maintain thread connection
  * - Enhanced focus visibility
- * - Condensed 52px height (44px on mobile)
+ * - Condensed 48px height
  */
 
 .item {
@@ -17,14 +17,12 @@
 	cursor: pointer;
 	transition:
 		background var(--transition-fast),
-		transform var(--transition-fast) var(--ease-out);
-	/* Left accent border setup */
-	border-left: 3px solid transparent;
+		opacity var(--transition-fast);
 	/* Smooth appearance */
 	animation: slideIn 0.3s var(--ease-out) backwards;
 	z-index: 1;
 	/* Fixed height to prevent layout shift during edit */
-	min-height: 52px;
+	min-height: 48px;
 }
 
 /* Edit mode - morph transition state */
@@ -36,8 +34,6 @@
 /* Maintain active state when menu is open */
 .item.menuOpen .button {
 	background: var(--color-surface-hover);
-	transform: scale(1.02);
-	border-color: var(--color-border-primary);
 }
 
 .item.menuOpen .icon {
@@ -48,24 +44,10 @@
 	z-index: 20;
 }
 
-.meta {
-	display: flex;
-	align-items: center;
-	gap: var(--space-2);
-	font-size: var(--text-xs);
-	color: var(--color-text-muted);
-	opacity: 0.7;
-}
-
-.time {
-	white-space: nowrap;
-	opacity: 0.6;
-}
-
 @keyframes slideIn {
 	from {
 		opacity: 0;
-		transform: translateX(-10px);
+		transform: translateX(-8px);
 	}
 	to {
 		opacity: 1;
@@ -86,7 +68,7 @@
 	align-items: center;
 	gap: var(--space-3);
 	width: 100%;
-	height: 52px;
+	height: 48px;
 	padding: 0 var(--space-3);
 	background: transparent;
 	border: none;
@@ -96,33 +78,26 @@
 	/* Morph transition: opacity + scale for smooth edit mode */
 	transition:
 		background var(--transition-fast),
-		transform var(--transition-fast) var(--ease-out),
 		opacity var(--edit-duration-enter) var(--edit-ease-enter);
 }
 
 .button:hover {
-	background: var(--color-surface-hover);
-	transform: scale(1.02);
+	background: var(--color-interactive-hover);
 }
 
 /* Hidden state - morph transition to edit mode */
 .button.hidden {
 	opacity: 0;
 	pointer-events: none;
-	transform: scale(0.995);
 }
 
-/* Selected state - subtle neutral highlight */
+/* Selected state - subtle highlight WITHOUT border to maintain thread connection */
 .item.selected .button {
-	background: var(--color-surface-hover);
-	border: 1px solid var(--color-border-secondary);
-	padding: 0 calc(var(--space-3) - 1px);
-	transform: scale(1); /* No scale on selected? Or maybe keep it? User said hover elevation. */
+	background: var(--color-interactive-selected);
 }
 
 .item.selected .button:hover {
-	background: var(--color-surface-active);
-	transform: scale(1.02);
+	background: var(--color-interactive-selected-hover);
 }
 
 .button:focus-visible {
@@ -136,8 +111,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 28px;
-	height: 28px;
+	width: 26px;
+	height: 26px;
 	background: var(--color-bg-tertiary);
 	border-radius: var(--radius-md);
 	color: var(--color-text-muted);
@@ -183,6 +158,7 @@
 	gap: var(--space-1);
 	font-size: var(--text-xs);
 	color: var(--color-text-muted);
+	opacity: 0.7;
 }
 
 .threadCount {
@@ -191,24 +167,25 @@
 }
 
 .dot {
-	opacity: 0.4;
+	opacity: 0.5;
 	font-size: 0.5rem;
 }
 
 .time {
 	white-space: nowrap;
+	opacity: 0.8;
 }
 
 /* Responsive */
 @media (max-width: 600px) {
 	.button {
-		height: 52px;
+		height: 48px;
 		padding: 0 var(--space-2-5);
 	}
 
 	.icon {
-		width: 28px;
-		height: 28px;
+		width: 26px;
+		height: 26px;
 	}
 
 	.title {
@@ -234,6 +211,6 @@
 	}
 
 	.button.hidden {
-		transform: none;
+		opacity: 0;
 	}
 }
