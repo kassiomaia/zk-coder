@@ -74,6 +74,7 @@
 		onDeleteConversation,
 		onRenameConversation,
 		onArchiveConversation,
+		onArchiveThread,
 		onSearch,
 		onSettings,
 		loading = false,
@@ -304,6 +305,7 @@
 							onSelect={handleSelectThread}
 							{onCreateThread}
 							{onResolveThread}
+							onArchiveThread={onArchiveThread}
 							onCollapse={toggleThreadPanel}
 							loading={threadsLoading}
 						/>
