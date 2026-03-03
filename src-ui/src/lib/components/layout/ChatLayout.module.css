@@ -144,6 +144,20 @@
 	opacity: 1;
 }
 
+.chatAreaHeader {
+	padding: var(--space-2) var(--space-4);
+	border-bottom: 1px solid var(--color-border-subtle);
+	flex-shrink: 0;
+	background: var(--color-bg-primary);
+}
+
+.chatAreaWrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
 .threadContent {
 	flex: 1;
 	min-width: 0;
@@ -152,7 +166,57 @@
 	flex-direction: column;
 }
 
-/* Scrollbar styling - matches global styles */
+.chatAreaWrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.chatAreaHeader {
+	padding: var(--space-2) var(--space-4);
+	border-bottom: 1px solid var(--color-border-subtle);
+	flex-shrink: 0;
+	background: var(--color-bg-primary);
+}
+
+.threadSidebarToggle {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-1) var(--space-2);
+	background: transparent;
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	color: var(--color-text-secondary);
+	font-size: var(--text-xs);
+	font-weight: var(--font-medium);
+	transition: all var(--transition-fast);
+}
+
+.threadSidebarToggle:hover {
+	background: var(--color-surface-hover);
+	color: var(--color-text-primary);
+}
+
+.toggleLabel {
+	display: inline;
+}
+
+.toggleBadge {
+	min-width: 18px;
+	height: 18px;
+	padding: 0 4px;
+	font-size: 10px;
+	font-weight: var(--font-semibold);
+	line-height: 18px;
+	text-align: center;
+	background: var(--color-bg-secondary);
+	border: 1px solid var(--color-border-primary);
+	color: var(--color-text-secondary);
+	border-radius: var(--radius-full);
+}
 .threadContent::-webkit-scrollbar,
 .sidebarWrapper::-webkit-scrollbar,
 .threadPanelWrapper::-webkit-scrollbar {
@@ -190,59 +254,45 @@
 }
 
 /* Desktop thread toggle button */
-.threadToggle {
-	position: absolute;
-	top: var(--space-4);
-	right: var(--space-4);
-	display: none;
+.threadSidebarToggle {
+	display: flex;
 	align-items: center;
 	gap: var(--space-2);
-	padding: var(--space-2) var(--space-3);
-	background: var(--color-bg-secondary);
-	border: 1px solid var(--color-border-primary);
-	border-radius: var(--radius-lg);
+	padding: var(--space-1) var(--space-2);
+	background: transparent;
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-md);
 	cursor: pointer;
 	color: var(--color-text-secondary);
-	font-size: var(--text-sm);
+	font-size: var(--text-xs);
 	font-weight: var(--font-medium);
-	box-shadow: var(--shadow-md);
 	transition: all var(--transition-fast);
-	z-index: var(--z-sticky);
 }
 
-.threadToggle:hover {
+.threadSidebarToggle:hover {
 	background: var(--color-surface-hover);
 	color: var(--color-text-primary);
-	border-color: var(--color-primary-400);
-}
-
-.threadToggle:focus-visible {
-	outline: 2px solid var(--color-primary-500);
-	outline-offset: 2px;
 }
 
 .toggleLabel {
-	display: none;
+	display: inline;
 }
 
 .toggleBadge {
-	min-width: 20px;
-	height: 20px;
-	padding: 0 6px;
-	font-size: var(--text-xs);
+	min-width: 18px;
+	height: 18px;
+	padding: 0 4px;
+	font-size: 10px;
 	font-weight: var(--font-semibold);
-	line-height: 20px;
+	line-height: 18px;
 	text-align: center;
-	background: var(--color-primary-500);
-	color: white;
+	background: var(--color-bg-secondary);
+	border: 1px solid var(--color-border-primary);
+	color: var(--color-text-secondary);
 	border-radius: var(--radius-full);
 }
 
 @media (min-width: 769px) {
-	.threadToggle {
-		display: flex;
-	}
-
 	.toggleLabel {
 		display: inline;
 	}

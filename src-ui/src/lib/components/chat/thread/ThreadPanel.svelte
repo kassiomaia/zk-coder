@@ -27,6 +27,8 @@
 		onRetry?: () => void;
 		/** Handler to reopen the thread */
 		onReopenThread?: () => void;
+		/** Handler to toggle the thread sidebar */
+		onToggleSidebar?: () => void;
 		/** Loading state */
 		loading?: boolean;
 		/** Error state */
@@ -41,6 +43,7 @@
 		onSendMessage,
 		onRetry,
 		onReopenThread,
+		onToggleSidebar,
 		loading = false,
 		error
 	}: Props = $props();
@@ -172,13 +175,38 @@
 <div class={styles.panel}>
 	<!-- Header with context and title -->
 	<header class={styles.header}>
-		<div class={styles.identity}>
-			{#if breadcrumbPath.length > 0}
-				<span class={styles.context}>{breadcrumbPath[0].title}</span>
+		<div class={styles.leftActions}>
+			{#if onToggleSidebar}
+				<button 
+					class={styles.sidebarToggle}
+					onclick={onToggleSidebar}
+					aria-label="Toggle threads list"
+					type="button"
+				>
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+						<line x1="9" y1="3" x2="9" y2="21" />
+					</svg>
+				</button>
 			{/if}
-			<h1 class={styles.title}>
-				{thread.title}
-			</h1>
+
+			<div class={styles.identity}>
+				{#if breadcrumbPath.length > 0}
+					<span class={styles.context}>{breadcrumbPath[0].title}</span>
+				{/if}
+				<h1 class={styles.title}>
+					{thread.title}
+				</h1>
+			</div>
 		</div>
 
 		{#if thread.metadata.resolved}

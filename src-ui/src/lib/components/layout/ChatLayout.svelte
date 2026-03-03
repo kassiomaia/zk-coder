@@ -298,31 +298,6 @@
 
 		<!-- Main chat area -->
 		<div class={styles.content}>
-			<!-- Desktop thread toggle button -->
-			{#if selectedConversation && !threadPanelOpen}
-				<button
-					class={styles.threadToggle}
-					onclick={toggleThreadPanel}
-					aria-label="Show thread panel"
-					type="button"
-				>
-					<svg
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-					</svg>
-					<span class={styles.toggleLabel}>Threads</span>
-					<span class={styles.toggleBadge}>{threads.length}</span>
-				</button>
-			{/if}
-
 			{#if showThreadPanel}
 				<!-- Thread view with panel -->
 				<div class={styles.threadLayout}>
@@ -347,23 +322,54 @@
 					<!-- Thread content or main chat -->
 					<div class={styles.threadContent}>
 						{#if selectedThread}
-							<ThreadPanel
+								<ThreadPanel
 								thread={selectedThread}
 								{messages}
 								{breadcrumbPath}
 								onSendMessage={handleSendMessage}
 								onReopenThread={handleReopenThread}
+								onToggleSidebar={toggleThreadPanel}
 								{loading}
 							/>
 						{:else}
-							<ChatArea
-								{messages}
-								threadId={selectedThreadId}
-								{threads}
-								{loading}
-								onSendMessage={handleSendMessage}
-								onThreadClick={handleSelectThreadById}
-							/>
+							<div class={styles.chatAreaWrapper}>
+								{#if !threadPanelOpen}
+									<div class={styles.chatAreaHeader}>
+										<button 
+											class={styles.threadSidebarToggle}
+											onclick={toggleThreadPanel}
+											aria-label="Show threads"
+											type="button"
+										>
+											<svg
+												width="18"
+												height="18"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+												<line x1="9" y1="3" x2="9" y2="21" />
+											</svg>
+											<span class={styles.toggleLabel}>Threads</span>
+											{#if threads.length > 0}
+												<span class={styles.toggleBadge}>{threads.length}</span>
+											{/if}
+										</button>
+									</div>
+								{/if}
+								<ChatArea
+									{messages}
+									threadId={selectedThreadId}
+									{threads}
+									{loading}
+									onSendMessage={handleSendMessage}
+									onThreadClick={handleSelectThreadById}
+								/>
+							</div>
 						{/if}
 					</div>
 				</div>
