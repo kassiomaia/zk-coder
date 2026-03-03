@@ -157,4 +157,17 @@
 }
 
 /* Reduced motion overrides */
+@media (prefers-reduced-motion: reduce) {
+	.menu {
+		animation: none;
+		opacity: 1;
+	}
+	
+	.action {
+		transition: none;
+	}
+	
+	.action:hover {
+		transform: none;
+	}
 }

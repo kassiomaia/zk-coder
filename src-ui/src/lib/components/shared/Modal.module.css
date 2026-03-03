@@ -330,14 +330,29 @@
    ============================================================================ */
 
 @media (prefers-reduced-motion: reduce) {
-	.overlay,
-	.modal {
-		transition: opacity 150ms ease;
+	.overlay {
+		transition: opacity 100ms ease;
 	}
 
-	.modal.open,
 	.overlay.open {
 		animation: none;
+		opacity: 1;
+	}
+
+	.modal.open {
+		animation: none;
 		transform: none;
+		opacity: 1;
+	}
+
+	.body :global(.modal-section) {
+		animation: none;
+		opacity: 1;
+		transform: none;
+	}
+
+	.closeBtn::before,
+	.footer :global(.button-primary)::before {
+		display: none;
 	}
 }
