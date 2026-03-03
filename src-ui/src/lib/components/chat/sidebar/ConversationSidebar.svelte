@@ -82,6 +82,9 @@
 	}: Props = $props();
 
 	let searchQuery = $state('');
+	let isNewMenuOpen = $state(false);
+	let newButtonRef: HTMLButtonElement | undefined = $state(undefined);
+	let newMenuRef: HTMLDivElement | undefined = $state(undefined);
 
 	// Derived state for contextual UI
 	let hasSelectedConversation = $derived(!!selectedId);
@@ -137,70 +140,135 @@
 		onSearch?.(query);
 	}
 
-	// Icons for action buttons
-	let newChatIcon = 'M12 5v14M5 12h14';
-	let newThreadIcon = 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z';
+	function toggleNewMenu(e: MouseEvent) {
+		e.stopPropagation();
+		isNewMenuOpen = !isNewMenuOpen;
+	}
+
+	function closeNewMenu() {
+		isNewMenuOpen = false;
+	}
+
+	function handleWindowClick(e: MouseEvent) {
+		if (
+			isNewMenuOpen &&
+			newMenuRef &&
+			!newMenuRef.contains(e.target as Node) &&
+			!newButtonRef?.contains(e.target as Node)
+		) {
+			closeNewMenu();
+		}
+	}
+
+	function handleCreateChat() {
+		onCreateNew?.();
+		closeNewMenu();
+	}
+
+	function handleCreateThread() {
+		onCreateThread?.();
+		closeNewMenu();
+	}
 </script>
 
-<aside class={styles.sidebar} aria-label="Conversations">
-	<!-- Header -->
-	<header class={styles.header}>
-		<div class={styles.headerTop}>
-			<div class={styles.headerInfo}>
-				<h2 class={styles.title}>CHATS</h2>
-			</div>
-			<div class={styles.headerActions}>
-				<!-- Always show New Chat button -->
-				{#if onCreateNew}
-					<button
-						class={styles.newButton}
-						onclick={onCreateNew}
-						aria-label="New conversation"
-						title="New conversation"
-						type="button"
-					>
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
+	<svelte:window onclick={handleWindowClick} />
+
+	<aside class={styles.sidebar} aria-label="Conversations">
+		<!-- Header -->
+		<header class={styles.header}>
+			<div class={styles.headerTop}>
+				<div class={styles.headerInfo}>
+					<h2 class={styles.title}>CHATS</h2>
+				</div>
+				<div class={styles.headerActions}>
+					<!-- Single "New" button with dropdown -->
+					<div class={styles.menuWrapper}>
+						<button
+							bind:this={newButtonRef}
+							class={[styles.newButton, isNewMenuOpen && styles.active].filter(Boolean).join(' ')}
+							onclick={toggleNewMenu}
+							aria-label="Create new..."
+							aria-expanded={isNewMenuOpen}
+							aria-haspopup="true"
+							type="button"
 						>
-							<path d={newChatIcon} />
-						</svg>
-						<span class={styles.newButtonLabel}>New chat</span>
-					</button>
-				{/if}
-				<!-- Show New Thread button when conversation is selected -->
-				{#if hasSelectedConversation && onCreateThread}
-					<button
-						class={[styles.newButton, styles.contextualThread].join(' ')}
-						onclick={onCreateThread}
-						aria-label="New thread"
-						title="New thread in selected conversation"
-						type="button"
-					>
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d={newThreadIcon} />
-						</svg>
-						<span class={styles.newButtonLabel}>New thread</span>
-					</button>
-				{/if}
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M12 5v14M5 12h14" />
+							</svg>
+						</button>
+
+						{#if isNewMenuOpen}
+							<div
+								bind:this={newMenuRef}
+								class={styles.menu}
+								role="menu"
+							>
+								{#if onCreateNew}
+									<button
+										class={styles.menuItem}
+										onclick={handleCreateChat}
+										role="menuitem"
+										type="button"
+									>
+										<div class={styles.menuIcon}>
+											<svg
+												width="16"
+												height="16"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+											</svg>
+										</div>
+										<span>New chat</span>
+									</button>
+								{/if}
+
+								{#if onCreateThread}
+									<button
+										class={styles.menuItem}
+										onclick={handleCreateThread}
+										role="menuitem"
+										type="button"
+										disabled={!hasSelectedConversation}
+									>
+										<div class={styles.menuIcon}>
+											<svg
+												width="16"
+												height="16"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+											</svg>
+										</div>
+										<span>New thread</span>
+									</button>
+								{/if}
+							</div>
+						{/if}
+					</div>
+				</div>
 			</div>
-		</div>
-		<!-- Status row below title/buttons -->
+			<!-- Status row below title/buttons -->
+
 		<div class={styles.statusRow}>
 			<p class={styles.statusText}>{statusText()}</p>
 		</div>
@@ -214,6 +282,7 @@
 			/>
 		{/if}
 	</header>
+
 
 	<!-- Content -->
 	<div class={styles.content}>
