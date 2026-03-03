@@ -202,6 +202,18 @@ export async function deleteThread(id: string): Promise<void> {
 	await safeInvoke<void>('delete_thread', { id });
 }
 
+/**
+ * Renames a thread.
+ *
+ * @param id - Thread ID
+ * @param title - New title
+ * @returns The updated thread
+ */
+export async function renameThread(id: string, title: string): Promise<Thread> {
+	const response = await safeInvoke<ThreadResponse>('rename_thread', { id, title });
+	return threadToClient(response);
+}
+
 // ============================================================================
 // Message Commands
 // ============================================================================
