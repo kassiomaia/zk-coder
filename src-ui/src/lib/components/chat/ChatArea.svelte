@@ -7,6 +7,7 @@
 	import AnsweringIndicator from './AnsweringIndicator.svelte';
 	import ThreadIndicator from './ThreadIndicator.svelte';
 	import MarkdownRenderer from '../markdown/MarkdownRenderer.svelte';
+	import MessageActions from './MessageActions.svelte';
 	import type { Message } from '$lib/types/message';
 	import type { Thread } from '$lib/types/thread';
 	import styles from './ChatArea.module.css';
@@ -378,6 +379,14 @@
         onRetry?.();
     }
 
+    async function handleCopyMessage(content: string) {
+        try {
+            await navigator.clipboard.writeText(content);
+        } catch (err) {
+            console.error('Failed to copy message:', err);
+        }
+    }
+
     function formatGroupTime(date: Date): string {
         return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
@@ -459,34 +468,52 @@
                     </div>
                     <div class={styles.groupMessages}>
                         {#each group.messages as message (message.id)}
-                            <div class={[styles.message, styles[getRoleClass(message.role)], getMessageStatusClass(message.status)].filter(Boolean).join(' ')}>
-                                <!-- Thread indicator -->
-                                {#if message.threadId && getThreadTitle(message.threadId)}
-                                    <ThreadIndicator
-                                        thread={{ id: message.threadId, title: getThreadTitle(message.threadId)! } as any}
-                                        onclick={() => onThreadClick?.(message.threadId!)}
-                                        compact
-                                    />
-                                {/if}
-                                <div class={styles.messageContent}>
-                                    <MarkdownRenderer content={message.content} />
+                            <div class={styles.messageWrapper}>
+                                <div class={[styles.message, styles[getRoleClass(message.role)], getMessageStatusClass(message.status)].filter(Boolean).join(' ')}>
+                                    <!-- Thread indicator -->
+                                    {#if message.threadId && getThreadTitle(message.threadId)}
+                                        <ThreadIndicator
+                                            thread={{ id: message.threadId, title: getThreadTitle(message.threadId)! } as any}
+                                            onclick={() => onThreadClick?.(message.threadId!)}
+                                            compact
+                                        />
+                                    {/if}
+                                    <div class={styles.messageContent}>
+                                        <MarkdownRenderer content={message.content} />
+                                    </div>
+                                    <!-- Message status indicator -->
+                                    {#if message.status === 'sending' && message.content.trim() === ''}
+                                        <AnsweringIndicator />
+                                    {:else if message.status === 'error'}
+                                        <div class={styles.statusIndicator} aria-label="Failed to send">
+                                            <button
+                                                class={styles.retryIconButton}
+                                                onclick={() => onRetryMessage?.(message.id)}
+                                                title="Retry sending"
+                                                type="button"
+                                            >
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M1 4v6h6" />
+                                                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    {/if}
                                 </div>
-                                <!-- Message status indicator -->
-                                {#if message.status === 'sending' && message.content.trim() === ''}
-                                    <AnsweringIndicator />
-                                {:else if message.status === 'error'}
-                                    <div class={styles.statusIndicator} aria-label="Failed to send">
-                                        <button
-                                            class={styles.retryIconButton}
-                                            onclick={() => onRetryMessage?.(message.id)}
-                                            title="Retry sending"
-                                            type="button"
-                                        >
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M1 4v6h6" />
-                                                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                                            </svg>
-                                        </button>
+                                <!-- Message actions -->
+                                {#if message.status !== 'sending'}
+                                    <div class={styles.actionsContainer}>
+                                        <MessageActions
+                                            showCopy={true}
+                                            showEdit={message.role === 'user'}
+                                            showDelete={true}
+                                            showRetry={message.status === 'error'}
+                                            showFeedback={message.role === 'assistant'}
+                                            onCopy={() => handleCopyMessage(message.content)}
+                                            onEdit={() => onEditMessage?.(message.id)}
+                                            onDelete={() => onDeleteMessage?.(message.id)}
+                                            onRetry={() => onRetryMessage?.(message.id)}
+                                        />
                                     </div>
                                 {/if}
                             </div>

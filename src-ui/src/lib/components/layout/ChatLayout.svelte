@@ -4,7 +4,7 @@
 	 * Main responsive layout for the chat application.
 	 * Manages sidebar visibility, thread panel, and responsive behavior.
 	 */
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import styles from './ChatLayout.module.css';
 	import ConversationSidebar from '../chat/sidebar/ConversationSidebar.svelte';
 	import ThreadView from '../chat/thread/ThreadView.svelte';
@@ -12,6 +12,7 @@
 	import ChatArea from '../chat/ChatArea.svelte';
 	import type { Conversation, Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
+	import { createAppShortcuts, unregisterShortcuts } from '$lib/utils/keyboardShortcuts';
 
 	// localStorage key for thread panel state
 	const THREAD_PANEL_STORAGE_KEY = 'coder:threadPanelOpen';
@@ -95,6 +96,34 @@
 		if (stored !== null) {
 			threadPanelOpen = stored === 'true';
 		}
+	});
+
+	// Keyboard shortcuts
+	let shortcutIds: string[] = [];
+
+	onMount(() => {
+		shortcutIds = createAppShortcuts({
+			onNewThread: () => {
+				if (selectedConversation) {
+					onCreateThread?.();
+				}
+			},
+			onNewConversation: () => {
+				onCreateConversation?.();
+			},
+			onToggleSidebar: () => {
+				toggleSidebar();
+			},
+			onEscape: () => {
+				if (sidebarOpen) {
+					closeSidebar();
+				}
+			}
+		});
+	});
+
+	onDestroy(() => {
+		unregisterShortcuts(shortcutIds);
 	});
 
 	// Persist state changes
