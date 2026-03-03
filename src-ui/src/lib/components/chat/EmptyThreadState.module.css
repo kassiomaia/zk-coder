@@ -235,22 +235,13 @@
 
 @media (max-width: 600px) {
 	.container {
-		min-height: 220px;
-		padding: var(--space-6);
-		margin: var(--space-4) auto;
-		max-width: 100%;
-	}
-
-	.container.none {
-		min-height: 260px;
+		min-height: 200px;
+		padding: var(--space-5);
+		margin: var(--space-3) auto;
 	}
 
 	.headline {
-		font-size: var(--text-base);
-	}
-
-	.container.none .headline {
-		font-size: var(--text-lg);
+		font-size: var(--text-sm);
 	}
 
 	.hint {
@@ -258,23 +249,12 @@
 	}
 
 	.emptyIcon {
-		width: 40px;
-		height: 40px;
-	}
-
-	.container.none .emptyIcon {
-		width: 48px;
-		height: 48px;
-	}
-
-	.ambientGlow {
-		width: 240px;
-		height: 240px;
+		width: 36px;
+		height: 36px;
 	}
 
 	.actionHint {
-		margin-top: var(--space-3);
-		padding: var(--space-1-5) var(--space-2);
+		margin-top: var(--space-2);
 	}
 
 	.actionText {
@@ -292,8 +272,6 @@
 	.headline,
 	.hint,
 	.fadingText,
-	.ambientGlow,
-	.particle,
 	.actionHint {
 		animation: none !important;
 		transition: opacity 200ms ease !important;
@@ -304,52 +282,7 @@
 		transform: none;
 	}
 
-	.headlineWrapper.pulse .headline {
-		animation: none;
-	}
-
-	.emptyIcon {
-		animation: none;
-	}
-
-	.particles {
-		display: none;
-	}
-
 	.actionHint {
 		opacity: 1;
-		transform: none;
-	}
-}
-
-/* =====================
-   Dark Mode Adjustments
-   ===================== */
-
-[data-theme='dark'] {
-	.ambientGlow {
-		background: radial-gradient(
-			circle,
-			rgba(99, 102, 241, 0.06) 0%,
-			transparent 70%
-		);
-	}
-
-	.particle {
-		background: var(--color-neutral-600);
-	}
-}
-
-/* =====================
-   Light Mode Adjustments
-   ===================== */
-
-[data-theme='light'] {
-	.particle {
-		background: var(--color-neutral-400);
-	}
-
-	.emptyIcon {
-		color: var(--color-text-tertiary);
 	}
 }
