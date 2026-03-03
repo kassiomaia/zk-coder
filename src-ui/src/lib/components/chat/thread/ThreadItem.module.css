@@ -250,3 +250,95 @@
 		transform: none;
 	}
 }
+
+/* ============================================================================
+   INLINE VARIANT - For hierarchical navigation
+   ============================================================================ */
+
+/**
+ * Inline variant for ThreadItem
+ * Used when threads are displayed inline under their parent conversation
+ * Features:
+ * - Indentation to show hierarchy
+ * - Reduced visual weight (smaller height, muted colors)
+ * - Subtle, non-intrusive appearance
+ */
+.item[data-variant='inline'] {
+	margin: 0;
+	margin-left: var(--space-6); /* Indentation for hierarchy */
+	min-height: 36px;
+	border-radius: var(--radius-md);
+}
+
+.item[data-variant='inline'] .button {
+	height: 36px;
+	padding: 0 var(--space-2);
+	gap: var(--space-2);
+	border-radius: var(--radius-md);
+}
+
+/* Inline hover - more subtle */
+.item[data-variant='inline'] .button:hover {
+	background: var(--color-interactive-hover);
+}
+
+/* Inline icon - smaller and muted */
+.item[data-variant='inline'] .icon {
+	width: 20px;
+	height: 20px;
+	background: transparent;
+}
+
+.item[data-variant='inline'] .icon svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* Inline content - more compact */
+.item[data-variant='inline'] .content {
+	gap: var(--space-0-5);
+}
+
+.item[data-variant='inline'] .title {
+	font-size: var(--text-xs);
+	color: var(--color-text-tertiary);
+	font-weight: var(--font-normal);
+}
+
+.item[data-variant='inline'] .meta {
+	font-size: 0.625rem; /* 10px */
+	color: var(--color-text-muted);
+	opacity: 0.7;
+}
+
+.item[data-variant='inline'] .messageCount {
+	display: none; /* Hide message count for cleaner look */
+}
+
+.item[data-variant='inline'] .dot {
+	display: none;
+}
+
+/* Selected inline item - subtle highlight */
+.item[data-variant='inline'].selected .button {
+	background: var(--color-interactive-selected);
+	border: none;
+	box-shadow: none;
+	padding: 0 var(--space-2);
+}
+
+.item[data-variant='inline'].selected .title {
+	color: var(--color-text-primary);
+	font-weight: var(--font-medium);
+}
+
+.item[data-variant='inline'].selected .icon {
+	color: var(--color-text-secondary);
+}
+
+/* Reduced motion for inline variant */
+@media (prefers-reduced-motion: reduce) {
+	.item[data-variant='inline'] {
+		animation: none;
+	}
+}

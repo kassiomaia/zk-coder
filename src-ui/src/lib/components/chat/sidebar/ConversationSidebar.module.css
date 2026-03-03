@@ -122,6 +122,18 @@
 	padding: 0;
 }
 
+/* Conversation wrapper - contains item and inline threads */
+.conversationWrapper {
+	/* Container for conversation item and its inline threads */
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.conversationWrapper {
+		/* Ensure no animation delays affect reduced motion */
+	}
+}
+
 /* Loading - Enhanced skeleton */
 .loading {
 	display: flex;
