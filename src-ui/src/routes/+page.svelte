@@ -167,6 +167,10 @@
 		await chatStore.renameConversation(conversation.id, newTitle);
 	}
 
+	async function handleRenameThread(thread: Thread, newTitle: string) {
+		await chatStore.renameThread(thread.id, newTitle);
+	}
+
 	// Archive handlers - shows confirmation dialog before archiving
 	function handleArchiveConversation(conversation: Conversation) {
 		archiveTarget = { type: 'conversation', item: conversation };
@@ -274,6 +278,7 @@
 		onRenameConversation={handleRenameConversation}
 		onArchiveConversation={handleArchiveConversation}
 		onArchiveThread={handleArchiveThread}
+		onRenameThread={handleRenameThread}
 		onSearch={handleSearch}
 		onSettings={handleOpenSettings}
 		loading={$isLoading}
