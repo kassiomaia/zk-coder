@@ -47,18 +47,28 @@
 
 	// Local state for animation
 	let isReopening = $state(false);
-	let bannerVisible = $state(!isResolved); // Start hidden if resolved
+	let bannerVisible = $state(true);
 	let bannerAnimatingOut = $state(false);
 	let bannerAnimatingIn = $state(false);
 
 	// Track previous thread ID and resolved state to detect thread switches
-	let previousThreadId = $state(thread.id);
-	let previousResolved = $state(isResolved);
+	let previousThreadId = $state('');
+	let previousResolved = $state(false);
+	let initialized = $state(false);
 
 	// Watch for thread changes and resolved status changes
 	$effect(() => {
 		const currentThreadId = thread.id;
 		const currentResolved = isResolved;
+
+		// First run - initialize state without animation
+		if (!initialized) {
+			previousThreadId = currentThreadId;
+			previousResolved = currentResolved;
+			bannerVisible = currentResolved;
+			initialized = true;
+			return;
+		}
 
 		// Check if thread changed OR if resolved status changed for the same thread
 		const threadChanged = currentThreadId !== previousThreadId;

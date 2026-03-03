@@ -104,8 +104,8 @@
     // Animation state for input container
     let inputAnimatingIn = $state(false);
     let inputAnimatingOut = $state(false);
-    let showInput = $state(!threadResolved);
-    let previousResolved = $state(threadResolved);
+    let showInput = $state(true);
+    let previousResolved = $state(false);
 
     // Scroll state
     let messagesWrapperRef: HTMLDivElement | undefined = $state();
@@ -170,6 +170,13 @@
     // Watch for threadResolved changes and animate transitions
     $effect(() => {
         const currentResolved = threadResolved;
+
+        // First run - initialize state without animation
+        if (previousResolved === false && !inputAnimatingIn && !inputAnimatingOut) {
+            showInput = !currentResolved;
+            previousResolved = currentResolved;
+            return;
+        }
 
         // Only animate when the resolved state actually changes
         if (currentResolved !== previousResolved) {
