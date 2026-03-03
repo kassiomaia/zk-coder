@@ -26,6 +26,7 @@ import {
 	createThread as apiCreateThread,
 	resolveThread as apiResolveThread,
 	deleteThread as apiDeleteThread,
+	renameThread as apiRenameThread,
 	loadMessages,
 	loadThreadMessages,
 	sendMessage as apiSendMessage,
@@ -503,6 +504,32 @@ function createChatStore() {
 				update((state) => ({
 					...state,
 					error: error instanceof Error ? error.message : 'Failed to delete thread'
+				}));
+				return false;
+			}
+		},
+
+		/**
+		 * Rename a thread.
+		 */
+		async renameThread(id: string, title: string): Promise<boolean> {
+			try {
+				const updated = await apiRenameThread(id, title);
+				update((state) => ({
+					...state,
+					threads: state.threads.map((t) => (t.id === id ? updated : t)),
+					// Update conversation's thread list as well
+					conversations: state.conversations.map((c) =>
+						c.id === state.selectedConversationId
+							? { ...c, threads: (c.threads || []).map((t) => (t.id === id ? updated : t)) }
+							: c
+					)
+				}));
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to rename thread'
 				}));
 				return false;
 			}
