@@ -105,20 +105,6 @@
 	gap: var(--space-2);
 }
 
-/* Actions container - positioned outside message */
-.actionsContainer {
-	position: absolute;
-	left: calc(-1 * var(--space-8));
-	top: 50%;
-	transform: translateY(-50%);
-	opacity: 0;
-	transition: opacity var(--transition-fast);
-}
-
-.messageWrapper:hover .actionsContainer {
-	opacity: 1;
-}
-
 /* Individual messages - subtle design */
 .message {
 	padding: var(--space-4) var(--space-5);
@@ -137,6 +123,26 @@
 	border: none;
 	margin-left: auto;
 	margin-right: 0;
+}
+
+/* Actions container - inside message for proper positioning */
+.actionsContainer {
+	position: absolute;
+	right: calc(100% + var(--space-2));
+	top: 50%;
+	transform: translateY(-50%);
+	opacity: 0;
+	transition: opacity var(--transition-fast);
+}
+
+/* User messages: actions on the right side */
+.messageWrapper:has(.role-user) .actionsContainer {
+	right: auto;
+	left: calc(100% + var(--space-2));
+}
+
+.messageWrapper:hover .actionsContainer {
+	opacity: 1;
 }
 
 .message.role-assistant {
