@@ -14,6 +14,10 @@
 		conversation: Conversation;
 		/** Whether this conversation is selected */
 		selected?: boolean;
+		/** Whether threads are expanded (for aria-expanded) */
+		ariaExpanded?: boolean;
+		/** ID of the controlled element (for aria-controls) */
+		ariaControls?: string;
 		/** Click handler */
 		onclick: () => void;
 		/** Double-click handler (typically opens thread panel if threads exist) */
@@ -28,7 +32,18 @@
 		style?: string;
 	}
 
-	let { conversation, selected = false, onclick, ondoubleclick, ondelete, onrename, onarchive, style = '' }: Props = $props();
+	let {
+		conversation,
+		selected = false,
+		ariaExpanded,
+		ariaControls,
+		onclick,
+		ondoubleclick,
+		ondelete,
+		onrename,
+		onarchive,
+		style = ''
+	}: Props = $props();
 
 	let isHovered = $state(false);
 	let isMenuOpen = $state(false);
@@ -92,6 +107,8 @@
 			}
 		}}
 		aria-label="Select conversation: {conversation.title}"
+		aria-expanded={ariaExpanded}
+		aria-controls={ariaControls}
 		type="button"
 		tabindex={isEditing ? -1 : 0}
 	>
