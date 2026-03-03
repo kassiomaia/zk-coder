@@ -1,10 +1,10 @@
 /**
  * Modal Component Styles
- * Refined modal with damped entrance, enhanced containment, and unified motion system.
+ * Attention-capture entrance with progressive disclosure and composed motion.
  */
 
 /* ============================================================================
-   OVERLAY WRAPPER - Enhanced containment with depth separation
+   OVERLAY WRAPPER - Depth separation with blur
    ============================================================================ */
 
 .overlay {
@@ -13,11 +13,11 @@
 	display: none;
 	align-items: center;
 	justify-content: center;
-	background: rgba(0, 0, 0, 0.7);
-	backdrop-filter: blur(8px);
+	background: rgba(0, 0, 0, 0.72);
+	backdrop-filter: blur(10px);
 	z-index: var(--z-modal);
 	opacity: 0;
-	transition: opacity var(--modal-duration-enter) var(--modal-ease-enter);
+	transition: opacity var(--modal-duration-capture) var(--modal-ease-capture);
 }
 
 .overlay.open {
@@ -31,7 +31,7 @@
 }
 
 /* ============================================================================
-   MODAL - Scale-in + fade-in with damped easing
+   MODAL - Two-phase entrance: fast capture + deceleration settle
    ============================================================================ */
 
 .modal {
@@ -40,25 +40,22 @@
 	border-radius: var(--radius-2xl);
 	box-shadow:
 		0 0 0 1px rgba(255, 255, 255, 0.03) inset,
-		0 32px 64px -16px rgba(0, 0, 0, 0.5),
-		0 16px 32px -8px rgba(0, 0, 0, 0.3);
+		0 32px 64px -16px rgba(0, 0, 0, 0.55),
+		0 16px 32px -8px rgba(0, 0, 0, 0.35);
 	width: 90%;
 	max-width: 520px;
 	max-height: 85vh;
 	overflow: hidden;
 	display: none;
 	flex-direction: column;
-	opacity: 0;
-	transform: scale(var(--modal-scale-from)) translateY(8px);
-	transition:
-		opacity var(--modal-duration-enter) var(--modal-ease-enter),
-		transform var(--modal-duration-enter) var(--modal-ease-enter);
+
+	/* Fixed bounds to prevent reflow */
+	position: relative;
 }
 
 .modal.open {
 	display: flex;
-	opacity: 1;
-	transform: scale(var(--modal-scale-to)) translateY(0);
+	/* Two-phase animation defined below */
 }
 
 .modal.lg {
@@ -70,7 +67,52 @@
 }
 
 /* ============================================================================
-   HEADER - Strict horizontal grid with increased padding
+   TWO-PHASE ENTRANCE ANIMATION
+   Phase 1: Fast scale + opacity capture (0-160ms)
+   Phase 2: Deceleration settle with damped easing (160-440ms)
+   ============================================================================ */
+
+@keyframes modalCapture {
+	0% {
+		opacity: 0;
+		transform: scale(var(--modal-scale-capture)) translateY(6px);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(0.995) translateY(1px);
+	}
+}
+
+@keyframes modalSettle {
+	0% {
+		transform: scale(0.995) translateY(1px);
+	}
+	100% {
+		transform: scale(1) translateY(0);
+	}
+}
+
+@keyframes overlayCapture {
+	0% {
+		opacity: 0;
+		backdrop-filter: blur(0px);
+	}
+	100% {
+		opacity: 1;
+		backdrop-filter: blur(10px);
+	}
+}
+
+.overlay.open {
+	animation: overlayCapture var(--modal-duration-capture) var(--modal-ease-capture);
+}
+
+.modal.open {
+	animation:
+		modalCapture var(--modal-duration-capture) var(--modal-ease-capture) forwards,
+		modalSettle var(--modal-duration-settle) var(--modal-ease-settle) var(--modal-duration-capture) forwards;
+}
+
    ============================================================================ */
 
 .header {
@@ -180,37 +222,27 @@
 }
 
 /* ============================================================================
-   ANIMATIONS - Damped entrance for perceived authority
+   EXIT ANIMATION
    ============================================================================ */
 
-@keyframes modalEnter {
+@keyframes modalExit {
 	0% {
-		opacity: 0;
-		transform: scale(var(--modal-scale-from)) translateY(12px);
+		opacity: 1;
+		transform: scale(1) translateY(0);
 	}
 	100% {
-		opacity: 1;
-		transform: scale(var(--modal-scale-to)) translateY(0);
+		opacity: 0;
+		transform: scale(0.98) translateY(-4px);
 	}
 }
 
-@keyframes overlayEnter {
+@keyframes overlayExit {
 	0% {
-		opacity: 0;
-		backdrop-filter: blur(0px);
+		opacity: 1;
 	}
 	100% {
-		opacity: 1;
-		backdrop-filter: blur(8px);
+		opacity: 0;
 	}
-}
-
-.overlay.open {
-	animation: overlayEnter var(--modal-duration-enter) var(--modal-ease-enter);
-}
-
-.modal.open {
-	animation: modalEnter var(--modal-duration-enter) var(--modal-ease-enter);
 }
 
 /* ============================================================================

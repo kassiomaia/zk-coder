@@ -244,13 +244,18 @@
 	--ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 	--ease-elastic: cubic-bezier(0.68, -0.6, 0.32, 1.6);
 
-	/* Modal Motion System - Unified timing */
-	--modal-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
-	--modal-ease-exit: cubic-bezier(0.16, 1, 0.3, 1);
-	--modal-duration-enter: 320ms;
-	--modal-duration-exit: 200ms;
-	--modal-scale-from: 0.96;
-	--modal-scale-to: 1;
+
+	/* Phase 1: Rapid attention-capture (fast reveal to secure focus) */
+
+	/* Phase 2: Deceleration settling (perceived control and intentional slowness) */
+	--modal-ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+	--modal-duration-settle: 280ms;
+
+	/* Progressive disclosure stagger */
+	--modal-stagger-base: 60ms;
+	--modal-stagger-section-1: 80ms;
+	--modal-stagger-section-2: 160ms;
+	--modal-stagger-section-3: 240ms;
 
 	/* Card Motion System - Unified micro-interactions */
 	--card-ease-hover: cubic-bezier(0.16, 1, 0.3, 1);
