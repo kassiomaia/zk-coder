@@ -57,7 +57,12 @@
 </script>
 
 <li
-	class={[styles.item, selected && styles.selected, isMenuOpen && styles.menuOpen].filter(Boolean).join(' ')}
+	class={[
+		styles.item,
+		selected && styles.selected,
+		isMenuOpen && styles.menuOpen,
+		thread.metadata.resolved && styles.resolved
+	].filter(Boolean).join(' ')}
 	role="option"
 	aria-selected={selected}
 	data-variant={variant}
