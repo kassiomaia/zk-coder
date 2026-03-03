@@ -3,11 +3,11 @@
  * Individual conversation item in the list.
  *
  * Design Features:
- * - Compact appearance
+ * - Compact appearance with unified edit mode styling
  * - Smooth hover transitions (background only, no transform)
  * - Clear selected state with brighter title
  * - Enhanced focus visibility
- * - Condensed 44px height
+ * - Condensed 52px height (44px on mobile)
  */
 
 .item {
@@ -15,12 +15,22 @@
 	margin: 0 var(--space-2);
 	border-radius: var(--radius-lg);
 	cursor: pointer;
-	transition: background var(--transition-fast), transform var(--transition-fast) var(--ease-out-expo);
+	transition:
+		background var(--transition-fast),
+		transform var(--transition-fast) var(--ease-out);
 	/* Left accent border setup */
 	border-left: 3px solid transparent;
 	/* Smooth appearance */
-	animation: slideIn 0.3s var(--ease-out-expo) backwards;
+	animation: slideIn 0.3s var(--ease-out) backwards;
 	z-index: 1;
+	/* Fixed height to prevent layout shift during edit */
+	min-height: 52px;
+}
+
+/* Edit mode - morph transition state */
+.item:has(.container) {
+	/* Subtle background shift when entering edit */
+	background: var(--color-surface);
 }
 
 /* Maintain active state when menu is open */
@@ -83,7 +93,11 @@
 	border-radius: var(--radius-lg);
 	cursor: pointer;
 	text-align: left;
-	transition: background var(--transition-fast), transform var(--transition-fast) var(--ease-out-expo), opacity var(--transition-fast);
+	/* Morph transition: opacity + scale for smooth edit mode */
+	transition:
+		background var(--transition-fast),
+		transform var(--transition-fast) var(--ease-out),
+		opacity var(--edit-duration-enter) var(--edit-ease-enter);
 }
 
 .button:hover {
@@ -91,9 +105,11 @@
 	transform: scale(1.02);
 }
 
+/* Hidden state - morph transition to edit mode */
 .button.hidden {
 	opacity: 0;
 	pointer-events: none;
+	transform: scale(0.995);
 }
 
 /* Selected state - subtle neutral highlight */

@@ -3,10 +3,10 @@
  * Individual thread item in the list.
  *
  * Design Features:
- * - Compact appearance matching ConversationItem
- * - Clear status indicators via StatusBadge
+ * - Compact appearance with unified edit mode styling
+ * - Clear status indicators via resolved icon
  * - Smooth hover and selected states (no transform)
- * - Condensed 44px height
+ * - Condensed 44px height (52px on mobile)
  */
 
 .item {
@@ -14,12 +14,22 @@
 	margin: 0 var(--space-2);
 	border-radius: var(--radius-lg);
 	cursor: pointer;
-	transition: background var(--transition-fast), transform var(--transition-fast) var(--ease-out-expo);
+	transition:
+		background var(--transition-fast),
+		transform var(--transition-fast) var(--ease-out);
 	/* Left accent border setup */
 	border-left: 3px solid transparent;
 	/* Smooth appearance */
-	animation: slideIn 0.3s var(--ease-out-expo) backwards;
+	animation: slideIn 0.3s var(--ease-out) backwards;
 	z-index: 1;
+	/* Fixed height to prevent layout shift during edit */
+	min-height: 44px;
+}
+
+/* Edit mode - morph transition state */
+.item:has(.container) {
+	/* Subtle background shift when entering edit */
+	background: var(--color-surface);
 }
 
 /* Maintain active state when menu is open */
@@ -45,7 +55,7 @@
 }
 
 .item.selected {
-	animation: bounce 0.4s var(--ease-out-expo);
+	animation: bounce 0.4s var(--ease-out);
 }
 
 .item.selected .button {
@@ -88,7 +98,11 @@
 	border-radius: var(--radius-lg);
 	cursor: pointer;
 	text-align: left;
-	transition: background var(--transition-fast), opacity var(--transition-fast);
+	/* Morph transition: opacity + scale for smooth edit mode */
+	transition:
+		background var(--transition-fast),
+		opacity var(--edit-duration-enter) var(--edit-ease-enter),
+		transform var(--transition-fast) var(--ease-out);
 	gap: var(--space-2-5);
 	/* Prevent content overflow */
 	overflow: hidden;
@@ -99,9 +113,11 @@
 	background: var(--color-surface-hover);
 }
 
+/* Hidden state - morph transition to edit mode */
 .button.hidden {
 	opacity: 0;
 	pointer-events: none;
+	transform: scale(0.995);
 }
 
 /* Selected state - subtle neutral highlight */
