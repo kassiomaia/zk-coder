@@ -95,7 +95,12 @@
 	<!-- Header -->
 	<header class={styles.header}>
 		<div class={styles.headerTop}>
-			<h2 class={styles.title}>Chats</h2>
+			<div>
+				<h2 class={styles.title}>Chats</h2>
+				<p class={styles.statusText}>
+					{selectedId ? 'Viewing active conversation' : 'Select a chat to begin'}
+				</p>
+			</div>
 			{#if onCreateNew}
 				<button
 					class={styles.newButton}

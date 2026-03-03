@@ -51,7 +51,12 @@
 
 <aside class={styles.sidebar} aria-label="Threads">
 	<div class={styles.header}>
-		<h2 class={styles.title}>Threads</h2>
+		<div>
+			<h2 class={styles.title}>Threads</h2>
+			<p class={styles.statusText}>
+				{selectedThreadId ? 'Viewing active thread' : 'Select a thread'}
+			</p>
+		</div>
 		<div class={styles.headerActions}>
 			{#if onCreateThread}
 				<NewThreadButton onclick={onCreateThread} />
