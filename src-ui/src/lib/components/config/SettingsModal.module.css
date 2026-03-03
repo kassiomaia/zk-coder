@@ -273,7 +273,31 @@
 	background: var(--color-bg-secondary);
 	border-radius: var(--radius-xl);
 	border: 1px solid var(--color-border-subtle);
-	transition: all var(--card-duration-hover) var(--card-ease-hover);
+	position: relative;
+	overflow: hidden;
+	transition:
+		border-color var(--card-duration-hover) var(--card-ease-hover),
+		background var(--card-duration-hover) var(--card-ease-hover);
+}
+
+/* Subtle internal highlight sweep */
+.operationGroup::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		135deg,
+		transparent 0%,
+		rgba(255, 255, 255, 0.02) 50%,
+		transparent 100%
+	);
+	transform: translateX(-100%);
+	transition: transform var(--card-sweep-duration) var(--card-sweep-ease);
+	pointer-events: none;
+}
+
+.operationGroup:hover::before {
+	transform: translateX(100%);
 }
 
 .operationGroup:hover {
