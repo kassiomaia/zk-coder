@@ -272,6 +272,8 @@
 		onResolveThread={handleResolveThread}
 		onDeleteConversation={handleDeleteConversation}
 		onRenameConversation={handleRenameConversation}
+		onArchiveConversation={handleArchiveConversation}
+		onArchiveThread={handleArchiveThread}
 		onSearch={handleSearch}
 		onSettings={handleOpenSettings}
 		loading={$isLoading}
