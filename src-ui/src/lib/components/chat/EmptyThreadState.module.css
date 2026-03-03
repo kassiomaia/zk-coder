@@ -1,0 +1,355 @@
+/**
+ * EmptyThreadState Component Styles
+ *
+ * Design Philosophy:
+ * - Minimal and clean, matching application aesthetic
+ * - Subtle motion without distracting effects
+ * - Clear visual hierarchy with proper spacing
+ * - Layout reservation for scrollbar stability
+ * - Smooth empty-to-active transitions
+ */
+
+/* =====================
+   Container - Layout Reservation
+   ===================== */
+
+.container {
+	/* Centralized layout with controlled max-width */
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 240px;
+	padding: var(--space-6);
+	margin: var(--space-4) auto;
+	max-width: 420px;
+	width: 100%;
+
+	/* Layout reservation - reserve space to prevent jump */
+	position: relative;
+
+	/* Initial state with progressive fade-in */
+	opacity: 0;
+	transform: translateY(8px);
+	animation: emptyStateEnter var(--duration-slow) var(--ease-in-out) forwards;
+}
+
+/* Staggered entrance animation */
+@keyframes emptyStateEnter {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* =====================
+   Headline Wrapper - Clean, No Pulse
+   ===================== */
+
+.headlineWrapper {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-2);
+	text-align: center;
+	margin-bottom: var(--space-2);
+
+	/* Progressive reveal with delay */
+	opacity: 0;
+	animation: headlineReveal 300ms var(--ease-out) 60ms forwards;
+}
+
+@keyframes headlineReveal {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* =====================
+   Empty Icon - Static, Clean
+   ===================== */
+
+.emptyIcon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	color: var(--color-text-tertiary);
+	opacity: 0.4;
+	margin-bottom: var(--space-1);
+	transition: opacity var(--duration-normal) var(--ease-out);
+}
+
+/* =====================
+   Headline - Primary Message
+   ===================== */
+
+.headline {
+	font-size: var(--text-base);
+	font-weight: var(--font-medium);
+	color: var(--color-text-primary);
+	margin: 0;
+	letter-spacing: var(--tracking-normal);
+	line-height: var(--leading-normal);
+	transition: all var(--duration-normal) var(--ease-out);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-0-5);
+}
+
+/* Sub text for additional context */
+.subText {
+	font-size: var(--text-sm);
+	font-weight: var(--font-normal);
+	color: var(--color-text-tertiary);
+	display: inline-block;
+}
+.fadingText {
+	display: inline-block;
+	animation: textFadeTransition 300ms var(--ease-in-out);
+}
+
+@keyframes textFadeTransition {
+	0% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	40% {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+	60% {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* =====================
+   Hint Text - Secondary Message
+   ===================== */
+
+.hint {
+	font-size: var(--text-sm);
+	color: var(--color-text-tertiary);
+	margin: 0;
+	text-align: center;
+	transition: opacity var(--duration-normal) var(--ease-out);
+
+	/* Staggered reveal after headline */
+	opacity: 0;
+	animation: hintReveal 300ms var(--ease-out) 120ms forwards;
+}
+
+@keyframes hintReveal {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* =====================
+   Action Hint - Contextual CTA
+   ===================== */
+
+.actionHint {
+	margin-top: var(--space-3);
+	opacity: 0;
+	animation: actionHintReveal 300ms var(--ease-out) 180ms forwards;
+}
+
+@keyframes actionHintReveal {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.actionText {
+	font-size: var(--text-xs);
+	color: var(--color-text-tertiary);
+}
+
+/* =====================
+   Active State - Input Focus Transition
+   ===================== */
+
+.container.active {
+	/* Subtle opacity shift when input becomes active */
+	opacity: 0.9;
+	transition: opacity var(--duration-normal) var(--ease-out);
+}
+
+.container.active .headline {
+	color: var(--color-text-secondary);
+}
+
+.container.active .hint {
+	opacity: 0.7;
+}
+
+/* =====================
+   Transitioning State - Empty to Active
+   ===================== */
+
+.container.transitioning {
+	/* Smooth transition during state change */
+	transition: all var(--duration-slower) var(--ease-in-out);
+}
+
+/* =====================
+   Context-Specific Styling
+   ===================== */
+
+/* All contexts share the same minimal treatment */
+.container.none,
+.container.conversation,
+.container.thread {
+	/* Unified sizing across all contexts */
+	min-height: 240px;
+}
+
+/* =====================
+   Responsive Adjustments
+   ===================== */
+
+@media (max-width: 600px) {
+	.container {
+		min-height: 220px;
+		padding: var(--space-6);
+		margin: var(--space-4) auto;
+		max-width: 100%;
+	}
+
+	.container.none {
+		min-height: 260px;
+	}
+
+	.headline {
+		font-size: var(--text-base);
+	}
+
+	.container.none .headline {
+		font-size: var(--text-lg);
+	}
+
+	.hint {
+		font-size: var(--text-xs);
+	}
+
+	.emptyIcon {
+		width: 40px;
+		height: 40px;
+	}
+
+	.container.none .emptyIcon {
+		width: 48px;
+		height: 48px;
+	}
+
+	.ambientGlow {
+		width: 240px;
+		height: 240px;
+	}
+
+	.actionHint {
+		margin-top: var(--space-3);
+		padding: var(--space-1-5) var(--space-2);
+	}
+
+	.actionText {
+		font-size: var(--text-2xs);
+	}
+}
+
+/* =====================
+   Reduced Motion Support
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	.container,
+	.headlineWrapper,
+	.headline,
+	.hint,
+	.fadingText,
+	.ambientGlow,
+	.particle,
+	.actionHint {
+		animation: none !important;
+		transition: opacity 200ms ease !important;
+	}
+
+	.container {
+		opacity: 1;
+		transform: none;
+	}
+
+	.headlineWrapper.pulse .headline {
+		animation: none;
+	}
+
+	.emptyIcon {
+		animation: none;
+	}
+
+	.particles {
+		display: none;
+	}
+
+	.actionHint {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* =====================
+   Dark Mode Adjustments
+   ===================== */
+
+[data-theme='dark'] {
+	.ambientGlow {
+		background: radial-gradient(
+			circle,
+			rgba(99, 102, 241, 0.06) 0%,
+			transparent 70%
+		);
+	}
+
+	.particle {
+		background: var(--color-neutral-600);
+	}
+}
+
+/* =====================
+   Light Mode Adjustments
+   ===================== */
+
+[data-theme='light'] {
+	.particle {
+		background: var(--color-neutral-400);
+	}
+
+	.emptyIcon {
+		color: var(--color-text-tertiary);
+	}
+}
