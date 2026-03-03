@@ -28,13 +28,13 @@
 /* Expanded state - part of unified wrapper container */
 .item.expanded {
 	/*
-	 * Parent is the TOP of the container - gets top corners only.
+	 * Parent is part of unified container.
 	 * No independent background - wrapper owns the surface.
-	 * No strong visual termination - container continues below.
+	 * No rounded corners - wrapper handles all corner geometry.
 	 */
 	background: transparent;
 	margin: 0;
-	border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+	border-radius: 0;
 }
 
 /* Increase separation between title and status chips when expanded */
@@ -42,9 +42,9 @@
 	gap: var(--space-1);
 }
 
-/* Parent button in expanded state - subtle surface */
+/* Parent button in expanded state - no corners */
 .item.expanded .button {
-	border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+	border-radius: 0;
 }
 
 /* Edit mode - morph transition state */
