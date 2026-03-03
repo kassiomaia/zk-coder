@@ -117,9 +117,9 @@
 		await chatStore.selectThread(thread.id);
 	}
 
-	async function handleSendMessage(content: string) {
-		// Use LLM streaming - backend will use 'code' operation default model
-		await chatStore.sendMessageWithLlm(content);
+	async function handleSendMessage(content: string, options?: { modelId?: string }) {
+		// Use LLM streaming - backend will use 'code' operation default model if modelId not provided
+		await chatStore.sendMessageWithLlm(content, options);
 	}
 
 	async function handleCreateConversation() {

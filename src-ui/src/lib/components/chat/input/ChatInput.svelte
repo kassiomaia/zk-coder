@@ -8,6 +8,7 @@
 	import CommandPalette from './CommandPalette.svelte';
 	import IntentIndicator from './IntentIndicator.svelte';
 	import MentionMenu from './MentionMenu.svelte';
+	import ModelSelector from './ModelSelector.svelte';
 	import IconButton from '$lib/components/shared/IconButton.svelte';
 	import type { Command } from '$lib/types/command';
 	import { BUILT_IN_COMMANDS, filterCommands } from '$lib/types/command';
@@ -65,6 +66,12 @@
 		enableMarkdownPreview?: boolean;
 		/** Use backend NLP for intent detection (default: true when available) */
 		useBackendNlp?: boolean;
+		/** Selected model ID */
+		modelId?: string | null;
+		/** Model change handler */
+		onModelChange?: (modelId: string) => void;
+		/** Open settings handler */
+		onOpenSettings?: () => void;
 	}
 
 	let {
@@ -84,7 +91,10 @@
 		mentionItems = [],
 		showIntent = true,
 		enableMarkdownPreview = false,
-		useBackendNlp = true
+		useBackendNlp = true,
+		modelId = null,
+		onModelChange,
+		onOpenSettings
 	}: Props = $props();
 
 	let textareaRef: HTMLTextAreaElement | undefined = $state();
@@ -388,8 +398,8 @@
 			{disabled}
 			oninput={handleInput}
 			onkeydown={handleKeydown}
-			onfocus={onfocus}
-			onblur={onblur}
+			{onfocus}
+			{onblur}
 			rows={1}
 			aria-label="Message input"
 			aria-describedby={showCommandPalette || showMentionMenu ? 'input-menu' : undefined}
@@ -419,13 +429,16 @@
 	<!-- Actions bar -->
 	<div class={styles.actions}>
 		<div class={styles.leftActions}>
+			{#if modelId !== undefined && onModelChange}
+				<ModelSelector selectedModelId={modelId} {onModelChange} {onOpenSettings} />
+			{/if}
 			{#if onattach}
 				<IconButton
 					label="Attach file"
 					tooltip="Attach file"
 					variant="ghost"
 					size="sm"
-					disabled={disabled}
+					{disabled}
 					onclick={() => fileInputRef?.click()}
 				>
 					{#snippet icon()}
@@ -461,7 +474,7 @@
 					tooltip={isPreviewMode ? 'Edit mode' : 'Preview markdown'}
 					variant="ghost"
 					size="sm"
-					disabled={disabled}
+					{disabled}
 					active={isPreviewMode}
 					onclick={togglePreview}
 				>

@@ -22,7 +22,9 @@
 		/** Handler when breadcrumb is clicked */
 		onNavigate?: (id: string) => void;
 		/** Handler to send a message */
-		onSendMessage?: (content: string) => void;
+		onSendMessage?: (content: string, options?: { modelId?: string }) => void;
+		/** Handler to open settings */
+		onOpenSettings?: () => void;
 		/** Handler for retry */
 		onRetry?: () => void;
 		/** Handler to reopen the thread */
@@ -41,6 +43,7 @@
 		breadcrumbPath = [],
 		onNavigate,
 		onSendMessage,
+		onOpenSettings,
 		onRetry,
 		onReopenThread,
 		onToggleSidebar,
@@ -58,18 +61,18 @@
 	let bannerAnimatingIn = $state(false);
 	let isExpanded = $state(false);
 	let scrollOpacity = $state(1);
-    let restrictedFeedback = $state(false);
+	let restrictedFeedback = $state(false);
 
 	// Crossfade for icons
-    // Using simple fade for now as crossfade has type issues in strict mode
-    // and for simple icon swaps fade is often sufficient
+	// Using simple fade for now as crossfade has type issues in strict mode
+	// and for simple icon swaps fade is often sufficient
 
-    function triggerRestrictedFeedback() {
-        restrictedFeedback = true;
-        setTimeout(() => {
-            restrictedFeedback = false;
-        }, 300);
-    }
+	function triggerRestrictedFeedback() {
+		restrictedFeedback = true;
+		setTimeout(() => {
+			restrictedFeedback = false;
+		}, 300);
+	}
 
 	// Track previous thread ID and resolved state to detect thread switches
 	let previousThreadId = $state('');
@@ -157,7 +160,7 @@
 		bannerAnimatingOut = true;
 
 		// Wait for banner to finish sliding out (200ms)
-		await new Promise(resolve => setTimeout(resolve, 200));
+		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		bannerVisible = false;
 		bannerAnimatingOut = false;
@@ -166,7 +169,7 @@
 		await onReopenThread();
 
 		// Wait for input animation to complete
-		await new Promise(resolve => setTimeout(resolve, 200));
+		await new Promise((resolve) => setTimeout(resolve, 200));
 
 		isReopening = false;
 	}
@@ -177,7 +180,7 @@
 	<header class={styles.header}>
 		<div class={styles.leftActions}>
 			{#if onToggleSidebar}
-				<button 
+				<button
 					class={styles.sidebarToggle}
 					onclick={onToggleSidebar}
 					aria-label="Toggle threads list"
@@ -211,7 +214,7 @@
 
 		{#if thread.metadata.resolved}
 			<div class={styles.statusIndicator}>
-				<Tooltip 
+				<Tooltip
 					content="This thread is resolved and locked. It is currently in read-only mode to preserve the conversation state."
 					position="bottom"
 				>
@@ -253,39 +256,55 @@
 			{loading}
 			{error}
 			{onSendMessage}
+			{onOpenSettings}
 			{onRetry}
 			threadResolved={isResolved}
-			onScroll={(scrollTop, scrollHeight, clientHeight) => handleChatScroll(scrollTop, scrollHeight, clientHeight)}
+			onScroll={(scrollTop, scrollHeight, clientHeight) =>
+				handleChatScroll(scrollTop, scrollHeight, clientHeight)}
 		/>
 	</div>
 
 	<!-- Resolved message - neutral, informational styling -->
 	{#if isResolved && bannerVisible}
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<div 
+		<div
 			class={[
-				styles.resolvedMessage, 
-				bannerAnimatingOut && styles.animateOut, 
+				styles.resolvedMessage,
+				bannerAnimatingOut && styles.animateOut,
 				bannerAnimatingIn && styles.animateIn,
 				isExpanded && styles.expanded,
-                restrictedFeedback && styles.restrictedFeedback
-			].filter(Boolean).join(' ')}
+				restrictedFeedback && styles.restrictedFeedback
+			]
+				.filter(Boolean)
+				.join(' ')}
 			style:--scroll-opacity={scrollOpacity}
-            onclick={triggerRestrictedFeedback}
-            onkeydown={(e) => e.key === 'Enter' && triggerRestrictedFeedback()}
-            role="alert"
-            aria-live="polite"
+			onclick={triggerRestrictedFeedback}
+			onkeydown={(e) => e.key === 'Enter' && triggerRestrictedFeedback()}
+			role="alert"
+			aria-live="polite"
 		>
 			<div class={styles.statusIconContainer}>
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<svg
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
 					<rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
 					<path d="M7 11V7a5 5 0 0 1 10 0v4" />
 				</svg>
 			</div>
-			
-			<button 
-				class={styles.resolvedContent} 
-				onclick={(e) => { e.stopPropagation(); toggleExpanded(); }}
+
+			<button
+				class={styles.resolvedContent}
+				onclick={(e) => {
+					e.stopPropagation();
+					toggleExpanded();
+				}}
 				type="button"
 				aria-expanded={isExpanded}
 			>
@@ -293,7 +312,7 @@
 					<span class={styles.resolvedLabel}>Thread Locked</span>
 					<span class={styles.resolvedSubtext}>Read-only mode active</span>
 				</div>
-				
+
 				{#if isExpanded}
 					<div transition:slide={{ duration: 200, easing: cubicOut }} class={styles.detailsWrapper}>
 						<p class={styles.resolvedHint}>
@@ -315,15 +334,15 @@
 					Unlock
 				</Button>
 
-				<svg 
+				<svg
 					class={[styles.chevron, isExpanded && styles.rotated].filter(Boolean).join(' ')}
-					width="16" 
-					height="16" 
-					viewBox="0 0 24 24" 
-					fill="none" 
-					stroke="currentColor" 
-					stroke-width="2" 
-					stroke-linecap="round" 
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
 					stroke-linejoin="round"
 				>
 					<polyline points="6 9 12 15 18 9"></polyline>

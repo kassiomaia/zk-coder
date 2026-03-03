@@ -29,7 +29,7 @@
 		/** Handler when thread is selected */
 		onSelectThread?: (thread: Thread) => void;
 		/** Handler to send a message */
-		onSendMessage?: (content: string) => void;
+		onSendMessage?: (content: string, options?: { modelId?: string }) => void;
 		/** Handler to create new conversation */
 		onCreateConversation?: () => void;
 		/** Handler to create new thread */
@@ -149,8 +149,8 @@
 		}
 	}
 
-	function handleSendMessage(content: string) {
-		onSendMessage?.(content);
+	function handleSendMessage(content: string, options?: { modelId?: string }) {
+		onSendMessage?.(content, options);
 	}
 
 	function handleReopenThread() {
@@ -228,14 +228,14 @@
 				onSelectThread={handleSelectThread}
 				{onSearch}
 				onCreateNew={onCreateConversation}
-				onCreateThread={onCreateThread}
+				{onCreateThread}
 				onDelete={onDeleteConversation}
 				onRename={onRenameConversation}
 				onArchive={onArchiveConversation}
-				onResolveThread={onResolveThread}
-				onRenameThread={onRenameThread}
-				onDeleteThread={onDeleteThread}
-				onArchiveThread={onArchiveThread}
+				{onResolveThread}
+				{onRenameThread}
+				{onDeleteThread}
+				{onArchiveThread}
 				{onSettings}
 				{hasConfiguredProvider}
 			/>
@@ -250,6 +250,7 @@
 					{messages}
 					{breadcrumbPath}
 					onSendMessage={handleSendMessage}
+					onOpenSettings={onSettings}
 					onReopenThread={handleReopenThread}
 					onToggleSidebar={toggleSidebar}
 					{loading}
@@ -265,6 +266,7 @@
 					{loading}
 					onSendMessage={handleSendMessage}
 					onThreadClick={handleSelectThreadById}
+					onOpenSettings={onSettings}
 				/>
 			{:else}
 				<!-- Empty state -->
@@ -274,6 +276,7 @@
 					emptyContext="none"
 					{loading}
 					onSendMessage={handleSendMessage}
+					onOpenSettings={onSettings}
 				/>
 			{/if}
 		</div>
