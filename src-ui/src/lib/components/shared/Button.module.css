@@ -1,8 +1,10 @@
 /**
  * Button Component Styles
+ * Enhanced with cross-fade transitions, hover lift, and expressive animations.
  */
 
 .btn {
+	position: relative;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -15,9 +17,23 @@
 	border-radius: var(--radius-lg);
 	border: 1px solid transparent;
 	cursor: pointer;
-	transition: all var(--transition-fast);
 	text-decoration: none;
 	white-space: nowrap;
+	overflow: hidden;
+	transition:
+		transform var(--btn-transition-transform),
+		box-shadow var(--btn-transition-shadow);
+}
+
+/* Cross-fade layer */
+.btn::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	opacity: 0;
+	transition: opacity var(--btn-transition-color);
+	pointer-events: none;
 }
 
 .btn:disabled {
@@ -26,23 +42,30 @@
 }
 
 .btn:focus-visible {
-	outline: 2px solid var(--color-primary-500);
-	outline-offset: 2px;
+	outline: none;
+	box-shadow: var(--shadow-btn-focus);
 }
 
-/* Variants */
+/* =====================
+   Variants
+   ===================== */
+
+/* Primary variant */
 .primary {
 	background: var(--color-surface-hover);
 	color: var(--color-text-primary);
 	border-color: var(--color-border-subtle);
 }
 
-.primary:hover:not(:disabled) {
+.primary::before {
 	background: var(--color-surface-active);
-	border-color: var(--color-border-primary);
 }
 
-.primary:active:not(:disabled) {
+.primary:hover:not(:disabled)::before {
+	opacity: 1;
+}
+
+.primary:active:not(:disabled)::before {
 	background: var(--color-neutral-700);
 }
 
@@ -53,49 +76,76 @@
 	border-color: var(--color-primary-500);
 }
 
-.accent:hover:not(:disabled) {
+.accent::before {
 	background: var(--color-primary-600);
-	border-color: var(--color-primary-600);
 }
 
-.accent:active:not(:disabled) {
+.accent:hover:not(:disabled)::before {
+	opacity: 1;
+}
+
+.accent:active:not(:disabled)::before {
 	background: var(--color-primary-700);
 }
 
+/* Secondary variant */
 .secondary {
 	background: transparent;
 	color: var(--color-text-secondary);
 	border-color: var(--color-border-subtle);
 }
 
-.secondary:hover:not(:disabled) {
+.secondary::before {
 	background: var(--color-surface-hover);
-	color: var(--text-secondary);
+}
+
+.secondary:hover:not(:disabled)::before {
+	opacity: 1;
+}
+
+.secondary:hover:not(:disabled) {
+	color: var(--color-text-primary);
 	border-color: var(--color-border-primary);
 }
 
+/* Ghost variant */
 .ghost {
 	background: transparent;
 	color: var(--color-text-tertiary);
 	border-color: transparent;
 }
 
-.ghost:hover:not(:disabled) {
+.ghost::before {
 	background: var(--color-interactive-hover);
+}
+
+.ghost:hover:not(:disabled)::before {
+	opacity: 1;
+}
+
+.ghost:hover:not(:disabled) {
 	color: var(--color-text-secondary);
 }
 
+/* Danger variant */
 .danger {
 	background: transparent;
 	color: var(--color-error);
 	border-color: var(--color-error);
 }
 
-.danger:hover:not(:disabled) {
+.danger::before {
 	background: var(--color-error-light);
 }
 
-/* Sizes */
+.danger:hover:not(:disabled)::before {
+	opacity: 1;
+}
+
+/* =====================
+   Sizes
+   ===================== */
+
 .default {
 	padding: var(--space-2) var(--space-4);
 	font-size: var(--text-sm);
@@ -107,13 +157,10 @@
 	gap: var(--space-1);
 }
 
-/* States */
-.disabled {
-	opacity: var(--opacity-disabled);
-}
-
-.loading {
-	pointer-events: none;
+.lg {
+	padding: var(--space-3) var(--space-6);
+	font-size: var(--text-base);
+	gap: var(--space-2-5);
 }
 
 .iconOnly {
@@ -124,7 +171,85 @@
 	padding: var(--space-1);
 }
 
-/* Spinner */
+.lg.iconOnly {
+	padding: var(--space-3);
+}
+
+/* =====================
+   States
+   ===================== */
+
+.disabled {
+	opacity: var(--opacity-disabled);
+}
+
+.loading {
+	pointer-events: none;
+}
+
+.pressed:not(:disabled) {
+	transform: scale(var(--btn-press-scale));
+}
+
+.fullWidth {
+	width: 100%;
+}
+
+/* =====================
+   Animation Modes
+   ===================== */
+
+/* Subtle animation (default) */
+.subtle {
+	/* Default behavior - minimal animation */
+}
+
+/* Expressive animation */
+.expressive:not(:disabled) {
+	transition:
+		transform var(--btn-transition-transform),
+		box-shadow var(--btn-transition-shadow);
+}
+
+.expressive.accent:hover:not(:disabled) {
+	transform: translateY(var(--btn-hover-lift));
+	box-shadow: var(--shadow-btn-hover), var(--shadow-glow-sm);
+}
+
+.expressive.primary:hover:not(:disabled) {
+	transform: translateY(var(--btn-hover-lift));
+	box-shadow: var(--shadow-btn-hover);
+}
+
+.expressive.danger:hover:not(:disabled) {
+	animation: dangerShake 400ms var(--ease-in-out);
+}
+
+@keyframes dangerShake {
+	0%, 100% { transform: translateX(0); }
+	20% { transform: translateX(-2px); }
+	40% { transform: translateX(2px); }
+	60% { transform: translateX(-1px); }
+	80% { transform: translateX(1px); }
+}
+
+/* No animation */
+.none {
+	transition: none;
+}
+
+.none::before {
+	transition: none;
+}
+
+.none.pressed:not(:disabled) {
+	transform: none;
+}
+
+/* =====================
+   Spinner
+   ===================== */
+
 .spinner {
 	animation: spin 1s linear infinite;
 }
@@ -132,4 +257,46 @@
 @keyframes spin {
 	from { transform: rotate(0deg); }
 	to { transform: rotate(360deg); }
+}
+
+/* =====================
+   Ripple Effect (for accent variant)
+   ===================== */
+
+.accent::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(circle at center, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+	opacity: 0;
+	transform: scale(0);
+	transition: transform 400ms var(--ease-out), opacity 400ms var(--ease-out);
+	pointer-events: none;
+}
+
+.accent:active:not(:disabled)::after {
+	opacity: 1;
+	transform: scale(2);
+}
+
+/* =====================
+   Reduced Motion
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	.btn,
+	.btn::before,
+	.btn::after {
+		transition: none;
+		animation: none;
+	}
+
+	.expressive.accent:hover:not(:disabled),
+	.expressive.primary:hover:not(:disabled) {
+		transform: none;
+	}
+
+	.expressive.danger:hover:not(:disabled) {
+		animation: none;
+	}
 }

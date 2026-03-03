@@ -1,16 +1,17 @@
 <script lang="ts">
 	/**
 	 * Button Component
-	 * Primary, secondary, ghost, and danger variants.
+	 * Primary, secondary, ghost, and danger variants with enhanced micro-interactions.
 	 */
 	import styles from './Button.module.css';
+	import Tooltip from './Tooltip.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		/** Button variant - use 'accent' for main CTAs only */
 		variant?: 'primary' | 'accent' | 'secondary' | 'ghost' | 'danger';
 		/** Button size */
-		size?: 'default' | 'sm';
+		size?: 'default' | 'sm' | 'lg';
 		/** Disabled state */
 		disabled?: boolean;
 		/** Loading state */
@@ -25,6 +26,14 @@
 		icon?: Snippet;
 		/** Children */
 		children?: Snippet;
+		/** Tooltip text (shows on hover) */
+		tooltip?: string;
+		/** Animation style */
+		animation?: 'none' | 'subtle' | 'expressive';
+		/** Full width button */
+		fullWidth?: boolean;
+		/** Additional CSS class */
+		class?: string;
 	}
 
 	let {
@@ -36,47 +45,99 @@
 		onclick,
 		type = 'button',
 		icon,
-		children
+		children,
+		tooltip,
+		animation = 'subtle',
+		fullWidth = false,
+		class: className = ''
 	}: Props = $props();
 
-	let classes = $derived([
-		styles.btn,
-		styles[variant],
-		styles[size],
-		disabled && styles.disabled,
-		loading && styles.loading,
-		iconOnly && styles.iconOnly
-	].filter(Boolean).join(' '));
+	let isPressed = $state(false);
+
+	function handleMouseDown() {
+		isPressed = true;
+	}
+
+	function handleMouseUp() {
+		isPressed = false;
+	}
 
 	function handleClick() {
 		if (!disabled && !loading && onclick) {
 			onclick();
 		}
 	}
+
+	let classes = $derived([
+		styles.btn,
+		styles[variant],
+		styles[size],
+		styles[animation],
+		disabled && styles.disabled,
+		loading && styles.loading,
+		iconOnly && styles.iconOnly,
+		fullWidth && styles.fullWidth,
+		isPressed && styles.pressed,
+		className
+	]
+		.filter(Boolean)
+		.join(' '));
+
+	const showTooltip = tooltip && !disabled;
 </script>
 
-<button
-	class={classes}
-	{disabled}
-	{type}
-	onclick={handleClick}
-	aria-disabled={disabled || loading}
->
-	{#if loading}
-		<svg class={styles.spinner} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-			<circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
-			<path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="0.75">
-				<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
-			</path>
-		</svg>
-	{:else if icon}
-		{@render icon()}
-	{/if}
-	{#if !iconOnly && children}
-		{@render children()}
-	{/if}
-</button>
-
-<style>
-	/* Styles are in Button.module.css */
-</style>
+{#if showTooltip}
+	<Tooltip content={tooltip} position="top">
+		<button
+			class={classes}
+			{disabled}
+			{type}
+			onclick={handleClick}
+			onmousedown={handleMouseDown}
+			onmouseup={handleMouseUp}
+			onmouseleave={handleMouseUp}
+			aria-disabled={disabled || loading}
+			aria-busy={loading}
+		>
+			{#if loading}
+				<svg class={styles.spinner} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+					<path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="0.75">
+						<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+					</path>
+				</svg>
+			{:else if icon}
+				{@render icon()}
+			{/if}
+			{#if !iconOnly && children}
+				{@render children()}
+			{/if}
+		</button>
+	</Tooltip>
+{:else}
+	<button
+		class={classes}
+		{disabled}
+		{type}
+		onclick={handleClick}
+		onmousedown={handleMouseDown}
+		onmouseup={handleMouseUp}
+		onmouseleave={handleMouseUp}
+		aria-disabled={disabled || loading}
+		aria-busy={loading}
+	>
+		{#if loading}
+			<svg class={styles.spinner} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+				<path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="0.75">
+					<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+				</path>
+			</svg>
+		{:else if icon}
+			{@render icon()}
+		{/if}
+		{#if !iconOnly && children}
+			{@render children()}
+		{/if}
+	</button>
+{/if}
