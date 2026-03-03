@@ -8,6 +8,7 @@
 	import ThreadIndicator from './ThreadIndicator.svelte';
 	import MarkdownRenderer from '../markdown/MarkdownRenderer.svelte';
 	import MessageActions from './MessageActions.svelte';
+	import EmptyThreadState from './EmptyThreadState.svelte';
 	import type { Message } from '$lib/types/message';
 	import type { Thread } from '$lib/types/thread';
 	import styles from './ChatArea.module.css';
@@ -46,6 +47,12 @@
 
         /** Available threads for looking up thread info */
         threads?: Thread[];
+
+        /** Empty state context: 'none' (no conv), 'conversation' (conv but no thread), 'thread' (thread selected) */
+        emptyContext?: 'none' | 'conversation' | 'thread';
+
+        /** Optional conversation title for empty state context */
+        conversationTitle?: string;
 
         /** Loading state */
         loading?: boolean;
@@ -88,6 +95,8 @@
         messages,
         threadId,
         threads = [],
+        emptyContext = 'thread',
+        conversationTitle,
         loading = false,
         isTyping = false,
         error,
@@ -437,11 +446,18 @@
         if (!threadId) return undefined;
         return threads.find((t) => t.id === threadId)?.title;
     }
+
+    // Track messages presence for CSS transitions
+    let hasMessages = $derived(messages.length > 0);
 </script>
 
-<div class={styles.chatArea}>
+<div class={[styles.chatArea, hasMessages && styles.hasMessages].filter(Boolean).join(' ')}>
     <!-- Messages area -->
-    <div bind:this={messagesWrapperRef} class={styles.messagesWrapper} onscroll={handleScroll}>
+    <div
+        bind:this={messagesWrapperRef}
+        class={[styles.messagesWrapper, !hasMessages && styles.isEmptyState].filter(Boolean).join(' ')}
+        onscroll={handleScroll}
+    >
         {#if messagesLoading === 'loading'}
             <div class={styles.loading}>
                 <div class={styles.spinner}></div>
@@ -470,22 +486,12 @@
                 {/if}
             </div>
         {:else if messages.length === 0}
-            <div class={styles.empty}>
-                <div class={styles.emptyHeader}>
-                    <svg
-                        class={styles.emptyIcon}
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                    >
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                    <span class={styles.emptyText}>Start a conversation</span>
-                </div>
-                <p class={styles.emptyHint}>Type a message below to begin</p>
+            <div class={styles.emptyWrapper}>
+                <EmptyThreadState
+                    hasInputActivity={hasInputActivity}
+                    context={emptyContext}
+                    {conversationTitle}
+                />
             </div>
         {:else}
             <!-- Message groups -->

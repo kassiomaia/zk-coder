@@ -15,6 +15,16 @@
 	flex-direction: column;
 	height: 100%;
 	background: var(--color-bg-primary);
+	position: relative;
+}
+
+/* Has messages state - triggers transitions */
+.chatArea.hasMessages {
+	/* Messages are present, full opacity for all elements */
+}
+
+.chatArea:not(.hasMessages) {
+	/* Empty state - reduced visual noise */
 }
 
 /* =====================
@@ -31,6 +41,17 @@
 	width: 100%;
 	/* Reserve scrollbar space to prevent layout shifts */
 	scrollbar-gutter: stable;
+
+	/* Smooth transition for content changes */
+	transition: all var(--duration-slow) var(--ease-in-out);
+}
+
+/* Empty state specific styling */
+.messagesWrapper.isEmptyState {
+	/* Center alignment for empty state */
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 /* Scrollbar styling - matches global styles */
@@ -447,7 +468,69 @@
 }
 
 /* =====================
-   Empty State
+   Empty State - Unified Layout
+   ===================== */
+
+.emptyWrapper {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	flex: 1;
+	min-height: 320px;
+	padding: var(--space-6) var(--space-5);
+
+	/* Layout reservation for smooth transitions */
+	position: relative;
+	transition: all var(--duration-slower) var(--ease-in-out);
+}
+
+/* Empty-to-active state transition */
+.chatArea:not(.hasMessages) .inputContainer {
+	/* Lower visual weight when empty */
+	opacity: 0.95;
+}
+
+.chatArea.hasMessages .emptyWrapper {
+	/* Fade out when messages appear - controlled cross-dissolve */
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(-12px) scale(0.98);
+	transition:
+		opacity var(--duration-slow) var(--ease-in-out),
+		transform var(--duration-slow) var(--ease-in-out);
+}
+
+/* Empty state fade-in on mount */
+.emptyWrapper {
+	animation: emptyStateMount var(--duration-slower) var(--ease-in-out);
+}
+
+@keyframes emptyStateMount {
+	from {
+		opacity: 0;
+		transform: translateY(16px) scale(0.97);
+		filter: blur(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+		filter: blur(0);
+	}
+}
+
+/* Progressive disclosure for secondary elements */
+.chatArea:not(.hasMessages) .secondaryElements {
+	/* Reduced opacity when empty to focus on CTA */
+	opacity: var(--opacity-muted);
+	transition: opacity var(--duration-slow) var(--ease-in-out);
+}
+
+.chatArea.hasMessages .secondaryElements {
+	/* Full opacity when active */
+	opacity: 1;
+}
+
    ===================== */
 
 .empty {
@@ -586,6 +669,11 @@
 
 	.emptyText {
 		font-size: var(--text-sm);
+	}
+
+	.emptyWrapper {
+		min-height: 280px;
+		padding: var(--space-6) var(--space-4);
 	}
 }
 

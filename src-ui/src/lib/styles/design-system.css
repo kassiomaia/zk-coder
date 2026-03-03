@@ -245,6 +245,16 @@
 	--ease-elastic: cubic-bezier(0.68, -0.6, 0.32, 1.6);
 
 	/* =====================
+     Empty State Motion Tokens
+     ===================== */
+	--empty-state-duration: var(--duration-slower);
+	--empty-state-ease: var(--ease-in-out);
+	--empty-state-scale-amplitude: 0.03;
+	--empty-state-pulse-duration: 3s;
+	--empty-state-stagger-base: 60ms;
+	--empty-state-transition-duration: var(--duration-slow);
+
+	/* =====================
      Button Animation Tokens
      ===================== */
 
