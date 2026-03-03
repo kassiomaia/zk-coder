@@ -1,20 +1,26 @@
 /**
  * Markdown Renderer Styles
- * Comprehensive styling for all markdown elements following the design system
- * Optimized for chat messages with compact spacing
+ * Unified markdown styling following the design system
+ *
+ * Design Features:
+ * - Strict typographic hierarchy
+ * - Consistent spacing scale (4px base unit)
+ * - Clear content boundaries
+ * - Structural rhythm for chat messages
+ * - Professional-grade organization
  */
 
 .markdown {
 	font-family: var(--font-sans);
 	font-size: var(--text-sm);
-	line-height: 1.5;
+	line-height: var(--leading-relaxed);
 	color: var(--color-text-primary);
 	word-wrap: break-word;
 	overflow-wrap: break-word;
 }
 
 /* =====================
-   Typography - Headings (compact for chat)
+   Typography - Headings
    ===================== */
 
 .markdown :global(h1),
@@ -23,20 +29,22 @@
 .markdown :global(h4),
 .markdown :global(h5),
 .markdown :global(h6) {
-	margin-top: var(--space-1);
-	margin-bottom: var(--space-0-5);
+	margin-top: var(--space-4);
+	margin-bottom: var(--space-2);
 	font-weight: var(--font-medium);
-	line-height: 1.3;
+	line-height: var(--leading-tight);
 	color: var(--color-text-primary);
 }
 
 .markdown :global(h1) {
 	font-size: var(--text-xl);
 	font-weight: var(--font-semibold);
+	letter-spacing: var(--tracking-tight);
 }
 
 .markdown :global(h2) {
 	font-size: var(--text-lg);
+	font-weight: var(--font-medium);
 }
 
 .markdown :global(h3) {
@@ -61,17 +69,16 @@
 }
 
 /* =====================
-   Paragraphs and Text (compact for chat)
+   Paragraphs and Text
    ===================== */
 
 .markdown :global(p) {
 	margin: 0;
-	line-height: 1.5;
+	line-height: var(--leading-relaxed);
 }
 
-/* Only add margin between consecutive paragraphs */
 .markdown :global(p + p) {
-	margin-top: var(--space-1);
+	margin-top: var(--space-2);
 }
 
 .markdown :global(strong) {
@@ -133,9 +140,9 @@
 	position: relative;
 	background: var(--color-neutral-900);
 	border: 1px solid var(--color-border-secondary);
-	border-radius: var(--radius-md);
-	padding: var(--space-2);
-	margin: var(--space-1) 0;
+	border-radius: var(--radius-lg);
+	padding: var(--space-3);
+	margin: var(--space-3) 0;
 	overflow-x: auto;
 	overflow-y: hidden;
 }
@@ -164,18 +171,17 @@
 	letter-spacing: var(--tracking-wider);
 }
 
-/* Code block with language badge - add padding */
 .markdown :global(.code-block[data-language]:not([data-language="auto"])) {
 	padding-top: var(--space-5);
 }
 
-/* Highlight.js syntax highlighting - scoped to code blocks for higher specificity */
+/* Highlight.js syntax highlighting */
 .markdown :global(.code-block .hljs-keyword),
 .markdown :global(.code-block .hljs-selector-tag),
 .markdown :global(.code-block .hljs-built_in),
 .markdown :global(.code-block .hljs-name),
 .markdown :global(.code-block .hljs-tag) {
-	color: #c678dd; /* Purple for keywords */
+	color: #c678dd;
 }
 
 .markdown :global(.code-block .hljs-string),
@@ -188,29 +194,29 @@
 .markdown :global(.code-block .hljs-template-tag),
 .markdown :global(.code-block .hljs-template-variable),
 .markdown :global(.code-block .hljs-type) {
-	color: #98c379; /* Green for strings/titles */
+	color: #98c379;
 }
 
 .markdown :global(.code-block .hljs-comment),
 .markdown :global(.code-block .hljs-deletion) {
-	color: #5c6370; /* Gray for comments */
+	color: #5c6370;
 	font-style: italic;
 }
 
 .markdown :global(.code-block .hljs-number),
 .markdown :global(.code-block .hljs-regexp),
 .markdown :global(.code-block .hljs-addition) {
-	color: #d19a66; /* Orange for numbers */
+	color: #d19a66;
 }
 
 .markdown :global(.code-block .hljs-function),
 .markdown :global(.code-block .hljs-title.function_.call__) {
-	color: #61afef; /* Blue for functions */
+	color: #61afef;
 }
 
 .markdown :global(.code-block .hljs-variable),
 .markdown :global(.code-block .hljs-params) {
-	color: #e06c75; /* Red for variables/params */
+	color: #e06c75;
 }
 
 .markdown :global(.code-block .hljs-symbol),
@@ -218,7 +224,7 @@
 .markdown :global(.code-block .hljs-link),
 .markdown :global(.code-block .hljs-meta),
 .markdown :global(.code-block .hljs-meta .hljs-keyword) {
-	color: #56b6c2; /* Cyan for symbols/meta */
+	color: #56b6c2;
 }
 
 .markdown :global(.code-block .hljs-addition) {
@@ -230,15 +236,15 @@
 }
 
 /* =====================
-   Blockquotes (compact)
+   Blockquotes
    ===================== */
 
 .markdown :global(blockquote) {
-	margin: var(--space-1) 0;
-	padding: var(--space-1-5) var(--space-2);
+	margin: var(--space-3) 0;
+	padding: var(--space-2) var(--space-3);
 	border-left: 3px solid var(--color-border-secondary);
 	background: var(--color-bg-tertiary);
-	border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+	border-radius: 0 var(--radius-md) var(--radius-md) 0;
 	color: var(--color-text-secondary);
 }
 
@@ -252,28 +258,28 @@
 
 /* Nested blockquotes */
 .markdown :global(blockquote blockquote) {
-	margin: var(--space-1) 0;
+	margin: var(--space-2) 0;
 	border-left-color: var(--color-border-primary);
 }
 
 /* =====================
-   Lists (compact)
+   Lists
    ===================== */
 
 .markdown :global(ul),
 .markdown :global(ol) {
-	margin: var(--space-1) 0;
+	margin: var(--space-2) 0;
 	padding-left: var(--space-5);
 }
 
 .markdown :global(li) {
-	margin: var(--space-0-5) 0;
+	margin: var(--space-1) 0;
 	line-height: var(--leading-relaxed);
 }
 
 .markdown :global(li > ul),
 .markdown :global(li > ol) {
-	margin: var(--space-0-5) 0;
+	margin: var(--space-1) 0;
 }
 
 /* Task lists */
@@ -320,14 +326,14 @@
 }
 
 /* =====================
-   Tables (compact)
+   Tables
    ===================== */
 
 .markdown :global(table) {
 	width: 100%;
-	margin: var(--space-1) 0;
+	margin: var(--space-3) 0;
 	border-collapse: collapse;
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-lg);
 	overflow: hidden;
 	border: 1px solid var(--color-border-primary);
 }
@@ -337,7 +343,7 @@
 }
 
 .markdown :global(th) {
-	padding: var(--space-1-5) var(--space-2);
+	padding: var(--space-2) var(--space-3);
 	text-align: left;
 	font-weight: var(--font-medium);
 	font-size: var(--text-xs);
@@ -348,7 +354,7 @@
 }
 
 .markdown :global(td) {
-	padding: var(--space-1-5) var(--space-2);
+	padding: var(--space-2) var(--space-3);
 	border-bottom: 1px solid var(--color-border-subtle);
 	vertical-align: top;
 }
@@ -366,24 +372,24 @@
    ===================== */
 
 .markdown :global(hr) {
-	margin: var(--space-2) 0;
+	margin: var(--space-4) 0;
 	border: none;
 	height: 1px;
 	background: var(--color-border-primary);
 }
 
 /* =====================
-   Images (including base64)
+   Images
    ===================== */
 
 .markdown :global(.markdown-image),
 .markdown :global(img) {
 	max-width: 100%;
 	height: auto;
-	border-radius: var(--radius-md);
-	margin: var(--space-1) 0;
+	border-radius: var(--radius-lg);
+	margin: var(--space-2) 0;
 	cursor: zoom-in;
-	transition: transform var(--transition-normal);
+	transition: transform var(--transition-normal), box-shadow var(--transition-normal);
 }
 
 .markdown :global(.markdown-image:hover),
@@ -392,7 +398,6 @@
 	box-shadow: var(--shadow-lg);
 }
 
-/* Image in link (common pattern) */
 .markdown :global(a img) {
 	margin: 0;
 }
@@ -423,3 +428,22 @@
 	border-radius: var(--radius-sm);
 }
 
+/* =====================
+   Responsive Adjustments
+   ===================== */
+
+@media (max-width: 600px) {
+	.markdown :global(.code-block) {
+		padding: var(--space-2);
+		font-size: var(--text-2xs);
+	}
+
+	.markdown :global(table) {
+		font-size: var(--text-xs);
+	}
+
+	.markdown :global(th),
+	.markdown :global(td) {
+		padding: var(--space-1-5) var(--space-2);
+	}
+}
