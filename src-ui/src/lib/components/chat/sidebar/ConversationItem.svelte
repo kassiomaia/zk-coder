@@ -20,9 +20,11 @@
 		ondelete?: () => void;
 		/** Rename handler */
 		onrename?: (newTitle: string) => void;
+		/** Archive handler */
+		onarchive?: () => void;
 	}
 
-	let { conversation, selected = false, onclick, ondoubleclick, ondelete, onrename }: Props = $props();
+	let { conversation, selected = false, onclick, ondoubleclick, ondelete, onrename, onarchive }: Props = $props();
 
 	let showActions = $state(false);
 	let isEditing = $state(false);

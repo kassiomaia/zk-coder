@@ -10,9 +10,11 @@
 		ondelete?: () => void;
 		/** Rename handler */
 		onrename?: () => void;
+		/** Archive handler */
+		onarchive?: () => void;
 	}
 
-	let { ondelete, onrename }: Props = $props();
+	let { ondelete, onrename, onarchive }: Props = $props();
 </script>
 
 <div class={styles.actions} role="toolbar" aria-label="Conversation actions">
