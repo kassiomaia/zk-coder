@@ -1,36 +1,52 @@
 /**
- * Answering Indicator Styles
- * Displays an animated "Answering..." message with a scanning light effect
- * to indicate the assistant is thinking/processing
+ * AnsweringIndicator Component Styles
+ * Refined writing-state micro-interaction for assistant responses.
+ *
+ * Design Features:
+ * - Soft pulse loop with shimmer text
+ * - Progressive opacity shift with scanner effect
+ * - Anticipatory glow to signal active generation
+ * - No abrupt layout shifts (min-height reservation)
  */
 
 .container {
 	display: flex;
 	align-items: center;
 	padding: var(--space-2) 0;
+	min-height: 28px; /* Reserve space to prevent layout shift */
+	animation: containerEnter var(--duration-slow) var(--ease-out);
 }
 
+/* Entry animation - subtle fade up */
+@keyframes containerEnter {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Scanner text with shimmer effect */
 .scanner {
 	position: relative;
 	display: inline-block;
 	font-size: var(--text-sm);
 	font-weight: var(--font-medium);
-	/* Base color */
-	color: var(--color-text-secondary);
-	/* Animated gradient that moves across like a scanner light */
+	/* Shimmer gradient that moves across like a scanner light */
 	background: linear-gradient(
 		90deg,
 		var(--color-text-tertiary) 0%,
-		var(--color-primary-50) 50%,
+		var(--color-primary-400) 50%,
 		var(--color-text-tertiary) 100%
 	);
 	background-size: 200% auto;
 	-webkit-background-clip: text;
 	background-clip: text;
 	color: transparent;
-	animation: scannerLight 1.5s ease-in-out infinite;
-	/* Add a subtle glow */
-	text-shadow: 0 0 20px rgba(var(--color-accent-primary-rgb, 99, 102, 241), 0.3);
+	animation: scannerLight 2s ease-in-out infinite;
 }
 
 @keyframes scannerLight {
@@ -42,17 +58,46 @@
 	}
 }
 
-@keyframes lightBeam {
-	0% {
-		left: -50%;
+/* Subtle ambient glow pulse */
+.scanner::before {
+	content: '';
+	position: absolute;
+	inset: -4px -12px;
+	background: radial-gradient(
+		ellipse at center,
+		rgba(99, 102, 241, 0.06) 0%,
+		transparent 70%
+	);
+	border-radius: var(--radius-lg);
+	opacity: 0;
+	animation: ambientGlow 2.5s ease-in-out infinite;
+	animation-delay: 0.3s;
+	pointer-events: none;
+	z-index: -1;
+}
+
+@keyframes ambientGlow {
+	0%, 100% {
+		opacity: 0;
+		transform: scale(0.95);
 	}
-	50%, 100% {
-		left: 150%;
+	50% {
+		opacity: 1;
+		transform: scale(1.02);
 	}
 }
 
-/* Reduced motion support */
+/* =====================
+   Reduced Motion Support
+   ===================== */
+
 @media (prefers-reduced-motion: reduce) {
+	.container {
+		animation: none;
+		opacity: 1;
+		transform: none;
+	}
+
 	.scanner {
 		animation: none;
 		background: var(--color-text-secondary);
@@ -61,7 +106,8 @@
 		background-clip: border-box;
 	}
 
-	.scanner::after {
+	.scanner::before {
 		animation: none;
+		opacity: 0;
 	}
 }
