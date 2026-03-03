@@ -294,6 +294,32 @@
 	--state-duration: 240ms;
 	--state-duration-morph: 280ms;
 
+	/* ============================================================================
+	   INLINE EDIT MOTION SYSTEM - Morph transitions for rename operations
+	   ============================================================================ */
+
+	/* Edit mode entrance - morph from static text */
+	--edit-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+	--edit-duration-enter: 200ms;
+	--edit-scale-enter: 0.995;
+
+	/* Edit mode exit - resolve back to static */
+	--edit-ease-exit: cubic-bezier(0.16, 1, 0.3, 1);
+	--edit-duration-exit: 180ms;
+
+	/* Validation feedback - subtle, no shake */
+	--edit-ease-validation: cubic-bezier(0.2, 0, 0, 1);
+	--edit-duration-validation: 150ms;
+
+	/* Save completion - highlight sweep */
+	--edit-sweep-ease: cubic-bezier(0.16, 1, 0.3, 1);
+	--edit-sweep-duration: 500ms;
+
+	/* Focus elevation styling */
+	--edit-focus-bg: var(--color-interactive-selected);
+	--edit-focus-border-width: 2px;
+	--edit-focus-glow: 0 0 0 1px var(--color-primary-500);
+
 	/* =====================
      Empty State Motion Tokens
      ===================== */
