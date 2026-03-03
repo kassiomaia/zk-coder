@@ -1,7 +1,25 @@
 /**
  * ListItemActions Component Styles
- * Unified context menu actions for list items.
+ * Unified popover standard for all context menus and dropdowns.
+ *
+ * Design Principles:
+ * - Stable container contrast (tonal layering, no hard borders)
+ * - Refined interaction feedback (subtle accent shifts, not full color replacement)
+ * - Strict spacing alignment (fixed padding grid, uniform icon size)
+ * - Motion discipline (micro elevation, vertical stagger)
  */
+
+:root {
+	--popover-padding: 4px;
+	--popover-gap: 2px;
+	--popover-item-height: 34px;
+	--popover-item-padding-x: 12px;
+	--popover-icon-size: 16px;
+	--popover-icon-gap: 10px;
+	--popover-stagger-delay: 10ms;
+	--popover-transition-duration: 140ms;
+	--popover-enter-duration: 180ms;
+}
 
 .container {
 	position: absolute;
@@ -28,7 +46,7 @@
 
 .trigger:hover,
 .trigger:focus-visible,
-.trigger[aria-expanded="true"] {
+.trigger[aria-expanded='true'] {
 	background: var(--color-surface-hover);
 	color: var(--color-text-primary);
 	opacity: 1;
@@ -40,35 +58,32 @@
 }
 
 .menu {
-	/* Positioning */
 	position: fixed;
-	min-width: 180px; /* Slightly wider for better text accommodation */
+	min-width: 172px;
 	z-index: 1000;
 	transform-origin: top right;
-	
-	/* Visuals */
+
 	background: var(--color-surface);
 	border: 1px solid var(--color-border-subtle);
 	border-radius: var(--radius-lg);
-	box-shadow: 
-		0 4px 6px -1px rgba(0, 0, 0, 0.1), 
-		0 2px 4px -1px rgba(0, 0, 0, 0.06), 
-		0 10px 15px -3px rgba(0, 0, 0, 0.1);
-	
-	/* Layout */
+
+	box-shadow:
+		0 1px 2px rgba(0, 0, 0, 0.04),
+		0 4px 8px rgba(0, 0, 0, 0.04),
+		0 12px 24px rgba(0, 0, 0, 0.06);
+
 	display: flex;
 	flex-direction: column;
-	padding: 4px; /* Explicit control for vertical rhythm */
-	gap: 2px; /* Tight gap for density balance */
-	
-	/* Animation */
-	animation: menuEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	padding: var(--popover-padding);
+	gap: var(--popover-gap);
+
+	animation: popoverEnter var(--popover-enter-duration) cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes menuEnter {
+@keyframes popoverEnter {
 	from {
 		opacity: 0;
-		transform: translateY(-4px) scale(0.98);
+		transform: translateY(-2px) scale(0.98);
 	}
 	to {
 		opacity: 1;
@@ -77,40 +92,63 @@
 }
 
 .action {
-	/* Layout & Dimensions */
 	display: flex;
 	align-items: center;
 	width: 100%;
-	height: 34px; /* Normalized height */
-	padding: 0 var(--space-3);
-	gap: var(--space-3);
-	
-	/* Typography */
+	height: var(--popover-item-height);
+	padding: 0 var(--popover-item-padding-x);
+	gap: var(--popover-icon-gap);
+
 	font-size: var(--text-sm);
-	font-weight: var(--font-normal); /* Baseline weight */
+	font-weight: var(--font-normal);
 	text-align: left;
 	white-space: nowrap;
-	
-	/* Visuals */
+
 	background: transparent;
 	border: none;
-	border-radius: var(--radius-md); /* Consistent rounding */
+	border-radius: var(--radius-md);
 	color: var(--color-text-secondary);
 	cursor: pointer;
 	position: relative;
 	overflow: hidden;
-	
-	/* Interaction */
-	transition: 
-		background 0.15s cubic-bezier(0.16, 1, 0.3, 1),
-		color 0.15s ease,
-		transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+
+	transition:
+		background-color var(--popover-transition-duration) ease-out,
+		color var(--popover-transition-duration) ease-out;
+
+	animation: popoverItemFade var(--popover-enter-duration) ease-out backwards;
+}
+
+.action:nth-child(1) {
+	animation-delay: calc(var(--popover-stagger-delay) * 0);
+}
+.action:nth-child(2) {
+	animation-delay: calc(var(--popover-stagger-delay) * 1);
+}
+.action:nth-child(3) {
+	animation-delay: calc(var(--popover-stagger-delay) * 2);
+}
+.action:nth-child(4) {
+	animation-delay: calc(var(--popover-stagger-delay) * 3);
+}
+.action:nth-child(5) {
+	animation-delay: calc(var(--popover-stagger-delay) * 4);
+}
+
+@keyframes popoverItemFade {
+	from {
+		opacity: 0;
+		transform: translateY(-2px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 .action:hover {
 	background: var(--color-surface-hover);
 	color: var(--color-text-primary);
-	transform: scale(1.005); /* Micro-scale (≤1.01) */
 }
 
 .action:focus-visible {
@@ -119,23 +157,26 @@
 	box-shadow: inset 0 0 0 1px var(--color-border-focus);
 }
 
-/* Specific Actions */
+.action :global(svg) {
+	width: var(--popover-icon-size);
+	height: var(--popover-icon-size);
+	flex-shrink: 0;
+	opacity: 0.75;
+	transition: opacity var(--popover-transition-duration) ease-out;
+}
 
-/* Resolve / Reopen */
+.action:hover :global(svg) {
+	opacity: 1;
+}
+
 .action.resolve:hover {
 	background: var(--color-surface-hover);
 	color: var(--color-success);
 }
 
-/* Archive */
 .action.archive:hover {
 	background: var(--color-surface-hover);
 	color: var(--color-warning);
-}
-
-/* Delete (Destructive) */
-.action.delete {
-	color: var(--color-text-secondary);
 }
 
 .action.delete:hover {
@@ -143,31 +184,14 @@
 	color: var(--color-error);
 }
 
-/* Icon alignment fix */
-.action :global(svg) {
-	width: 16px;
-	height: 16px;
-	flex-shrink: 0;
-	opacity: 0.8;
-	transition: opacity 0.15s ease;
-}
-
-.action:hover :global(svg) {
-	opacity: 1;
-}
-
-/* Reduced motion overrides */
 @media (prefers-reduced-motion: reduce) {
 	.menu {
 		animation: none;
 		opacity: 1;
 	}
-	
+
 	.action {
+		animation: none;
 		transition: none;
-	}
-	
-	.action:hover {
-		transform: none;
 	}
 }
