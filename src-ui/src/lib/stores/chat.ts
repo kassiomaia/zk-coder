@@ -1,17 +1,16 @@
 /**
  * Chat State Management
- * Svelte stores for managing conversations, messages, threads, and NLP state.
+ *
+ * Main Svelte store for managing conversations, messages, threads, and NLP state.
+ * LLM streaming logic extracted to ./chat/llm-handler.ts
  */
 
-import { writable, derived, get } from 'svelte/store';
-import type { Conversation, Thread, ConversationGroup } from '$lib/types/thread';
-import type { Message, MessageGroup } from '$lib/types/message';
-import type { IntentClassification, Ambiguity } from '$lib/types/nlp';
-import type { OperationType } from '$lib/types/config';
+import { writable, get } from 'svelte/store';
+import type { Conversation, Thread } from '$lib/types/thread';
+import type { Message } from '$lib/types/message';
 import {
 	classifyIntent,
 	addContextMessage,
-	getConversationContext,
 	detectAmbiguities,
 	createDebouncedClassifier,
 	isBackendAvailable
@@ -19,7 +18,6 @@ import {
 import {
 	loadConversations,
 	createConversation as apiCreateConversation,
-	loadConversation,
 	renameConversation as apiRenameConversation,
 	deleteConversation as apiDeleteConversation,
 	loadThreads,
@@ -27,7 +25,6 @@ import {
 	resolveThread as apiResolveThread,
 	deleteThread as apiDeleteThread,
 	renameThread as apiRenameThread,
-	loadMessages,
 	loadThreadMessages,
 	sendMessage as apiSendMessage,
 	deleteMessage as apiDeleteMessage,
@@ -35,133 +32,65 @@ import {
 	createThreadWithMessage as apiCreateThreadWithMessage,
 	type SendMessageOptions
 } from '$lib/api/chat';
-import {
-	sendChatMessageStreaming,
-	cancelChatRequest,
-	isStartedEvent,
-	isChunkEvent,
-	isCompleteEvent,
-	isErrorEvent,
-	type LlmEvent,
-	type StreamChatResult
-} from '$lib/api/llm';
-import { configStore } from './configStore';
-import { getThreadThrottler, removeThreadThrottler } from '$lib/utils/streamThrottler';
+import { LlmHandler } from './chat/llm-handler';
+import type { ChatState, LlmRequestOptions } from './chat/types';
+import { deriveThreadTitle, sortThreadsByRecent } from './chat/utils';
 
 // ============================================================================
-// Types
+// Initial State
 // ============================================================================
 
-/**
- * Loading states for async operations.
- */
-export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
-
-/**
- * NLP state for the current input.
- */
-export interface NlpState {
-	/** Whether backend is available */
-	backendAvailable: boolean;
-	/** Currently detected intent */
-	detectedIntent: IntentClassification | null;
-	/** Detected ambiguities */
-	ambiguities: Ambiguity[];
-	/** Whether NLP is processing */
-	processing: boolean;
-	/** Last error */
-	error: string | null;
-}
-
-/**
- * LLM streaming state.
- */
-export interface LlmStreamingState {
-	/** Whether LLM is currently generating a response */
-	isStreaming: boolean;
-	/** Current request ID (if streaming) */
-	requestId: string | null;
-	/** Accumulated content during streaming */
-	streamingContent: string;
-	/** Model being used for current stream */
-	model: string | null;
-}
-
-/**
- * Chat store state.
- */
-export interface ChatState {
-	/** All conversations */
-	conversations: Conversation[];
-	/** Loading state for conversations */
-	conversationsLoading: LoadingState;
-	/** Currently selected conversation ID */
-	selectedConversationId: string | null;
-	/** Currently selected thread ID */
-	selectedThreadId: string | null;
-	/** Messages for the current view */
-	messages: Message[];
-	/** Loading state for messages */
-	messagesLoading: LoadingState;
-	/** Threads for current conversation */
-	threads: Thread[];
-	/** Loading state for threads */
-	threadsLoading: LoadingState;
-	/** NLP state */
-	nlp: NlpState;
-	/** LLM streaming state */
-	llm: LlmStreamingState;
-	/** Global error message */
-	error: string | null;
-}
+const initialState: ChatState = {
+	conversations: [],
+	conversationsLoading: 'idle',
+	selectedConversationId: null,
+	selectedThreadId: null,
+	messages: [],
+	messagesLoading: 'idle',
+	threads: [],
+	threadsLoading: 'idle',
+	nlp: {
+		backendAvailable: false,
+		detectedIntent: null,
+		ambiguities: [],
+		processing: false,
+		error: null
+	},
+	llm: {
+		isStreaming: false,
+		requestId: null,
+		streamingContent: '',
+		model: null
+	},
+	error: null
+};
 
 // ============================================================================
-// Stores
+// Store Factory
 // ============================================================================
 
 /**
  * Main chat store.
  */
 function createChatStore() {
-	const initialState: ChatState = {
-		conversations: [],
-		conversationsLoading: 'idle',
-		selectedConversationId: null,
-		selectedThreadId: null,
-		messages: [],
-		messagesLoading: 'idle',
-		threads: [],
-		threadsLoading: 'idle',
-		nlp: {
-			backendAvailable: false,
-			detectedIntent: null,
-			ambiguities: [],
-			processing: false,
-			error: null
-		},
-		llm: {
-			isStreaming: false,
-			requestId: null,
-			streamingContent: '',
-			model: null
-		},
-		error: null
-	};
-
 	const { subscribe, set, update } = writable<ChatState>(initialState);
 
 	// Debounced intent classifier
 	const classifier = createDebouncedClassifier(300);
 
-	// Active stream tracking for cancellation
-	let activeStream: StreamChatResult | null = null;
+	// LLM handler for streaming operations
+	const llmHandler = new LlmHandler(update, () => get({ subscribe }));
+
 	// Pending thread creation tracking to prevent race conditions
-	// This promise resolves when the thread is FULLY ready (created AND selected)
 	let pendingThreadReady: Promise<Thread | null> | null = null;
 	let pendingThreadConversationId: string | null = null;
 
 	return {
 		subscribe,
+
+		// ====================================================================
+		// Initialization
+		// ====================================================================
 
 		/**
 		 * Initialize the store, check backend availability, and load conversations.
@@ -172,8 +101,6 @@ function createChatStore() {
 				...state,
 				nlp: { ...state.nlp, backendAvailable: available }
 			}));
-
-			// Load conversations from backend
 			await this.loadConversationsFromBackend();
 		},
 
@@ -181,19 +108,11 @@ function createChatStore() {
 		 * Load all conversations from the backend.
 		 */
 		async loadConversationsFromBackend() {
-			update((state) => ({
-				...state,
-				conversationsLoading: 'loading',
-				error: null
-			}));
+			update((state) => ({ ...state, conversationsLoading: 'loading', error: null }));
 
 			try {
 				const conversations = await loadConversations();
-				update((state) => ({
-					...state,
-					conversations,
-					conversationsLoading: 'success'
-				}));
+				update((state) => ({ ...state, conversations, conversationsLoading: 'success' }));
 			} catch (error) {
 				update((state) => ({
 					...state,
@@ -202,6 +121,10 @@ function createChatStore() {
 				}));
 			}
 		},
+
+		// ====================================================================
+		// Conversation Methods
+		// ====================================================================
 
 		/**
 		 * Set all conversations.
@@ -298,29 +221,15 @@ function createChatStore() {
 
 		/**
 		 * Select a conversation and load its threads.
-		 * If threads exist, auto-select the most recent one and load its messages.
-		 * If no threads exist, show empty state prompting user to create a thread.
 		 */
 		async selectConversation(id: string | null) {
-			// Cancel any active stream before switching conversations to prevent
-			// messages from appearing in the wrong thread
-			if (activeStream) {
-				try {
-					await activeStream.cancel();
-					activeStream.unsubscribe();
-					activeStream = null;
-					update((s) => ({
-						...s,
-						llm: {
-							isStreaming: false,
-							requestId: null,
-							streamingContent: '',
-							model: null
-						}
-					}));
-				} catch (error) {
-					console.error('Failed to cancel stream on conversation switch:', error);
-				}
+			// Cancel any active stream before switching
+			await llmHandler.cancelStreamSilent();
+			if (llmHandler.isStreaming()) {
+				update((s) => ({
+					...s,
+					llm: { isStreaming: false, requestId: null, streamingContent: '', model: null }
+				}));
 			}
 
 			update((state) => ({
@@ -336,10 +245,7 @@ function createChatStore() {
 
 			if (id) {
 				try {
-					// Load threads first
 					const threads = await loadThreads(id);
-
-					// Update conversation with thread count for sidebar display
 					update((state) => ({
 						...state,
 						threads,
@@ -349,15 +255,8 @@ function createChatStore() {
 						)
 					}));
 
-					// If there are threads, auto-select the most recent one
 					if (threads.length > 0) {
-						// Sort by updatedAt descending and get the most recent
-						const sortedThreads = [...threads].sort(
-							(a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-						);
-						const mostRecentThread = sortedThreads[0];
-
-						// Auto-select the most recent thread and load its messages
+						const mostRecentThread = sortThreadsByRecent(threads)[0];
 						await this.selectThread(mostRecentThread.id);
 					}
 				} catch (error) {
@@ -369,6 +268,10 @@ function createChatStore() {
 				}
 			}
 		},
+
+		// ====================================================================
+		// Thread Methods
+		// ====================================================================
 
 		/**
 		 * Select a thread and load its messages.
@@ -384,11 +287,7 @@ function createChatStore() {
 			if (id) {
 				try {
 					const messages = await loadThreadMessages(id);
-					update((state) => ({
-						...state,
-						messages,
-						messagesLoading: 'success'
-					}));
+					update((state) => ({ ...state, messages, messagesLoading: 'success' }));
 				} catch (error) {
 					update((state) => ({
 						...state,
@@ -401,7 +300,6 @@ function createChatStore() {
 
 		/**
 		 * Create a new thread in the current conversation.
-		 * Auto-selects the newly created thread.
 		 */
 		async createThread(title: string = 'New Thread'): Promise<Thread | null> {
 			const state = get({ subscribe });
@@ -411,27 +309,19 @@ function createChatStore() {
 			}
 
 			const conversationId = state.selectedConversationId;
-
-			// Create a promise that resolves when thread is FULLY ready (created AND selected)
-			// This prevents race conditions with sendMessage
 			const readyPromise = (async () => {
 				try {
 					const thread = await apiCreateThread(conversationId, title);
-
 					update((s) => ({
 						...s,
 						threads: [...s.threads, thread],
-						// Update conversation with new thread count
 						conversations: s.conversations.map((c) =>
 							c.id === conversationId
 								? { ...c, threads: [...(c.threads || []), thread] }
 								: c
 						)
 					}));
-
-					// Auto-select the newly created thread
 					await this.selectThread(thread.id);
-
 					return thread;
 				} catch (error) {
 					update((s) => ({
@@ -442,15 +332,12 @@ function createChatStore() {
 				}
 			})();
 
-			// Set tracking BEFORE awaiting
 			pendingThreadReady = readyPromise;
 			pendingThreadConversationId = conversationId;
 
 			try {
-				const thread = await readyPromise;
-				return thread;
+				return await readyPromise;
 			} finally {
-				// Clear pending tracking after the FULL operation completes
 				pendingThreadReady = null;
 				pendingThreadConversationId = null;
 			}
@@ -492,7 +379,6 @@ function createChatStore() {
 					selectedThreadId:
 						state.selectedThreadId === id ? null : state.selectedThreadId,
 					messages: state.selectedThreadId === id ? [] : state.messages,
-					// Update conversation to remove the deleted thread from its list
 					conversations: state.conversations.map((c) =>
 						c.id === state.selectedConversationId
 							? { ...c, threads: (c.threads || []).filter((t) => t.id !== id) }
@@ -518,7 +404,6 @@ function createChatStore() {
 				update((state) => ({
 					...state,
 					threads: state.threads.map((t) => (t.id === id ? updated : t)),
-					// Update conversation's thread list as well
 					conversations: state.conversations.map((c) =>
 						c.id === state.selectedConversationId
 							? { ...c, threads: (c.threads || []).map((t) => (t.id === id ? updated : t)) }
@@ -535,10 +420,12 @@ function createChatStore() {
 			}
 		},
 
+		// ====================================================================
+		// Message Methods
+		// ====================================================================
 
 		/**
 		 * Send a message to the current conversation via backend.
-		 * If no thread is selected and none exist, auto-creates a thread first.
 		 */
 		async sendMessage(
 			content: string,
@@ -550,36 +437,28 @@ function createChatStore() {
 				return null;
 			}
 
-			// Capture conversation ID in a const for TypeScript type narrowing
 			const conversationId = state.selectedConversationId;
 
-			// Wait for any pending thread creation for this conversation to prevent race conditions
-			// We wait for the thread to be FULLY ready (created AND selected)
-			if (
-				pendingThreadReady &&
-				pendingThreadConversationId === conversationId
-			) {
+			// Wait for any pending thread creation
+			if (pendingThreadReady && pendingThreadConversationId === conversationId) {
 				try {
 					await pendingThreadReady;
 				} catch (error) {
 					console.warn('Pending thread creation failed:', error);
 				}
-				// Re-fetch state after waiting for pending thread to be fully ready
 				state = get({ subscribe });
 			}
 
 			let targetThreadId = state.selectedThreadId;
 
-			// If no thread selected, check if threads exist or create one
+			// Handle thread creation/selection if needed
 			if (!targetThreadId) {
 				const existingThreads = state.threads.filter(
 					(t) => t.conversationId === conversationId
 				);
 
 				if (existingThreads.length === 0) {
-					// No threads exist - create thread with message atomically
-					const threadTitle = this.deriveThreadTitle(content);
-
+					const threadTitle = deriveThreadTitle(content);
 					try {
 						const { thread, message } = await apiCreateThreadWithMessage({
 							conversationId,
@@ -593,7 +472,6 @@ function createChatStore() {
 							threads: [...s.threads, thread],
 							selectedThreadId: thread.id,
 							messages: [...s.messages, message],
-							// Update conversation with new thread for sidebar display
 							conversations: s.conversations.map((c) =>
 								c.id === conversationId
 									? { ...c, threads: [...(c.threads || []), thread] }
@@ -605,23 +483,18 @@ function createChatStore() {
 					} catch (error) {
 						update((s) => ({
 							...s,
-							error:
-								error instanceof Error ? error.message : 'Failed to create thread'
+							error: error instanceof Error ? error.message : 'Failed to create thread'
 						}));
 						return null;
 					}
 				} else {
-					// Threads exist but none selected - select most recent
-					const sortedThreads = [...existingThreads].sort(
-						(a, b) =>
-							new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-					);
+					const sortedThreads = sortThreadsByRecent(existingThreads);
 					targetThreadId = sortedThreads[0].id;
 					await this.selectThread(targetThreadId);
 				}
 			}
 
-			// Create optimistic message with guaranteed threadId
+			// Create optimistic message
 			const optimisticMessage: Message = {
 				id: `temp-${Date.now()}`,
 				conversationId,
@@ -632,23 +505,16 @@ function createChatStore() {
 				status: 'sending'
 			};
 
-			// Add optimistically
-			update((s) => ({
-				...s,
-				messages: [...s.messages, optimisticMessage]
-			}));
+			update((s) => ({ ...s, messages: [...s.messages, optimisticMessage] }));
 
 			try {
-				const options: SendMessageOptions = {
+				const savedMessage = await apiSendMessage({
 					conversationId,
 					content,
 					role,
 					threadId: targetThreadId
-				};
+				});
 
-				const savedMessage = await apiSendMessage(options);
-
-				// Replace optimistic message with saved one
 				update((s) => ({
 					...s,
 					messages: s.messages.map((m) =>
@@ -658,7 +524,6 @@ function createChatStore() {
 
 				return savedMessage;
 			} catch (error) {
-				// Update optimistic message to error state
 				update((s) => ({
 					...s,
 					messages: s.messages.map((m) =>
@@ -671,39 +536,11 @@ function createChatStore() {
 		},
 
 		/**
-		 * Derives a thread title from message content.
-		 * Uses first ~50 characters, cleaned up for display.
-		 */
-		deriveThreadTitle(content: string): string {
-			const cleaned = content
-				.replace(/[#*_`]/g, '')
-				.replace(/\n/g, ' ')
-				.trim();
-
-			if (!cleaned) {
-				return 'New Thread';
-			}
-
-			if (cleaned.length <= 50) {
-				return cleaned;
-			}
-
-			const truncated = cleaned.substring(0, 50);
-			const lastSpace = truncated.lastIndexOf(' ');
-
-			return (lastSpace > 20 ? truncated.substring(0, lastSpace) : truncated) + '...';
-		},
-
-		/**
-		 * Add a message to the current conversation (local only, for backward compatibility).
+		 * Add a message to the current conversation (local only).
 		 */
 		async addMessage(message: Message) {
-			update((state) => ({
-				...state,
-				messages: [...state.messages, message]
-			}));
+			update((state) => ({ ...state, messages: [...state.messages, message] }));
 
-			// Sync with backend context if available (for NLP context)
 			const state = get({ subscribe });
 			if (state.nlp.backendAvailable && message.conversationId) {
 				try {
@@ -768,19 +605,18 @@ function createChatStore() {
 			}));
 		},
 
+		// ====================================================================
+		// NLP Methods
+		// ====================================================================
+
 		/**
 		 * Classify intent for input text.
 		 */
 		async classifyInput(input: string) {
 			const state = get({ subscribe });
-			if (!state.nlp.backendAvailable || !state.selectedConversationId) {
-				return;
-			}
+			if (!state.nlp.backendAvailable || !state.selectedConversationId) return;
 
-			update((s) => ({
-				...s,
-				nlp: { ...s.nlp, processing: true, error: null }
-			}));
+			update((s) => ({ ...s, nlp: { ...s.nlp, processing: true, error: null } }));
 
 			try {
 				const result = await classifier.classify({
@@ -790,11 +626,7 @@ function createChatStore() {
 
 				update((s) => ({
 					...s,
-					nlp: {
-						...s.nlp,
-						detectedIntent: result,
-						processing: false
-					}
+					nlp: { ...s.nlp, detectedIntent: result, processing: false }
 				}));
 			} catch (error) {
 				update((s) => ({
@@ -813,20 +645,14 @@ function createChatStore() {
 		 */
 		async detectAmbiguitiesForInput(input: string) {
 			const state = get({ subscribe });
-			if (!state.nlp.backendAvailable || !state.selectedConversationId) {
-				return;
-			}
+			if (!state.nlp.backendAvailable || !state.selectedConversationId) return;
 
 			try {
 				const ambiguities = await detectAmbiguities({
 					input,
 					conversationId: state.selectedConversationId
 				});
-
-				update((s) => ({
-					...s,
-					nlp: { ...s.nlp, ambiguities }
-				}));
+				update((s) => ({ ...s, nlp: { ...s.nlp, ambiguities } }));
 			} catch (error) {
 				console.error('Failed to detect ambiguities:', error);
 			}
@@ -849,312 +675,42 @@ function createChatStore() {
 			}));
 		},
 
-		// ========================================================================
+		// ====================================================================
 		// LLM Integration Methods
-		// ========================================================================
+		// ====================================================================
 
 		/**
 		 * Send a message and get an LLM response with streaming.
-		 * This combines message sending with LLM response generation.
-		 *
-		 * The backend will automatically use the model configured for the 'code' operation
-		 * if no modelId is explicitly provided.
-		 *
-		 * @param content - The user's message content
-		 * @param options - Optional configuration for the LLM request
-		 * @returns The user message that was sent, or null on error
 		 */
 		async sendMessageWithLlm(
 			content: string,
-			options?: {
-				/** Model ID to use (e.g., "openai-gpt-4"). If not provided, backend uses 'code' operation default */
-				modelId?: string;
-				/** System prompt override */
-				systemPrompt?: string;
-				/** Temperature override (0-1) */
-				temperature?: number;
-				/** Max tokens override */
-				maxTokens?: number;
-			}
+			options?: LlmRequestOptions
 		): Promise<Message | null> {
-			const state = get({ subscribe });
-
-			// Must have a conversation selected
-			if (!state.selectedConversationId) {
-				update((s) => ({ ...s, error: 'No conversation selected' }));
+			// Validate
+			const validationError = llmHandler.validateCanStream(options);
+			if (validationError) {
+				update((s) => ({ ...s, error: validationError }));
 				return null;
 			}
 
-			// Must not already be streaming
-			if (state.llm.isStreaming) {
-				console.warn('Already streaming, ignoring new request');
-				return null;
-			}
-
-			// Check if we have a model to use - either explicitly specified or configured as default
-			const codeDefault = configStore.getDefault('code');
-			const modelToUse = options?.modelId ?? codeDefault;
-
-			if (!modelToUse) {
-				// No model specified and no default configured
-				const availableModels = configStore.getAvailableModels('code');
-				if (availableModels.length === 0) {
-					update((s) => ({
-						...s,
-						error: 'No model configured. Please go to Settings > Providers and configure an API provider first.'
-					}));
-				} else {
-					update((s) => ({
-						...s,
-						error: 'No default model set for code operations. Please go to Settings > Models and set a default model for the "Code" operation.'
-					}));
-				}
-				return null;
-			}
-
-			// If user explicitly specified a model, validate it exists
-			if (options?.modelId) {
-				const availableModels = configStore.getAvailableModels('code');
-				const modelExists = availableModels.some((m) => m.id === options.modelId);
-				if (!modelExists) {
-					update((s) => ({
-						...s,
-						error: `Model '${options.modelId}' not found. Please configure a valid model.`
-					}));
-					return null;
-				}
-			}
-
-			// Send the user message first (using existing logic)
+			// Send user message first
 			const userMessage = await this.sendMessage(content, 'user');
-			if (!userMessage) {
-				return null;
+			if (!userMessage) return null;
+
+			// Initialize streaming
+			const init = llmHandler.initStreaming(content, options);
+			if (!init) {
+				update((s) => ({ ...s, error: 'Failed to initialize streaming' }));
+				return userMessage;
 			}
 
-			// Get FRESH state after sendMessage (which may have created a thread)
-			// This is critical to prevent messages appearing in wrong threads
-			const freshState = get({ subscribe });
-
-			// Capture context for validation during streaming to prevent cross-contamination
-			const streamingContext = {
-				conversationId: freshState.selectedConversationId!,
-				threadId: freshState.selectedThreadId
-			};
-
-			// Create optimistic assistant message for streaming
-			// Use crypto.randomUUID() for guaranteed unique IDs to prevent any collision issues
-			const assistantMessageId = `streaming-${crypto.randomUUID()}`;
-			console.log('[Stream] Creating new assistant message:', assistantMessageId);
-			const optimisticAssistant: Message = {
-				id: assistantMessageId,
-				conversationId: freshState.selectedConversationId!,
-				threadId: freshState.selectedThreadId ?? '',
-				role: 'assistant',
-				content: '',
-				timestamp: new Date(),
-				status: 'sending'
-			};
-
-			// Track the request ID for this streaming session to prevent
-			// processing events from other requests (e.g., from stale listeners)
-			let currentRequestId: string | null = null;
-
-			// Local streaming content accumulator to avoid issues with global state
-			let localStreamingContent = '';
-
-			// Add optimistic assistant message and start streaming
-			update((s) => ({
-				...s,
-				messages: [...s.messages, optimisticAssistant],
-				llm: {
-					isStreaming: true,
-					requestId: null,
-					streamingContent: '',
-					model: options?.modelId ?? null
-				}
-			}));
+			const { assistantMessageId, streamingContext } = init;
 
 			try {
-				// Start streaming request
-				// If modelId is not provided, backend will use the 'code' operation default
-				const result = await sendChatMessageStreaming({
-					conversationId: streamingContext.conversationId,
-					threadId: streamingContext.threadId ?? undefined,
-					content,
-					...(options?.modelId && { modelId: options.modelId }),
-					systemPrompt: options?.systemPrompt,
-					temperature: options?.temperature,
-					maxTokens: options?.maxTokens,
-					onEvent: (event: LlmEvent) => {
-						// Filter events by requestId to prevent processing events
-						// from other requests (e.g., from stale listeners)
-						// Once we have a requestId, only process events matching it
-						if (currentRequestId !== null && event.requestId !== currentRequestId) {
-							console.log('[Stream] Ignoring event from different request:', {
-								eventRequestId: event.requestId,
-								currentRequestId,
-								eventType: event.type
-							});
-							return;
-						}
-
-						// Validate conversation/thread context to prevent cross-contamination
-						const currentState = get({ subscribe });
-						if (
-							currentState.selectedConversationId !== streamingContext.conversationId ||
-							currentState.selectedThreadId !== streamingContext.threadId
-						) {
-							console.log('[Stream] Ignoring event - context changed:', {
-								originalConversation: streamingContext.conversationId,
-								currentConversation: currentState.selectedConversationId,
-								originalThread: streamingContext.threadId,
-								currentThread: currentState.selectedThreadId
-							});
-							return;
-						}
-
-						if (isStartedEvent(event)) {
-							// Store request ID for cancellation and event filtering FIRST
-							currentRequestId = event.requestId;
-							console.log('[Stream] Started event received:', {
-								requestId: event.requestId,
-								assistantMessageId
-							});
-							update((s) => ({
-								...s,
-								llm: {
-									...s.llm,
-									requestId: event.requestId,
-									model: event.model
-								}
-							}));
-						} else if (isChunkEvent(event)) {
-							// Use local accumulator instead of global state
-							localStreamingContent += event.delta;
-							const contentToUpdate = localStreamingContent;
-
-							update((s) => {
-								// Double-check: only update if the message still exists and has our ID
-								const messageExists = s.messages.some((m) => m.id === assistantMessageId);
-								if (!messageExists) {
-									console.warn('[Stream] Message not found:', assistantMessageId);
-									return s;
-								}
-
-								return {
-									...s,
-									llm: {
-										...s.llm,
-										streamingContent: contentToUpdate
-									},
-									messages: s.messages.map((m) =>
-										m.id === assistantMessageId
-											? { ...m, content: contentToUpdate }
-											: m
-									)
-								};
-							});
-						} else if (isCompleteEvent(event)) {
-							// Streaming complete - update with final content
-							console.log('[Stream] Complete event received:', {
-								requestId: event.requestId,
-								assistantMessageId,
-								contentLength: event.content?.length
-							});
-							update((s) => ({
-								...s,
-								messages: s.messages.map((m) =>
-									m.id === assistantMessageId
-										? {
-												...m,
-												content: event.content,
-												status: 'sent' as const,
-												metadata: event.usage
-													? {
-															tokens: event.usage.totalTokens,
-															model: s.llm.model ?? undefined
-														}
-													: undefined
-											}
-										: m
-								),
-								llm: {
-									isStreaming: false,
-									requestId: null,
-									streamingContent: '',
-									model: null
-								}
-							}));
-							// CRITICAL: Unsubscribe from events to prevent stale listeners
-							if (activeStream) {
-								activeStream.unsubscribe();
-							}
-							// Clear active stream and reset request ID tracking
-							activeStream = null;
-							currentRequestId = null;
-							localStreamingContent = '';
-						} else if (isErrorEvent(event)) {
-							// Error during streaming
-							console.error('[Stream] Error event received:', {
-								requestId: event.requestId,
-								assistantMessageId,
-								error: event.error
-							});
-							update((s) => ({
-								...s,
-								messages: s.messages.map((m) =>
-									m.id === assistantMessageId
-										? { ...m, status: 'error' as const }
-										: m
-								),
-								llm: {
-									isStreaming: false,
-									requestId: null,
-									streamingContent: '',
-									model: null
-								},
-								error: event.error
-							}));
-							// CRITICAL: Unsubscribe from events to prevent stale listeners
-							if (activeStream) {
-								activeStream.unsubscribe();
-							}
-							activeStream = null;
-							currentRequestId = null;
-							localStreamingContent = '';
-						}
-					}
-				});
-
-				// Store active stream for cancellation
-				activeStream = result;
-
-				// Update with request ID
-				update((s) => ({
-					...s,
-					llm: {
-						...s.llm,
-						requestId: result.requestId
-					}
-				}));
-
+				await llmHandler.startStream(content, assistantMessageId, streamingContext, options);
 				return userMessage;
 			} catch (error) {
-				// Clean up on error
-				update((s) => ({
-					...s,
-					messages: s.messages.map((m) =>
-						m.id === assistantMessageId ? { ...m, status: 'error' as const } : m
-					),
-					llm: {
-						isStreaming: false,
-						requestId: null,
-						streamingContent: '',
-						model: null
-					},
-					error: error instanceof Error ? error.message : 'Failed to get LLM response'
-				}));
-				activeStream = null;
+				llmHandler.handleStreamError(assistantMessageId, error);
 				return userMessage;
 			}
 		},
@@ -1163,40 +719,26 @@ function createChatStore() {
 		 * Cancel the current LLM streaming request.
 		 */
 		async cancelLlmStream(): Promise<void> {
-			if (!activeStream) return;
-
-			try {
-				await activeStream.cancel();
-				activeStream.unsubscribe();
-			} catch (error) {
-				console.error('Failed to cancel LLM stream:', error);
-			} finally {
-				activeStream = null;
-				update((s) => ({
-					...s,
-					llm: {
-						isStreaming: false,
-						requestId: null,
-						streamingContent: '',
-						model: null
-					}
-				}));
-			}
+			await llmHandler.cancelStream();
 		},
 
 		/**
 		 * Check if LLM is currently streaming.
 		 */
 		isLlmStreaming(): boolean {
-			return get({ subscribe }).llm.isStreaming;
+			return llmHandler.isStreaming();
 		},
 
 		/**
 		 * Get the current streaming content.
 		 */
 		getStreamingContent(): string {
-			return get({ subscribe }).llm.streamingContent;
+			return llmHandler.getStreamingContent();
 		},
+
+		// ====================================================================
+		// Utility Methods
+		// ====================================================================
 
 		/**
 		 * Clear error state.
@@ -1210,235 +752,42 @@ function createChatStore() {
 		 */
 		reset() {
 			classifier.cancel();
-			// Cancel any active stream
-			if (activeStream) {
-				activeStream.cancel().catch(console.error);
-				activeStream.unsubscribe();
-				activeStream = null;
-			}
+			llmHandler.reset();
 			set(initialState);
 		}
 	};
 }
 
-// Export the store instance
+// ============================================================================
+// Store Instance
+// ============================================================================
+
 export const chatStore = createChatStore();
 
 // ============================================================================
-// Derived Stores
+// Re-exports
 // ============================================================================
 
-/**
- * Currently selected conversation.
- */
-export const selectedConversation = derived(
-	chatStore,
-	($chat) => $chat.conversations.find((c) => c.id === $chat.selectedConversationId) ?? null
-);
+// Types are in ./chat/types.ts - re-exported for convenience
+export type { LoadingState, NlpState, LlmStreamingState, ChatState, LlmRequestOptions } from './chat/types';
 
-/**
- * Currently selected thread.
- */
-export const selectedThread = derived(chatStore, ($chat) => {
-	if (!$chat.selectedThreadId) return null;
-	return $chat.threads.find((t) => t.id === $chat.selectedThreadId) ?? null;
-});
+// Derived stores are in ./chat/derived-stores.ts - re-exported for convenience
+export {
+	selectedConversation,
+	selectedThread,
+	currentThreads,
+	messageGroups,
+	conversationGroups,
+	nlpState,
+	llmState,
+	isLlmStreaming,
+	streamingContent,
+	conversationsLoading,
+	messagesLoading,
+	threadsLoading,
+	chatError,
+	isLoading
+} from './chat/derived-stores';
 
-/**
- * Threads for the current conversation.
- */
-export const currentThreads = derived(chatStore, ($chat) => $chat.threads);
-
-/**
- * Messages grouped by time (for ChatArea display).
- */
-export const messageGroups = derived(chatStore, ($chat): MessageGroup[] => {
-	if ($chat.messages.length === 0) return [];
-
-	const groups: MessageGroup[] = [];
-	let currentGroup: Message[] = [];
-	let lastTime = 0;
-	const GROUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-
-	for (const message of $chat.messages) {
-		const messageTime = message.timestamp.getTime();
-
-		// Start new group if time gap exceeds threshold
-		if (lastTime > 0 && messageTime - lastTime > GROUP_INTERVAL_MS) {
-			if (currentGroup.length > 0) {
-				groups.push({ messages: currentGroup });
-			}
-			currentGroup = [];
-		}
-
-		currentGroup.push(message);
-		lastTime = messageTime;
-	}
-
-	// Add final group
-	if (currentGroup.length > 0) {
-		groups.push({ messages: currentGroup });
-	}
-
-	return groups;
-});
-
-/**
- * Conversations grouped by time for sidebar.
- */
-export const conversationGroups = derived(chatStore, ($chat): ConversationGroup[] => {
-	const now = new Date();
-	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-	const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-	const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-	const groups: Record<string, Conversation[]> = {
-		Today: [],
-		Yesterday: [],
-		'This Week': [],
-		Older: []
-	};
-
-	for (const conversation of $chat.conversations) {
-		const date = new Date(conversation.updatedAt);
-		if (date >= today) {
-			groups['Today'].push(conversation);
-		} else if (date >= yesterday) {
-			groups['Yesterday'].push(conversation);
-		} else if (date >= weekAgo) {
-			groups['This Week'].push(conversation);
-		} else {
-			groups['Older'].push(conversation);
-		}
-	}
-
-	return Object.entries(groups)
-		.filter(([, conversations]) => conversations.length > 0)
-		.map(([label, conversations]) => ({
-			label,
-			conversations: conversations.sort(
-				(a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-			)
-		}));
-});
-
-/**
- * NLP state derived store.
- */
-export const nlpState = derived(chatStore, ($chat) => $chat.nlp);
-
-/**
- * LLM streaming state derived store.
- */
-export const llmState = derived(chatStore, ($chat) => $chat.llm);
-
-/**
- * Whether LLM is currently streaming.
- */
-export const isLlmStreaming = derived(chatStore, ($chat) => $chat.llm.isStreaming);
-
-/**
- * Current streaming content (for real-time display).
- */
-export const streamingContent = derived(chatStore, ($chat) => $chat.llm.streamingContent);
-
-/**
- * Conversations loading state.
- */
-export const conversationsLoading = derived(chatStore, ($chat) => $chat.conversationsLoading);
-
-/**
- * Messages loading state.
- */
-export const messagesLoading = derived(chatStore, ($chat) => $chat.messagesLoading);
-
-/**
- * Threads loading state.
- */
-export const threadsLoading = derived(chatStore, ($chat) => $chat.threadsLoading);
-
-/**
- * Global error state.
- */
-export const chatError = derived(chatStore, ($chat) => $chat.error);
-
-/**
- * Is any loading in progress.
- */
-export const isLoading = derived(
-	chatStore,
-	($chat) =>
-		$chat.conversationsLoading === 'loading' ||
-		$chat.messagesLoading === 'loading' ||
-		$chat.threadsLoading === 'loading' ||
-		$chat.nlp.processing
-);
-
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
-/**
- * Generates a unique ID.
- */
-export function generateId(): string {
-	return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-/**
- * Creates a new conversation object.
- */
-export function createNewConversation(title: string = 'New Conversation'): Conversation {
-	const now = new Date();
-	return {
-		id: generateId(),
-		title,
-		createdAt: now,
-		updatedAt: now,
-		threads: [],
-		settings: {
-			model: 'claude-3-sonnet',
-			temperature: 0.7,
-			maxTokens: 4096
-		}
-	};
-}
-
-/**
- * Creates a new thread object.
- */
-export function createNewThread(conversationId: string, title: string = 'New Thread'): Thread {
-	const now = new Date();
-	return {
-		id: generateId(),
-		conversationId,
-		parentId: null,
-		title,
-		createdAt: now,
-		updatedAt: now,
-		messageCount: 0,
-		metadata: {
-			resolved: false
-		}
-	};
-}
-
-/**
- * Creates a new message object.
- */
-export function createNewMessage(
-	conversationId: string,
-	threadId: string,
-	role: 'user' | 'assistant' | 'system',
-	content: string
-): Message {
-	return {
-		id: generateId(),
-		conversationId,
-		threadId,
-		role,
-		content,
-		timestamp: new Date(),
-		status: 'sending'
-	};
-}
+// Utility functions are in ./chat/utils.ts - re-exported for convenience
+export { generateId, createNewConversation, createNewThread, createNewMessage } from './chat/utils';
