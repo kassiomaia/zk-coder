@@ -133,12 +133,45 @@ impl OpenAiClient {
             .build()
             .expect("Failed to create HTTP client");
 
+        // Normalize base URL: strip any endpoint paths that might have been incorrectly included
+        let normalized_base_url = Self::normalize_base_url(
+            base_url.unwrap_or_else(|| OPENAI_BASE_URL.to_string())
+        );
+
         Self {
             client,
             api_key,
-            base_url: base_url.unwrap_or_else(|| OPENAI_BASE_URL.to_string()),
+            base_url: normalized_base_url,
             provider_type: ApiType::OpenAI,
         }
+    }
+
+    /// Normalizes a base URL by removing any trailing endpoint paths.
+    ///
+    /// This handles cases where the base URL was incorrectly stored with
+    /// endpoint paths like `/chat/completions` or `/models` already included.
+    fn normalize_base_url(url: String) -> String {
+        let url = url.trim_end_matches('/');
+
+        // Remove common endpoint paths that shouldn't be in the base URL
+        let endpoints_to_strip = [
+            "/chat/completions",
+            "/completions",
+            "/models",
+            "/v1/chat/completions",
+            "/v1/completions",
+            "/v1/models",
+        ];
+
+        for endpoint in endpoints_to_strip {
+            if url.ends_with(endpoint) {
+                let normalized = &url[..url.len() - endpoint.len()];
+                info!("Normalized base URL from '{}' to '{}'", url, normalized);
+                return normalized.to_string();
+            }
+        }
+
+        url.to_string()
     }
 
     /// Creates a new Google client using OpenAI-compatible API.
@@ -593,5 +626,54 @@ mod tests {
     fn test_parse_sse_line_empty() {
         assert!(OpenAiClient::parse_sse_line("").is_none());
         assert!(OpenAiClient::parse_sse_line(": comment").is_none());
+    }
+
+    #[test]
+    fn test_normalize_base_url() {
+        // Test correct base URL (no change)
+        assert_eq!(
+            OpenAiClient::normalize_base_url("https://api.openai.com/v1".to_string()),
+            "https://api.openai.com/v1"
+        );
+
+        // Test base URL with trailing slash
+        assert_eq!(
+            OpenAiClient::normalize_base_url("https://api.openai.com/v1/".to_string()),
+            "https://api.openai.com/v1"
+        );
+
+        // Test base URL with /chat/completions (the bug case)
+        assert_eq!(
+            OpenAiClient::normalize_base_url("https://api.openai.com/v1/chat/completions".to_string()),
+            "https://api.openai.com/v1"
+        );
+
+        // Test base URL with /models
+        assert_eq!(
+            OpenAiClient::normalize_base_url("https://api.openai.com/v1/models".to_string()),
+            "https://api.openai.com/v1"
+        );
+
+        // Test base URL with /completions
+        assert_eq!(
+            OpenAiClient::normalize_base_url("https://api.example.com/v1/completions".to_string()),
+            "https://api.example.com/v1"
+        );
+
+        // Test custom provider URL
+        assert_eq!(
+            OpenAiClient::normalize_base_url("https://custom.api.com/api/v1/chat/completions".to_string()),
+            "https://custom.api.com/api/v1"
+        );
+    }
+
+    #[test]
+    fn test_client_creation_with_normalized_url() {
+        // Test that client normalizes incorrect base URL
+        let client = OpenAiClient::new(
+            "test-key".to_string(),
+            Some("https://api.openai.com/v1/chat/completions".to_string())
+        );
+        assert_eq!(client.base_url, "https://api.openai.com/v1");
     }
 }
