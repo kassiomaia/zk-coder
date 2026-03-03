@@ -7,6 +7,8 @@
 	import Tooltip from './Tooltip.svelte';
 	import type { Snippet } from 'svelte';
 
+	type TooltipPosition = 'top' | 'bottom' | 'left' | 'right';
+
 	interface Props {
 		/** Icon snippet (required) */
 		icon: Snippet;
@@ -14,6 +16,8 @@
 		label: string;
 		/** Tooltip text (defaults to label) */
 		tooltip?: string;
+		/** Tooltip position */
+		tooltipPosition?: TooltipPosition;
 		/** Visual style variant */
 		variant?: 'ghost' | 'subtle' | 'solid' | 'transparent';
 		/** Intent/danger level */
@@ -40,6 +44,7 @@
 		icon,
 		label,
 		tooltip,
+		tooltipPosition = 'top',
 		variant = 'ghost',
 		intent = 'default',
 		size = 'md',
@@ -98,7 +103,7 @@
 </script>
 
 {#if showTooltip && !disabled}
-	<Tooltip content={tooltipText} position="top">
+	<Tooltip content={tooltipText} position={tooltipPosition}>
 		<button
 			class={classes}
 			{disabled}

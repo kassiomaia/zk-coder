@@ -23,6 +23,7 @@
 		<IconButton
 			label="Rename conversation"
 			tooltip="Rename"
+			tooltipPosition="left"
 			variant="ghost"
 			size="xs"
 			onclick={(e) => {
@@ -52,6 +53,7 @@
 		<IconButton
 			label="Archive conversation"
 			tooltip="Archive"
+			tooltipPosition="left"
 			variant="ghost"
 			intent="default"
 			size="xs"
@@ -83,6 +85,7 @@
 		<IconButton
 			label="Delete conversation"
 			tooltip="Delete"
+			tooltipPosition="left"
 			variant="ghost"
 			intent="danger"
 			size="xs"

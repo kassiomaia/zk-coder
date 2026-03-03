@@ -88,6 +88,7 @@
 		<IconButton
 			label={copied ? 'Copied' : 'Copy message'}
 			tooltip="Copy"
+			tooltipPosition="bottom"
 			variant="ghost"
 			size="sm"
 			class={styles.actionBtn}
@@ -132,6 +133,7 @@
 		<IconButton
 			label="Edit message"
 			tooltip="Edit"
+			tooltipPosition="bottom"
 			variant="ghost"
 			size="sm"
 			class={styles.actionBtn}
@@ -159,6 +161,7 @@
 		<IconButton
 			label="Delete message"
 			tooltip="Delete"
+			tooltipPosition="bottom"
 			variant="ghost"
 			intent="danger"
 			size="sm"
@@ -187,6 +190,7 @@
 		<IconButton
 			label="Retry"
 			tooltip="Retry"
+			tooltipPosition="bottom"
 			variant="ghost"
 			size="sm"
 			class={styles.actionBtn}
@@ -215,6 +219,7 @@
 			<IconButton
 				label="Good response"
 				tooltip="Good response"
+				tooltipPosition="bottom"
 				variant="ghost"
 				intent="success"
 				size="sm"
@@ -243,6 +248,7 @@
 			<IconButton
 				label="Bad response"
 				tooltip="Bad response"
+				tooltipPosition="bottom"
 				variant="ghost"
 				intent="warning"
 				size="sm"
