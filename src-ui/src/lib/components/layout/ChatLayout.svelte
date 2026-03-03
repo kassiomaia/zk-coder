@@ -2,25 +2,21 @@
 	/**
 	 * ChatLayout Component
 	 * Main responsive layout for the chat application.
-	 * Manages sidebar visibility, thread panel, and responsive behavior.
+	 * Single unified sidebar with hierarchical navigation (conversations + inline threads).
 	 */
 	import { onMount, onDestroy } from 'svelte';
 	import styles from './ChatLayout.module.css';
 	import ConversationSidebar from '../chat/sidebar/ConversationSidebar.svelte';
-	import ThreadView from '../chat/thread/ThreadView.svelte';
 	import ThreadPanel from '../chat/thread/ThreadPanel.svelte';
 	import ChatArea from '../chat/ChatArea.svelte';
 	import type { Conversation, Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
 	import { createAppShortcuts, unregisterShortcuts } from '$lib/utils/keyboardShortcuts';
 
-	// localStorage key for thread panel state
-	const THREAD_PANEL_STORAGE_KEY = 'coder:threadPanelOpen';
-
 	interface Props {
 		/** Conversations for the sidebar */
 		conversations: Conversation[];
-		/** Threads for the current conversation (loaded separately from backend) */
+		/** Threads for the current conversation */
 		threads: Thread[];
 		/** Currently selected conversation */
 		selectedConversation?: Conversation;
@@ -48,6 +44,8 @@
 		onArchiveConversation?: (conversation: Conversation) => void;
 		/** Handler to archive thread */
 		onArchiveThread?: (thread: Thread) => void;
+		/** Handler to delete thread */
+		onDeleteThread?: (thread: Thread) => void;
 		/** Handler to rename thread */
 		onRenameThread?: (thread: Thread, newTitle: string) => void;
 		/** Handler for search */
@@ -78,6 +76,7 @@
 		onRenameConversation,
 		onArchiveConversation,
 		onArchiveThread,
+		onDeleteThread,
 		onRenameThread,
 		onSearch,
 		onSettings,
@@ -86,17 +85,8 @@
 		hasConfiguredProvider = true
 	}: Props = $props();
 
-	// UI state for responsive behavior
+	// UI state for responsive behavior (mobile sidebar)
 	let sidebarOpen = $state(false);
-	let threadPanelOpen = $state(true); // Default to open
-
-	// Load persisted state on mount
-	onMount(() => {
-		const stored = localStorage.getItem(THREAD_PANEL_STORAGE_KEY);
-		if (stored !== null) {
-			threadPanelOpen = stored === 'true';
-		}
-	});
 
 	// Keyboard shortcuts
 	let shortcutIds: string[] = [];
@@ -126,19 +116,8 @@
 		unregisterShortcuts(shortcutIds);
 	});
 
-	// Persist state changes
-	function setThreadPanelOpen(open: boolean) {
-		threadPanelOpen = open;
-		try {
-			localStorage.setItem(THREAD_PANEL_STORAGE_KEY, String(open));
-		} catch {
-			// localStorage not available
-		}
-	}
-
-	// Derived state - show thread panel when a conversation is selected
-	let hasThreads = $derived(threads.length > 0);
-	let showThreadPanel = $derived(!!selectedConversation);
+	// Derived state
+	let hasSelectedConversation = $derived(!!selectedConversation);
 
 	// Derive selected thread from threads array to always get fresh data
 	let selectedThread = $derived(
@@ -147,10 +126,6 @@
 
 	function toggleSidebar() {
 		sidebarOpen = !sidebarOpen;
-	}
-
-	function toggleThreadPanel() {
-		setThreadPanelOpen(!threadPanelOpen);
 	}
 
 	function closeSidebar() {
@@ -162,16 +137,9 @@
 		closeSidebar();
 	}
 
-	function handleOpenChatWithThreads(conversation: Conversation) {
-		// Select the conversation first
-		onSelectConversation?.(conversation);
-		// Open the thread panel
-		setThreadPanelOpen(true);
-		closeSidebar();
-	}
-
 	function handleSelectThread(thread: Thread) {
 		onSelectThread?.(thread);
+		closeSidebar();
 	}
 
 	function handleSelectThreadById(threadId: string) {
@@ -181,16 +149,12 @@
 		}
 	}
 
-	// Handle sending message
 	function handleSendMessage(content: string) {
 		onSendMessage?.(content);
 	}
 
-	// Handle reopening a resolved thread
 	function handleReopenThread() {
 		if (selectedThread && onResolveThread) {
-			// Pass the original thread - the handler will toggle its resolved state
-			// Since it's currently resolved (true), toggling will make it unresolved (false)
 			onResolveThread(selectedThread);
 		}
 	}
@@ -203,7 +167,7 @@
 	);
 </script>
 
-<div class={styles.layout} data-sidebar-open={sidebarOpen} data-thread-open={threadPanelOpen}>
+<div class={styles.layout} data-sidebar-open={sidebarOpen}>
 	<!-- Mobile header -->
 	<header class={styles.header}>
 		<button
@@ -238,32 +202,6 @@
 				Coder
 			{/if}
 		</h1>
-
-		{#if selectedConversation}
-			<button
-				class={styles.menuButton}
-				onclick={toggleThreadPanel}
-				aria-label={threadPanelOpen ? 'Hide threads' : 'Show threads'}
-				aria-expanded={threadPanelOpen}
-				type="button"
-			>
-				<svg
-					width="24"
-					height="24"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-				</svg>
-				{#if threads.length > 0}
-					<span class={styles.badge}>{threads.length}</span>
-				{/if}
-			</button>
-		{/if}
 	</header>
 
 	<!-- Main content area -->
@@ -279,18 +217,25 @@
 			</button>
 		{/if}
 
-		<!-- Conversation sidebar -->
+		<!-- Unified sidebar with inline threads -->
 		<div class={[styles.sidebarWrapper, sidebarOpen && styles.open].filter(Boolean).join(' ')}>
 			<ConversationSidebar
 				{conversations}
 				selectedId={selectedConversation?.id}
+				threadsForSelected={threads}
+				selectedThreadId={selectedThread?.id}
 				onSelect={handleSelectConversation}
-				onOpenChat={handleOpenChatWithThreads}
+				onSelectThread={handleSelectThread}
 				{onSearch}
 				onCreateNew={onCreateConversation}
+				onCreateThread={onCreateThread}
 				onDelete={onDeleteConversation}
 				onRename={onRenameConversation}
 				onArchive={onArchiveConversation}
+				onResolveThread={onResolveThread}
+				onRenameThread={onRenameThread}
+				onDeleteThread={onDeleteThread}
+				onArchiveThread={onArchiveThread}
 				{onSettings}
 				{hasConfiguredProvider}
 			/>
@@ -298,85 +243,31 @@
 
 		<!-- Main chat area -->
 		<div class={styles.content}>
-			{#if showThreadPanel}
-				<!-- Thread view with panel -->
-				<div class={styles.threadLayout}>
-					<div
-						class={[styles.threadPanelWrapper, threadPanelOpen && styles.open]
-							.filter(Boolean)
-							.join(' ')}
-					>
-						<ThreadView
-							{threads}
-							selectedThreadId={selectedThread?.id}
-							onSelect={handleSelectThread}
-							{onCreateThread}
-							{onResolveThread}
-							onRenameThread={onRenameThread}
-							onArchiveThread={onArchiveThread}
-							onCollapse={toggleThreadPanel}
-							loading={threadsLoading}
-						/>
-					</div>
-
-					<!-- Thread content or main chat -->
-					<div class={styles.threadContent}>
-						{#if selectedThread}
-								<ThreadPanel
-								thread={selectedThread}
-								{messages}
-								{breadcrumbPath}
-								onSendMessage={handleSendMessage}
-								onReopenThread={handleReopenThread}
-								onToggleSidebar={toggleThreadPanel}
-								{loading}
-							/>
-						{:else}
-							<div class={styles.chatAreaWrapper}>
-								{#if !threadPanelOpen}
-									<div class={styles.chatAreaHeader}>
-										<button 
-											class={styles.threadSidebarToggle}
-											onclick={toggleThreadPanel}
-											aria-label="Show threads"
-											type="button"
-										>
-											<svg
-												width="18"
-												height="18"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											>
-												<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-												<line x1="9" y1="3" x2="9" y2="21" />
-											</svg>
-											<span class={styles.toggleLabel}>Threads</span>
-											{#if threads.length > 0}
-												<span class={styles.toggleBadge}>{threads.length}</span>
-											{/if}
-										</button>
-									</div>
-								{/if}
-								<ChatArea
-									{messages}
-									threadId={selectedThreadId}
-									{threads}
-									emptyContext={selectedThread ? 'thread' : 'conversation'}
-									conversationTitle={selectedConversation?.title}
-									{loading}
-									onSendMessage={handleSendMessage}
-									onThreadClick={handleSelectThreadById}
-								/>
-							</div>
-						{/if}
-					</div>
-				</div>
+			{#if selectedThread}
+				<!-- Thread panel with messages -->
+				<ThreadPanel
+					thread={selectedThread}
+					{messages}
+					{breadcrumbPath}
+					onSendMessage={handleSendMessage}
+					onReopenThread={handleReopenThread}
+					onToggleSidebar={toggleSidebar}
+					{loading}
+				/>
+			{:else if hasSelectedConversation}
+				<!-- Chat area for conversation (no thread selected) -->
+				<ChatArea
+					{messages}
+					threadId={selectedThreadId}
+					{threads}
+					emptyContext="conversation"
+					conversationTitle={selectedConversation?.title}
+					{loading}
+					onSendMessage={handleSendMessage}
+					onThreadClick={handleSelectThreadById}
+				/>
 			{:else}
-				<!-- Standard chat area (no threads) -->
+				<!-- Empty state -->
 				<ChatArea
 					{messages}
 					threadId={selectedThreadId}
@@ -386,16 +277,5 @@
 				/>
 			{/if}
 		</div>
-
-		<!-- Thread panel backdrop (mobile) -->
-		{#if threadPanelOpen && showThreadPanel}
-			<button
-				class={[styles.backdrop, styles.right].filter(Boolean).join(' ')}
-				onclick={toggleThreadPanel}
-				aria-label="Close thread panel"
-				type="button"
-			>
-			</button>
-		{/if}
 	</div>
 </div>
