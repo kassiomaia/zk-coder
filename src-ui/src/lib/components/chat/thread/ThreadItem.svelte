@@ -14,6 +14,8 @@
 		thread: Thread;
 		/** Whether this thread is selected */
 		selected?: boolean;
+		/** Visual variant: 'default' for full size, 'inline' for reduced size with indentation */
+		variant?: 'default' | 'inline';
 		/** Click handler */
 		onclick: () => void;
 		/** Resolve handler */
@@ -28,7 +30,17 @@
 		style?: string;
 	}
 
-	let { thread, selected = false, onclick, onresolve, ondelete, onarchive, onrename, style = '' }: Props = $props();
+	let {
+		thread,
+		selected = false,
+		variant = 'default',
+		onclick,
+		onresolve,
+		ondelete,
+		onarchive,
+		onrename,
+		style = ''
+	}: Props = $props();
 
 	let isHovered = $state(false);
 	let isMenuOpen = $state(false);
@@ -48,6 +60,7 @@
 	class={[styles.item, selected && styles.selected, isMenuOpen && styles.menuOpen].filter(Boolean).join(' ')}
 	role="option"
 	aria-selected={selected}
+	data-variant={variant}
 	{style}
 	onmouseenter={() => (isHovered = true)}
 	onmouseleave={() => (isHovered = false)}
