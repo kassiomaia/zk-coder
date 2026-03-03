@@ -223,12 +223,17 @@
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
 	.button,
-	.icon {
+	.icon,
+	.item {
 		transition: none;
 	}
 
 	.item {
 		animation: none;
 		opacity: 1;
+	}
+
+	.button.hidden {
+		transform: none;
 	}
 }
