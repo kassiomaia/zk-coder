@@ -4,9 +4,10 @@
  *
  * Design Features:
  * - Subtle, non-intrusive appearance
- * - Clear visual hierarchy with indentation
- * - Smooth reveal animation
+ * - Clear visual hierarchy with indentation and connectors
+ * - Smooth reveal animation using design system tokens
  * - Minimal visual noise
+ * - Visual connection to parent conversation
  */
 
 /* Container animation - controlled reveal */
@@ -18,34 +19,39 @@
 	transition:
 		max-height var(--transition-normal) var(--ease-out),
 		opacity var(--transition-fast) var(--ease-out);
-	margin: 0 var(--space-2); /* Match ConversationItem margin */
+	/* Indentation matches thread items */
+	margin: 0 var(--space-2) 0 var(--space-5);
+	/* Visual connector to parent conversation */
+	padding-left: var(--space-2);
+	border-left: 1px solid var(--color-border-subtle);
+	opacity: 0.6;
 }
 
 .container.expanded {
-	/* Sufficient for ~8 threads */
-	max-height: 500px;
+	/* Sufficient for ~10 threads */
+	max-height: 600px;
 	opacity: 1;
 }
 
 /* Section styling */
 .section {
-	margin-top: var(--space-1);
+	margin-top: var(--space-2);
 }
 
 .section:first-child {
-	margin-top: var(--space-0-5);
+	margin-top: var(--space-1);
 }
 
 /* Section header - minimal, only show when both open and resolved exist */
 .sectionHeader {
 	display: flex;
 	align-items: center;
-	padding: var(--space-0-5) var(--space-2);
-	margin-bottom: 0;
+	padding: var(--space-1) var(--space-2);
+	margin-bottom: var(--space-1);
 }
 
 .sectionLabel {
-	font-size: 0.625rem; /* 10px - very subtle */
+	font-size: var(--text-2xs); /* 10px - very subtle */
 	font-weight: var(--font-medium);
 	color: var(--color-text-muted);
 	text-transform: uppercase;
@@ -54,10 +60,10 @@
 }
 
 .count {
-	font-size: 0.625rem;
+	font-size: var(--text-2xs);
 	font-weight: var(--font-normal);
 	color: var(--color-text-muted);
-	opacity: 0.5;
+	opacity: 0.6;
 	margin-left: var(--space-1);
 }
 

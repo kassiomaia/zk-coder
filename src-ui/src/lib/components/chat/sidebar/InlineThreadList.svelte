@@ -54,6 +54,7 @@
 	<div
 		class={[styles.container, expanded && styles.expanded].filter(Boolean).join(' ')}
 		id="inline-threads"
+		data-threads-expanded={expanded || undefined}
 		aria-label="Conversation threads"
 	>
 		<!-- Open threads -->
