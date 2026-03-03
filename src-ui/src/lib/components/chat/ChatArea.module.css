@@ -1,11 +1,13 @@
 /**
  * ChatArea Component Styles (Enhanced)
- * Main chat layout container with message grouping.
+ * Main chat layout container with unified message rendering system.
  *
  * Design Features:
- * - Better message card design
- * - Clear visual hierarchy
- * - Improved spacing and typography
+ * - Unified message card design with structural rhythm
+ * - Clear visual hierarchy with consistent spacing
+ * - Motion hierarchy with entry transitions and stagger
+ * - Optimistic layout reservation for scrollbar stability
+ * - Progressive reveal for streaming content
  */
 
 .chatArea {
@@ -15,20 +17,23 @@
 	background: var(--color-bg-primary);
 }
 
-/* Messages wrapper */
+/* =====================
+   Messages Wrapper - Scrollbar Stability
+   ===================== */
+
 .messagesWrapper {
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
 	padding: var(--space-5);
-	/* scroll-behavior removed - using custom RAF animations for precise control */
 	max-width: 900px;
 	margin: 0 auto;
 	width: 100%;
-	/* Ensure scrollbar space is always reserved to prevent layout shifts and rendering issues */
+	/* Reserve scrollbar space to prevent layout shifts */
 	scrollbar-gutter: stable;
 }
 
+/* Scrollbar styling */
 .messagesWrapper::-webkit-scrollbar {
 	width: 6px;
 	background: transparent;
@@ -66,18 +71,45 @@
 	scrollbar-color: var(--color-border-secondary) transparent;
 }
 
-/* Message groups - clearer separation */
+/* =====================
+   Message Groups - Structural Rhythm
+   ===================== */
+
+.messageGroup {
+	animation: groupEnter var(--duration-slow) var(--ease-out) backwards;
+}
+
+/* Staggered entry for message groups */
+.messageGroup:nth-child(1) { animation-delay: 0ms; }
+.messageGroup:nth-child(2) { animation-delay: 40ms; }
+.messageGroup:nth-child(3) { animation-delay: 80ms; }
+.messageGroup:nth-child(4) { animation-delay: 120ms; }
+.messageGroup:nth-child(n+5) { animation-delay: 160ms; }
+
+@keyframes groupEnter {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Group separation with clear boundaries */
 .messageGroup + .messageGroup {
 	margin-top: var(--space-6);
 	padding-top: var(--space-6);
 	border-top: 1px solid var(--color-border-subtle);
 }
 
+/* Group header */
 .groupHeader {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
-	margin-bottom: var(--space-4);
+	margin-bottom: var(--space-3);
 	padding: 0 var(--space-2);
 }
 
@@ -94,87 +126,119 @@
 	color: var(--color-text-muted);
 }
 
+/* Messages container within group */
 .groupMessages {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-4);
+	gap: var(--space-3);
 	padding-left: var(--space-4);
 }
 
-/* Message wrapper - Flexbox layout for message + actions alignment */
+/* =====================
+   Message Wrapper - Flexbox Layout
+   ===================== */
+
 .messageWrapper {
 	position: relative;
 	display: flex;
 	width: 100%;
-	margin-bottom: 2px; /* Slight spacing between rows */
-	/* Animation for entry */
-	animation: slideInUp 0.3s cubic-bezier(0.2, 0.0, 0.2, 1) backwards;
+	margin-bottom: 2px;
+	animation: messageSlideIn var(--duration-normal) var(--ease-out) backwards;
+}
+
+/* Staggered entry for messages within group */
+.messageWrapper:nth-child(1) { animation-delay: 0ms; }
+.messageWrapper:nth-child(2) { animation-delay: 25ms; }
+.messageWrapper:nth-child(3) { animation-delay: 50ms; }
+.messageWrapper:nth-child(n+4) { animation-delay: 75ms; }
+
+@keyframes messageSlideIn {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 /* Assistant: Message Left, Actions Right */
 .assistantWrapper {
 	flex-direction: row;
 	justify-content: flex-start;
-	align-items: flex-end; /* Align actions to bottom corner */
+	align-items: flex-end;
 }
 
 /* User: Message Right, Actions Left */
 .userWrapper {
 	flex-direction: row-reverse;
-	justify-content: flex-start; /* Ensure items start from right edge (flex-start of row-reverse is right) */
-	align-items: flex-end; /* Align actions to bottom corner */
+	justify-content: flex-start;
+	align-items: flex-end;
 }
 
-/* Common Message Bubble Styles */
+/* =====================
+   Message Bubbles
+   ===================== */
+
 .message {
 	position: relative;
-	padding: var(--space-3) var(--space-4); /* Refined padding */
-	border-radius: var(--radius-2xl); /* More organic roundedness */
-	max-width: calc(100% - 80px); /* Reserve space for actions to prevent scroll/overlap */
+	padding: var(--space-3) var(--space-4);
+	border-radius: var(--radius-2xl);
+	max-width: calc(100% - 80px);
 	width: fit-content;
 	word-wrap: break-word;
 	line-height: var(--leading-relaxed);
-	transition: background-color var(--transition-fast);
+	transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-/* User Message Specifics */
+/* User message styling */
 .userWrapper .message {
 	background-color: var(--color-role-user-bg);
 	color: var(--color-text-primary);
-	border-bottom-right-radius: var(--radius-sm); /* Subtle tail effect */
-	margin-left: var(--space-2); /* Spacing from actions */
+	border-bottom-right-radius: var(--radius-md);
+	margin-left: var(--space-2);
 }
 
-/* Assistant Message Specifics */
+.userWrapper .message:hover {
+	background-color: var(--color-role-user-bg-hover);
+}
+
+/* Assistant message styling */
 .assistantWrapper .message {
 	background-color: transparent;
 	color: var(--color-text-primary);
-	border-bottom-left-radius: var(--radius-sm); /* Subtle tail effect */
-	padding-left: 0; /* Align text flush with avatar/gutter if needed, but here simple */
-	margin-right: var(--space-2); /* Spacing from actions */
+	border-bottom-left-radius: var(--radius-md);
+	padding-left: 0;
+	margin-right: var(--space-2);
+	max-width: 100%;
 }
 
-/* Hover effect for messages (optional, maybe just for assistant) */
-.assistantWrapper .message:hover {
-	/* background-color: var(--color-surface-hover); -- Keep transparent for cleaner look, or subtle */
+/* Message content wrapper */
+.messageContent {
+	font-size: var(--text-sm);
+	line-height: var(--leading-relaxed);
 }
 
-/* Actions Container */
+/* =====================
+   Actions Container - Hover Reveal
+   ===================== */
+
 .actionsContainer {
 	display: flex;
 	align-items: center;
-	height: 32px; /* Fixed height for consistent alignment */
+	height: 32px;
 	opacity: 0;
 	transform: scale(0.95);
-	transition: 
-		opacity 0.2s ease-out,
+	transition:
+		opacity 0.2s var(--ease-out),
 		transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 	z-index: 10;
 	pointer-events: none;
-	flex-shrink: 0; /* Prevent squishing */
+	flex-shrink: 0;
 }
 
-/* Reveal Actions on Hover/Focus */
+/* Reveal actions on hover/focus */
 .messageWrapper:hover .actionsContainer,
 .messageWrapper:focus-within .actionsContainer {
 	opacity: 1;
@@ -183,32 +247,23 @@
 	transition-delay: 50ms;
 }
 
-/* Fix vertical alignment if message is short vs long */
-/* We used align-items: flex-end on wrapper, so actions sit at the bottom. 
-   This is usually good for keeping them near the last line of text. */
+/* =====================
+   Status States
+   ===================== */
 
-/* Entry Animation */
-@keyframes slideInUp {
-	from {
-		opacity: 0;
-		transform: translateY(8px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-/* --- Rest of the file (Scrollbar, etc) --- */
-
-/* Message status states */
 .messageSending {
 	opacity: 0.7;
+	animation: sendPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes sendPulse {
+	0%, 100% { opacity: 0.7; }
+	50% { opacity: 0.85; }
 }
 
 .messageError {
-	border-color: var(--color-error) !important;
-	background: var(--color-bg-error) !important;
+	border: 1px solid var(--color-error) !important;
+	background: var(--color-error-light) !important;
 }
 
 .statusIndicator {
@@ -216,23 +271,6 @@
 	align-items: center;
 	justify-content: flex-end;
 	margin-top: var(--space-2);
-}
-
-.sendingDot {
-	width: 6px;
-	height: 6px;
-	background: var(--color-text-muted);
-	border-radius: var(--radius-full);
-	animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-	0%, 100% {
-		opacity: 0.4;
-	}
-	50% {
-		opacity: 1;
-	}
 }
 
 .retryIconButton {
@@ -249,8 +287,12 @@
 }
 
 .retryIconButton:hover {
-	background: var(--color-error-hover);
 	transform: scale(1.1);
+	box-shadow: var(--shadow-md);
+}
+
+.retryIconButton:active {
+	transform: scale(0.95);
 }
 
 .retryIconButton:focus-visible {
@@ -258,12 +300,19 @@
 	outline-offset: 2px;
 }
 
-/* Typing indicator wrapper */
+/* =====================
+   Typing Indicator Reserved Space
+   ===================== */
+
 .typingWrapper {
 	padding: var(--space-3) var(--space-5);
+	min-height: 40px;
 }
 
-/* Input container with slide/fade transitions */
+/* =====================
+   Input Container - Slide Transitions
+   ===================== */
+
 .inputContainer {
 	flex-shrink: 0;
 	padding: var(--space-4) var(--space-5);
@@ -273,12 +322,11 @@
 	position: relative;
 }
 
-/* Only apply transition when not animating */
 .inputContainer:not(.animateIn):not(.animateOut) {
 	transition: all var(--transition-normal);
 }
 
-/* Fast slide in from bottom - snappy and quick */
+/* Fast slide in from bottom */
 .inputContainer.animateIn {
 	animation: slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -294,7 +342,7 @@
 	}
 }
 
-/* Fast slide out - quick exit */
+/* Fast slide out */
 .inputContainer.animateOut {
 	animation: slideOut 0.15s cubic-bezier(0.7, 0, 0.84, 0);
 	animation-fill-mode: forwards;
@@ -311,7 +359,7 @@
 	}
 }
 
-/* Desktop sticky input */
+/* Desktop sticky input with gradient fade */
 @media (min-width: 769px) {
 	.inputContainer {
 		position: sticky;
@@ -327,12 +375,15 @@
 	}
 }
 
-/* Loading state - skeleton */
+/* =====================
+   Loading & Error States
+   ===================== */
+
 .loading {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	 justify-content: center;
+	justify-content: center;
 	padding: var(--space-10);
 	gap: var(--space-4);
 	color: var(--color-text-muted);
@@ -348,9 +399,7 @@
 }
 
 @keyframes spin {
-	to {
-		transform: rotate(360deg);
-	}
+	to { transform: rotate(360deg); }
 }
 
 .loadingText {
@@ -358,12 +407,11 @@
 	color: var(--color-text-secondary);
 }
 
-/* Error state */
 .error {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	 justify-content: center;
+	justify-content: center;
 	padding: var(--space-10);
 	gap: var(--space-4);
 }
@@ -381,7 +429,7 @@
 .retryButton {
 	display: inline-flex;
 	align-items: center;
-	 justify-content: center;
+	justify-content: center;
 	gap: var(--space-2);
 	padding: var(--space-2-5) var(--space-5);
 	background: var(--color-surface);
@@ -400,12 +448,19 @@
 	box-shadow: var(--shadow-sm);
 }
 
+.retryButton:active {
+	transform: scale(0.98);
+}
+
 .retryButton:focus-visible {
 	outline: 2px solid var(--color-border-secondary);
 	outline-offset: 2px;
 }
 
-/* Empty state - simplified */
+/* =====================
+   Empty State
+   ===================== */
+
 .empty {
 	display: flex;
 	flex-direction: column;
@@ -415,6 +470,12 @@
 	gap: var(--space-1);
 	color: var(--color-text-muted);
 	flex: 1;
+	animation: emptyFadeIn var(--duration-slow) var(--ease-out);
+}
+
+@keyframes emptyFadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
 }
 
 .emptyHeader {
@@ -441,7 +502,10 @@
 	margin: 0;
 }
 
-/* Scroll to bottom button */
+/* =====================
+   Scroll to Bottom Button
+   ===================== */
+
 .scrollToBottom {
 	position: sticky;
 	bottom: var(--space-4);
@@ -471,48 +535,42 @@
 	box-shadow: var(--shadow-lg);
 }
 
+.scrollToBottom:active {
+	transform: translateX(-50%) scale(0.98);
+}
+
 .scrollToBottom:focus-visible {
 	outline: 2px solid var(--color-border-secondary);
 	outline-offset: 2px;
 }
 
-/* Pulsing animation for scroll button during streaming */
+/* Pulsing animation during streaming */
 .pulsing {
-	animation: pulse 2s ease-in-out infinite;
+	animation: scrollPulse 2s ease-in-out infinite;
 }
 
-@keyframes pulse {
+@keyframes scrollPulse {
 	0%, 100% {
 		box-shadow: var(--shadow-md);
 		border-color: var(--color-border-primary);
 	}
 	50% {
-		box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2), var(--shadow-lg);
-		border-color: var(--color-primary);
+		box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), var(--shadow-lg);
+		border-color: var(--color-primary-500);
 	}
 }
 
-/* Tablet layout */
+/* =====================
+   Responsive Adjustments
+   ===================== */
+
 @media (min-width: 601px) and (max-width: 768px) {
 	.inputContainer {
 		padding-left: var(--space-4);
 		padding-right: var(--space-4);
 	}
-
-	/* Ensure input stays within bounds on tablet with sidebar */
-	.inputContainer::before {
-		content: '';
-		position: absolute;
-		left: 0;
-		top: 0;
-		bottom: 0;
-		width: 40%;
-		background: transparent;
-		z-index: -1;
-	}
 }
 
-/* Mobile layout */
 @media (max-width: 600px) {
 	.messagesWrapper {
 		padding: var(--space-4);
@@ -521,18 +579,6 @@
 	.inputContainer {
 		padding: var(--space-3) var(--space-4);
 		padding-top: 0;
-	}
-
-	/* Ensure input stays within bounds on mobile with sidebar */
-	.inputContainer::before {
-		content: '';
-		position: absolute;
-		left: 0;
-		top: 0;
-		bottom: 0;
-		width: 85%;
-		background: transparent;
-		z-index: -1;
 	}
 
 	.groupMessages {
@@ -554,16 +600,39 @@
 	}
 }
 
-/* Reduced motion */
+/* =====================
+   Reduced Motion Support
+   ===================== */
+
 @media (prefers-reduced-motion: reduce) {
+	.messageGroup,
+	.messageWrapper,
+	.message,
+	.inputContainer,
+	.scrollToBottom,
+	.spinner,
+	.actionsContainer {
+		animation: none !important;
+		transition: none !important;
+	}
+
+	.messageGroup,
+	.messageWrapper {
+		opacity: 1;
+		transform: none;
+	}
+
 	.spinner {
-		animation: none;
 		border-top-color: var(--color-text-muted);
 		opacity: 0.7;
 	}
 
-	.message,
-	.retryButton {
-		transition: none;
+	.pulsing {
+		animation: none;
+	}
+
+	.actionsContainer {
+		opacity: 1;
+		transform: none;
 	}
 }
