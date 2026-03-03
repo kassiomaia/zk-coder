@@ -243,6 +243,31 @@
 	--ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 	--ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 	--ease-elastic: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+
+	/* =====================
+     Button Animation Tokens
+     ===================== */
+
+	/* Button-specific transition timings */
+	--btn-transition-color: 200ms var(--ease-in-out);
+	--btn-transition-transform: 150ms var(--ease-out);
+	--btn-transition-shadow: 200ms var(--ease-in-out);
+	--btn-press-scale: 0.96;
+	--btn-hover-lift: -1px;
+
+	/* Micro-interaction durations */
+	--duration-micro: 100ms;
+	--duration-reveal: 250ms;
+
+	/* Button state shadows */
+	--shadow-btn-rest: 0 1px 2px rgba(0, 0, 0, 0.05);
+	--shadow-btn-hover: 0 2px 4px rgba(0, 0, 0, 0.1);
+	--shadow-btn-focus: 0 0 0 3px rgba(99, 102, 241, 0.25);
+
+	/* Intent-based glow shadows */
+	--shadow-glow-success: 0 0 8px rgba(16, 185, 129, 0.15);
+	--shadow-glow-warning: 0 0 8px rgba(245, 158, 11, 0.15);
+	--shadow-glow-danger: 0 0 8px rgba(239, 68, 68, 0.2);
 }
 
 /* Dark Mode Theme - Subtle, low-contrast design */
