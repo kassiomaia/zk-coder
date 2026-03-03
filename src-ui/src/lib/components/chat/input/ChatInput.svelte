@@ -8,6 +8,7 @@
 	import CommandPalette from './CommandPalette.svelte';
 	import IntentIndicator from './IntentIndicator.svelte';
 	import MentionMenu from './MentionMenu.svelte';
+	import IconButton from '$lib/components/shared/IconButton.svelte';
 	import type { Command } from '$lib/types/command';
 	import { BUILT_IN_COMMANDS, filterCommands } from '$lib/types/command';
 	import type { IntentClassification } from '$lib/types/nlp';
@@ -292,26 +293,30 @@
 					{/if}
 					<span class={styles.attachmentName}>{file.name}</span>
 					<span class={styles.attachmentSize}>{formatSize(file.size)}</span>
-					<button
-						class={styles.attachmentRemove}
+					<IconButton
+						label="Remove {file.name}"
+						tooltip="Remove"
+						variant="ghost"
+						intent="danger"
+						size="xs"
 						onclick={() => onremoveattachment?.(file.id)}
-						aria-label="Remove {file.name}"
-						type="button"
 					>
-						<svg
-							width="14"
-							height="14"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<line x1="18" y1="6" x2="6" y2="18" />
-							<line x1="6" y1="6" x2="18" y2="18" />
-						</svg>
-					</button>
+						{#snippet icon()}
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<line x1="18" y1="6" x2="6" y2="18" />
+								<line x1="6" y1="6" x2="18" y2="18" />
+							</svg>
+						{/snippet}
+					</IconButton>
 				</div>
 			{/each}
 		</div>
@@ -370,28 +375,31 @@
 	<div class={styles.actions}>
 		<div class={styles.leftActions}>
 			{#if onattach}
-				<button
-					class={styles.actionButton}
+				<IconButton
+					label="Attach file"
+					tooltip="Attach file"
+					variant="ghost"
+					size="sm"
+					disabled={disabled}
 					onclick={() => fileInputRef?.click()}
-					{disabled}
-					aria-label="Attach file"
-					type="button"
 				>
-					<svg
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<path
-							d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"
-						/>
-					</svg>
-				</button>
+					{#snippet icon()}
+						<svg
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path
+								d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"
+							/>
+						</svg>
+					{/snippet}
+				</IconButton>
 				<input
 					bind:this={fileInputRef}
 					type="file"
@@ -403,29 +411,32 @@
 			{/if}
 
 			{#if enableMarkdownPreview}
-				<button
-					class={[styles.actionButton, isPreviewMode && styles.active].filter(Boolean).join(' ')}
+				<IconButton
+					label={isPreviewMode ? 'Edit mode' : 'Preview markdown'}
+					tooltip={isPreviewMode ? 'Edit mode' : 'Preview markdown'}
+					variant="ghost"
+					size="sm"
+					disabled={disabled}
+					active={isPreviewMode}
 					onclick={togglePreview}
-					{disabled}
-					aria-label={isPreviewMode ? 'Edit mode' : 'Preview markdown'}
-					aria-pressed={isPreviewMode}
-					type="button"
 				>
-					<svg
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<path d="M4 7V4h16v3" />
-						<path d="M9 20h6" />
-						<path d="M12 4v16" />
-					</svg>
-				</button>
+					{#snippet icon()}
+						<svg
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M4 7V4h16v3" />
+							<path d="M9 20h6" />
+							<path d="M12 4v16" />
+						</svg>
+					{/snippet}
+				</IconButton>
 			{/if}
 		</div>
 
@@ -438,40 +449,45 @@
 				</span>
 			{/if}
 
-			<button
-				class={[styles.sendButton, !canSubmit && styles.disabled].filter(Boolean).join(' ')}
-				onclick={onsubmit}
+			<IconButton
+				label="Send message"
+				tooltip="Send"
+				variant="subtle"
+				intent={canSubmit ? 'success' : 'default'}
+				size="sm"
 				disabled={!canSubmit}
-				aria-label="Send message"
-				type="button"
+				loading={loading}
+				onclick={onsubmit}
 			>
-				{#if loading}
-					<svg
-						class={styles.spinner}
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="20">
-							<animateTransform
-								attributeName="transform"
-								type="rotate"
-								from="0 12 12"
-								to="360 12 12"
-								dur="1s"
-								repeatCount="indefinite"
-							/>
-						</circle>
-					</svg>
-				{:else}
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-						<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-					</svg>
-				{/if}
-			</button>
+				{#snippet icon()}
+					{#if loading}
+						<svg
+							class={styles.spinner}
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="20">
+								<animateTransform
+									attributeName="transform"
+									type="rotate"
+									from="0 12 12"
+									to="360 12 12"
+									dur="1s"
+									repeatCount="indefinite"
+								/>
+							</circle>
+						</svg>
+					{:else}
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+						</svg>
+					{/if}
+				{/snippet}
+			</IconButton>
 		</div>
 	</div>
 </div>
