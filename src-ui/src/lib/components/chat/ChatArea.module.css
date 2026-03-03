@@ -330,7 +330,9 @@
 	padding: var(--space-4) var(--space-5);
 	padding-top: 0;
 	background: var(--color-bg-primary);
-	width: 100%;
+	width: 1400px;
+	max-width: 100%;
+	margin: 0 auto;
 	position: relative;
 }
 
@@ -384,6 +386,9 @@
 			var(--color-bg-primary) 85%,
 			transparent 100%
 		);
+		width: 1400px;
+		max-width: 100%;
+		margin: 0 auto;
 	}
 }
 
