@@ -1,11 +1,13 @@
 /**
  * MessageActions Component Styles
- * Hover action toolbar for message actions.
+ * Hover action toolbar for message actions with enhanced micro-interactions.
  *
  * Design Features:
- * - Elevated action bar design
- * - Smooth hover reveals
- * - Clear feedback states
+ * - Elevated action bar design with subtle backdrop
+ * - Smooth hover reveals with scale transform
+ * - Activation ripple and micro-bounce tap response
+ * - Clear feedback states with visual weight shifts
+ * - Feedback symmetry between thumbs up/down
  */
 
 .actions {
@@ -18,29 +20,61 @@
 	border-radius: var(--radius-full);
 	box-shadow: var(--shadow-sm);
 	backdrop-filter: blur(8px);
-	height: 32px; /* Ensure container fits height of children */
+	height: 32px;
+	transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.actions:hover {
+	box-shadow: var(--shadow-md);
+	border-color: var(--color-border-primary);
 }
 
 /* Custom button style overrides passed to IconButton */
 .actionBtn {
+	position: relative;
 	color: var(--color-text-muted);
-	transition: all 0.2s ease !important;
+	transition: all 0.15s var(--ease-out) !important;
+	overflow: hidden; /* For ripple effect */
 }
 
+/* Weight shift on hover */
 .actionBtn:hover {
 	color: var(--color-text-primary);
 	transform: translateY(-1px);
 }
 
-/* Enforce the tighter micro-bounce from design specs */
+/* Micro-bounce tap response */
 .actionBtn:active {
 	transform: scale(0.92) !important;
+	transition-duration: 80ms !important;
 }
 
-/* Copied state */
+/* Ripple effect overlay */
+.actionBtn::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(circle, var(--color-primary-400) 0%, transparent 70%);
+	opacity: 0;
+	transform: scale(0);
+	transition: transform 100ms var(--ease-out), opacity 100ms var(--ease-out);
+	pointer-events: none;
+	border-radius: inherit;
+}
+
+.actionBtn:active::after {
+	opacity: 0.12;
+	transform: scale(1.5);
+}
+
+/* Copied state with success feedback */
 .copied {
 	color: var(--color-success);
 	background: var(--color-success-subtle);
+}
+
+.copied::after {
+	background: radial-gradient(circle, var(--color-success) 0%, transparent 70%);
 }
 
 /* Active/selected state */
@@ -53,73 +87,114 @@
 	background: rgba(99, 102, 241, 0.15);
 }
 
-/* Feedback group */
+/* Feedback group with visual separator */
 .feedbackGroup {
 	display: flex;
 	align-items: center;
 	border-left: 1px solid var(--color-border-subtle);
 	padding-left: 4px;
 	margin-left: 2px;
-	height: 16px; /* Reduced height for divider */
+	height: 16px;
+	transition: border-color var(--transition-fast);
 }
 
-/* Feedback icons */
+.actions:hover .feedbackGroup {
+	border-color: var(--color-border-primary);
+}
+
+/* Feedback icons with symmetrical interactions */
 .feedbackIcon {
 	width: 16px;
 	height: 16px;
-	transition: transform var(--transition-fast);
+	transition: transform var(--transition-fast) var(--ease-bounce);
 }
 
-.action:hover .feedbackIcon {
+.actionBtn:hover .feedbackIcon {
 	transform: scale(1.1);
 }
 
-.action.active .feedbackIcon {
+.actionBtn.active .feedbackIcon {
 	transform: scale(1.15);
 }
 
-/* Check icon animation */
+/* Check icon animation - pop effect */
 .checkIcon {
-	animation: checkPop var(--transition-fast) var(--ease-bounce);
+	animation: checkPop 200ms var(--ease-bounce);
 }
 
 @keyframes checkPop {
 	0% {
-		transform: scale(0);
+		transform: scale(0) rotate(-10deg);
+		opacity: 0;
 	}
 	50% {
-		transform: scale(1.2);
+		transform: scale(1.2) rotate(5deg);
 	}
 	100% {
+		transform: scale(1) rotate(0);
+		opacity: 1;
+	}
+}
+
+/* Copy icon transition out */
+.copyIcon {
+	animation: copyFade 150ms var(--ease-out);
+}
+
+@keyframes copyFade {
+	from {
+		opacity: 0;
+		transform: scale(0.8);
+	}
+	to {
+		opacity: 1;
 		transform: scale(1);
 	}
 }
 
-/* Responsive */
+/* =====================
+   Reduced Motion Support
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	.actions,
+	.actionBtn,
+	.actionBtn::after,
+	.feedbackIcon,
+	.checkIcon,
+	.copyIcon {
+		animation: none !important;
+		transition: none !important;
+	}
+
+	.actionBtn:hover {
+		transform: none;
+	}
+
+	.actionBtn:active {
+		transform: none !important;
+	}
+
+	.actionBtn::after {
+		display: none;
+	}
+}
+
+/* =====================
+   Responsive Adjustments
+   ===================== */
+
 @media (max-width: 600px) {
 	.actions {
 		gap: 2px;
 		background: var(--color-bg-elevated);
 		border: 1px solid var(--color-border-primary);
 		padding: 2px 4px;
+		box-shadow: var(--shadow-md);
 	}
 
 	.feedbackGroup {
 		padding-left: 4px;
 		margin-left: 2px;
-	}
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-	.action,
-	.feedbackIcon,
-	.checkIcon {
-		animation: none;
-		transition: none;
-	}
-
-	.action:active {
-		transform: none;
 	}
 }
