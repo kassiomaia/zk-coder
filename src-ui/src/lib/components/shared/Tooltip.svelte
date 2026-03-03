@@ -34,7 +34,7 @@
 	}: Props = $props();
 
 	let visible = $state(false);
-	let actualPosition = $state(position);
+	let actualPosition = $state<'top' | 'bottom' | 'left' | 'right'>('top');
 	let triggerRef: HTMLElement | null = $state(null);
 	let tooltipRef: HTMLDivElement | null = $state(null);
 	let showTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -153,6 +153,7 @@
 <svelte:window on:keydown={handleKeyDown} />
 
 {#if children}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		class={styles.trigger}
 		onmouseenter={handleShow}
@@ -160,7 +161,6 @@
 		onfocusin={handleShow}
 		onfocusout={handleHide}
 		bind:this={triggerRef}
-		role="wrapper"
 	>
 		{@render children()}
 	</div>
