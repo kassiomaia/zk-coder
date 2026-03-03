@@ -83,10 +83,10 @@
 		.filter(Boolean)
 		.join(' '));
 
-	const showTooltip = tooltip && !disabled;
+	const showTooltip = $derived(tooltip && !disabled);
 </script>
 
-{#if showTooltip}
+{#if showTooltip && tooltip}
 	<Tooltip content={tooltip} position="top">
 		<button
 			class={classes}
