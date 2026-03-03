@@ -137,15 +137,20 @@
 	padding: 0;
 }
 
-/* Conversation wrapper - contains item and inline threads */
+/* Conversation wrapper - unified container for parent + children */
 .conversationWrapper {
-	/* Container for conversation item and its inline threads */
-	transition: margin-bottom var(--transition-fast);
+	/* Default: separate items with spacing */
+	margin-bottom: var(--space-1);
 }
 
-/* Add extra spacing when threads are expanded */
-.conversationWrapper:has([data-threads-expanded]) {
-	margin-bottom: var(--space-2);
+/* Expanded state: unified container block */
+.conversationWrapper.expanded {
+	/* Unified surface for parent + threads */
+	background: var(--color-surface);
+	border-radius: var(--radius-lg);
+	margin: 0 var(--space-2) var(--space-2);
+	/* Remove inner margins - children are part of this container */
+	overflow: hidden;
 }
 
 /* Reduced motion */

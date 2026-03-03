@@ -1,7 +1,7 @@
 # Sidebar Hierarchical Navigation - Progress Tracker
 
 **Started**: 2026-03-03
-**Status**: Refinement Complete - Ready for Testing
+**Status**: Structural Refinement Complete - Ready for Testing
 **Branch**: master
 
 ---
@@ -18,15 +18,15 @@ Each task is marked with its current status and any relevant notes.
 ### Phase 1: ThreadItem Inline Variant
 - [x] 1.1 Add `variant?: 'default' | 'inline'` prop to ThreadItem.svelte
 - [x] 1.2 Add inline variant styles to ThreadItem.module.css
-- [x] 1.3 Add visual connectors to show parent-child hierarchy
+- [x] 1.3 Simplify inline variant (removed complex connectors)
 - [ ] 1.4 Test inline variant visual appearance
 
 ### Phase 2: InlineThreadList Component
 - [x] 2.1 Create InlineThreadList.svelte component
-- [x] 2.2 Implement thread grouping (Open/Resolved)
-- [x] 2.3 Add animation system with CSS transitions
+- [x] 2.2 Remove section headers (OPEN/RESOLVED labels)
+- [x] 2.3 Sort threads: open first, resolved after (continuous cluster)
 - [x] 2.4 Add stagger animation for thread items
-- [x] 2.5 Add visual connector line to parent conversation
+- [x] 2.5 Tighten spacing for visual continuity
 - [ ] 2.6 Test component in isolation
 
 ### Phase 3: ConversationSidebar Integration
@@ -38,6 +38,7 @@ Each task is marked with its current status and any relevant notes.
 - [x] 3.6 Add thread container animation styles to CSS
 - [x] 3.7 Refine header button with text label for clarity
 - [x] 3.8 Add contextual thread button styling
+- [x] 3.9 Pass thread counts to ConversationItem for status chips
 
 ### Phase 4: ChatLayout Data Flow
 - [x] 4.1 Pass `threadsForSelected` prop to ConversationSidebar
@@ -47,12 +48,14 @@ Each task is marked with its current status and any relevant notes.
 - [x] 4.5 Handle mobile sidebar (unified)
 
 ### Phase 5: Visual Hierarchy Refinement
-- [x] 5.1 Remove borders from ConversationItem selected state (prevents thread disconnection)
-- [x] 5.2 Add visual connector lines to thread items
-- [x] 5.3 Add connector line in InlineThreadList container
+- [x] 5.1 Remove borders from ConversationItem selected state
+- [x] 5.2 Add expanded state styling (left accent, elevated background)
+- [x] 5.3 Add status chips (Open · N | Resolved · M) in ConversationItem
 - [x] 5.4 Refine header button with text label
-- [x] 5.5 Use consistent design system colors throughout
-- [x] 5.6 Add resolved state styling for inline threads
+- [x] 5.5 Use neutral colors throughout (no blue accent noise)
+- [x] 5.6 Tonal reduction for resolved threads (opacity: 0.6)
+- [x] 5.7 Tighten vertical rhythm (reduced gaps)
+- [x] 5.8 Remove section dividers for continuous cluster
 
 ### Phase 6: Verification & Cleanup
 - [ ] 6.1 Test conversation selection → thread expansion
@@ -78,31 +81,24 @@ Each task is marked with its current status and any relevant notes.
 
 ## Notes & Decisions
 
-### 2026-03-03 (Update 3 - Visual Hierarchy Refinement)
-- **Header refinement**: Changed icon-only button to button with text label ("New conversation" / "New thread")
-- **Contextual thread button**: Different styling when creating thread vs conversation (accent color)
-- **Removed ConversationItem borders**: Eliminated borders on selected state to maintain visual connection with threads
-- **Visual connectors**: Added CSS pseudo-elements to show parent-child hierarchy:
-  - Vertical line connecting thread items
-  - Horizontal connector from parent to each thread
-  - Border-left on InlineThreadList container
-- **Consistent color harmony**: Using design system tokens throughout:
-  - `--color-interactive-selected` for selected states
-  - `--color-interactive-hover` for hover states
-  - `--color-accent-primary-muted` for contextual thread button
-- **Thread item refinements**:
-  - 40px height (slightly larger for better touch target)
-  - Visual connector lines
-  - Resolved state opacity reduction
+### 2026-03-03 (Update 4 - Structural Clarity Refinement)
+- **Removed section headers**: Eliminated "OPEN 3" / "RESOLVED 1" labels that created fragmentation
+- **Continuous cluster**: Threads now appear in one list (open first, resolved after)
+- **Status chips**: Added compact status indicators in ConversationItem meta line
+- **Parent dominance**: ConversationItem with expanded threads has elevated background + left accent
+- **Tonal differentiation**: Resolved threads use opacity: 0.6 instead of separation
+- **Tight vertical rhythm**: Reduced spacing gaps for continuity
+- **Simplified connector**: Single border-left on container instead of complex pseudo-elements
+- **Compact inline threads**: Reduced to 36px height with smaller icons (12px)
+
+### 2026-03-03 (Update 3 - Color Harmony)
+- **Neutral colors**: Replaced blue accent colors with neutral surface colors
+- **Reduced visual noise**: Using `--color-surface-hover` and `--color-surface-active` throughout
+- **Consistent button styling**: Header button matches NewThreadButton pattern
 
 ### 2026-03-03 (Update 2)
 - **Removed separate ThreadView panel** - Now using unified sidebar with inline threads
 - **Simplified ChatLayout** - Removed thread panel wrapper, toggle button, and related complexity
-- **Improved inline thread styling**:
-  - More compact (36px height vs 40px)
-  - Hidden message count for cleaner look
-  - More subtle hover states
-  - Better visual hierarchy with indentation
 
 ### 2026-03-03 (Initial)
 - Plan created and validated
@@ -122,13 +118,13 @@ _None currently_
 
 | Date | File | Change |
 |------|------|--------|
-| 2026-03-03 | src-ui/src/lib/components/chat/thread/ThreadItem.svelte | Added `variant` prop for inline rendering |
-| 2026-03-03 | src-ui/src/lib/components/chat/thread/ThreadItem.module.css | Added inline variant styles with visual connectors |
-| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/InlineThreadList.svelte | Created new component |
-| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/InlineThreadList.module.css | Added connector line styling |
-| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/ConversationSidebar.svelte | Integrated inline threads, refined header button |
-| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/ConversationSidebar.module.css | Header button with label, contextual thread styling |
-| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/ConversationItem.svelte | Added ariaExpanded/ariaControls props |
-| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/ConversationItem.module.css | Removed borders from selected state |
+| 2026-03-03 | src-ui/src/lib/components/chat/thread/ThreadItem.svelte | Added `variant` prop, `resolved` class |
+| 2026-03-03 | src-ui/src/lib/components/chat/thread/ThreadItem.module.css | Simplified inline variant, tonal reduction for resolved |
+| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/InlineThreadList.svelte | Removed section headers, continuous cluster |
+| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/InlineThreadList.module.css | Tightened spacing, removed section styles |
+| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/ConversationSidebar.svelte | Added thread counts, pass to ConversationItem |
+| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/ConversationSidebar.module.css | Tightened wrapper spacing |
+| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/ConversationItem.svelte | Added expanded state, status chips |
+| 2026-03-03 | src-ui/src/lib/components/chat/sidebar/ConversationItem.module.css | Expanded styling, status chip styles |
 | 2026-03-03 | src-ui/src/lib/components/layout/ChatLayout.svelte | **Major refactor**: Removed ThreadView panel, unified layout |
 | 2026-03-03 | src-ui/src/lib/components/layout/ChatLayout.module.css | **Major refactor**: Simplified CSS, removed thread panel styles |

@@ -18,6 +18,10 @@
 		ariaExpanded?: boolean;
 		/** ID of the controlled element (for aria-controls) */
 		ariaControls?: string;
+		/** Number of open threads (for status chips) */
+		openThreadCount?: number;
+		/** Number of resolved threads (for status chips) */
+		resolvedThreadCount?: number;
 		/** Click handler */
 		onclick: () => void;
 		/** Double-click handler (typically opens thread panel if threads exist) */
@@ -37,6 +41,8 @@
 		selected = false,
 		ariaExpanded,
 		ariaControls,
+		openThreadCount = 0,
+		resolvedThreadCount = 0,
 		onclick,
 		ondoubleclick,
 		ondelete,
@@ -64,7 +70,12 @@
 </script>
 
 <li
-	class={[styles.item, selected && styles.selected, isMenuOpen && styles.menuOpen].filter(Boolean).join(' ')}
+	class={[
+		styles.item,
+		selected && styles.selected,
+		ariaExpanded && styles.expanded,
+		isMenuOpen && styles.menuOpen
+	].filter(Boolean).join(' ')}
 	role="option"
 	aria-selected={selected}
 	{style}
@@ -129,11 +140,27 @@
 		<div class={styles.content}>
 			<span class={styles.title}>{conversation.title}</span>
 			<span class={styles.meta}>
-				{#if conversation.threads && conversation.threads.length > 0}
+				{#if ariaExpanded && (openThreadCount > 0 || resolvedThreadCount > 0)}
+					<!-- Status chips when expanded - show open/resolved counts -->
+					<span class={styles.statusChips}>
+						{#if openThreadCount > 0}
+							<span class={[styles.chip, styles.chipOpen].join(' ')}>{openThreadCount} open</span>
+						{/if}
+						{#if resolvedThreadCount > 0}
+							{#if openThreadCount > 0}
+								<span class={styles.chipSeparator}>·</span>
+							{/if}
+							<span class={[styles.chip, styles.chipResolved].join(' ')}>{resolvedThreadCount} resolved</span>
+						{/if}
+					</span>
+				{:else if conversation.threads && conversation.threads.length > 0}
+					<!-- Default: show total thread count -->
 					<span class={styles.threadCount}>{formatThreadCount(conversation.threads.length)}</span>
 					<span class={styles.dot}>·</span>
+					<span class={styles.time}>{formatRelativeTime(conversation.updatedAt)}</span>
+				{:else}
+					<span class={styles.time}>{formatRelativeTime(conversation.updatedAt)}</span>
 				{/if}
-				<span class={styles.time}>{formatRelativeTime(conversation.updatedAt)}</span>
 			</span>
 		</div>
 	</button>

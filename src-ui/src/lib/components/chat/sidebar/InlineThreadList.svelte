@@ -4,8 +4,9 @@
 	 * Renders threads inline under the selected conversation in the sidebar.
 	 *
 	 * Design Features:
-	 * - Groups threads by status (Open/Resolved) with subtle section labels
-	 * - Uses `variant="inline"` on ThreadItem for reduced visual weight
+	 * - Continuous cluster without section dividers
+	 * - Resolved threads differentiated by tonal reduction (opacity)
+	 * - Open threads appear first, resolved threads follow
 	 * - Controlled reveal animation with max-height and opacity
 	 * - Stagger animation on thread items (50ms delay per item)
 	 * - Scroll stability with overflow-anchor: none
@@ -44,9 +45,14 @@
 		onArchiveThread
 	}: Props = $props();
 
-	// Group threads by status (matches existing ThreadView pattern)
-	let openThreads = $derived(threads.filter((t) => !t.metadata.resolved));
-	let resolvedThreads = $derived(threads.filter((t) => t.metadata.resolved));
+	// Sort threads: open first, then resolved (no grouping labels)
+	let sortedThreads = $derived(
+		[
+			...threads.filter((t) => !t.metadata.resolved),
+			...threads.filter((t) => t.metadata.resolved)
+		]
+	);
+
 	let hasThreads = $derived(threads.length > 0);
 </script>
 
@@ -57,60 +63,22 @@
 		data-threads-expanded={expanded || undefined}
 		aria-label="Conversation threads"
 	>
-		<!-- Open threads -->
-		{#if openThreads.length > 0}
-			<section class={styles.section}>
-				{#if resolvedThreads.length > 0}
-					<div class={styles.sectionHeader}>
-						<span class={styles.sectionLabel}>Open</span>
-						<span class={styles.count}>{openThreads.length}</span>
-					</div>
-				{/if}
-				<ul class={styles.list} role="listbox" aria-label="Open threads">
-					{#each openThreads as thread, index (thread.id)}
-						<li class={styles.itemWrapper}>
-							<ThreadItem
-								{thread}
-								variant="inline"
-								selected={thread.id === selectedThreadId}
-								onclick={() => onSelectThread(thread)}
-								onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
-								onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
-								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
-								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
-								style="animation-delay: {index * 50}ms"
-							/>
-						</li>
-					{/each}
-				</ul>
-			</section>
-		{/if}
-
-		<!-- Resolved threads -->
-		{#if resolvedThreads.length > 0}
-			<section class={styles.section}>
-				<div class={styles.sectionHeader}>
-					<span class={styles.sectionLabel}>Resolved</span>
-					<span class={styles.count}>{resolvedThreads.length}</span>
-				</div>
-				<ul class={styles.list} role="listbox" aria-label="Resolved threads">
-					{#each resolvedThreads as thread, index (thread.id)}
-						<li class={styles.itemWrapper}>
-							<ThreadItem
-								{thread}
-								variant="inline"
-								selected={thread.id === selectedThreadId}
-								onclick={() => onSelectThread(thread)}
-								onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
-								onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
-								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
-								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
-								style="animation-delay: {(openThreads.length + index) * 50}ms"
-							/>
-						</li>
-					{/each}
-				</ul>
-			</section>
-		{/if}
+		<ul class={styles.list} role="listbox" aria-label="Threads">
+			{#each sortedThreads as thread, index (thread.id)}
+				<li class={styles.itemWrapper}>
+					<ThreadItem
+						{thread}
+						variant="inline"
+						selected={thread.id === selectedThreadId}
+						onclick={() => onSelectThread(thread)}
+						onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
+						onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
+						ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
+						onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
+						style="animation-delay: {index * 50}ms"
+					/>
+				</li>
+			{/each}
+		</ul>
 	</div>
 {/if}

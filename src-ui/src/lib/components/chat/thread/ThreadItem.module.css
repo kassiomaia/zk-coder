@@ -250,89 +250,68 @@
 /**
  * Inline variant for ThreadItem
  * Used when threads are displayed inline under their parent conversation
+ *
+ * Document continuity: threads are structured rows inside the parent container,
+ * not independent cards. No independent corner radii - corners managed by container.
+ *
  * Features:
- * - Indentation with visual connector to show hierarchy
- * - Reduced visual weight (smaller height, muted colors)
- * - Subtle, non-intrusive appearance
- * - Clear parent-child relationship
+ * - Unified surface with parent container
+ * - Left padding aligned with parent content start
+ * - Compressed vertical padding (15% reduction for secondary status)
+ * - Selection via restrained left accent, not full background fill
+ * - Tonal differentiation for resolved threads
  */
 .item[data-variant='inline'] {
 	margin: 0;
-	margin-left: var(--space-5); /* Indentation for hierarchy */
-	min-height: 40px;
-	border-radius: var(--radius-md);
-	/* Visual connector to parent - subtle left border */
-	position: relative;
-}
-
-/* Thread connector line - shows parent-child relationship */
-.item[data-variant='inline']::before {
-	content: '';
-	position: absolute;
-	left: calc(var(--space-5) * -1 + var(--space-2));
-	top: 0;
-	bottom: 50%;
-	width: 1px;
-	background: var(--color-border-subtle);
-	opacity: 0.6;
-}
-
-/* Horizontal connector to the thread item */
-.item[data-variant='inline']::after {
-	content: '';
-	position: absolute;
-	left: calc(var(--space-5) * -1 + var(--space-2));
-	top: 50%;
-	width: calc(var(--space-5) - var(--space-2) - var(--space-1));
-	height: 1px;
-	background: var(--color-border-subtle);
-	opacity: 0.6;
-}
-
-/* Hide connector for first child */
-.item[data-variant='inline']:first-child::before {
-	display: none;
+	min-height: 28px;
+	/* No independent border-radius - part of parent container */
+	border-radius: 0;
 }
 
 .item[data-variant='inline'] .button {
-	height: 40px;
-	padding: 0 var(--space-2-5);
-	gap: var(--space-2);
-	border-radius: var(--radius-md);
+	height: 28px;
+	/* Align with parent content: matches parent (padding-left + icon + gap) */
+	padding: 0 var(--space-1-5) 0 var(--space-3);
+	gap: var(--space-1-5);
+	/* No independent corners - part of continuous surface */
+	border-radius: 0;
+	border: none;
+	background: transparent;
 }
 
-/* Inline hover - more subtle */
+/* Inline hover - subtle surface shift, no border */
 .item[data-variant='inline'] .button:hover {
 	background: var(--color-surface-hover);
 }
 
-/* Inline icon - smaller and muted */
+/* Inline icon - smaller, aligned with parent icon position */
 .item[data-variant='inline'] .icon {
-	width: 22px;
-	height: 22px;
+	width: 14px;
+	height: 14px;
 	background: transparent;
 }
 
 .item[data-variant='inline'] .icon svg {
-	width: 14px;
-	height: 14px;
+	width: 10px;
+	height: 10px;
 }
 
-/* Inline content - more compact */
+/* Inline content - compressed for secondary status */
 .item[data-variant='inline'] .content {
-	gap: var(--space-0-5);
+	gap: 1px;
 }
 
 .item[data-variant='inline'] .title {
-	font-size: var(--text-sm);
+	font-size: var(--text-xs);
 	color: var(--color-text-tertiary);
 	font-weight: var(--font-normal);
+	line-height: 1.3;
 }
 
 .item[data-variant='inline'] .meta {
 	font-size: var(--text-2xs); /* 10px */
 	color: var(--color-text-muted);
-	opacity: 0.8;
+	opacity: 0.6;
 }
 
 .item[data-variant='inline'] .messageCount {
@@ -343,10 +322,13 @@
 	display: none;
 }
 
-/* Selected inline item - subtle neutral highlight */
+/* Selected inline item - restrained left accent edge, not full fill */
 .item[data-variant='inline'].selected .button {
-	background: var(--color-surface-active);
-	box-shadow: none;
+	/* Subtle background, not aggressive fill */
+	background: transparent;
+	/* Left accent line for selection indication */
+	border-left: 2px solid var(--color-border-secondary);
+	padding-left: calc(var(--space-3) - 2px);
 }
 
 .item[data-variant='inline'].selected .button:hover {
@@ -362,19 +344,26 @@
 	color: var(--color-text-secondary);
 }
 
-/* Resolved inline thread - even more subtle */
+/* Resolved inline thread - tonal reduction */
+.item[data-variant='inline'].resolved {
+	opacity: 0.55;
+}
+
+.item[data-variant='inline'].resolved .icon {
+	color: var(--color-text-muted);
+}
+
 .item[data-variant='inline'].resolved .title {
-	opacity: 0.7;
+	color: var(--color-text-muted);
+}
+
+.item[data-variant='inline'].resolved .button:hover {
+	opacity: 0.85;
 }
 
 /* Reduced motion for inline variant */
 @media (prefers-reduced-motion: reduce) {
 	.item[data-variant='inline'] {
 		animation: none;
-	}
-
-	.item[data-variant='inline']::before,
-	.item[data-variant='inline']::after {
-		display: none;
 	}
 }

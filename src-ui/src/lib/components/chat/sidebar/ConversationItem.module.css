@@ -25,6 +25,19 @@
 	min-height: 48px;
 }
 
+/* Expanded state - part of unified wrapper container */
+.item.expanded {
+	/* No independent background or corners - wrapper handles this */
+	background: transparent;
+	margin: 0;
+	border-radius: 0;
+}
+
+/* Increase separation between title and status chips when expanded */
+.item.expanded .content {
+	gap: var(--space-1);
+}
+
 /* Edit mode - morph transition state */
 .item:has(.container) {
 	/* Subtle background shift when entering edit */
@@ -174,6 +187,41 @@
 .time {
 	white-space: nowrap;
 	opacity: 0.8;
+}
+
+/* Status chips - compact inline indicators, informational not competitive */
+.statusChips {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+
+.chipSeparator {
+	color: var(--color-text-muted);
+	opacity: 0.4;
+	font-size: 0.6rem;
+}
+
+.chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-0-5);
+	padding: 1px var(--space-1);
+	border-radius: var(--radius-sm);
+	font-size: var(--text-2xs);
+	font-weight: var(--font-normal);
+	white-space: nowrap;
+	color: var(--color-text-muted);
+	opacity: 0.8;
+}
+
+.chipOpen {
+	background: transparent;
+}
+
+.chipResolved {
+	background: transparent;
+	opacity: 0.6;
 }
 
 /* Responsive */

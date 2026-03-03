@@ -88,6 +88,10 @@
 	let hasSelectedThread = $derived(!!selectedThreadId);
 	let hasThreads = $derived(threadsForSelected.length > 0);
 
+	// Thread status counts for selected conversation
+	let openThreadCount = $derived(threadsForSelected.filter((t) => !t.metadata.resolved).length);
+	let resolvedThreadCount = $derived(threadsForSelected.filter((t) => t.metadata.resolved).length);
+
 	// Status text based on selection state
 	let statusText = $derived(() => {
 		if (hasSelectedThread) return 'Active thread';
@@ -242,7 +246,7 @@
 					<ul class={styles.list} role="listbox" aria-label="{group.label} conversations">
 						{#each group.conversations as conv, index (conv.id)}
 							{@const isExpanded = conv.id === selectedId && hasThreads}
-							<li class={styles.conversationWrapper}>
+							<li class={[styles.conversationWrapper, isExpanded && styles.expanded].filter(Boolean).join(' ')}>
 								<ConversationItem
 									conversation={conv}
 									selected={conv.id === selectedId}
@@ -254,6 +258,8 @@
 									style="animation-delay: {(groupOffset + index) * 50}ms"
 									ariaExpanded={isExpanded}
 									ariaControls={isExpanded ? 'inline-threads' : undefined}
+									openThreadCount={isExpanded ? openThreadCount : 0}
+									resolvedThreadCount={isExpanded ? resolvedThreadCount : 0}
 								/>
 								{#if conv.id === selectedId && hasThreads && onSelectThread}
 									<InlineThreadList
