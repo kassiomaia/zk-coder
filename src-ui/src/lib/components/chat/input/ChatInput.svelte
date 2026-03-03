@@ -39,6 +39,10 @@
 		onchange: (value: string) => void;
 		/** Submit handler */
 		onsubmit: () => void;
+		/** Focus handler */
+		onfocus?: () => void;
+		/** Blur handler */
+		onblur?: () => void;
 		/** Disabled state */
 		disabled?: boolean;
 		/** Loading state */
@@ -68,6 +72,8 @@
 		value,
 		onchange,
 		onsubmit,
+		onfocus,
+		onblur,
 		disabled = false,
 		loading = false,
 		attachments = [],
@@ -382,6 +388,8 @@
 			{disabled}
 			oninput={handleInput}
 			onkeydown={handleKeydown}
+			onfocus={onfocus}
+			onblur={onblur}
 			rows={1}
 			aria-label="Message input"
 			aria-describedby={showCommandPalette || showMentionMenu ? 'input-menu' : undefined}

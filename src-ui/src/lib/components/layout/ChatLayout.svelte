@@ -365,6 +365,8 @@
 									{messages}
 									threadId={selectedThreadId}
 									{threads}
+									emptyContext={selectedThread ? 'thread' : 'conversation'}
+									conversationTitle={selectedConversation?.title}
 									{loading}
 									onSendMessage={handleSendMessage}
 									onThreadClick={handleSelectThreadById}
@@ -375,7 +377,13 @@
 				</div>
 			{:else}
 				<!-- Standard chat area (no threads) -->
-				<ChatArea {messages} threadId={selectedThreadId} {loading} onSendMessage={handleSendMessage} />
+				<ChatArea
+					{messages}
+					threadId={selectedThreadId}
+					emptyContext="none"
+					{loading}
+					onSendMessage={handleSendMessage}
+				/>
 			{/if}
 		</div>
 

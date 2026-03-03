@@ -113,6 +113,8 @@
 
     // Input state
     let inputValue = $state('');
+    let hasInputActivity = $state(false);
+    let hasInputFocus = $state(false);
 
     // Animation state for input container
     let inputAnimatingIn = $state(false);
@@ -326,6 +328,22 @@
         showScrollButton = false;
         isUserScrolling = false;
         lastScrollTop = ref.scrollTop;
+    }
+
+    // Track input activity for empty state transitions
+    function handleInputChange(value: string) {
+        inputValue = value;
+        hasInputActivity = value.length > 0 || hasInputFocus;
+    }
+
+    function handleInputFocus() {
+        hasInputFocus = true;
+        hasInputActivity = true;
+    }
+
+    function handleInputBlur() {
+        hasInputFocus = false;
+        hasInputActivity = inputValue.length > 0;
     }
 
     // Re-enable auto-scroll and scroll to bottom when user sends a message
@@ -592,8 +610,10 @@
         <div class={[styles.inputContainer, inputAnimatingIn && styles.animateIn].filter(Boolean).join(' ')}>
             <ChatInput
                 value={inputValue}
-                onchange={(v) => (inputValue = v)}
+                onchange={handleInputChange}
                 onsubmit={handleSubmit}
+                onfocus={handleInputFocus}
+                onblur={handleInputBlur}
                 placeholder="Send a message..."
                 loading={loading}
                 showIntent={true}
