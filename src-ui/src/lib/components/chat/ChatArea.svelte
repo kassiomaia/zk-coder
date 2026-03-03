@@ -584,7 +584,7 @@
         <!-- Scroll to bottom button -->
         {#if showScrollButton}
             <button
-                class={[styles.scrollToBottom, $isLlmStreaming && styles.pulsing].filter(Boolean).join(' ')}
+                class={[styles.scrollToBottom, $isLlmStreaming && styles.pulsing, styles.secondaryElements].filter(Boolean).join(' ')}
                 onclick={handleScrollToBottom}
                 aria-label="Scroll to latest messages"
                 type="button"

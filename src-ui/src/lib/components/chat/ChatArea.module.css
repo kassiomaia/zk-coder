@@ -595,7 +595,7 @@
 }
 
 /* =====================
-   Scroll to Bottom Button
+   Scroll to Bottom Button - Cross-dissolve
    ===================== */
 
 .scrollToBottom {
@@ -613,11 +613,41 @@
 	border-radius: var(--radius-full);
 	color: var(--color-text-primary);
 	cursor: pointer;
-	transition: all var(--transition-fast);
 	box-shadow: var(--shadow-md);
 	z-index: 10;
 	margin-top: calc(-1 * var(--space-12));
 	margin-bottom: var(--space-4);
+
+	/* Cross-dissolve with reveal mask effect */
+	opacity: 0;
+	transform: translateX(-50%) translateY(8px);
+	transition:
+		opacity var(--duration-normal) var(--ease-out),
+		transform var(--duration-normal) var(--ease-out),
+		background-color var(--transition-fast),
+		border-color var(--transition-fast),
+		box-shadow var(--transition-fast);
+
+	/* Staggered reveal for auxiliary controls */
+	animation: auxiliaryReveal var(--duration-slow) var(--ease-in-out) forwards;
+}
+
+@keyframes auxiliaryReveal {
+	from {
+		opacity: 0;
+		transform: translateX(-50%) translateY(12px) scale(0.95);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(-50%) translateY(0) scale(1);
+	}
+}
+
+.scrollToBottom:hover {
+	background: var(--color-surface-hover);
+	border-color: var(--color-border-secondary);
+	transform: translateX(-50%) scale(1.05);
+	box-shadow: var(--shadow-lg);
 }
 
 .scrollToBottom:hover {
@@ -708,13 +738,17 @@
 	.inputContainer,
 	.scrollToBottom,
 	.spinner,
-	.actionsContainer {
+	.actionsContainer,
+	.emptyWrapper,
+	.auxiliaryReveal {
 		animation: none !important;
-		transition: none !important;
+		transition: opacity 200ms ease !important;
 	}
 
 	.messageGroup,
-	.messageWrapper {
+	.messageWrapper,
+	.scrollToBottom,
+	.emptyWrapper {
 		opacity: 1;
 		transform: none;
 	}
