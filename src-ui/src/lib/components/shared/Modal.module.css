@@ -178,7 +178,7 @@
 }
 
 /* ============================================================================
-   BODY - Refined padding and scroll behavior
+   BODY - Progressive disclosure for internal content
    ============================================================================ */
 
 .body {
@@ -186,6 +186,38 @@
 	overflow-y: auto;
 	flex: 1;
 	scroll-behavior: smooth;
+	/* Prevent abrupt reflow */
+	min-height: 0;
+}
+
+/* Staggered content reveal - applied via JS class or Svelte transition */
+.body :global(.modal-section) {
+	opacity: 0;
+	transform: translateY(8px);
+	animation: contentReveal var(--modal-content-duration) var(--modal-content-ease) forwards;
+}
+
+.body :global(.modal-section:nth-child(1)) {
+	animation-delay: var(--modal-stagger-section-1);
+}
+
+.body :global(.modal-section:nth-child(2)) {
+	animation-delay: var(--modal-stagger-section-2);
+}
+
+.body :global(.modal-section:nth-child(3)) {
+	animation-delay: var(--modal-stagger-section-3);
+}
+
+@keyframes contentReveal {
+	0% {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 /* Custom scrollbar for modal body */
