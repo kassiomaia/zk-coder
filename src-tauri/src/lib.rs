@@ -14,6 +14,7 @@ pub mod utils;
 use commands::{ChatState, ConfigState, LlmState, NlpState};
 use std::path::PathBuf;
 use tauri::Manager;
+use tauri_plugin_log::{Target, TargetKind};
 
 /// Get the app data directory for storing databases.
 fn get_app_data_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -59,13 +60,22 @@ pub fn run() {
             app.manage(config_state);
             app.manage(llm_state);
 
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            // Configure logging - always log to file, also log to stdout in debug mode
+            let log_targets = if cfg!(debug_assertions) {
+                vec![
+                    Target::new(TargetKind::LogDir { file_name: None }),
+                    Target::new(TargetKind::Stdout)
+                ]
+            } else {
+                vec![Target::new(TargetKind::LogDir { file_name: None })]
+            };
+
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default()
+                    .level(log::LevelFilter::Info)
+                    .targets(log_targets)
+                    .build(),
+            )?;
 
             // Register notification plugin
             app.handle().plugin(tauri_plugin_notification::init())?;
