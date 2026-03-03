@@ -110,7 +110,9 @@
 				{@render icon()}
 			{/if}
 			{#if !iconOnly && children}
-				{@render children()}
+				<span class={styles.btnContent}>
+					{@render children()}
+				</span>
 			{/if}
 		</button>
 	</Tooltip>
@@ -134,10 +136,14 @@
 				</path>
 			</svg>
 		{:else if icon}
-			{@render icon()}
+			<span class={styles.btnContent}>
+				{@render icon()}
+			</span>
 		{/if}
 		{#if !iconOnly && children}
-			{@render children()}
+			<span class={styles.btnContent}>
+				{@render children()}
+			</span>
 		{/if}
 	</button>
 {/if}

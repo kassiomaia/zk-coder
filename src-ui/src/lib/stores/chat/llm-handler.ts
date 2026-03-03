@@ -5,7 +5,7 @@
  * Extracted from chat.ts for maintainability.
  */
 
-import { get, type Updater, type Writable } from 'svelte/store';
+import { type Updater } from 'svelte/store';
 import type { Message } from '$lib/types/message';
 import {
 	sendChatMessageStreaming,
@@ -38,10 +38,18 @@ export interface LlmStreamInit {
 }
 
 /**
- * Active stream tracking.
+ * Active stream tracking - only tracks the stream object for cancellation.
+ * Streaming state (content, requestId) is handled via closures for isolation.
  */
 export interface ActiveStreamTracker {
 	stream: StreamChatResult | null;
+}
+
+/**
+ * Isolated state for a single streaming session.
+ * This is created fresh for each stream and captured in the event handler closure.
+ */
+interface StreamSessionState {
 	requestId: string | null;
 	localContent: string;
 }
@@ -57,9 +65,7 @@ export class LlmHandler {
 	private update: StoreUpdater;
 	private subscribe: () => ChatState;
 	private activeStream: ActiveStreamTracker = {
-		stream: null,
-		requestId: null,
-		localContent: ''
+		stream: null
 	};
 
 	constructor(
@@ -140,7 +146,10 @@ export class LlmHandler {
 	 */
 	initStreaming(content: string, options?: LlmRequestOptions): LlmStreamInit | null {
 		const state = this.subscribe();
+		// Use crypto.randomUUID() for guaranteed unique IDs to prevent any collision issues
 		const assistantMessageId = `streaming-${crypto.randomUUID()}`;
+
+		console.log('[Stream] Creating new assistant message:', assistantMessageId);
 
 		const optimisticAssistant: Message = {
 			id: assistantMessageId,
@@ -173,86 +182,136 @@ export class LlmHandler {
 	}
 
 	/**
-	 * Handle LLM events during streaming.
+	 * Create an event handler with isolated streaming state.
+	 * CRITICAL: This creates a new session state object that is captured in the closure,
+	 * ensuring each streaming session has its own isolated content and requestId tracking.
 	 */
-	handleEvent(
-		event: LlmEvent,
+	createEventHandler(
 		assistantMessageId: string,
 		streamingContext: StreamingContext
-	): void {
-		// Filter events by requestId
-		if (this.activeStream.requestId !== null && event.requestId !== this.activeStream.requestId) {
-			console.log('[Stream] Ignoring event from different request:', {
-				eventRequestId: event.requestId,
-				currentRequestId: this.activeStream.requestId
-			});
-			return;
-		}
+	): (event: LlmEvent) => void {
+		// CRITICAL: These are LOCAL variables captured in the closure.
+		// Each call to createEventHandler creates a NEW set of these variables,
+		// ensuring complete isolation between streaming sessions.
+		const sessionState: StreamSessionState = {
+			requestId: null,
+			localContent: ''
+		};
 
-		// Validate context hasn't changed
-		const currentState = this.subscribe();
-		if (
-			currentState.selectedConversationId !== streamingContext.conversationId ||
-			currentState.selectedThreadId !== streamingContext.threadId
-		) {
-			console.log('[Stream] Ignoring event - context changed');
-			return;
-		}
+		return (event: LlmEvent) => {
+			// Filter events by requestId to prevent processing events
+			// from other requests (e.g., from stale listeners)
+			// Once we have a requestId, only process events matching it
+			if (sessionState.requestId !== null && event.requestId !== sessionState.requestId) {
+				console.log('[Stream] Ignoring event from different request:', {
+					eventRequestId: event.requestId,
+					currentRequestId: sessionState.requestId,
+					eventType: event.type
+				});
+				return;
+			}
 
-		if (isStartedEvent(event)) {
-			this.activeStream.requestId = event.requestId;
-			this.update((s) => ({
-				...s,
-				llm: { ...s.llm, requestId: event.requestId, model: event.model }
-			}));
-		} else if (isChunkEvent(event)) {
-			this.activeStream.localContent += event.delta;
-			const contentToUpdate = this.activeStream.localContent;
+			// Validate context hasn't changed
+			const currentState = this.subscribe();
+			if (
+				currentState.selectedConversationId !== streamingContext.conversationId ||
+				currentState.selectedThreadId !== streamingContext.threadId
+			) {
+				console.log('[Stream] Ignoring event - context changed');
+				return;
+			}
 
-			this.update((s) => {
-				const messageExists = s.messages.some((m) => m.id === assistantMessageId);
-				if (!messageExists) {
-					console.warn('[Stream] Message not found:', assistantMessageId);
-					return s;
-				}
-
-				return {
+			if (isStartedEvent(event)) {
+				// Store request ID for event filtering FIRST
+				sessionState.requestId = event.requestId;
+				console.log('[Stream] Started event received:', {
+					requestId: event.requestId,
+					assistantMessageId
+				});
+				this.update((s) => ({
 					...s,
-					llm: { ...s.llm, streamingContent: contentToUpdate },
+					llm: { ...s.llm, requestId: event.requestId, model: event.model }
+				}));
+			} else if (isChunkEvent(event)) {
+				// Use local accumulator instead of global state
+				sessionState.localContent += event.delta;
+				const contentToUpdate = sessionState.localContent;
+
+				console.log('[Stream] Chunk event:', {
+					assistantMessageId,
+					delta: event.delta.substring(0, 20) + '...',
+					localContentLength: sessionState.localContent.length
+				});
+
+				this.update((s) => {
+					// Double-check: only update if the message still exists and has our ID
+					const messageExists = s.messages.some((m) => m.id === assistantMessageId);
+					if (!messageExists) {
+						console.warn('[Stream] Message not found:', assistantMessageId);
+						return s;
+					}
+
+					// DEBUG: Log what we're updating
+					console.log('[Stream] Updating message:', {
+						assistantMessageId,
+						messagesBefore: s.messages.map(m => ({ id: m.id, role: m.role, contentLen: m.content.length }))
+					});
+
+					const result = {
+						...s,
+						llm: { ...s.llm, streamingContent: contentToUpdate },
+						messages: s.messages.map((m) =>
+							m.id === assistantMessageId ? { ...m, content: contentToUpdate } : m
+						)
+					};
+
+					// DEBUG: Log what we updated
+					console.log('[Stream] After update:', {
+						messagesAfter: result.messages.map(m => ({ id: m.id, role: m.role, contentLen: m.content.length }))
+					});
+
+					return result;
+				});
+			} else if (isCompleteEvent(event)) {
+				console.log('[Stream] Complete event received:', {
+					requestId: event.requestId,
+					assistantMessageId,
+					contentLength: event.content?.length
+				});
+				this.update((s) => ({
+					...s,
 					messages: s.messages.map((m) =>
-						m.id === assistantMessageId ? { ...m, content: contentToUpdate } : m
-					)
-				};
-			});
-		} else if (isCompleteEvent(event)) {
-			this.update((s) => ({
-				...s,
-				messages: s.messages.map((m) =>
-					m.id === assistantMessageId
-						? {
-								...m,
-								content: event.content,
-								status: 'sent' as const,
-								metadata: event.usage
-									? { tokens: event.usage.totalTokens, model: s.llm.model ?? undefined }
-									: undefined
-							}
-						: m
-				),
-				llm: { isStreaming: false, requestId: null, streamingContent: '', model: null }
-			}));
-			this.cleanupStream();
-		} else if (isErrorEvent(event)) {
-			this.update((s) => ({
-				...s,
-				messages: s.messages.map((m) =>
-					m.id === assistantMessageId ? { ...m, status: 'error' as const } : m
-				),
-				llm: { isStreaming: false, requestId: null, streamingContent: '', model: null },
-				error: event.error
-			}));
-			this.cleanupStream();
-		}
+						m.id === assistantMessageId
+							? {
+									...m,
+									content: event.content,
+									status: 'sent' as const,
+									metadata: event.usage
+										? { tokens: event.usage.totalTokens, model: s.llm.model ?? undefined }
+										: undefined
+								}
+							: m
+					),
+					llm: { isStreaming: false, requestId: null, streamingContent: '', model: null }
+				}));
+				this.cleanupStream();
+			} else if (isErrorEvent(event)) {
+				console.error('[Stream] Error event received:', {
+					requestId: event.requestId,
+					assistantMessageId,
+					error: event.error
+				});
+				this.update((s) => ({
+					...s,
+					messages: s.messages.map((m) =>
+						m.id === assistantMessageId ? { ...m, status: 'error' as const } : m
+					),
+					llm: { isStreaming: false, requestId: null, streamingContent: '', model: null },
+					error: event.error
+				}));
+				this.cleanupStream();
+			}
+		};
 	}
 
 	/**
@@ -264,6 +323,15 @@ export class LlmHandler {
 		streamingContext: StreamingContext,
 		options?: LlmRequestOptions
 	): Promise<StreamChatResult> {
+		console.log('[Stream] Starting new stream:', {
+			assistantMessageId,
+			conversationId: streamingContext.conversationId,
+			threadId: streamingContext.threadId
+		});
+
+		// Create isolated event handler with its own session state
+		const eventHandler = this.createEventHandler(assistantMessageId, streamingContext);
+
 		const result = await sendChatMessageStreaming({
 			conversationId: streamingContext.conversationId,
 			threadId: streamingContext.threadId ?? undefined,
@@ -272,11 +340,10 @@ export class LlmHandler {
 			systemPrompt: options?.systemPrompt,
 			temperature: options?.temperature,
 			maxTokens: options?.maxTokens,
-			onEvent: (event) => this.handleEvent(event, assistantMessageId, streamingContext)
+			onEvent: eventHandler
 		});
 
 		this.activeStream.stream = result;
-		this.activeStream.localContent = '';
 
 		// Update with request ID
 		this.update((s) => ({
@@ -328,8 +395,6 @@ export class LlmHandler {
 	 */
 	private cleanupStream(): void {
 		this.activeStream.stream = null;
-		this.activeStream.requestId = null;
-		this.activeStream.localContent = '';
 	}
 
 	/**

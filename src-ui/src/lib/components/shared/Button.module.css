@@ -22,7 +22,18 @@
 	overflow: hidden;
 	transition:
 		transform var(--btn-transition-transform),
-		box-shadow var(--btn-transition-shadow);
+		box-shadow var(--btn-transition-shadow),
+		background-color var(--btn-transition-color),
+		border-color var(--btn-transition-color),
+		color var(--btn-transition-color);
+}
+
+.btnContent {
+	position: relative;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 }
 
 /* Cross-fade layer */

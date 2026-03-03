@@ -175,15 +175,15 @@
 	/* =====================
      Transitions
      ===================== */
-	--transition-instant: 50ms ease;
-	--transition-fast: 150ms ease;
-	--transition-normal: 200ms ease;
-	--transition-slow: 300ms ease;
-	--transition-slower: 400ms ease;
+	--transition-instant: 50ms cubic-bezier(0.2, 0, 0, 1);
+	--transition-fast: 150ms cubic-bezier(0.2, 0, 0, 1);
+	--transition-normal: 250ms cubic-bezier(0.2, 0, 0, 1);
+	--transition-slow: 350ms cubic-bezier(0.2, 0, 0, 1);
+	--transition-slower: 500ms cubic-bezier(0.2, 0, 0, 1);
 
 	/* Spring-like transitions */
-	--transition-bounce: 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
-	--transition-smooth: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+	--transition-bounce: 400ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+	--transition-smooth: 300ms cubic-bezier(0.2, 0, 0, 1);
 
 	/* =====================
      Opacity

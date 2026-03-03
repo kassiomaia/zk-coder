@@ -79,6 +79,9 @@
 
         /** Thread click handler */
         onThreadClick?: (threadId: string) => void;
+
+        /** Scroll handler */
+        onScroll?: (scrollTop: number, scrollHeight: number, clientHeight: number) => void;
     }
 
     let {
@@ -95,7 +98,8 @@
         onEditMessage,
         onDeleteMessage,
         onRetryMessage,
-        onThreadClick
+        onThreadClick,
+        onScroll
     }: Props = $props();
 
     // Input state
@@ -295,6 +299,9 @@
         const scrolledUp = currentScrollTop < lastScrollTop - 5; // 5px threshold to ignore minor changes
         lastScrollTop = currentScrollTop;
 
+        // Notify parent
+        onScroll?.(ref.scrollTop, ref.scrollHeight, ref.clientHeight);
+
         // Notify controller of user scroll
         controllerHandleUserScroll(currentThreadId);
     }
@@ -346,6 +353,14 @@
     let messageGroups = $derived(() => {
         if (!messages || messages.length === 0) return [];
 
+        // DEBUG: Log all messages with their IDs and content preview
+        console.log('[ChatArea] Computing messageGroups, messages:', messages.map(m => ({
+            id: m.id,
+            role: m.role,
+            contentPreview: m.content.substring(0, 50) + '...',
+            status: m.status
+        })));
+
         const groups: MessageGroup[] = [];
         let currentGroup: Message[] = [];
 
@@ -378,6 +393,13 @@
                 timestamp: currentGroup[0].timestamp
             });
         }
+
+        // DEBUG: Log groups
+        console.log('[ChatArea] Groups computed:', groups.map(g => ({
+            role: g.role,
+            messageIds: g.messages.map(m => m.id),
+            firstContentPreview: g.messages[0]?.content.substring(0, 30) + '...'
+        })));
 
         return groups;
     });
@@ -467,7 +489,7 @@
             </div>
         {:else}
             <!-- Message groups -->
-            {#each messageGroups() as group}
+            {#each messageGroups() as group (group.messages[0]?.id ?? crypto.randomUUID())}
                 <div class={styles.messageGroup}>
                     <div class={styles.groupHeader}>
                         <span class={styles.groupRole}>{group.role}</span>

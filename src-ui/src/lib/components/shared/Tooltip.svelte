@@ -57,6 +57,16 @@
 	let showTimeout: ReturnType<typeof setTimeout> | null = null;
 	let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
+	// Use $effect to trigger calculation after DOM is updated and visible
+	$effect(() => {
+		if (visible && tooltipRef) {
+			// Trigger calculation on next frame to ensure correct tooltip dimensions
+			requestAnimationFrame(() => {
+				calculatePosition();
+			});
+		}
+	});
+
 	// Constants for micro-alignment
 	const ARROW_SIZE = 6; // Match CSS arrow size
 	const ARROW_OFFSET_MIN = 8; // Minimum distance from tooltip edge
@@ -81,10 +91,8 @@
 		if (disabled) return;
 		clearAllTimeouts();
 		showTimeout = setTimeout(() => {
-			requestAnimationFrame(() => {
-				calculatePosition();
-				visible = true;
-			});
+			visible = true;
+			// Calculation is now handled by $effect upon visibility
 		}, showDelay);
 	}
 
@@ -188,11 +196,16 @@
 	 * Uses Math.round() for sub-pixel precision on displays.
 	 */
 	let positionStyle = $derived.by(() => {
-		if (!triggerRef) return '';
+		if (!triggerRef) return 'opacity: 0;';
 
 		const triggerRect = triggerRef.getBoundingClientRect();
-		const tooltipWidth = tooltipRef?.getBoundingClientRect().width ?? 0;
-		const tooltipHeight = tooltipRef?.getBoundingClientRect().height ?? 0;
+		// Get tooltip dimensions if already rendered, otherwise use estimates
+		// This handles the initial frame where tooltipRef is being established
+		const tooltipWidth = tooltipRef?.offsetWidth ?? 0;
+		const tooltipHeight = tooltipRef?.offsetHeight ?? 0;
+
+		// Don't show if tooltip isn't measured yet, but keep rendered for measurement
+		const isInitialRender = visible && (!tooltipWidth || !tooltipHeight);
 
 		// Calculate trigger center points (sub-pixel precise)
 		const triggerCenterX = Math.round(triggerRect.left + triggerRect.width / 2);
@@ -244,7 +257,7 @@
 			clampedTop = Math.max(minTop, Math.min(maxTop, pos.top));
 		}
 
-		return `left: ${clampedLeft}px; top: ${clampedTop}px; transform: ${pos.transform};`;
+		return `left: ${clampedLeft}px; top: ${clampedTop}px; transform: ${pos.transform}; ${isInitialRender ? 'opacity: 0;' : ''}`;
 	});
 
 	// Arrow position style based on calculated offset
@@ -265,6 +278,22 @@
 		.filter(Boolean)
 		.join(' '));
 
+	// Track scrolling and resizing to keep tooltip attached
+	$effect(() => {
+		if (visible) {
+			const update = () => {
+				requestAnimationFrame(calculatePosition);
+			};
+			window.addEventListener('scroll', update, { capture: true, passive: true });
+			window.addEventListener('resize', update, { passive: true });
+			
+			return () => {
+				window.removeEventListener('scroll', update, { capture: true });
+				window.removeEventListener('resize', update);
+			};
+		}
+	});
+
 	// Reposition on scroll/resize
 	function handleScroll() {
 		if (visible && triggerRef && tooltipRef) {
@@ -275,7 +304,7 @@
 	}
 </script>
 
-<svelte:window on:keydown={handleKeyDown} on:scroll={handleScroll} />
+<svelte:window on:keydown={handleKeyDown} />
 
 {#if children}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
