@@ -82,7 +82,7 @@
 }
 
 .button:hover {
-	background: var(--color-interactive-hover);
+	background: var(--color-surface-hover);
 }
 
 /* Hidden state - morph transition to edit mode */
@@ -91,13 +91,13 @@
 	pointer-events: none;
 }
 
-/* Selected state - subtle highlight WITHOUT border to maintain thread connection */
+/* Selected state - subtle neutral highlight without blue tint */
 .item.selected .button {
-	background: var(--color-interactive-selected);
+	background: var(--color-surface-active);
 }
 
 .item.selected .button:hover {
-	background: var(--color-interactive-selected-hover);
+	background: var(--color-surface-hover);
 }
 
 .button:focus-visible {

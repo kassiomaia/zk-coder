@@ -58,14 +58,6 @@
 	animation: bounce 0.4s var(--ease-out);
 }
 
-.item.selected .button {
-	background: var(--color-surface-hover);
-	border: 1px solid var(--color-border-primary);
-	border-left: 3px solid var(--color-primary-500);
-	padding: 0 var(--space-2-5) 0 calc(var(--space-2-5) - 3px);
-	box-shadow: var(--shadow-sm);
-}
-
 @keyframes slideIn {
 	from {
 		opacity: 0;
@@ -311,7 +303,7 @@
 
 /* Inline hover - more subtle */
 .item[data-variant='inline'] .button:hover {
-	background: var(--color-interactive-hover);
+	background: var(--color-surface-hover);
 }
 
 /* Inline icon - smaller and muted */
@@ -351,14 +343,14 @@
 	display: none;
 }
 
-/* Selected inline item - consistent with design system */
+/* Selected inline item - subtle neutral highlight */
 .item[data-variant='inline'].selected .button {
-	background: var(--color-interactive-selected);
+	background: var(--color-surface-active);
 	box-shadow: none;
 }
 
 .item[data-variant='inline'].selected .button:hover {
-	background: var(--color-interactive-selected-hover);
+	background: var(--color-surface-hover);
 }
 
 .item[data-variant='inline'].selected .title {
