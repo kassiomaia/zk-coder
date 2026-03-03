@@ -458,6 +458,31 @@ impl ChatStore {
         Ok(())
     }
 
+    /// Renames a thread.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the thread is not found or database fails.
+    pub fn rename_thread(&self, id: &str, title: &str) -> Result<Thread, ChatStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let now = Utc::now();
+        let rows_affected = conn.execute(
+            "UPDATE threads SET title = ?1, updated_at = ?2 WHERE id = ?3",
+            params![title, now.to_rfc3339(), id],
+        )?;
+
+        if rows_affected == 0 {
+            return Err(ChatStoreError::NotFound("Thread", id.to_string()));
+        }
+
+        drop(conn);
+        self.load_thread(id)
+    }
+
     /// Creates a thread with its first message atomically.
     ///
     /// # Errors
