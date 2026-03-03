@@ -1,0 +1,271 @@
+/**
+ * Button Micro-interaction Animations
+ *
+ * Named animations for reusable button effects.
+ * Import this file where custom button animations are needed.
+ */
+
+/* =====================
+   Copy Success Animation
+   A satisfying bounce to confirm copy action
+   ===================== */
+
+@keyframes copySuccess {
+	0% {
+		transform: scale(1);
+	}
+	25% {
+		transform: scale(0.9);
+	}
+	50% {
+		transform: scale(1.1);
+	}
+	75% {
+		transform: scale(0.95);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+.animate-copy-success {
+	animation: copySuccess 400ms var(--ease-bounce);
+}
+
+/* =====================
+   Danger Shake Animation
+   Subtle horizontal shake for destructive action hover
+   ===================== */
+
+@keyframes dangerShake {
+	0%,
+	100% {
+		transform: translateX(0);
+	}
+	20% {
+		transform: translateX(-2px);
+	}
+	40% {
+		transform: translateX(2px);
+	}
+	60% {
+		transform: translateX(-1px);
+	}
+	80% {
+		transform: translateX(1px);
+	}
+}
+
+.animate-danger-shake {
+	animation: dangerShake 400ms var(--ease-in-out);
+}
+
+/* =====================
+   Danger Shake Continuous
+   Continuous subtle shake for active danger state
+   ===================== */
+
+@keyframes dangerShakeContinuous {
+	0%,
+	100% {
+		transform: translateX(0);
+	}
+	25% {
+		transform: translateX(-1px);
+	}
+	75% {
+		transform: translateX(1px);
+	}
+}
+
+.animate-danger-shake-continuous {
+	animation: dangerShakeContinuous 200ms var(--ease-in-out) infinite;
+}
+
+/* =====================
+   Success Ripple Animation
+   Expanding green glow for success feedback
+   ===================== */
+
+@keyframes successRipple {
+	0% {
+		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+	}
+	100% {
+		box-shadow: 0 0 0 12px rgba(16, 185, 129, 0);
+	}
+}
+
+.animate-success-ripple {
+	animation: successRipple 600ms var(--ease-out);
+}
+
+/* =====================
+   Send Launch Animation
+   Forward motion effect for send buttons
+   ===================== */
+
+@keyframes sendLaunch {
+	0% {
+		transform: translateX(0);
+		opacity: 1;
+	}
+	50% {
+		transform: translateX(8px);
+		opacity: 0.5;
+	}
+	100% {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+
+.animate-send-launch {
+	animation: sendLaunch 300ms var(--ease-out);
+}
+
+/* =====================
+   Hover Glow Animation
+   Subtle pulsing glow for hover state
+   ===================== */
+
+@keyframes hoverGlow {
+	0%,
+	100% {
+		box-shadow: 0 0 4px rgba(99, 102, 241, 0.1);
+	}
+	50% {
+		box-shadow: 0 0 8px rgba(99, 102, 241, 0.2);
+	}
+}
+
+.animate-hover-glow {
+	animation: hoverGlow 2s var(--ease-in-out) infinite;
+}
+
+/* =====================
+   Press Scale Animation
+   Quick scale down for press feedback
+   ===================== */
+
+@keyframes pressScale {
+	0% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(0.96);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+.animate-press-scale {
+	animation: pressScale 150ms var(--ease-out);
+}
+
+/* =====================
+   Fade In Up Animation
+   Entrance animation for buttons appearing
+   ===================== */
+
+@keyframes fadeInUp {
+	0% {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-fade-in-up {
+	animation: fadeInUp var(--duration-reveal) var(--ease-out);
+}
+
+/* =====================
+   Spin Animation
+   Continuous rotation for loading states
+   ===================== */
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.animate-spin {
+	animation: spin 1s linear infinite;
+}
+
+/* =====================
+   Pulse Animation
+   Subtle scale pulse for attention
+   ===================== */
+
+@keyframes pulse {
+	0%,
+	100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+	50% {
+		transform: scale(1.05);
+		opacity: 0.9;
+	}
+}
+
+.animate-pulse {
+	animation: pulse 2s var(--ease-in-out) infinite;
+}
+
+/* =====================
+   Bounce In Animation
+   Bouncy entrance effect
+   ===================== */
+
+@keyframes bounceIn {
+	0% {
+		opacity: 0;
+		transform: scale(0.3);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.05);
+	}
+	70% {
+		transform: scale(0.9);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+.animate-bounce-in {
+	animation: bounceIn 400ms var(--ease-bounce);
+}
+
+/* =====================
+   Reduced Motion Support
+   Disable all animations for users who prefer reduced motion
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	.animate-copy-success,
+	.animate-danger-shake,
+	.animate-danger-shake-continuous,
+	.animate-success-ripple,
+	.animate-send-launch,
+	.animate-hover-glow,
+	.animate-press-scale,
+	.animate-fade-in-up,
+	.animate-spin,
+	.animate-pulse,
+	.animate-bounce-in {
+		animation: none;
+	}
+}
