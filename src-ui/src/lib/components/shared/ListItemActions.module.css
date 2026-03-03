@@ -40,69 +40,121 @@
 }
 
 .menu {
+	/* Positioning */
 	position: fixed;
-	min-width: 160px;
+	min-width: 180px; /* Slightly wider for better text accommodation */
+	z-index: 1000;
+	transform-origin: top right;
+	
+	/* Visuals */
 	background: var(--color-surface);
 	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-md);
-	padding: var(--space-1);
-	box-shadow: var(--shadow-lg);
+	border-radius: var(--radius-lg);
+	box-shadow: 
+		0 4px 6px -1px rgba(0, 0, 0, 0.1), 
+		0 2px 4px -1px rgba(0, 0, 0, 0.06), 
+		0 10px 15px -3px rgba(0, 0, 0, 0.1);
+	
+	/* Layout */
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-0-5);
-	z-index: 1000;
-	/* Entrance animation */
-	animation: fadeScaleIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-	transform-origin: top right;
+	padding: 4px; /* Explicit control for vertical rhythm */
+	gap: 2px; /* Tight gap for density balance */
+	
+	/* Animation */
+	animation: menuEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes fadeScaleIn {
+@keyframes menuEnter {
 	from {
 		opacity: 0;
-		transform: scale(0.95);
+		transform: translateY(-4px) scale(0.98);
 	}
 	to {
 		opacity: 1;
-		transform: scale(1);
+		transform: translateY(0) scale(1);
 	}
 }
 
 .action {
+	/* Layout & Dimensions */
 	display: flex;
 	align-items: center;
-	gap: var(--space-2);
 	width: 100%;
-	padding: var(--space-1-5) var(--space-2);
+	height: 34px; /* Normalized height */
+	padding: 0 var(--space-3);
+	gap: var(--space-3);
+	
+	/* Typography */
+	font-size: var(--text-sm);
+	font-weight: var(--font-normal); /* Baseline weight */
+	text-align: left;
+	white-space: nowrap;
+	
+	/* Visuals */
 	background: transparent;
 	border: none;
-	border-radius: var(--radius-sm);
-	cursor: pointer;
+	border-radius: var(--radius-md); /* Consistent rounding */
 	color: var(--color-text-secondary);
-	font-size: var(--font-size-sm);
-	text-align: left;
-	transition: all var(--transition-fast);
-	white-space: nowrap;
+	cursor: pointer;
+	position: relative;
+	overflow: hidden;
+	
+	/* Interaction */
+	transition: 
+		background 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+		color 0.15s ease,
+		transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .action:hover {
 	background: var(--color-surface-hover);
 	color: var(--color-text-primary);
+	transform: scale(1.005); /* Micro-scale (≤1.01) */
 }
 
+.action:focus-visible {
+	outline: none;
+	background: var(--color-surface-hover);
+	box-shadow: inset 0 0 0 1px var(--color-border-focus);
+}
+
+/* Specific Actions */
+
+/* Resolve / Reopen */
+.action.resolve:hover {
+	background: var(--color-surface-hover);
+	color: var(--color-success);
+}
+
+/* Archive */
+.action.archive:hover {
+	background: var(--color-surface-hover);
+	color: var(--color-warning);
+}
+
+/* Delete (Destructive) */
 .action.delete {
-	color: var(--color-error);
+	color: var(--color-text-secondary);
 }
 
 .action.delete:hover {
 	background: var(--color-error-light);
+	color: var(--color-error);
 }
 
-.action.archive:hover {
-	background: var(--color-warning-light);
-	color: var(--color-warning);
+/* Icon alignment fix */
+.action :global(svg) {
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+	opacity: 0.8;
+	transition: opacity 0.15s ease;
 }
 
-.action.resolve:hover {
-	background: var(--color-success-light, rgba(34, 197, 94, 0.1));
-	color: var(--color-success);
+.action:hover :global(svg) {
+	opacity: 1;
+}
+
+/* Reduced motion overrides */
 }
