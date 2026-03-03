@@ -221,6 +221,30 @@
 	background: var(--color-bg-secondary);
 }
 
+/* Primary action button highlight sweep */
+.footer :global(.button-primary) {
+	position: relative;
+	overflow: hidden;
+}
+
+.footer :global(.button-primary)::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		135deg,
+		transparent 0%,
+		rgba(255, 255, 255, 0.15) 50%,
+		transparent 100%
+	);
+	transform: translateX(-100%) scale(1.1);
+	transition: transform var(--card-sweep-duration) var(--card-sweep-ease);
+}
+
+.footer :global(.button-primary):hover::before {
+	transform: translateX(100%) scale(1.1);
+}
+
 /* ============================================================================
    EXIT ANIMATION
    ============================================================================ */
