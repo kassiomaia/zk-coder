@@ -145,11 +145,14 @@
 
 /* Expanded state: unified container block */
 .conversationWrapper.expanded {
-	/* Unified surface for parent + threads */
+	/*
+	 * Container wraps both parent and children as single structural unit.
+	 * Surface is subtle - hierarchy expressed by typography, not background blocks.
+	 */
 	background: var(--color-surface);
+	/* Remove strong corner emphasis - container continues to children */
 	border-radius: var(--radius-lg);
 	margin: 0 var(--space-2) var(--space-2);
-	/* Remove inner margins - children are part of this container */
 	overflow: hidden;
 }
 

@@ -252,27 +252,36 @@
  * Used when threads are displayed inline under their parent conversation
  *
  * Document continuity: threads are structured rows inside the parent container,
- * not independent cards. No independent corner radii - corners managed by container.
+ * not independent cards. One unified content grid, one surface logic.
+ *
+ * ALIGNMENT MATH:
+ * Parent content starts at: padding (12px) + icon (26px) + gap (12px) = 50px
+ * Thread content must start at same position: 50px
  *
  * Features:
- * - Unified surface with parent container
- * - Left padding aligned with parent content start
- * - Compressed vertical padding (15% reduction for secondary status)
- * - Selection via restrained left accent, not full background fill
- * - Tonal differentiation for resolved threads
+ * - Unified content grid with parent (text starts at same x-axis)
+ * - No independent icon - removes visual density
+ * - Increased vertical padding for breathing room
+ * - Selection via left accent border, not full background
+ * - Status via typography weight/tone, not additional icons
  */
 .item[data-variant='inline'] {
 	margin: 0;
-	min-height: 28px;
+	min-height: 36px;
 	/* No independent border-radius - part of parent container */
 	border-radius: 0;
 }
 
 .item[data-variant='inline'] .button {
-	height: 28px;
-	/* Align with parent content: matches parent (padding-left + icon + gap) */
-	padding: 0 var(--space-1-5) 0 var(--space-3);
-	gap: var(--space-1-5);
+	height: 36px;
+	/*
+	 * CRITICAL: Left padding aligns thread content with parent content.
+	 * Parent text start = 12px + 26px + 12px = 50px
+	 * Thread text start = 50px (this padding value)
+	 * Right padding is reduced for balance.
+	 */
+	padding: var(--space-2) var(--space-2) var(--space-2) 50px;
+	gap: var(--space-2);
 	/* No independent corners - part of continuous surface */
 	border-radius: 0;
 	border: none;
@@ -284,34 +293,27 @@
 	background: var(--color-surface-hover);
 }
 
-/* Inline icon - smaller, aligned with parent icon position */
+/* Inline icon - hidden to reduce visual density */
 .item[data-variant='inline'] .icon {
-	width: 14px;
-	height: 14px;
-	background: transparent;
+	display: none;
 }
 
-.item[data-variant='inline'] .icon svg {
-	width: 10px;
-	height: 10px;
-}
-
-/* Inline content - compressed for secondary status */
+/* Inline content - increased gap for breathing room */
 .item[data-variant='inline'] .content {
-	gap: 1px;
+	gap: var(--space-0-5);
 }
 
 .item[data-variant='inline'] .title {
 	font-size: var(--text-xs);
 	color: var(--color-text-tertiary);
 	font-weight: var(--font-normal);
-	line-height: 1.3;
+	line-height: 1.4;
 }
 
 .item[data-variant='inline'] .meta {
 	font-size: var(--text-2xs); /* 10px */
 	color: var(--color-text-muted);
-	opacity: 0.6;
+	opacity: 0.7;
 }
 
 .item[data-variant='inline'] .messageCount {
@@ -322,13 +324,15 @@
 	display: none;
 }
 
-/* Selected inline item - restrained left accent edge, not full fill */
+/* Selected inline item - left accent border, not full fill */
 .item[data-variant='inline'].selected .button {
-	/* Subtle background, not aggressive fill */
+	/*
+	 * Selection indication via left accent, preserving shared surface.
+	 * Accent compensates for left padding to maintain content alignment.
+	 */
 	background: transparent;
-	/* Left accent line for selection indication */
 	border-left: 2px solid var(--color-border-secondary);
-	padding-left: calc(var(--space-3) - 2px);
+	padding-left: calc(50px - 2px);
 }
 
 .item[data-variant='inline'].selected .button:hover {
@@ -340,17 +344,9 @@
 	font-weight: var(--font-medium);
 }
 
-.item[data-variant='inline'].selected .icon {
-	color: var(--color-text-secondary);
-}
-
-/* Resolved inline thread - tonal reduction */
+/* Resolved inline thread - tonal reduction via typography */
 .item[data-variant='inline'].resolved {
 	opacity: 0.55;
-}
-
-.item[data-variant='inline'].resolved .icon {
-	color: var(--color-text-muted);
 }
 
 .item[data-variant='inline'].resolved .title {
