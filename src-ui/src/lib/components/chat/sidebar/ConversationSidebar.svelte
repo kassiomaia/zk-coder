@@ -13,6 +13,8 @@
 	import SearchBar from './SearchBar.svelte';
 	import ConversationItem from './ConversationItem.svelte';
 	import InlineThreadList from './InlineThreadList.svelte';
+	import Popover from '$lib/components/shared/Popover.svelte';
+	import type { PopoverItem } from '$lib/components/shared/popover.types';
 	import type { Conversation, ConversationGroup, Thread } from '$lib/types/thread';
 
 	interface Props {
@@ -84,23 +86,41 @@
 	let searchQuery = $state('');
 	let isNewMenuOpen = $state(false);
 	let newButtonRef: HTMLButtonElement | undefined = $state(undefined);
-	let newMenuRef: HTMLDivElement | undefined = $state(undefined);
 
-	// Derived state for contextual UI
 	let hasSelectedConversation = $derived(!!selectedId);
 	let hasSelectedThread = $derived(!!selectedThreadId);
 	let hasThreads = $derived(threadsForSelected.length > 0);
 
-	// Thread status counts for selected conversation
 	let openThreadCount = $derived(threadsForSelected.filter((t) => !t.metadata.resolved).length);
 	let resolvedThreadCount = $derived(threadsForSelected.filter((t) => t.metadata.resolved).length);
 
-	// Status text based on selection state
 	let statusText = $derived(() => {
 		if (hasSelectedThread) return 'Active thread';
 		if (hasSelectedConversation) return 'Active conversation';
 		return 'Select a chat to begin';
 	});
+
+	const ICONS = {
+		newChat:
+			'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>',
+		newThread:
+			'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>'
+	};
+
+	let newMenuItems = $derived<PopoverItem[]>([
+		{
+			id: 'new-chat',
+			label: 'New chat',
+			iconHtml: ICONS.newChat,
+			disabled: !onCreateNew
+		},
+		{
+			id: 'new-thread',
+			label: 'New thread',
+			iconHtml: ICONS.newThread,
+			disabled: !hasSelectedConversation || !onCreateThread
+		}
+	]);
 
 	// Group conversations by date
 	function groupConversations(convList: Conversation[]): ConversationGroup[] {
@@ -149,125 +169,62 @@
 		isNewMenuOpen = false;
 	}
 
-	function handleWindowClick(e: MouseEvent) {
-		if (
-			isNewMenuOpen &&
-			newMenuRef &&
-			!newMenuRef.contains(e.target as Node) &&
-			!newButtonRef?.contains(e.target as Node)
-		) {
-			closeNewMenu();
+	function handleNewMenuSelect(item: PopoverItem) {
+		switch (item.id) {
+			case 'new-chat':
+				onCreateNew?.();
+				break;
+			case 'new-thread':
+				onCreateThread?.();
+				break;
 		}
-	}
-
-	function handleCreateChat() {
-		onCreateNew?.();
-		closeNewMenu();
-	}
-
-	function handleCreateThread() {
-		onCreateThread?.();
-		closeNewMenu();
 	}
 </script>
 
-	<svelte:window onclick={handleWindowClick} />
-
-	<aside class={styles.sidebar} aria-label="Conversations">
-		<!-- Header -->
-		<header class={styles.header}>
-			<div class={styles.headerTop}>
-				<div class={styles.headerInfo}>
-					<h2 class={styles.title}>CHATS</h2>
-				</div>
-				<div class={styles.headerActions}>
-					<!-- Single "New" button with dropdown -->
-					<div class={styles.menuWrapper}>
-						<button
-							bind:this={newButtonRef}
-							class={[styles.newButton, isNewMenuOpen && styles.active].filter(Boolean).join(' ')}
-							onclick={toggleNewMenu}
-							aria-label="Create new..."
-							aria-expanded={isNewMenuOpen}
-							aria-haspopup="true"
-							type="button"
+<aside class={styles.sidebar} aria-label="Conversations">
+	<!-- Header -->
+	<header class={styles.header}>
+		<div class={styles.headerTop}>
+			<div class={styles.headerInfo}>
+				<h2 class={styles.title}>CHATS</h2>
+			</div>
+			<div class={styles.headerActions}>
+				<div class={styles.menuWrapper}>
+					<button
+						bind:this={newButtonRef}
+						class={[styles.newButton, isNewMenuOpen && styles.active].filter(Boolean).join(' ')}
+						onclick={toggleNewMenu}
+						aria-label="Create new..."
+						aria-expanded={isNewMenuOpen}
+						aria-haspopup="true"
+						type="button"
+					>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
 						>
-							<svg
-								width="16"
-								height="16"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<path d="M12 5v14M5 12h14" />
-							</svg>
-						</button>
+							<path d="M12 5v14M5 12h14" />
+						</svg>
+					</button>
 
-						{#if isNewMenuOpen}
-							<div
-								bind:this={newMenuRef}
-								class={styles.menu}
-								role="menu"
-							>
-								{#if onCreateNew}
-									<button
-										class={styles.menuItem}
-										onclick={handleCreateChat}
-										role="menuitem"
-										type="button"
-									>
-										<div class={styles.menuIcon}>
-											<svg
-												width="16"
-												height="16"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											>
-												<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-											</svg>
-										</div>
-										<span>New chat</span>
-									</button>
-								{/if}
-
-								{#if onCreateThread}
-									<button
-										class={styles.menuItem}
-										onclick={handleCreateThread}
-										role="menuitem"
-										type="button"
-										disabled={!hasSelectedConversation}
-									>
-										<div class={styles.menuIcon}>
-											<svg
-												width="16"
-												height="16"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											>
-												<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-											</svg>
-										</div>
-										<span>New thread</span>
-									</button>
-								{/if}
-							</div>
-						{/if}
-					</div>
+					<Popover
+						open={isNewMenuOpen}
+						onClose={closeNewMenu}
+						items={newMenuItems}
+						onSelect={handleNewMenuSelect}
+						anchorEl={newButtonRef}
+						origin="bottom-right"
+					/>
 				</div>
 			</div>
-			<!-- Status row below title/buttons -->
+		</div>
+		<!-- Status row below title/buttons -->
 
 		<div class={styles.statusRow}>
 			<p class={styles.statusText}>{statusText()}</p>
@@ -275,14 +232,9 @@
 
 		<!-- Search -->
 		{#if onSearch}
-			<SearchBar
-				value={searchQuery}
-				oninput={handleSearch}
-				placeholder="Search conversations..."
-			/>
+			<SearchBar value={searchQuery} oninput={handleSearch} placeholder="Search conversations..." />
 		{/if}
 	</header>
-
 
 	<!-- Content -->
 	<div class={styles.content}>
@@ -307,11 +259,7 @@
 				</svg>
 				<p class={styles.emptyText}>No conversations yet</p>
 				{#if onCreateNew}
-					<button
-						class={styles.emptyButton}
-						onclick={onCreateNew}
-						type="button"
-					>
+					<button class={styles.emptyButton} onclick={onCreateNew} type="button">
 						Start a new chat
 					</button>
 				{/if}
@@ -326,7 +274,11 @@
 					<ul class={styles.list} role="listbox" aria-label="{group.label} conversations">
 						{#each group.conversations as conv, index (conv.id)}
 							{@const isExpanded = conv.id === selectedId && hasThreads}
-							<li class={[styles.conversationWrapper, isExpanded && styles.expanded].filter(Boolean).join(' ')}>
+							<li
+								class={[styles.conversationWrapper, isExpanded && styles.expanded]
+									.filter(Boolean)
+									.join(' ')}
+							>
 								<ConversationItem
 									conversation={conv}
 									selected={conv.id === selectedId}
@@ -346,11 +298,11 @@
 										threads={threadsForSelected}
 										{selectedThreadId}
 										expanded={true}
-										onSelectThread={onSelectThread}
-										onResolveThread={onResolveThread}
-										onRenameThread={onRenameThread}
-										onDeleteThread={onDeleteThread}
-										onArchiveThread={onArchiveThread}
+										{onSelectThread}
+										{onResolveThread}
+										{onRenameThread}
+										{onDeleteThread}
+										{onArchiveThread}
 									/>
 								{/if}
 							</li>
@@ -384,7 +336,9 @@
 					stroke-linejoin="round"
 				>
 					<circle cx="12" cy="12" r="3" />
-					<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+					<path
+						d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+					/>
 				</svg>
 				<span class={styles.settingsLabel}>Settings</span>
 				{#if !hasConfiguredProvider}
