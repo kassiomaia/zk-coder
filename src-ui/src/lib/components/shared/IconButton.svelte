@@ -52,7 +52,7 @@
 		class: className = ''
 	}: Props = $props();
 
-	const tooltipText = tooltip ?? label;
+	const tooltipText = $derived(tooltip ?? label);
 
 	let isPressed = $state(false);
 
