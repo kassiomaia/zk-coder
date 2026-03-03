@@ -138,10 +138,11 @@
 			</div>
 		</button>
 
-		{#if showActions && (ondelete || onrename)}
+		{#if showActions && (ondelete || onrename || onarchive)}
 			<ConversationActions
 				ondelete={ondelete}
 				onrename={onrename ? startEdit : undefined}
+				onarchive={onarchive}
 			/>
 		{/if}
 	{/if}
