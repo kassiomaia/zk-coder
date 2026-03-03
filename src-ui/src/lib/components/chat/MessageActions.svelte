@@ -90,6 +90,7 @@
 			tooltip="Copy"
 			variant="ghost"
 			size="sm"
+			class={styles.actionBtn}
 			onclick={handleCopy}
 		>
 			{#snippet icon()}
@@ -133,6 +134,7 @@
 			tooltip="Edit"
 			variant="ghost"
 			size="sm"
+			class={styles.actionBtn}
 			onclick={onEdit}
 		>
 			{#snippet icon()}
@@ -160,6 +162,7 @@
 			variant="ghost"
 			intent="danger"
 			size="sm"
+			class={styles.actionBtn}
 			onclick={onDelete}
 		>
 			{#snippet icon()}
@@ -186,6 +189,7 @@
 			tooltip="Retry"
 			variant="ghost"
 			size="sm"
+			class={styles.actionBtn}
 			onclick={onRetry}
 		>
 			{#snippet icon()}
@@ -214,6 +218,7 @@
 				variant="ghost"
 				intent="success"
 				size="sm"
+				class={styles.actionBtn}
 				active={thumbsUpActive}
 				onclick={handleThumbsUp}
 			>
@@ -241,6 +246,7 @@
 				variant="ghost"
 				intent="warning"
 				size="sm"
+				class={styles.actionBtn}
 				active={thumbsDownActive}
 				onclick={handleThumbsDown}
 			>

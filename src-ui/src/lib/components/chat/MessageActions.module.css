@@ -10,62 +10,57 @@
 
 .actions {
 	display: flex;
-	gap: var(--space-1);
-	padding: var(--space-1);
-	background: var(--color-bg-elevated);
-	border: 1px solid var(--color-border-primary);
-	border-radius: var(--radius-lg);
-	box-shadow: var(--shadow-md);
-	/* Parent container controls visibility via opacity */
-}
-
-.action {
-	display: flex;
 	align-items: center;
-	justify-content: center;
-	width: 28px;
-	height: 28px;
-	padding: 0;
-	background: transparent;
-	border: none;
-	border-radius: var(--radius-md);
-	cursor: pointer;
+	padding: 2px 4px;
+	gap: 2px;
+	background-color: var(--color-surface);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-full);
+	box-shadow: var(--shadow-sm);
+	backdrop-filter: blur(8px);
+	height: 32px; /* Ensure container fits height of children */
+}
+
+/* Custom button style overrides passed to IconButton */
+.actionBtn {
 	color: var(--color-text-muted);
-	transition: all var(--transition-fast);
+	transition: all 0.2s ease !important;
 }
 
-.action:hover {
-	background: var(--color-surface-hover);
+.actionBtn:hover {
 	color: var(--color-text-primary);
+	transform: translateY(-1px);
 }
 
-.action:active {
-	transform: scale(0.95);
-}
-
-.action:focus-visible {
-	outline: 2px solid var(--color-primary-500);
-	outline-offset: 1px;
+/* Enforce the tighter micro-bounce from design specs */
+.actionBtn:active {
+	transform: scale(0.92) !important;
 }
 
 /* Copied state */
 .copied {
 	color: var(--color-success);
+	background: var(--color-success-subtle);
 }
 
 /* Active/selected state */
 .active {
-	color: var(--color-text-primary);
-	background: var(--color-surface-active);
+	color: var(--color-primary-500);
+	background: var(--color-primary-100);
+}
+
+[data-theme='dark'] .active {
+	background: rgba(99, 102, 241, 0.15);
 }
 
 /* Feedback group */
 .feedbackGroup {
 	display: flex;
-	gap: var(--space-1);
-	padding-left: var(--space-2);
-	border-left: 1px solid var(--color-border-primary);
-	margin-left: var(--space-1);
+	align-items: center;
+	border-left: 1px solid var(--color-border-subtle);
+	padding-left: 4px;
+	margin-left: 2px;
+	height: 16px; /* Reduced height for divider */
 }
 
 /* Feedback icons */
@@ -103,21 +98,15 @@
 /* Responsive */
 @media (max-width: 600px) {
 	.actions {
-		gap: var(--space-0-5);
-		background: transparent;
-		border: none;
-		box-shadow: none;
-		padding: 0;
-	}
-
-	.action {
-		width: 32px;
-		height: 32px;
+		gap: 2px;
+		background: var(--color-bg-elevated);
+		border: 1px solid var(--color-border-primary);
+		padding: 2px 4px;
 	}
 
 	.feedbackGroup {
-		padding-left: var(--space-1);
-		margin-left: 0;
+		padding-left: 4px;
+		margin-left: 2px;
 	}
 }
 

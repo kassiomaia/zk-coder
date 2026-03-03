@@ -475,7 +475,7 @@
                     </div>
                     <div class={styles.groupMessages}>
                         {#each group.messages as message (message.id)}
-                            <div class={styles.messageWrapper}>
+                            <div class={[styles.messageWrapper, message.role === 'user' ? styles.userWrapper : styles.assistantWrapper].filter(Boolean).join(' ')}>
                                 <div class={[styles.message, styles[getRoleClass(message.role)], getMessageStatusClass(message.status)].filter(Boolean).join(' ')}>
                                     <!-- Thread indicator -->
                                     {#if message.threadId && getThreadTitle(message.threadId)}
