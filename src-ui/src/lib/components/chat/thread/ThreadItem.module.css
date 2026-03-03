@@ -10,13 +10,27 @@
  */
 
 .item {
-	position: relative;
-	list-style: none;
-	margin: var(--space-0-25) 0;
-	overflow: hidden;
-	/* Base animation properties */
-	animation: slideIn 0.4s var(--ease-out-expo) forwards;
-	opacity: 0; /* Start hidden for animation */
+	/* ... */
+	--ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes bounce {
+	0% { transform: scale(1); }
+	40% { transform: scale(0.98); }
+	80% { transform: scale(1.01); }
+	100% { transform: scale(1); }
+}
+
+.item.selected {
+	animation: bounce 0.4s var(--ease-out-expo);
+}
+
+.item.selected .button {
+	background: var(--color-surface-hover);
+	border: 1px solid var(--color-border-primary);
+	border-left: 3px solid var(--color-primary-500);
+	padding: 0 var(--space-2-5) 0 calc(var(--space-2-5) - 3px);
+	box-shadow: var(--shadow-sm);
 }
 
 @keyframes slideIn {

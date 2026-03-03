@@ -52,9 +52,9 @@
 <aside class={styles.sidebar} aria-label="Threads">
 	<div class={styles.header}>
 		<div>
-			<h2 class={styles.title}>Threads</h2>
+			<h2 class={styles.title}>THREADS</h2>
 			<p class={styles.statusText}>
-				{selectedThreadId ? 'Viewing active thread' : 'Select a thread'}
+				{selectedThreadId ? 'Active thread' : 'Select a thread'}
 			</p>
 		</div>
 		<div class={styles.headerActions}>
@@ -158,5 +158,11 @@
 				</section>
 			{/if}
 		{/if}
+	</div>
+	
+	<div class={styles.footer}>
+		<div class={styles.footerInfo}>
+			<span>{threads.length} {threads.length === 1 ? 'thread' : 'threads'}</span>
+		</div>
 	</div>
 </aside>

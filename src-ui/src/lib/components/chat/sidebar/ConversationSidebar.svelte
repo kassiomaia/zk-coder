@@ -96,9 +96,9 @@
 	<header class={styles.header}>
 		<div class={styles.headerTop}>
 			<div>
-				<h2 class={styles.title}>Chats</h2>
+				<h2 class={styles.title}>CHATS</h2>
 				<p class={styles.statusText}>
-					{selectedId ? 'Viewing active conversation' : 'Select a chat to begin'}
+					{selectedId ? 'Active conversation' : 'Select a chat to begin'}
 				</p>
 			</div>
 			{#if onCreateNew}

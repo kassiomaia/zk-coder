@@ -23,7 +23,7 @@
 
 /* Header */
 .header {
-	padding: var(--space-4);
+	padding: var(--space-5) var(--space-4) var(--space-6);
 	border-bottom: 1px solid var(--color-border-subtle);
 	flex-shrink: 0;
 	background: var(--color-bg-secondary);
@@ -33,12 +33,12 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-bottom: var(--space-3);
+	margin-bottom: var(--space-5);
 }
 
 .title {
-	font-size: var(--text-lg);
-	font-weight: var(--font-medium);
+	font-size: var(--text-xl);
+	font-weight: var(--font-bold);
 	color: var(--color-text-primary);
 	margin: 0;
 	letter-spacing: var(--tracking-tight);
@@ -47,8 +47,9 @@
 .statusText {
 	font-size: var(--text-xs);
 	color: var(--color-text-tertiary);
-	margin-top: var(--space-0-5);
-	font-weight: var(--font-normal);
+	margin-top: var(--space-1);
+	font-weight: var(--font-medium);
+	opacity: 0.7;
 }
 
 .newButton {
@@ -63,21 +64,24 @@
 	border-radius: var(--radius-lg);
 	cursor: pointer;
 	color: var(--color-text-primary);
-	transition: all var(--transition-fast);
+	transition: all var(--transition-fast) var(--ease-out-expo);
 }
 
 .newButton:hover {
 	background: var(--color-surface-active);
 	border-color: var(--color-border-primary);
+	transform: scale(1.05);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .newButton:active {
-	transform: none;
+	transform: scale(0.95);
 }
 
 .newButton:focus-visible {
-	outline: 2px solid var(--color-border-focus);
+	outline: 2px solid var(--color-primary-500);
 	outline-offset: 2px;
+	box-shadow: 0 0 0 4px var(--color-accent-primary-muted);
 }
 
 /* Content */
