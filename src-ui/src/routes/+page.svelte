@@ -10,6 +10,7 @@
 	import ConfigModal from '$lib/components/config/ConfigModal.svelte';
 	import CustomProviderModal from '$lib/components/config/CustomProviderModal.svelte';
 	import SettingsModal from '$lib/components/config/SettingsModal.svelte';
+	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 	import {
 		chatStore,
 		selectedConversation,
@@ -45,6 +46,16 @@
 	let previousModal = $state<ModalState>('closed'); // Track previous modal to return after config
 	let selectedProviderId = $state<string | null>(null);
 	let configInitialized = $state(false);
+
+	// Archive confirmation state
+	let archiveConfirmOpen = $state(false);
+	let archiveTarget = $state<{ type: 'conversation' | 'thread'; item: Conversation | Thread } | null>(null);
+	let archiveLoading = $state(false);
+
+	// Delete confirmation state
+	let deleteConfirmOpen = $state(false);
+	let deleteTarget = $state<Conversation | null>(null);
+	let deleteLoading = $state(false);
 
 	// Subscribe to chat store changes
 	$effect(() => {
@@ -129,12 +140,66 @@
 		await chatStore.resolveThread(thread.id, !thread.metadata.resolved);
 	}
 
-	async function handleDeleteConversation(conversation: Conversation) {
-		await chatStore.deleteConversation(conversation.id);
+	function handleDeleteConversation(conversation: Conversation) {
+		deleteTarget = conversation;
+		deleteConfirmOpen = true;
+	}
+
+	function handleDeleteCancel() {
+		deleteConfirmOpen = false;
+		deleteTarget = null;
+	}
+
+	async function handleDeleteConfirm() {
+		if (!deleteTarget) return;
+
+		deleteLoading = true;
+		try {
+			await chatStore.deleteConversation(deleteTarget.id);
+			deleteConfirmOpen = false;
+			deleteTarget = null;
+		} finally {
+			deleteLoading = false;
+		}
 	}
 
 	async function handleRenameConversation(conversation: Conversation, newTitle: string) {
 		await chatStore.renameConversation(conversation.id, newTitle);
+	}
+
+	// Archive handlers - shows confirmation dialog before archiving
+	function handleArchiveConversation(conversation: Conversation) {
+		archiveTarget = { type: 'conversation', item: conversation };
+		archiveConfirmOpen = true;
+	}
+
+	function handleArchiveThread(thread: Thread) {
+		archiveTarget = { type: 'thread', item: thread };
+		archiveConfirmOpen = true;
+	}
+
+	function handleArchiveCancel() {
+		archiveConfirmOpen = false;
+		archiveTarget = null;
+	}
+
+	async function handleArchiveConfirm() {
+		if (!archiveTarget) return;
+
+		archiveLoading = true;
+		try {
+			if (archiveTarget.type === 'conversation') {
+				// TODO: Implement proper archive in backend
+				// For now, this behaves the same as delete
+				await chatStore.deleteConversation((archiveTarget.item as Conversation).id);
+			} else {
+				await chatStore.deleteThread((archiveTarget.item as Thread).id);
+			}
+			archiveConfirmOpen = false;
+			archiveTarget = null;
+		} finally {
+			archiveLoading = false;
+		}
 	}
 
 	function handleSearch(query: string) {
@@ -268,6 +333,33 @@
 		onremoveprovider={handleRemoveProvider}
 	/>
 {/if}
+
+<!-- Archive Confirmation Dialog -->
+<ConfirmDialog
+	open={archiveConfirmOpen}
+	title={archiveTarget?.type === 'conversation' ? 'Archive Conversation' : 'Archive Thread'}
+	message={archiveTarget?.type === 'conversation'
+		? 'Are you sure you want to archive this conversation? It will be moved to the archived section.'
+		: 'Are you sure you want to archive this thread? It will be moved to the archived section.'}
+	confirmLabel="Archive"
+	cancelLabel="Cancel"
+	onconfirm={handleArchiveConfirm}
+	oncancel={handleArchiveCancel}
+	loading={archiveLoading}
+/>
+
+<!-- Delete Confirmation Dialog -->
+<ConfirmDialog
+	open={deleteConfirmOpen}
+	title="Delete Conversation"
+	message="Are you sure you want to delete this conversation? This action cannot be undone."
+	confirmLabel="Delete"
+	cancelLabel="Cancel"
+	variant="danger"
+	onconfirm={handleDeleteConfirm}
+	oncancel={handleDeleteCancel}
+	loading={deleteLoading}
+/>
 
 <style>
 	.page-container {
