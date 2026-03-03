@@ -158,6 +158,19 @@ pub async fn delete_thread(
         .map_err(|e| e.to_string())
 }
 
+/// Renames a thread.
+#[tauri::command]
+pub async fn rename_thread(
+    id: String,
+    title: String,
+    state: tauri::State<'_, ChatState>,
+) -> Result<Thread, String> {
+    let store = state.store.lock().await;
+    store
+        .rename_thread(&id, &title)
+        .map_err(|e| e.to_string())
+}
+
 /// Creates a thread with its first message atomically.
 #[tauri::command]
 pub async fn create_thread_with_message(

@@ -95,6 +95,7 @@ pub fn run() {
             commands::chat::create_thread,
             commands::chat::resolve_thread,
             commands::chat::delete_thread,
+            commands::chat::rename_thread,
             commands::chat::load_messages,
             commands::chat::load_thread_messages,
             commands::chat::send_message,
