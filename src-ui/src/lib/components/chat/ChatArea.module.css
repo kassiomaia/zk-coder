@@ -14,6 +14,7 @@
 	display: flex;
 	flex-direction: column;
 	max-height: 92vh;
+	height: 100%;
 	background: var(--color-bg-primary);
 	position: relative;
 }
@@ -82,7 +83,7 @@
 }
 
 /* =====================
-   Message Groups - Structural Rhythm
+   Message Groups - Structural Rhythm (Flat Structure)
    ===================== */
 
 .messageGroup {
@@ -107,20 +108,20 @@
 	}
 }
 
-/* Group separation with clear boundaries */
-.messageGroup + .messageGroup {
-	margin-top: var(--space-6);
-	padding-top: var(--space-6);
-	border-top: 1px solid var(--color-border-subtle);
-}
-
 /* Group header */
 .groupHeader {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
 	margin-bottom: var(--space-3);
-	padding: 0 var(--space-2);
+	padding: var(--space-6) 0 0 var(--space-4);
+	border-top: 1px solid var(--color-border-subtle);
+}
+
+/* First group header - no top border or padding */
+.messageGroupFirst .groupHeader {
+	padding-top: 0;
+	border-top: none;
 }
 
 .groupRole {
@@ -136,11 +137,8 @@
 	color: var(--color-text-muted);
 }
 
-/* Messages container within group */
-.groupMessages {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-3);
+/* Message wrapper padding for grouping visual */
+.messageWrapper {
 	padding-left: var(--space-4);
 }
 
