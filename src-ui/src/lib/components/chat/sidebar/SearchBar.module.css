@@ -16,165 +16,58 @@
 
 .icon {
 	position: absolute;
-	left: var(--space-3);
+	left: var(--space-2-5);
 	color: var(--color-text-muted);
 	pointer-events: none;
 	flex-shrink: 0;
 	transition: color var(--transition-fast);
+	width: 14px;
+	height: 14px;
+	opacity: 0.7;
 }
 
 .search:focus-within .icon {
 	color: var(--color-accent-primary);
+	opacity: 1;
 }
 
 .input {
 	width: 100%;
-	padding: 8px 12px;
-	padding-left: 36px; /* Space for icon */
-	padding-right: 32px; /* Space for clear button */
+	padding: var(--space-2) var(--space-3);
+	padding-left: calc(var(--space-2-5) + 18px); /* Space for icon */
+	padding-right: var(--space-8); /* Space for clear button */
 	font-family: var(--font-sans);
-	font-size: 12px; /* Smaller font to match header actions */
+	font-size: var(--text-xs);
 	color: var(--color-text-primary);
 	background: transparent;
 	border: 1px solid var(--color-border-primary);
-	border-radius: 6px; /* Matching item radius-md */
+	border-radius: var(--radius-md);
 	outline: none;
+	height: 36px;
 	transition:
-		border-color 0.2s cubic-bezier(0.2, 0, 0, 1),
-		box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1),
-		background-color 0.2s cubic-bezier(0.2, 0, 0, 1);
-	height: 36px; /* Fixed height for consistency */
+		border-color var(--transition-fast),
+		box-shadow var(--transition-fast),
+		background-color var(--transition-fast);
 }
 
 .input:hover {
 	border-color: var(--color-border-secondary);
-	background: rgba(0, 0, 0, 0.02);
+	background: var(--color-surface-hover);
 }
 
 .input:focus {
 	border-color: var(--color-primary-500);
 	background: transparent;
-	/* Removed heavy glow, kept subtle focus ring via border */
 	box-shadow: 0 0 0 1px var(--color-primary-500);
-}
-
-.icon {
-	position: absolute;
-	left: 10px;
-	color: var(--color-text-quaternary);
-	pointer-events: none;
-	flex-shrink: 0;
-	transition: color 0.2s ease;
-	width: 14px;
-	height: 14px;
-	opacity: 0.7;
-}
-
-.input:hover {
-	border-color: var(--color-border-secondary);
-}
-
-.input:focus {
-	border-color: var(--color-primary-500);
-	background: transparent;
-	/* Removed heavy glow, kept subtle focus ring via border */
-	box-shadow: 0 0 0 1px var(--color-primary-500);
-}
-
-.input::placeholder {
-	color: var(--color-text-quaternary);
-	transition: opacity 0.2s ease;
-}
-
-.input:focus::placeholder {
-	opacity: 0.5;
-}
-
-.input:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
-	background: rgba(0, 0, 0, 0.05);
-}
-
-/* Remove default search styling */
-.input::-webkit-search-decoration,
-.input::-webkit-search-cancel-button,
-.input::-webkit-search-results-button,
-.input::-webkit-search-results-decoration {
-	display: none;
-}
-
-/* Clear button - aligned */
-.clear {
-	position: absolute;
-	right: 6px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 20px;
-	height: 20px;
-	padding: 0;
-	background: transparent;
-	border: none;
-	border-radius: 4px;
-	cursor: pointer;
-	color: var(--color-text-quaternary);
-	transition: all 0.2s ease;
-}
-
-.clear:hover {
-	background: rgba(0, 0, 0, 0.05);
-	color: var(--color-text-secondary);
-}
-
-.clear:focus-visible {
-	outline: 2px solid var(--color-primary-500);
-	outline-offset: 1px;
-}
-
-/* Responsive */
-@media (max-width: 600px) {
-	.input {
-		font-size: 16px; /* Prevent zoom on iOS */
-	}
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-	.input,
-	.icon,
-	.clear {
-		transition: none;
-	}
-}
-
-.icon {
-	position: absolute;
-	left: 10px;
-	color: var(--color-text-quaternary);
-	pointer-events: none;
-	flex-shrink: 0;
-	transition: color 0.2s ease;
-	width: 14px;
-	height: 14px;
-	opacity: 0.7;
-}
-
-.search:focus-within .icon {
-	color: var(--color-text-primary);
-	opacity: 1;
 }
 
 .input::placeholder {
 	color: var(--color-text-muted);
-	transition:
-		opacity var(--transition-fast),
-		transform var(--transition-fast);
+	transition: opacity var(--transition-fast);
 }
 
 .input:focus::placeholder {
 	opacity: 0.5;
-	transform: translateY(-2px); /* Not standard but works in some browsers, won't break anything */
 }
 
 .input:disabled {

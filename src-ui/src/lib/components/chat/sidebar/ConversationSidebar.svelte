@@ -287,7 +287,7 @@
 									ondelete={onDelete ? () => onDelete(conv) : undefined}
 									onrename={onRename ? (title) => onRename(conv, title) : undefined}
 									onarchive={onArchive ? () => onArchive(conv) : undefined}
-									style="animation-delay: {(groupOffset + index) * 50}ms"
+									style="animation-delay: calc({(groupOffset + index)} * var(--stagger-normal))"
 									ariaExpanded={isExpanded}
 									ariaControls={isExpanded ? 'inline-threads' : undefined}
 									openThreadCount={isExpanded ? openThreadCount : 0}

@@ -87,9 +87,9 @@ This directory contains high-priority issues identified during code review analy
 12. [DONE] [Popover Cleanup in ConversationSidebar](memory-leaks/012-popover-cleanup-conversationsidebar.md) - False Positive
 
 ### 🔧 Code Quality (42 issues)
-1. [Duplicate CSS in ConversationItem Component](code-quality/001-duplicate-css-conversation-item.md)
-2. [Conflicting Icon Styles in Search Bar](code-quality/002-conflicting-icon-styles-search-bar.md)
-3. [Hardcoded Animation Delay in Inline Thread List](code-quality/003-hardcoded-animation-delay-inline-thread-list.md)
+1. [DONE] [Duplicate CSS in ConversationItem Component](code-quality/001-duplicate-css-conversation-item.md) - Fixed
+2. [DONE] [Conflicting Icon Styles in Search Bar](code-quality/002-conflicting-icon-styles-search-bar.md) - Fixed
+3. [DONE] [Hardcoded Animation Delay in Inline Thread List](code-quality/003-hardcoded-animation-delay-inline-thread-list.md) - Fixed
 4. [Type Inconsistency in Conversation Sidebar](code-quality/004-type-inconsistency-conversation-sidebar.md)
 5. [Missing Type Definitions for ListItem Actions](code-quality/005-missing-type-definitions-list-item-actions.md)
 6. [Inconsistent Icon Rendering in Button Component](code-quality/006-inconsistent-icon-rendering-button.md)

@@ -8,7 +8,7 @@
 	 * - Resolved threads differentiated by tonal reduction (opacity)
 	 * - Open threads appear first, resolved threads follow
 	 * - Controlled reveal animation with max-height and opacity
-	 * - Stagger animation on thread items (50ms delay per item)
+	 * - Stagger animation on thread items using design system tokens
 	 * - Scroll stability with overflow-anchor: none
 	 */
 	import styles from './InlineThreadList.module.css';
@@ -73,7 +73,7 @@
 						onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
 						ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
 						onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
-						style="animation-delay: {index * 50}ms"
+						style="animation-delay: calc({index} * var(--stagger-normal))"
 					/>
 				</li>
 			{/each}

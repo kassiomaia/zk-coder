@@ -331,6 +331,13 @@
 	--empty-state-transition-duration: var(--duration-slow);
 
 	/* =====================
+     Animation Stagger Tokens
+     ===================== */
+	--stagger-fast: 30ms;
+	--stagger-normal: 50ms;
+	--stagger-slow: 80ms;
+
+	/* =====================
      Button Animation Tokens
      ===================== */
 
