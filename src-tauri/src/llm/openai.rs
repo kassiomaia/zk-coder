@@ -29,6 +29,8 @@ struct OpenAiRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    max_completion_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     top_p: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stop: Option<Vec<String>>,
@@ -229,11 +231,26 @@ impl OpenAiClient {
             });
         }
 
+        // Determine which token parameter to use based on model
+        // Newer models (GPT-5, o1, o3 series) require max_completion_tokens
+        let model_lower = request.model.to_lowercase();
+        let uses_max_completion_tokens = model_lower.starts_with("gpt-5")
+            || model_lower.starts_with("o1")
+            || model_lower.starts_with("o3")
+            || model_lower.starts_with("gpt-4.1");
+
+        let (max_tokens, max_completion_tokens) = if uses_max_completion_tokens {
+            (None, request.max_tokens)
+        } else {
+            (request.max_tokens, None)
+        };
+
         OpenAiRequest {
             model: request.model,
             messages,
             temperature: request.temperature,
-            max_tokens: request.max_tokens,
+            max_tokens,
+            max_completion_tokens,
             top_p: request.top_p,
             stop: request.stop,
             stream: request.stream,
