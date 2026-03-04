@@ -9,10 +9,11 @@
 	import MarkdownRenderer from '../markdown/MarkdownRenderer.svelte';
 	import MessageActions from './MessageActions.svelte';
 	import EmptyThreadState from './EmptyThreadState.svelte';
+	import ClarificationBanner from './ClarificationBanner.svelte';
 	import type { Message } from '$lib/types/message';
 	import type { Thread } from '$lib/types/thread';
 	import styles from './ChatArea.module.css';
-	import { isLlmStreaming, streamingContent } from '$lib/stores/chat';
+	import { isLlmStreaming, streamingContent, nlpState } from '$lib/stores/chat';
 	import { notifyAssistantComplete, initNotifications } from '$lib/utils/notifications';
 	import { configStore } from '$lib/stores/configStore';
 	import {
@@ -34,6 +35,8 @@
 		isAutoScrollEnabled as controllerIsAutoScrollEnabled
 	} from '$lib/utils/scrollController';
 	import { onMount } from 'svelte';
+	import { chatStore } from '$lib/stores';
+	import type { ResolutionType } from '$lib/types/nlp';
 
 	onMount(() => {
 		initNotifications();
@@ -445,6 +448,15 @@
 		return threads.find((t) => t.id === threadId)?.title;
 	}
 
+	// Ambiguity resolution handlers
+	function handleResolveAmbiguity(ambiguityId: string, resolution: string, type: ResolutionType) {
+		chatStore.resolveAmbiguity(ambiguityId, resolution, type);
+	}
+
+	function handleDismissAmbiguity(ambiguityId: string) {
+		chatStore.dismissAmbiguity(ambiguityId);
+	}
+
 	// Track messages presence for CSS transitions
 	let hasMessages = $derived(messages.length > 0);
 </script>
@@ -603,6 +615,17 @@
 			</button>
 		{/if}
 	</div>
+
+	<!-- Ambiguity resolution banner -->
+	{#if $nlpState.pendingAmbiguities.length > 0}
+		<div class={styles.clarificationWrapper}>
+			<ClarificationBanner
+				ambiguity={$nlpState.pendingAmbiguities[0]}
+				onResolve={handleResolveAmbiguity}
+				onDismiss={handleDismissAmbiguity}
+			/>
+		</div>
+	{/if}
 
 	<!-- Input area -->
 	{#if showInput}
