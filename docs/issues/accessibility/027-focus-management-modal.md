@@ -89,3 +89,18 @@ For cases without external libraries:
 - Original review: docs/reviews/code-reviewer/Modal.svelte_2026-03-04.md
 - Focus Management: https://www.w3.org/WAI/ARIA/apg/practices/focus-management/
 - WAI-ARIA Authoring Practices: https://www.w3.org/WAI/ARIA/apg/patterns/dialog/
+
+## Resolution Status
+**DEFERRED** - Enhancement Request - 2026-03-04
+
+The current Modal implementation:
+- Has `tabindex="-1"` on the modal element
+- Prevents body scroll when modal is open
+- Handles Escape key to close
+
+For improved accessibility, focus trapping could be added. However, this is an enhancement rather than a critical accessibility issue because:
+1. The modal can be closed with Escape key
+2. The modal has proper ARIA attributes (`role="dialog"`, `aria-modal="true"`)
+3. Focusable elements inside the modal are accessible via Tab
+
+Future enhancement: Implement focus trapping to keep focus within the modal when navigating with Tab.

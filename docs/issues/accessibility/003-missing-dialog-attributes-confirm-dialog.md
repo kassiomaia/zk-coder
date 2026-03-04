@@ -53,3 +53,24 @@ $: {
 
 ## Related Issues
 - None
+
+## Resolution Status
+**RESOLVED** - 2026-03-04
+
+## Proposed Solution
+The Modal component (which ConfirmDialog uses) already had proper ARIA dialog attributes:
+- `role="dialog"`
+- `aria-modal="true"`
+- `aria-labelledby` pointing to the title
+
+The fix adds `aria-describedby` support for better screen reader announcement of dialog content:
+
+**Modal.svelte changes:**
+1. Added `describedby?: string` prop
+2. Added `aria-describedby={describedby}` to the dialog element
+
+**ConfirmDialog.svelte changes:**
+1. Added `id="confirm-dialog-message"` to the message paragraph
+2. Passed `describedby="confirm-dialog-message"` to Modal
+
+This follows WCAG 2.1 guidelines for dialog patterns.

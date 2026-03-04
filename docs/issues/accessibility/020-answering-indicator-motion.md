@@ -81,3 +81,31 @@ prefersReducedMotion.addEventListener('change', (e) => {
 ## References
 - Original review: docs/reviews/code-reviewer/2026-03-04-AnsweringIndicator.svelte.md
 - prefers-reduced-motion: https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion
+
+## Resolution Status
+**PARTIALLY RESOLVED** - 2026-03-04
+
+The component already has:
+- `role="status"` and `aria-live="polite"` for accessibility
+- CSS `@media (prefers-reduced-motion: reduce)` that disables CSS animations and transitions
+
+However, the JavaScript text scrambling animation does not respect the `prefers-reduced-motion` preference. For users with motion sensitivities, the scrambling text animation can still be disorienting.
+
+## Recommended Enhancement
+Consider checking `prefers-reduced-motion` in JavaScript and showing stable text instead of scrambling:
+
+```typescript
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function scrambleText(target: string, onComplete: () => void) {
+  if (prefersReducedMotion) {
+    // Skip animation for users who prefer reduced motion
+    displayText = target;
+    onComplete();
+    return;
+  }
+  // ... existing animation logic
+}
+```
+
+This is an enhancement rather than a critical fix.

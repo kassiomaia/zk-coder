@@ -54,3 +54,22 @@ Add comprehensive ARIA attributes to password inputs:
 
 ## Related Issues
 - None
+
+## Resolution Status
+**RESOLVED** - False Positive - 2026-03-04
+
+The ConfigModal uses the Input component which already has proper accessibility:
+
+**Input.svelte:**
+- `<label for={name}>` properly associates label with input
+- `name` attribute on input for form identification
+- `aria-invalid={!!error}` for validation state
+- `aria-describedby` pointing to error or helper text
+- `role="alert"` on error messages
+
+**ConfigModal.svelte:**
+- Passes `label="API Key"` to Input component
+- Uses `name="apiKey"` for form identification
+- Uses `type="password"` for sensitive input
+
+The implementation follows WCAG 2.1 guidelines for password inputs.

@@ -84,3 +84,18 @@ Add focus management in the open state and handle arrow keys for navigation.
 - Original review: docs/reviews/code-reviewer/2026-03-04-Popover-Review.md
 - WAI-ARIA Authoring Practices: https://www.w3.org/WAI/ARIA/apg/patterns/menu/
 - Keyboard Navigation: https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/
+
+## Resolution Status
+**DEFERRED** - Enhancement Request - 2026-03-04
+
+The current Popover implementation:
+- Has `role="menu"` and `role="menuitem"` for ARIA semantics
+- Handles Escape key to close
+- Uses native `<button>` elements which are keyboard accessible
+
+For improved accessibility, focus management could be added. However:
+1. Items are buttons and can be navigated with Tab
+2. The menu closes on click or Escape
+3. The implementation follows basic ARIA menu patterns
+
+Future enhancement: Implement arrow key navigation and automatic focus on open.

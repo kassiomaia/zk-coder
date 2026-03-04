@@ -40,3 +40,25 @@ function handleClick() {
 
 ## Related Issues
 - None
+
+## Resolution Status
+**RESOLVED** - False Positive - 2026-03-04
+
+The IconButton component already handles SSR compatibility correctly:
+
+```typescript
+const prefersReducedMotion =
+  typeof window !== 'undefined' &&
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+```
+
+This check:
+1. Verifies `window` exists before accessing it
+2. Uses optional chaining `?.` for `matchMedia`
+3. Returns `false` in SSR environments
+
+The component also has proper ARIA attributes:
+- `aria-label={label}` for accessibility
+- `aria-disabled={disabled || loading}` for state
+- `aria-pressed={active}` for toggle state
+- `aria-busy={loading}` for loading state

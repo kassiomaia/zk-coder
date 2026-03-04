@@ -69,3 +69,35 @@ function handleKeydown(event: KeyboardEvent) {
 
 ## Related Issues
 - None
+
+## Resolution Status
+**RESOLVED** - 2026-03-04
+
+## Proposed Solution
+The MentionMenu component already had most keyboard navigation features implemented:
+- Arrow keys (Up/Down) for navigation
+- Enter to select
+- Escape to close
+- `role="listbox"` and `role="option"` attributes
+- `aria-selected` state
+
+The fix adds `aria-activedescendant` to the listbox container and `id` attributes to options for proper screen reader tracking:
+
+```svelte
+<div
+  role="listbox"
+  aria-label="Available mentions"
+  aria-activedescendant={items.length > 0 ? `mention-option-${selectedIndex}` : undefined}
+>
+  {#each items as item, index}
+    <button
+      id="mention-option-{index}"
+      role="option"
+      aria-selected={index === selectedIndex}
+      ...
+    >
+  {/each}
+</div>
+```
+
+This follows WCAG 2.1 guidelines for combobox/listbox patterns.

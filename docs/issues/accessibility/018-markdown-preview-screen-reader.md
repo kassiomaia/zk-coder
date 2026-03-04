@@ -67,3 +67,22 @@ function handleKeydown(event) {
 ## References
 - Original review: docs/reviews/code-reviewer/2026-03-04-MarkdownPreview.md
 - WAI-ARIA Authoring Practices: https://www.w3.org/WAI/ARIA/apg/
+
+## Resolution Status
+**RESOLVED** - False Positive - 2026-03-04
+
+The MarkdownPreview component already has proper accessibility attributes:
+
+```svelte
+<div
+  class={styles.preview}
+  role="region"
+  aria-label="Markdown preview"
+>
+```
+
+The component:
+- Uses `role="region"` for landmark navigation
+- Has `aria-label="Markdown preview"` for screen readers
+- Renders semantic HTML (headings, lists, links, etc.)
+- Has empty state message for screen readers

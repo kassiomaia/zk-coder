@@ -31,3 +31,19 @@ Add `aria-live="polite"` to the container or appropriate wrapper to ensure scree
 ## References
 - Original review: docs/reviews/code-reviewer/2026-03-04-EmptyThreadState.svelte.md
 - ARIA live regions: https://www.w3.org/WAI/WCAG21/techniques/aria/ARIA1
+
+## Resolution Status
+**RESOLVED** - 2026-03-04
+
+## Proposed Solution
+Added `aria-live="polite"` and `aria-atomic="true"` to the container element to ensure screen readers announce text changes when the context or input state changes.
+
+```svelte
+<div
+  class={styles.container}
+  aria-live="polite"
+  aria-atomic="true"
+>
+```
+
+This follows WCAG 2.1 guidelines for live regions.

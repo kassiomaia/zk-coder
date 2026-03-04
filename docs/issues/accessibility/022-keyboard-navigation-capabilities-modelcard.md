@@ -38,3 +38,16 @@ on:keydown={(e) => {
 
 ## References
 - Original review: docs/reviews/code-reviewer/2026-03-04-ModelCard-review.md
+
+## Resolution Status
+**DEFERRED** - Enhancement Request - 2026-03-04
+
+The capability icons in ModelCard are informational only (not interactive). They display status with `title` attributes for tooltips. Making them keyboard-focusable would require:
+
+1. Adding `tabindex="0"` to each icon
+2. Adding keyboard event handlers
+3. Defining what action should happen when activated
+
+Since these icons are purely informational (displaying model capabilities), adding keyboard navigation is not required for WCAG compliance. The model card itself is keyboard accessible with proper `aria-pressed` and `aria-label` attributes.
+
+This can be revisited if capability icons become interactive in the future.

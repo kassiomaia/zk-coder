@@ -42,3 +42,19 @@ Implement proper listbox ARIA attributes:
 
 ## Related Issues
 - None
+
+## Resolution Status
+**RESOLVED** - False Positive - 2026-03-04
+
+The ThreadView and ThreadItem components already have proper listbox ARIA attributes:
+
+**ThreadView:**
+- `role="listbox"` on `<ul>` elements
+- `aria-label="Open threads"` and `aria-label="Resolved threads"` on lists
+
+**ThreadItem:**
+- `role="option"` on `<li>` elements
+- `aria-selected={selected}` for selection state
+- `aria-label="Select thread: {thread.title}"` on the inner button
+
+The implementation follows WCAG 2.1 guidelines for listbox patterns. The use of buttons inside list items provides additional keyboard accessibility.

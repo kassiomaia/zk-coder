@@ -78,6 +78,8 @@
 	]
 		.filter(Boolean)
 		.join(' ')}
+	aria-live="polite"
+	aria-atomic="true"
 >
 	<!-- Clean headline wrapper without pulse -->
 	<div class={styles.headlineWrapper}>

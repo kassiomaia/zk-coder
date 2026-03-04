@@ -23,6 +23,8 @@
 		contentClass?: string;
 		/** Stacked modal - higher z-index for modals opened from other modals */
 		stacked?: boolean;
+		/** ID of element that describes the modal content */
+		describedby?: string;
 		/** Children */
 		children?: Snippet;
 		/** Footer snippet */
@@ -37,6 +39,7 @@
 		showClose = true,
 		contentClass = '',
 		stacked = false,
+		describedby,
 		children,
 		footer
 	}: Props = $props();
@@ -88,6 +91,7 @@
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby={title ? 'modal-title' : undefined}
+			aria-describedby={describedby}
 			tabindex="-1"
 			onclick={(e) => e.stopPropagation()}
 		>

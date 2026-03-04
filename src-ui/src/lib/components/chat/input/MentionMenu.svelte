@@ -89,7 +89,12 @@
 </script>
 
 {#if items.length > 0}
-	<div class={styles.menu} role="listbox" aria-label="Available mentions">
+	<div
+		class={styles.menu}
+		role="listbox"
+		aria-label="Available mentions"
+		aria-activedescendant={items.length > 0 ? `mention-option-${selectedIndex}` : undefined}
+	>
 		<div class={styles.header}>
 			<span class={styles.title}>Mention</span>
 			{#if query}
@@ -100,6 +105,7 @@
 		<ul bind:this={listRef} class={styles.list}>
 			{#each items as item, index}
 				<button
+					id="mention-option-{index}"
 					class={[styles.item, index === selectedIndex && styles.selected]
 						.filter(Boolean)
 						.join(' ')}

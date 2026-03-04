@@ -58,3 +58,14 @@ class Dropdown {
 ## References
 - Original review: docs/reviews/code-reviewer/2026-03-04-state.js-review.md
 - WAI-ARIA Combobox Pattern: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
+
+## Resolution Status
+**NOT APPLICABLE** - Prototype File - 2026-03-04
+
+This issue refers to a prototype file (`docs/prototypes/agent-coding-input/js/state.js`), not production code. The production components (MentionMenu, CommandPalette, Popover) already have proper ARIA attributes:
+
+- MentionMenu: `role="listbox"`, `aria-activedescendant`, `aria-selected`
+- CommandPalette: `role="listbox"`, `aria-activedescendant`, `aria-selected`
+- Popover: `role="menu"`, `role="menuitem"`, keyboard navigation
+
+Prototype files should not be considered for accessibility audits.

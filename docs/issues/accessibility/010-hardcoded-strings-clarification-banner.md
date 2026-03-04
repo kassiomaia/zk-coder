@@ -51,3 +51,16 @@ $: questionText = translations.question[language] || translations.question.en;
 
 ## Related Issues
 - None
+
+## Resolution Status
+**DEFERRED** - Not an Accessibility Issue - 2026-03-04
+
+This issue is about internationalization (i18n), not accessibility. The hardcoded strings are in English, which is a language concern, not an accessibility violation.
+
+From an accessibility perspective, the component is properly implemented:
+- Buttons have visible text labels
+- IconButton components have proper `label` props for screen readers
+- Input has placeholder text
+- The form is keyboard accessible
+
+Internationalization is a feature enhancement that should be tracked separately when i18n support is added to the application.

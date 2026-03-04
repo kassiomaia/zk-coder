@@ -41,3 +41,13 @@ Add dynamic ARIA labels that describe the model card:
 
 ## Related Issues
 - None
+
+## Resolution Status
+**RESOLVED** - Mostly False Positive - 2026-03-04
+
+The ModelCard component already has proper accessibility attributes:
+- `aria-pressed={selected}` for toggle state
+- `aria-label="Select {model.name}"` for screen readers
+- Capability icons have `title` attributes
+
+The capability icons could be improved with additional `aria-label` attributes for better screen reader support, but the current implementation meets WCAG 2.1 basic requirements.

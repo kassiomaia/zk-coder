@@ -54,9 +54,9 @@
 	}
 </script>
 
-<Modal {title} {open} onclose={handleCancel} showClose={false}>
+<Modal {title} {open} onclose={handleCancel} showClose={false} describedby="confirm-dialog-message">
 	{#snippet children()}
-		<p class={styles.message}>{message}</p>
+		<p id="confirm-dialog-message" class={styles.message}>{message}</p>
 	{/snippet}
 
 	{#snippet footer()}

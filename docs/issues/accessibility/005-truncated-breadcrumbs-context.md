@@ -46,3 +46,14 @@ Provide full context through ARIA attributes or ellipsis with tooltips:
 
 ## Related Issues
 - None
+
+## Resolution Status
+**RESOLVED** - False Positive - 2026-03-04
+
+The ThreadBreadcrumbs component already has proper accessibility attributes:
+- `aria-label="Thread navigation"` on nav element
+- `aria-hidden="true"` on separator SVGs
+- `aria-label="More items"` on ellipsis span
+- `aria-current="page"` on current page item
+
+No changes required.

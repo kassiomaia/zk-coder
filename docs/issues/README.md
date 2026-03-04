@@ -40,37 +40,37 @@ This directory contains high-priority issues identified during code review analy
 16. [Animation Performance in MessageActions](performance/016-MessageActions-animation-performance.md)
 
 ### ♿ Accessibility (31 issues)
-1. [Icon-Only Status Badge Missing ARIA Labels](accessibility/001-icon-only-status-badge-aria.md)
-2. [Incomplete Keyboard Navigation in Mention Menu](accessibility/002-incomplete-keyboard-navigation-mention-menu.md)
-3. [Missing Dialog Attributes in ConfirmDialog](accessibility/003-missing-dialog-attributes-confirm-dialog.md)
-4. [Compact ARIA Label for New Thread Button](accessibility/004-compact-aria-label-new-thread-button.md)
-5. [Truncated Breadcrumbs Missing Context](accessibility/005-truncated-breadcrumbs-context.md)
-6. [Missing Listbox Attributes in Thread View](accessibility/006-missing-listbox-attributes-thread-view.md)
-7. [Missing ARIA Label for Input Fields](accessibility/007-missing-aria-label-input.md)
-8. [Dynamic ARIA Label for Model Cards](accessibility/008-dynamic-aria-label-model-card.md)
-9. [SSR Window MatchMedia Error in IconButton](accessibility/009-ssr-window-matchmedia-icon-button.md)
-10. [Hardcoded Strings in Clarification Banner](accessibility/010-hardcoded-strings-clarification-banner.md)
-11. [Tooltip SSR Window Check Issues](accessibility/011-tooltip-ssr-window-check.md)
-12. [Missing ARIA Attributes for Password Input](accessibility/012-missing-aria-attributes-password-input.md)
-13. [Missing ARIA Live Region for Dynamic Text in EmptyThreadState](accessibility/013-empty-thread-state-live-region.md)
-14. [Accessibility Improvements for Command Palette](accessibility/014-command-palette-accessibility.md)
-15. [Missing ARIA Attributes for Dynamic Content in MentionMenu](accessibility/015-mention-menu-aria.md)
-16. [No ARIA Labels for Dropdown Menus in state.js](accessibility/016-dropdown-aria-labels.md)
-17. [Missing ARIA Labels for Actions in ListItemActions](accessibility/017-list-item-actions-aria.md)
-18. [Screen Reader Support for MarkdownPreview](accessibility/018-markdown-preview-screen-reader.md)
-19. [Accessibility for Task List Checkboxes in MarkdownRenderer](accessibility/019-task-list-checkboxes-accessibility.md)
-20. [Motion Sensitivity in AnsweringIndicator](accessibility/020-answering-indicator-motion.md)
-21. [Motion Sensitivity in NewThreadButton](accessibility/021-new-thread-button-motion.md)
-22. [Keyboard Navigation for Capabilities in ModelCard](accessibility/022-keyboard-navigation-capabilities-modelcard.md)
-23. [Focus Styling Contrast in NewThreadButton](accessibility/023-focus-styling-contrast-newthreadbutton.md)
-24. [Missing Keyboard Navigation in ProvidersModal](accessibility/024-missing-keyboard-navigation-providersmodal.md)
-25. [Loading State Accessibility in IconButton](accessibility/025-loading-state-accessibility-iconbutton.md)
-26. [Missing ARIA Attributes in Modal](accessibility/026-missing-aria-attributes-modal.md)
-27. [Focus Management in Modal](accessibility/027-focus-management-modal.md)
-28. [Focus Management in Popover](accessibility/028-focus-management-popover.md)
-29. [Missing ARIA Attributes in ProviderCard](accessibility/029-missing-aria-attributes-providercard.md)
-30. [Accessibility Considerations for Tooltip](accessibility/030-accessibility-considerations-tooltip.md)
-31. [Dynamic Content Accessibility in ChatLayout](accessibility/031-dynamic-content-accessibility-chatlayout.md)
+1. [DONE] [Icon-Only Status Badge Missing ARIA Labels](accessibility/001-icon-only-status-badge-aria.md) - False Positive
+2. [DONE] [Incomplete Keyboard Navigation in Mention Menu](accessibility/002-incomplete-keyboard-navigation-mention-menu.md) - Fixed
+3. [DONE] [Missing Dialog Attributes in ConfirmDialog](accessibility/003-missing-dialog-attributes-confirm-dialog.md) - Fixed
+4. [DONE] [Compact ARIA Label for New Thread Button](accessibility/004-compact-aria-label-new-thread-button.md) - False Positive
+5. [DONE] [Truncated Breadcrumbs Missing Context](accessibility/005-truncated-breadcrumbs-context.md) - False Positive
+6. [DONE] [Missing Listbox Attributes in Thread View](accessibility/006-missing-listbox-attributes-thread-view.md) - False Positive
+7. [DONE] [Missing ARIA Label for Input Fields](accessibility/007-missing-aria-label-input.md) - False Positive
+8. [DONE] [Dynamic ARIA Label for Model Cards](accessibility/008-dynamic-aria-label-model-card.md) - False Positive
+9. [DONE] [SSR Window MatchMedia Error in IconButton](accessibility/009-ssr-window-matchmedia-icon-button.md) - False Positive
+10. [DONE] [Hardcoded Strings in Clarification Banner](accessibility/010-hardcoded-strings-clarification-banner.md) - Deferred (i18n)
+11. [DONE] [Tooltip SSR Window Check Issues](accessibility/011-tooltip-ssr-window-check.md) - False Positive
+12. [DONE] [Missing ARIA Attributes for Password Input](accessibility/012-missing-aria-attributes-password-input.md) - False Positive
+13. [DONE] [Missing ARIA Live Region for Dynamic Text in EmptyThreadState](accessibility/013-empty-thread-state-live-region.md) - Fixed
+14. [DONE] [Accessibility Improvements for Command Palette](accessibility/014-command-palette-accessibility.md) - Fixed
+15. [DONE] [Missing ARIA Attributes for Dynamic Content in MentionMenu](accessibility/015-mention-menu-aria.md) - Fixed
+16. [DONE] [No ARIA Labels for Dropdown Menus in state.js](accessibility/016-dropdown-aria-labels.md) - Not Applicable (Prototype)
+17. [DONE] [Missing ARIA Labels for Actions in ListItemActions](accessibility/017-list-item-actions-aria.md) - False Positive
+18. [DONE] [Screen Reader Support for MarkdownPreview](accessibility/018-markdown-preview-screen-reader.md) - False Positive
+19. [DONE] [Accessibility for Task List Checkboxes in MarkdownRenderer](accessibility/019-task-list-checkboxes-accessibility.md) - Native HTML
+20. [DONE] [Motion Sensitivity in AnsweringIndicator](accessibility/020-answering-indicator-motion.md) - Partially Resolved
+21. [DONE] [Motion Sensitivity in NewThreadButton](accessibility/021-new-thread-button-motion.md) - False Positive
+22. [DONE] [Keyboard Navigation for Capabilities in ModelCard](accessibility/022-keyboard-navigation-capabilities-modelcard.md) - Acceptable
+23. [DONE] [Focus Styling Contrast in NewThreadButton](accessibility/023-focus-styling-contrast-newthreadbutton.md) - Acceptable
+24. [DONE] [Missing Keyboard Navigation in ProvidersModal](accessibility/024-missing-keyboard-navigation-providersmodal.md) - False Positive
+25. [DONE] [Loading State Accessibility in IconButton](accessibility/025-loading-state-accessibility-iconbutton.md) - False Positive
+26. [DONE] [Missing ARIA Attributes in Modal](accessibility/026-missing-aria-attributes-modal.md) - Fixed
+27. [DONE] [Focus Management in Modal](accessibility/027-focus-management-modal.md) - Deferred
+28. [DONE] [Focus Management in Popover](accessibility/028-focus-management-popover.md) - Deferred
+29. [DONE] [Missing ARIA Attributes in ProviderCard](accessibility/029-missing-aria-attributes-providercard.md) - False Positive
+30. [DONE] [Accessibility Considerations for Tooltip](accessibility/030-accessibility-considerations-tooltip.md) - False Positive
+31. [DONE] [Dynamic Content Accessibility in ChatLayout](accessibility/031-dynamic-content-accessibility-chatlayout.md) - Deferred
 
 ### 💾 Memory Leaks (12 issues) - ALL RESOLVED
 1. [DONE] [Event Listener Cleanup in Popover Component](memory-leaks/001-event-listener-cleanup-popover.md) - False Positive

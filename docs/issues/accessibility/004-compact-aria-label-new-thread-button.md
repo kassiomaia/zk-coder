@@ -36,3 +36,13 @@ Add a descriptive ARIA label that explains the button's action:
 
 ## Related Issues
 - None
+
+## Resolution Status
+**RESOLVED** - False Positive - 2026-03-04
+
+The NewThreadButton component already has proper accessibility attributes:
+- `aria-label="Create new thread"` on the button
+- `title="New thread"` for tooltip
+- In default variant, text label is visible
+
+No changes required.

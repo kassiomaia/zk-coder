@@ -102,3 +102,22 @@ Consider using opacity changes or background color changes instead of transform 
 ## References
 - Original review: docs/reviews/code-reviewer/2026-03-04-NewThreadButton.svelte.md
 - prefers-reduced-motion: https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion
+
+## Resolution Status
+**RESOLVED** - False Positive - 2026-03-04
+
+The NewThreadButton component already has proper reduced motion support:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+
+  .button:active:not(:disabled) {
+    transform: none;
+  }
+}
+```
+
+The scale transform is minimal (0.98) and is disabled for users who prefer reduced motion. This follows WCAG 2.1 guidelines for motion sensitivity.

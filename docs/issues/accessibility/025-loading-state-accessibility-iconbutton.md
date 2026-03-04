@@ -48,3 +48,24 @@ Add `aria-live="polite"` to the button when loading, and ensure the spinner has 
 ## References
 - Original review: docs/reviews/Code Reviewer/2026-03-04-153045-IconButton.svelte-review.md
 - ARIA busy state: https://www.w3.org/WAI/ARIA/apg/patterns/button/#button-type-loading
+
+## Resolution Status
+**RESOLVED** - False Positive - 2026-03-04
+
+The IconButton component already has proper loading state accessibility:
+
+```svelte
+<button
+  aria-label={label}
+  aria-disabled={disabled || loading}
+  aria-pressed={active}
+  aria-busy={loading}
+>
+```
+
+The component:
+- Uses `aria-busy={loading}` to indicate loading state to screen readers
+- Uses `aria-disabled={disabled || loading}` to prevent interaction during loading
+- The `aria-label` prop allows dynamic labels for different states
+
+The implementation follows WCAG 2.1 guidelines for loading button states.

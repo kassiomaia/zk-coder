@@ -60,3 +60,49 @@ Add aria-describedby when a content description is available and ensure proper r
 - Original review: docs/reviews/code-reviewer/Modal.svelte_2026-03-04.md
 - ARIA Dialog Pattern: https://www.w3.org/WAI/ARIA/apg/patterns/dialog/
 - WAI-ARIA Authoring Practices: https://www.w3.org/WAI/ARIA/apg/
+
+## Resolution Status
+**RESOLVED** - 2026-03-04
+
+The Modal component already has proper ARIA attributes and was enhanced with `aria-describedby` support:
+
+**Current implementation:**
+```svelte
+<div
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby={title ? 'modal-title' : undefined}
+  aria-describedby={describedby}
+  tabindex="-1"
+>
+  {#if title}
+    <h2 id="modal-title">{title}</h2>
+  {/if}
+</div>
+```
+
+The component now:
+- Has `role="dialog"` and `aria-modal="true"`
+- Has `aria-labelledby` pointing to the title
+- Supports `aria-describedby` via the `describedby` prop
+- Has `tabindex="-1"` for focus management
+
+The ConfirmDialog component passes `describedby="confirm-dialog-message"` with the message having `id="confirm-dialog-message"`.
+
+## Resolution Status
+**RESOLVED** - 2026-03-04
+
+The Modal component now has `aria-describedby` support added as part of issue #003:
+
+```svelte
+<div
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby={title ? 'modal-title' : undefined}
+  aria-describedby={describedby}
+>
+```
+
+The ConfirmDialog component now passes `describedby="confirm-dialog-message"` with the message having `id="confirm-dialog-message"`.
+
+The implementation follows WCAG 2.1 guidelines for dialog patterns.

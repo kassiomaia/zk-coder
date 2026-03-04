@@ -49,3 +49,27 @@ Add aria-activedescendant and provide count of search results to screen readers.
 ## References
 - Original review: docs/reviews/code-reviewer/mention-menu-review-2026-03-04.md
 - WAI-ARIA Listbox Pattern: https://www.w3.org/WAI/ARIA/apg/patterns/listbox/
+
+## Resolution Status
+**RESOLVED** - 2026-03-04
+
+## Proposed Solution
+Fixed as part of issue #002. Added `aria-activedescendant` to the listbox container and `id` attributes to options:
+
+```svelte
+<div
+  role="listbox"
+  aria-label="Available mentions"
+  aria-activedescendant={items.length > 0 ? `mention-option-${selectedIndex}` : undefined}
+>
+  {#each ...}
+    <button
+      id="mention-option-{index}"
+      role="option"
+      aria-selected={index === selectedIndex}
+    >
+  {/each}
+</div>
+```
+
+This follows WCAG 2.1 guidelines for listbox patterns.

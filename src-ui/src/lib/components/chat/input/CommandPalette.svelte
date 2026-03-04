@@ -77,7 +77,12 @@
 </script>
 
 {#if flatCommands.length > 0}
-	<div class={styles.palette} role="listbox" aria-label="Available commands">
+	<div
+		class={styles.palette}
+		role="listbox"
+		aria-label="Available commands"
+		aria-activedescendant={flatCommands.length > 0 ? `command-option-${selectedIndex}` : undefined}
+	>
 		<div class={styles.header}>
 			<span class={styles.title}>Commands</span>
 			{#if query}
@@ -93,6 +98,7 @@
 						{#each cmds as command, cmdIndex}
 							{@const globalIndex = flatCommands.indexOf(command)}
 							<button
+								id="command-option-{globalIndex}"
 								class={[styles.item, globalIndex === selectedIndex && styles.selected]
 									.filter(Boolean)
 									.join(' ')}

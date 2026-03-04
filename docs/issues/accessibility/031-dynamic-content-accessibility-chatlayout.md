@@ -143,3 +143,20 @@ Add appropriate aria attributes with role="status" and aria-live="polite".
 - Original review: docs/reviews/code-reviewer/ChatLayout.svelte_2026-03-04.md
 - ARIA Live Regions: https://www.w3.org/WAI/ARIA/apg/practices/aria-live/
 - Dynamic Content Updates: https://www.w3.org/WAI/WCAG21/Techniques/general/G105
+
+## Resolution Status
+**DEFERRED** - Enhancement Request - 2026-03-04
+
+The ChatLayout component displays thread titles and information. The suggested `aria-live` enhancement would improve the experience for screen reader users when switching threads.
+
+Current implementation:
+- ThreadBreadcrumbs component has proper navigation semantics
+- StatusBadge component has `aria-label` for status information
+
+Future enhancement: Add `aria-live="polite"` to the header title area to announce thread changes to screen readers.
+
+```svelte
+<h1 aria-live="polite">
+  {selectedThread ? selectedThread.title : 'New Conversation'}
+</h1>
+```

@@ -44,3 +44,21 @@ Add proper labels and ARIA attributes to input fields:
 
 ## Related Issues
 - None
+
+## Resolution Status
+**RESOLVED** - False Positive - 2026-03-04
+
+The Input component used by ConfigModal already has proper accessibility attributes:
+
+**Input.svelte:**
+- `<label for={name}>` properly associates label with input
+- `name` attribute on input
+- `aria-invalid={!!error}` for validation state
+- `aria-describedby` pointing to error or helper text
+- `role="alert"` on error messages for screen reader announcement
+
+**ConfigModal.svelte:**
+- Uses Input component with `label="API Key"` prop
+- `name="apiKey"` for proper form identification
+
+The implementation follows WCAG 2.1 guidelines for form inputs.
