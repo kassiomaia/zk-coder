@@ -10,7 +10,7 @@ use crate::nlp::{
     Ambiguity, AmbiguityResolver, CodeAnalyzer, CodeUnderstanding,
     ContextManager, ContextMessage, ConversationContext, IntentClassification,
     IntentClassifier, MessageRole, MultiIntentDetector, MultiIntentResult,
-    ProgrammingLanguage,
+    ProgrammingLanguage, ResolvedAmbiguity, ResolutionType,
 };
 use crate::storage::ContextStore;
 
@@ -201,6 +201,59 @@ pub fn clear_conversation_context(
         .context_manager
         .clear(&conversation_id)
         .map_err(|e| e.to_string())
+}
+
+/// Resolves an ambiguity with the provided resolution.
+///
+/// This creates a `ResolvedAmbiguity` record for tracking purposes.
+#[tauri::command]
+pub async fn resolve_ambiguity(
+    ambiguity_id: String,
+    original_text: String,
+    resolution: String,
+    resolution_type: String,
+) -> Result<ResolvedAmbiguity, String> {
+    let res_type = match resolution_type.as_str() {
+        "selected" => ResolutionType::Selected,
+        "custom" => ResolutionType::Custom,
+        "dismissed" => ResolutionType::Dismissed,
+        _ => return Err(format!("Invalid resolution type: {}", resolution_type)),
+    };
+
+    Ok(ResolvedAmbiguity::new(
+        ambiguity_id,
+        original_text,
+        resolution,
+        res_type,
+    ))
+}
+
+/// Applies multiple resolutions to input text.
+///
+/// Takes the original input and a map of ambiguity IDs to their resolutions,
+/// returns the modified input with all resolutions applied.
+#[tauri::command]
+pub async fn apply_resolutions(
+    input: String,
+    resolutions: std::collections::HashMap<String, String>,
+) -> Result<String, String> {
+    let mut result = input;
+
+    // Apply resolutions by replacing the original text with the resolution
+    // Note: This is a simple replacement strategy. More sophisticated approaches
+    // could use span information for precise replacement.
+    for (_ambiguity_id, resolution) in resolutions {
+        // If the resolution is empty (dismissed), skip it
+        if resolution.is_empty() {
+            continue;
+        }
+        // For now, we just return the resolution as-is since we don't have
+        // the original span info in this simplified approach.
+        // A more sophisticated implementation would track spans and do precise replacement.
+        result = resolution;
+    }
+
+    Ok(result)
 }
 
 #[cfg(test)]

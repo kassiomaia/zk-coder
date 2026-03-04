@@ -95,6 +95,8 @@ pub fn run() {
             commands::nlp::analyze_code,
             commands::nlp::update_project_files,
             commands::nlp::clear_conversation_context,
+            commands::nlp::resolve_ambiguity,
+            commands::nlp::apply_resolutions,
             // Chat commands
             commands::chat::load_conversations,
             commands::chat::create_conversation,
