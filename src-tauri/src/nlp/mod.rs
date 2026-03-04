@@ -20,7 +20,10 @@ pub mod nl_to_code;
 pub mod patterns;
 
 // Re-export commonly used types
-pub use ambiguity::{Ambiguity, AmbiguitySeverity, AmbiguityType, ClarificationRequest};
+pub use ambiguity::{
+    Ambiguity, AmbiguitySeverity, AmbiguitySuggestion, AmbiguityType, ClarificationOption,
+    ClarificationRequest, ResolvedAmbiguity, ResolutionType,
+};
 pub use ambiguity_resolver::AmbiguityResolver;
 pub use classifier::{ClassifierError, IntentClassifier};
 pub use code_analyzer::{AnalyzerError, CodeAnalyzer};

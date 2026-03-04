@@ -312,6 +312,8 @@ export interface AmbiguitySuggestion {
  * A detected ambiguity in user input.
  */
 export interface Ambiguity {
+	/** Unique identifier for this ambiguity */
+	id: string;
 	/** Type of ambiguity */
 	ambiguity_type: AmbiguityType;
 	/** Location in the input */
@@ -322,6 +324,38 @@ export interface Ambiguity {
 	clarification: ClarificationRequest;
 	/** Suggested resolutions */
 	suggestions: AmbiguitySuggestion[];
+}
+
+// ============================================================================
+// Resolution Types (for ambiguity resolution)
+// ============================================================================
+
+/**
+ * Type of resolution applied to an ambiguity.
+ */
+export type ResolutionType = 'selected' | 'custom' | 'dismissed';
+
+/**
+ * Labels for resolution types.
+ */
+export const RESOLUTION_TYPE_LABELS: Record<ResolutionType, string> = {
+	selected: 'Selected',
+	custom: 'Custom',
+	dismissed: 'Dismissed'
+};
+
+/**
+ * A resolved ambiguity with the chosen resolution.
+ */
+export interface ResolvedAmbiguity {
+	/** ID of the original ambiguity */
+	id: string;
+	/** The original ambiguous text */
+	original_text: string;
+	/** The resolution value (selected option or custom input) */
+	resolution: string;
+	/** How the resolution was made */
+	resolution_type: ResolutionType;
 }
 
 // ============================================================================
