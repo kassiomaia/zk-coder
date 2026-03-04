@@ -12,9 +12,12 @@ import {
 	classifyIntent,
 	addContextMessage,
 	detectAmbiguities,
+	resolveAmbiguity,
+	applyResolutions,
 	createDebouncedClassifier,
 	isBackendAvailable
 } from '$lib/api/nlp';
+import type { ResolvedAmbiguity, ResolutionType } from '$lib/types/nlp';
 import {
 	loadConversations,
 	createConversation as apiCreateConversation,
@@ -53,6 +56,8 @@ const initialState: ChatState = {
 		backendAvailable: false,
 		detectedIntent: null,
 		ambiguities: [],
+		pendingAmbiguities: [],
+		resolvedAmbiguities: new Map(),
 		processing: false,
 		error: null
 	},
@@ -652,7 +657,15 @@ function createChatStore() {
 					input,
 					conversationId: state.selectedConversationId
 				});
-				update((s) => ({ ...s, nlp: { ...s.nlp, ambiguities } }));
+				update((s) => ({
+					...s,
+					nlp: {
+						...s.nlp,
+						ambiguities,
+						// Auto-populate pending ambiguities for high/medium severity
+						pendingAmbiguities: ambiguities.filter((a) => a.severity !== 'low')
+					}
+				}));
 			} catch (error) {
 				console.error('Failed to detect ambiguities:', error);
 			}
@@ -669,8 +682,119 @@ function createChatStore() {
 					...state.nlp,
 					detectedIntent: null,
 					ambiguities: [],
+					pendingAmbiguities: [],
+					resolvedAmbiguities: new Map(),
 					processing: false,
 					error: null
+				}
+			}));
+		},
+
+		/**
+		 * Resolve an ambiguity with the provided resolution.
+		 */
+		async resolveAmbiguity(
+			ambiguityId: string,
+			resolution: string,
+			resolutionType: ResolutionType
+		): Promise<boolean> {
+			const state = get({ subscribe });
+			const ambiguity = state.nlp.pendingAmbiguities.find((a) => a.id === ambiguityId);
+
+			if (!ambiguity) {
+				update((s) => ({
+					...s,
+					nlp: { ...s.nlp, error: 'Ambiguity not found' }
+				}));
+				return false;
+			}
+
+			try {
+				const resolved = await resolveAmbiguity({
+					ambiguityId,
+					originalText: ambiguity.span.text,
+					resolution,
+					resolutionType
+				});
+
+				update((s) => {
+					const newResolvedAmbiguities = new Map(s.nlp.resolvedAmbiguities);
+					newResolvedAmbiguities.set(ambiguityId, resolved);
+
+					return {
+						...s,
+						nlp: {
+							...s.nlp,
+							pendingAmbiguities: s.nlp.pendingAmbiguities.filter(
+								(a) => a.id !== ambiguityId
+							),
+							resolvedAmbiguities: newResolvedAmbiguities
+						}
+					};
+				});
+
+				return true;
+			} catch (error) {
+				update((s) => ({
+					...s,
+					nlp: {
+						...s.nlp,
+						error: error instanceof Error ? error.message : 'Failed to resolve ambiguity'
+					}
+				}));
+				return false;
+			}
+		},
+
+		/**
+		 * Dismiss an ambiguity without resolving it.
+		 */
+		async dismissAmbiguity(ambiguityId: string): Promise<boolean> {
+			return this.resolveAmbiguity(ambiguityId, '', 'dismissed');
+		},
+
+		/**
+		 * Check if there are any blocking ambiguities.
+		 */
+		hasBlockingAmbiguities(): boolean {
+			const state = get({ subscribe });
+			return state.nlp.pendingAmbiguities.some((a) => a.severity === 'high');
+		},
+
+		/**
+		 * Apply all resolved ambiguities to the input text.
+		 */
+		async applyAmbiguityResolutions(input: string): Promise<string> {
+			const state = get({ subscribe });
+			const resolutions: Record<string, string> = {};
+
+			state.nlp.resolvedAmbiguities.forEach((resolved, id) => {
+				if (resolved.resolution_type !== 'dismissed') {
+					resolutions[id] = resolved.resolution;
+				}
+			});
+
+			if (Object.keys(resolutions).length === 0) {
+				return input;
+			}
+
+			try {
+				return await applyResolutions({ input, resolutions });
+			} catch (error) {
+				console.error('Failed to apply resolutions:', error);
+				return input;
+			}
+		},
+
+		/**
+		 * Clear resolved ambiguities after they've been applied.
+		 */
+		clearResolvedAmbiguities() {
+			update((state) => ({
+				...state,
+				nlp: {
+					...state.nlp,
+					resolvedAmbiguities: new Map()
 				}
 			}));
 		},

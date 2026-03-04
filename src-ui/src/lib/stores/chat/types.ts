@@ -4,7 +4,7 @@
 
 import type { Conversation, Thread } from '$lib/types/thread';
 import type { Message } from '$lib/types/message';
-import type { IntentClassification, Ambiguity } from '$lib/types/nlp';
+import type { IntentClassification, Ambiguity, ResolvedAmbiguity } from '$lib/types/nlp';
 
 // ============================================================================
 // Loading States
@@ -29,6 +29,10 @@ export interface NlpState {
 	detectedIntent: IntentClassification | null;
 	/** Detected ambiguities */
 	ambiguities: Ambiguity[];
+	/** Ambiguities pending user resolution (blocking input) */
+	pendingAmbiguities: Ambiguity[];
+	/** Map of resolved ambiguity IDs to their resolutions */
+	resolvedAmbiguities: Map<string, ResolvedAmbiguity>;
 	/** Whether NLP is processing */
 	processing: boolean;
 	/** Last error */
