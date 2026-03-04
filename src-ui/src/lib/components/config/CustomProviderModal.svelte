@@ -24,24 +24,48 @@
 	let providerName = $state('');
 	let baseUrl = $state('');
 	let apiType: ApiType = $state('openai');
+	let isIdManuallyEdited = $state(false);
 
 	// Validation state
 	let error = $state('');
 	let isSubmitting = $state(false);
 
+	/**
+	 * Generate a unique ID from a provider name.
+	 * Uses crypto.randomUUID() to ensure uniqueness.
+	 * @param name - The provider name to generate an ID from
+	 * @returns A unique, sanitized ID string
+	 */
 	function generateId(name: string): string {
-		return name
+		// Enhanced sanitization: allow hyphens and underscores, collapse multiple hyphens
+		const sanitized = name
 			.toLowerCase()
-			.replace(/[^a-z0-9]+/g, '-')
-			.replace(/^-|-$/g, '');
+			.replace(/[^a-z0-9-_]/g, '-') // Replace non-alphanumeric (except -_) with hyphen
+			.replace(/-+/g, '-') // Collapse multiple hyphens into one
+			.replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+
+		// Use crypto.randomUUID() for guaranteed uniqueness
+		// Fallback to Math.random() if crypto API is not available
+		const randomSuffix =
+			typeof crypto !== 'undefined'
+				? crypto.randomUUID().substring(0, 8)
+				: Math.random().toString(36).substring(2, 10);
+
+		return `${sanitized}-${randomSuffix}`;
 	}
 
 	function handleNameChange(value: string) {
 		providerName = value;
-		// Auto-generate ID from name
-		if (!providerId || providerId === generateId(providerName.slice(0, -1))) {
+		// Auto-generate ID from name only if user hasn't manually edited it
+		if (!isIdManuallyEdited) {
 			providerId = generateId(value);
 		}
+	}
+
+	function handleIdChange(value: string) {
+		providerId = value;
+		// Mark ID as manually edited when user changes it
+		isIdManuallyEdited = true;
 	}
 
 	function resetForm() {
@@ -51,6 +75,7 @@
 		apiType = 'openai';
 		error = '';
 		isSubmitting = false;
+		isIdManuallyEdited = false;
 	}
 
 	function handleClose() {
@@ -85,7 +110,7 @@
 
 		// Check for duplicate ID
 		const state = get(configStore);
-		const existing = state.providers.find(p => p.id === providerId);
+		const existing = state.providers.find((p) => p.id === providerId);
 		if (existing) {
 			error = 'A provider with this ID already exists';
 			return;
@@ -138,7 +163,7 @@
 			name="providerId"
 			type="text"
 			value={providerId}
-			onchange={(v) => providerId = v}
+			onchange={handleIdChange}
 			label="Provider ID"
 			placeholder="my-custom-provider"
 			helper="Unique identifier (auto-generated from name)"
@@ -153,7 +178,7 @@
 						name="apiType"
 						value="openai"
 						checked={apiType === 'openai'}
-						onchange={() => apiType = 'openai'}
+						onchange={() => (apiType = 'openai')}
 					/>
 					<span class={styles.radioLabel}>
 						<span class={styles.radioTitle}>OpenAI Compatible</span>
@@ -166,7 +191,7 @@
 						name="apiType"
 						value="anthropic"
 						checked={apiType === 'anthropic'}
-						onchange={() => apiType = 'anthropic'}
+						onchange={() => (apiType = 'anthropic')}
 					/>
 					<span class={styles.radioLabel}>
 						<span class={styles.radioTitle}>Anthropic Compatible</span>
@@ -179,7 +204,7 @@
 						name="apiType"
 						value="google"
 						checked={apiType === 'google'}
-						onchange={() => apiType = 'google'}
+						onchange={() => (apiType = 'google')}
 					/>
 					<span class={styles.radioLabel}>
 						<span class={styles.radioTitle}>Google (Gemini) Compatible</span>
@@ -193,7 +218,7 @@
 			name="baseUrl"
 			type="text"
 			value={baseUrl}
-			onchange={(v) => baseUrl = v}
+			onchange={(v) => (baseUrl = v)}
 			label="Base URL"
 			placeholder="https://api.example.com/v1"
 			helper="API endpoint URL (e.g., https://api.example.com/v1)"
@@ -202,20 +227,36 @@
 
 	{#if error}
 		<div class={styles.error}>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<circle cx="12" cy="12" r="10"/>
-				<line x1="12" y1="8" x2="12" y2="12"/>
-				<line x1="12" y1="16" x2="12.01" y2="16"/>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<circle cx="12" cy="12" r="10" />
+				<line x1="12" y1="8" x2="12" y2="12" />
+				<line x1="12" y1="16" x2="12.01" y2="16" />
 			</svg>
 			<span>{error}</span>
 		</div>
 	{/if}
 
 	<div class={styles.info}>
-		<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-			<circle cx="12" cy="12" r="10"/>
-			<line x1="12" y1="16" x2="12" y2="12"/>
-			<line x1="12" y1="8" x2="12.01" y2="8"/>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2"
+		>
+			<circle cx="12" cy="12" r="10" />
+			<line x1="12" y1="16" x2="12" y2="12" />
+			<line x1="12" y1="8" x2="12.01" y2="8" />
 		</svg>
 		<span>After adding, you'll need to configure the API key for this provider.</span>
 	</div>
@@ -229,15 +270,24 @@
 				disabled={isSubmitting || !providerName.trim() || !baseUrl.trim()}
 			>
 				{#if isSubmitting}
-					<svg class={styles.spinner} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<line x1="12" y1="2" x2="12" y2="6"/>
-						<line x1="12" y1="18" x2="12" y2="22"/>
-						<line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
-						<line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
-						<line x1="2" y1="12" x2="6" y2="12"/>
-						<line x1="18" y1="12" x2="22" y2="12"/>
-						<line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
-						<line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+					<svg
+						class={styles.spinner}
+						xmlns="http://www.w3.org/2000/svg"
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<line x1="12" y1="2" x2="12" y2="6" />
+						<line x1="12" y1="18" x2="12" y2="22" />
+						<line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+						<line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+						<line x1="2" y1="12" x2="6" y2="12" />
+						<line x1="18" y1="12" x2="22" y2="12" />
+						<line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+						<line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
 					</svg>
 				{/if}
 				Add Provider

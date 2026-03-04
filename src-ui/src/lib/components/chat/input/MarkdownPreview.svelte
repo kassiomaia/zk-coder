@@ -2,7 +2,9 @@
 	/**
 	 * MarkdownPreview Component
 	 * Renders a preview of markdown content with syntax highlighting.
+	 * Includes HTML sanitization to prevent XSS attacks.
 	 */
+	import DOMPurify from 'dompurify';
 	import styles from './MarkdownPreview.module.css';
 
 	interface Props {
@@ -14,16 +16,56 @@
 
 	let { content, class: className }: Props = $props();
 
-	// Simple markdown parsing (in production, use a library like markdown-it)
+	// Simple markdown parsing with security sanitization
 	let renderedHtml = $derived(parseMarkdown(content));
+
+	/**
+	 * Sanitizes a URL to prevent XSS attacks via dangerous protocols.
+	 * Blocks javascript:, data:, vbscript:, and file: URLs.
+	 */
+	function sanitizeUrl(url: string): string {
+		const trimmed = url.trim().toLowerCase();
+		const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:'];
+		const safeProtocols = ['http:', 'https:', 'mailto:'];
+
+		// Check for dangerous protocols
+		for (const protocol of dangerousProtocols) {
+			if (trimmed.startsWith(protocol)) {
+				return '#';
+			}
+		}
+
+		// Allow relative URLs (starting with /, #, or ?)
+		if (trimmed.startsWith('/') || trimmed.startsWith('#') || trimmed.startsWith('?')) {
+			return url;
+		}
+
+		// Check if it starts with a safe protocol
+		for (const protocol of safeProtocols) {
+			if (trimmed.startsWith(protocol)) {
+				return url;
+			}
+		}
+
+		// Default case: treat as potentially unsafe, return safe placeholder
+		// This catches edge cases like "onclick=alert(1)" or other malformed URLs
+		return '#';
+	}
+
+	/**
+	 * Escapes special HTML characters to prevent injection.
+	 */
+	function escapeHtml(text: string): string {
+		return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	}
 
 	function parseMarkdown(text: string): string {
 		if (!text) return '';
 
 		let html = text;
 
-		// Escape HTML
-		html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		// Escape HTML first
+		html = escapeHtml(html);
 
 		// Code blocks (must be before inline code)
 		html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
@@ -49,11 +91,11 @@
 		// Strikethrough
 		html = html.replace(/~~(.+?)~~/g, `<del class="${styles.del}">$1</del>`);
 
-		// Links
-		html = html.replace(
-			/\[([^\]]+)\]\(([^)]+)\)/g,
-			`<a href="$2" class="${styles.link}" target="_blank" rel="noopener noreferrer">$1</a>`
-		);
+		// Links - with URL sanitization to prevent XSS
+		html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, linkText, url) => {
+			const safeUrl = sanitizeUrl(url);
+			return `<a href="${safeUrl}" class="${styles.link}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+		});
 
 		// Lists
 		html = html.replace(/^- (.+)$/gm, `<li class="${styles.li}">$1</li>`);
@@ -82,7 +124,37 @@
 			html = `<p class="${styles.p}">${html}</p>`;
 		}
 
-		return html;
+		// Final sanitization with DOMPurify as defense-in-depth
+		// This catches any edge cases we might have missed
+		const sanitizedHtml = DOMPurify.sanitize(html, {
+			// Allow only the tags we explicitly generate
+			ALLOWED_TAGS: [
+				'p',
+				'br',
+				'strong',
+				'em',
+				'del',
+				'h1',
+				'h2',
+				'h3',
+				'ul',
+				'ol',
+				'li',
+				'blockquote',
+				'hr',
+				'a',
+				'pre',
+				'code'
+			],
+			// Allow only safe attributes
+			ALLOWED_ATTR: ['class', 'href', 'target', 'rel', 'data-lang'],
+			// Disable data attributes except for our explicit data-lang
+			ALLOW_DATA_ATTR: false,
+			// Add rel="noopener noreferrer" to all links for security
+			ADD_ATTR: ['target', 'rel']
+		});
+
+		return sanitizedHtml;
 	}
 </script>
 

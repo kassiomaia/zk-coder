@@ -13,7 +13,7 @@ This directory contains high-priority issues identified during code review analy
 ### 🔒 Security (9 issues)
 1. [DONE] [HTML Injection Vulnerability in Markdown Preview](security/001-html-injection-markdown-preview.md) - Fixed
 2. [Plain Text API Key Storage in Logs](security/002-plain-text-api-key-storage.md)
-3. [Insecure ID Generation in CustomProviderModal](security/003-insecure-id-generation-custom-provider-modal.md)
+3. [DONE] [Insecure ID Generation in CustomProviderModal](security/003-insecure-id-generation-custom-provider-modal.md) - Fixed
 4. [DONE] [SSR Fallback HTML Escape Should Be Comprehensive](security/004-ssr-fallback-html-escape.md) - Fixed
 5. [Type Safety for Dynamic Styles in Tooltip](security/005-type-safety-dynamic-styles-tooltip.md)
 6. [Missing Input Validation for Model ID in ChatInput](security/006-missing-input-validation-model-id-chat-input.md)
