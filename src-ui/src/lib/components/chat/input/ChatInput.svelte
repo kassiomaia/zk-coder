@@ -15,6 +15,7 @@
 	import type { IntentClassification } from '$lib/types/nlp';
 	import { chatStore, nlpState } from '$lib/stores';
 	import { isBackendAvailable } from '$lib/api/nlp';
+	import { isValidModelId, sanitizeModelId } from '$lib/utils/validation';
 
 	interface FileAttachment {
 		id: string;
@@ -142,6 +143,16 @@
 			.filter(Boolean)
 			.join(' ')
 	);
+
+	// Validate and sanitize model ID
+	let validatedModelId = $derived(sanitizeModelId(modelId));
+
+	// Log warning for invalid model IDs (development aid)
+	$effect(() => {
+		if (modelId !== null && !isValidModelId(modelId)) {
+			console.warn('[ChatInput] Invalid modelId prop received:', modelId);
+		}
+	});
 
 	// Auto-resize textarea (max 3 lines = ~72px)
 	$effect(() => {
@@ -429,8 +440,8 @@
 	<!-- Actions bar -->
 	<div class={styles.actions}>
 		<div class={styles.leftActions}>
-			{#if modelId !== undefined && onModelChange}
-				<ModelSelector selectedModelId={modelId} {onModelChange} {onOpenSettings} />
+			{#if validatedModelId !== null && onModelChange}
+				<ModelSelector selectedModelId={validatedModelId} {onModelChange} {onOpenSettings} />
 			{/if}
 			{#if onattach}
 				<IconButton

@@ -15,6 +15,111 @@
 
 	type Position = 'top' | 'bottom' | 'left' | 'right';
 
+	/**
+	 * Allowed CSS properties for tooltip positioning.
+	 * Whitelist approach prevents injection of unexpected properties.
+	 */
+	const ALLOWED_POSITION_PROPERTIES = ['left', 'top', 'transform', 'opacity'] as const;
+	const ALLOWED_ARROW_PROPERTIES = ['transform'] as const;
+
+	/**
+	 * Allowed transform function patterns for validation.
+	 * Only these specific transform patterns are permitted.
+	 */
+	const ALLOWED_TRANSFORM_PATTERNS = [
+		/^translateX\(-50%\)$/,
+		/^translateY\(-50%\)$/,
+		/^translateX\(-100%\)$/,
+		/^translateY\(-100%\)$/,
+		/^translateX\(-50%\) translateY\(-100%\)$/,
+		/^translateX\(-100%\) translateY\(-50%\)$/,
+		/^translateX\(-50%\) translateY\(-100%\)$/,
+		/^translateX\(calc\(-50% \+ -?\d+px\)\) rotate\(45deg\)$/,
+		/^translateY\(calc\(-50% \+ -?\d+px\)\) rotate\(45deg\)$/
+	];
+
+	/**
+	 * Validates that a transform string contains only allowed patterns.
+	 * Prevents CSS injection through malicious transform values.
+	 */
+	function isValidTransform(transform: string, allowedPatterns: RegExp[]): boolean {
+		return allowedPatterns.some((pattern) => pattern.test(transform));
+	}
+
+	/**
+	 * Sanitizes a numeric value to ensure it's safe for CSS.
+	 * Returns a valid CSS pixel value or empty string if invalid.
+	 */
+	function sanitizeNumericValue(value: number): string {
+		if (!Number.isFinite(value)) {
+			console.warn('Tooltip: Non-finite numeric value detected, using 0');
+			return '0px';
+		}
+		return `${Math.round(value)}px`;
+	}
+
+	/**
+	 * Creates a safe style object for tooltip positioning.
+	 * All values are validated and sanitized to prevent CSS injection.
+	 */
+	function createSafePositionStyle(
+		left: number,
+		top: number,
+		transform: string,
+		isInitialRender: boolean
+	): Record<string, string> {
+		const safeStyles: Record<string, string> = {
+			position: 'fixed'
+		};
+
+		// Sanitize numeric position values
+		safeStyles.left = sanitizeNumericValue(left);
+		safeStyles.top = sanitizeNumericValue(top);
+
+		// Validate transform against allowed patterns
+		if (isValidTransform(transform, ALLOWED_TRANSFORM_PATTERNS)) {
+			safeStyles.transform = transform;
+		} else {
+			console.warn('Tooltip: Invalid transform value rejected:', transform);
+			safeStyles.transform = 'none';
+		}
+
+		// Handle initial render opacity
+		if (isInitialRender) {
+			safeStyles.opacity = '0';
+		}
+
+		return safeStyles;
+	}
+
+	/**
+	 * Creates a safe style object for tooltip arrow positioning.
+	 * Validates transform to prevent injection attacks.
+	 */
+	function createSafeArrowStyle(
+		actualPosition: Position,
+		arrowOffset: number
+	): Record<string, string> {
+		const safeStyles: Record<string, string> = {};
+
+		let transform: string;
+		if (actualPosition === 'top' || actualPosition === 'bottom') {
+			transform = `translateX(calc(-50% + ${Math.round(arrowOffset)}px)) rotate(45deg)`;
+		} else {
+			transform = `translateY(calc(-50% + ${Math.round(arrowOffset)}px)) rotate(45deg)`;
+		}
+
+		// Validate the generated transform
+		if (isValidTransform(transform, ALLOWED_TRANSFORM_PATTERNS)) {
+			safeStyles.transform = transform;
+		} else {
+			console.warn('Tooltip: Invalid arrow transform rejected:', transform);
+			safeStyles.transform = 'rotate(45deg)';
+		}
+
+		return safeStyles;
+	}
+
 	interface Props {
 		/** Tooltip content (string or snippet) */
 		content: string | Snippet;
@@ -165,11 +270,7 @@
 	 * Calculate arrow offset to ensure it points to trigger center
 	 * while staying within tooltip bounds.
 	 */
-	function calculateArrowOffset(
-		triggerRect: DOMRect,
-		tooltipRect: DOMRect,
-		pos: Position
-	) {
+	function calculateArrowOffset(triggerRect: DOMRect, tooltipRect: DOMRect, pos: Position) {
 		if (pos === 'top' || pos === 'bottom') {
 			// Horizontal arrow offset
 			const triggerCenter = triggerRect.left + triggerRect.width / 2;
@@ -194,9 +295,10 @@
 	/**
 	 * Calculate pixel-perfect position styles.
 	 * Uses Math.round() for sub-pixel precision on displays.
+	 * Returns a safe style object to prevent CSS injection.
 	 */
-	let positionStyle = $derived.by(() => {
-		if (!triggerRef) return 'opacity: 0;';
+	let positionStyle = $derived.by((): Record<string, string> => {
+		if (!triggerRef) return { position: 'fixed', opacity: '0' };
 
 		const triggerRect = triggerRef.getBoundingClientRect();
 		// Get tooltip dimensions if already rendered, otherwise use estimates
@@ -257,26 +359,26 @@
 			clampedTop = Math.max(minTop, Math.min(maxTop, pos.top));
 		}
 
-		return `left: ${clampedLeft}px; top: ${clampedTop}px; transform: ${pos.transform}; ${isInitialRender ? 'opacity: 0;' : ''}`;
+		// Use safe style object creation to prevent CSS injection
+		return createSafePositionStyle(clampedLeft, clampedTop, pos.transform, isInitialRender);
 	});
 
 	// Arrow position style based on calculated offset
+	// Uses safe style object to prevent CSS injection
 	let arrowStyle = $derived.by(() => {
-		if (actualPosition === 'top' || actualPosition === 'bottom') {
-			return `transform: translateX(calc(-50% + ${Math.round(arrowOffset)}px)) rotate(45deg);`;
-		} else {
-			return `transform: translateY(calc(-50% + ${Math.round(arrowOffset)}px)) rotate(45deg);`;
-		}
+		return createSafeArrowStyle(actualPosition, arrowOffset);
 	});
 
-	let tooltipClasses = $derived([
-		styles.tooltip,
-		styles[actualPosition],
-		visible && styles.visible,
-		prefersReducedMotion && styles.noAnimation
-	]
-		.filter(Boolean)
-		.join(' '));
+	let tooltipClasses = $derived(
+		[
+			styles.tooltip,
+			styles[actualPosition],
+			visible && styles.visible,
+			prefersReducedMotion && styles.noAnimation
+		]
+			.filter(Boolean)
+			.join(' ')
+	);
 
 	// Track scrolling and resizing to keep tooltip attached
 	$effect(() => {
@@ -286,7 +388,7 @@
 			};
 			window.addEventListener('scroll', update, { capture: true, passive: true });
 			window.addEventListener('resize', update, { passive: true });
-			
+
 			return () => {
 				window.removeEventListener('scroll', update, { capture: true });
 				window.removeEventListener('resize', update);
@@ -323,7 +425,10 @@
 {#if !disabled && content}
 	<div
 		class={tooltipClasses}
-		style="position: fixed; {positionStyle} max-width: {maxWidth};"
+		style={Object.entries(positionStyle)
+			.map(([key, value]) => `${key}: ${value}`)
+			.join('; ')}
+		style:max-width={maxWidth}
 		bind:this={tooltipRef}
 		role="tooltip"
 		aria-hidden={!visible}
@@ -335,6 +440,11 @@
 				{@render content()}
 			{/if}
 		</div>
-		<div class={styles.arrow} style={arrowStyle}></div>
+		<div
+			class={styles.arrow}
+			style={Object.entries(arrowStyle)
+				.map(([key, value]) => `${key}: ${value}`)
+				.join('; ')}
+		></div>
 	</div>
 {/if}

@@ -12,11 +12,11 @@ This directory contains high-priority issues identified during code review analy
 
 ### 🔒 Security (9 issues)
 1. [DONE] [HTML Injection Vulnerability in Markdown Preview](security/001-html-injection-markdown-preview.md) - Fixed
-2. [Plain Text API Key Storage in Logs](security/002-plain-text-api-key-storage.md)
+2. [DONE] [Plain Text API Key Storage in Logs](security/002-plain-text-api-key-storage.md) - Fixed
 3. [DONE] [Insecure ID Generation in CustomProviderModal](security/003-insecure-id-generation-custom-provider-modal.md) - Fixed
 4. [DONE] [SSR Fallback HTML Escape Should Be Comprehensive](security/004-ssr-fallback-html-escape.md) - Fixed
-5. [Type Safety for Dynamic Styles in Tooltip](security/005-type-safety-dynamic-styles-tooltip.md)
-6. [Missing Input Validation for Model ID in ChatInput](security/006-missing-input-validation-model-id-chat-input.md)
+5. [DONE] [Type Safety for Dynamic Styles in Tooltip](security/005-type-safety-dynamic-styles-tooltip.md) - Fixed
+6. [DONE] [Missing Input Validation for Model ID in ChatInput](security/006-missing-input-validation-model-id-chat-input.md) - Fixed
 7. [DONE] [Missing Error Handling for highlight.js in MarkdownRenderer](security/007-missing-error-handling-highlight-js-markdown-renderer.md) - Fixed
 8. [No Content Validation in MarkdownRenderer](security/008-no-content-validation-markdown-renderer.md)
 9. [DONE] [Popover ID Generation Security](security/009-popover-id-generation-security.md)
