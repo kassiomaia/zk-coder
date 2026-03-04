@@ -9,6 +9,8 @@ import type {
 	ConversationContext,
 	MultiIntentResult,
 	Ambiguity,
+	ResolvedAmbiguity,
+	ResolutionType,
 	CodeUnderstanding,
 	ProgrammingLanguage
 } from '$lib/types/nlp';
@@ -180,6 +182,64 @@ export async function detectAmbiguities(options: DetectAmbiguitiesOptions): Prom
 	return safeInvoke<Ambiguity[]>('detect_ambiguities', {
 		input: options.input,
 		conversation_id: options.conversationId
+	});
+}
+
+// ============================================================================
+// Ambiguity Resolution
+// ============================================================================
+
+/**
+ * Options for resolving an ambiguity.
+ */
+export interface ResolveAmbiguityOptions {
+	/** ID of the ambiguity to resolve */
+	ambiguityId: string;
+	/** The original ambiguous text */
+	originalText: string;
+	/** The resolution value */
+	resolution: string;
+	/** How the resolution was made */
+	resolutionType: ResolutionType;
+}
+
+/**
+ * Resolves an ambiguity with the provided resolution.
+ *
+ * @param options - Resolution options
+ * @returns The resolved ambiguity record
+ */
+export async function resolveAmbiguity(
+	options: ResolveAmbiguityOptions
+): Promise<ResolvedAmbiguity> {
+	return safeInvoke<ResolvedAmbiguity>('resolve_ambiguity', {
+		ambiguity_id: options.ambiguityId,
+		original_text: options.originalText,
+		resolution: options.resolution,
+		resolution_type: options.resolutionType
+	});
+}
+
+/**
+ * Options for applying resolutions to input.
+ */
+export interface ApplyResolutionsOptions {
+	/** Original input text */
+	input: string;
+	/** Map of ambiguity IDs to their resolutions */
+	resolutions: Record<string, string>;
+}
+
+/**
+ * Applies multiple resolutions to input text.
+ *
+ * @param options - Apply options
+ * @returns The modified input with all resolutions applied
+ */
+export async function applyResolutions(options: ApplyResolutionsOptions): Promise<string> {
+	return safeInvoke<string>('apply_resolutions', {
+		input: options.input,
+		resolutions: options.resolutions
 	});
 }
 
