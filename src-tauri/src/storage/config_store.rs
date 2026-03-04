@@ -46,6 +46,7 @@ impl ConfigStore {
         Self::init_schema(&conn)?;
         Self::migrate_api_type_constraint(&conn)?;
         Self::migrate_models_source(&conn)?;
+        Self::normalize_base_urls(&conn)?;
         let store = Self {
             conn: Mutex::new(conn),
         };
@@ -63,6 +64,7 @@ impl ConfigStore {
         Self::init_schema(&conn)?;
         Self::migrate_api_type_constraint(&conn)?;
         Self::migrate_models_source(&conn)?;
+        Self::normalize_base_urls(&conn)?;
         let store = Self {
             conn: Mutex::new(conn),
         };
@@ -341,6 +343,35 @@ impl ConfigStore {
             log::info!("Created manual_models table");
         }
 
+        Ok(())
+    }
+
+    /// Normalizes base URLs in the providers table to remove endpoint paths.
+    ///
+    /// This fixes a bug where base URLs were incorrectly stored with endpoint paths
+    /// like `/chat/completions` included.
+    fn normalize_base_urls(conn: &Connection) -> Result<(), ConfigStoreError> {
+        // Fix OpenAI base URLs
+        conn.execute(
+            r#"UPDATE providers
+               SET base_url = REPLACE(REPLACE(REPLACE(base_url,
+                   '/chat/completions', ''),
+                   '/completions', ''),
+                   '/models', '')
+               WHERE base_url IS NOT NULL
+               AND base_url LIKE '%/chat/completions%'
+               OR base_url LIKE '%/completions%'
+               OR base_url LIKE '%/models'"#,
+            [],
+        )?;
+
+        // For built-in providers, set base_url to NULL (use defaults)
+        conn.execute(
+            "UPDATE providers SET base_url = NULL WHERE id IN ('openai', 'anthropic', 'google') AND is_custom = FALSE",
+            [],
+        )?;
+
+        log::info!("Normalized base URLs in providers table");
         Ok(())
     }
 

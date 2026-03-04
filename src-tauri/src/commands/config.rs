@@ -196,6 +196,8 @@ pub async fn fetch_models(
     base_url: Option<String>,
     state: tauri::State<'_, ConfigState>,
 ) -> Result<FetchModelsResult, String> {
+    info!("fetch_models: provider_id={}, api_type={:?}, base_url={:?}", provider_id, api_type, base_url);
+
     // Empty API key check
     if api_key.trim().is_empty() {
         return Ok(FetchModelsResult::failure("Please enter an API key first"));
@@ -207,6 +209,8 @@ pub async fn fetch_models(
         .get_provider(&provider_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+
+    info!("fetch_models: provider from DB - base_url={:?}, models_source={:?}", provider.base_url, provider.models_source);
 
     let models_source = provider.models_source;
 

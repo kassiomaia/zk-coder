@@ -14,6 +14,34 @@ use crate::nlp::config::{
 /// Default timeout for API requests (in seconds).
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
 
+/// Normalizes a base URL by removing any trailing endpoint paths.
+///
+/// This handles cases where the base URL was incorrectly stored with
+/// endpoint paths like `/chat/completions` or `/models` already included.
+fn normalize_base_url(url: &str) -> &str {
+    let url = url.trim_end_matches('/');
+
+    // Remove common endpoint paths that shouldn't be in the base URL
+    let endpoints_to_strip = [
+        "/chat/completions",
+        "/completions",
+        "/models",
+        "/v1/chat/completions",
+        "/v1/completions",
+        "/v1/models",
+    ];
+
+    for endpoint in endpoints_to_strip {
+        if url.ends_with(endpoint) {
+            let normalized = &url[..url.len() - endpoint.len()];
+            log::info!("Normalized base URL from '{}' to '{}'", url, normalized);
+            return normalized;
+        }
+    }
+
+    url
+}
+
 /// Creates a configured HTTP client.
 fn create_client() -> Result<Client, String> {
     Client::builder()
@@ -39,13 +67,9 @@ pub async fn validate_openai_key(
 ) -> Result<ValidationResult, String> {
     let client = create_client()?;
 
-    // Handle base_url that might already include the endpoint
-    let base = base_url.unwrap_or("https://api.openai.com/v1");
-    let url = if base.ends_with("/chat/completions") || base.contains("/chat/completions") {
-        base.to_string()
-    } else {
-        format!("{}/chat/completions", base.trim_end_matches('/'))
-    };
+    // Normalize base URL and construct endpoint
+    let base = base_url.map_or("https://api.openai.com/v1", |url| normalize_base_url(url));
+    let url = format!("{}/chat/completions", base.trim_end_matches('/'));
 
     let response = client
         .post(&url)
@@ -107,18 +131,11 @@ pub async fn fetch_openai_models(
 ) -> Result<FetchModelsResult, String> {
     let client = create_client()?;
 
-    // Check if this is the official OpenAI API
-    let is_official_openai = base_url.map_or(true, |url| {
-        url.contains("api.openai.com")
-    });
+    // Normalize base URL and construct endpoint
+    let base = base_url.map_or("https://api.openai.com/v1", |url| normalize_base_url(url));
+    let url = format!("{}/models", base.trim_end_matches('/'));
 
-    // Handle base_url that might already include the endpoint
-    let base = base_url.unwrap_or("https://api.openai.com/v1");
-    let url = if base.ends_with("/models") {
-        base.to_string()
-    } else {
-        format!("{}/models", base.trim_end_matches('/'))
-    };
+    log::info!("fetch_openai_models: base_url={:?}, normalized_base={}, final_url={}", base_url, base, url);
 
     let response = client
         .get(&url)
@@ -127,10 +144,15 @@ pub async fn fetch_openai_models(
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
 
-    // Handle 404 - models endpoint not available, fall back to known models
+    log::info!("fetch_openai_models: response status={}", response.status());
+
+    // Handle 404 - models endpoint not available
     if response.status().as_u16() == 404 {
-        log::warn!("Models endpoint not available (404), using fallback model list");
-        return Ok(get_fallback_openai_models(is_official_openai));
+        log::warn!("Models endpoint not available (404) for URL: {}", url);
+        return Ok(FetchModelsResult::failure(
+            "The models endpoint is not available for this provider. \
+            Please manually configure the models you want to use in the provider settings."
+        ));
     }
 
     if !response.status().is_success() {
@@ -198,42 +220,17 @@ pub async fn fetch_openai_models(
 
     log::info!("Filtered to {} chat models", models.len());
 
-    // If no models matched, use fallback
+    // If no models matched, return error suggesting manual configuration
     if models.is_empty() {
-        log::warn!("No models matched the filter. First 5 model IDs: {:?}", sample_ids);
-        log::info!("Using fallback model list");
-        return Ok(get_fallback_openai_models(is_official_openai));
+        log::warn!("No chat models matched the filter. First 5 model IDs from API: {:?}", sample_ids);
+        return Ok(FetchModelsResult::failure(
+            "No chat models found from the API response. \
+            The provider may use non-standard model naming. \
+            Please manually configure the models you want to use in the provider settings."
+        ));
     }
 
     Ok(FetchModelsResult::success(models))
-}
-
-/// Returns a fallback list of known OpenAI models.
-fn get_fallback_openai_models(is_official: bool) -> FetchModelsResult {
-    let models = if is_official {
-        vec![
-            "gpt-4o".to_string(),
-            "gpt-4o-mini".to_string(),
-            "gpt-4-turbo".to_string(),
-            "gpt-4".to_string(),
-            "gpt-3.5-turbo".to_string(),
-            "o1-preview".to_string(),
-            "o1-mini".to_string(),
-        ]
-    } else {
-        // For custom OpenAI-compatible APIs, include a broader range
-        vec![
-            "gpt-4o".to_string(),
-            "gpt-4o-mini".to_string(),
-            "gpt-4-turbo".to_string(),
-            "gpt-4".to_string(),
-            "gpt-3.5-turbo".to_string(),
-            "gpt-3.5-turbo-16k".to_string(),
-            "gpt-3.5-turbo-instruct".to_string(),
-        ]
-    };
-
-    FetchModelsResult::success(models)
 }
 
 #[derive(Deserialize)]
@@ -261,13 +258,9 @@ pub async fn validate_google_key(
 ) -> Result<ValidationResult, String> {
     let client = create_client()?;
 
-    // Handle base_url that might already include the endpoint
-    let base = base_url.unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai");
-    let url = if base.ends_with("/models") {
-        base.to_string()
-    } else {
-        format!("{}/models", base.trim_end_matches('/'))
-    };
+    // Normalize base URL and construct endpoint
+    let base = base_url.map_or("https://generativelanguage.googleapis.com/v1beta/openai", |url| normalize_base_url(url));
+    let url = format!("{}/models", base.trim_end_matches('/'));
 
     let response = client
         .get(&url)
@@ -319,13 +312,11 @@ pub async fn fetch_google_models(
 ) -> Result<FetchModelsResult, String> {
     let client = create_client()?;
 
-    // Handle base_url that might already include the endpoint
-    let base = base_url.unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai");
-    let url = if base.ends_with("/models") {
-        base.to_string()
-    } else {
-        format!("{}/models", base.trim_end_matches('/'))
-    };
+    // Normalize base URL and construct endpoint
+    let base = base_url.map_or("https://generativelanguage.googleapis.com/v1beta/openai", |url| normalize_base_url(url));
+    let url = format!("{}/models", base.trim_end_matches('/'));
+
+    log::info!("fetch_google_models: base_url={:?}, normalized_base={}, final_url={}", base_url, base, url);
 
     let response = client
         .get(&url)
@@ -334,10 +325,13 @@ pub async fn fetch_google_models(
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
 
-    // Handle 404 - models endpoint not available, fall back to known models
+    // Handle 404 - models endpoint not available
     if response.status().as_u16() == 404 {
-        log::warn!("Google models endpoint not available (404), using fallback model list");
-        return Ok(get_fallback_google_models());
+        log::warn!("Google models endpoint not available (404)");
+        return Ok(FetchModelsResult::failure(
+            "The Google models endpoint is not available. \
+            Please manually configure the Gemini models you want to use in the provider settings."
+        ));
     }
 
     if !response.status().is_success() {
@@ -390,27 +384,16 @@ pub async fn fetch_google_models(
 
     let model_names: Vec<String> = models.iter().map(|m| m.name.clone()).collect();
 
-    // If no models matched, use fallback
+    // If no models matched, return error suggesting manual configuration
     if model_names.is_empty() {
-        log::warn!("No Gemini models found in response, using fallback");
-        return Ok(get_fallback_google_models());
+        log::warn!("No Gemini models found in API response");
+        return Ok(FetchModelsResult::failure(
+            "No Gemini models found from the API response. \
+            Please manually configure the models you want to use in the provider settings."
+        ));
     }
 
     Ok(FetchModelsResult::success(model_names))
-}
-
-/// Returns a fallback list of known Google Gemini models.
-fn get_fallback_google_models() -> FetchModelsResult {
-    let models = vec![
-        "gemini-2.5-flash".to_string(),
-        "gemini-2.5-pro".to_string(),
-        "gemini-2.0-flash".to_string(),
-        "gemini-2.0-pro".to_string(),
-        "gemini-1.5-flash".to_string(),
-        "gemini-1.5-pro".to_string(),
-    ];
-
-    FetchModelsResult::success(models)
 }
 
 // =============================================================================
