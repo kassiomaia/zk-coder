@@ -28,6 +28,18 @@
 	--color-primary-800: #3730a3;
 	--color-primary-900: #312e81;
 
+	/* Provider Brand Colors - for provider icons */
+	--color-provider-anthropic: rgba(217, 119, 6, 0.85);
+	--color-provider-openai: rgba(16, 163, 127, 0.85);
+	--color-provider-google: rgba(59, 130, 246, 0.85);
+	--color-provider-default: rgba(99, 102, 241, 0.85);
+
+	/* Provider Brand Colors - Used for provider icons */
+	--color-provider-anthropic: rgba(217, 119, 6, 0.85);
+	--color-provider-openai: rgba(16, 163, 127, 0.85);
+	--color-provider-google: rgba(59, 130, 246, 0.85);
+	--color-provider-default: rgba(99, 102, 241, 0.85);
+
 	/* Neutral Colors - Text and backgrounds */
 	--color-neutral-0: #ffffff;
 	--color-neutral-50: #fafafa;

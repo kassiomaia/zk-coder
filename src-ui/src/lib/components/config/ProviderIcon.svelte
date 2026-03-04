@@ -12,14 +12,14 @@
 
 	let { provider, size = 32 }: Props = $props();
 
-	// Color for each provider - muted/subtle versions for the new design system
+	// Provider brand colors - use CSS custom properties for themability
 	const colorMap: Record<string, string> = {
-		anthropic: 'rgba(217, 119, 6, 0.85)',
-		openai: 'rgba(16, 163, 127, 0.85)',
-		google: 'rgba(59, 130, 246, 0.85)'
+		anthropic: 'var(--color-provider-anthropic)',
+		openai: 'var(--color-provider-openai)',
+		google: 'var(--color-provider-google)'
 	};
 
-	let iconColor = $derived(colorMap[provider.id] || 'rgba(99, 102, 241, 0.85)');
+	let iconColor = $derived(colorMap[provider.id] || 'var(--color-provider-default)');
 </script>
 
 {#if provider.id === 'anthropic'}
