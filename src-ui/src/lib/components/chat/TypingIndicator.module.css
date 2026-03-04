@@ -51,7 +51,7 @@
 	height: 6px;
 	background: var(--color-accent-primary);
 	border-radius: var(--radius-full);
-	animation: dotPulse 1.4s ease-in-out infinite;
+	animation: dotPulse var(--dot-duration, 1.4s) ease-in-out infinite;
 }
 
 /* Staggered animation delays */
@@ -70,12 +70,12 @@
 /* Soft pulse keyframes - gentle breathing effect */
 @keyframes dotPulse {
 	0%, 60%, 100% {
-		opacity: 0.4;
+		opacity: var(--dot-min-opacity, 0.4);
 		transform: scale(1);
 	}
 	30% {
 		opacity: 1;
-		transform: scale(1.15);
+		transform: scale(var(--dot-scale-max, 1.15));
 	}
 }
 
@@ -95,15 +95,16 @@
 	-webkit-background-clip: text;
 	background-clip: text;
 	color: transparent;
-	animation: textShimmer 2s ease-in-out infinite;
+	will-change: background-position;
+	animation: textShimmer var(--shimmer-duration, 2s) ease-in-out infinite;
 }
 
 @keyframes textShimmer {
 	0% {
-		background-position: 100% center;
+		background-position: var(--shimmer-start, 100%) center;
 	}
 	100% {
-		background-position: -100% center;
+		background-position: var(--shimmer-end, -100%) center;
 	}
 }
 
@@ -113,7 +114,7 @@
 }
 
 /* Variant: text only */
-.text .indicator {
+.text {
 	padding: var(--space-2) 0;
 }
 
