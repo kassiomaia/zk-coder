@@ -29,7 +29,11 @@ This document tracks the progress of resolving code quality issues in the Coder 
 | 008 | Hardcoded Animation Durations in AnsweringIndicator | ✅ DONE | Added JSDoc comments explaining constants |
 | 009 | Hardcoded Color Values in AnsweringIndicator | ✅ DONE | Replaced RGB values with design system tokens |
 | 010 | Hardcoded Color Values in IntentIndicator | ✅ DONE | Added border color tokens to design system |
-| 011-023 | Various hardcoded values | PENDING | |
+| 011 | Hardcoded Animation Durations in ModelCard | ✅ DONE | Added accent glow tokens to design system |
+| 012 | Hardcoded Colors in ProviderCard | ✅ DONE | Replaced hardcoded success colors with tokens |
+| 013 | Hardcoded Colors in ProviderIcon | PENDING | |
+| 014 | Hardcoded Colors in Button Variants | ✅ DONE | Added dark color variants to design system |
+| 015-023 | Various hardcoded values | PENDING | |
 | 024 | Hardcoded Theme Colors in +layout.svelte | ✅ DONE | Created THEME_COLORS constant from design system |
 
 ### Batch 4: SVG and Icon Issues (031-038)
@@ -46,14 +50,17 @@ This document tracks the progress of resolving code quality issues in the Coder 
 
 ## Summary
 
-**Completed**: 10 issues (001-006, 008-010, 024)
-**Remaining**: 33 issues (007, 011-023, 025-042)
+**Completed**: 14 issues (001-012, 014, 024)
+**Remaining**: 29 issues (007, 013, 015-023, 025-042)
 
 ## Changelog
 
 ### 2026-03-04
 - Completed type safety issues (004-006)
-- Completed hardcoded values issues (008-010, 024)
-- Added border color tokens to design system
+- Completed hardcoded values issues (008-012, 014, 024)
+- Added multiple color tokens to design system:
+  - Border color tokens (--color-success-border, etc.)
+  - Glow color tokens (--color-accent-primary-glow)
+  - Dark variant tokens (--color-warning-dark, --color-error-dark)
 - Refactored Button component to use Svelte 5 snippets
 - Created list-item-actions.types.ts for type exports
