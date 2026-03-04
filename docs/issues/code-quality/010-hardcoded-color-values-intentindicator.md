@@ -1,39 +1,41 @@
 # Hardcoded color values in IntentIndicator
 
+## Status
+✅ **RESOLVED** (2026-03-04)
+
 ## Metadata
 - **Source Review**: docs/reviews/code-reviewer/2026-03-04-IntentIndicator.svelte.md
 - **Location**: src-ui/src/lib/components/chat/input/IntentIndicator.module.css:29,35
 - **Priority**: Medium
 - **Category**: Code Quality
-- **Status**: Open
 
 ## Description
 The CSS contains hardcoded color values in rgba format that should use CSS variables for consistency and maintainability.
 
-## Impact
-Hardcoded color values prevent the application from adopting consistent theming and make it difficult to adjust colors for different themes or accessibility needs. These values also break the design system's color consistency across components.
+## Resolution
+Added semantic border color tokens to the design system and updated IntentIndicator to use them:
 
-## Suggested Fix
-Replace hardcoded rgba values with appropriate CSS variables from the design system.
+```css
+/* In design-system.css */
+--color-success-border: rgba(16, 185, 129, 0.2);
+--color-warning-border: rgba(245, 158, 11, 0.2);
+--color-error-border: rgba(239, 68, 68, 0.2);
+--color-info-border: rgba(14, 165, 233, 0.2);
+```
+
+Updated component to use new tokens:
 
 ```css
 /* Before */
-.intent-indicator {
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-}
+border-color: rgba(16, 185, 129, 0.2);
 
 /* After */
-.intent-indicator {
-  background: var(--color-primary-100);
-  border: 1px solid var(--color-primary-200);
-}
+border-color: var(--color-success-border);
 ```
 
-## Related Components
-- IntentIndicator.svelte
-- IntentIndicator.module.css
-- design-system.css
+## Files Changed
+- `src-ui/src/lib/styles/design-system.css`
+- `src-ui/src/lib/components/chat/input/IntentIndicator.module.css`
 
 ## References
 - Original review: docs/reviews/code-reviewer/2026-03-04-IntentIndicator.svelte.md

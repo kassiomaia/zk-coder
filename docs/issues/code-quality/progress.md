@@ -26,7 +26,11 @@ This document tracks the progress of resolving code quality issues in the Coder 
 | Issue | Description | Status | Notes |
 |-------|-------------|--------|-------|
 | 007 | Duplicate Validation Logic in ConfigModal | PENDING | |
-| 008-024 | Various hardcoded values | PENDING | |
+| 008 | Hardcoded Animation Durations in AnsweringIndicator | ✅ DONE | Added JSDoc comments explaining constants |
+| 009 | Hardcoded Color Values in AnsweringIndicator | ✅ DONE | Replaced RGB values with design system tokens |
+| 010 | Hardcoded Color Values in IntentIndicator | ✅ DONE | Added border color tokens to design system |
+| 011-023 | Various hardcoded values | PENDING | |
+| 024 | Hardcoded Theme Colors in +layout.svelte | ✅ DONE | Created THEME_COLORS constant from design system |
 
 ### Batch 4: SVG and Icon Issues (031-038)
 
@@ -40,5 +44,16 @@ This document tracks the progress of resolving code quality issues in the Coder 
 |-------|-------------|--------|-------|
 | 039-041 | Console logging in production | PENDING | |
 
+## Summary
+
+**Completed**: 10 issues (001-006, 008-010, 024)
+**Remaining**: 33 issues (007, 011-023, 025-042)
+
 ## Changelog
 
+### 2026-03-04
+- Completed type safety issues (004-006)
+- Completed hardcoded values issues (008-010, 024)
+- Added border color tokens to design system
+- Refactored Button component to use Svelte 5 snippets
+- Created list-item-actions.types.ts for type exports
