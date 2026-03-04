@@ -8,19 +8,23 @@
 	import { Scan, Layout, Sparkles, ShieldCheck, CheckCircle } from 'lucide-svelte';
 	import styles from './AnsweringIndicator.module.css';
 
+	/**
+	 * Animation configuration constants.
+	 * These control the timing of the phase transitions and text scrambling effects.
+	 */
+	const PHASE_DURATION = 2200; // Duration for each phase in milliseconds (includes scramble time)
+	const SCRAMBLE_DURATION = 800; // Duration for the letter scramble animation in milliseconds
+
 	// User-defined phases with action-oriented microcopy
 	const phases = [
-		{ label: 'Analyzing Context', icon: Scan, intensity: 0.6 },
-		{ label: 'Structuring Response', icon: Layout, intensity: 0.7 },
-		{ label: 'Refining Clarity', icon: Sparkles, intensity: 0.8 },
-		{ label: 'Validating Logic', icon: ShieldCheck, intensity: 0.9 },
-		{ label: 'Finalizing Output', icon: CheckCircle, intensity: 1.0 }
+		{ label: 'Analyzing Context', icon: Scan },
+		{ label: 'Structuring Response', icon: Layout },
+		{ label: 'Refining Clarity', icon: Sparkles },
+		{ label: 'Validating Logic', icon: ShieldCheck },
+		{ label: 'Finalizing Output', icon: CheckCircle }
 	];
 
 	const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
-	// Standardize duration scaling
-	const PHASE_DURATION = 2200;
-	const SCRAMBLE_DURATION = 800; // Time to resolve text
 
 	let currentPhaseIndex = $state(0);
 	let displayText = $state(phases[0].label);
@@ -117,15 +121,10 @@
 </script>
 
 <div class={styles.container} role="status" aria-live="polite" aria-label="Assistant is answering">
-	<!-- 
-		Panel container with dynamic intensity class for accent color 
-		and completion state for the success pulse 
-	-->
 	<div
 		class={[styles.panel, isStable && styles.stable, isComplete && styles.complete]
 			.filter(Boolean)
 			.join(' ')}
-		style="--intensity: {phases[currentPhaseIndex].intensity}"
 	>
 		<div class={styles.iconWrapper}>
 			<svelte:component this={phases[currentPhaseIndex].icon} size={16} class={styles.icon} />

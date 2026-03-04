@@ -64,12 +64,16 @@
 	--color-success: #10b981;
 	--color-success-light: rgba(16, 185, 129, 0.15);
 	--color-success-subtle: rgba(16, 185, 129, 0.08);
+	--color-success-border: rgba(16, 185, 129, 0.2);
 	--color-warning: #f59e0b;
 	--color-warning-light: rgba(245, 158, 11, 0.15);
+	--color-warning-border: rgba(245, 158, 11, 0.2);
 	--color-error: #ef4444;
 	--color-error-light: rgba(239, 68, 68, 0.15);
+	--color-error-border: rgba(239, 68, 68, 0.2);
 	--color-info: #0ea5e9;
 	--color-info-light: rgba(14, 165, 233, 0.15);
+	--color-info-border: rgba(14, 165, 233, 0.2);
 
 	/* Role-based message colors - subtle differentiation */
 	--color-role-user-bg: var(--color-surface-hover);

@@ -26,13 +26,13 @@
 .badge.confidence-high {
 	background: var(--color-success-light);
 	color: var(--color-success);
-	border-color: rgba(16, 185, 129, 0.2);
+	border-color: var(--color-success-border);
 }
 
 .badge.confidence-medium {
 	background: var(--color-warning-light);
 	color: var(--color-warning);
-	border-color: rgba(245, 158, 11, 0.2);
+	border-color: var(--color-warning-border);
 }
 
 .badge.confidence-low {

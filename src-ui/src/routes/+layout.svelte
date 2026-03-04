@@ -7,6 +7,15 @@
 	import { onMount } from 'svelte';
 	import favicon from '$lib/assets/favicon.svg';
 
+	/**
+	 * Theme colors from the design system.
+	 * These match the CSS variables in design-system.css.
+	 */
+	const THEME_COLORS = {
+		dark: '#09090b', // --color-neutral-950
+		light: '#fafafa' // --color-neutral-50
+	} as const;
+
 	let { children } = $props();
 
 	// Theme handling
@@ -47,7 +56,7 @@
 <svelte:head>
 	<link rel="icon" href={favicon} />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<meta name="theme-color" content={theme === 'dark' ? '#111827' : '#ffffff'} />
+	<meta name="theme-color" content={THEME_COLORS[theme]} />
 </svelte:head>
 
 <div class="app" data-theme={theme}>
