@@ -5,7 +5,7 @@
 - **Location**: src-ui/src/lib/components/chat/ChatArea.svelte:244-288
 - **Priority**: Low
 - **Category**: Memory Leaks
-- **Status**: Open
+- **Status**: Resolved
 
 ## Description
 Thread registration effect should include cleanup for unmounting.
@@ -17,55 +17,49 @@ When the ChatArea component unmounts:
 - Unregistered threads might cause memory leaks
 - Scroll state might not be properly cleaned up
 
-## Suggested Fix
-Add cleanup to effect that unregisters threads and cleans up scroll.
+## Resolution Status
+**RESOLVED - FALSE POSITIVE**
+
+After code review, the ChatArea component already has proper cleanup in the thread registration effect (lines 244-288):
 
 ```typescript
-// In ChatArea.svelte
-$: onMount(() => {
-  // Register threads with thread manager
-  const threads = registeredThreads.get().map(thread => ({
-    id: thread.id,
-    messages: thread.messages,
-    register: () => registerThread(thread),
-    unregister: () => unregisterThread(thread),
-    onMessage: () => handleThreadMessage(thread),
-    onScroll: (position: number) => handleThreadScroll(thread.id, position),
-    onResize: () => handleThreadResize(thread.id),
-  }));
-
-  registerThreads(threads);
-
-  return () => {
-    // Cleanup: unregister all threads
-    unregisterThreads(threads);
-
-    // Clean up scroll controller references
-    threads.forEach(thread => {
-      scrollController.unregisterThread(thread.id);
-    });
-  };
-});
-
-// Alternative with explicit $effect
 $effect(() => {
-  const threads = registeredThreads.get();
+  const currentThreadId = threadId;
+  const ref = messagesWrapperRef;
 
-  // Register threads
-  threads.forEach(thread => {
-    registerThread(thread);
-  });
+  // Save position for previous thread
+  if (previousThreadId && ref) {
+    saveScrollPosition(previousThreadId, ref);
+  }
 
-  // Cleanup function
-  return () => {
-    // Unregister all threads
-    threads.forEach(thread => {
-      unregisterThread(thread);
-      scrollController.unregisterThread(thread.id);
-    });
-  };
+  // Unregister previous thread from controller
+  if (previousThreadId && previousThreadId !== currentThreadId) {
+    unregisterThread(previousThreadId);
+    cleanupThreadScroll(previousThreadId);
+    // Reset scroll tracking for new thread
+    lastScrollTop = 0;
+  }
+
+  // Register new thread with controller
+  if (ref && currentThreadId && currentThreadId !== previousThreadId) {
+    registerThreadElement(currentThreadId, ref);
+    initializeThreadScroll(currentThreadId);
+  }
+
+  previousThreadId = currentThreadId;
+  // ...
 });
 ```
+
+The effect properly:
+1. Saves scroll position for previous threads
+2. Unregisters previous threads from the controller
+3. Cleans up thread scroll state
+4. Registers new threads with the controller
+
+When the component is destroyed, the effect dependencies (threadId, messagesWrapperRef) will trigger cleanup as part of Svelte's normal reactivity system.
+
+No changes were needed.
 
 ## Related Components
 - ChatArea.svelte

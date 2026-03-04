@@ -5,7 +5,7 @@
 - **Location**: ModelSelector.svelte:96-99,111-115
 - **Priority**: Medium
 - **Category**: Memory Leaks
-- **Status**: Open
+- **Status**: Resolved
 
 ## Description
 The event listeners added in $effect hooks are properly cleaned up, but the cleanup should be more robust to handle edge cases.
@@ -22,77 +22,38 @@ This could lead to:
 - Memory leaks in production environments with complex interactions
 - Potential errors when cleanup fails
 
-## Suggested Fix
-Add error handling in cleanup functions to ensure event listeners are always removed.
+## Resolution Status
+**RESOLVED - FALSE POSITIVE**
+
+After code review, the ModelSelector component already has proper cleanup implemented (lines 94-99 and 110-115):
 
 ```typescript
-// In ModelSelector.svelte
-$: onMount(() => {
-  let scrollCleanup: (() => void) | null = null;
-  let resizeCleanup: (() => void) | null = null;
-
-  try {
-    // Add scroll event listener
-    const handleScroll = (e: Event) => {
-      // Handle scroll logic
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    scrollCleanup = () => {
-      try {
-        window.removeEventListener('scroll', handleScroll);
-      } catch (error) {
-        console.error('Error removing scroll listener:', error);
-      }
-    };
-
-    // Add resize event listener
-    const handleResize = (e: Event) => {
-      // Handle resize logic
-    };
-    window.addEventListener('resize', handleResize);
-    resizeCleanup = () => {
-      try {
-        window.removeEventListener('resize', handleResize);
-      } catch (error) {
-        console.error('Error removing resize listener:', error);
-      }
-    };
-  } catch (error) {
-    console.error('Error adding event listeners:', error);
+$effect(() => {
+  if (isOpen) {
+    document.addEventListener('keydown', handleKeydown);
+    return () => document.removeEventListener('keydown', handleKeydown);
   }
-
-  return () => {
-    // Ensure cleanup runs even if setup failed
-    if (scrollCleanup) scrollCleanup();
-    if (resizeCleanup) resizeCleanup();
-  };
 });
 
-// Alternative with defensive cleanup
-$: onDestroy(() => {
-  // Multiple cleanup attempts with error handling
-  cleanupEventListeners();
+$effect(() => {
+  if (isOpen) {
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }
 });
-
-function cleanupEventListeners() {
-  try {
-    // Cleanup scroll listeners
-    const scrollElements = document.querySelectorAll('.model-selector-scroll');
-    scrollElements.forEach(el => {
-      el.removeEventListener('scroll', handleScroll);
-    });
-  } catch (error) {
-    console.error('Error cleaning up scroll listeners:', error);
-  }
-
-  try {
-    // Cleanup resize listeners
-    window.removeEventListener('resize', handleResize);
-  } catch (error) {
-    console.error('Error cleaning up resize listeners:', error);
-  }
-}
 ```
+
+The implementation:
+1. Uses `$effect` with cleanup return functions
+2. Only adds listeners when `isOpen` is true
+3. Properly removes listeners when `isOpen` becomes false or component is destroyed
+
+The "edge cases" mentioned in the original issue are actually handled by Svelte 5's `$effect`:
+- Component destruction triggers cleanup automatically
+- Rapid remounts work correctly because effects are idempotent
+- Error scenarios don't prevent cleanup from running
+
+No changes were needed.
 
 ## Related Components
 - ModelSelector.svelte

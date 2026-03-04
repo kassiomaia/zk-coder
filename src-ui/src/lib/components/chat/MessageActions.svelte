@@ -48,6 +48,17 @@
 	let copied = $state(false);
 	let thumbsUpActive = $state(false);
 	let thumbsDownActive = $state(false);
+	let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+	// Cleanup timer on component destroy
+	$effect(() => {
+		return () => {
+			if (copyTimer) {
+				clearTimeout(copyTimer);
+				copyTimer = null;
+			}
+		};
+	});
 
 	async function handleCopy() {
 		if (onCopy) {
@@ -57,8 +68,13 @@
 			try {
 				// This would typically copy the message text passed as prop
 				copied = true;
-				setTimeout(() => {
+				// Clear any existing timer before setting a new one
+				if (copyTimer) {
+					clearTimeout(copyTimer);
+				}
+				copyTimer = setTimeout(() => {
 					copied = false;
+					copyTimer = null;
 				}, 2000);
 			} catch (err) {
 				console.error('Failed to copy:', err);

@@ -5,7 +5,7 @@
 - **Location**: src-ui/src/lib/components/chat/MessageActions.svelte:52-67
 - **Priority**: Medium
 - **Category**: Memory Leaks
-- **Status**: Open
+- **Status**: Resolved
 
 ## Description
 The timeout for resetting the copied state should be cleaned up when the component is destroyed. Potential memory leak if the component is destroyed while the copy timer is active.
@@ -16,29 +16,40 @@ When the MessageActions component is destroyed while a copy timeout is active, t
 - Potential errors when the timeout fires and tries to access destroyed DOM elements
 - Unpredictable behavior in the application's copy functionality
 
-## Suggested Fix
-Store the timer ID and cleanup on component destroy.
+## Proposed Solution
+Store the timer ID and cleanup on component destroy using Svelte 5's `$effect` with cleanup return function.
 
+## Resolution
+Fixed by adding:
+1. A `copyTimer` variable to store the timer reference
+2. An `$effect` with cleanup function that clears the timer on component destroy
+3. Clearing any existing timer before setting a new one to prevent multiple timers
+
+### Implementation
 ```typescript
-// In MessageActions.svelte
-let copiedTimer: NodeJS.Timeout | null = null;
+let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
-function copyToClipboard(text: string) {
+// Cleanup timer on component destroy
+$effect(() => {
+  return () => {
+    if (copyTimer) {
+      clearTimeout(copyTimer);
+      copyTimer = null;
+    }
+  };
+});
+
+async function handleCopy() {
   // ... existing code ...
-
-  // Store timer ID
-  copiedTimer = setTimeout(() => {
-    setCopied(false);
+  // Clear any existing timer before setting a new one
+  if (copyTimer) {
+    clearTimeout(copyTimer);
+  }
+  copyTimer = setTimeout(() => {
+    copied = false;
+    copyTimer = null;
   }, 2000);
 }
-
-// Cleanup on component destroy
-$: onDestroy(() => {
-  if (copiedTimer) {
-    clearTimeout(copiedTimer);
-    copiedTimer = null;
-  }
-});
 ```
 
 ## Related Components

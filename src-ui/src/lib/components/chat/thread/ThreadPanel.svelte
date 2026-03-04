@@ -67,10 +67,28 @@
 	// Using simple fade for now as crossfade has type issues in strict mode
 	// and for simple icon swaps fade is often sufficient
 
+	// Timer for restricted feedback - cleaned up on component destroy
+	let feedbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+	// Cleanup all timers on component destroy
+	$effect(() => {
+		return () => {
+			if (feedbackTimer) {
+				clearTimeout(feedbackTimer);
+				feedbackTimer = null;
+			}
+		};
+	});
+
 	function triggerRestrictedFeedback() {
 		restrictedFeedback = true;
-		setTimeout(() => {
+		// Clear any existing timer before setting a new one
+		if (feedbackTimer) {
+			clearTimeout(feedbackTimer);
+		}
+		feedbackTimer = setTimeout(() => {
 			restrictedFeedback = false;
+			feedbackTimer = null;
 		}, 300);
 	}
 

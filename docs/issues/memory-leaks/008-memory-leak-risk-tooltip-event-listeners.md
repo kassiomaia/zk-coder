@@ -5,7 +5,7 @@
 - **Location**: src-ui/src/lib/components/shared/Tooltip.svelte:282-295
 - **Priority**: Medium
 - **Category**: Memory Leaks
-- **Status**: Open
+- **Status**: Resolved
 
 ## Description
 The scroll and resize event listeners are added in an $effect but there's a potential race condition when the component unmounts quickly after becoming visible.
@@ -18,48 +18,31 @@ When the Tooltip component unmounts quickly after becoming visible:
 - This leads to memory accumulation
 - Can cause performance degradation and unexpected behavior
 
-## Suggested Fix
-Ensure cleanup runs synchronously by using a mounted flag.
+## Resolution Status
+**RESOLVED - FALSE POSITIVE**
+
+After code review, the Tooltip component already has proper cleanup implemented (lines 282-295):
 
 ```typescript
-// In Tooltip.svelte
-let isMounted = false;
-let scrollCleanup: (() => void) | null = null;
-let resizeCleanup: (() => void) | null = null;
+$effect(() => {
+  if (visible) {
+    const update = () => {
+      requestAnimationFrame(calculatePosition);
+    };
+    window.addEventListener('scroll', update, { capture: true, passive: true });
+    window.addEventListener('resize', update, { passive: true });
 
-$: onMount(() => {
-  isMounted = true;
-
-  // Add scroll listener
-  const handleScroll = () => {
-    // Handle scroll logic
-  };
-  window.addEventListener('scroll', handleScroll);
-
-  // Add resize listener
-  const handleResize = () => {
-    // Handle resize logic
-  };
-  window.addEventListener('resize', handleResize);
-
-  // Store cleanup functions
-  scrollCleanup = () => window.removeEventListener('scroll', handleScroll);
-  resizeCleanup = () => window.removeEventListener('resize', handleResize);
-});
-
-$: onDestroy(() => {
-  isMounted = false;
-  // Ensure cleanup runs synchronously
-  if (scrollCleanup) {
-    scrollCleanup();
-    scrollCleanup = null;
-  }
-  if (resizeCleanup) {
-    resizeCleanup();
-    resizeCleanup = null;
+    return () => {
+      window.removeEventListener('scroll', update, { capture: true });
+      window.removeEventListener('resize', update);
+    };
   }
 });
 ```
+
+The `$effect` properly returns a cleanup function that removes the event listeners. Svelte 5's `$effect` ensures cleanup runs when the component is destroyed or when `visible` becomes false.
+
+No changes were needed.
 
 ## Related Components
 - Tooltip.svelte
