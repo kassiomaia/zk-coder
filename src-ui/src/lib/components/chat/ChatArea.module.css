@@ -345,6 +345,16 @@
    Input Container - Slide Transitions
    ===================== */
 
+.clarificationWrapper {
+	flex-shrink: 0;
+	padding: var(--space-2) var(--space-5);
+	padding-top: 0;
+	background: var(--color-bg-primary);
+	width: 1400px;
+	max-width: 100%;
+	margin: 0 auto;
+}
+
 .inputContainer {
 	flex-shrink: 0;
 	padding: var(--space-4) var(--space-5);
