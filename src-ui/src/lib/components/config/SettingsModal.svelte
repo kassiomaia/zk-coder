@@ -10,6 +10,9 @@
 	import { OPERATION_CONFIGS, type OperationType } from '$lib/types/config';
 	import ModelCard from './ModelCard.svelte';
 	import ProviderIcon from './ProviderIcon.svelte';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('SettingsModal');
 
 	interface Props {
 		open: boolean;
@@ -54,7 +57,7 @@
 		try {
 			await configStore.setOperationDefault(operation, modelId);
 		} catch (error) {
-			console.error('Failed to set operation default:', error);
+			log.error('Failed to set operation default:', error);
 		}
 	}
 
@@ -65,19 +68,19 @@
 			try {
 				await configStore.removeProvider(providerId);
 			} catch (error) {
-				console.error('Failed to remove provider:', error);
+				log.error('Failed to remove provider:', error);
 			}
 		}
 	}
 
-	// Debug logging when modal opens
+	// Debug logging when modal opens (only in development)
 	$effect(() => {
 		if (open) {
-			console.log('[SettingsModal] Modal opened');
-			console.log('[SettingsModal] Providers in store:', $configStore.providers);
-			console.log('[SettingsModal] Providers count:', $configStore.providers.length);
-			console.log(
-				'[SettingsModal] Provider IDs:',
+			log.debug('Modal opened');
+			log.debug('Providers in store:', $configStore.providers);
+			log.debug('Providers count:', $configStore.providers.length);
+			log.debug(
+				'Provider IDs:',
 				$configStore.providers.map((p) => p.id)
 			);
 		}

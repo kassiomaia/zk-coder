@@ -3,7 +3,20 @@
  *
  * A logging utility that automatically redacts sensitive information
  * to prevent API keys, tokens, and other secrets from appearing in logs.
+ *
+ * In production mode, all logging is disabled to prevent:
+ * - Performance overhead from string formatting
+ * - Accidental exposure of sensitive data
+ * - Console clutter in production
  */
+
+import { dev } from '$app/environment';
+
+/**
+ * Whether debug logging is enabled.
+ * Only true in development mode.
+ */
+const isDebugEnabled = dev;
 
 /**
  * Field names that should be redacted from logs.
@@ -142,24 +155,10 @@ function formatArgs(args: unknown[]): unknown[] {
 
 /**
  * Determines if logging should be enabled.
- * In production, logging is disabled to prevent any potential data leakage.
+ * Uses SvelteKit's built-in dev mode detection.
  */
 function shouldLog(): boolean {
-	// Check if we're in a browser environment
-	if (typeof window === 'undefined') {
-		return false;
-	}
-
-	// In development mode, enable logging
-	// This checks for common development indicators
-	const isDev =
-		window.location.hostname === 'localhost' ||
-		window.location.hostname === '127.0.0.1' ||
-		window.location.port !== '' ||
-		// @ts-expect-error - Vite adds __DEV__ in development
-		typeof window.__DEV__ !== 'undefined';
-
-	return isDev;
+	return isDebugEnabled;
 }
 
 /**

@@ -37,6 +37,9 @@
 	import { onMount } from 'svelte';
 	import { chatStore } from '$lib/stores';
 	import type { ResolutionType } from '$lib/types/nlp';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('ChatArea');
 
 	onMount(() => {
 		initNotifications();
@@ -161,7 +164,7 @@
 		const currentThreadId = threadId;
 		const ref = messagesWrapperRef;
 
-		console.log('[ChatArea] streaming state effect:', {
+		log.debug('streaming state effect:', {
 			streaming,
 			wasStreaming,
 			currentThreadId,
@@ -173,14 +176,14 @@
 		// Detect transition from NOT streaming TO streaming
 		if (!wasStreaming && streaming) {
 			// Streaming just started - notify controller
-			console.log('[ChatArea] streaming START detected');
+			log.debug('streaming START detected');
 			handleStreamingStart(currentThreadId);
 		}
 
 		// Detect transition from streaming to NOT streaming (completion)
 		if (wasStreaming && !streaming) {
 			// Streaming just completed - notify controller
-			console.log('[ChatArea] streaming END detected');
+			log.debug('streaming END detected');
 			handleStreamingEnd(currentThreadId);
 
 			// Check if user was scrolled up (auto-scroll was disabled)
@@ -245,7 +248,7 @@
 		const currentThreadId = threadId;
 		const ref = messagesWrapperRef;
 
-		console.log('[ChatArea] thread registration effect:', {
+		log.debug('thread registration effect:', {
 			currentThreadId,
 			previousThreadId,
 			hasRef: !!ref
@@ -266,7 +269,7 @@
 
 		// Register new thread with controller
 		if (ref && currentThreadId && currentThreadId !== previousThreadId) {
-			console.log('[ChatArea] registering thread:', currentThreadId);
+			log.debug('registering thread:', currentThreadId);
 			registerThreadElement(currentThreadId, ref);
 			initializeThreadScroll(currentThreadId);
 		}
@@ -299,7 +302,7 @@
 		// This ensures we scroll when streaming content is being added to existing messages
 		void $streamingContent.length;
 
-		console.log('[ChatArea] content update effect:', {
+		log.debug('content update effect:', {
 			hasRef: !!ref,
 			currentThreadId,
 			messagesLength: messages.length,
@@ -422,7 +425,7 @@
 		try {
 			await navigator.clipboard.writeText(content);
 		} catch (err) {
-			console.error('Failed to copy message:', err);
+			log.error('Failed to copy message:', err);
 		}
 	}
 

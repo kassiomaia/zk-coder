@@ -8,7 +8,10 @@
 	import Button from '../shared/Button.svelte';
 	import ProviderCard from './ProviderCard.svelte';
 	import { configStore } from '$lib/stores/configStore';
+	import { createLogger } from '$lib/utils/logger';
 	import type { Provider } from '$lib/types/config';
+
+	const log = createLogger('ProvidersModal');
 
 	interface Props {
 		open: boolean;
@@ -23,11 +26,11 @@
 	let configuredCount = $derived($configStore.providers.filter((p) => p.isConfigured).length);
 	let canContinue = $derived(configuredCount > 0);
 
-	// Debug logging
+	// Debug logging (only in development)
 	$effect(() => {
 		if (open) {
-			console.log('[ProvidersModal] Modal opened, providers in store:', $configStore.providers);
-			console.log('[ProvidersModal] Providers count:', $configStore.providers.length);
+			log.debug('Modal opened, providers in store:', $configStore.providers);
+			log.debug('Providers count:', $configStore.providers.length);
 		}
 	});
 </script>
