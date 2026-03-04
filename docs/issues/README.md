@@ -17,9 +17,9 @@ This directory contains high-priority issues identified during code review analy
 4. [SSR Fallback HTML Escape Should Be Comprehensive](security/004-ssr-fallback-html-escape.md)
 5. [Type Safety for Dynamic Styles in Tooltip](security/005-type-safety-dynamic-styles-tooltip.md)
 6. [Missing Input Validation for Model ID in ChatInput](security/006-missing-input-validation-model-id-chat-input.md)
-7. [Missing Error Handling for highlight.js in MarkdownRenderer](security/007-missing-error-handling-highlight-js-markdown-renderer.md)
+7. [DONE] [Missing Error Handling for highlight.js in MarkdownRenderer](security/007-missing-error-handling-highlight-js-markdown-renderer.md) - Fixed
 8. [No Content Validation in MarkdownRenderer](security/008-no-content-validation-markdown-renderer.md)
-9. [Popover ID Generation Security](security/009-popover-id-generation-security.md)
+9. [DONE] [Popover ID Generation Security](security/009-popover-id-generation-security.md)
 
 ### ⚡ Performance (16 issues)
 1. [Linear Search Performance in Command Palette](performance/001-linear-search-command-palette.md)

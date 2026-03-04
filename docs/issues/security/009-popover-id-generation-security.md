@@ -5,7 +5,7 @@
 - **Location**: src-ui/src/lib/components/shared/Popover.svelte:39
 - **Priority**: Medium
 - **Category**: Security
-- **Status**: Open
+- **Status**: DONE
 
 ## Description
 Uses Math.random() for ID generation which is not guaranteed to be unique. Could cause issues if multiple popovers are created simultaneously.
@@ -114,3 +114,60 @@ function generateSymbolPopover(): symbol {
 - crypto.randomUUID MDN: https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
 - nanoid Documentation: https://github.com/ai/nanoid
 - Unique ID generation best practices: https://stackoverflow.com/a/2117523
+
+---
+
+## Proposed Solution
+
+### Implementation
+
+Created a new utility file `src-ui/src/lib/utils/idGenerator.ts` with secure ID generation:
+
+1. **Primary Method**: Uses `crypto.randomUUID()` for cryptographically secure unique IDs
+2. **Fallback Method**: Counter-based approach with timestamp for environments without crypto support
+3. **Simple API**: Exports `generateUniqueId(prefix)` and `generatePopoverId()` functions
+
+### Changes Made
+
+1. **Created**: `src-ui/src/lib/utils/idGenerator.ts`
+   - Implements `generateUniqueId(prefix?: string)` function
+   - Implements `generatePopoverId()` convenience wrapper
+   - Uses crypto.randomUUID() when available
+   - Falls back to timestamp + counter approach for guaranteed uniqueness
+
+2. **Modified**: `src-ui/src/lib/components/shared/Popover.svelte`
+   - Added import: `import { generatePopoverId } from '$lib/utils/idGenerator';`
+   - Changed line 40 from: `const id = Math.random().toString(36).substring(2, 11);`
+   - To: `const id = generatePopoverId();`
+
+### Benefits
+
+- **Guaranteed Uniqueness**: crypto.randomUUID() provides 128-bit random values with extremely low collision probability
+- **Security**: Cryptographically secure random generation prevents predictability
+- **Backward Compatibility**: Fallback ensures functionality in all environments
+- **Reusability**: Utility can be used by other components (Tooltip, Modal, etc.)
+
+---
+
+## Resolution Status
+
+**Status**: DONE
+
+**Resolution Date**: 2026-03-04
+
+**Implementation Summary**:
+- Created secure ID generation utility with crypto.randomUUID() support
+- Updated Popover.svelte to use the new secure ID generator
+- Verified no other components use Math.random() for ID generation
+
+**Testing Notes**:
+- Manual testing recommended to verify popover functionality
+- ID uniqueness can be verified in browser console
+
+---
+
+## Lessons Learned
+
+1. **Avoid Math.random() for IDs**: Always use cryptographically secure methods or counter-based approaches for unique identifiers
+2. **Create Reusable Utilities**: Centralizing ID generation makes it easier to maintain and update across the codebase
+3. **Consider Fallbacks**: While crypto.randomUUID() is widely available, having a fallback ensures broader compatibility

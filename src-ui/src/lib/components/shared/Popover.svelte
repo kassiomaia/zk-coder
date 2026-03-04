@@ -13,6 +13,7 @@
 	import { onMount } from 'svelte';
 	import styles from './Popover.module.css';
 	import type { PopoverOrigin, PopoverItem } from './popover.types';
+	import { generatePopoverId } from '$lib/utils/idGenerator';
 
 	interface Props {
 		open: boolean;
@@ -36,7 +37,7 @@
 
 	let popoverRef: HTMLDivElement | null = $state(null);
 	let position = $state({ top: 0, left: 0, right: 0 });
-	const id = Math.random().toString(36).substring(2, 11);
+	const id = generatePopoverId();
 
 	function updatePosition() {
 		if (!anchorEl) return;
