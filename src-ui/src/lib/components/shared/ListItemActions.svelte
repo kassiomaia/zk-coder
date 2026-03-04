@@ -6,18 +6,8 @@
 	 */
 	import Popover from './Popover.svelte';
 	import type { PopoverItem } from './popover.types';
+	import type { ListItemActionsProps } from './list-item-actions.types';
 	import styles from './ListItemActions.module.css';
-
-	interface Props {
-		ondelete?: () => void;
-		onrename?: () => void;
-		onarchive?: () => void;
-		onresolve?: () => void;
-		isResolved?: boolean;
-		iconSize?: 14 | 16;
-		onMenuOpen?: () => void;
-		onMenuClose?: () => void;
-	}
 
 	let {
 		ondelete,
@@ -28,7 +18,7 @@
 		iconSize = 16,
 		onMenuOpen,
 		onMenuClose
-	}: Props = $props();
+	}: ListItemActionsProps = $props();
 
 	let isOpen = $state(false);
 	let triggerRef: HTMLButtonElement | null = $state(null);

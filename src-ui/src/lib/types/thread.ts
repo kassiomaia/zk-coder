@@ -152,23 +152,47 @@ export interface ThreadItemProps {
 
 /**
  * Props for the ConversationSidebar component.
+ * Matches the actual Props interface in ConversationSidebar.svelte.
  */
 export interface ConversationSidebarProps {
-	/** All conversations */
+	/** List of conversations to display */
 	conversations: Conversation[];
-
-	/** ID of the currently active conversation */
-	activeConversationId: string | null;
-
+	/** Currently selected conversation ID */
+	selectedId?: string;
+	/** Threads for the selected conversation (for inline rendering) */
+	threadsForSelected?: Thread[];
+	/** Currently selected thread ID */
+	selectedThreadId?: string;
 	/** Handler when a conversation is selected */
-	onConversationSelect: (id: string) => void;
-
-	/** Handler to create a new conversation */
-	onNewConversation: () => void;
-
-	/** Handler to delete a conversation */
-	onDeleteConversation: (id: string) => void;
-
-	/** Handler to rename a conversation */
-	onRenameConversation: (id: string, name: string) => void;
+	onSelect: (conversation: Conversation) => void;
+	/** Handler when a conversation is double-clicked */
+	onOpenChat?: (conversation: Conversation) => void;
+	/** Handler when a thread is selected */
+	onSelectThread?: (thread: Thread) => void;
+	/** Handler for search input */
+	onSearch?: (query: string) => void;
+	/** Handler to create new conversation */
+	onCreateNew?: () => void;
+	/** Handler to create new thread */
+	onCreateThread?: () => void;
+	/** Handler to delete conversation */
+	onDelete?: (conversation: Conversation) => void;
+	/** Handler to rename conversation */
+	onRename?: (conversation: Conversation, newTitle: string) => void;
+	/** Handler to archive conversation */
+	onArchive?: (conversation: Conversation) => void;
+	/** Handler to resolve thread */
+	onResolveThread?: (thread: Thread) => void;
+	/** Handler to rename thread */
+	onRenameThread?: (thread: Thread, newTitle: string) => void;
+	/** Handler to delete thread */
+	onDeleteThread?: (thread: Thread) => void;
+	/** Handler to archive thread */
+	onArchiveThread?: (thread: Thread) => void;
+	/** Handler for settings button click */
+	onSettings?: () => void;
+	/** Loading state */
+	loading?: boolean;
+	/** Whether any provider is configured */
+	hasConfiguredProvider?: boolean;
 }

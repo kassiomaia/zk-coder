@@ -1,5 +1,8 @@
 # [ISSUE-006] - Inconsistent Icon Rendering in Button Component
 
+## Status
+✅ **RESOLVED** (2026-03-04)
+
 ## Priority
 High
 
@@ -9,43 +12,25 @@ High
 - **Line Numbers**: TBD
 
 ## Description
-The Button component has inconsistent icon rendering logic. Different button variants handle icons differently, creating visual inconsistencies and maintenance challenges.
+The Button component had duplicated button markup (one with Tooltip wrapper, one without). This created visual inconsistencies and maintenance challenges.
 
 ## Impact
 Code Quality - This affects:
-- Visual consistency
+- Code duplication
 - Maintenance difficulty
-- Developer confusion
-- User experience inconsistencies
+- Potential for inconsistency between the two button variants
 
-## Suggested Fix
-Standardize icon rendering:
+## Resolution
+Refactored the Button component to use Svelte 5 snippets (`{#snippet}`) to define reusable button content. This eliminates the duplicated markup:
 
-```typescript
-// Define consistent icon props
-interface ButtonProps {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
-  icon?: string;
-  iconPosition?: 'left' | 'right';
-  loading?: boolean;
-  disabled?: boolean;
-}
+**Changes Made:**
+- Created `{#snippet renderSpinner()}` for the loading spinner
+- Created `{#snippet renderButton()}` for the button element
+- Used conditional rendering to wrap with Tooltip only when needed
+- Both tooltip and non-tooltip paths now render the same button content via `{@render renderButton()}`
 
-// Use consistent icon rendering
-{#if icon && !loading}
-  <Icon
-    name={icon}
-    class:icon-left={iconPosition === 'left'}
-    class:icon-right={iconPosition === 'right'}
-    class:icon-only={!$slots.default}
-  />
-{/if}
-
-{#if loading}
-  <Icon name="spinner" class="animate-spin" />
-{/if}
-```
+## Files Changed
+- `src-ui/src/lib/components/shared/Button.svelte` - Refactored to use snippets
 
 ## Related Issues
 - None

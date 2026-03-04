@@ -88,53 +88,32 @@
 	const showTooltip = $derived(tooltip && !disabled);
 </script>
 
-{#if showTooltip && tooltip}
-	<Tooltip content={tooltip} position="top">
-		<button
-			class={classes}
-			{disabled}
-			{type}
-			onclick={handleClick}
-			onmousedown={handleMouseDown}
-			onmouseup={handleMouseUp}
-			onmouseleave={handleMouseUp}
-			aria-disabled={disabled || loading}
-			aria-busy={loading}
-		>
-			{#if loading}
-				<svg
-					class={styles.spinner}
-					xmlns="http://www.w3.org/2000/svg"
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
-					<path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="0.75">
-						<animateTransform
-							attributeName="transform"
-							type="rotate"
-							from="0 12 12"
-							to="360 12 12"
-							dur="1s"
-							repeatCount="indefinite"
-						/>
-					</path>
-				</svg>
-			{:else if icon}
-				{@render icon()}
-			{/if}
-			{#if !iconOnly && children}
-				<span class={styles.btnContent}>
-					{@render children()}
-				</span>
-			{/if}
-		</button>
-	</Tooltip>
-{:else}
+{#snippet renderSpinner()}
+	<svg
+		class={styles.spinner}
+		xmlns="http://www.w3.org/2000/svg"
+		width="16"
+		height="16"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+	>
+		<circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+		<path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="0.75">
+			<animateTransform
+				attributeName="transform"
+				type="rotate"
+				from="0 12 12"
+				to="360 12 12"
+				dur="1s"
+				repeatCount="indefinite"
+			/>
+		</path>
+	</svg>
+{/snippet}
+
+{#snippet renderButton()}
 	<button
 		class={classes}
 		{disabled}
@@ -147,28 +126,7 @@
 		aria-busy={loading}
 	>
 		{#if loading}
-			<svg
-				class={styles.spinner}
-				xmlns="http://www.w3.org/2000/svg"
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
-				<path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="0.75">
-					<animateTransform
-						attributeName="transform"
-						type="rotate"
-						from="0 12 12"
-						to="360 12 12"
-						dur="1s"
-						repeatCount="indefinite"
-					/>
-				</path>
-			</svg>
+			{@render renderSpinner()}
 		{:else if icon}
 			<span class={styles.btnContent}>
 				{@render icon()}
@@ -180,4 +138,12 @@
 			</span>
 		{/if}
 	</button>
+{/snippet}
+
+{#if showTooltip && tooltip}
+	<Tooltip content={tooltip} position="top">
+		{@render renderButton()}
+	</Tooltip>
+{:else}
+	{@render renderButton()}
 {/if}
