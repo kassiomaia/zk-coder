@@ -235,7 +235,7 @@
 }
 
 .warning.solid::before {
-	background: #d97706;
+	background: var(--color-warning-dark);
 }
 
 .warning.solid:hover:not(:disabled) {
@@ -263,7 +263,7 @@
 }
 
 .danger.solid::before {
-	background: #dc2626;
+	background: var(--color-error-dark);
 }
 
 .danger.solid:hover:not(:disabled) {
