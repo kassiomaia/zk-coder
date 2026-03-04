@@ -18,7 +18,7 @@ This directory contains high-priority issues identified during code review analy
 5. [DONE] [Type Safety for Dynamic Styles in Tooltip](security/005-type-safety-dynamic-styles-tooltip.md) - Fixed
 6. [DONE] [Missing Input Validation for Model ID in ChatInput](security/006-missing-input-validation-model-id-chat-input.md) - Fixed
 7. [DONE] [Missing Error Handling for highlight.js in MarkdownRenderer](security/007-missing-error-handling-highlight-js-markdown-renderer.md) - Fixed
-8. [No Content Validation in MarkdownRenderer](security/008-no-content-validation-markdown-renderer.md)
+8. [DONE] [No Content Validation in MarkdownRenderer](security/008-no-content-validation-markdown-renderer.md) - Fixed
 9. [DONE] [Popover ID Generation Security](security/009-popover-id-generation-security.md)
 
 ### ⚡ Performance (16 issues)
