@@ -6,15 +6,21 @@ import { marked } from 'marked';
 import hljs from 'highlight.js';
 
 /**
- * Escape HTML special characters
+ * Escape HTML special characters comprehensively
+ * Protects against XSS attacks by escaping all potentially dangerous characters
+ *
+ * @param str - The string to escape
+ * @returns The escaped string safe for HTML rendering
  */
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
 	return str
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&#039;');
+		.replace(/&/g, '&amp;') // Must be first to avoid double-escaping
+		.replace(/</g, '&lt;') // Prevent HTML tag injection
+		.replace(/>/g, '&gt;') // Prevent HTML tag injection
+		.replace(/"/g, '&quot;') // Prevent attribute breakout
+		.replace(/'/g, '&#039;') // Prevent attribute breakout (single quotes)
+		.replace(/`/g, '&#x60;') // Prevent template literal injection
+		.replace(/\//g, '&#x2F;'); // Prevent </script> attacks
 }
 
 // Custom renderer for images, links, and code blocks
@@ -44,13 +50,23 @@ const renderer = {
 		if (lang && hljs.getLanguage(lang)) {
 			try {
 				highlighted = hljs.highlight(code, { language: lang }).value;
-			} catch {
+			} catch (error) {
+				// Log highlighting error with details for debugging
+				console.warn('[Markdown] Code highlighting failed for language:', lang, {
+					error: error instanceof Error ? error.message : String(error),
+					codePreview: code.substring(0, 100) + (code.length > 100 ? '...' : '')
+				});
 				highlighted = escapeHtml(code);
 			}
 		} else {
 			try {
 				highlighted = hljs.highlightAuto(code).value;
-			} catch {
+			} catch (error) {
+				// Log auto-detection error for debugging
+				console.warn('[Markdown] Auto-detection highlighting failed:', {
+					error: error instanceof Error ? error.message : String(error),
+					codePreview: code.substring(0, 100) + (code.length > 100 ? '...' : '')
+				});
 				highlighted = escapeHtml(code);
 			}
 		}
