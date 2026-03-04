@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Workflow of Chatting Process</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #fff;
+        }
+
+        h1 {
+            color: #1a1a1a;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 0.5rem;
+            margin-bottom: 2rem;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        h3 {
+            color: #34495e;
+            margin-top: 1.5rem;
+            margin-bottom: 0.8rem;
+        }
+
+        pre {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #e0e0e0;
+        }
+
+        code {
+            background: #f8f9fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+
+        .architecture-diagram {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+            border: 1px solid #e0e0e0;
+        }
+
+        .flow-diagram {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.8rem;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .flow-step::before {
+            content: counter(step);
+            counter-increment: step;
+            background: #2c3e50;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .flow-step-container {
+            counter-reset: step;
+        }
+
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .component-box {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .component-box h4 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .data-flow {
+            background: #e8f4f8;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+            border-left: 4px solid #3498db;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+
+        ul {
+            padding-left: 1.5rem;
+        }
+
+        li {
+            margin: 0.5rem 0;
+        }
+
+        .index {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .index ul {
+            list-style-type: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .index a {
+            color: #2c3e50;
+            text-decoration: none;
+            padding: 0.5rem;
+            display: block;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .index a:hover {
+            background-color: #e8f4f8;
+        }
+    </style>
+</head>
+<body>
+    <h1>Technical Workflow of Chatting Process</h1>
+
+    <div class="index">
+        <h2>Table of Contents</h2>
+        <ul>
+            <li><a href="#architecture-overview">1. Architecture Overview</a></li>
+            <li><a href="#core-data-model">2. Core Data Model</a></li>
+            <li><a href="#event-diagram">3. Event Diagram</a></li>
+            <li><a href="#message-flow-architecture">4. Message Flow Architecture</a></li>
+            <li><a href="#state-management">5. State Management Architecture</a></li>
+            <li><a href="#backend-architecture">6. Backend Architecture</a></li>
+            <li><a href="#frontend-components">7. Frontend Component Architecture</a></li>
+            <li><a href="#auto-scroll-system">8. Auto-Scroll System</a></li>
+            <li><a href="#llm-streaming">9. LLM Streaming Architecture</a></li>
+            <li><a href="#intent-detection">10. Intent Detection System</a></li>
+            <li><a href="#error-handling">11. Error Handling and Recovery</a></li>
+            <li><a href="#performance">12. Performance Optimizations</a></li>
+            <li><a href="#security">13. Security and Data Integrity</a></li>
+        </ul>
+    </div>
+
+    <h2 id="architecture-overview">1. Architecture Overview</h2>
+
+    <p>The application follows a multi-layered architecture with clear separation of concerns:</p>
+
+    <div class="component-grid">
+        <div class="component-box">
+            <h4>Frontend Stack</h4>
+            <ul>
+                <li>SvelteKit with TypeScript</li>
+                <li>Custom Svelte stores with reactive derived values</li>
+                <li>Modular component architecture with CSS modules</li>
+                <li>Tauri v2 for native desktop capabilities</li>
+            </ul>
+        </div>
+
+        <div class="component-box">
+            <h4>Backend Stack</h4>
+            <ul>
+                <li>Rust with Tauri for IPC commands</li>
+                <li>SQLite database through custom ChatStore</li>
+                <li>Optional backend NLP service for intent classification</li>
+                <li>Streaming support for real-time responses</li>
+            </ul>
+        </div>
+    </div>
+
+    <h2 id="core-data-model">2. Core Data Model</h2>
+
+    <h3>Entity Relationships</h3>
+    <pre>
+Conversation (1:N)
+├── Threads (1:N)
+│   └── Messages (1:N)
+└── Messages (when not threaded)
+    </pre>
+
+    <h3>Key Types</h3>
+    <div class="component-grid">
+        <div class="component-box">
+            <h4>Conversation</h4>
+            <ul>
+                <li>Container for threads with settings</li>
+                <li>Model configuration per conversation</li>
+                <li>Temperature and max tokens settings</li>
+                <li>Provider selection</li>
+            </ul>
+        </div>
+
+        <div class="component-box">
+            <h4>Thread</h4>
+            <ul>
+                <li>Organizes related messages</li>
+                <li>Resolved/unsolved state management</li>
+                <li>Title and metadata</li>
+                <li>Atomic creation with first message</li>
+            </ul>
+        </div>
+
+        <div class="component-box">
+            <h4>Message</h4>
+            <ul>
+                <li>Individual messages with roles</li>
+                <li>Content and timestamps</li>
+                <li>Status tracking (sending, sent, error)</li>
+                <li>Intent classification metadata</li>
+            </ul>
+        </div>
+    </div>
+
+    <h2 id="event-diagram">3. Event Diagram: Complete Chatting Flow</h2>
+
+    <div class="architecture-diagram">
+        <h3>Event Sequence Diagram</h3>
+
+        <svg viewBox="0 0 1400 1200" style="width: 100%; height: auto; background: white;">
+            <!-- Define styles -->
+            <defs>
+                <style>
+                    .actor-box { fill: #f0f4f8; stroke: #2c3e50; stroke-width: 2; }
+                    .component-box { fill: #e8f4f8; stroke: #3498db; stroke-width: 2; }
+                    .process-box { fill: #fff; stroke: #34495e; stroke-width: 1.5; }
+                    .decision-box { fill: #fff9e6; stroke: #f39c12; stroke-width: 1.5; }
+                    .data-box { fill: #e8f5e9; stroke: #27ae60; stroke-width: 1.5; }
+                    .text { font-family: Arial, sans-serif; font-size: 12px; }
+                    .title { font-size: 16px; font-weight: bold; }
+                    .subtitle { font-size: 14px; font-weight: bold; }
+                    .step-number { fill: white; font-size: 11px; font-weight: bold; }
+                    .arrow { stroke: #2c3e50; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+                    .dashed-arrow { stroke: #7f8c8d; stroke-width: 1.5; stroke-dasharray: 5,5; fill: none; marker-end: url(#arrowhead-dashed); }
+                </style>
+
+                <!-- Arrow markers -->
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#2c3e50" />
+                </marker>
+                <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d" />
+                </marker>
+            </defs>
+
+            <!-- Title -->
+            <text x="700" y="30" text-anchor="middle" class="title">Complete Chatting Flow Event Diagram</text>
+
+            <!-- Actors -->
+            <g id="actors">
+                <!-- User -->
+                <rect x="50" y="60" width="120" height="40" class="actor-box" rx="5"/>
+                <text x="110" y="85" text-anchor="middle" class="text">User Interface</text>
+
+                <!-- Svelte Components -->
+                <rect x="250" y="60" width="120" height="40" class="component-box" rx="5"/>
+                <text x="310" y="85" text-anchor="middle" class="text">Svelte Components</text>
+
+                <!-- Rust Backend -->
+                <rect x="850" y="60" width="120" height="40" class="actor-box" rx="5"/>
+                <text x="910" y="85" text-anchor="middle" class="text">Rust Backend</text>
+
+                <!-- LLM Provider -->
+                <rect x="1050" y="60" width="120" height="40" class="component-box" rx="5"/>
+                <text x="1110" y="85" text-anchor="middle" class="text">LLM Provider</text>
+
+                <!-- Database -->
+                <rect x="1250" y="60" width="120" height="40" class="data-box" rx="5"/>
+                <text x="1310" y="85" text-anchor="middle" class="text">Database</text>
+            </g>
+
+            <!-- Vertical lifelines -->
+            <line x1="110" y1="100" x2="110" y2="1150" class="dashed-arrow"/>
+            <line x1="310" y1="100" x2="310" y2="1150" class="dashed-arrow"/>
+            <line x1="910" y1="100" x2="910" y2="1150" class="dashed-arrow"/>
+            <line x1="1110" y1="100" x2="1110" y2="1150" class="dashed-arrow"/>
+            <line x1="1310" y1="100" x2="1310" y2="1150" class="dashed-arrow"/>
+
+            <!-- Flow steps -->
+            <g id="flow-steps">
+                <!-- Step 1: User Input -->
+                <rect x="50" y="120" width="120" height="60" class="process-box" rx="3"/>
+                <circle cx="60" cy="135" r="10" fill="#2c3e50"/>
+                <text x="60" y="140" text-anchor="middle" class="step-number">1</text>
+                <text x="110" y="145" text-anchor="middle" class="text">Types message</text>
+                <text x="110" y="165" text-anchor="middle" class="text">in ChatInput</text>
+
+                <!-- Arrow to Svelte -->
+                <path d="M 170 150 L 250 150" class="arrow"/>
+
+                <!-- Step 2: Submit -->
+                <rect x="250" y="200" width="120" height="60" class="process-box" rx="3"/>
+                <circle cx="260" cy="215" r="10" fill="#2c3e50"/>
+                <text x="260" y="220" text-anchor="middle" class="step-number">2</text>
+                <text x="310" y="225" text-anchor="middle" class="text">onsubmit()</text>
+                <text x="310" y="245" text-anchor="middle" class="text">Validate input</text>
+
+                <!-- Internal processing -->
+                <rect x="250" y="280" width="120" height="80" class="process-box" rx="3"/>
+                <text x="310" y="305" text-anchor="middle" class="text">sendMessageWithLlm()</text>
+                <text x="310" y="325" text-anchor="middle" class="text">validateCanStream()</text>
+                <text x="310" y="345" text-anchor="middle" class="text">initStreaming()</text>
+
+                <!-- Optimistic update -->
+                <rect x="250" y="380" width="120" height="60" class="process-box" rx="3"/>
+                <text x="310" y="405" text-anchor="middle" class="text">Create optimistic</text>
+                <text x="310" y="425" text-anchor="middle" class="text">message</text>
+
+                <!-- Arrow to Backend -->
+                <path d="M 370 410 L 850 410" class="arrow"/>
+                <text x="610" y="405" text-anchor="middle" class="text">3. IPC Request</text>
+
+                <!-- Step 4: Backend Processing -->
+                <rect x="850" y="480" width="120" height="100" class="process-box" rx="3"/>
+                <circle cx="860" cy="495" r="10" fill="#2c3e50"/>
+                <text x="860" y="500" text-anchor="middle" class="step-number">4</text>
+                <text x="910" y="510" text-anchor="middle" class="text">send_chat_message</text>
+                <text x="910" y="525" text-anchor="middle" class="text">streaming()</text>
+                <text x="910" y="545" text-anchor="middle" class="text">Validate thread</text>
+                <text x="910" y="565" text-anchor="middle" class="text">state</text>
+
+                <!-- Decision: Thread State -->
+                <path d="M 910 600 L 970 640 L 910 680 L 850 640 Z" class="decision-box"/>
+                <text x="910" y="640" text-anchor="middle" class="text">Thread</text>
+                <text x="910" y="655" text-anchor="middle" class="text">resolved?</text>
+
+                <!-- Error path -->
+                <rect x="750" y="690" width="120" height="40" class="process-box" rx="3"/>
+                <text x="810" y="715" text-anchor="middle" class="text">Return error</text>
+
+                <!-- Continue path -->
+                <rect x="850" y="710" width="120" height="60" class="process-box" rx="3"/>
+                <text x="910" y="735" text-anchor="middle" class="text">Database:</text>
+                <text x="910" y="755" text-anchor="middle" class="text">Insert message</text>
+
+                <!-- Arrow to LLM -->
+                <path d="M 970 740 L 1050 740" class="arrow"/>
+                <text x="1010" y="735" text-anchor="middle" class="text">5. API Request</text>
+
+                <!-- LLM Processing -->
+                <rect x="1050" y="780" width="120" height="80" class="process-box" rx="3"/>
+                <text x="1110" y="805" text-anchor="middle" class="text">Stream</text>
+                <text x="1110" y="825" text-anchor="middle" class="text">processing</text>
+                <text x="1110" y="845" text-anchor="middle" class="text">START → CHUNK → COMPLETE</text>
+
+                <!-- Arrow to Database -->
+                <path d="M 1170 820 L 1250 820" class="arrow"/>
+
+                <!-- Database Update -->
+                <rect x="1250" y="870" width="120" height="60" class="data-box" rx="3"/>
+                <text x="1310" y="895" text-anchor="middle" class="text">Update</text>
+                <text x="1310" y="915" text-anchor="middle" class="text">message status</text>
+
+                <!-- Response back to Frontend -->
+                <path d="M 1250 900 L 910 900" class="arrow"/>
+                <text x="1080" y="895" text-anchor="middle" class="text">6. Event</text>
+
+                <!-- Event Processing -->
+                <rect x="850" y="940" width="120" height="100" class="process-box" rx="3"/>
+                <text x="910" y="965" text-anchor="middle" class="text">Event Handler</text>
+                <text x="910" y="985" text-anchor="middle" class="text">Filter by request_id</text>
+                <text x="910" y="1005" text-anchor="middle" class="text">Update content</text>
+                <text x="910" y="1025" text-anchor="middle" class="text">Mark as sent</text>
+
+                <!-- Arrow to UI -->
+                <path d="M 850 990 L 370 990" class="arrow"/>
+                <text x="610" y="985" text-anchor="middle" class="text">7. UI Update</text>
+
+                <!-- Final UI -->
+                <rect x="250" y="1030" width="120" height="60" class="process-box" rx="3"/>
+                <text x="310" y="1055" text-anchor="middle" class="text">Display</text>
+                <text x="310" y="1075" text-anchor="middle" class="text">response</text>
+
+                <!-- Arrow to User -->
+                <path d="M 250 1060 L 170 1060" class="arrow"/>
+            </g>
+
+            <!-- Labels for actors -->
+            <g id="actor-labels">
+                <text x="110" y="1170" text-anchor="middle" class="subtitle">User</text>
+                <text x="310" y="1170" text-anchor="middle" class="subtitle">Frontend</text>
+                <text x="910" y="1170" text-anchor="middle" class="subtitle">Backend</text>
+                <text x="1110" y="1170" text-anchor="middle" class="subtitle">LLM API</text>
+                <text x="1310" y="1170" text-anchor="middle" class="subtitle">SQLite</text>
+            </g>
+        </svg>
+
+        <h3>Key Interactions</h3>
+        <ul>
+            <li><strong>1</strong>: User types message in ChatInput component</li>
+            <li><strong>2</strong>: Input validation and submission trigger</li>
+            <li><strong>3</strong>: Optimistic UI update creates placeholder message</li>
+            <li><strong>4</strong>: IPC communication to Rust backend with thread validation</li>
+            <li><strong>5</strong>: Streaming request to LLM provider with authentication</li>
+            <li><strong>6</strong>: Event-based response with real-time updates</li>
+            <li><strong>7</strong>: Final UI display with markdown rendering</li>
+        </ul>
+
+        <h3>Thread State Management Flow</h3>
+
+        <svg viewBox="0 0 600 300" style="width: 100%; height: auto; background: white;">
+            <defs>
+                <style>
+                    .flow-box { fill: #f0f4f8; stroke: #2c3e50; stroke-width: 2; }
+                    .decision-box { fill: #fff9e6; stroke: #f39c12; stroke-width: 2; }
+                    .process-box { fill: #e8f4f8; stroke: #3498db; stroke-width: 2; }
+                    .error-box { fill: #ffe6e6; stroke: #e74c3c; stroke-width: 2; }
+                    .text { font-family: Arial, sans-serif; font-size: 12px; }
+                    .arrow { stroke: #2c3e50; stroke-width: 2; fill: none; marker-end: url(#arrowhead2); }
+                </style>
+                <marker id="arrowhead2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#2c3e50" />
+                </marker>
+            </defs>
+
+            <text x="300" y="30" text-anchor="middle" class="subtitle">Thread Resolution Check Flow</text>
+
+            <!-- Start -->
+            <rect x="50" y="60" width="140" height="40" class="flow-box" rx="5"/>
+            <text x="120" y="85" text-anchor="middle" class="text">User attempts to send</text>
+            <text x="120" y="95" text-anchor="middle" class="text">message to thread</text>
+
+            <!-- Arrow -->
+            <path d="M 120 100 L 120 130" class="arrow"/>
+
+            <!-- Decision -->
+            <path d="M 120 140 L 170 170 L 120 200 L 70 170 Z" class="decision-box"/>
+            <text x="120" y="170" text-anchor="middle" class="text">Thread</text>
+            <text x="120" y="185" text-anchor="middle" class="text">resolved?</text>
+
+            <!-- Yes path -->
+            <path d="M 70 170 L 30 170 L 30 230" class="arrow"/>
+            <text x="20" y="160" text-anchor="middle" class="text">Yes</text>
+
+            <rect x="50" y="230" width="120" height="40" class="error-box" rx="5"/>
+            <text x="110" y="255" text-anchor="middle" class="text">Return ThreadResolved error</text>
+
+            <!-- No path -->
+            <path d="M 170 170 L 210 170 L 210 230" class="arrow"/>
+            <text x="220" y="160" text-anchor="middle" class="text">No</text>
+
+            <rect x="150" y="230" width="120" height="40" class="process-box" rx="5"/>
+            <text x="210" y="255" text-anchor="middle" class="text">Proceed with message</text>
+
+            <!-- Continue -->
+            <path d="M 210 270 L 210 290 L 370 290 L 370 100" class="arrow"/>
+            <text x="290" y="285" text-anchor="middle" class="text">Continue processing</text>
+
+            <!-- Final step -->
+            <rect x="300" y="60" width="140" height="40" class="flow-box" rx="5"/>
+            <text x="370" y="85" text-anchor="middle" class="text">Thread remains locked</text>
+        </svg>
+    </div>
+
+    <h2 id="message-flow-architecture">4. Message Flow Architecture</h2>
+
+    <h3>Detailed Message Flow Steps</h3>
+    <div class="flow-diagram flow-step-container">
+        <div class="flow-step">User types in ChatInput</div>
+        <div class="flow-step">ChatInput validates input and triggers onsubmit</div>
+        <div class="flow-step">ChatArea calls chatStore.sendMessageWithLlm()</div>
+        <div class="flow-step">LlmHandler validates and creates optimistic message</div>
+        <div class="flow-step">Backend IPC command send_message()</div>
+        <div class="flow-step">Rust backend validates thread state</div>
+        <div class="flow-step">Message saved to SQLite database</div>
+        <div class="flow-step">Streaming request initiated</div>
+        <div class="flow-step">LLM events processed through event handler</div>
+        <div class="flow-step">Content streamed back and displayed live</div>
+        <div class="flow-step">Final message committed with metadata</div>
+    </div>
+
+    <h3>Thread Management Flow</h3>
+    <div class="flow-diagram flow-step-container">
+        <div class="flow-step">User sends first message in conversation</div>
+        <div class="flow-step">System checks for existing threads</div>
+        <div class="flow-step">If no threads: create_thread_with_message() atomic operation</div>
+        <div class="flow-step">If threads exist: select most recent thread</div>
+        <div class="flow-step">Thread status tracked in metadata.resolved</div>
+        <div class="flow-step">Backend prevents new messages to resolved threads</div>
+        <div class="flow-step">UI reflects resolved state with disabled input</div>
+    </div>
+
+    <div class="data-flow">
+        <strong>Thread Locking Enforcement:</strong>
+        <pre>if thread.metadata.resolved {
+    return Err("Thread is resolved and cannot accept new messages".to_string());
+}</pre>
+    </div>
+
+    <h2 id="state-management">5. State Management Architecture</h2>
+
+    <h3>Chat Store Structure</h3>
+    <pre>interface ChatState {
+  conversations: Conversation[];
+  selectedConversationId: string | null;
+  selectedThreadId: string | null;
+  messages: Message[];
+  threads: Thread[];
+  nlp: NlpState;
+  llm: LlmStreamingState;
+  error: string | null;
+  // ... loading states
+}</pre>
+
+    <h3>Derived Stores</h3>
+    <ul>
+        <li><code>selectedConversation</code>: Current conversation</li>
+        <li><code>selectedThread</code>: Current thread</li>
+        <li><code>messageGroups</code>: Messages grouped by time/role</li>
+        <li><code>isLlmStreaming</code>: Streaming status</li>
+        <li><code>streamingContent</code>: Current streaming content</li>
+    </ul>
+
+    <h3>State Updates</h3>
+    <ul>
+        <li><strong>Optimistic Updates</strong>: Messages appear immediately before backend confirmation</li>
+        <li><strong>Atomic Operations</strong>: Thread creation with message in single transaction</li>
+        <li><strong>Error Handling</strong>: Rollback state on failures</li>
+    </ul>
+
+    <h2 id="backend-architecture">6. Backend Architecture</h2>
+
+    <h3>IPC Commands</h3>
+    <div class="component-grid">
+        <div class="component-box">
+            <h4>Data Operations</h4>
+            <ul>
+                <li><code>load_conversations()</code></li>
+                <li><code>create_conversation()</code></li>
+                <li><code>load_threads()</code></li>
+                <li><code>load_thread_messages()</code></li>
+            </ul>
+        </div>
+
+        <div class="component-box">
+            <h4>Message Operations</h4>
+            <ul>
+                <li><code>send_message()</code> - with thread validation</li>
+                <li><code>create_thread_with_message()</code> - atomic</li>
+                <li><code>resolve_thread()</code> - toggle state</li>
+            </ul>
+        </div>
+
+        <div class="component-box">
+            <h4>LLM Operations</h4>
+            <ul>
+                <li><code>send_chat_message()</code></li>
+                <li><code>send_chat_message_streaming()</code></li>
+                <li><code>cancel_chat_request()</code></li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>Data Persistence</h3>
+    <ul>
+        <li><strong>Storage Layer</strong>: ChatStore class manages SQLite operations</li>
+        <li><strong>Schema</strong>: Normalized schema with conversations, threads, and messages tables</li>
+        <li><strong>Transactions</strong>: Atomic operations for complex operations</li>
+    </ul>
+
+    <h2 id="frontend-components">7. Frontend Component Architecture</h2>
+
+    <div class="component-grid">
+        <div class="component-box">
+            <h4>Main Layout Components</h4>
+            <pre>ChatLayout (main container)
+├── ConversationSidebar (hierarchical navigation)
+├── ThreadPanel (thread view with messages)
+└── ChatArea (conversation or thread view)</pre>
+        </div>
+
+        <div class="component-box">
+            <h4>Message Display Components</h4>
+            <pre>ChatArea
+├── MessageGroups (time-based grouping)
+│   └── Individual messages with:
+│       ├── ThreadIndicator
+│       ├── MarkdownRenderer
+│       └── MessageActions
+├── ChatInput (with intent detection)
+└── AnsweringIndicator (typing indicator)</pre>
+        </div>
+    </div>
+
+    <h2 id="auto-scroll-system">8. Auto-Scroll System</h2>
+
+    <p>The application implements a sophisticated auto-scroll system with multiple layers:</p>
+
+    <h3>Scroll Controller (<code>scrollController.ts</code>)</h3>
+    <ul>
+        <li><strong>Unified facade</strong> coordinating all scroll subsystems</li>
+        <li><strong>Thread-aware</strong>: Maintains scroll state per thread</li>
+        <li><strong>Smart pausing</strong>: Pauses when user scrolls up during streaming</li>
+        <li><strong>Priority system</strong>: User > Programmatic > Background</li>
+    </ul>
+
+    <h3>Scroll Subsystems</h3>
+    <div class="component-grid">
+        <div class="component-box">
+            <h4>DOM Batcher</h4>
+            <ul>
+                <li>Batched DOM reads/writes for performance</li>
+                <li>Reduces layout thrashing</li>
+                <li>Optimized for frequent updates</li>
+            </ul>
+        </div>
+
+        <div class="component-box">
+            <h4>Priority Queue</h4>
+            <ul>
+                <li>Priority-based operation scheduling</li>
+                <li>Prevents scroll conflicts</li>
+                <li>Ensures smooth user experience</li>
+            </ul>
+        </div>
+
+        <div class="component-box">
+            <h4>Live Animation</h4>
+            <ul>
+                <li>Chasing animation for smooth streaming</li>
+                <li>Uses requestAnimationFrame</li>
+                <li>Responsive to content length</li>
+            </ul>
+        </div>
+
+        <div class="component-box">
+            <h4>State Machine</h4>
+            <ul>
+                <li>Explicit state management</li>
+                <li>Clear transition rules</li>
+                <li>Prevents invalid states</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>Auto-Scroll Behaviors</h3>
+    <ul>
+        <li>Auto-scrolls to bottom during streaming</li>
+        <li>Detects user scroll thumb dragging</li>
+        <li>Extended cooldown when scrolling up</li>
+        <li>Resumes when user scrolls back to bottom</li>
+    </ul>
+
+    <h2 id="llm-streaming">9. LLM Streaming Architecture</h2>
+
+    <h3>Streaming Flow</h3>
+    <div class="flow-diagram flow-step-container">
+        <div class="flow-step">User sends message → create optimistic assistant message</div>
+        <div class="flow-step">Initialize streaming with unique request ID</div>
+        <div class="flow-step">Event handler with isolated session state</div>
+        <div class="flow-step">Process LLM events:
+            <ul>
+                <li>START: Set request ID and model</li>
+                <li>CHUNK: Append to local content, update UI</li>
+                <li>COMPLETE: Finalize message with metadata</li>
+                <li>ERROR: Mark as failed, show error</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>Key Features</h3>
+    <ul>
+        <li><strong>Request Isolation</strong>: Each stream has unique ID to prevent cross-contamination</li>
+        <li><strong>Local Accumulation</strong>: Content built locally before UI update</li>
+        <li><strong>Error Handling</strong>: Graceful fallback on stream failures</li>
+        <li><strong>Cancellation</strong>: Support for canceling mid-stream</li>
+    </ul>
+
+    <div class="data-flow">
+        <strong>Event Handler Pattern:</strong>
+        <pre>// Critical: Each stream gets its own closure
+const sessionState = { requestId: null, localContent: '' };
+
+return (event: LlmEvent) => {
+    // Filter events by requestId for isolation
+    if (sessionState.requestId && event.requestId !== sessionState.requestId) {
+        return;
+    }
+
+    // Process events and update state
+    if (isChunkEvent(event)) {
+        sessionState.localContent += event.delta;
+        updateUI(sessionState.localContent);
+    }
+};</pre>
+    </div>
+
+    <h2 id="intent-detection">10. Intent Detection System</h2>
+
+    <h3>Two-Tier System</h3>
+    <div class="component-grid">
+        <div class="component-box">
+            <h4>Backend NLP (when available)</h4>
+            <ul>
+                <li>Advanced classification with confidence</li>
+                <li>Custom model integration</li>
+                <li>More accurate intent recognition</li>
+            </ul>
+        </div>
+
+        <div class="component-box">
+            <h4>Frontend Fallback</h4>
+            <ul>
+                <li>Simple pattern matching</li>
+                <li>Keyword-based detection</li>
+                <li>Fast, offline capable</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>Detected Intents</h3>
+    <ul>
+        <li><code>generate_code</code> - Generate/create/write code</li>
+        <li><code>explain_code</code> - Explain/what/why/how questions</li>
+        <li><code>find_bugs</code> - Fix/debug/solve issues</li>
+        <li><code>refactor_code</code> - Improve/optimize code</li>
+        <li><code>generate_test</code> - Test/spec/verify code</li>
+        <li><code>analyze_code</code> - Review/check/analyze code</li>
+        <li><code>document_code</code> - Document/comment code</li>
+    </ul>
+
+    <h2 id="error-handling">11. Error Handling and Recovery</h2>
+
+    <h3>Error States</h3>
+    <ul>
+        <li><strong>Message Send Failures</strong>: Mark as error, allow retry</li>
+        <li><strong>Backend Unavailable</strong>: Show error, retry options</li>
+        <li><strong>Stream Failures</strong>: Graceful fallback to static response</li>
+    </ul>
+
+    <h3>Recovery Mechanisms</h3>
+    <ul>
+        <li><strong>Retry Logic</strong>: Users can retry failed messages</li>
+        <li><strong>Optimistic Rollback</strong>: Revert state on failures</li>
+        <li><strong>Error Notifications</strong>: Visual feedback for errors</li>
+    </ul>
+
+    <div class="warning">
+        <strong>Thread Resolution Error</strong>: When attempting to send to a resolved thread:
+        <pre>"Thread '{thread_title}' is resolved and cannot accept new messages.
+Reopen the thread to continue the conversation."</pre>
+    </div>
+
+    <h2 id="performance">12. Performance Optimizations</h2>
+
+    <h3>Rendering Optimizations</h3>
+    <ul>
+        <li><strong>Message Grouping</strong>: Reduces DOM elements by grouping consecutive messages</li>
+        <li><strong>Virtual Scrolling</strong>: Potential for future implementation</li>
+        <li><strong>CSS Transitions</strong>: Smooth animations for UI state changes</li>
+    </ul>
+
+    <h3>Data Loading</h3>
+    <ul>
+        <li><strong>Lazy Loading</strong>: Load data only when needed</li>
+        <li><strong>Pagination</strong>: Support for large message histories</li>
+        <li><strong>Caching</strong>: In-memory cache for frequently accessed data</li>
+    </ul>
+
+    <h2 id="security">13. Security and Data Integrity</h2>
+
+    <h3>Thread Locking</h3>
+    <ul>
+        <li><strong>Backend Enforcement</strong>: Prevents modification of resolved threads</li>
+        <li><strong>UI Reflection</strong>: Disabled input and clear warnings</li>
+        <li><strong>Atomic Operations</strong>: Thread resolution is atomic</li>
+    </ul>
+
+    <h3>Data Validation</h3>
+    <ul>
+        <li><strong>Input Sanitization</strong>: User input properly escaped</li>
+        <li><strong>Type Safety</strong>: TypeScript throughout frontend</li>
+        <li><strong>Backend Validation</strong>: All operations validated on backend</li>
+    </ul>
+
+    <h3>API Security</h3>
+    <ul>
+        <li><strong>Key Validation</strong>: Validates API keys before use</li>
+        <li><strong>Secure Storage</strong>: Encrypted storage for sensitive data</li>
+        <li><strong>Rate Limiting</strong>: Protection against abuse</li>
+    </ul>
+
+    <h2>Conclusion</h2>
+
+    <p>The chatting workflow architecture demonstrates a well-structured, scalable system with sophisticated features like real-time streaming, intelligent thread management, and a robust auto-scroll system. The separation of concerns between frontend and backend, combined with reactive state management, creates a responsive and user-friendly experience.</p>
+
+    <p>Key architectural strengths include:</p>
+    <ul>
+        <li>Clear separation of concerns with dedicated layers</li>
+        <li>Robust error handling and recovery mechanisms</li>
+        <li>Sophisticated streaming architecture with isolation</li>
+        <li>Smart auto-scroll system for optimal UX</li>
+        <li>Thread locking for data integrity</li>
+        <li>Performance optimizations for large datasets</li>
+    </ul>
+</body>
+</html>

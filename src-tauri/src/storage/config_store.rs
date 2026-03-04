@@ -751,6 +751,46 @@ impl ConfigStore {
         Ok(model)
     }
 
+    /// Gets a model by provider ID and model name.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn get_model_by_name(&self, provider_id: &str, name: &str) -> Result<Option<Model>, ConfigStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, provider_id, name, supports_analysis, supports_code,
+                    supports_vision, supports_audio, supports_tips, supports_review, last_fetched
+             FROM models WHERE provider_id = ?1 AND name = ?2",
+        )?;
+
+        let model = stmt
+            .query_row(params![provider_id, name], |row| {
+                let last_fetched_str: String = row.get(9)?;
+                Ok(Model {
+                    id: row.get(0)?,
+                    provider_id: row.get(1)?,
+                    name: row.get(2)?,
+                    capabilities: ModelCapabilities {
+                        analysis: row.get(3)?,
+                        code: row.get(4)?,
+                        vision: row.get(5)?,
+                        audio: row.get(6)?,
+                        tips: row.get(7)?,
+                        review: row.get(8)?,
+                    },
+                    last_fetched: parse_datetime(&last_fetched_str),
+                })
+            })
+            .optional()?;
+
+        Ok(model)
+    }
+
     // =========================================================================
     // Operation Default Operations
     // =========================================================================

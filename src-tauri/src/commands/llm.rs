@@ -166,11 +166,29 @@ pub async fn send_chat_message(
     // Resolve model ID (use code operation default if not provided)
     let model_id = resolve_model_id(request.model_id, &config_store).await?;
 
-    // Get model info
-    let model = config_store
-        .get_model(&model_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Model '{}' not found", model_id))?;
+    // Get model info - try by ID first, then by name if ID lookup fails
+    let model = match config_store.get_model(&model_id) {
+        Ok(Some(m)) => m,
+        Ok(None) => {
+            // Try to parse provider_id and model name from the ID
+            info!("Model '{}' not found by ID, trying to resolve by name", model_id);
+
+            if let Some(dash_pos) = model_id.find('-') {
+                let provider_id = &model_id[..dash_pos];
+                let model_name = &model_id[dash_pos + 1..];
+
+                config_store
+                    .get_model_by_name(provider_id, model_name)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| {
+                        format!("Model '{}' not found", model_id)
+                    })?
+            } else {
+                return Err(format!("Model '{}' not found", model_id));
+            }
+        }
+        Err(e) => return Err(e.to_string()),
+    };
 
     // Get provider info
     let provider = config_store
@@ -271,11 +289,32 @@ pub async fn send_chat_message_streaming(
         }
     };
 
-    // Get model info
-    let model = config_store
-        .get_model(&model_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Model '{}' not found", model_id))?;
+    // Get model info - try by ID first, then by name if ID lookup fails
+    let model = match config_store.get_model(&model_id) {
+        Ok(Some(m)) => m,
+        Ok(None) => {
+            // Try to parse provider_id and model name from the ID
+            // ID format is typically: "provider_id-model-name"
+            info!("[LLM] Model '{}' not found by ID, trying to resolve by name", model_id);
+
+            // Find the first dash to split provider_id from model name
+            if let Some(dash_pos) = model_id.find('-') {
+                let provider_id = &model_id[..dash_pos];
+                let model_name = &model_id[dash_pos + 1..];
+
+                config_store
+                    .get_model_by_name(provider_id, model_name)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| {
+                        format!("Model '{}' not found (also tried name lookup: provider={}, name={})",
+                            model_id, provider_id, model_name)
+                    })?
+            } else {
+                return Err(format!("Model '{}' not found", model_id));
+            }
+        }
+        Err(e) => return Err(e.to_string()),
+    };
 
     // Get provider info
     let provider = config_store
