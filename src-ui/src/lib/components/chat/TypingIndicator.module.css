@@ -69,7 +69,9 @@
 
 /* Soft pulse keyframes - gentle breathing effect */
 @keyframes dotPulse {
-	0%, 60%, 100% {
+	0%,
+	60%,
+	100% {
 		opacity: var(--dot-min-opacity, 0.4);
 		transform: scale(1);
 	}

@@ -83,10 +83,7 @@ export async function notifyAssistantComplete(
 /**
  * Send a notification for a custom event.
  */
-export async function sendCustomNotification(
-	title: string,
-	body: string
-): Promise<void> {
+export async function sendCustomNotification(title: string, body: string): Promise<void> {
 	try {
 		const canNotify = await canSendNotifications();
 		if (!canNotify) {

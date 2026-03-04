@@ -131,12 +131,15 @@
 <div class={styles.container}>
 	<header class={styles.header}>
 		<h3 class={styles.title}>Manual Models</h3>
-		<button
-			class={styles.addButton}
-			onclick={() => showAddDialog = true}
-			type="button"
-		>
-			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+		<button class={styles.addButton} onclick={() => (showAddDialog = true)} type="button">
+			<svg
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
 				<path d="M12 5v14M5 12h14" />
 			</svg>
 			Add Model
@@ -171,9 +174,18 @@
 						aria-label="Remove model"
 						type="button"
 					>
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
 							<polyline points="3 6 5 6 21 6" />
-							<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+							<path
+								d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+							/>
 						</svg>
 					</button>
 				</li>
@@ -184,18 +196,25 @@
 
 {#if showAddDialog}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class={styles.dialogOverlay} onclick={() => showAddDialog = false} role="presentation">
+	<div class={styles.dialogOverlay} onclick={() => (showAddDialog = false)} role="presentation">
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div class={styles.dialog} onclick={(e) => e.stopPropagation()} role="presentation">
 			<header class={styles.dialogHeader}>
 				<h3>Add Manual Model</h3>
 				<button
 					class={styles.closeButton}
-					onclick={() => showAddDialog = false}
+					onclick={() => (showAddDialog = false)}
 					aria-label="Close"
 					type="button"
 				>
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<svg
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
 						<path d="M18 6L6 18M6 6l12 12" />
 					</svg>
 				</button>
@@ -225,43 +244,23 @@
 						<span>Analysis</span>
 					</label>
 					<label class={styles.checkboxLabel}>
-						<input
-							type="checkbox"
-							bind:checked={newCapabilities.code}
-							class={styles.checkbox}
-						/>
+						<input type="checkbox" bind:checked={newCapabilities.code} class={styles.checkbox} />
 						<span>Code</span>
 					</label>
 					<label class={styles.checkboxLabel}>
-						<input
-							type="checkbox"
-							bind:checked={newCapabilities.vision}
-							class={styles.checkbox}
-						/>
+						<input type="checkbox" bind:checked={newCapabilities.vision} class={styles.checkbox} />
 						<span>Vision</span>
 					</label>
 					<label class={styles.checkboxLabel}>
-						<input
-							type="checkbox"
-							bind:checked={newCapabilities.audio}
-							class={styles.checkbox}
-						/>
+						<input type="checkbox" bind:checked={newCapabilities.audio} class={styles.checkbox} />
 						<span>Audio</span>
 					</label>
 					<label class={styles.checkboxLabel}>
-						<input
-							type="checkbox"
-							bind:checked={newCapabilities.tips}
-							class={styles.checkbox}
-						/>
+						<input type="checkbox" bind:checked={newCapabilities.tips} class={styles.checkbox} />
 						<span>Tips</span>
 					</label>
 					<label class={styles.checkboxLabel}>
-						<input
-							type="checkbox"
-							bind:checked={newCapabilities.review}
-							class={styles.checkbox}
-						/>
+						<input type="checkbox" bind:checked={newCapabilities.review} class={styles.checkbox} />
 						<span>Review</span>
 					</label>
 				</fieldset>
@@ -273,7 +272,7 @@
 				{/if}
 				<button
 					class={styles.cancelButton}
-					onclick={() => showAddDialog = false}
+					onclick={() => (showAddDialog = false)}
 					disabled={isSaving}
 					type="button"
 				>

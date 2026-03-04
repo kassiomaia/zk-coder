@@ -68,20 +68,22 @@
 		}
 	}
 
-	let classes = $derived([
-		styles.btn,
-		styles[variant],
-		styles[size],
-		styles[animation],
-		disabled && styles.disabled,
-		loading && styles.loading,
-		iconOnly && styles.iconOnly,
-		fullWidth && styles.fullWidth,
-		isPressed && styles.pressed,
-		className
-	]
-		.filter(Boolean)
-		.join(' '));
+	let classes = $derived(
+		[
+			styles.btn,
+			styles[variant],
+			styles[size],
+			styles[animation],
+			disabled && styles.disabled,
+			loading && styles.loading,
+			iconOnly && styles.iconOnly,
+			fullWidth && styles.fullWidth,
+			isPressed && styles.pressed,
+			className
+		]
+			.filter(Boolean)
+			.join(' ')
+	);
 
 	const showTooltip = $derived(tooltip && !disabled);
 </script>
@@ -100,10 +102,26 @@
 			aria-busy={loading}
 		>
 			{#if loading}
-				<svg class={styles.spinner} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<svg
+					class={styles.spinner}
+					xmlns="http://www.w3.org/2000/svg"
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
 					<circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
 					<path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="0.75">
-						<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+						<animateTransform
+							attributeName="transform"
+							type="rotate"
+							from="0 12 12"
+							to="360 12 12"
+							dur="1s"
+							repeatCount="indefinite"
+						/>
 					</path>
 				</svg>
 			{:else if icon}
@@ -129,10 +147,26 @@
 		aria-busy={loading}
 	>
 		{#if loading}
-			<svg class={styles.spinner} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+			<svg
+				class={styles.spinner}
+				xmlns="http://www.w3.org/2000/svg"
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
 				<circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
 				<path d="M12 2a10 10 0 0 1 10 10" stroke-opacity="0.75">
-					<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+					<animateTransform
+						attributeName="transform"
+						type="rotate"
+						from="0 12 12"
+						to="360 12 12"
+						dur="1s"
+						repeatCount="indefinite"
+					/>
 				</path>
 			</svg>
 		{:else if icon}

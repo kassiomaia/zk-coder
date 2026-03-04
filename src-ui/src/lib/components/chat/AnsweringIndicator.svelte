@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * AnsweringIndicator Component
-	 * Redesigned to follow a structured, Claude-style activity panel with 
+	 * Redesigned to follow a structured, Claude-style activity panel with
 	 * deterministic letter-shuffle transformations and damped easing.
 	 */
 	import { onMount, onDestroy } from 'svelte';
@@ -19,14 +19,14 @@
 
 	const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
 	// Standardize duration scaling
-	const PHASE_DURATION = 2200; 
+	const PHASE_DURATION = 2200;
 	const SCRAMBLE_DURATION = 800; // Time to resolve text
-	
+
 	let currentPhaseIndex = $state(0);
 	let displayText = $state(phases[0].label);
 	let isStable = $state(true);
 	let isComplete = $state(false);
-	
+
 	// Single-state animation controller variables
 	let animationFrame: number;
 	let timeoutId: ReturnType<typeof setTimeout>;
@@ -42,7 +42,7 @@
 		let startTime: number;
 		const startText = displayText;
 		const maxLength = Math.max(startText.length, target.length);
-		
+
 		const run = (now: number) => {
 			if (!mounted) return;
 			if (startTime === undefined) startTime = now;
@@ -50,7 +50,7 @@
 			const elapsed = now - startTime;
 			const progress = Math.min(elapsed / SCRAMBLE_DURATION, 1);
 			const easedProgress = easeOutQuart(progress);
-			
+
 			// Calculate how many characters should be resolved based on eased progress
 			const resolvedCount = Math.floor(easedProgress * target.length);
 
@@ -87,10 +87,10 @@
 		}
 
 		currentPhaseIndex = index;
-		
+
 		scrambleText(phases[index].label, () => {
 			if (!mounted) return;
-			
+
 			// Wait before next phase, unless it's the last one
 			if (index < phases.length - 1) {
 				timeoutId = setTimeout(() => {
@@ -121,22 +121,16 @@
 		Panel container with dynamic intensity class for accent color 
 		and completion state for the success pulse 
 	-->
-	<div 
-		class={[
-			styles.panel, 
-			isStable && styles.stable, 
-			isComplete && styles.complete
-		].filter(Boolean).join(' ')}
+	<div
+		class={[styles.panel, isStable && styles.stable, isComplete && styles.complete]
+			.filter(Boolean)
+			.join(' ')}
 		style="--intensity: {phases[currentPhaseIndex].intensity}"
 	>
 		<div class={styles.iconWrapper}>
-			<svelte:component
-				this={phases[currentPhaseIndex].icon}
-				size={16}
-				class={styles.icon}
-			/>
+			<svelte:component this={phases[currentPhaseIndex].icon} size={16} class={styles.icon} />
 		</div>
-		
+
 		<div class={styles.labelContainer}>
 			<span class={styles.label}>{displayText}</span>
 		</div>

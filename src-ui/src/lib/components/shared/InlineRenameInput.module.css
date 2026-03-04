@@ -12,19 +12,19 @@
 	align-items: center;
 	padding: 0 var(--space-3);
 	gap: var(--space-3);
-	
+
 	/* Restrained focus elevation */
 	background: var(--color-surface-active);
 	border: 1px solid var(--color-border-primary);
 	border-radius: var(--radius-lg);
-	
+
 	/* Stabilized glow */
 	box-shadow: 0 0 0 2px var(--color-interactive-selected);
-	
+
 	/* Ensure no layout shift */
 	box-sizing: border-box;
 	overflow: hidden; /* Contain everything */
-	
+
 	/* Smooth appearance */
 	transform-origin: center;
 }
@@ -73,7 +73,7 @@
 	border: none;
 	outline: none;
 	box-shadow: none;
-	
+
 	/* Align text properly */
 	display: block;
 	white-space: nowrap;

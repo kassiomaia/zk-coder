@@ -275,10 +275,7 @@ export async function getOperationDefaults(): Promise<OperationDefault[]> {
 /**
  * Sets the default model for an operation.
  */
-export async function setOperationDefault(
-	operation: string,
-	modelId: string
-): Promise<void> {
+export async function setOperationDefault(operation: string, modelId: string): Promise<void> {
 	await safeInvoke<void>('set_operation_default', { operation, modelId });
 }
 

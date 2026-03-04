@@ -237,11 +237,22 @@
 }
 
 @keyframes dangerShake {
-	0%, 100% { transform: translateX(0); }
-	20% { transform: translateX(-2px); }
-	40% { transform: translateX(2px); }
-	60% { transform: translateX(-1px); }
-	80% { transform: translateX(1px); }
+	0%,
+	100% {
+		transform: translateX(0);
+	}
+	20% {
+		transform: translateX(-2px);
+	}
+	40% {
+		transform: translateX(2px);
+	}
+	60% {
+		transform: translateX(-1px);
+	}
+	80% {
+		transform: translateX(1px);
+	}
 }
 
 /* No animation */
@@ -266,8 +277,12 @@
 }
 
 @keyframes spin {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 /* =====================
@@ -281,7 +296,9 @@
 	background: radial-gradient(circle at center, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
 	opacity: 0;
 	transform: scale(0);
-	transition: transform 400ms var(--ease-out), opacity 400ms var(--ease-out);
+	transition:
+		transform 400ms var(--ease-out),
+		opacity 400ms var(--ease-out);
 	pointer-events: none;
 }
 

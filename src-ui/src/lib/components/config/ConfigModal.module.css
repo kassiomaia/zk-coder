@@ -72,8 +72,12 @@
 }
 
 @keyframes spin {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 /* Info */
@@ -143,7 +147,7 @@
 	background: var(--color-surface-hover);
 }
 
-.modelSourceOption input[type="radio"] {
+.modelSourceOption input[type='radio'] {
 	margin-top: var(--space-0-5);
 	accent-color: var(--color-text-tertiary);
 }

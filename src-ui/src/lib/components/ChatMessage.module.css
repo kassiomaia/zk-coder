@@ -173,17 +173,17 @@
 }
 
 /* Task list checkboxes in user messages */
-.userMarkdown :global(.task-list-item input[type="checkbox"]) {
+.userMarkdown :global(.task-list-item input[type='checkbox']) {
 	border-color: var(--color-border-secondary);
 	background: transparent;
 }
 
-.userMarkdown :global(.task-list-item input[type="checkbox"]:checked) {
+.userMarkdown :global(.task-list-item input[type='checkbox']:checked) {
 	background: var(--color-surface-elevated);
 	border-color: var(--color-border-secondary);
 }
 
-.userMarkdown :global(.task-list-item input[type="checkbox"]:checked::after) {
+.userMarkdown :global(.task-list-item input[type='checkbox']:checked::after) {
 	border-color: var(--color-text-primary);
 }
 

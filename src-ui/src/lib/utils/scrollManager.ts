@@ -117,10 +117,7 @@ export function disableAutoScroll(threadId: string): void {
 /**
  * Schedule auto-scroll resume after user stops scrolling.
  */
-export function scheduleAutoScrollResume(
-	threadId: string,
-	callback: () => void
-): void {
+export function scheduleAutoScrollResume(threadId: string, callback: () => void): void {
 	// Clear any existing timeout
 	const existingTimeout = resumeTimeouts.get(threadId);
 	if (existingTimeout) {
@@ -184,11 +181,7 @@ function easeOutQuad(t: number): number {
  * @param smooth - Whether to use smooth animation
  * @param threadId - Optional thread ID to track animation state
  */
-export function scrollToBottom(
-	element: HTMLElement,
-	smooth = true,
-	threadId?: string
-): void {
+export function scrollToBottom(element: HTMLElement, smooth = true, threadId?: string): void {
 	if (!smooth) {
 		// Instant scroll
 		element.scrollTop = element.scrollHeight;

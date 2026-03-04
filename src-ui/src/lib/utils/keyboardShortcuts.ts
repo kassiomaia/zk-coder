@@ -85,9 +85,7 @@ function handleKeyDown(event: KeyboardEvent): void {
 	// Don't trigger shortcuts when typing in input fields
 	const target = event.target as HTMLElement;
 	const isInputField =
-		target.tagName === 'INPUT' ||
-		target.tagName === 'TEXTAREA' ||
-		target.isContentEditable;
+		target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
 	// Allow Escape and specific shortcuts even in input fields
 	const isEscape = event.key === 'Escape';
@@ -239,7 +237,8 @@ export function formatShortcut(shortcut: {
 	alt?: boolean;
 }): string {
 	const parts: string[] = [];
-	const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+	const isMac =
+		typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
 	if (shortcut.ctrl) {
 		parts.push(isMac ? '⌘' : 'Ctrl');

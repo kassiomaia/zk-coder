@@ -6,11 +6,7 @@
 	 */
 	import styles from './ClarificationBanner.module.css';
 	import IconButton from '$lib/components/shared/IconButton.svelte';
-	import type {
-		Ambiguity,
-		ClarificationOption,
-		ResolutionType
-	} from '$lib/types/nlp';
+	import type { Ambiguity, ClarificationOption, ResolutionType } from '$lib/types/nlp';
 	import { AMBIGUITY_TYPE_LABELS } from '$lib/types/nlp';
 
 	interface Props {
@@ -24,12 +20,7 @@
 		class?: string;
 	}
 
-	let {
-		ambiguity,
-		onResolve,
-		onDismiss,
-		class: className = ''
-	}: Props = $props();
+	let { ambiguity, onResolve, onDismiss, class: className = '' }: Props = $props();
 
 	// State for custom input
 	let customInput = $state('');
@@ -190,8 +181,6 @@
 
 	<!-- Actions -->
 	<div class={styles.actions}>
-		<button class={styles.skipButton} onclick={handleSkip} type="button">
-			Skip
-		</button>
+		<button class={styles.skipButton} onclick={handleSkip} type="button"> Skip </button>
 	</div>
 </div>

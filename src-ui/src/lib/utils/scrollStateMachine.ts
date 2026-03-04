@@ -156,7 +156,12 @@ function getThreadContext(threadId: string): ThreadContext {
 /**
  * Add entry to history (for debugging).
  */
-function addToHistory(context: ThreadContext, from: ScrollState, to: ScrollState, event: ScrollEvent): void {
+function addToHistory(
+	context: ThreadContext,
+	from: ScrollState,
+	to: ScrollState,
+	event: ScrollEvent
+): void {
 	context.history.push({
 		from,
 		to,

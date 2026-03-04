@@ -68,10 +68,7 @@ export class LlmHandler {
 		stream: null
 	};
 
-	constructor(
-		update: StoreUpdater,
-		subscribe: () => ChatState
-	) {
+	constructor(update: StoreUpdater, subscribe: () => ChatState) {
 		this.update = update;
 		this.subscribe = subscribe;
 	}
@@ -254,7 +251,11 @@ export class LlmHandler {
 					// DEBUG: Log what we're updating
 					console.log('[Stream] Updating message:', {
 						assistantMessageId,
-						messagesBefore: s.messages.map(m => ({ id: m.id, role: m.role, contentLen: m.content.length }))
+						messagesBefore: s.messages.map((m) => ({
+							id: m.id,
+							role: m.role,
+							contentLen: m.content.length
+						}))
 					});
 
 					const result = {
@@ -267,7 +268,11 @@ export class LlmHandler {
 
 					// DEBUG: Log what we updated
 					console.log('[Stream] After update:', {
-						messagesAfter: result.messages.map(m => ({ id: m.id, role: m.role, contentLen: m.content.length }))
+						messagesAfter: result.messages.map((m) => ({
+							id: m.id,
+							role: m.role,
+							contentLen: m.content.length
+						}))
 					});
 
 					return result;

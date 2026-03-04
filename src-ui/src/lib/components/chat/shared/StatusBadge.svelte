@@ -22,7 +22,9 @@
 	let { variant, label, showIcon = true, compact = false }: Props = $props();
 
 	let displayLabel = $derived(label || variant.charAt(0).toUpperCase() + variant.slice(1));
-	let containerClasses = $derived([styles.badge, styles[variant], compact && styles.compact].filter(Boolean).join(' '));
+	let containerClasses = $derived(
+		[styles.badge, styles[variant], compact && styles.compact].filter(Boolean).join(' ')
+	);
 </script>
 
 <span class={containerClasses} aria-label="Status: {displayLabel}">

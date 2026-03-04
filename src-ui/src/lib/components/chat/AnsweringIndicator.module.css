@@ -7,7 +7,7 @@
 	display: flex;
 	align-items: center;
 	/* Reserved container above incoming message, fixed height */
-	height: 36px; 
+	height: 36px;
 	width: 100%;
 	contain: layout;
 	margin-bottom: var(--space-2);
@@ -24,17 +24,16 @@
 	box-shadow: none;
 	position: relative;
 	overflow: hidden;
-	
+
 	/* Fixed dimensions for stability & zero layout shift */
 	height: 28px;
 	/* Accommodates standardized phrases + padding */
 	width: auto;
 	min-width: 180px;
-	
+
 	/* Single-state animation controller prevents overlapping transitions */
-	transition: 
-		transform 0.4s cubic-bezier(0.2, 0, 0, 1);
-		
+	transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1);
+
 	/* Use intensity variable to control vibrancy */
 	--accent-color: 99, 102, 241; /* Base Indigo RGB */
 	--current-intensity: var(--intensity, 0.6);
@@ -65,9 +64,11 @@
 	flex-shrink: 0;
 	color: rgb(var(--accent-color));
 	opacity: var(--current-intensity);
-	
+
 	/* Contextual icon morphing */
-	transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+	transition:
+		opacity 0.3s ease,
+		transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .panel.stable .iconWrapper {
@@ -90,7 +91,7 @@
 	color: var(--color-text-secondary);
 	letter-spacing: 0.02em;
 	white-space: pre;
-	
+
 	/* Resolving characters left to right without fade */
 	opacity: 0.9;
 }
@@ -126,7 +127,10 @@
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-	.iconWrapper, .label, .highlightSweep, .panel {
+	.iconWrapper,
+	.label,
+	.highlightSweep,
+	.panel {
 		animation: none;
 		transition: none;
 	}

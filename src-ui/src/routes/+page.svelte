@@ -49,7 +49,10 @@
 
 	// Archive confirmation state
 	let archiveConfirmOpen = $state(false);
-	let archiveTarget = $state<{ type: 'conversation' | 'thread'; item: Conversation | Thread } | null>(null);
+	let archiveTarget = $state<{
+		type: 'conversation' | 'thread';
+		item: Conversation | Thread;
+	} | null>(null);
 	let archiveLoading = $state(false);
 
 	// Delete confirmation state
@@ -263,8 +266,8 @@
 
 <div class="page-container">
 	<ChatLayout
-		conversations={conversations}
-		threads={threads}
+		{conversations}
+		{threads}
 		selectedConversation={$selectedConversation ?? undefined}
 		selectedThreadId={$selectedThread?.id}
 		{messages}
@@ -324,7 +327,7 @@
 	<!-- Custom Provider Modal -->
 	<CustomProviderModal
 		open={activeModal === 'custom-provider'}
-		onclose={() => activeModal = 'providers'}
+		onclose={() => (activeModal = 'providers')}
 		onsaved={(providerId: string) => {
 			selectedProviderId = providerId;
 			activeModal = 'config';

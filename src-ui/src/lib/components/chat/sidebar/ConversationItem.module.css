@@ -257,7 +257,7 @@
 	.button {
 		padding: 0 var(--space-3);
 	}
-	
+
 	.title {
 		font-size: 14px;
 	}
@@ -265,7 +265,11 @@
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-	.button, .icon, .item, .title, .meta {
+	.button,
+	.icon,
+	.item,
+	.title,
+	.meta {
 		transition: none;
 		animation: none;
 		transform: none;

@@ -90,7 +90,7 @@
 		{#if role === 'assistant' && (status === 'sending' || !content || content.trim() === '')}
 			<AnsweringIndicator />
 		{:else}
-			<MarkdownRenderer content={content} class={role === 'user' ? styles.userMarkdown : ''} />
+			<MarkdownRenderer {content} class={role === 'user' ? styles.userMarkdown : ''} />
 		{/if}
 	</div>
 

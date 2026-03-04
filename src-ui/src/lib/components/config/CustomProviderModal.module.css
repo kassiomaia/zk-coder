@@ -49,7 +49,7 @@
 	background: var(--color-surface-active);
 }
 
-.radio input[type="radio"] {
+.radio input[type='radio'] {
 	margin-top: var(--space-1);
 	accent-color: var(--color-text-tertiary);
 }
@@ -138,6 +138,10 @@
 }
 
 @keyframes spin {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }

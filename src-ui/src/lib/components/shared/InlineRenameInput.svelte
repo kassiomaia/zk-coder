@@ -103,11 +103,9 @@
 </script>
 
 <div
-	class={[
-		styles.container,
-		error && styles.hasError,
-		showSaveConfirmation && styles.saveConfirming
-	].filter(Boolean).join(' ')}
+	class={[styles.container, error && styles.hasError, showSaveConfirmation && styles.saveConfirming]
+		.filter(Boolean)
+		.join(' ')}
 	in:morph={{ duration: 200 }}
 	out:morph={{ duration: 200 }}
 >
@@ -155,9 +153,13 @@
 			{:else}
 				<span class={styles.hint}>Enter to save · Esc to cancel</span>
 			{/if}
-			
+
 			{#if remainingChars <= 10}
-				<span class={[styles.charCount, remainingChars <= 0 && styles.charCountError].filter(Boolean).join(' ')}>
+				<span
+					class={[styles.charCount, remainingChars <= 0 && styles.charCountError]
+						.filter(Boolean)
+						.join(' ')}
+				>
 					{remainingChars}
 				</span>
 			{/if}

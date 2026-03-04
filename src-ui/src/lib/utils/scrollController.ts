@@ -15,8 +15,23 @@
 
 import { scheduleRead, measureScrollState, applyScrollPosition } from './domBatcher';
 import { cancelThread, hasPending, type ScrollPriority } from './scrollPriorityQueue';
-import { startLiveAnimation, stop as stopAnimation, scrollToBottomInstant, updateLiveTarget, isRunning as isAnimationRunning } from './liveScrollAnimation';
-import { sendEvent, getState, shouldAutoScroll, isStreamingActive, onStateChange, resetThread as resetStateMachine, type ScrollState, type ScrollEvent } from './scrollStateMachine';
+import {
+	startLiveAnimation,
+	stop as stopAnimation,
+	scrollToBottomInstant,
+	updateLiveTarget,
+	isRunning as isAnimationRunning
+} from './liveScrollAnimation';
+import {
+	sendEvent,
+	getState,
+	shouldAutoScroll,
+	isStreamingActive,
+	onStateChange,
+	resetThread as resetStateMachine,
+	type ScrollState,
+	type ScrollEvent
+} from './scrollStateMachine';
 
 // ============================================================================
 // Types
@@ -152,7 +167,12 @@ function getScrollPosition(element: HTMLElement): { scrollTop: number; scrollHei
 /**
  * Handle state machine transitions.
  */
-function handleStateTransition(threadId: string, newState: ScrollState, previousState: ScrollState, event: ScrollEvent): void {
+function handleStateTransition(
+	threadId: string,
+	newState: ScrollState,
+	previousState: ScrollState,
+	event: ScrollEvent
+): void {
 	const context = threadContexts.get(threadId);
 	if (!context) return;
 
@@ -314,7 +334,11 @@ function processUserScroll(threadId: string, element: HTMLElement): void {
  * @param element - Scrollable element
  * @param options - Registration options
  */
-export function registerThreadElement(threadId: string, element: HTMLElement, options: RegisterOptions = {}): void {
+export function registerThreadElement(
+	threadId: string,
+	element: HTMLElement,
+	options: RegisterOptions = {}
+): void {
 	// Unregister if already registered
 	if (threadContexts.has(threadId)) {
 		unregisterThread(threadId);

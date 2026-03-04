@@ -180,7 +180,7 @@
 
 	.backdrop.open,
 	.sidebarWrapper.open ~ .backdrop,
-	[data-sidebar-open="true"] .backdrop {
+	[data-sidebar-open='true'] .backdrop {
 		opacity: 1;
 	}
 }
@@ -223,7 +223,7 @@
 
 	.backdrop.open,
 	.sidebarWrapper.open ~ .backdrop,
-	[data-sidebar-open="true"] .backdrop {
+	[data-sidebar-open='true'] .backdrop {
 		opacity: 1;
 	}
 }

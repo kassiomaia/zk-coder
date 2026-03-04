@@ -501,7 +501,11 @@
 			<!-- Messages - flat rendering to avoid Svelte 5 nested #each reconciliation issues -->
 			{#each messages as message, index (message.id)}
 				{#if shouldShowGroupHeader(index)}
-					<div class={[styles.messageGroup, index === 0 && styles.messageGroupFirst].filter(Boolean).join(' ')}>
+					<div
+						class={[styles.messageGroup, index === 0 && styles.messageGroupFirst]
+							.filter(Boolean)
+							.join(' ')}
+					>
 						<div class={styles.groupHeader}>
 							<span class={styles.groupRole}>{message.role}</span>
 							<span class={styles.groupTime}>{formatGroupTime(message.timestamp)}</span>

@@ -75,7 +75,9 @@
 		selected && styles.selected,
 		ariaExpanded && styles.expanded,
 		isMenuOpen && styles.menuOpen
-	].filter(Boolean).join(' ')}
+	]
+		.filter(Boolean)
+		.join(' ')}
 	role="option"
 	aria-selected={selected}
 	{style}
@@ -110,7 +112,7 @@
 
 	<button
 		class={[styles.button, isEditing && styles.hidden].filter(Boolean).join(' ')}
-		onclick={onclick}
+		{onclick}
 		ondblclick={() => {
 			// Only trigger double-click action if conversation has threads
 			if (conversation.threads && conversation.threads.length > 0) {
@@ -150,7 +152,9 @@
 							{#if openThreadCount > 0}
 								<span class={styles.chipSeparator}>·</span>
 							{/if}
-							<span class={[styles.chip, styles.chipResolved].join(' ')}>{resolvedThreadCount} resolved</span>
+							<span class={[styles.chip, styles.chipResolved].join(' ')}
+								>{resolvedThreadCount} resolved</span
+							>
 						{/if}
 					</span>
 				{:else if conversation.threads && conversation.threads.length > 0}
@@ -167,9 +171,9 @@
 
 	{#if !isEditing && (isHovered || isMenuOpen) && (ondelete || onrename || onarchive)}
 		<ListItemActions
-			ondelete={ondelete}
+			{ondelete}
 			onrename={onrename ? startEdit : undefined}
-			onarchive={onarchive}
+			{onarchive}
 			iconSize={14}
 			onMenuOpen={() => (isMenuOpen = true)}
 			onMenuClose={() => (isMenuOpen = false)}

@@ -110,7 +110,8 @@
 .modal.open {
 	animation:
 		modalCapture var(--modal-duration-capture) var(--modal-ease-capture) forwards,
-		modalSettle var(--modal-duration-settle) var(--modal-ease-settle) var(--modal-duration-capture) forwards;
+		modalSettle var(--modal-duration-settle) var(--modal-ease-settle) var(--modal-duration-capture)
+			forwards;
 }
 
 /* ============================================================================

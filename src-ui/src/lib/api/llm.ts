@@ -178,7 +178,9 @@ export type LlmEventCallback = (event: LlmEvent) => void;
  * @param options - Chat message options
  * @returns The response with content and saved message
  */
-export async function sendChatMessage(options: SendChatMessageOptions): Promise<SendChatMessageResponse> {
+export async function sendChatMessage(
+	options: SendChatMessageOptions
+): Promise<SendChatMessageResponse> {
 	return safeInvoke<SendChatMessageResponse>('send_chat_message', {
 		request: {
 			conversationId: options.conversationId,
@@ -223,7 +225,9 @@ export interface StreamChatResult {
  * @param options - Streaming chat options
  * @returns Request ID and cleanup functions
  */
-export async function sendChatMessageStreaming(options: StreamChatOptions): Promise<StreamChatResult> {
+export async function sendChatMessageStreaming(
+	options: StreamChatOptions
+): Promise<StreamChatResult> {
 	// Set up event listener first
 	const unsubscribe = await listen<LlmEvent>('llm:event', (event) => {
 		options.onEvent(event.payload);

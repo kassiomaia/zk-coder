@@ -49,11 +49,9 @@
 
 	let inputRef: HTMLInputElement | undefined = $state();
 
-	let inputClasses = $derived([
-		styles.input,
-		error && styles.error,
-		inputClass
-	].filter(Boolean).join(' '));
+	let inputClasses = $derived(
+		[styles.input, error && styles.error, inputClass].filter(Boolean).join(' ')
+	);
 
 	function handleInput(event: Event) {
 		const target = event.target as HTMLInputElement;

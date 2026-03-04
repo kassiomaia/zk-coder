@@ -32,7 +32,7 @@
 	});
 </script>
 
-<Modal title="Configure Providers" {open} onclose={onclose} size="lg" contentClass={styles.modalBody}>
+<Modal title="Configure Providers" {open} {onclose} size="lg" contentClass={styles.modalBody}>
 	{#snippet children()}
 		<p class={styles.description}>
 			Configure one or more AI providers. At least one provider is required to continue.
@@ -40,8 +40,16 @@
 
 		{#if configuredCount > 0}
 			<div class={styles.summary}>
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M20 6L9 17l-5-5"/>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<path d="M20 6L9 17l-5-5" />
 				</svg>
 				<span>{configuredCount} provider{configuredCount > 1 ? 's' : ''} configured</span>
 			</div>
@@ -49,19 +57,24 @@
 
 		<div class={styles.grid}>
 			{#each $configStore.providers as provider (provider.id)}
-				<ProviderCard
-					{provider}
-					onclick={() => onconfigure(provider.id)}
-				/>
+				<ProviderCard {provider} onclick={() => onconfigure(provider.id)} />
 			{/each}
 
 			<!-- Add Custom Provider Card -->
 			<button class={[styles.card, styles.addCard].join(' ')} onclick={onaddcustom} type="button">
 				<div class={styles.addIcon}>
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<circle cx="12" cy="12" r="10"/>
-						<line x1="12" y1="8" x2="12" y2="16"/>
-						<line x1="8" y1="12" x2="16" y2="12"/>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<circle cx="12" cy="12" r="10" />
+						<line x1="12" y1="8" x2="12" y2="16" />
+						<line x1="8" y1="12" x2="16" y2="12" />
 					</svg>
 				</div>
 				<div class={styles.providerName}>Add Custom Provider</div>
@@ -77,9 +90,7 @@
 	{#snippet footer()}
 		<div class={styles.footer}>
 			<Button variant="secondary" onclick={onclose}>Cancel</Button>
-			<Button variant="ghost" onclick={onaddcustom}>
-				Add Provider
-			</Button>
+			<Button variant="ghost" onclick={onaddcustom}>Add Provider</Button>
 			<Button variant="primary" disabled={!canContinue} onclick={oncontinue}>
 				Continue to Settings
 			</Button>

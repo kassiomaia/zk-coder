@@ -396,11 +396,11 @@ function msgToClient(msg: ChatMessageResponse): Message {
 		status: msg.status,
 		metadata: msg.metadata
 			? {
-				intent: msg.metadata.intent,
-				confidence: msg.metadata.confidence,
-				tokens: msg.metadata.tokens,
-				model: msg.metadata.model
-			}
+					intent: msg.metadata.intent,
+					confidence: msg.metadata.confidence,
+					tokens: msg.metadata.tokens,
+					model: msg.metadata.model
+				}
 			: undefined
 	};
 }

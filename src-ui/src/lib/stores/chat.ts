@@ -255,9 +255,7 @@ function createChatStore() {
 						...state,
 						threads,
 						threadsLoading: 'success',
-						conversations: state.conversations.map((c) =>
-							c.id === id ? { ...c, threads } : c
-						)
+						conversations: state.conversations.map((c) => (c.id === id ? { ...c, threads } : c))
 					}));
 
 					if (threads.length > 0) {
@@ -321,9 +319,7 @@ function createChatStore() {
 						...s,
 						threads: [...s.threads, thread],
 						conversations: s.conversations.map((c) =>
-							c.id === conversationId
-								? { ...c, threads: [...(c.threads || []), thread] }
-								: c
+							c.id === conversationId ? { ...c, threads: [...(c.threads || []), thread] } : c
 						)
 					}));
 					await this.selectThread(thread.id);
@@ -357,9 +353,7 @@ function createChatStore() {
 				update((state) => ({
 					...state,
 					threads: state.threads.map((t) =>
-						t.id === id
-							? { ...t, metadata: { ...t.metadata, resolved }, updatedAt: new Date() }
-							: t
+						t.id === id ? { ...t, metadata: { ...t.metadata, resolved }, updatedAt: new Date() } : t
 					)
 				}));
 				return true;
@@ -381,8 +375,7 @@ function createChatStore() {
 				update((state) => ({
 					...state,
 					threads: state.threads.filter((t) => t.id !== id),
-					selectedThreadId:
-						state.selectedThreadId === id ? null : state.selectedThreadId,
+					selectedThreadId: state.selectedThreadId === id ? null : state.selectedThreadId,
 					messages: state.selectedThreadId === id ? [] : state.messages,
 					conversations: state.conversations.map((c) =>
 						c.id === state.selectedConversationId
@@ -458,9 +451,7 @@ function createChatStore() {
 
 			// Handle thread creation/selection if needed
 			if (!targetThreadId) {
-				const existingThreads = state.threads.filter(
-					(t) => t.conversationId === conversationId
-				);
+				const existingThreads = state.threads.filter((t) => t.conversationId === conversationId);
 
 				if (existingThreads.length === 0) {
 					const threadTitle = deriveThreadTitle(content);
@@ -478,9 +469,7 @@ function createChatStore() {
 							selectedThreadId: thread.id,
 							messages: [...s.messages, message],
 							conversations: s.conversations.map((c) =>
-								c.id === conversationId
-									? { ...c, threads: [...(c.threads || []), thread] }
-									: c
+								c.id === conversationId ? { ...c, threads: [...(c.threads || []), thread] } : c
 							)
 						}));
 
@@ -522,9 +511,7 @@ function createChatStore() {
 
 				update((s) => ({
 					...s,
-					messages: s.messages.map((m) =>
-						m.id === optimisticMessage.id ? savedMessage : m
-					)
+					messages: s.messages.map((m) => (m.id === optimisticMessage.id ? savedMessage : m))
 				}));
 
 				return savedMessage;
@@ -725,9 +712,7 @@ function createChatStore() {
 						...s,
 						nlp: {
 							...s.nlp,
-							pendingAmbiguities: s.nlp.pendingAmbiguities.filter(
-								(a) => a.id !== ambiguityId
-							),
+							pendingAmbiguities: s.nlp.pendingAmbiguities.filter((a) => a.id !== ambiguityId),
 							resolvedAmbiguities: newResolvedAmbiguities
 						}
 					};
@@ -916,7 +901,13 @@ export const isLoading = derivedStores.isLoading;
 // ============================================================================
 
 // Types are in ./chat/types.ts - re-exported for convenience
-export type { LoadingState, NlpState, LlmStreamingState, ChatState, LlmRequestOptions } from './chat/types';
+export type {
+	LoadingState,
+	NlpState,
+	LlmStreamingState,
+	ChatState,
+	LlmRequestOptions
+} from './chat/types';
 
 // Utility functions are in ./chat/utils.ts - re-exported for convenience
 export { generateId, createNewConversation, createNewThread, createNewMessage } from './chat/utils';

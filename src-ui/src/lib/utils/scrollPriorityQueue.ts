@@ -178,7 +178,10 @@ function notifyPriorityChange(threadId: string, operation: ScrollOperation): voi
  * @param options - Enqueue options
  * @returns Enqueue result with operation ID and preemption info
  */
-export function enqueue(action: () => void | Promise<void>, options: EnqueueOptions): EnqueueResult {
+export function enqueue(
+	action: () => void | Promise<void>,
+	options: EnqueueOptions
+): EnqueueResult {
 	const id = generateId();
 	const priority = options.priority ?? 'programmatic';
 

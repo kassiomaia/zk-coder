@@ -124,7 +124,9 @@
 								selected={thread.id === selectedThreadId}
 								onclick={() => onSelect(thread)}
 								onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
-								onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
+								onrename={onRenameThread
+									? (newTitle) => onRenameThread(thread, newTitle)
+									: undefined}
 								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
 								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
 								style="animation-delay: {index * 50}ms"
@@ -148,7 +150,9 @@
 								selected={thread.id === selectedThreadId}
 								onclick={() => onSelect(thread)}
 								onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
-								onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
+								onrename={onRenameThread
+									? (newTitle) => onRenameThread(thread, newTitle)
+									: undefined}
 								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
 								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
 								style="animation-delay: {(openThreads.length + index) * 50}ms"
@@ -159,7 +163,7 @@
 			{/if}
 		{/if}
 	</div>
-	
+
 	<div class={styles.footer}>
 		<div class={styles.footerInfo}>
 			<span>{threads.length} {threads.length === 1 ? 'thread' : 'threads'}</span>

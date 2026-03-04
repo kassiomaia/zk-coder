@@ -4,7 +4,16 @@
  */
 
 import { writable, derived, get } from 'svelte/store';
-import type { Provider, Model, ModelsSource, ManualModelEntry, OperationDefault, ApiType, OperationType, SaveProviderRequest } from '$lib/types/config';
+import type {
+	Provider,
+	Model,
+	ModelsSource,
+	ManualModelEntry,
+	OperationDefault,
+	ApiType,
+	OperationType,
+	SaveProviderRequest
+} from '$lib/types/config';
 import {
 	getProviders,
 	saveProvider as apiSaveProvider,
@@ -77,14 +86,14 @@ function createConfigStore() {
 
 			try {
 				console.log('Config store: initializing...');
-				const [providers, defaults] = await Promise.all([
-					getProviders(),
-					getOperationDefaults()
-				]);
+				const [providers, defaults] = await Promise.all([getProviders(), getOperationDefaults()]);
 
 				console.log('Config store: loaded providers:', providers);
 				console.log('Config store: loaded defaults:', defaults);
-				console.log('Config store: provider IDs:', providers.map(p => ({ id: p.id, name: p.name, isConfigured: p.isConfigured })));
+				console.log(
+					'Config store: provider IDs:',
+					providers.map((p) => ({ id: p.id, name: p.name, isConfigured: p.isConfigured }))
+				);
 
 				// Load models for all configured providers from the database
 				const modelsByProvider: Record<string, Model[]> = {};
@@ -171,12 +180,18 @@ function createConfigStore() {
 				const providerModels = state.modelsByProvider[provider.id] || [];
 				for (const model of providerModels) {
 					const caps = model.capabilities;
-					const supports = operation === 'analysis' ? caps.analysis :
-						operation === 'code' ? caps.code :
-						operation === 'vision' ? caps.vision :
-						operation === 'audio' ? caps.audio :
-						operation === 'tips' ? caps.tips :
-						caps.review;
+					const supports =
+						operation === 'analysis'
+							? caps.analysis
+							: operation === 'code'
+								? caps.code
+								: operation === 'vision'
+									? caps.vision
+									: operation === 'audio'
+										? caps.audio
+										: operation === 'tips'
+											? caps.tips
+											: caps.review;
 
 					if (supports) {
 						models.push(model);
@@ -253,7 +268,12 @@ function createConfigStore() {
 			apiType: ApiType,
 			baseUrl?: string
 		): Promise<string[]> {
-			console.log('[ConfigStore] fetchModels called for provider:', providerId, 'apiType:', apiType);
+			console.log(
+				'[ConfigStore] fetchModels called for provider:',
+				providerId,
+				'apiType:',
+				apiType
+			);
 			const result = await apiFetchModels(providerId, apiKey, apiType, baseUrl ?? undefined);
 			console.log('[ConfigStore] fetchModels result:', result);
 
@@ -291,7 +311,9 @@ function createConfigStore() {
 					};
 				});
 
-				console.log('[ConfigStore] Provider configured successfully, reloading providers from backend...');
+				console.log(
+					'[ConfigStore] Provider configured successfully, reloading providers from backend...'
+				);
 				// Reload providers from backend to ensure synchronization
 				await this.reloadProviders();
 			} else {
@@ -353,7 +375,11 @@ function createConfigStore() {
 		/**
 		 * Adds a manual model for a provider.
 		 */
-		async addManualModel(providerId: string, name: string, capabilities?: ManualModelEntry['capabilities']): Promise<void> {
+		async addManualModel(
+			providerId: string,
+			name: string,
+			capabilities?: ManualModelEntry['capabilities']
+		): Promise<void> {
 			await apiAddManualModel(providerId, name, capabilities);
 		},
 
@@ -403,39 +429,35 @@ export const hasConfiguredProvider = derived(configStore, ($config) =>
 );
 
 /** Whether all required setup is complete */
-export const isSetupComplete = derived(
-	[configStore],
-	([$config]) => $config.providers.some((p) => p.isConfigured)
+export const isSetupComplete = derived([configStore], ([$config]) =>
+	$config.providers.some((p) => p.isConfigured)
 );
 
 /** Available models grouped by operation - reactive */
-export const availableModelsByOperation = derived(
-	configStore,
-	($config) => {
-		const result: Record<OperationType, Model[]> = {
-			analysis: [],
-			code: [],
-			vision: [],
-			audio: [],
-			tips: [],
-			review: []
-		};
+export const availableModelsByOperation = derived(configStore, ($config) => {
+	const result: Record<OperationType, Model[]> = {
+		analysis: [],
+		code: [],
+		vision: [],
+		audio: [],
+		tips: [],
+		review: []
+	};
 
-		for (const provider of $config.providers) {
-			if (!provider.isConfigured) continue;
+	for (const provider of $config.providers) {
+		if (!provider.isConfigured) continue;
 
-			const providerModels = $config.modelsByProvider[provider.id] || [];
-			for (const model of providerModels) {
-				const caps = model.capabilities;
-				if (caps.analysis) result.analysis.push(model);
-				if (caps.code) result.code.push(model);
-				if (caps.vision) result.vision.push(model);
-				if (caps.audio) result.audio.push(model);
-				if (caps.tips) result.tips.push(model);
-				if (caps.review) result.review.push(model);
-			}
+		const providerModels = $config.modelsByProvider[provider.id] || [];
+		for (const model of providerModels) {
+			const caps = model.capabilities;
+			if (caps.analysis) result.analysis.push(model);
+			if (caps.code) result.code.push(model);
+			if (caps.vision) result.vision.push(model);
+			if (caps.audio) result.audio.push(model);
+			if (caps.tips) result.tips.push(model);
+			if (caps.review) result.review.push(model);
 		}
-
-		return result;
 	}
-);
+
+	return result;
+});

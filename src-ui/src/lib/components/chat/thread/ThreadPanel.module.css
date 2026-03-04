@@ -210,13 +210,18 @@
 }
 
 @keyframes nudge {
-	0%, 100% { transform: translateY(0); }
-	50% { transform: translateY(2px); }
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(2px);
+	}
 }
 
 /* Only apply transition when not animating in/out */
 .resolvedMessage:not(.animateIn):not(.animateOut) {
-	transition: 
+	transition:
 		background-color var(--transition-normal),
 		border-color var(--transition-normal),
 		opacity var(--transition-normal),
@@ -323,8 +328,7 @@
 @media (max-width: 768px) {
 	.resolvedMessage {
 		grid-template-columns: 1fr auto;
-		grid-template-areas: 
-			"content action";
+		grid-template-areas: 'content action';
 		gap: var(--space-3);
 		padding: var(--space-4);
 	}

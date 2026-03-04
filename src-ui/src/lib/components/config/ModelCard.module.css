@@ -242,7 +242,9 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.card {
-		transition: border-color 150ms ease, background 150ms ease;
+		transition:
+			border-color 150ms ease,
+			background 150ms ease;
 	}
 
 	.card:hover,

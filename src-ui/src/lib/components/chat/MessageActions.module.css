@@ -21,7 +21,9 @@
 	box-shadow: var(--shadow-sm);
 	backdrop-filter: blur(8px);
 	height: 32px;
-	transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+	transition:
+		box-shadow var(--transition-fast),
+		border-color var(--transition-fast);
 }
 
 .actions:hover {
@@ -57,7 +59,9 @@
 	background: radial-gradient(circle, var(--color-primary-400) 0%, transparent 70%);
 	opacity: 0;
 	transform: scale(0);
-	transition: transform 100ms var(--ease-out), opacity 100ms var(--ease-out);
+	transition:
+		transform 100ms var(--ease-out),
+		opacity 100ms var(--ease-out);
 	pointer-events: none;
 	border-radius: inherit;
 }

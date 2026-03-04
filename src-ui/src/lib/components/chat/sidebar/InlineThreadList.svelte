@@ -46,12 +46,10 @@
 	}: Props = $props();
 
 	// Sort threads: open first, then resolved (no grouping labels)
-	let sortedThreads = $derived(
-		[
-			...threads.filter((t) => !t.metadata.resolved),
-			...threads.filter((t) => t.metadata.resolved)
-		]
-	);
+	let sortedThreads = $derived([
+		...threads.filter((t) => !t.metadata.resolved),
+		...threads.filter((t) => t.metadata.resolved)
+	]);
 
 	let hasThreads = $derived(threads.length > 0);
 </script>

@@ -135,7 +135,9 @@
 					status={message.status}
 					threadId={message.threadId}
 					threadTitle={getThreadTitle(message.threadId)}
-					onThreadClick={onThreadClick && message.threadId ? () => onThreadClick(message.threadId!) : undefined}
+					onThreadClick={onThreadClick && message.threadId
+						? () => onThreadClick(message.threadId!)
+						: undefined}
 					onEdit={onEdit ? () => onEdit(message.id) : undefined}
 					onDelete={onDelete ? () => onDelete(message.id) : undefined}
 					onRetry={onRetry ? () => onRetry(message.id) : undefined}

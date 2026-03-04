@@ -62,7 +62,9 @@
 		selected && styles.selected,
 		isMenuOpen && styles.menuOpen,
 		thread.metadata.resolved && styles.resolved
-	].filter(Boolean).join(' ')}
+	]
+		.filter(Boolean)
+		.join(' ')}
 	role="option"
 	aria-selected={selected}
 	data-variant={variant}
@@ -116,7 +118,7 @@
 
 	<button
 		class={[styles.button, isEditing && styles.hidden].filter(Boolean).join(' ')}
-		onclick={onclick}
+		{onclick}
 		aria-label="Select thread: {thread.title}"
 		type="button"
 		tabindex={isEditing ? -1 : 0}
@@ -165,11 +167,11 @@
 
 	{#if !isEditing && (isHovered || isMenuOpen) && (onresolve || onrename || ondelete || onarchive)}
 		<ListItemActions
-			onresolve={onresolve}
+			{onresolve}
 			isResolved={thread.metadata.resolved}
 			onrename={onrename ? startEdit : undefined}
-			onarchive={onarchive}
-			ondelete={ondelete}
+			{onarchive}
+			{ondelete}
 			iconSize={16}
 			onMenuOpen={() => (isMenuOpen = true)}
 			onMenuClose={() => (isMenuOpen = false)}

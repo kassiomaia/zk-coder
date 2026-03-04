@@ -64,7 +64,11 @@
 			<Button variant="secondary" onclick={handleCancel} disabled={loading}>
 				{cancelLabel}
 			</Button>
-			<Button variant={variant === 'warning' ? 'primary' : variant} onclick={handleConfirm} loading={loading}>
+			<Button
+				variant={variant === 'warning' ? 'primary' : variant}
+				onclick={handleConfirm}
+				{loading}
+			>
 				{confirmLabel}
 			</Button>
 		</div>

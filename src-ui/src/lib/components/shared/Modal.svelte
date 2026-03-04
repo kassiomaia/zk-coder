@@ -41,17 +41,13 @@
 		footer
 	}: Props = $props();
 
-	let wrapperClasses = $derived([
-		styles.overlay,
-		stacked && styles.top,
-		open && styles.open
-	].filter(Boolean).join(' '));
+	let wrapperClasses = $derived(
+		[styles.overlay, stacked && styles.top, open && styles.open].filter(Boolean).join(' ')
+	);
 
-	let modalClasses = $derived([
-		styles.modal,
-		styles[size],
-		open && styles.open
-	].filter(Boolean).join(' '));
+	let modalClasses = $derived(
+		[styles.modal, styles[size], open && styles.open].filter(Boolean).join(' ')
+	);
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape' && open) {

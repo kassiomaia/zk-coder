@@ -15,13 +15,12 @@
 
 	let { provider, onclick }: Props = $props();
 
-	let cardClasses = $derived([
-		styles.card,
-		provider.isConfigured && styles.configured
-	].filter(Boolean).join(' '));
+	let cardClasses = $derived(
+		[styles.card, provider.isConfigured && styles.configured].filter(Boolean).join(' ')
+	);
 </script>
 
-<button class={cardClasses} onclick={onclick} type="button" aria-label="Configure {provider.name}">
+<button class={cardClasses} {onclick} type="button" aria-label="Configure {provider.name}">
 	<div class={styles.iconWrapper}>
 		<ProviderIcon {provider} size={32} />
 	</div>
@@ -37,8 +36,16 @@
 		{#if provider.isConfigured}
 			<span class={[styles.dot, styles.configured].join(' ')}></span>
 			<span class={styles.configuredText}>
-				<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<polyline points="20 6 9 17 4 12"/>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="12"
+					height="12"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<polyline points="20 6 9 17 4 12" />
 				</svg>
 				Configured
 			</span>
