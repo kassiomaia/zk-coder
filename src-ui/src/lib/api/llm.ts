@@ -218,6 +218,96 @@ export interface StreamChatResult {
 	unsubscribe: UnlistenFn;
 }
 
+const STREAM_START_TIMEOUT_MS = 30_000;
+
+interface RawUsageStats {
+	inputTokens?: number;
+	outputTokens?: number;
+	totalTokens?: number;
+	input_tokens?: number;
+	output_tokens?: number;
+	total_tokens?: number;
+}
+
+type RawLlmEvent =
+	| {
+			type: 'started';
+			requestId?: string;
+			request_id?: string;
+			model: string;
+	  }
+	| {
+			type: 'chunk';
+			requestId?: string;
+			request_id?: string;
+			delta: string;
+	  }
+	| {
+			type: 'complete';
+			requestId?: string;
+			request_id?: string;
+			content: string;
+			usage?: RawUsageStats;
+			finishReason?: string;
+			finish_reason?: string;
+	  }
+	| {
+			type: 'error';
+			requestId?: string;
+			request_id?: string;
+			error: string;
+			retryable: boolean;
+	  };
+
+function normalizeUsageStats(usage?: RawUsageStats): UsageStats | undefined {
+	if (!usage) return undefined;
+
+	return {
+		inputTokens: usage.inputTokens ?? usage.input_tokens ?? 0,
+		outputTokens: usage.outputTokens ?? usage.output_tokens ?? 0,
+		totalTokens:
+			usage.totalTokens ??
+			usage.total_tokens ??
+			(usage.inputTokens ?? usage.input_tokens ?? 0) +
+				(usage.outputTokens ?? usage.output_tokens ?? 0)
+	};
+}
+
+function normalizeLlmEvent(raw: RawLlmEvent): LlmEvent | null {
+	const requestId = raw.requestId ?? raw.request_id ?? '';
+	if (!requestId) return null;
+
+	switch (raw.type) {
+		case 'started':
+			return {
+				type: 'started',
+				requestId,
+				model: raw.model
+			};
+		case 'chunk':
+			return {
+				type: 'chunk',
+				requestId,
+				delta: raw.delta
+			};
+		case 'complete':
+			return {
+				type: 'complete',
+				requestId,
+				content: raw.content,
+				usage: normalizeUsageStats(raw.usage),
+				finishReason: raw.finishReason ?? raw.finish_reason
+			};
+		case 'error':
+			return {
+				type: 'error',
+				requestId,
+				error: raw.error,
+				retryable: raw.retryable
+			};
+	}
+}
+
 /**
  * Sends a chat message with streaming response.
  * Events are emitted via the onEvent callback.
@@ -229,23 +319,35 @@ export async function sendChatMessageStreaming(
 	options: StreamChatOptions
 ): Promise<StreamChatResult> {
 	// Set up event listener first
-	const unsubscribe = await listen<LlmEvent>('llm:event', (event) => {
-		options.onEvent(event.payload);
+	const unsubscribe = await listen<RawLlmEvent>('llm:event', (event) => {
+		const normalized = normalizeLlmEvent(event.payload);
+		if (!normalized) return;
+		options.onEvent(normalized);
 	});
 
 	// Start the streaming request
+	let startTimeout: ReturnType<typeof setTimeout> | null = null;
 	try {
-		const requestId = await safeInvoke<string>('send_chat_message_streaming', {
-			request: {
-				conversationId: options.conversationId,
-				threadId: options.threadId,
-				content: options.content,
-				modelId: options.modelId,
-				systemPrompt: options.systemPrompt,
-				temperature: options.temperature,
-				maxTokens: options.maxTokens
-			}
-		});
+		const requestId = await Promise.race<string>([
+			safeInvoke<string>('send_chat_message_streaming', {
+				request: {
+					conversationId: options.conversationId,
+					threadId: options.threadId,
+					content: options.content,
+					modelId: options.modelId,
+					systemPrompt: options.systemPrompt,
+					temperature: options.temperature,
+					maxTokens: options.maxTokens
+				}
+			}),
+			new Promise<string>((_, reject) => {
+				startTimeout = setTimeout(() => {
+					reject(
+						new LlmApiError('Streaming request startup timed out', 'send_chat_message_streaming')
+					);
+				}, STREAM_START_TIMEOUT_MS);
+			})
+		]);
 
 		return {
 			requestId,
@@ -258,6 +360,10 @@ export async function sendChatMessageStreaming(
 		// Clean up listener if request fails
 		unsubscribe();
 		throw error;
+	} finally {
+		if (startTimeout) {
+			clearTimeout(startTimeout);
+		}
 	}
 }
 
