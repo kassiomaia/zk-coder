@@ -30,8 +30,9 @@
 		handleStreamingEnd,
 		handleContentUpdate,
 		handleUserScroll as controllerHandleUserScroll,
+		handleUserClickScrollDown as controllerHandleUserClickScrollDown,
+		handleUserSendMessage as controllerHandleUserSendMessage,
 		scrollToBottom as controllerScrollToBottom,
-		enableAutoScroll as controllerEnableAutoScroll,
 		isAutoScrollEnabled as controllerIsAutoScrollEnabled
 	} from '$lib/utils/scrollController';
 	import { onMount } from 'svelte';
@@ -43,11 +44,6 @@
 
 	onMount(() => {
 		initNotifications();
-		// Initialize model selection from config default
-		const defaultModel = configStore.getDefault('code');
-		if (defaultModel) {
-			selectedModelId = defaultModel;
-		}
 	});
 
 	interface Props {
@@ -81,8 +77,14 @@
 		/** Thread is resolved - disables input */
 		threadResolved?: boolean;
 
+		/** Initial model ID from conversation settings */
+		initialModelId?: string | null;
+
 		/** Send message handler - can accept content string or object with content and modelId */
 		onSendMessage?: (content: string, options?: { modelId?: string }) => void;
+
+		/** Model change handler - called when user selects a different model */
+		onModelChange?: (modelId: string) => void;
 
 		/** Open settings handler */
 		onOpenSettings?: () => void;
@@ -117,7 +119,9 @@
 		error,
 		messagesLoading = 'idle',
 		threadResolved = false,
+		initialModelId = null,
 		onSendMessage,
+		onModelChange,
 		onOpenSettings,
 		onRetry,
 		onEditMessage,
@@ -132,8 +136,20 @@
 	let hasInputActivity = $state(false);
 	let hasInputFocus = $state(false);
 
-	// Model selection state
+	// Model selection state - initialize from conversation settings or config default
 	let selectedModelId = $state<string | null>(null);
+
+	// Initialize model from conversation settings or config default
+	$effect(() => {
+		if (initialModelId) {
+			selectedModelId = initialModelId;
+		} else {
+			const defaultModel = configStore.getDefault('code');
+			if (defaultModel) {
+				selectedModelId = defaultModel;
+			}
+		}
+	});
 
 	// Animation state for input container
 	let inputAnimatingIn = $state(false);
@@ -342,8 +358,7 @@
 		const currentThreadId = threadId;
 		if (!ref || !currentThreadId) return;
 
-		controllerEnableAutoScroll(currentThreadId);
-		controllerScrollToBottom(currentThreadId, { priority: 'user', animated: true });
+		controllerHandleUserClickScrollDown(currentThreadId);
 		showScrollButton = false;
 		isUserScrolling = false;
 		lastScrollTop = ref.scrollTop;
@@ -367,19 +382,23 @@
 
 	function handleModelChange(modelId: string) {
 		selectedModelId = modelId;
+		// Notify parent to persist the change
+		onModelChange?.(modelId);
 	}
 
 	// Re-enable auto-scroll and scroll to bottom when user sends a message
 	function handleSubmit() {
 		const ref = messagesWrapperRef;
 		const currentThreadId = threadId;
+		const content = inputValue.trim();
+		const canSubmit = Boolean(content && onSendMessage);
 
-		if (currentThreadId) {
-			controllerEnableAutoScroll(currentThreadId);
+		if (currentThreadId && canSubmit) {
+			controllerHandleUserSendMessage(currentThreadId);
 		}
 
-		if (inputValue.trim() && onSendMessage) {
-			onSendMessage(inputValue.trim(), { modelId: selectedModelId ?? undefined });
+		if (canSubmit) {
+			onSendMessage(content, { modelId: selectedModelId ?? undefined });
 			inputValue = '';
 			// Keep selected model for subsequent messages in this conversation
 		}

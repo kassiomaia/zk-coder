@@ -13,7 +13,7 @@
  * @module scrollController
  */
 
-import { scheduleRead, measureScrollState, applyScrollPosition } from './domBatcher';
+import { measureScrollState } from './domBatcher';
 import { cancelThread, hasPending, type ScrollPriority } from './scrollPriorityQueue';
 import {
 	startLiveAnimation,
@@ -232,20 +232,14 @@ function scheduleScrollToBottom(threadId: string, options: ScrollToBottomOptions
 	if (!element.isConnected) return '';
 
 	if (animated) {
-		// Set ignore flag for the duration of the animation
-		context.ignoreScrollEvents = true;
+		// Keep user scroll events enabled during animation so manual upward
+		// interaction can immediately pause auto-scroll without fighting.
 		startLiveAnimation(element, {
 			threadId,
 			priority,
 			animated: true,
 			onComplete: () => {
-				// Reset ignore flag after animation completes
-				setTimeout(() => {
-					if (context) {
-						context.ignoreScrollEvents = false;
-						context.lastScrollTop = context.element.scrollTop;
-					}
-				}, 0);
+				context.lastScrollTop = context.element.scrollTop;
 				options.onComplete?.();
 			}
 		});
@@ -297,11 +291,16 @@ function processUserScroll(threadId: string, element: HTMLElement): void {
 		autoScrollEnabled: context.autoScrollEnabled
 	});
 
-	// If user is actively dragging the scroll thumb and scrolling up, disable auto-scroll
-	// This allows user to view older content during streaming
-	if (context.isDraggingThumb && isScrollingUp) {
+	// During streaming, any deliberate upward movement away from the bottom should pause auto-scroll.
+	// This mirrors expected chat UX: follow by default, but never fight user intent.
+	if (
+		context.autoScrollEnabled &&
+		(currentState === 'streaming' || currentState === 'resuming') &&
+		distanceFromBottom > AT_BOTTOM_THRESHOLD &&
+		(isScrollingUp || context.isDraggingThumb)
+	) {
 		if (context.autoScrollEnabled) {
-			console.log('[ScrollController] DISABLING auto-scroll - user is dragging scroll thumb up');
+			console.log('[ScrollController] DISABLING auto-scroll - user scrolled up during streaming');
 			sendEvent(threadId, 'USER_SCROLL_UP');
 			context.autoScrollEnabled = false;
 			stopAnimation(threadId);
@@ -511,9 +510,8 @@ export function handleContentUpdate(threadId: string): void {
 		if (atBottom) {
 			// Already at bottom, just update position instantly
 			console.log('[ScrollController] scrolling instantly to bottom');
-			withIgnoredScrollEvents(threadId, () => {
-				scrollToBottomInstant(element);
-			});
+			// Keep user input responsive during streaming; do not suppress scroll events here.
+			scrollToBottomInstant(element);
 		} else if (!isAnimationRunning(threadId)) {
 			// Not at bottom and no animation running, start one
 			console.log('[ScrollController] starting animation to bottom');
