@@ -13,7 +13,6 @@
 .chatArea {
 	display: flex;
 	flex-direction: column;
-	max-height: 92vh;
 	height: 100%;
 	background: var(--color-bg-primary);
 	position: relative;

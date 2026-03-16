@@ -15,16 +15,16 @@
 		chatStore,
 		selectedConversation,
 		selectedThread,
-		conversationGroups,
-		messagesLoading,
+		activeStreamingThreadIds,
 		chatError,
 		isLoading,
 		currentThreads,
 		threadsLoading,
+		unreadThreadIds,
 		configStore,
 		hasConfiguredProvider
 	} from '$lib/stores';
-	import type { Conversation, Thread, ConversationGroup } from '$lib/types/thread';
+	import type { Conversation, Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
 
 	// App state
@@ -35,6 +35,8 @@
 	let messages = $state<Message[]>([]);
 	let threads = $state<Thread[]>([]);
 	let conversations = $state<Conversation[]>([]);
+	let processingThreadIds = $state<string[]>([]);
+	let unreadThreads = $state<string[]>([]);
 	let currentError = $state<string | null>(null);
 	let currentThreadsLoading = $state<LoadingState>('idle');
 
@@ -74,6 +76,12 @@
 		const unsubThreadsLoading = threadsLoading.subscribe((l) => {
 			currentThreadsLoading = l;
 		});
+		const unsubProcessingThreads = activeStreamingThreadIds.subscribe((ids) => {
+			processingThreadIds = ids;
+		});
+		const unsubUnreadThreads = unreadThreadIds.subscribe((ids) => {
+			unreadThreads = ids;
+		});
 		const unsubErr = chatError.subscribe((err) => {
 			currentError = err;
 		});
@@ -82,6 +90,8 @@
 			unsubConv();
 			unsubThreads();
 			unsubThreadsLoading();
+			unsubProcessingThreads();
+			unsubUnreadThreads();
 			unsubErr();
 		};
 	});
@@ -174,6 +184,19 @@
 		await chatStore.renameThread(thread.id, newTitle);
 	}
 
+	// Model change handler - persists model selection to conversation settings
+	async function handleModelChange(conversationId: string, modelId: string) {
+		const conversation = $selectedConversation;
+		if (conversation && conversation.settings.model !== modelId) {
+			await chatStore.updateConversationSettings(conversationId, {
+				model: modelId,
+				temperature: conversation.settings.temperature,
+				maxTokens: conversation.settings.maxTokens,
+				systemPrompt: conversation.settings.systemPrompt
+			});
+		}
+	}
+
 	// Archive handlers - shows confirmation dialog before archiving
 	function handleArchiveConversation(conversation: Conversation) {
 		archiveTarget = { type: 'conversation', item: conversation };
@@ -253,11 +276,6 @@
 			console.error('Failed to remove provider:', error);
 		}
 	}
-
-	// Flatten conversation groups for ChatLayout
-	function flattenGroups(groups: ConversationGroup[]): Conversation[] {
-		return groups.flatMap((group) => group.conversations);
-	}
 </script>
 
 <svelte:head>
@@ -268,6 +286,8 @@
 	<ChatLayout
 		{conversations}
 		{threads}
+		activeStreamingThreadIds={processingThreadIds}
+		unreadThreadIds={unreadThreads}
 		selectedConversation={$selectedConversation ?? undefined}
 		selectedThreadId={$selectedThread?.id}
 		{messages}
@@ -284,6 +304,7 @@
 		onRenameThread={handleRenameThread}
 		onSearch={handleSearch}
 		onSettings={handleOpenSettings}
+		onModelChange={handleModelChange}
 		loading={$isLoading}
 		threadsLoading={currentThreadsLoading === 'loading'}
 		hasConfiguredProvider={$hasConfiguredProvider}
@@ -375,9 +396,15 @@
 	.page-container {
 		display: flex;
 		flex-direction: column;
-		min-height: 100%;
+		height: 100%;
 		width: 100%;
 		overflow: hidden;
+	}
+
+	/* ChatLayout fills available space above status bar */
+	.page-container:global(> :first-child) {
+		flex: 1;
+		min-height: 0;
 	}
 
 	.status-bar {
