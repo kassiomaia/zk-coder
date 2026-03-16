@@ -150,6 +150,18 @@
 
 	.sidebarWrapper {
 		display: block;
+		width: 280px;
+		transition:
+			width var(--transition-smooth),
+			opacity var(--transition-smooth);
+		overflow: hidden;
+	}
+
+	/* Collapsed sidebar state on desktop */
+	.sidebarWrapper:not(.open) {
+		width: 0;
+		border-right: none;
+		opacity: 0;
 	}
 }
 

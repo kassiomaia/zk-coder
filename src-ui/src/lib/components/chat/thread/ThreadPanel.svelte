@@ -7,6 +7,7 @@
 	import ChatArea from '../ChatArea.svelte';
 	import Button from '../../shared/Button.svelte';
 	import Tooltip from '../../shared/Tooltip.svelte';
+	import { chatStore, unreadThreadIds } from '$lib/stores';
 	import type { Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
 	import { fade, slide } from 'svelte/transition';
@@ -31,6 +32,10 @@
 		onReopenThread?: () => void;
 		/** Handler to toggle the thread sidebar */
 		onToggleSidebar?: () => void;
+		/** Initial model ID from conversation settings */
+		initialModelId?: string | null;
+		/** Handler when model selection changes */
+		onModelChange?: (modelId: string) => void;
 		/** Loading state */
 		loading?: boolean;
 		/** Error state */
@@ -47,12 +52,21 @@
 		onRetry,
 		onReopenThread,
 		onToggleSidebar,
+		initialModelId = null,
+		onModelChange,
 		loading = false,
 		error
 	}: Props = $props();
 
 	// Derive resolved state for styling
 	let isResolved = $derived(thread.metadata.resolved);
+
+	// Any visible thread should clear unread state, including late stream-complete races.
+	$effect(() => {
+		if (thread?.id && $unreadThreadIds.includes(thread.id)) {
+			chatStore.markThreadRead(thread.id);
+		}
+	});
 
 	// Local state for animation
 	let isReopening = $state(false);
@@ -201,7 +215,7 @@
 				<button
 					class={styles.sidebarToggle}
 					onclick={onToggleSidebar}
-					aria-label="Toggle threads list"
+					aria-label="Toggle sidebar"
 					type="button"
 				>
 					<svg
@@ -214,8 +228,9 @@
 						stroke-linecap="round"
 						stroke-linejoin="round"
 					>
-						<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-						<line x1="9" y1="3" x2="9" y2="21" />
+						<line x1="3" y1="12" x2="21" y2="12" />
+						<line x1="3" y1="6" x2="21" y2="6" />
+						<line x1="3" y1="18" x2="21" y2="18" />
 					</svg>
 				</button>
 			{/if}
@@ -277,6 +292,8 @@
 			{onOpenSettings}
 			{onRetry}
 			threadResolved={isResolved}
+			{initialModelId}
+			{onModelChange}
 			onScroll={(scrollTop, scrollHeight, clientHeight) =>
 				handleChatScroll(scrollTop, scrollHeight, clientHeight)}
 		/>

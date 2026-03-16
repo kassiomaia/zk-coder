@@ -18,6 +18,10 @@
 		conversations: Conversation[];
 		/** Threads for the current conversation */
 		threads: Thread[];
+		/** Thread IDs currently receiving streamed responses */
+		activeStreamingThreadIds?: string[];
+		/** Thread IDs with new unseen assistant responses */
+		unreadThreadIds?: string[];
 		/** Currently selected conversation */
 		selectedConversation?: Conversation;
 		/** Currently selected thread ID */
@@ -52,6 +56,8 @@
 		onSearch?: (query: string) => void;
 		/** Handler for settings button click */
 		onSettings?: () => void;
+		/** Handler when model changes for selected conversation */
+		onModelChange?: (conversationId: string, modelId: string) => void;
 		/** Loading state */
 		loading?: boolean;
 		/** Threads loading state */
@@ -63,6 +69,8 @@
 	let {
 		conversations,
 		threads,
+		activeStreamingThreadIds = [],
+		unreadThreadIds = [],
 		selectedConversation,
 		selectedThreadId,
 		messages,
@@ -82,16 +90,22 @@
 		onSettings,
 		loading = false,
 		threadsLoading = false,
-		hasConfiguredProvider = true
+		hasConfiguredProvider = true,
+		onModelChange
 	}: Props = $props();
 
-	// UI state for responsive behavior (mobile sidebar)
-	let sidebarOpen = $state(false);
+	// UI state for responsive behavior
+	// Sidebar starts open on desktop, closed on mobile/tablet
+	let sidebarOpen = $state(true);
 
 	// Keyboard shortcuts
 	let shortcutIds: string[] = [];
 
 	onMount(() => {
+		// Initialize sidebar state based on screen width
+		const isDesktop = window.innerWidth >= 769;
+		sidebarOpen = isDesktop;
+
 		shortcutIds = createAppShortcuts({
 			onNewThread: () => {
 				if (selectedConversation) {
@@ -124,6 +138,9 @@
 		selectedThreadId ? threads.find((t) => t.id === selectedThreadId) : undefined
 	);
 
+	// Derive initial model from conversation settings
+	let initialModelId = $derived(selectedConversation?.settings.model ?? null);
+
 	function toggleSidebar() {
 		sidebarOpen = !sidebarOpen;
 	}
@@ -134,12 +151,10 @@
 
 	function handleSelectConversation(conversation: Conversation) {
 		onSelectConversation?.(conversation);
-		closeSidebar();
 	}
 
 	function handleSelectThread(thread: Thread) {
 		onSelectThread?.(thread);
-		closeSidebar();
 	}
 
 	function handleSelectThreadById(threadId: string) {
@@ -156,6 +171,12 @@
 	function handleReopenThread() {
 		if (selectedThread && onResolveThread) {
 			onResolveThread(selectedThread);
+		}
+	}
+
+	function handleModelChange(modelId: string) {
+		if (selectedConversation) {
+			onModelChange?.(selectedConversation.id, modelId);
 		}
 	}
 
@@ -223,6 +244,8 @@
 				{conversations}
 				selectedId={selectedConversation?.id}
 				threadsForSelected={threads}
+				{activeStreamingThreadIds}
+				{unreadThreadIds}
 				selectedThreadId={selectedThread?.id}
 				onSelect={handleSelectConversation}
 				onSelectThread={handleSelectThread}
@@ -254,6 +277,8 @@
 					onReopenThread={handleReopenThread}
 					onToggleSidebar={toggleSidebar}
 					{loading}
+					{initialModelId}
+					onModelChange={handleModelChange}
 				/>
 			{:else if hasSelectedConversation}
 				<!-- Chat area for conversation (no thread selected) -->
@@ -267,6 +292,8 @@
 					onSendMessage={handleSendMessage}
 					onThreadClick={handleSelectThreadById}
 					onOpenSettings={onSettings}
+					{initialModelId}
+					onModelChange={handleModelChange}
 				/>
 			{:else}
 				<!-- Empty state -->
