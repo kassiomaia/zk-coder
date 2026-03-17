@@ -545,6 +545,7 @@ pub fn stream_to_events(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use futures::StreamExt;
 
     #[test]
     fn test_message_creation() {
@@ -591,5 +592,161 @@ mod tests {
         let json = serde_json::to_string(&event).expect("Failed to serialize");
         assert!(json.contains("chunk"));
         assert!(json.contains("test-123"));
+    }
+
+    #[tokio::test]
+    async fn test_stream_to_events_success_sequence_and_content() {
+        let chunks = futures::stream::iter(vec![
+            Ok(StreamChunk {
+                id: "resp-1".to_string(),
+                model: "gpt-4".to_string(),
+                delta: Some(StreamDelta {
+                    role: Some("assistant".to_string()),
+                    content: Some("Hello".to_string()),
+                }),
+                usage: None,
+                finish_reason: None,
+                is_final: false,
+            }),
+            Ok(StreamChunk {
+                id: "resp-1".to_string(),
+                model: "gpt-4".to_string(),
+                delta: Some(StreamDelta {
+                    role: None,
+                    content: Some(" world".to_string()),
+                }),
+                usage: Some(UsageStats {
+                    input_tokens: 5,
+                    output_tokens: 2,
+                    total_tokens: 7,
+                }),
+                finish_reason: Some("stop".to_string()),
+                is_final: true,
+            }),
+        ]);
+
+        let events: Vec<LlmEvent> =
+            stream_to_events("req-1".to_string(), "gpt-4".to_string(), Box::pin(chunks))
+                .collect()
+                .await;
+
+        assert!(matches!(
+            events.first(),
+            Some(LlmEvent::Started {
+                request_id,
+                model
+            }) if request_id == "req-1" && model == "gpt-4"
+        ));
+
+        let merged_chunks = events
+            .iter()
+            .filter_map(|e| match e {
+                LlmEvent::Chunk { delta, .. } => Some(delta.as_str()),
+                _ => None,
+            })
+            .collect::<String>();
+        assert_eq!(merged_chunks, "Hello world");
+
+        assert!(matches!(
+            events.last(),
+            Some(LlmEvent::Complete {
+                request_id,
+                content,
+                usage: Some(UsageStats {
+                    total_tokens: 7,
+                    ..
+                }),
+                finish_reason: Some(reason),
+            }) if request_id == "req-1" && content == "Hello world" && reason == "stop"
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_stream_to_events_error_emits_error_and_no_complete() {
+        let chunks = futures::stream::iter(vec![
+            Ok(StreamChunk {
+                id: "resp-2".to_string(),
+                model: "gpt-4".to_string(),
+                delta: Some(StreamDelta {
+                    role: None,
+                    content: Some("partial".to_string()),
+                }),
+                usage: None,
+                finish_reason: None,
+                is_final: false,
+            }),
+            Err(LlmError::rate_limit(Some(5))),
+        ]);
+
+        let events: Vec<LlmEvent> =
+            stream_to_events("req-2".to_string(), "gpt-4".to_string(), Box::pin(chunks))
+                .collect()
+                .await;
+
+        let merged_chunks = events
+            .iter()
+            .filter_map(|e| match e {
+                LlmEvent::Chunk { delta, .. } => Some(delta.as_str()),
+                _ => None,
+            })
+            .collect::<String>();
+        assert_eq!(merged_chunks, "partial");
+
+        assert!(events.iter().any(|e| {
+            matches!(
+                e,
+                LlmEvent::Error {
+                    request_id,
+                    retryable: true,
+                    ..
+                } if request_id == "req-2"
+            )
+        }));
+        assert!(!events.iter().any(|e| matches!(e, LlmEvent::Complete { .. })));
+    }
+
+    #[tokio::test]
+    async fn test_stream_to_events_large_delta_flushes_before_complete() {
+        let long_delta = "x".repeat(MIN_FLUSH_LENGTH + 5);
+        let chunks = futures::stream::iter(vec![
+            Ok(StreamChunk {
+                id: "resp-3".to_string(),
+                model: "gpt-4".to_string(),
+                delta: Some(StreamDelta {
+                    role: None,
+                    content: Some(long_delta.clone()),
+                }),
+                usage: None,
+                finish_reason: None,
+                is_final: false,
+            }),
+            Ok(StreamChunk {
+                id: "resp-3".to_string(),
+                model: "gpt-4".to_string(),
+                delta: None,
+                usage: Some(UsageStats {
+                    input_tokens: 1,
+                    output_tokens: 1,
+                    total_tokens: 2,
+                }),
+                finish_reason: Some("stop".to_string()),
+                is_final: true,
+            }),
+        ]);
+
+        let events: Vec<LlmEvent> =
+            stream_to_events("req-3".to_string(), "gpt-4".to_string(), Box::pin(chunks))
+                .collect()
+                .await;
+
+        let complete_idx = events
+            .iter()
+            .position(|e| matches!(e, LlmEvent::Complete { .. }))
+            .expect("Complete event should exist");
+        let has_chunk_before_complete = events
+            .iter()
+            .take(complete_idx)
+            .any(|e| matches!(e, LlmEvent::Chunk { .. }));
+        assert!(has_chunk_before_complete);
     }
 }

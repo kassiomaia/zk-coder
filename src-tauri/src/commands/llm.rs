@@ -661,4 +661,29 @@ mod tests {
         // Should return original when no feedback
         assert_eq!(combined, original);
     }
+
+    #[test]
+    fn test_build_system_prompt_with_feedback_and_empty_original() {
+        let feedback_summary =
+            Some("Feedback on previous messages:\n- [ID:abc12345] DISLIKED by user");
+
+        let combined = build_system_prompt_with_feedback("", feedback_summary);
+
+        assert!(combined.starts_with(FEEDBACK_SYSTEM_PROMPT));
+        assert!(combined.contains("Feedback on previous messages:"));
+        assert!(combined.contains("Now continue the conversation below:"));
+    }
+
+    #[test]
+    fn test_build_feedback_summary_uses_stable_short_ids() {
+        let msg = ChatMessage::assistant("conv-1", "Response");
+        let full_id = msg.id.clone();
+
+        let summary = build_feedback_summary(&[(msg, MessageFeedback::Like)])
+            .expect("summary should exist for one feedback item");
+
+        let short_id = &full_id[..8];
+        assert!(summary.contains(&format!("[ID:{}]", short_id)));
+        assert!(!summary.contains(&format!("[ID:{}]", full_id)));
+    }
 }
