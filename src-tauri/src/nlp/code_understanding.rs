@@ -18,7 +18,11 @@ pub struct CodeUnderstanding {
 impl CodeUnderstanding {
     /// Creates a new code understanding result.
     #[must_use]
-    pub fn new(language: ProgrammingLanguage, structure: CodeStructure, complexity: ComplexityMetrics) -> Self {
+    pub fn new(
+        language: ProgrammingLanguage,
+        structure: CodeStructure,
+        complexity: ComplexityMetrics,
+    ) -> Self {
         Self {
             language,
             structure,

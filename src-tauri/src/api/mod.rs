@@ -92,9 +92,7 @@ pub async fn validate_openai_key(
 
     if status.is_success() || status.as_u16() == 400 {
         // 400 might be model not found, but key is valid
-        return Ok(ValidationResult::success(
-            "API key validated successfully",
-        ));
+        return Ok(ValidationResult::success("API key validated successfully"));
     }
 
     // Get error details
@@ -135,7 +133,12 @@ pub async fn fetch_openai_models(
     let base = base_url.map_or("https://api.openai.com/v1", |url| normalize_base_url(url));
     let url = format!("{}/models", base.trim_end_matches('/'));
 
-    log::info!("fetch_openai_models: base_url={:?}, normalized_base={}, final_url={}", base_url, base, url);
+    log::info!(
+        "fetch_openai_models: base_url={:?}, normalized_base={}, final_url={}",
+        base_url,
+        base,
+        url
+    );
 
     let response = client
         .get(&url)
@@ -151,7 +154,7 @@ pub async fn fetch_openai_models(
         log::warn!("Models endpoint not available (404) for URL: {}", url);
         return Ok(FetchModelsResult::failure(
             "The models endpoint is not available for this provider. \
-            Please manually configure the models you want to use in the provider settings."
+            Please manually configure the models you want to use in the provider settings.",
         ));
     }
 
@@ -194,7 +197,12 @@ pub async fn fetch_openai_models(
     log::info!("OpenAI API returned {} models", api_response.data.len());
 
     // Collect first 5 model IDs for logging before consuming the vector
-    let sample_ids: Vec<String> = api_response.data.iter().take(5).map(|m| m.id.clone()).collect();
+    let sample_ids: Vec<String> = api_response
+        .data
+        .iter()
+        .take(5)
+        .map(|m| m.id.clone())
+        .collect();
 
     let models: Vec<String> = api_response
         .data
@@ -222,11 +230,14 @@ pub async fn fetch_openai_models(
 
     // If no models matched, return error suggesting manual configuration
     if models.is_empty() {
-        log::warn!("No chat models matched the filter. First 5 model IDs from API: {:?}", sample_ids);
+        log::warn!(
+            "No chat models matched the filter. First 5 model IDs from API: {:?}",
+            sample_ids
+        );
         return Ok(FetchModelsResult::failure(
             "No chat models found from the API response. \
             The provider may use non-standard model naming. \
-            Please manually configure the models you want to use in the provider settings."
+            Please manually configure the models you want to use in the provider settings.",
         ));
     }
 
@@ -259,7 +270,10 @@ pub async fn validate_google_key(
     let client = create_client()?;
 
     // Normalize base URL and construct endpoint
-    let base = base_url.map_or("https://generativelanguage.googleapis.com/v1beta/openai", |url| normalize_base_url(url));
+    let base = base_url.map_or(
+        "https://generativelanguage.googleapis.com/v1beta/openai",
+        |url| normalize_base_url(url),
+    );
     let url = format!("{}/models", base.trim_end_matches('/'));
 
     let response = client
@@ -270,9 +284,7 @@ pub async fn validate_google_key(
         .map_err(|e| format!("Request failed: {}", e))?;
 
     if response.status().is_success() {
-        Ok(ValidationResult::success(
-            "API key validated successfully",
-        ))
+        Ok(ValidationResult::success("API key validated successfully"))
     } else {
         let status = response.status();
         // Try to get error details from response body
@@ -313,10 +325,18 @@ pub async fn fetch_google_models(
     let client = create_client()?;
 
     // Normalize base URL and construct endpoint
-    let base = base_url.map_or("https://generativelanguage.googleapis.com/v1beta/openai", |url| normalize_base_url(url));
+    let base = base_url.map_or(
+        "https://generativelanguage.googleapis.com/v1beta/openai",
+        |url| normalize_base_url(url),
+    );
     let url = format!("{}/models", base.trim_end_matches('/'));
 
-    log::info!("fetch_google_models: base_url={:?}, normalized_base={}, final_url={}", base_url, base, url);
+    log::info!(
+        "fetch_google_models: base_url={:?}, normalized_base={}, final_url={}",
+        base_url,
+        base,
+        url
+    );
 
     let response = client
         .get(&url)
@@ -330,7 +350,7 @@ pub async fn fetch_google_models(
         log::warn!("Google models endpoint not available (404)");
         return Ok(FetchModelsResult::failure(
             "The Google models endpoint is not available. \
-            Please manually configure the Gemini models you want to use in the provider settings."
+            Please manually configure the Gemini models you want to use in the provider settings.",
         ));
     }
 
@@ -389,7 +409,7 @@ pub async fn fetch_google_models(
         log::warn!("No Gemini models found in API response");
         return Ok(FetchModelsResult::failure(
             "No Gemini models found from the API response. \
-            Please manually configure the models you want to use in the provider settings."
+            Please manually configure the models you want to use in the provider settings.",
         ));
     }
 
@@ -436,9 +456,7 @@ pub async fn validate_anthropic_key(
     if status.as_u16() == 401 {
         Ok(ValidationResult::failure("Invalid API key"))
     } else {
-        Ok(ValidationResult::success(
-            "API key validated successfully",
-        ))
+        Ok(ValidationResult::success("API key validated successfully"))
     }
 }
 
@@ -548,7 +566,8 @@ pub async fn fetch_models_with_mode(
 
             if !api_result.success {
                 // API fetch failed, but in hybrid mode we still return manual models
-                let model_names: Vec<String> = manual_models.iter().map(|m| m.name.clone()).collect();
+                let model_names: Vec<String> =
+                    manual_models.iter().map(|m| m.name.clone()).collect();
                 if !model_names.is_empty() {
                     return Ok(FetchModelsResult::success(model_names));
                 }

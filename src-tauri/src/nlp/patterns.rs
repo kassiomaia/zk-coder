@@ -28,7 +28,8 @@ impl IntentPatterns {
             (
                 Intent::GenerateCode,
                 vec![
-                    Regex::new(r"(?i)^(generate|create|write)\s+(code|a\s+function|a\s+class)").unwrap(),
+                    Regex::new(r"(?i)^(generate|create|write)\s+(code|a\s+function|a\s+class)")
+                        .unwrap(),
                     Regex::new(r"(?i)^(help\s+me\s+)?(code|implement|build)\s+").unwrap(),
                     Regex::new(r"(?i)^make\s+(a\s+)?(function|class|component)").unwrap(),
                 ],
@@ -111,8 +112,10 @@ impl IntentPatterns {
             (
                 Intent::FindSymbol,
                 vec![
-                    Regex::new(r"(?i)^(find|locate)\s+(a\s+)?(function|class|method|symbol)").unwrap(),
-                    Regex::new(r"(?i)^where\s+(is|are)\s+(the\s+)?(function|class|method)").unwrap(),
+                    Regex::new(r"(?i)^(find|locate)\s+(a\s+)?(function|class|method|symbol)")
+                        .unwrap(),
+                    Regex::new(r"(?i)^where\s+(is|are)\s+(the\s+)?(function|class|method)")
+                        .unwrap(),
                 ],
             ),
             (

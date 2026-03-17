@@ -74,9 +74,9 @@ impl CodeAnalyzer {
             .get(&language)
             .ok_or_else(|| AnalyzerError::UnsupportedLanguage(language.name().to_string()))?;
 
-        let mut parser = parser_mutex.lock().map_err(|_| {
-            AnalyzerError::ParseError("Failed to acquire parser lock".to_string())
-        })?;
+        let mut parser = parser_mutex
+            .lock()
+            .map_err(|_| AnalyzerError::ParseError("Failed to acquire parser lock".to_string()))?;
         let tree = parser
             .parse(code, None)
             .ok_or_else(|| AnalyzerError::ParseError("Failed to parse code".to_string()))?;
@@ -99,70 +99,64 @@ impl CodeAnalyzer {
         let mut classes = Vec::new();
         let mut imports = Vec::new();
 
-        Self::traverse(root, &mut |node| {
-            match language {
-                ProgrammingLanguage::Rust => {
-                    match node.kind() {
-                        "function_item" => {
-                            if let Some(func) = Self::extract_rust_function(node, source) {
-                                functions.push(func);
-                            }
-                        }
-                        "struct_item" | "impl_item" => {
-                            if let Some(class) = Self::extract_rust_class(node, source) {
-                                classes.push(class);
-                            }
-                        }
-                        "use_declaration" => {
-                            if let Ok(text) = node.utf8_text(source.as_bytes()) {
-                                imports.push(text.to_string());
-                            }
-                        }
-                        _ => {}
+        Self::traverse(root, &mut |node| match language {
+            ProgrammingLanguage::Rust => match node.kind() {
+                "function_item" => {
+                    if let Some(func) = Self::extract_rust_function(node, source) {
+                        functions.push(func);
                     }
                 }
-                ProgrammingLanguage::TypeScript | ProgrammingLanguage::JavaScript => {
-                    match node.kind() {
-                        "function_declaration" | "arrow_function" | "function_expression" => {
-                            if let Some(func) = Self::extract_ts_function(node, source) {
-                                functions.push(func);
-                            }
-                        }
-                        "class_declaration" | "interface_declaration" => {
-                            if let Some(class) = Self::extract_ts_class(node, source) {
-                                classes.push(class);
-                            }
-                        }
-                        "import_statement" => {
-                            if let Ok(text) = node.utf8_text(source.as_bytes()) {
-                                imports.push(text.to_string());
-                            }
-                        }
-                        _ => {}
+                "struct_item" | "impl_item" => {
+                    if let Some(class) = Self::extract_rust_class(node, source) {
+                        classes.push(class);
                     }
                 }
-                ProgrammingLanguage::Python => {
-                    match node.kind() {
-                        "function_definition" => {
-                            if let Some(func) = Self::extract_python_function(node, source) {
-                                functions.push(func);
-                            }
-                        }
-                        "class_definition" => {
-                            if let Some(class) = Self::extract_python_class(node, source) {
-                                classes.push(class);
-                            }
-                        }
-                        "import_statement" | "import_from_statement" => {
-                            if let Ok(text) = node.utf8_text(source.as_bytes()) {
-                                imports.push(text.to_string());
-                            }
-                        }
-                        _ => {}
+                "use_declaration" => {
+                    if let Ok(text) = node.utf8_text(source.as_bytes()) {
+                        imports.push(text.to_string());
                     }
                 }
-                ProgrammingLanguage::Unknown => {}
+                _ => {}
+            },
+            ProgrammingLanguage::TypeScript | ProgrammingLanguage::JavaScript => {
+                match node.kind() {
+                    "function_declaration" | "arrow_function" | "function_expression" => {
+                        if let Some(func) = Self::extract_ts_function(node, source) {
+                            functions.push(func);
+                        }
+                    }
+                    "class_declaration" | "interface_declaration" => {
+                        if let Some(class) = Self::extract_ts_class(node, source) {
+                            classes.push(class);
+                        }
+                    }
+                    "import_statement" => {
+                        if let Ok(text) = node.utf8_text(source.as_bytes()) {
+                            imports.push(text.to_string());
+                        }
+                    }
+                    _ => {}
+                }
             }
+            ProgrammingLanguage::Python => match node.kind() {
+                "function_definition" => {
+                    if let Some(func) = Self::extract_python_function(node, source) {
+                        functions.push(func);
+                    }
+                }
+                "class_definition" => {
+                    if let Some(class) = Self::extract_python_class(node, source) {
+                        classes.push(class);
+                    }
+                }
+                "import_statement" | "import_from_statement" => {
+                    if let Ok(text) = node.utf8_text(source.as_bytes()) {
+                        imports.push(text.to_string());
+                    }
+                }
+                _ => {}
+            },
+            ProgrammingLanguage::Unknown => {}
         });
 
         Ok(CodeStructure {
@@ -244,16 +238,9 @@ impl CodeAnalyzer {
 
         Self::traverse_with_depth(root, &mut |node, depth| {
             match node.kind() {
-                "if_statement"
-                | "if_expression"
-                | "while_statement"
-                | "for_statement"
-                | "match_expression"
-                | "match_statement"
-                | "if"
-                | "for_in_clause"
-                | "try_statement"
-                | "catch_clause" => {
+                "if_statement" | "if_expression" | "while_statement" | "for_statement"
+                | "match_expression" | "match_statement" | "if" | "for_in_clause"
+                | "try_statement" | "catch_clause" => {
                     cyclomatic += 1;
                 }
                 "&&" | "||" | "and" | "or" => {

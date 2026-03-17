@@ -276,7 +276,9 @@ mod tests {
 
         let concepts = mapper.extract_concepts("create an array of strings");
         assert!(!concepts.is_empty());
-        assert!(concepts.iter().any(|(c, _)| matches!(c, CodeConcept::DataType(_))));
+        assert!(concepts
+            .iter()
+            .any(|(c, _)| matches!(c, CodeConcept::DataType(_))));
     }
 
     #[test]

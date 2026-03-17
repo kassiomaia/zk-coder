@@ -64,9 +64,7 @@ impl AmbiguityResolver {
                             suggestions
                                 .iter()
                                 .take(5)
-                                .map(|s| {
-                                    ClarificationOption::new(&s.value, &s.value)
-                                })
+                                .map(|s| ClarificationOption::new(&s.value, &s.value))
                                 .collect(),
                             true,
                         ),
@@ -84,9 +82,7 @@ impl AmbiguityResolver {
                     let suggestions: Vec<AmbiguitySuggestion> = matches
                         .iter()
                         .take(5)
-                        .map(|m| {
-                            AmbiguitySuggestion::new(m, 0.7, "matches your reference")
-                        })
+                        .map(|m| AmbiguitySuggestion::new(m, 0.7, "matches your reference"))
                         .collect();
 
                     ambiguities.push(Ambiguity::with_suggestions(
@@ -161,13 +157,17 @@ impl AmbiguityResolver {
         match ambiguity.ambiguity_type {
             AmbiguityType::MissingFile | AmbiguityType::MultipleMatches => {
                 // Check if file was mentioned in conversation
-                context.metadata.current_file.as_ref().map(|f| {
-                    AmbiguitySuggestion::new(&f.path, 0.8, "from conversation context")
-                })
+                context
+                    .metadata
+                    .current_file
+                    .as_ref()
+                    .map(|f| AmbiguitySuggestion::new(&f.path, 0.8, "from conversation context"))
             }
-            AmbiguityType::UnclearScope => context.metadata.current_file.as_ref().map(|f| {
-                AmbiguitySuggestion::new(&f.path, 0.9, "currently active file")
-            }),
+            AmbiguityType::UnclearScope => context
+                .metadata
+                .current_file
+                .as_ref()
+                .map(|f| AmbiguitySuggestion::new(&f.path, 0.9, "currently active file")),
             _ => None,
         }
     }
@@ -200,7 +200,7 @@ mod tests {
             "src/main.rs".to_string(),
             "src/lib.rs".to_string(),
             "src/auth.rs".to_string(),
-            "tests/auth.rs".to_string(),  // This will match "auth.rs" via contains
+            "tests/auth.rs".to_string(), // This will match "auth.rs" via contains
         ]
     }
 
@@ -264,7 +264,8 @@ mod tests {
     fn test_resolve_with_context() {
         let resolver = create_test_resolver();
         let mut context = ConversationContext::new();
-        context.metadata.current_file = Some(crate::nlp::context::FileInfo::new("src/main.rs", "rust"));
+        context.metadata.current_file =
+            Some(crate::nlp::context::FileInfo::new("src/main.rs", "rust"));
 
         let ambiguity = Ambiguity::new(
             AmbiguityType::UnclearScope,

@@ -34,7 +34,12 @@ impl DetectedIntent {
 
     /// Creates with parameters.
     #[must_use]
-    pub fn with_params(intent: Intent, params: IntentParams, span: TextSpan, confidence: f64) -> Self {
+    pub fn with_params(
+        intent: Intent,
+        params: IntentParams,
+        span: TextSpan,
+        confidence: f64,
+    ) -> Self {
         Self {
             intent,
             params,

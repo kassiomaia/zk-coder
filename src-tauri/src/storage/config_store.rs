@@ -572,10 +572,7 @@ impl ConfigStore {
         )?;
 
         if rows_affected == 0 {
-            return Err(ConfigStoreError::NotFound(
-                "Provider",
-                id.to_string(),
-            ));
+            return Err(ConfigStoreError::NotFound("Provider", id.to_string()));
         }
 
         Ok(())
@@ -654,18 +651,17 @@ impl ConfigStore {
     /// # Errors
     ///
     /// Returns an error if the database operation fails.
-    pub fn save_models(
-        &self,
-        provider_id: &str,
-        models: &[Model],
-    ) -> Result<(), ConfigStoreError> {
+    pub fn save_models(&self, provider_id: &str, models: &[Model]) -> Result<(), ConfigStoreError> {
         let mut conn = self
             .conn
             .lock()
             .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
 
         let tx = conn.transaction()?;
-        tx.execute("DELETE FROM models WHERE provider_id = ?1", params![provider_id])?;
+        tx.execute(
+            "DELETE FROM models WHERE provider_id = ?1",
+            params![provider_id],
+        )?;
 
         for model in models {
             tx.execute(
@@ -728,7 +724,11 @@ impl ConfigStore {
     /// # Errors
     ///
     /// Returns an error if the database operation fails.
-    pub fn delete_model_by_name(&self, provider_id: &str, model_name: &str) -> Result<(), ConfigStoreError> {
+    pub fn delete_model_by_name(
+        &self,
+        provider_id: &str,
+        model_name: &str,
+    ) -> Result<(), ConfigStoreError> {
         let conn = self
             .conn
             .lock()
@@ -787,7 +787,11 @@ impl ConfigStore {
     /// # Errors
     ///
     /// Returns an error if the database operation fails.
-    pub fn get_model_by_name(&self, provider_id: &str, name: &str) -> Result<Option<Model>, ConfigStoreError> {
+    pub fn get_model_by_name(
+        &self,
+        provider_id: &str,
+        name: &str,
+    ) -> Result<Option<Model>, ConfigStoreError> {
         let conn = self
             .conn
             .lock()
@@ -842,8 +846,8 @@ impl ConfigStore {
         let defaults: Vec<OperationDefault> = stmt
             .query_map([], |row| {
                 let operation_str: String = row.get(0)?;
-                let operation = OperationType::from_str(&operation_str)
-                    .unwrap_or(OperationType::Analysis);
+                let operation =
+                    OperationType::from_str(&operation_str).unwrap_or(OperationType::Analysis);
 
                 // Read model_id as Option<String> to handle NULL values
                 let model_id: Option<String> = row.get(1)?;
@@ -860,10 +864,7 @@ impl ConfigStore {
             .collect();
 
         // Clean up orphaned entries (where model_id is NULL)
-        let _ = conn.execute(
-            "DELETE FROM operation_defaults WHERE model_id IS NULL",
-            [],
-        );
+        let _ = conn.execute("DELETE FROM operation_defaults WHERE model_id IS NULL", []);
 
         Ok(defaults)
     }
@@ -896,7 +897,10 @@ impl ConfigStore {
     /// # Errors
     ///
     /// Returns an error if the database operation fails.
-    pub fn clear_operation_default(&self, operation: OperationType) -> Result<(), ConfigStoreError> {
+    pub fn clear_operation_default(
+        &self,
+        operation: OperationType,
+    ) -> Result<(), ConfigStoreError> {
         let conn = self
             .conn
             .lock()
@@ -975,7 +979,9 @@ impl ConfigStore {
                 |row| row.get(0),
             )
             .optional()?
-            .ok_or_else(|| ConfigStoreError::NotFound("API key for provider", provider_id.to_string()))?;
+            .ok_or_else(|| {
+                ConfigStoreError::NotFound("API key for provider", provider_id.to_string())
+            })?;
 
         Ok(api_key)
     }
@@ -1010,12 +1016,11 @@ impl ConfigStore {
             .lock()
             .map_err(|_| ConfigStoreError::LockError("Failed to acquire lock".to_string()))?;
 
-        let exists: bool = conn
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM api_keys WHERE provider_id = ?1)",
-                params![provider_id],
-                |row| row.get(0),
-            )?;
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM api_keys WHERE provider_id = ?1)",
+            params![provider_id],
+            |row| row.get(0),
+        )?;
 
         Ok(exists)
     }
@@ -1029,7 +1034,10 @@ impl ConfigStore {
     /// # Errors
     ///
     /// Returns an error if the database operation fails.
-    pub fn get_manual_models(&self, provider_id: &str) -> Result<Vec<ManualModelEntry>, ConfigStoreError> {
+    pub fn get_manual_models(
+        &self,
+        provider_id: &str,
+    ) -> Result<Vec<ManualModelEntry>, ConfigStoreError> {
         let conn = self
             .conn
             .lock()
@@ -1172,11 +1180,19 @@ mod tests {
     #[test]
     fn test_save_and_get_provider() {
         let store = ConfigStore::in_memory().expect("Failed to create store");
-        let provider =
-            Provider::custom("Test Provider", "TP", ApiType::OpenAI, Some("https://api.test.com".to_string()));
-        store.save_provider(&provider).expect("Failed to save provider");
+        let provider = Provider::custom(
+            "Test Provider",
+            "TP",
+            ApiType::OpenAI,
+            Some("https://api.test.com".to_string()),
+        );
+        store
+            .save_provider(&provider)
+            .expect("Failed to save provider");
 
-        let retrieved = store.get_provider(&provider.id).expect("Failed to get provider");
+        let retrieved = store
+            .get_provider(&provider.id)
+            .expect("Failed to get provider");
         assert!(retrieved.is_some());
         let retrieved = retrieved.unwrap();
         assert_eq!(retrieved.name, "Test Provider");
@@ -1187,11 +1203,17 @@ mod tests {
     fn test_delete_provider() {
         let store = ConfigStore::in_memory().expect("Failed to create store");
         let provider = Provider::custom("ToDelete", "TD", ApiType::OpenAI, None);
-        store.save_provider(&provider).expect("Failed to save provider");
+        store
+            .save_provider(&provider)
+            .expect("Failed to save provider");
 
-        store.delete_provider(&provider.id).expect("Failed to delete provider");
+        store
+            .delete_provider(&provider.id)
+            .expect("Failed to delete provider");
 
-        let retrieved = store.get_provider(&provider.id).expect("Failed to get provider");
+        let retrieved = store
+            .get_provider(&provider.id)
+            .expect("Failed to get provider");
         assert!(retrieved.is_none());
     }
 
@@ -1203,7 +1225,9 @@ mod tests {
             Model::new("openai", "gpt-3.5-turbo", ModelCapabilities::default()),
         ];
 
-        store.save_models("openai", &models).expect("Failed to save models");
+        store
+            .save_models("openai", &models)
+            .expect("Failed to save models");
 
         let retrieved = store.get_models("openai").expect("Failed to get models");
         assert_eq!(retrieved.len(), 2);
@@ -1215,14 +1239,18 @@ mod tests {
 
         // First save a model (required for foreign key constraint)
         let model = Model::new("openai", "gpt-4", ModelCapabilities::default());
-        store.save_models("openai", &[model]).expect("Failed to save model");
+        store
+            .save_models("openai", &[model])
+            .expect("Failed to save model");
 
         // Now set the operation default
         store
             .set_operation_default(OperationType::Code, "openai-gpt-4")
             .expect("Failed to set default");
 
-        let defaults = store.get_operation_defaults().expect("Failed to get defaults");
+        let defaults = store
+            .get_operation_defaults()
+            .expect("Failed to get defaults");
         assert_eq!(defaults.len(), 1);
         assert_eq!(defaults[0].operation, OperationType::Code);
         assert_eq!(defaults[0].model_id, Some("openai-gpt-4".to_string()));
@@ -1238,7 +1266,9 @@ mod tests {
             .expect("Failed to store API key");
 
         // Retrieve it
-        let key = store.retrieve_api_key("openai").expect("Failed to retrieve API key");
+        let key = store
+            .retrieve_api_key("openai")
+            .expect("Failed to retrieve API key");
         assert_eq!(key, "sk-test-key-12345");
     }
 
@@ -1255,7 +1285,9 @@ mod tests {
         let store = ConfigStore::in_memory().expect("Failed to create store");
 
         // Should not exist initially
-        let exists = store.has_api_key("openai").expect("Failed to check API key");
+        let exists = store
+            .has_api_key("openai")
+            .expect("Failed to check API key");
         assert!(!exists);
 
         // Store the key
@@ -1264,7 +1296,9 @@ mod tests {
             .expect("Failed to store API key");
 
         // Should exist now
-        let exists = store.has_api_key("openai").expect("Failed to check API key");
+        let exists = store
+            .has_api_key("openai")
+            .expect("Failed to check API key");
         assert!(exists);
     }
 
@@ -1282,7 +1316,9 @@ mod tests {
             .expect("Failed to delete API key");
 
         // Should not exist anymore
-        let exists = store.has_api_key("openai").expect("Failed to check API key");
+        let exists = store
+            .has_api_key("openai")
+            .expect("Failed to check API key");
         assert!(!exists);
     }
 
@@ -1301,7 +1337,9 @@ mod tests {
             .expect("Failed to update API key");
 
         // Should have new key
-        let key = store.retrieve_api_key("openai").expect("Failed to retrieve API key");
+        let key = store
+            .retrieve_api_key("openai")
+            .expect("Failed to retrieve API key");
         assert_eq!(key, "sk-new-key");
     }
 }

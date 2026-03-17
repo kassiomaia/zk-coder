@@ -208,9 +208,7 @@ impl ModelCapabilities {
         Self {
             analysis: true,
             code: true,
-            vision: name.contains("vision")
-                || name.contains("gpt-4o")
-                || name.contains("claude-3"),
+            vision: name.contains("vision") || name.contains("gpt-4o") || name.contains("claude-3"),
             audio: name.contains("whisper") || name.contains("tts") || name.contains("audio"),
             tips: true,
             review: true,
@@ -279,7 +277,11 @@ impl Model {
     /// Creates a new model.
     #[must_use]
     pub fn new(provider_id: &str, name: &str, capabilities: ModelCapabilities) -> Self {
-        let id = format!("{}-{}", provider_id, name.to_lowercase().replace([' ', '.'], "-"));
+        let id = format!(
+            "{}-{}",
+            provider_id,
+            name.to_lowercase().replace([' ', '.'], "-")
+        );
         Self {
             id,
             provider_id: provider_id.to_string(),

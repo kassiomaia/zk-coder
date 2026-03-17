@@ -92,7 +92,15 @@ impl ContextStore {
                 "SELECT id, thread_id, metadata, created_at, updated_at
                  FROM context_windows WHERE conversation_id = ?1",
                 params![conversation_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
             )
             .optional()?;
 
@@ -280,9 +288,7 @@ mod tests {
         let store = ContextStore::in_memory().expect("Failed to create store");
 
         let mut window = store.create("conv-456").expect("Failed to create");
-        window
-            .messages
-            .push(ContextMessage::user("Hello world"));
+        window.messages.push(ContextMessage::user("Hello world"));
 
         store.save(&window).expect("Failed to save");
 

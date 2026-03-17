@@ -8,13 +8,12 @@ use tokio::sync::Mutex;
 use crate::api;
 use crate::nlp::config::{
     ApiType, FetchModelsResult, ManualModelEntry, ManualModelRequest, Model, ModelCapabilities,
-    ModelsSource, OperationDefault, OperationType, Provider, SaveProviderRequest,
-    ValidationResult,
+    ModelsSource, OperationDefault, OperationType, Provider, SaveProviderRequest, ValidationResult,
 };
 use crate::storage::ConfigStore;
 
 // Re-export log macros for debugging
-use log::{info, error};
+use log::{error, info};
 
 /// Application state for configuration commands.
 pub struct ConfigState {
@@ -119,7 +118,12 @@ pub async fn save_provider(
         }
     } else {
         // Create new custom provider with auto-generated ID
-        Provider::custom(&request.name, &request.icon, request.api_type, request.base_url)
+        Provider::custom(
+            &request.name,
+            &request.icon,
+            request.api_type,
+            request.base_url,
+        )
     };
 
     store.save_provider(&provider).map_err(|e| e.to_string())?;
@@ -179,9 +183,7 @@ pub async fn test_connection(
 ) -> Result<ValidationResult, String> {
     // Empty API key check
     if api_key.trim().is_empty() {
-        return Ok(ValidationResult::failure(
-            "Please enter an API key first",
-        ));
+        return Ok(ValidationResult::failure("Please enter an API key first"));
     }
 
     api::test_connection(api_type, &api_key, &base_url).await
@@ -196,7 +198,10 @@ pub async fn fetch_models(
     base_url: Option<String>,
     state: tauri::State<'_, ConfigState>,
 ) -> Result<FetchModelsResult, String> {
-    info!("fetch_models: provider_id={}, api_type={:?}, base_url={:?}", provider_id, api_type, base_url);
+    info!(
+        "fetch_models: provider_id={}, api_type={:?}, base_url={:?}",
+        provider_id, api_type, base_url
+    );
 
     // Empty API key check
     if api_key.trim().is_empty() {
@@ -210,7 +215,10 @@ pub async fn fetch_models(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Provider {} not found", provider_id))?;
 
-    info!("fetch_models: provider from DB - base_url={:?}, models_source={:?}", provider.base_url, provider.models_source);
+    info!(
+        "fetch_models: provider from DB - base_url={:?}, models_source={:?}",
+        provider.base_url, provider.models_source
+    );
 
     let models_source = provider.models_source;
 
@@ -323,9 +331,7 @@ pub async fn get_operation_defaults(
     state: tauri::State<'_, ConfigState>,
 ) -> Result<Vec<OperationDefault>, String> {
     let store = state.store.lock().await;
-    store
-        .get_operation_defaults()
-        .map_err(|e| e.to_string())
+    store.get_operation_defaults().map_err(|e| e.to_string())
 }
 
 /// Sets the default model for an operation.
@@ -390,7 +396,9 @@ pub async fn get_manual_models(
     state: tauri::State<'_, ConfigState>,
 ) -> Result<Vec<ManualModelEntry>, String> {
     let store = state.store.lock().await;
-    store.get_manual_models(&provider_id).map_err(|e| e.to_string())
+    store
+        .get_manual_models(&provider_id)
+        .map_err(|e| e.to_string())
 }
 
 /// Adds a manual model for a provider.
@@ -421,9 +429,7 @@ pub async fn add_manual_model(
 
     // Also add to models table so it appears in SettingsModal
     let db_model = Model::new(&request.provider_id, &name, capabilities);
-    store
-        .add_model(&db_model)
-        .map_err(|e| e.to_string())?;
+    store.add_model(&db_model).map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -472,9 +478,7 @@ pub async fn set_provider_models_source(
 
         for manual_model in manual_models {
             let db_model = Model::new(&provider_id, &manual_model.name, manual_model.capabilities);
-            store
-                .add_model(&db_model)
-                .map_err(|e| e.to_string())?;
+            store.add_model(&db_model).map_err(|e| e.to_string())?;
         }
     }
 
@@ -585,9 +589,10 @@ mod tests {
         let store = state.store.lock().await;
 
         // Test save provider
-        let provider =
-            Provider::custom("Test Provider", "TP", ApiType::OpenAI, None);
-        store.save_provider(&provider).expect("Failed to save provider");
+        let provider = Provider::custom("Test Provider", "TP", ApiType::OpenAI, None);
+        store
+            .save_provider(&provider)
+            .expect("Failed to save provider");
 
         // Test get providers
         let providers = store.get_providers().expect("Failed to get providers");
@@ -652,8 +657,7 @@ mod tests {
             .expect("Failed to set operation default");
 
         // Test: Get the code operation model
-        let result = get_code_operation_model(&store)
-            .expect("Failed to get code operation model");
+        let result = get_code_operation_model(&store).expect("Failed to get code operation model");
 
         assert_eq!(result.name, "gpt-4");
         assert_eq!(result.provider_id, "openai");
@@ -669,7 +673,9 @@ mod tests {
         let result = get_code_operation_model(&store);
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("No model configured for 'code' operation"));
+        assert!(result
+            .unwrap_err()
+            .contains("No model configured for 'code' operation"));
     }
 
     #[tokio::test]
@@ -689,8 +695,7 @@ mod tests {
             .expect("Failed to set operation default");
 
         // Test: Get full LLM config
-        let result = get_code_llm_config(&store)
-            .expect("Failed to get code LLM config");
+        let result = get_code_llm_config(&store).expect("Failed to get code LLM config");
 
         assert_eq!(result.name, "gpt-4-turbo");
         assert_eq!(result.provider_id, "openai");

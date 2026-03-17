@@ -57,7 +57,10 @@ impl ExecutionPlanner {
                 // Check relationship with previous
                 if i > 0 {
                     let rel = result.relationships.get(i - 1);
-                    if matches!(rel, Some(IntentRelationship::Sequential | IntentRelationship::Dependent)) {
+                    if matches!(
+                        rel,
+                        Some(IntentRelationship::Sequential | IntentRelationship::Dependent)
+                    ) {
                         // Start new level
                         if !current_level.is_empty() {
                             levels.push(current_level.clone());
@@ -110,7 +113,10 @@ impl ExecutionPlanner {
     fn can_execute(result: &MultiIntentResult, index: usize, completed: &HashSet<usize>) -> bool {
         // Check if all dependencies are satisfied
         for (i, rel) in result.relationships.iter().enumerate() {
-            if matches!(rel, IntentRelationship::Dependent | IntentRelationship::Sequential) {
+            if matches!(
+                rel,
+                IntentRelationship::Dependent | IntentRelationship::Sequential
+            ) {
                 // If this intent depends on a previous one
                 if i < index && !completed.contains(&i) {
                     return false;
@@ -136,7 +142,11 @@ mod tests {
         MultiIntentResult {
             intents: vec![
                 DetectedIntent::new(Intent::FindBugs, TextSpan::new(0, 10, "find bugs"), 0.9),
-                DetectedIntent::new(Intent::GenerateTest, TextSpan::new(15, 25, "write tests"), 0.85),
+                DetectedIntent::new(
+                    Intent::GenerateTest,
+                    TextSpan::new(15, 25, "write tests"),
+                    0.85,
+                ),
             ],
             relationships: vec![IntentRelationship::Sequential],
             execution_order: vec![0, 1],
