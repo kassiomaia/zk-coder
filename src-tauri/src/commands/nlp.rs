@@ -7,10 +7,10 @@ use tokio::sync::Mutex;
 
 use crate::ai::ClaudeClient;
 use crate::nlp::{
-    Ambiguity, AmbiguityResolver, CodeAnalyzer, CodeUnderstanding,
-    ContextManager, ContextMessage, ConversationContext, IntentClassification,
-    IntentClassifier, MessageRole, MultiIntentDetector, MultiIntentResult,
-    ProgrammingLanguage, ResolvedAmbiguity, ResolutionType,
+    Ambiguity, AmbiguityResolver, CodeAnalyzer, CodeUnderstanding, ContextManager, ContextMessage,
+    ConversationContext, IntentClassification, IntentClassifier, MessageRole, MultiIntentDetector,
+    MultiIntentResult, NlpLlmError, NlpLlmGateway, ProgrammingLanguage, ResolutionType,
+    ResolvedAmbiguity,
 };
 use crate::storage::ContextStore;
 
@@ -38,13 +38,15 @@ impl NlpState {
     /// Returns an error if initialization fails.
     pub fn new(api_key: &str, db_path: &str) -> Result<Self, String> {
         let claude = Arc::new(ClaudeClient::new(api_key));
+        let gateway: Arc<dyn NlpLlmGateway + Send + Sync> =
+            Arc::new(LegacyClaudeGateway { claude });
         let store = ContextStore::new(db_path).map_err(|e| e.to_string())?;
         let code_analyzer = CodeAnalyzer::new().map_err(|e| e.to_string())?;
 
         Ok(Self {
-            classifier: IntentClassifier::new(Arc::clone(&claude)),
-            context_manager: ContextManager::new(store, Arc::clone(&claude)),
-            multi_detector: MultiIntentDetector::new(claude),
+            classifier: IntentClassifier::new(Arc::clone(&gateway)),
+            context_manager: ContextManager::new(store, Arc::clone(&gateway)),
+            multi_detector: MultiIntentDetector::new(gateway),
             ambiguity_resolver: AmbiguityResolver::new(),
             code_analyzer,
             project_files: Arc::new(Mutex::new(Vec::new())),
@@ -58,6 +60,26 @@ impl NlpState {
     /// Returns an error if initialization fails.
     pub fn new_dev(db_path: &str) -> Result<Self, String> {
         Self::new("dev-api-key", db_path)
+    }
+}
+
+/// Temporary adapter from legacy Claude client to NLP gateway.
+struct LegacyClaudeGateway {
+    claude: Arc<ClaudeClient>,
+}
+
+impl NlpLlmGateway for LegacyClaudeGateway {
+    fn complete<'a>(
+        &'a self,
+        system: &'a str,
+        user: &'a str,
+    ) -> futures::future::BoxFuture<'a, Result<String, NlpLlmError>> {
+        Box::pin(async move {
+            self.claude
+                .complete(system, user)
+                .await
+                .map_err(|e| NlpLlmError::Llm(crate::llm::LlmError::Internal(e.to_string())))
+        })
     }
 }
 
@@ -154,11 +176,7 @@ pub async fn detect_ambiguities(
         .await
         .map_err(|e| e.to_string())?;
 
-    let files = state
-        .project_files
-        .lock()
-        .await
-        .clone();
+    let files = state.project_files.lock().await.clone();
 
     state
         .ambiguity_resolver

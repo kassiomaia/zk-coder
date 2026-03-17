@@ -11,7 +11,6 @@ use super::intent::Intent;
 use super::llm_gateway::{NlpLlmError, NlpLlmGateway};
 use super::multi_intent::{DetectedIntent, IntentRelationship, MultiIntentResult, TextSpan};
 use super::patterns::IntentPatterns;
-use crate::ai::ClaudeClient;
 
 /// Multi-intent detector.
 pub struct MultiIntentDetector {
@@ -24,19 +23,9 @@ pub struct MultiIntentDetector {
 }
 
 impl MultiIntentDetector {
-    /// Creates a new multi-intent detector from a legacy Claude client.
-    ///
-    /// This compatibility constructor is kept temporarily while NLP state wiring
-    /// is migrated to the shared LLM layer.
-    #[must_use]
-    pub fn new(claude: Arc<ClaudeClient>) -> Self {
-        let gateway = Arc::new(LegacyClaudeGateway { claude });
-        Self::with_gateway(gateway)
-    }
-
     /// Creates a new multi-intent detector with an abstract NLP LLM gateway.
     #[must_use]
-    pub fn with_gateway(gateway: Arc<dyn NlpLlmGateway + Send + Sync>) -> Self {
+    pub fn new(gateway: Arc<dyn NlpLlmGateway + Send + Sync>) -> Self {
         Self {
             gateway,
             patterns: IntentPatterns::new(),
@@ -206,33 +195,13 @@ pub enum DetectorError {
     ParseError(String),
 }
 
-/// Temporary adapter from legacy Claude client to NLP gateway.
-struct LegacyClaudeGateway {
-    claude: Arc<ClaudeClient>,
-}
-
-impl NlpLlmGateway for LegacyClaudeGateway {
-    fn complete<'a>(
-        &'a self,
-        system: &'a str,
-        user: &'a str,
-    ) -> futures::future::BoxFuture<'a, Result<String, NlpLlmError>> {
-        Box::pin(async move {
-            self.claude
-                .complete(system, user)
-                .await
-                .map_err(|e| NlpLlmError::Llm(crate::llm::LlmError::Internal(e.to_string())))
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::nlp::test_utils::{empty_context, failing_gateway, fixed_gateway};
 
     fn create_test_detector() -> MultiIntentDetector {
-        MultiIntentDetector::with_gateway(fixed_gateway("{}"))
+        MultiIntentDetector::new(fixed_gateway("{}"))
     }
 
     #[test]
@@ -278,7 +247,7 @@ mod tests {
 
     #[tokio::test]
     async fn llm_failure_falls_back_to_single_intent() {
-        let detector = MultiIntentDetector::with_gateway(failing_gateway("gateway unavailable"));
+        let detector = MultiIntentDetector::new(failing_gateway("gateway unavailable"));
         let context = empty_context();
 
         let result = detector

@@ -11,7 +11,6 @@ use thiserror::Error;
 
 use super::context::{ContextMessage, ContextMetadata, ContextWindow, ConversationContext};
 use super::llm_gateway::{NlpLlmError, NlpLlmGateway};
-use crate::ai::ClaudeClient;
 use crate::storage::{ContextStore, StoreError};
 
 /// Maximum tokens before compression
@@ -30,22 +29,9 @@ pub struct ContextManager {
 }
 
 impl ContextManager {
-    /// Creates a new context manager from a legacy Claude client.
-    ///
-    /// This compatibility constructor is kept temporarily while NLP state wiring
-    /// is migrated to the shared LLM layer.
-    #[must_use]
-    pub fn new(store: ContextStore, claude: Arc<ClaudeClient>) -> Self {
-        let gateway = Arc::new(LegacyClaudeGateway { claude });
-        Self::with_gateway(store, gateway)
-    }
-
     /// Creates a new context manager with an abstract NLP LLM gateway.
     #[must_use]
-    pub fn with_gateway(
-        store: ContextStore,
-        gateway: Arc<dyn NlpLlmGateway + Send + Sync>,
-    ) -> Self {
+    pub fn new(store: ContextStore, gateway: Arc<dyn NlpLlmGateway + Send + Sync>) -> Self {
         Self { store, gateway }
     }
 
@@ -216,26 +202,6 @@ pub enum ContextError {
     Ai(#[from] NlpLlmError),
 }
 
-/// Temporary adapter from legacy Claude client to NLP gateway.
-struct LegacyClaudeGateway {
-    claude: Arc<ClaudeClient>,
-}
-
-impl NlpLlmGateway for LegacyClaudeGateway {
-    fn complete<'a>(
-        &'a self,
-        system: &'a str,
-        user: &'a str,
-    ) -> futures::future::BoxFuture<'a, Result<String, NlpLlmError>> {
-        Box::pin(async move {
-            self.claude
-                .complete(system, user)
-                .await
-                .map_err(|e| NlpLlmError::Llm(crate::llm::LlmError::Internal(e.to_string())))
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,12 +209,12 @@ mod tests {
 
     fn create_test_manager() -> ContextManager {
         let store = ContextStore::in_memory().expect("Failed to create store");
-        ContextManager::with_gateway(store, fixed_gateway("summary"))
+        ContextManager::new(store, fixed_gateway("summary"))
     }
 
     fn create_failing_compression_manager() -> ContextManager {
         let store = ContextStore::in_memory().expect("Failed to create store");
-        ContextManager::with_gateway(store, failing_gateway("summary unavailable"))
+        ContextManager::new(store, failing_gateway("summary unavailable"))
     }
 
     #[test]

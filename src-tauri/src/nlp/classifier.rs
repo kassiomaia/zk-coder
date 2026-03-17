@@ -11,7 +11,6 @@ use super::context::ConversationContext;
 use super::intent::{Intent, IntentClassification, IntentParams};
 use super::llm_gateway::{NlpLlmError, NlpLlmGateway};
 use super::patterns::IntentPatterns;
-use crate::ai::ClaudeClient;
 
 /// Intent classifier combining pattern matching and AI.
 pub struct IntentClassifier {
@@ -22,19 +21,9 @@ pub struct IntentClassifier {
 }
 
 impl IntentClassifier {
-    /// Creates a new intent classifier from a legacy Claude client.
-    ///
-    /// This compatibility constructor is kept temporarily while NLP state wiring
-    /// is migrated to the shared LLM layer.
-    #[must_use]
-    pub fn new(claude: Arc<ClaudeClient>) -> Self {
-        let gateway = Arc::new(LegacyClaudeGateway { claude });
-        Self::with_gateway(gateway)
-    }
-
     /// Creates a new intent classifier with an abstract NLP LLM gateway.
     #[must_use]
-    pub fn with_gateway(gateway: Arc<dyn NlpLlmGateway + Send + Sync>) -> Self {
+    pub fn new(gateway: Arc<dyn NlpLlmGateway + Send + Sync>) -> Self {
         Self {
             gateway,
             patterns: IntentPatterns::new(),
@@ -228,33 +217,13 @@ pub enum ClassifierError {
     ParseError(String),
 }
 
-/// Temporary adapter from legacy Claude client to NLP gateway.
-struct LegacyClaudeGateway {
-    claude: Arc<ClaudeClient>,
-}
-
-impl NlpLlmGateway for LegacyClaudeGateway {
-    fn complete<'a>(
-        &'a self,
-        system: &'a str,
-        user: &'a str,
-    ) -> futures::future::BoxFuture<'a, Result<String, NlpLlmError>> {
-        Box::pin(async move {
-            self.claude
-                .complete(system, user)
-                .await
-                .map_err(|e| NlpLlmError::Llm(crate::llm::LlmError::Internal(e.to_string())))
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::nlp::test_utils::{self, fixed_gateway};
 
     fn create_test_classifier() -> IntentClassifier {
-        IntentClassifier::with_gateway(fixed_gateway("{}"))
+        IntentClassifier::new(fixed_gateway("{}"))
     }
 
     #[test]
