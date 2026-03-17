@@ -3,10 +3,10 @@
 //! This module provides intent classification using pattern matching
 //! and AI-based classification.
 
+use log::warn;
 use serde::Deserialize;
 use std::sync::Arc;
 use thiserror::Error;
-use log::warn;
 
 use super::context::ConversationContext;
 use super::intent::{Intent, IntentClassification, IntentParams};

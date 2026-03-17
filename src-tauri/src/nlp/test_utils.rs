@@ -16,7 +16,10 @@ pub fn empty_context() -> ConversationContext {
 /// Creates a conversation context fixture with user messages.
 #[must_use]
 pub fn context_with_user_messages(messages: &[&str]) -> ConversationContext {
-    let recent_messages = messages.iter().map(|msg| ContextMessage::user(msg)).collect();
+    let recent_messages = messages
+        .iter()
+        .map(|msg| ContextMessage::user(msg))
+        .collect();
 
     ConversationContext {
         recent_messages,

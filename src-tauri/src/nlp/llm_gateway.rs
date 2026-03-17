@@ -62,7 +62,8 @@ impl ConfigBackedNlpLlmGateway {
     ///
     /// Returns an error if the config store cannot be initialized.
     pub fn new(db_path: &str) -> Result<Self, NlpLlmError> {
-        let config_store = ConfigStore::new(db_path).map_err(|e| NlpLlmError::Store(e.to_string()))?;
+        let config_store =
+            ConfigStore::new(db_path).map_err(|e| NlpLlmError::Store(e.to_string()))?;
         Ok(Self {
             config_store: Arc::new(Mutex::new(config_store)),
         })
@@ -124,8 +125,8 @@ impl NlpLlmGateway for ConfigBackedNlpLlmGateway {
                 target.provider.base_url,
             );
 
-            let request = ChatRequest::new(target.model.name, vec![Message::user(user)])
-                .with_system(system);
+            let request =
+                ChatRequest::new(target.model.name, vec![Message::user(user)]).with_system(system);
 
             let response = client.chat(request).await?;
             Ok(response.content)
@@ -165,9 +166,9 @@ fn resolve_nlp_operation_model(store: &ConfigStore) -> Result<Model, NlpLlmError
             )
         })?;
 
-    let model_id = code_default
-        .model_id
-        .ok_or_else(|| NlpLlmError::ModelConfig("Code operation has no configured model".to_string()))?;
+    let model_id = code_default.model_id.ok_or_else(|| {
+        NlpLlmError::ModelConfig("Code operation has no configured model".to_string())
+    })?;
 
     store
         .get_model(&model_id)

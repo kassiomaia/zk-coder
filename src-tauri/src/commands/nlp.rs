@@ -5,12 +5,12 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::nlp::llm_gateway::ConfigBackedNlpLlmGateway;
 use crate::nlp::{
     Ambiguity, AmbiguityResolver, CodeAnalyzer, CodeUnderstanding, ContextManager, ContextMessage,
     ConversationContext, IntentClassification, IntentClassifier, MessageRole, MultiIntentDetector,
     MultiIntentResult, NlpLlmGateway, ProgrammingLanguage, ResolutionType, ResolvedAmbiguity,
 };
-use crate::nlp::llm_gateway::ConfigBackedNlpLlmGateway;
 use crate::storage::ContextStore;
 
 /// Application state for NLP commands.
@@ -36,9 +36,8 @@ impl NlpState {
     ///
     /// Returns an error if initialization fails.
     pub fn new(config_db_path: &str, context_db_path: &str) -> Result<Self, String> {
-        let gateway: Arc<dyn NlpLlmGateway + Send + Sync> = Arc::new(
-            ConfigBackedNlpLlmGateway::new(config_db_path).map_err(|e| e.to_string())?,
-        );
+        let gateway: Arc<dyn NlpLlmGateway + Send + Sync> =
+            Arc::new(ConfigBackedNlpLlmGateway::new(config_db_path).map_err(|e| e.to_string())?);
         let store = ContextStore::new(context_db_path).map_err(|e| e.to_string())?;
         let code_analyzer = CodeAnalyzer::new().map_err(|e| e.to_string())?;
 

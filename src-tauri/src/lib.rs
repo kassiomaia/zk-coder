@@ -41,20 +41,21 @@ pub fn run() {
             let chat_db = data_dir.join("coder_chat.db");
 
             // Initialize NLP state
-            let nlp_state = NlpState::new(&config_db.to_string_lossy(), &context_db.to_string_lossy())
-                .expect("Failed to initialize NLP state");
+            let nlp_state =
+                NlpState::new(&config_db.to_string_lossy(), &context_db.to_string_lossy())
+                    .expect("Failed to initialize NLP state");
 
             // Initialize Chat state
-            let chat_state =
-                ChatState::new(&chat_db.to_string_lossy()).expect("Failed to initialize Chat state");
+            let chat_state = ChatState::new(&chat_db.to_string_lossy())
+                .expect("Failed to initialize Chat state");
 
             // Initialize Config state
             let config_state = ConfigState::new(&config_db.to_string_lossy())
                 .expect("Failed to initialize Config state");
 
             // Initialize LLM state (uses same database as config)
-            let llm_state =
-                LlmState::new(&config_db.to_string_lossy()).expect("Failed to initialize LLM state");
+            let llm_state = LlmState::new(&config_db.to_string_lossy())
+                .expect("Failed to initialize LLM state");
 
             // Manage states
             app.manage(nlp_state);
