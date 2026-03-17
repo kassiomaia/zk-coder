@@ -3,7 +3,6 @@
 //! This is the main library crate for the Coder application backend.
 
 pub mod agents;
-pub mod ai;
 pub mod api;
 pub mod commands;
 pub mod llm;
