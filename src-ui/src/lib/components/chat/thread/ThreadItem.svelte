@@ -14,6 +14,10 @@
 		thread: Thread;
 		/** Whether this thread is selected */
 		selected?: boolean;
+		/** Thread currently receiving assistant response */
+		isStreaming?: boolean;
+		/** Thread has unseen assistant response */
+		hasUnread?: boolean;
 		/** Visual variant: 'default' for full size, 'inline' for reduced size with indentation */
 		variant?: 'default' | 'inline';
 		/** Click handler */
@@ -33,6 +37,8 @@
 	let {
 		thread,
 		selected = false,
+		isStreaming = false,
+		hasUnread = false,
 		variant = 'default',
 		onclick,
 		onresolve,
@@ -60,6 +66,8 @@
 	class={[
 		styles.item,
 		selected && styles.selected,
+		hasUnread && styles.hasUnread,
+		isStreaming && styles.streaming,
 		isMenuOpen && styles.menuOpen,
 		thread.metadata.resolved && styles.resolved
 	]
@@ -161,6 +169,16 @@
 				<span class={styles.messageCount}>{thread.messageCount} messages</span>
 				<span class={styles.dot}>·</span>
 				<span class={styles.time}>{formatRelativeTime(thread.updatedAt)}</span>
+				{#if isStreaming || hasUnread}
+					<span class={styles.indicators} aria-hidden="true">
+						{#if isStreaming}
+							<span class={[styles.indicatorDot, styles.streamingDot].join(' ')}></span>
+						{/if}
+						{#if hasUnread}
+							<span class={[styles.indicatorDot, styles.unreadDot].join(' ')}></span>
+						{/if}
+					</span>
+				{/if}
 			</span>
 		</div>
 	</button>

@@ -162,13 +162,15 @@
 	flex: 1;
 	min-width: 0;
 	display: flex;
-	align-items: baseline;
+	align-items: center;
 	gap: var(--space-2);
 	/* Ensure consistent vertical rhythm */
 	padding-top: 1px;
 }
 
 .title {
+	flex: 1;
+	min-width: 0;
 	font-size: 13px;
 	font-weight: 500;
 	color: var(--color-text-secondary);
@@ -188,6 +190,8 @@
 	display: flex;
 	align-items: center;
 	gap: 6px;
+	flex-shrink: 0;
+	white-space: nowrap;
 	font-size: 11px;
 	color: var(--color-text-quaternary);
 	opacity: 0; /* Hide meta by default for cleaner look, reveal on hover/selected */
@@ -217,8 +221,9 @@
 
 /* Status chips - compact inline indicators */
 .statusChips {
-	display: inline-flex;
+	display: flex;
 	align-items: center;
+	flex-wrap: nowrap;
 	gap: 6px;
 	margin-left: auto; /* Push to right */
 }
@@ -232,6 +237,7 @@
 .chip {
 	display: inline-flex;
 	align-items: center;
+	white-space: nowrap;
 	padding: 2px 6px;
 	border-radius: 4px;
 	font-size: 10px;
@@ -242,8 +248,9 @@
 }
 
 .chipOpen {
-	color: var(--color-primary-600);
-	background: var(--color-primary-50);
+	color: var(--color-status-open-text);
+	background: var(--color-status-open-bg);
+	border: 1px solid var(--color-border-subtle);
 }
 
 .chipResolved {

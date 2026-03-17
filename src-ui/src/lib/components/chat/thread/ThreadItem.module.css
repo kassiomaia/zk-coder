@@ -103,6 +103,20 @@
 	background: rgba(0, 0, 0, 0.07);
 }
 
+.hasUnread {
+}
+
+.streaming {
+}
+
+.item.hasUnread:not(.selected) .button {
+	background: var(--color-accent-primary-glow-light);
+}
+
+.item.hasUnread:not(.selected) .title {
+	color: var(--color-text-primary);
+}
+
 .button:focus-visible {
 	outline: 2px solid var(--color-primary-500);
 	outline-offset: -2px;
@@ -179,6 +193,10 @@
 	opacity: 1;
 }
 
+.item.streaming .meta {
+	opacity: 1;
+}
+
 .messageCount {
 	display: none; /* Hide for cleaner look, or maybe show on hover? */
 }
@@ -191,6 +209,40 @@
 	white-space: nowrap;
 	font-variant-numeric: tabular-nums;
 	letter-spacing: -0.01em;
+}
+
+.indicators {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.indicatorDot {
+	width: 6px;
+	height: 6px;
+	border-radius: 999px;
+}
+
+.streamingDot {
+	background: var(--color-accent-primary);
+	animation: streamingPulse 1.3s ease-in-out infinite;
+}
+
+.unreadDot {
+	background: var(--color-info);
+	box-shadow: 0 0 0 2px var(--color-accent-primary-glow-light);
+}
+
+@keyframes streamingPulse {
+	0%,
+	100% {
+		transform: scale(0.9);
+		opacity: 0.6;
+	}
+	50% {
+		transform: scale(1.1);
+		opacity: 1;
+	}
 }
 
 /* Responsive */
@@ -210,7 +262,8 @@
 	.icon,
 	.item,
 	.title,
-	.meta {
+	.meta,
+	.streamingDot {
 		transition: none;
 		animation: none;
 		transform: none;

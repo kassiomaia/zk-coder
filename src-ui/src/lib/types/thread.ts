@@ -161,6 +161,10 @@ export interface ConversationSidebarProps {
 	selectedId?: string;
 	/** Threads for the selected conversation (for inline rendering) */
 	threadsForSelected?: Thread[];
+	/** Thread IDs currently receiving streamed responses */
+	activeStreamingThreadIds?: string[];
+	/** Thread IDs with unseen assistant responses */
+	unreadThreadIds?: string[];
 	/** Currently selected thread ID */
 	selectedThreadId?: string;
 	/** Handler when a conversation is selected */

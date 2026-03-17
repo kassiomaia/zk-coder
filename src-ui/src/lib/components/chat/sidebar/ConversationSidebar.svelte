@@ -24,6 +24,10 @@
 		selectedId?: string;
 		/** Threads for the selected conversation (for inline rendering) */
 		threadsForSelected?: Thread[];
+		/** Thread IDs currently receiving streamed responses */
+		activeStreamingThreadIds?: string[];
+		/** Thread IDs with unseen assistant responses */
+		unreadThreadIds?: string[];
 		/** Currently selected thread ID */
 		selectedThreadId?: string;
 		/** Handler when a conversation is selected */
@@ -64,6 +68,8 @@
 		conversations,
 		selectedId,
 		threadsForSelected = [],
+		activeStreamingThreadIds = [],
+		unreadThreadIds = [],
 		selectedThreadId,
 		onSelect,
 		onOpenChat,
@@ -90,9 +96,6 @@
 	let hasSelectedConversation = $derived(!!selectedId);
 	let hasSelectedThread = $derived(!!selectedThreadId);
 	let hasThreads = $derived(threadsForSelected.length > 0);
-
-	let openThreadCount = $derived(threadsForSelected.filter((t) => !t.metadata.resolved).length);
-	let resolvedThreadCount = $derived(threadsForSelected.filter((t) => t.metadata.resolved).length);
 
 	let statusText = $derived(() => {
 		if (hasSelectedThread) return 'Active thread';
@@ -137,6 +140,7 @@
 		];
 
 		for (const conv of convList) {
+			if (!conv || !conv.updatedAt) continue;
 			const date = new Date(conv.updatedAt);
 
 			if (date >= today) {
@@ -287,15 +291,15 @@
 									ondelete={onDelete ? () => onDelete(conv) : undefined}
 									onrename={onRename ? (title) => onRename(conv, title) : undefined}
 									onarchive={onArchive ? () => onArchive(conv) : undefined}
-									style="animation-delay: calc({(groupOffset + index)} * var(--stagger-normal))"
+									style="animation-delay: calc({groupOffset + index} * var(--stagger-normal))"
 									ariaExpanded={isExpanded}
 									ariaControls={isExpanded ? 'inline-threads' : undefined}
-									openThreadCount={isExpanded ? openThreadCount : 0}
-									resolvedThreadCount={isExpanded ? resolvedThreadCount : 0}
 								/>
 								{#if conv.id === selectedId && hasThreads && onSelectThread}
 									<InlineThreadList
 										threads={threadsForSelected}
+										{activeStreamingThreadIds}
+										{unreadThreadIds}
 										{selectedThreadId}
 										expanded={true}
 										{onSelectThread}

@@ -18,6 +18,10 @@
 	interface Props {
 		/** List of threads to display */
 		threads: Thread[];
+		/** Thread IDs currently receiving streamed responses */
+		activeStreamingThreadIds?: string[];
+		/** Thread IDs with unseen assistant responses */
+		unreadThreadIds?: string[];
 		/** Currently selected thread ID */
 		selectedThreadId?: string;
 		/** Whether the thread list is expanded */
@@ -36,6 +40,8 @@
 
 	let {
 		threads,
+		activeStreamingThreadIds = [],
+		unreadThreadIds = [],
 		selectedThreadId,
 		expanded = true,
 		onSelectThread,
@@ -68,6 +74,8 @@
 						{thread}
 						variant="inline"
 						selected={thread.id === selectedThreadId}
+						isStreaming={activeStreamingThreadIds.includes(thread.id)}
+						hasUnread={unreadThreadIds.includes(thread.id) && thread.id !== selectedThreadId}
 						onclick={() => onSelectThread(thread)}
 						onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
 						onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
