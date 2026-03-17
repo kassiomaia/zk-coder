@@ -19,6 +19,9 @@ use crate::storage::ConfigStore;
 // Re-export ChatState for use in this module
 use super::ChatState;
 
+/// Environment flag for enabling the orchestrated runner path.
+const ORCHESTRATOR_FLAG_ENV: &str = "CODER_LLM_ORCHESTRATOR";
+
 /// Application state for LLM commands.
 pub struct LlmState {
     /// Config store for provider/model lookup
@@ -40,7 +43,7 @@ impl LlmState {
         Ok(Self {
             config_store: Arc::new(Mutex::new(config_store)),
             active_requests: Arc::new(Mutex::new(HashMap::new())),
-            runner: Arc::new(LegacyConversationRunner),
+            runner: select_runner_from_env(),
         })
     }
 
@@ -54,7 +57,7 @@ impl LlmState {
         Ok(Self {
             config_store: Arc::new(Mutex::new(config_store)),
             active_requests: Arc::new(Mutex::new(HashMap::new())),
-            runner: Arc::new(LegacyConversationRunner),
+            runner: select_runner_from_env(),
         })
     }
 }
@@ -98,6 +101,61 @@ impl ConversationRunner for LegacyConversationRunner {
         app_handle: AppHandle,
     ) -> BoxFuture<'a, Result<String, String>> {
         Box::pin(async move { send_chat_message_streaming_legacy(request, app_handle).await })
+    }
+}
+
+/// Orchestrated runner stub (Step 2b).
+///
+/// This placeholder keeps behavior identical by delegating to legacy handlers,
+/// while providing a dedicated integration point for the future tool loop.
+pub struct OrchestratedConversationRunner;
+
+impl ConversationRunner for OrchestratedConversationRunner {
+    fn send_chat_message<'a>(
+        &'a self,
+        request: SendChatRequest,
+        app_handle: AppHandle,
+    ) -> BoxFuture<'a, Result<SendChatResponse, String>> {
+        Box::pin(async move {
+            info!(
+                "[LLM] Orchestrated runner enabled (stub): delegating non-streaming request to legacy path"
+            );
+            send_chat_message_legacy(request, app_handle).await
+        })
+    }
+
+    fn send_chat_message_streaming<'a>(
+        &'a self,
+        request: SendChatRequest,
+        app_handle: AppHandle,
+    ) -> BoxFuture<'a, Result<String, String>> {
+        Box::pin(async move {
+            info!(
+                "[LLM] Orchestrated runner enabled (stub): delegating streaming request to legacy path"
+            );
+            send_chat_message_streaming_legacy(request, app_handle).await
+        })
+    }
+}
+
+/// Parses common truthy values from an environment variable.
+fn parse_env_flag(value: Option<&str>) -> bool {
+    match value.map(str::trim).map(|v| v.to_ascii_lowercase()) {
+        Some(v) => matches!(v.as_str(), "1" | "true" | "yes" | "on"),
+        None => false,
+    }
+}
+
+/// Selects the runner strategy from environment configuration.
+fn select_runner_from_env() -> Arc<dyn ConversationRunner> {
+    if parse_env_flag(std::env::var(ORCHESTRATOR_FLAG_ENV).ok().as_deref()) {
+        info!(
+            "[LLM] {}=true -> using OrchestratedConversationRunner stub",
+            ORCHESTRATOR_FLAG_ENV
+        );
+        Arc::new(OrchestratedConversationRunner)
+    } else {
+        Arc::new(LegacyConversationRunner)
     }
 }
 
@@ -665,6 +723,21 @@ mod tests {
     fn test_llm_state_creation() {
         let state = LlmState::in_memory();
         assert!(state.is_ok());
+    }
+
+    #[test]
+    fn test_parse_env_flag_truthy_values() {
+        for value in ["1", "true", "TRUE", "yes", "on", " On "] {
+            assert!(parse_env_flag(Some(value)), "expected truthy for {}", value);
+        }
+    }
+
+    #[test]
+    fn test_parse_env_flag_falsy_values() {
+        for value in ["0", "false", "no", "off", "", "unexpected"] {
+            assert!(!parse_env_flag(Some(value)), "expected falsy for {}", value);
+        }
+        assert!(!parse_env_flag(None));
     }
 
     #[test]
