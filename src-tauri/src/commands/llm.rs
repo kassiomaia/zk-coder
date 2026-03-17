@@ -2,6 +2,7 @@
 //!
 //! This module provides Tauri commands for LLM chat completions and streaming.
 
+use futures::future::BoxFuture;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -24,6 +25,8 @@ pub struct LlmState {
     pub config_store: Arc<Mutex<ConfigStore>>,
     /// Active streaming tasks keyed by request ID for cancellation.
     pub active_requests: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
+    /// Conversation runner strategy (legacy single-turn by default).
+    pub runner: Arc<dyn ConversationRunner>,
 }
 
 impl LlmState {
@@ -37,6 +40,7 @@ impl LlmState {
         Ok(Self {
             config_store: Arc::new(Mutex::new(config_store)),
             active_requests: Arc::new(Mutex::new(HashMap::new())),
+            runner: Arc::new(LegacyConversationRunner),
         })
     }
 
@@ -50,7 +54,50 @@ impl LlmState {
         Ok(Self {
             config_store: Arc::new(Mutex::new(config_store)),
             active_requests: Arc::new(Mutex::new(HashMap::new())),
+            runner: Arc::new(LegacyConversationRunner),
         })
+    }
+}
+
+/// Abstraction for conversation execution strategy.
+///
+/// This enables branch-by-abstraction migration from the legacy single-turn
+/// implementation to future orchestrated/tool-capable runners without changing
+/// command signatures.
+pub trait ConversationRunner: Send + Sync {
+    /// Handles a non-streaming chat request.
+    fn send_chat_message<'a>(
+        &'a self,
+        request: SendChatRequest,
+        app_handle: AppHandle,
+    ) -> BoxFuture<'a, Result<SendChatResponse, String>>;
+
+    /// Handles a streaming chat request.
+    fn send_chat_message_streaming<'a>(
+        &'a self,
+        request: SendChatRequest,
+        app_handle: AppHandle,
+    ) -> BoxFuture<'a, Result<String, String>>;
+}
+
+/// Legacy runner that preserves the current request/response behavior.
+pub struct LegacyConversationRunner;
+
+impl ConversationRunner for LegacyConversationRunner {
+    fn send_chat_message<'a>(
+        &'a self,
+        request: SendChatRequest,
+        app_handle: AppHandle,
+    ) -> BoxFuture<'a, Result<SendChatResponse, String>> {
+        Box::pin(async move { send_chat_message_legacy(request, app_handle).await })
+    }
+
+    fn send_chat_message_streaming<'a>(
+        &'a self,
+        request: SendChatRequest,
+        app_handle: AppHandle,
+    ) -> BoxFuture<'a, Result<String, String>> {
+        Box::pin(async move { send_chat_message_streaming_legacy(request, app_handle).await })
     }
 }
 
@@ -219,9 +266,8 @@ fn build_system_prompt_with_feedback(
 // Chat Commands
 // =============================================================================
 
-/// Sends a chat message and returns the complete response (non-streaming).
-#[tauri::command]
-pub async fn send_chat_message(
+/// Legacy implementation for non-streaming chat requests.
+async fn send_chat_message_legacy(
     request: SendChatRequest,
     app_handle: AppHandle,
 ) -> Result<SendChatResponse, String> {
@@ -331,13 +377,22 @@ pub async fn send_chat_message(
     })
 }
 
+/// Sends a chat message and returns the complete response (non-streaming).
+#[tauri::command]
+pub async fn send_chat_message(
+    request: SendChatRequest,
+    app_handle: AppHandle,
+) -> Result<SendChatResponse, String> {
+    let runner = app_handle.state::<LlmState>().runner.clone();
+    runner.send_chat_message(request, app_handle).await
+}
+
 /// Sends a chat message with streaming response.
 /// Events are emitted: llm:started, llm:chunk, llm:complete, llm:error
 ///
 /// Note: The frontend is responsible for saving the user message BEFORE calling this.
 /// This function only saves the assistant message after streaming completes.
-#[tauri::command]
-pub async fn send_chat_message_streaming(
+async fn send_chat_message_streaming_legacy(
     request: SendChatRequest,
     app_handle: AppHandle,
 ) -> Result<String, String> {
@@ -567,6 +622,19 @@ pub async fn send_chat_message_streaming(
     }
 
     Ok(request_id)
+}
+
+/// Sends a chat message with streaming response.
+/// Events are emitted: llm:started, llm:chunk, llm:complete, llm:error
+#[tauri::command]
+pub async fn send_chat_message_streaming(
+    request: SendChatRequest,
+    app_handle: AppHandle,
+) -> Result<String, String> {
+    let runner = app_handle.state::<LlmState>().runner.clone();
+    runner
+        .send_chat_message_streaming(request, app_handle)
+        .await
 }
 
 /// Cancels an in-progress streaming request.
