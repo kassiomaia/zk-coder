@@ -9,23 +9,34 @@ use thiserror::Error;
 
 use super::context::ConversationContext;
 use super::intent::{Intent, IntentClassification, IntentParams};
+use super::llm_gateway::{NlpLlmError, NlpLlmGateway};
 use super::patterns::IntentPatterns;
-use crate::ai::{ClaudeClient, ClaudeError};
+use crate::ai::ClaudeClient;
 
 /// Intent classifier combining pattern matching and AI.
 pub struct IntentClassifier {
-    /// Claude API client
-    claude: Arc<ClaudeClient>,
+    /// LLM gateway for slow-path classification
+    gateway: Arc<dyn NlpLlmGateway + Send + Sync>,
     /// Pattern matcher for fast-path classification
     patterns: IntentPatterns,
 }
 
 impl IntentClassifier {
-    /// Creates a new intent classifier.
+    /// Creates a new intent classifier from a legacy Claude client.
+    ///
+    /// This compatibility constructor is kept temporarily while NLP state wiring
+    /// is migrated to the shared LLM layer.
     #[must_use]
     pub fn new(claude: Arc<ClaudeClient>) -> Self {
+        let gateway = Arc::new(LegacyClaudeGateway { claude });
+        Self::with_gateway(gateway)
+    }
+
+    /// Creates a new intent classifier with an abstract NLP LLM gateway.
+    #[must_use]
+    pub fn with_gateway(gateway: Arc<dyn NlpLlmGateway + Send + Sync>) -> Self {
         Self {
-            claude,
+            gateway,
             patterns: IntentPatterns::new(),
         }
     }
@@ -93,7 +104,7 @@ impl IntentClassifier {
     ) -> Result<IntentClassification, ClassifierError> {
         let system_prompt = self.build_prompt(context);
         let response = self
-            .claude
+            .gateway
             .complete(&system_prompt, input)
             .await
             .map_err(ClassifierError::AiError)?;
@@ -211,19 +222,39 @@ struct ClassificationResponse {
 pub enum ClassifierError {
     /// AI error
     #[error("AI error: {0}")]
-    AiError(#[from] ClaudeError),
+    AiError(#[from] NlpLlmError),
     /// Parse error
     #[error("Parse error: {0}")]
     ParseError(String),
 }
 
+/// Temporary adapter from legacy Claude client to NLP gateway.
+struct LegacyClaudeGateway {
+    claude: Arc<ClaudeClient>,
+}
+
+impl NlpLlmGateway for LegacyClaudeGateway {
+    fn complete<'a>(
+        &'a self,
+        system: &'a str,
+        user: &'a str,
+    ) -> futures::future::BoxFuture<'a, Result<String, NlpLlmError>> {
+        Box::pin(async move {
+            self.claude
+                .complete(system, user)
+                .await
+                .map_err(|e| NlpLlmError::Llm(crate::llm::LlmError::Internal(e.to_string())))
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nlp::test_utils;
+    use crate::nlp::test_utils::{self, fixed_gateway};
 
     fn create_test_classifier() -> IntentClassifier {
-        IntentClassifier::new(Arc::new(ClaudeClient::new("test-key")))
+        IntentClassifier::with_gateway(fixed_gateway("{}"))
     }
 
     #[test]
