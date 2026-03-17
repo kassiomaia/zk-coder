@@ -5,13 +5,12 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::ai::ClaudeClient;
 use crate::nlp::{
     Ambiguity, AmbiguityResolver, CodeAnalyzer, CodeUnderstanding, ContextManager, ContextMessage,
     ConversationContext, IntentClassification, IntentClassifier, MessageRole, MultiIntentDetector,
-    MultiIntentResult, NlpLlmError, NlpLlmGateway, ProgrammingLanguage, ResolutionType,
-    ResolvedAmbiguity,
+    MultiIntentResult, NlpLlmGateway, ProgrammingLanguage, ResolutionType, ResolvedAmbiguity,
 };
+use crate::nlp::llm_gateway::ConfigBackedNlpLlmGateway;
 use crate::storage::ContextStore;
 
 /// Application state for NLP commands.
@@ -36,11 +35,11 @@ impl NlpState {
     /// # Errors
     ///
     /// Returns an error if initialization fails.
-    pub fn new(api_key: &str, db_path: &str) -> Result<Self, String> {
-        let claude = Arc::new(ClaudeClient::new(api_key));
-        let gateway: Arc<dyn NlpLlmGateway + Send + Sync> =
-            Arc::new(LegacyClaudeGateway { claude });
-        let store = ContextStore::new(db_path).map_err(|e| e.to_string())?;
+    pub fn new(config_db_path: &str, context_db_path: &str) -> Result<Self, String> {
+        let gateway: Arc<dyn NlpLlmGateway + Send + Sync> = Arc::new(
+            ConfigBackedNlpLlmGateway::new(config_db_path).map_err(|e| e.to_string())?,
+        );
+        let store = ContextStore::new(context_db_path).map_err(|e| e.to_string())?;
         let code_analyzer = CodeAnalyzer::new().map_err(|e| e.to_string())?;
 
         Ok(Self {
@@ -53,33 +52,34 @@ impl NlpState {
         })
     }
 
-    /// Creates a new NLP state with defaults for development.
+    /// Creates a new NLP state with in-memory storage (tests only).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if initialization fails.
+    pub fn in_memory() -> Result<Self, String> {
+        let gateway: Arc<dyn NlpLlmGateway + Send + Sync> =
+            Arc::new(ConfigBackedNlpLlmGateway::in_memory().map_err(|e| e.to_string())?);
+        let store = ContextStore::in_memory().map_err(|e| e.to_string())?;
+        let code_analyzer = CodeAnalyzer::new().map_err(|e| e.to_string())?;
+
+        Ok(Self {
+            classifier: IntentClassifier::new(Arc::clone(&gateway)),
+            context_manager: ContextManager::new(store, Arc::clone(&gateway)),
+            multi_detector: MultiIntentDetector::new(gateway),
+            ambiguity_resolver: AmbiguityResolver::new(),
+            code_analyzer,
+            project_files: Arc::new(Mutex::new(Vec::new())),
+        })
+    }
+
+    /// Creates a new NLP state using a single development DB path.
     ///
     /// # Errors
     ///
     /// Returns an error if initialization fails.
     pub fn new_dev(db_path: &str) -> Result<Self, String> {
-        Self::new("dev-api-key", db_path)
-    }
-}
-
-/// Temporary adapter from legacy Claude client to NLP gateway.
-struct LegacyClaudeGateway {
-    claude: Arc<ClaudeClient>,
-}
-
-impl NlpLlmGateway for LegacyClaudeGateway {
-    fn complete<'a>(
-        &'a self,
-        system: &'a str,
-        user: &'a str,
-    ) -> futures::future::BoxFuture<'a, Result<String, NlpLlmError>> {
-        Box::pin(async move {
-            self.claude
-                .complete(system, user)
-                .await
-                .map_err(|e| NlpLlmError::Llm(crate::llm::LlmError::Internal(e.to_string())))
-        })
+        Self::new(db_path, db_path)
     }
 }
 
@@ -280,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_nlp_state_creation() {
-        let state = NlpState::new_dev(":memory:");
+        let state = NlpState::in_memory();
         assert!(state.is_ok());
     }
 }
