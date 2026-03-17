@@ -8,14 +8,15 @@ use thiserror::Error;
 
 use super::context::ConversationContext;
 use super::intent::Intent;
+use super::llm_gateway::{NlpLlmError, NlpLlmGateway};
 use super::multi_intent::{DetectedIntent, IntentRelationship, MultiIntentResult, TextSpan};
 use super::patterns::IntentPatterns;
-use crate::ai::{ClaudeClient, ClaudeError};
+use crate::ai::ClaudeClient;
 
 /// Multi-intent detector.
 pub struct MultiIntentDetector {
-    /// Claude client for AI detection
-    claude: Arc<ClaudeClient>,
+    /// LLM gateway for multi-intent decomposition
+    gateway: Arc<dyn NlpLlmGateway + Send + Sync>,
     /// Pattern matcher for fast-path
     patterns: IntentPatterns,
     /// Conjunction words that indicate multiple intents
@@ -23,11 +24,21 @@ pub struct MultiIntentDetector {
 }
 
 impl MultiIntentDetector {
-    /// Creates a new multi-intent detector.
+    /// Creates a new multi-intent detector from a legacy Claude client.
+    ///
+    /// This compatibility constructor is kept temporarily while NLP state wiring
+    /// is migrated to the shared LLM layer.
     #[must_use]
     pub fn new(claude: Arc<ClaudeClient>) -> Self {
+        let gateway = Arc::new(LegacyClaudeGateway { claude });
+        Self::with_gateway(gateway)
+    }
+
+    /// Creates a new multi-intent detector with an abstract NLP LLM gateway.
+    #[must_use]
+    pub fn with_gateway(gateway: Arc<dyn NlpLlmGateway + Send + Sync>) -> Self {
         Self {
-            claude,
+            gateway,
             patterns: IntentPatterns::new(),
             conjunctions: vec![" and ", " then ", " after ", " before ", " while "],
         }
@@ -49,8 +60,11 @@ impl MultiIntentDetector {
             return Ok(self.detect_single(input));
         }
 
-        // Multi-intent: use AI
-        self.detect_with_ai(input, context).await
+        // Multi-intent: use AI with deterministic fallback.
+        match self.detect_with_ai(input, context).await {
+            Ok(result) => Ok(result),
+            Err(_) => Ok(self.detect_single(input)),
+        }
     }
 
     fn has_conjunctions(&self, input: &str) -> bool {
@@ -76,7 +90,7 @@ impl MultiIntentDetector {
     ) -> Result<MultiIntentResult, DetectorError> {
         let prompt = self.build_prompt(input, context);
         let response = self
-            .claude
+            .gateway
             .complete(
                 "You are a multi-intent detector for developer commands.",
                 &prompt,
@@ -186,19 +200,39 @@ struct SpanItem {
 pub enum DetectorError {
     /// AI error
     #[error("AI error: {0}")]
-    AiError(#[from] ClaudeError),
+    AiError(#[from] NlpLlmError),
     /// Parse error
     #[error("Parse error: {0}")]
     ParseError(String),
 }
 
+/// Temporary adapter from legacy Claude client to NLP gateway.
+struct LegacyClaudeGateway {
+    claude: Arc<ClaudeClient>,
+}
+
+impl NlpLlmGateway for LegacyClaudeGateway {
+    fn complete<'a>(
+        &'a self,
+        system: &'a str,
+        user: &'a str,
+    ) -> futures::future::BoxFuture<'a, Result<String, NlpLlmError>> {
+        Box::pin(async move {
+            self.claude
+                .complete(system, user)
+                .await
+                .map_err(|e| NlpLlmError::Llm(crate::llm::LlmError::Internal(e.to_string())))
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nlp::test_utils;
+    use crate::nlp::test_utils::{empty_context, failing_gateway, fixed_gateway};
 
     fn create_test_detector() -> MultiIntentDetector {
-        MultiIntentDetector::new(Arc::new(ClaudeClient::new("test-key")))
+        MultiIntentDetector::with_gateway(fixed_gateway("{}"))
     }
 
     #[test]
@@ -222,7 +256,7 @@ mod tests {
     #[tokio::test]
     async fn test_detect_no_conjunctions() {
         let detector = create_test_detector();
-        let context = test_utils::empty_context();
+        let context = empty_context();
 
         let result = detector
             .detect("explain this code", &context)
@@ -237,6 +271,20 @@ mod tests {
         let result = detector
             .parse_response("not-json-response", "find bugs and then fix them")
             .expect("Fallback should parse");
+
+        assert!(!result.is_multi());
+        assert_eq!(result.intents.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn llm_failure_falls_back_to_single_intent() {
+        let detector = MultiIntentDetector::with_gateway(failing_gateway("gateway unavailable"));
+        let context = empty_context();
+
+        let result = detector
+            .detect("find bugs and then write tests", &context)
+            .await
+            .expect("Should return fallback result");
 
         assert!(!result.is_multi());
         assert_eq!(result.intents.len(), 1);
