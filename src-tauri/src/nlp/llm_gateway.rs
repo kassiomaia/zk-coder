@@ -89,7 +89,7 @@ impl ConfigBackedNlpLlmGateway {
 
     async fn resolve_completion_target(&self) -> Result<CompletionTarget, NlpLlmError> {
         let store = self.config_store.lock().await;
-        let model = resolve_code_operation_model(&store)?;
+        let model = resolve_nlp_operation_model(&store)?;
 
         let provider = store
             .get_provider(&model.provider_id)
@@ -133,23 +133,41 @@ impl NlpLlmGateway for ConfigBackedNlpLlmGateway {
     }
 }
 
-fn resolve_code_operation_model(store: &ConfigStore) -> Result<Model, NlpLlmError> {
+fn resolve_nlp_operation_model(store: &ConfigStore) -> Result<Model, NlpLlmError> {
     let defaults = store
         .get_operation_defaults()
         .map_err(|e| NlpLlmError::Store(e.to_string()))?;
 
-    let default = defaults
+    let analysis_default = defaults
+        .into_iter()
+        .find(|d| d.operation == OperationType::Analysis);
+
+    if let Some(default) = analysis_default {
+        let model_id = default.model_id.ok_or_else(|| {
+            NlpLlmError::ModelConfig("Analysis operation has no configured model".to_string())
+        })?;
+        return store
+            .get_model(&model_id)
+            .map_err(|e| NlpLlmError::Store(e.to_string()))?
+            .ok_or_else(|| NlpLlmError::ModelConfig(format!("Model '{}' not found", model_id)));
+    }
+
+    let defaults = store
+        .get_operation_defaults()
+        .map_err(|e| NlpLlmError::Store(e.to_string()))?;
+    let code_default = defaults
         .into_iter()
         .find(|d| d.operation == OperationType::Code)
         .ok_or_else(|| {
             NlpLlmError::ModelConfig(
-                "No model configured for 'code' operation. Configure a model first.".to_string(),
+                "No model configured for NLP operations. Configure an 'analysis' or 'code' default model."
+                    .to_string(),
             )
         })?;
 
-    let model_id = default.model_id.ok_or_else(|| {
-        NlpLlmError::ModelConfig("Code operation has no configured model".to_string())
-    })?;
+    let model_id = code_default
+        .model_id
+        .ok_or_else(|| NlpLlmError::ModelConfig("Code operation has no configured model".to_string()))?;
 
     store
         .get_model(&model_id)
@@ -204,5 +222,43 @@ mod tests {
             .expect_err("Should fail without operation default");
 
         assert!(matches!(error, NlpLlmError::ModelConfig(_)));
+    }
+
+    #[tokio::test]
+    async fn prefers_analysis_operation_when_available() {
+        let gateway = ConfigBackedNlpLlmGateway::in_memory().expect("Should create gateway");
+        let store = gateway.config_store.lock().await;
+
+        let analysis_model = Model::new("openai", "gpt-4.1", ModelCapabilities::default());
+        let code_model = Model::new("openai", "gpt-4", ModelCapabilities::default());
+        store
+            .save_models("openai", &[analysis_model, code_model])
+            .expect("Should save models");
+        store
+            .set_operation_default(OperationType::Analysis, "openai-gpt-4-1")
+            .expect("Should set analysis default");
+        store
+            .set_operation_default(OperationType::Code, "openai-gpt-4")
+            .expect("Should set code default");
+        store
+            .store_api_key("openai", "test-key")
+            .expect("Should store API key");
+        drop(store);
+
+        let target = gateway
+            .resolve_completion_target()
+            .await
+            .expect("Should resolve target");
+        assert_eq!(target.model.id, "openai-gpt-4-1");
+    }
+
+    #[tokio::test]
+    async fn falls_back_to_code_when_analysis_is_not_configured() {
+        let gateway = create_configured_gateway().await;
+        let target = gateway
+            .resolve_completion_target()
+            .await
+            .expect("Should resolve target");
+        assert_eq!(target.model.id, "openai-gpt-4");
     }
 }
