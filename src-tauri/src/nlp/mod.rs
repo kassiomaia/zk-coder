@@ -14,6 +14,7 @@ pub mod context;
 pub mod context_manager;
 pub mod execution_planner;
 pub mod intent;
+pub mod llm_gateway;
 pub mod multi_detector;
 pub mod multi_intent;
 pub mod nl_to_code;
@@ -37,6 +38,7 @@ pub use context::{ContextMessage, ContextWindow, ConversationContext, MessageRol
 pub use context_manager::{ContextError, ContextManager};
 pub use execution_planner::{ExecutionPlan, ExecutionPlanner};
 pub use intent::{Intent, IntentClassification, IntentParams};
+pub use llm_gateway::{NlpLlmError, NlpLlmGateway};
 pub use multi_detector::{DetectorError, MultiIntentDetector};
 pub use multi_intent::{DetectedIntent, IntentRelationship, MultiIntentResult, TextSpan};
 pub use nl_to_code::{CodeConcept, NLToCodeMapper};
