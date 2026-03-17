@@ -3,11 +3,13 @@
 //! This module provides Tauri commands for LLM chat completions and streaming.
 
 use futures::future::BoxFuture;
+use regex::Regex;
 use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -33,6 +35,8 @@ const ORCHESTRATOR_FLAG_ENV: &str = "CODER_LLM_ORCHESTRATOR";
 const ORCHESTRATOR_TOOL_REGISTRY_ENV: &str = "CODER_LLM_TOOL_REGISTRY";
 /// Optional workspace root override for workspace-scoped tool handlers.
 const ORCHESTRATOR_WORKSPACE_ROOT_ENV: &str = "CODER_LLM_TOOL_WORKSPACE_ROOT";
+/// Dev-only flag enabling keyless Google scraping tool registration.
+const ORCHESTRATOR_GOOGLE_SCRAPE_TOOL_ENV: &str = "CODER_LLM_TOOL_GOOGLE_SCRAPE";
 /// Safety bound for orchestrated request loops.
 const ORCHESTRATOR_MAX_STEPS: usize = 6;
 
@@ -466,6 +470,36 @@ impl ToolRegistry {
             },
         );
 
+        if parse_env_flag(
+            std::env::var(ORCHESTRATOR_GOOGLE_SCRAPE_TOOL_ENV)
+                .ok()
+                .as_deref(),
+        ) {
+            let google_search_name = "google_web_search_scrape".to_string();
+            tools.insert(
+                google_search_name.clone(),
+                ToolRegistration {
+                    definition: LlmToolDefinition {
+                        name: google_search_name,
+                        description:
+                            "Dev-only keyless Google web search using HTML scraping (unstable)."
+                                .to_string(),
+                        input_schema: serde_json::json!({
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "query": { "type": "string" },
+                                "num_results": { "type": "integer", "minimum": 1, "maximum": 10 },
+                                "language": { "type": "string" }
+                            },
+                            "required": ["query"]
+                        }),
+                    },
+                    handler: google_web_search_scrape_tool,
+                },
+            );
+        }
+
         tools
     }
 }
@@ -478,6 +512,9 @@ const TOOL_DEFAULT_LIST_LIMIT: usize = 200;
 const TOOL_MAX_LIST_LIMIT: usize = 500;
 const TOOL_DEFAULT_MESSAGE_SEARCH_LIMIT: usize = 20;
 const TOOL_MAX_MESSAGE_SEARCH_LIMIT: usize = 100;
+const TOOL_DEFAULT_GOOGLE_RESULTS_LIMIT: usize = 5;
+const TOOL_MAX_GOOGLE_RESULTS_LIMIT: usize = 10;
+const TOOL_WEB_TIMEOUT_SECONDS: u64 = 12;
 
 #[derive(Debug, serde::Deserialize)]
 struct ReadWorkspaceFileArgs {
@@ -503,6 +540,15 @@ struct SearchConversationMessagesArgs {
     limit: usize,
 }
 
+#[derive(Debug, serde::Deserialize)]
+struct GoogleWebSearchScrapeArgs {
+    query: String,
+    #[serde(default = "default_tool_google_results_limit")]
+    num_results: usize,
+    #[serde(default)]
+    language: Option<String>,
+}
+
 const fn default_tool_read_max_bytes() -> usize {
     TOOL_DEFAULT_READ_MAX_BYTES
 }
@@ -517,6 +563,10 @@ const fn default_tool_list_limit() -> usize {
 
 const fn default_tool_message_search_limit() -> usize {
     TOOL_DEFAULT_MESSAGE_SEARCH_LIMIT
+}
+
+const fn default_tool_google_results_limit() -> usize {
+    TOOL_DEFAULT_GOOGLE_RESULTS_LIMIT
 }
 
 fn parse_tool_args<T>(tool_name: &str, arguments: serde_json::Value) -> Result<T, String>
@@ -774,6 +824,182 @@ fn search_conversation_messages_tool(
             "query": args.query,
             "count": matches.len(),
             "matches": matches,
+        }))
+    })
+}
+
+fn decode_html_entities(input: &str) -> String {
+    input
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&nbsp;", " ")
+}
+
+fn strip_html_tags(input: &str) -> String {
+    let without_tags = Regex::new(r"<[^>]+>").ok().map_or_else(
+        || input.to_string(),
+        |tag_re| tag_re.replace_all(input, "").to_string(),
+    );
+    let decoded = decode_html_entities(without_tags.as_ref());
+    decoded.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn extract_google_result_url(encoded_href_query: &str) -> Option<String> {
+    let decoded = decode_html_entities(encoded_href_query);
+    let query = if decoded.starts_with("q=") {
+        decoded
+    } else {
+        format!("q={}", decoded)
+    };
+    let url = reqwest::Url::parse(&format!("https://www.google.com/url?{}", query)).ok()?;
+    for (key, value) in url.query_pairs() {
+        if key == "q" && (value.starts_with("http://") || value.starts_with("https://")) {
+            return Some(value.into_owned());
+        }
+    }
+    None
+}
+
+fn parse_google_search_results(html: &str, limit: usize) -> Vec<serde_json::Value> {
+    let anchor_prefix = "<a href=\"/url?q=";
+    let mut results = Vec::new();
+    let mut cursor = 0;
+
+    while results.len() < limit {
+        let Some(anchor_offset) = html[cursor..].find(anchor_prefix) else {
+            break;
+        };
+        let anchor_start = cursor + anchor_offset;
+        let href_start = anchor_start + anchor_prefix.len();
+        let Some(href_end_rel) = html[href_start..].find('"') else {
+            break;
+        };
+        let href_end = href_start + href_end_rel;
+        let href_value = &html[href_start..href_end];
+        cursor = href_end.saturating_add(1);
+
+        let Some(url) = extract_google_result_url(href_value) else {
+            continue;
+        };
+
+        let window_end = (anchor_start + 5000).min(html.len());
+        let window = &html[anchor_start..window_end];
+
+        let Some(h3_start_rel) = window.find("<h3") else {
+            continue;
+        };
+        let h3_start = h3_start_rel;
+        let Some(h3_open_end_rel) = window[h3_start..].find('>') else {
+            continue;
+        };
+        let title_start = h3_start + h3_open_end_rel + 1;
+        let Some(title_end_rel) = window[title_start..].find("</h3>") else {
+            continue;
+        };
+        let title_end = title_start + title_end_rel;
+        let title = strip_html_tags(&window[title_start..title_end]);
+        if title.is_empty() {
+            continue;
+        };
+
+        let snippet = window
+            .find("VwiC3b")
+            .and_then(|class_offset| window[class_offset..].find('>').map(|o| class_offset + o))
+            .and_then(|snippet_start| {
+                let content_start = snippet_start + 1;
+                window[content_start..]
+                    .find("</div>")
+                    .map(|snippet_end_rel| (content_start, content_start + snippet_end_rel))
+            })
+            .map(|(start, end)| strip_html_tags(&window[start..end]))
+            .unwrap_or_default();
+
+        results.push(serde_json::json!({
+            "title": title,
+            "url": url,
+            "snippet": snippet,
+            "source": "google_scrape"
+        }));
+    }
+
+    results
+}
+
+fn google_web_search_scrape_tool(
+    _context: ToolExecutionContext,
+    arguments: serde_json::Value,
+    _app_handle: AppHandle,
+    _workspace_root: PathBuf,
+) -> BoxFuture<'static, Result<serde_json::Value, String>> {
+    Box::pin(async move {
+        if !parse_env_flag(
+            std::env::var(ORCHESTRATOR_GOOGLE_SCRAPE_TOOL_ENV)
+                .ok()
+                .as_deref(),
+        ) {
+            return Err(format!(
+                "google_web_search_scrape is disabled. Set {}=1 for dev/test use.",
+                ORCHESTRATOR_GOOGLE_SCRAPE_TOOL_ENV
+            ));
+        }
+
+        let args: GoogleWebSearchScrapeArgs =
+            parse_tool_args("google_web_search_scrape", arguments)?;
+        let query = args.query.trim().to_string();
+        if query.is_empty() {
+            return Err("query cannot be empty".to_string());
+        }
+        let num_results = args.num_results.clamp(1, TOOL_MAX_GOOGLE_RESULTS_LIMIT);
+
+        let mut query_params = vec![
+            ("q", query.clone()),
+            ("num", num_results.to_string()),
+            ("hl", args.language.unwrap_or_else(|| "en".to_string())),
+            ("pws", "0".to_string()),
+            ("safe", "off".to_string()),
+        ];
+        query_params.shrink_to_fit();
+
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(TOOL_WEB_TIMEOUT_SECONDS))
+            .user_agent(
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 \
+                 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            )
+            .build()
+            .map_err(|err| format!("Failed to build web search client: {}", err))?;
+
+        let response = client
+            .get("https://www.google.com/search")
+            .query(&query_params)
+            .send()
+            .await
+            .map_err(|err| format!("Failed to execute Google scrape request: {}", err))?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            return Err(format!(
+                "Google scrape request failed with status {}: {}",
+                status.as_u16(),
+                body.chars().take(200).collect::<String>()
+            ));
+        }
+
+        let html = response
+            .text()
+            .await
+            .map_err(|err| format!("Failed to read Google scrape response: {}", err))?;
+        let results = parse_google_search_results(&html, num_results);
+
+        Ok(serde_json::json!({
+            "query": query,
+            "count": results.len(),
+            "results": results,
+            "warning": "Dev/test scraper: unstable markup and ToS-sensitive."
         }))
     })
 }
@@ -1678,6 +1904,43 @@ mod tests {
         assert!(escaped.is_err());
 
         let _ = std_fs::remove_dir_all(&workspace_root);
+    }
+
+    #[test]
+    fn test_parse_google_search_results_extracts_items() {
+        let html = r#"
+            <html><body>
+                <a href="/url?q=https%3A%2F%2Fexample.com%2Fdocs&sa=U&ved=2ahUKE">
+                  <h3>Example <em>Docs</em></h3>
+                  <div class="VwiC3b yXK7lf">Developer docs for examples.</div>
+                </a>
+                <a href="/url?q=https%3A%2F%2Fexample.org%2Fblog&sa=U&ved=2ahUKE">
+                  <h3>Example Org Blog</h3>
+                  <div class="VwiC3b yXK7lf">Release notes and updates.</div>
+                </a>
+            </body></html>
+        "#;
+
+        let results = parse_google_search_results(html, 5);
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0]["url"], "https://example.com/docs");
+        assert_eq!(results[0]["title"], "Example Docs");
+        assert_eq!(results[0]["snippet"], "Developer docs for examples.");
+    }
+
+    #[test]
+    fn test_extract_google_result_url_invalid_href() {
+        assert!(extract_google_result_url("not-a-query").is_none());
+        assert!(extract_google_result_url("q=javascript:void(0)").is_none());
+    }
+
+    #[test]
+    fn test_extract_google_result_url_valid_href() {
+        let href = "https%3A%2F%2Fexample.com%2Fdocs&sa=U&ved=2ahUKE";
+        assert_eq!(
+            extract_google_result_url(href).as_deref(),
+            Some("https://example.com/docs")
+        );
     }
 
     #[test]
