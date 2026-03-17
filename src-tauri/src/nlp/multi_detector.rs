@@ -195,6 +195,7 @@ pub enum DetectorError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nlp::test_utils;
 
     fn create_test_detector() -> MultiIntentDetector {
         MultiIntentDetector::new(Arc::new(ClaudeClient::new("test-key")))
@@ -221,7 +222,7 @@ mod tests {
     #[tokio::test]
     async fn test_detect_no_conjunctions() {
         let detector = create_test_detector();
-        let context = ConversationContext::new();
+        let context = test_utils::empty_context();
 
         let result = detector
             .detect("explain this code", &context)

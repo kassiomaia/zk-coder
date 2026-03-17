@@ -220,6 +220,7 @@ pub enum ClassifierError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nlp::test_utils;
 
     fn create_test_classifier() -> IntentClassifier {
         IntentClassifier::new(Arc::new(ClaudeClient::new("test-key")))
@@ -260,7 +261,7 @@ mod tests {
     #[tokio::test]
     async fn test_pattern_classification() {
         let classifier = create_test_classifier();
-        let context = ConversationContext::new();
+        let context = test_utils::empty_context();
 
         let result = classifier
             .classify("generate code for authentication", &context)
@@ -286,7 +287,7 @@ mod tests {
     #[tokio::test]
     async fn test_pattern_classification_with_alternatives() {
         let classifier = create_test_classifier();
-        let context = ConversationContext::new();
+        let context = test_utils::context_with_user_messages(&["help me with auth.rs"]);
 
         let result = classifier
             .classify_with_alternatives("generate code for tests", &context)

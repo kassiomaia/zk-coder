@@ -18,11 +18,13 @@ pub mod multi_detector;
 pub mod multi_intent;
 pub mod nl_to_code;
 pub mod patterns;
+#[cfg(test)]
+pub mod test_utils;
 
 // Re-export commonly used types
 pub use ambiguity::{
     Ambiguity, AmbiguitySeverity, AmbiguitySuggestion, AmbiguityType, ClarificationOption,
-    ClarificationRequest, ResolvedAmbiguity, ResolutionType,
+    ClarificationRequest, ResolutionType, ResolvedAmbiguity,
 };
 pub use ambiguity_resolver::AmbiguityResolver;
 pub use classifier::{ClassifierError, IntentClassifier};
@@ -42,8 +44,8 @@ pub use patterns::IntentPatterns;
 
 // Chat types (MessageRole is defined in context module, re-exported here)
 pub use chat::{
-    ChatMessage, Conversation, ConversationSettings, MessageMetadata, MessageStatus,
-    Thread, ThreadMetadata, ThreadPriority,
+    ChatMessage, Conversation, ConversationSettings, MessageMetadata, MessageStatus, Thread,
+    ThreadMetadata, ThreadPriority,
 };
 
 // Config types for LLM provider management
