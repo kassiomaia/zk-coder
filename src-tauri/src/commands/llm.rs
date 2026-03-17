@@ -21,6 +21,8 @@ use super::ChatState;
 
 /// Environment flag for enabling the orchestrated runner path.
 const ORCHESTRATOR_FLAG_ENV: &str = "CODER_LLM_ORCHESTRATOR";
+/// Safety bound for orchestrated request loops.
+const ORCHESTRATOR_MAX_STEPS: usize = 6;
 
 /// Application state for LLM commands.
 pub struct LlmState {
@@ -118,9 +120,10 @@ impl ConversationRunner for OrchestratedConversationRunner {
     ) -> BoxFuture<'a, Result<SendChatResponse, String>> {
         Box::pin(async move {
             info!(
-                "[LLM] Orchestrated runner enabled (stub): delegating non-streaming request to legacy path"
+                "[LLM] Orchestrated runner enabled: executing loop skeleton for non-streaming request"
             );
-            send_chat_message_legacy(request, app_handle).await
+            let tool_executor = NoopToolExecutor;
+            send_chat_message_orchestrated_non_stream(request, app_handle, &tool_executor).await
         })
     }
 
@@ -131,7 +134,7 @@ impl ConversationRunner for OrchestratedConversationRunner {
     ) -> BoxFuture<'a, Result<String, String>> {
         Box::pin(async move {
             info!(
-                "[LLM] Orchestrated runner enabled (stub): delegating streaming request to legacy path"
+                "[LLM] Orchestrated runner enabled: streaming still delegated to legacy path in this phase"
             );
             send_chat_message_streaming_legacy(request, app_handle).await
         })
@@ -156,6 +159,141 @@ fn select_runner_from_env() -> Arc<dyn ConversationRunner> {
         Arc::new(OrchestratedConversationRunner)
     } else {
         Arc::new(LegacyConversationRunner)
+    }
+}
+
+/// Internal representation of a parsed tool call.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OrchestratorToolCall {
+    id: String,
+    name: String,
+    arguments: String,
+}
+
+/// Internal representation of tool execution output.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OrchestratorToolResult {
+    call_id: String,
+    name: String,
+    output: String,
+    is_error: bool,
+}
+
+/// Parses tool-call directives from assistant content.
+///
+/// Current skeleton format:
+/// `<tool_call>{"id":"...","name":"tool","arguments":"{...json...}"}</tool_call>`
+fn parse_tool_calls_from_content(content: &str) -> Vec<OrchestratorToolCall> {
+    #[derive(serde::Deserialize)]
+    struct ToolCallPayload {
+        #[serde(default)]
+        id: Option<String>,
+        name: String,
+        #[serde(default)]
+        arguments: Option<String>,
+    }
+
+    let start_tag = "<tool_call>";
+    let end_tag = "</tool_call>";
+    let mut remaining = content;
+    let mut calls = Vec::new();
+
+    while let Some(start_idx) = remaining.find(start_tag) {
+        let after_start = &remaining[start_idx + start_tag.len()..];
+        let Some(end_idx) = after_start.find(end_tag) else {
+            break;
+        };
+        let raw_payload = after_start[..end_idx].trim();
+        match serde_json::from_str::<ToolCallPayload>(raw_payload) {
+            Ok(payload) => {
+                calls.push(OrchestratorToolCall {
+                    id: payload
+                        .id
+                        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+                    name: payload.name,
+                    arguments: payload.arguments.unwrap_or_else(|| "{}".to_string()),
+                });
+            }
+            Err(err) => {
+                warn!(
+                    "[LLM] Failed to parse tool call payload, ignoring block. error={}",
+                    err
+                );
+            }
+        }
+        remaining = &after_start[end_idx + end_tag.len()..];
+    }
+
+    calls
+}
+
+/// Removes tool-call blocks from assistant-visible content.
+fn strip_tool_call_blocks(content: &str) -> String {
+    let start_tag = "<tool_call>";
+    let end_tag = "</tool_call>";
+    let mut out = String::new();
+    let mut remaining = content;
+
+    while let Some(start_idx) = remaining.find(start_tag) {
+        out.push_str(&remaining[..start_idx]);
+        let after_start = &remaining[start_idx + start_tag.len()..];
+        let Some(end_idx) = after_start.find(end_tag) else {
+            // Unclosed block: drop the marker and stop.
+            break;
+        };
+        remaining = &after_start[end_idx + end_tag.len()..];
+    }
+
+    out.push_str(remaining);
+    out.trim().to_string()
+}
+
+/// Appends tool results to context as system messages for the next model turn.
+fn append_tool_results_to_context(
+    context_messages: &mut Vec<ChatMessage>,
+    conversation_id: &str,
+    results: &[OrchestratorToolResult],
+) {
+    for result in results {
+        let status = if result.is_error { "ERROR" } else { "OK" };
+        let content = format!(
+            "TOOL_RESULT id={} name={} status={}\n{}",
+            result.call_id, result.name, status, result.output
+        );
+        let mut message = ChatMessage::assistant(conversation_id, &content);
+        message.role = MessageRole::System;
+        context_messages.push(message);
+    }
+}
+
+/// Tool execution abstraction for orchestrated turns.
+trait ToolExecutor: Send + Sync {
+    fn execute<'a>(
+        &'a self,
+        call: OrchestratorToolCall,
+        app_handle: AppHandle,
+    ) -> BoxFuture<'a, OrchestratorToolResult>;
+}
+
+/// Default executor placeholder.
+///
+/// Real tool dispatch will be plugged in as dedicated handlers in the next phase.
+struct NoopToolExecutor;
+
+impl ToolExecutor for NoopToolExecutor {
+    fn execute<'a>(
+        &'a self,
+        call: OrchestratorToolCall,
+        _app_handle: AppHandle,
+    ) -> BoxFuture<'a, OrchestratorToolResult> {
+        Box::pin(async move {
+            OrchestratorToolResult {
+                call_id: call.id,
+                name: call.name,
+                output: "Tool execution not implemented yet in this environment".to_string(),
+                is_error: true,
+            }
+        })
     }
 }
 
@@ -323,6 +461,133 @@ fn build_system_prompt_with_feedback(
 // =============================================================================
 // Chat Commands
 // =============================================================================
+
+/// Orchestrated non-streaming execution skeleton with bounded turn loop.
+async fn send_chat_message_orchestrated_non_stream(
+    request: SendChatRequest,
+    app_handle: AppHandle,
+    tool_executor: &dyn ToolExecutor,
+) -> Result<SendChatResponse, String> {
+    info!(
+        "send_chat_message_orchestrated_non_stream: conversation_id={}, model_id={:?}",
+        request.conversation_id, request.model_id
+    );
+
+    // Resolve model/provider as in the legacy path.
+    let llm_state = app_handle.state::<LlmState>();
+    let config_store = llm_state.config_store.lock().await;
+    let model_id = resolve_model_id(request.model_id.clone(), &config_store).await?;
+
+    let model = match config_store.get_model(&model_id) {
+        Ok(Some(m)) => m,
+        Ok(None) => {
+            if let Some(dash_pos) = model_id.find('-') {
+                let provider_id = &model_id[..dash_pos];
+                let model_name = &model_id[dash_pos + 1..];
+                config_store
+                    .get_model_by_name(provider_id, model_name)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| format!("Model '{}' not found", model_id))?
+            } else {
+                return Err(format!("Model '{}' not found", model_id));
+            }
+        }
+        Err(e) => return Err(e.to_string()),
+    };
+
+    let provider = config_store
+        .get_provider(&model.provider_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Provider '{}' not found", model.provider_id))?;
+
+    let api_key = get_api_key_for_provider(&provider.id, &config_store)?;
+    drop(config_store);
+
+    let client = create_client_for_provider(provider.api_type, api_key, provider.base_url);
+    let chat_state = app_handle.state::<ChatState>();
+    let chat_store = chat_state.store.lock().await;
+
+    // Preserve current non-streaming behavior (conversation-level history).
+    let history = chat_store
+        .load_messages(&request.conversation_id)
+        .map_err(|e| e.to_string())?;
+
+    let user_message = ChatMessage::user(&request.conversation_id, &request.content);
+    let mut context_messages = history;
+    context_messages.push(user_message.clone());
+
+    // Persist the user message exactly once.
+    chat_store
+        .add_message(&user_message)
+        .map_err(|e| e.to_string())?;
+
+    drop(chat_store);
+
+    let system_prompt = request.system_prompt.clone().unwrap_or_default();
+    let temperature = request.temperature.unwrap_or(0.7);
+    let max_tokens = request.max_tokens.unwrap_or(4096);
+
+    for step in 1..=ORCHESTRATOR_MAX_STEPS {
+        info!(
+            "[LLM] Orchestrator step {}/{}",
+            step, ORCHESTRATOR_MAX_STEPS
+        );
+
+        let llm_messages = convert_messages(&context_messages);
+        let chat_request = ChatRequest::new(&model.name, llm_messages)
+            .with_system(&system_prompt)
+            .with_temperature(temperature)
+            .with_max_tokens(max_tokens);
+
+        let response: ChatResponse = client.chat(chat_request).await.map_err(|e| {
+            error!(
+                "send_chat_message_orchestrated_non_stream: LLM error: {}",
+                e
+            );
+            e.to_string()
+        })?;
+
+        let tool_calls = parse_tool_calls_from_content(&response.content);
+        if tool_calls.is_empty() {
+            let visible_content = strip_tool_call_blocks(&response.content);
+            let assistant_message =
+                ChatMessage::assistant(&request.conversation_id, &visible_content);
+            let chat_store = chat_state.store.lock().await;
+            chat_store
+                .add_message(&assistant_message)
+                .map_err(|e| e.to_string())?;
+
+            return Ok(SendChatResponse {
+                content: visible_content,
+                model: response.model,
+                usage: response.usage,
+                message: assistant_message,
+            });
+        }
+
+        // Preserve the assistant planning output for subsequent model turns.
+        context_messages.push(ChatMessage::assistant(
+            &request.conversation_id,
+            &response.content,
+        ));
+
+        let mut tool_results = Vec::with_capacity(tool_calls.len());
+        for call in tool_calls {
+            let result = tool_executor.execute(call, app_handle.clone()).await;
+            tool_results.push(result);
+        }
+        append_tool_results_to_context(
+            &mut context_messages,
+            &request.conversation_id,
+            &tool_results,
+        );
+    }
+
+    Err(format!(
+        "Orchestrator exceeded max steps ({}) without final response",
+        ORCHESTRATOR_MAX_STEPS
+    ))
+}
 
 /// Legacy implementation for non-streaming chat requests.
 async fn send_chat_message_legacy(
@@ -738,6 +1003,50 @@ mod tests {
             assert!(!parse_env_flag(Some(value)), "expected falsy for {}", value);
         }
         assert!(!parse_env_flag(None));
+    }
+
+    #[test]
+    fn test_parse_tool_calls_from_content_none() {
+        let content = "Normal assistant response without tools.";
+        let calls = parse_tool_calls_from_content(content);
+        assert!(calls.is_empty());
+    }
+
+    #[test]
+    fn test_parse_tool_calls_from_content_single_block() {
+        let content = r#"Planning...
+<tool_call>{"id":"call-1","name":"search_code","arguments":"{\"query\":\"runner\"}"}</tool_call>
+Done."#;
+        let calls = parse_tool_calls_from_content(content);
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].id, "call-1");
+        assert_eq!(calls[0].name, "search_code");
+        assert_eq!(calls[0].arguments, "{\"query\":\"runner\"}");
+    }
+
+    #[test]
+    fn test_strip_tool_call_blocks() {
+        let content = r#"Before
+<tool_call>{"id":"1","name":"tool","arguments":"{}"}</tool_call>
+After"#;
+        let stripped = strip_tool_call_blocks(content);
+        assert_eq!(stripped, "Before\n\nAfter");
+    }
+
+    #[test]
+    fn test_append_tool_results_to_context() {
+        let mut context = vec![ChatMessage::user("conv-1", "Hi")];
+        let results = vec![OrchestratorToolResult {
+            call_id: "c1".to_string(),
+            name: "search_code".to_string(),
+            output: "{\"ok\":true}".to_string(),
+            is_error: false,
+        }];
+        append_tool_results_to_context(&mut context, "conv-1", &results);
+        assert_eq!(context.len(), 2);
+        assert_eq!(context[1].role, MessageRole::System);
+        assert!(context[1].content.contains("TOOL_RESULT id=c1"));
+        assert!(context[1].content.contains("status=OK"));
     }
 
     #[test]
