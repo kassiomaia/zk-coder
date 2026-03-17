@@ -60,20 +60,12 @@ impl MultiIntentDetector {
 
     fn detect_single(&self, input: &str) -> MultiIntentResult {
         if let Some(intent) = self.patterns.match_input(input) {
-            let detected = DetectedIntent::new(
-                intent.clone(),
-                TextSpan::full(input),
-                0.95,
-            );
+            let detected = DetectedIntent::new(intent.clone(), TextSpan::full(input), 0.95);
             return MultiIntentResult::single(detected);
         }
 
         // Unknown intent
-        let detected = DetectedIntent::new(
-            Intent::Unknown,
-            TextSpan::full(input),
-            0.5,
-        );
+        let detected = DetectedIntent::new(Intent::Unknown, TextSpan::full(input), 0.5);
         MultiIntentResult::single(detected)
     }
 
@@ -85,7 +77,10 @@ impl MultiIntentDetector {
         let prompt = self.build_prompt(input, context);
         let response = self
             .claude
-            .complete("You are a multi-intent detector for developer commands.", &prompt)
+            .complete(
+                "You are a multi-intent detector for developer commands.",
+                &prompt,
+            )
             .await
             .map_err(DetectorError::AiError)?;
 
@@ -143,7 +138,13 @@ Valid intents: generate_code, generate_function, generate_class, generate_test, 
             .map(|i| {
                 let span = i.span.map_or_else(
                     || TextSpan::full(original_input),
-                    |s| TextSpan::new(s.start, s.end, &original_input[s.start..s.end.min(original_input.len())]),
+                    |s| {
+                        TextSpan::new(
+                            s.start,
+                            s.end,
+                            &original_input[s.start..s.end.min(original_input.len())],
+                        )
+                    },
                 );
                 DetectedIntent::new(i.intent, span, i.confidence)
             })
@@ -227,5 +228,16 @@ mod tests {
             .await
             .expect("Should detect");
         assert!(!result.is_multi());
+    }
+
+    #[test]
+    fn test_parse_response_invalid_json_falls_back_to_single() {
+        let detector = create_test_detector();
+        let result = detector
+            .parse_response("not-json-response", "find bugs and then fix them")
+            .expect("Fallback should parse");
+
+        assert!(!result.is_multi());
+        assert_eq!(result.intents.len(), 1);
     }
 }

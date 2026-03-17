@@ -142,10 +142,7 @@ impl ContextManager {
     }
 
     /// Compresses a context window by summarizing older messages.
-    async fn compress(
-        &self,
-        mut window: ContextWindow,
-    ) -> Result<ContextWindow, ContextError> {
+    async fn compress(&self, mut window: ContextWindow) -> Result<ContextWindow, ContextError> {
         let message_count = window.messages.len();
         if message_count <= KEEP_RECENT_COUNT {
             return Ok(window);
@@ -162,10 +159,7 @@ impl ContextManager {
         Ok(window)
     }
 
-    async fn generate_summary(
-        &self,
-        messages: &[ContextMessage],
-    ) -> Result<String, ContextError> {
+    async fn generate_summary(&self, messages: &[ContextMessage]) -> Result<String, ContextError> {
         let content: String = messages
             .iter()
             .map(|m| format!("{}: {}", m.role.as_str(), m.content))
@@ -260,5 +254,33 @@ mod tests {
             .await
             .expect("Should get context");
         assert!(context.metadata.summary.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_context_returns_last_n_messages() {
+        let manager = create_test_manager();
+
+        for idx in 0..25 {
+            manager
+                .add_message("conv-recent", ContextMessage::user(&format!("msg-{idx}")))
+                .await
+                .expect("Should add message");
+        }
+
+        let context = manager
+            .get_context("conv-recent")
+            .await
+            .expect("Should get context");
+
+        assert_eq!(context.recent_messages.len(), 20);
+        assert_eq!(context.recent_messages[0].content, "msg-5");
+        assert_eq!(context.recent_messages[19].content, "msg-24");
+    }
+
+    #[test]
+    fn test_clear_nonexistent_context_is_safe() {
+        let manager = create_test_manager();
+        let result = manager.clear("missing-conversation");
+        assert!(result.is_ok());
     }
 }

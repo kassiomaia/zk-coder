@@ -262,10 +262,37 @@ mod tests {
         let classifier = create_test_classifier();
         let context = ConversationContext::new();
 
-        let result = classifier.classify("generate code for authentication", &context).await;
+        let result = classifier
+            .classify("generate code for authentication", &context)
+            .await;
         assert!(result.is_ok());
         let classification = result.expect("Classification should succeed");
         assert_eq!(classification.intent, Intent::GenerateCode);
         assert!(classification.is_high_confidence());
+    }
+
+    #[test]
+    fn test_parse_response_invalid_json_falls_back_to_unknown() {
+        let classifier = create_test_classifier();
+
+        let result = classifier
+            .parse_response("not-json-response")
+            .expect("Fallback should parse");
+
+        assert_eq!(result.intent, Intent::Unknown);
+        assert!((result.confidence - 0.5).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn test_pattern_classification_with_alternatives() {
+        let classifier = create_test_classifier();
+        let context = ConversationContext::new();
+
+        let result = classifier
+            .classify_with_alternatives("generate code for tests", &context)
+            .await
+            .expect("Classification should succeed");
+
+        assert_eq!(result.intent, Intent::GenerateCode);
     }
 }
