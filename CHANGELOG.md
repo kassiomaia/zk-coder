@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic Tauri commands (`health_check`, `get_app_info`)
 - AI agent type definitions
 
+### Changed
+
+- Unified NLP LLM integration with the shared provider-agnostic `llm` layer via `NlpLlmGateway` and config-driven model/provider/API-key resolution.
+- Migrated NLP components (`IntentClassifier`, `MultiIntentDetector`, `ContextManager`) from legacy Claude-specific usage to shared gateway abstractions with deterministic fallback behavior on LLM failures.
+- Rewired NLP app state/bootstrap initialization to use config/context databases and removed hardcoded dev API-key initialization paths from runtime wiring.
+- Removed legacy Claude module files (`src-tauri/src/ai/claude.rs`, `src-tauri/src/ai/mod.rs`) and `pub mod ai` export from backend crate root.
+
 ### Technical Details
 
 - **Backend**: Rust with Tauri v2, tokio, serde, anyhow, thiserror
