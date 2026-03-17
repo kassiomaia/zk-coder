@@ -1,7 +1,7 @@
 # NLP LLM Unification Plan
 
 Date: March 17, 2026
-Status: Proposed
+Status: Implemented (March 17, 2026)
 Owner: Backend
 
 ## 1. Problem Statement
@@ -235,6 +235,25 @@ Rollout strategy:
 5. Legacy AI module deleted.
 6. Full validation run complete.
 7. Changelog entry added if behavior/user-visible error messages changed.
+
+## 15. Implementation Notes (Completed)
+
+1. NLP modules now call the shared LLM layer through `NlpLlmGateway` and `ConfigBackedNlpLlmGateway`.
+2. `src-tauri/src/ai/claude.rs` and `src-tauri/src/ai/mod.rs` were removed.
+3. `NlpState` initialization is now config-driven:
+   - `NlpState::new(config_db_path, context_db_path)`
+   - bootstrap passes `coder_config.db` + `coder_context.db`
+4. Model resolution for NLP is implemented as:
+   - use `analysis` default when present
+   - fallback to `code` when `analysis` is not configured
+5. NLP fallback behavior implemented:
+   - classifier returns `unknown` with `0.5` confidence on LLM failure
+   - multi-intent detector falls back to single-intent heuristics on LLM failure
+   - context compression keeps full messages if summarization fails
+6. Validation executed:
+   - `cargo fmt` on touched backend files
+   - `cargo clippy --all-targets`
+   - `cargo test` (full `src-tauri`)
 
 ## 14. Task Breakdown (Parallel Execution)
 
