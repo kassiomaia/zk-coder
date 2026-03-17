@@ -5,6 +5,7 @@
 	 */
 	import styles from './MessageActions.module.css';
 	import IconButton from '$lib/components/shared/IconButton.svelte';
+	import type { MessageFeedback } from '$lib/types/message';
 
 	interface Props {
 		/** Whether to show copy action */
@@ -17,6 +18,8 @@
 		showRetry?: boolean;
 		/** Whether to show feedback actions (thumbs up/down) */
 		showFeedback?: boolean;
+		/** Current feedback state (controlled) */
+		feedback?: MessageFeedback;
 		/** Handler for copy action */
 		onCopy?: () => void;
 		/** Handler for edit action */
@@ -25,10 +28,8 @@
 		onDelete?: () => void;
 		/** Handler for retry action */
 		onRetry?: () => void;
-		/** Handler for positive feedback */
-		onThumbsUp?: () => void;
-		/** Handler for negative feedback */
-		onThumbsDown?: () => void;
+		/** Handler for feedback change - receives new feedback or null to clear */
+		onFeedback?: (feedback: MessageFeedback | null) => void;
 	}
 
 	let {
@@ -37,18 +38,20 @@
 		showDelete = false,
 		showRetry = false,
 		showFeedback = true,
+		feedback,
 		onCopy,
 		onEdit,
 		onDelete,
 		onRetry,
-		onThumbsUp,
-		onThumbsDown
+		onFeedback
 	}: Props = $props();
 
 	let copied = $state(false);
-	let thumbsUpActive = $state(false);
-	let thumbsDownActive = $state(false);
 	let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+	// Derive active states from feedback prop
+	let thumbsUpActive = $derived(feedback === 'like');
+	let thumbsDownActive = $derived(feedback === 'dislike');
 
 	// Cleanup timer on component destroy
 	$effect(() => {
@@ -83,19 +86,15 @@
 	}
 
 	function handleThumbsUp() {
-		thumbsUpActive = !thumbsUpActive;
-		if (thumbsUpActive) {
-			thumbsDownActive = false;
-		}
-		onThumbsUp?.();
+		// Toggle: if already liked, clear; otherwise set to like
+		const newFeedback: MessageFeedback | null = feedback === 'like' ? null : 'like';
+		onFeedback?.(newFeedback);
 	}
 
 	function handleThumbsDown() {
-		thumbsDownActive = !thumbsDownActive;
-		if (thumbsDownActive) {
-			thumbsUpActive = false;
-		}
-		onThumbsDown?.();
+		// Toggle: if already disliked, clear; otherwise set to dislike
+		const newFeedback: MessageFeedback | null = feedback === 'dislike' ? null : 'dislike';
+		onFeedback?.(newFeedback);
 	}
 </script>
 

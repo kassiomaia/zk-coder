@@ -60,6 +60,7 @@ export interface ChatMessageResponse {
 		confidence?: number;
 		tokens?: number;
 		model?: string;
+		feedback?: 'like' | 'dislike';
 	};
 }
 
@@ -154,6 +155,43 @@ export async function renameConversation(id: string, title: string): Promise<Con
  */
 export async function deleteConversation(id: string): Promise<void> {
 	await safeInvoke<void>('delete_conversation', { id });
+}
+
+/**
+ * Settings for updating a conversation.
+ */
+export interface ConversationSettingsUpdate {
+	/** AI model to use */
+	model: string;
+	/** Temperature for response generation */
+	temperature: number;
+	/** Maximum tokens for responses */
+	maxTokens: number;
+	/** Custom system prompt */
+	systemPrompt?: string;
+}
+
+/**
+ * Updates a conversation's settings.
+ *
+ * @param id - Conversation ID
+ * @param settings - New settings to apply
+ * @returns The updated conversation
+ */
+export async function updateConversationSettings(
+	id: string,
+	settings: ConversationSettingsUpdate
+): Promise<Conversation> {
+	const response = await safeInvoke<ConversationResponse>('update_conversation_settings', {
+		id,
+		settings: {
+			model: settings.model,
+			temperature: settings.temperature,
+			maxTokens: settings.maxTokens,
+			systemPrompt: settings.systemPrompt
+		}
+	});
+	return convToClient(response);
 }
 
 // ============================================================================
@@ -337,6 +375,19 @@ export async function updateMessageStatus(
 	await safeInvoke<void>('update_message_status', { id, status });
 }
 
+/**
+ * Updates a message's feedback (like/dislike).
+ *
+ * @param id - Message ID
+ * @param feedback - Feedback type ('like', 'dislike', or null to clear)
+ */
+export async function updateMessageFeedback(
+	id: string,
+	feedback: 'like' | 'dislike' | null
+): Promise<void> {
+	await safeInvoke<void>('update_message_feedback', { id, feedback });
+}
+
 // ============================================================================
 // Conversion Helpers
 // ============================================================================
@@ -399,7 +450,8 @@ function msgToClient(msg: ChatMessageResponse): Message {
 					intent: msg.metadata.intent,
 					confidence: msg.metadata.confidence,
 					tokens: msg.metadata.tokens,
-					model: msg.metadata.model
+					model: msg.metadata.model,
+					feedback: msg.metadata.feedback
 				}
 			: undefined
 	};

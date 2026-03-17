@@ -6,10 +6,9 @@
  */
 
 import { writable, get } from 'svelte/store';
-import type { Conversation, Thread } from '$lib/types/thread';
+import type { Conversation, Thread, ConversationSettings } from '$lib/types/thread';
 import type { Message } from '$lib/types/message';
 import {
-	classifyIntent,
 	addContextMessage,
 	detectAmbiguities,
 	resolveAmbiguity,
@@ -17,12 +16,13 @@ import {
 	createDebouncedClassifier,
 	isBackendAvailable
 } from '$lib/api/nlp';
-import type { ResolvedAmbiguity, ResolutionType } from '$lib/types/nlp';
+import type { ResolutionType } from '$lib/types/nlp';
 import {
 	loadConversations,
 	createConversation as apiCreateConversation,
 	renameConversation as apiRenameConversation,
 	deleteConversation as apiDeleteConversation,
+	updateConversationSettings as apiUpdateConversationSettings,
 	loadThreads,
 	createThread as apiCreateThread,
 	resolveThread as apiResolveThread,
@@ -32,8 +32,8 @@ import {
 	sendMessage as apiSendMessage,
 	deleteMessage as apiDeleteMessage,
 	updateMessageStatus as apiUpdateMessageStatus,
-	createThreadWithMessage as apiCreateThreadWithMessage,
-	type SendMessageOptions
+	updateMessageFeedback as apiUpdateMessageFeedback,
+	createThreadWithMessage as apiCreateThreadWithMessage
 } from '$lib/api/chat';
 import { LlmHandler } from './chat/llm-handler';
 import type { ChatState, LlmRequestOptions } from './chat/types';
@@ -67,6 +67,8 @@ const initialState: ChatState = {
 		streamingContent: '',
 		model: null
 	},
+	threadStreaming: {},
+	unreadThreadIds: [],
 	error: null
 };
 
@@ -89,6 +91,51 @@ function createChatStore() {
 	// Pending thread creation tracking to prevent race conditions
 	let pendingThreadReady: Promise<Thread | null> | null = null;
 	let pendingThreadConversationId: string | null = null;
+
+	const clearUnreadForThread = (unreadThreadIds: string[], threadId: string | null): string[] => {
+		if (!threadId) return unreadThreadIds;
+		return unreadThreadIds.filter((id) => id !== threadId);
+	};
+
+	const touchThreadAndConversation = (
+		state: ChatState,
+		threadId: string,
+		conversationId: string,
+		options?: { messageDelta?: number; timestamp?: Date }
+	): ChatState => {
+		const now = options?.timestamp ?? new Date();
+		const messageDelta = options?.messageDelta ?? 0;
+
+		return {
+			...state,
+			threads: state.threads.map((thread) =>
+				thread.id === threadId
+					? {
+							...thread,
+							updatedAt: now,
+							messageCount: Math.max(0, thread.messageCount + messageDelta)
+						}
+					: thread
+			),
+			conversations: state.conversations.map((conversation) =>
+				conversation.id === conversationId
+					? {
+							...conversation,
+							updatedAt: now,
+							threads: (conversation.threads || []).map((thread) =>
+								thread.id === threadId
+									? {
+											...thread,
+											updatedAt: now,
+											messageCount: Math.max(0, thread.messageCount + messageDelta)
+										}
+									: thread
+							)
+						}
+					: conversation
+			)
+		};
+	};
 
 	return {
 		subscribe,
@@ -225,18 +272,53 @@ function createChatStore() {
 		},
 
 		/**
+		 * Update a conversation's settings (model, temperature, etc.).
+		 */
+		async updateConversationSettings(
+			id: string,
+			settings: Partial<ConversationSettings>
+		): Promise<boolean> {
+			try {
+				const state = get({ subscribe });
+				const conversation = state.conversations.find((c) => c.id === id);
+				if (!conversation) {
+					update((s) => ({ ...s, error: 'Conversation not found' }));
+					return false;
+				}
+
+				// Merge with existing settings
+				const newSettings: ConversationSettings = {
+					...conversation.settings,
+					...settings
+				};
+
+				const updated = await apiUpdateConversationSettings(id, {
+					model: newSettings.model,
+					temperature: newSettings.temperature,
+					maxTokens: newSettings.maxTokens,
+					systemPrompt: newSettings.systemPrompt
+				});
+
+				update((state) => ({
+					...state,
+					conversations: state.conversations.map((c) =>
+						c.id === id ? { ...c, settings: updated.settings } : c
+					)
+				}));
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to update settings'
+				}));
+				return false;
+			}
+		},
+
+		/**
 		 * Select a conversation and load its threads.
 		 */
 		async selectConversation(id: string | null) {
-			// Cancel any active stream before switching
-			await llmHandler.cancelStreamSilent();
-			if (llmHandler.isStreaming()) {
-				update((s) => ({
-					...s,
-					llm: { isStreaming: false, requestId: null, streamingContent: '', model: null }
-				}));
-			}
-
 			update((state) => ({
 				...state,
 				selectedConversationId: id,
@@ -283,14 +365,56 @@ function createChatStore() {
 			update((state) => ({
 				...state,
 				selectedThreadId: id,
+				unreadThreadIds: clearUnreadForThread(state.unreadThreadIds, id),
 				messages: [],
 				messagesLoading: id ? 'loading' : 'idle'
 			}));
 
 			if (id) {
 				try {
-					const messages = await loadThreadMessages(id);
-					update((state) => ({ ...state, messages, messagesLoading: 'success' }));
+					const loadedMessages = await loadThreadMessages(id);
+					update((state) => {
+						const threadStream = state.threadStreaming[id];
+						if (!threadStream?.isStreaming) {
+							return {
+								...state,
+								unreadThreadIds: clearUnreadForThread(state.unreadThreadIds, id),
+								messages: loadedMessages,
+								messagesLoading: 'success'
+							};
+						}
+
+						const hasStreamingMessage = loadedMessages.some(
+							(message) => message.id === threadStream.assistantMessageId
+						);
+
+						const streamingMessage: Message = {
+							id: threadStream.assistantMessageId,
+							conversationId: threadStream.conversationId,
+							threadId: id,
+							role: 'assistant',
+							content: threadStream.streamingContent,
+							timestamp: new Date(),
+							status: 'sending'
+						};
+
+						return {
+							...state,
+							unreadThreadIds: clearUnreadForThread(state.unreadThreadIds, id),
+							messages: hasStreamingMessage
+								? loadedMessages.map((message) =>
+										message.id === threadStream.assistantMessageId
+											? {
+													...message,
+													content: threadStream.streamingContent,
+													status: 'sending' as const
+												}
+											: message
+									)
+								: [...loadedMessages, streamingMessage],
+							messagesLoading: 'success'
+						};
+					});
 				} catch (error) {
 					update((state) => ({
 						...state,
@@ -375,6 +499,10 @@ function createChatStore() {
 				update((state) => ({
 					...state,
 					threads: state.threads.filter((t) => t.id !== id),
+					threadStreaming: Object.fromEntries(
+						Object.entries(state.threadStreaming).filter(([threadId]) => threadId !== id)
+					),
+					unreadThreadIds: state.unreadThreadIds.filter((threadId) => threadId !== id),
 					selectedThreadId: state.selectedThreadId === id ? null : state.selectedThreadId,
 					messages: state.selectedThreadId === id ? [] : state.messages,
 					conversations: state.conversations.map((c) =>
@@ -488,6 +616,11 @@ function createChatStore() {
 				}
 			}
 
+			if (!targetThreadId) {
+				update((s) => ({ ...s, error: 'No thread selected' }));
+				return null;
+			}
+
 			// Create optimistic message
 			const optimisticMessage: Message = {
 				id: `temp-${Date.now()}`,
@@ -499,7 +632,16 @@ function createChatStore() {
 				status: 'sending'
 			};
 
-			update((s) => ({ ...s, messages: [...s.messages, optimisticMessage] }));
+			update((s) => {
+				const touched = touchThreadAndConversation(s, targetThreadId, conversationId, {
+					messageDelta: 1
+				});
+				return {
+					...touched,
+					unreadThreadIds: clearUnreadForThread(touched.unreadThreadIds, targetThreadId),
+					messages: [...touched.messages, optimisticMessage]
+				};
+			});
 
 			try {
 				const savedMessage = await apiSendMessage({
@@ -516,13 +658,18 @@ function createChatStore() {
 
 				return savedMessage;
 			} catch (error) {
-				update((s) => ({
-					...s,
-					messages: s.messages.map((m) =>
-						m.id === optimisticMessage.id ? { ...m, status: 'error' as const } : m
-					),
-					error: error instanceof Error ? error.message : 'Failed to send message'
-				}));
+				update((s) => {
+					const rolledBack = touchThreadAndConversation(s, targetThreadId, conversationId, {
+						messageDelta: -1
+					});
+					return {
+						...rolledBack,
+						messages: rolledBack.messages.map((m) =>
+							m.id === optimisticMessage.id ? { ...m, status: 'error' as const } : m
+						),
+						error: error instanceof Error ? error.message : 'Failed to send message'
+					};
+				});
 				return null;
 			}
 		},
@@ -583,6 +730,38 @@ function createChatStore() {
 				return true;
 			} catch (error) {
 				console.error('Failed to update message status:', error);
+				return false;
+			}
+		},
+
+		/**
+		 * Update a message's feedback (like/dislike).
+		 * Pass null to clear the feedback.
+		 * Clicking the same feedback toggles it off.
+		 */
+		async updateMessageFeedback(
+			id: string,
+			feedback: 'like' | 'dislike' | null
+		): Promise<boolean> {
+			try {
+				await apiUpdateMessageFeedback(id, feedback);
+				update((state) => ({
+					...state,
+					messages: state.messages.map((m) =>
+						m.id === id
+							? {
+									...m,
+									metadata: {
+										...m.metadata,
+										feedback: feedback ?? undefined
+									}
+								}
+							: m
+					)
+				}));
+				return true;
+			} catch (error) {
+				console.error('Failed to update message feedback:', error);
 				return false;
 			}
 		},
@@ -807,7 +986,7 @@ function createChatStore() {
 			if (!userMessage) return null;
 
 			// Initialize streaming
-			const init = llmHandler.initStreaming(content, options);
+			const init = llmHandler.initStreaming(userMessage, options);
 			if (!init) {
 				update((s) => ({ ...s, error: 'Failed to initialize streaming' }));
 				return userMessage;
@@ -857,6 +1036,21 @@ function createChatStore() {
 		},
 
 		/**
+		 * Mark a thread as read (clears unread indicator).
+		 */
+		markThreadRead(threadId: string) {
+			update((state) => {
+				if (!state.unreadThreadIds.includes(threadId)) {
+					return state;
+				}
+				return {
+					...state,
+					unreadThreadIds: clearUnreadForThread(state.unreadThreadIds, threadId)
+				};
+			});
+		},
+
+		/**
 		 * Reset the entire store.
 		 */
 		reset() {
@@ -884,6 +1078,8 @@ const derivedStores = createDerivedStores(chatStore);
 export const selectedConversation = derivedStores.selectedConversation;
 export const selectedThread = derivedStores.selectedThread;
 export const currentThreads = derivedStores.currentThreads;
+export const activeStreamingThreadIds = derivedStores.activeStreamingThreadIds;
+export const unreadThreadIds = derivedStores.unreadThreadIds;
 export const messageGroups = derivedStores.messageGroups;
 export const conversationGroups = derivedStores.conversationGroups;
 export const nlpState = derivedStores.nlpState;
@@ -905,6 +1101,7 @@ export type {
 	LoadingState,
 	NlpState,
 	LlmStreamingState,
+	ThreadStreamingState,
 	ChatState,
 	LlmRequestOptions
 } from './chat/types';

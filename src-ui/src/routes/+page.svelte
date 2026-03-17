@@ -14,7 +14,6 @@
 	import {
 		chatStore,
 		selectedConversation,
-		selectedThread,
 		activeStreamingThreadIds,
 		chatError,
 		isLoading,
@@ -35,6 +34,7 @@
 	let messages = $state<Message[]>([]);
 	let threads = $state<Thread[]>([]);
 	let conversations = $state<Conversation[]>([]);
+	let selectedThreadId = $state<string | null>(null);
 	let processingThreadIds = $state<string[]>([]);
 	let unreadThreads = $state<string[]>([]);
 	let currentError = $state<string | null>(null);
@@ -66,6 +66,7 @@
 	$effect(() => {
 		const unsubMsg = chatStore.subscribe((state) => {
 			messages = state.messages;
+			selectedThreadId = state.selectedThreadId;
 		});
 		const unsubConv = chatStore.subscribe((state) => {
 			conversations = state.conversations;
@@ -197,6 +198,14 @@
 		}
 	}
 
+	// Message feedback handler - handles like/dislike on messages
+	async function handleMessageFeedback(
+		messageId: string,
+		feedback: 'like' | 'dislike' | null
+	): Promise<void> {
+		await chatStore.updateMessageFeedback(messageId, feedback);
+	}
+
 	// Archive handlers - shows confirmation dialog before archiving
 	function handleArchiveConversation(conversation: Conversation) {
 		archiveTarget = { type: 'conversation', item: conversation };
@@ -289,7 +298,7 @@
 		activeStreamingThreadIds={processingThreadIds}
 		unreadThreadIds={unreadThreads}
 		selectedConversation={$selectedConversation ?? undefined}
-		selectedThreadId={$selectedThread?.id}
+		selectedThreadId={selectedThreadId ?? undefined}
 		{messages}
 		onSelectConversation={handleSelectConversation}
 		onSelectThread={handleSelectThread}
@@ -305,6 +314,7 @@
 		onSearch={handleSearch}
 		onSettings={handleOpenSettings}
 		onModelChange={handleModelChange}
+		onMessageFeedback={handleMessageFeedback}
 		loading={$isLoading}
 		threadsLoading={currentThreadsLoading === 'loading'}
 		hasConfiguredProvider={$hasConfiguredProvider}

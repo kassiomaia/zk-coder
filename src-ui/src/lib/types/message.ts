@@ -9,6 +9,9 @@ export type MessageRole = 'user' | 'assistant' | 'system';
 /** Status of a message */
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'error';
 
+/** Feedback type for a message (like/dislike) */
+export type MessageFeedback = 'like' | 'dislike';
+
 /**
  * Represents a single chat message.
  */
@@ -53,6 +56,9 @@ export interface MessageMetadata {
 
 	/** AI model used for generation */
 	model?: string;
+
+	/** User feedback on the message (like/dislike) */
+	feedback?: MessageFeedback;
 
 	/** Files attached to the message */
 	attachments?: Attachment[];

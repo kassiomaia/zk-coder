@@ -19,6 +19,16 @@ pub enum ThreadPriority {
     High,
 }
 
+/// Feedback type for a message (like/dislike).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MessageFeedback {
+    /// User liked the response
+    Like,
+    /// User disliked the response
+    Dislike,
+}
+
 /// Status of a message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -80,6 +90,8 @@ pub struct MessageMetadata {
     pub tokens: Option<usize>,
     /// AI model used for generation
     pub model: Option<String>,
+    /// User feedback on the message (like/dislike)
+    pub feedback: Option<MessageFeedback>,
 }
 
 /// Represents a single chat message.

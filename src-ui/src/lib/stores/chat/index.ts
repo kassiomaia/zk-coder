@@ -9,18 +9,14 @@ export type {
 	LoadingState,
 	NlpState,
 	LlmStreamingState,
+	ThreadStreamingState,
 	ChatState,
 	LlmRequestOptions,
 	StreamingContext
 } from './types';
 
 // LLM Handler
-export {
-	LlmHandler,
-	type StoreUpdater,
-	type LlmStreamInit,
-	type ActiveStreamTracker
-} from './llm-handler';
+export { LlmHandler, type StoreUpdater, type LlmStreamInit } from './llm-handler';
 
 // Derived Stores Factory
 export { createDerivedStores, type DerivedStores } from './derived-stores';

@@ -19,6 +19,8 @@ export interface DerivedStores {
 	selectedConversation: Readable<Conversation | null>;
 	selectedThread: Readable<Thread | null>;
 	currentThreads: Readable<Thread[]>;
+	activeStreamingThreadIds: Readable<string[]>;
+	unreadThreadIds: Readable<string[]>;
 	messageGroups: Readable<MessageGroup[]>;
 	conversationGroups: Readable<ConversationGroup[]>;
 	nlpState: Readable<ChatState['nlp']>;
@@ -53,6 +55,12 @@ export function createDerivedStores(store: Readable<ChatState>): DerivedStores {
 	});
 
 	const currentThreads = derived(store, ($chat) => $chat.threads);
+	const activeStreamingThreadIds = derived(store, ($chat) =>
+		Object.entries($chat.threadStreaming)
+			.filter(([, stream]) => stream.isStreaming)
+			.map(([threadId]) => threadId)
+	);
+	const unreadThreadIds = derived(store, ($chat) => $chat.unreadThreadIds);
 
 	// Message display derived stores
 	const messageGroups = derived(store, ($chat): MessageGroup[] => {
@@ -121,9 +129,25 @@ export function createDerivedStores(store: Readable<ChatState>): DerivedStores {
 
 	// State derived stores
 	const nlpState = derived(store, ($chat) => $chat.nlp);
-	const llmState = derived(store, ($chat) => $chat.llm);
-	const isLlmStreaming = derived(store, ($chat) => $chat.llm.isStreaming);
-	const streamingContent = derived(store, ($chat) => $chat.llm.streamingContent);
+	const llmState = derived(store, ($chat) => {
+		if (!$chat.selectedThreadId) {
+			return { isStreaming: false, requestId: null, streamingContent: '', model: null };
+		}
+
+		const stream = $chat.threadStreaming[$chat.selectedThreadId];
+		if (!stream) {
+			return { isStreaming: false, requestId: null, streamingContent: '', model: null };
+		}
+
+		return {
+			isStreaming: stream.isStreaming,
+			requestId: stream.requestId,
+			streamingContent: stream.streamingContent,
+			model: stream.model
+		};
+	});
+	const isLlmStreaming = derived(llmState, ($llmState) => $llmState.isStreaming);
+	const streamingContent = derived(llmState, ($llmState) => $llmState.streamingContent);
 
 	// Loading state derived stores
 	const conversationsLoading = derived(store, ($chat) => $chat.conversationsLoading);
@@ -143,6 +167,8 @@ export function createDerivedStores(store: Readable<ChatState>): DerivedStores {
 		selectedConversation,
 		selectedThread,
 		currentThreads,
+		activeStreamingThreadIds,
+		unreadThreadIds,
 		messageGroups,
 		conversationGroups,
 		nlpState,

@@ -57,6 +57,16 @@ export interface LlmStreamingState {
 	model: string | null;
 }
 
+/**
+ * Streaming state for a specific thread.
+ */
+export interface ThreadStreamingState extends LlmStreamingState {
+	/** Conversation that owns this thread */
+	conversationId: string;
+	/** Temporary optimistic assistant message ID for this stream */
+	assistantMessageId: string;
+}
+
 // ============================================================================
 // Main Chat State
 // ============================================================================
@@ -85,6 +95,10 @@ export interface ChatState {
 	nlp: NlpState;
 	/** LLM streaming state */
 	llm: LlmStreamingState;
+	/** Active LLM streams by thread ID */
+	threadStreaming: Record<string, ThreadStreamingState>;
+	/** Thread IDs with unseen assistant responses */
+	unreadThreadIds: string[];
 	/** Global error message */
 	error: string | null;
 }

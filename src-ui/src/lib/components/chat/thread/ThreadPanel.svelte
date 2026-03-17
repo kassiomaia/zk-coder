@@ -36,6 +36,8 @@
 		initialModelId?: string | null;
 		/** Handler when model selection changes */
 		onModelChange?: (modelId: string) => void;
+		/** Handler for message feedback (like/dislike) */
+		onMessageFeedback?: (messageId: string, feedback: 'like' | 'dislike' | null) => void;
 		/** Loading state */
 		loading?: boolean;
 		/** Error state */
@@ -54,6 +56,7 @@
 		onToggleSidebar,
 		initialModelId = null,
 		onModelChange,
+		onMessageFeedback,
 		loading = false,
 		error
 	}: Props = $props();
@@ -294,6 +297,7 @@
 			threadResolved={isResolved}
 			{initialModelId}
 			{onModelChange}
+			{onMessageFeedback}
 			onScroll={(scrollTop, scrollHeight, clientHeight) =>
 				handleChatScroll(scrollTop, scrollHeight, clientHeight)}
 		/>

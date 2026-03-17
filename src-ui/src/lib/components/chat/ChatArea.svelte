@@ -101,6 +101,9 @@
 		/** Retry message handler (for failed messages) */
 		onRetryMessage?: (id: string) => void;
 
+		/** Message feedback handler - called when user likes/dislikes a message */
+		onMessageFeedback?: (messageId: string, feedback: 'like' | 'dislike' | null) => void;
+
 		/** Thread click handler */
 		onThreadClick?: (threadId: string) => void;
 
@@ -127,6 +130,7 @@
 		onEditMessage,
 		onDeleteMessage,
 		onRetryMessage,
+		onMessageFeedback,
 		onThreadClick,
 		onScroll
 	}: Props = $props();
@@ -600,10 +604,12 @@
 								showDelete={true}
 								showRetry={message.status === 'error'}
 								showFeedback={message.role === 'assistant'}
+								feedback={message.metadata?.feedback}
 								onCopy={() => handleCopyMessage(message.content)}
 								onEdit={() => onEditMessage?.(message.id)}
 								onDelete={() => onDeleteMessage?.(message.id)}
 								onRetry={() => onRetryMessage?.(message.id)}
+								onFeedback={(feedback) => onMessageFeedback?.(message.id, feedback)}
 							/>
 						</div>
 					{/if}

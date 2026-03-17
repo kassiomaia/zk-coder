@@ -9,6 +9,8 @@ export {
 	selectedConversation,
 	selectedThread,
 	currentThreads,
+	activeStreamingThreadIds,
+	unreadThreadIds,
 	messageGroups,
 	conversationGroups,
 	nlpState,

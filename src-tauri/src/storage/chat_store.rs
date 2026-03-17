@@ -10,8 +10,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 use thiserror::Error;
 
 use crate::nlp::chat::{
-    ChatMessage, Conversation, ConversationSettings, MessageRole, MessageStatus,
-    Thread, ThreadMetadata,
+    ChatMessage, Conversation, ConversationSettings, MessageFeedback, MessageMetadata, MessageRole,
+    MessageStatus, Thread, ThreadMetadata,
 };
 
 /// SQLite-based chat store.
@@ -294,6 +294,36 @@ impl ChatStore {
         Ok(())
     }
 
+    /// Updates a conversation's settings.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the conversation is not found or database fails.
+    pub fn update_conversation_settings(
+        &self,
+        id: &str,
+        settings: &ConversationSettings,
+    ) -> Result<Conversation, ChatStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let settings_json = serde_json::to_string(settings)?;
+        let now = Utc::now();
+        let rows_affected = conn.execute(
+            "UPDATE conversations SET settings = ?1, updated_at = ?2 WHERE id = ?3",
+            params![settings_json, now.to_rfc3339(), id],
+        )?;
+
+        if rows_affected == 0 {
+            return Err(ChatStoreError::NotFound("Conversation", id.to_string()));
+        }
+
+        drop(conn);
+        self.load_conversation(id)
+    }
+
     // =========================================================================
     // Thread Operations
     // =========================================================================
@@ -407,11 +437,7 @@ impl ChatStore {
     /// # Errors
     ///
     /// Returns an error if the database operation fails.
-    pub fn update_thread_resolved(
-        &self,
-        id: &str,
-        resolved: bool,
-    ) -> Result<(), ChatStoreError> {
+    pub fn update_thread_resolved(&self, id: &str, resolved: bool) -> Result<(), ChatStoreError> {
         let conn = self
             .conn
             .lock()
@@ -630,8 +656,7 @@ impl ChatStore {
         let messages = stmt
             .query_map(params![conversation_id], |row| {
                 let metadata_json: Option<String> = row.get(7)?;
-                let metadata = metadata_json
-                    .and_then(|j| serde_json::from_str(&j).ok());
+                let metadata = metadata_json.and_then(|j| serde_json::from_str(&j).ok());
 
                 Ok(ChatMessage {
                     id: row.get(0)?,
@@ -654,7 +679,10 @@ impl ChatStore {
     /// # Errors
     ///
     /// Returns an error if the database query fails.
-    pub fn load_thread_messages(&self, thread_id: &str) -> Result<Vec<ChatMessage>, ChatStoreError> {
+    pub fn load_thread_messages(
+        &self,
+        thread_id: &str,
+    ) -> Result<Vec<ChatMessage>, ChatStoreError> {
         let conn = self
             .conn
             .lock()
@@ -668,8 +696,7 @@ impl ChatStore {
         let messages = stmt
             .query_map(params![thread_id], |row| {
                 let metadata_json: Option<String> = row.get(7)?;
-                let metadata = metadata_json
-                    .and_then(|j| serde_json::from_str(&j).ok());
+                let metadata = metadata_json.and_then(|j| serde_json::from_str(&j).ok());
 
                 Ok(ChatMessage {
                     id: row.get(0)?,
@@ -698,10 +725,7 @@ impl ChatStore {
             .lock()
             .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))?;
 
-        conn.execute(
-            "DELETE FROM chat_messages WHERE id = ?1",
-            params![id],
-        )?;
+        conn.execute("DELETE FROM chat_messages WHERE id = ?1", params![id])?;
 
         Ok(())
     }
@@ -727,6 +751,111 @@ impl ChatStore {
         )?;
 
         Ok(())
+    }
+
+    /// Updates a message's feedback (like/dislike).
+    ///
+    /// Pass `None` to clear the feedback. Only one feedback can be active at a time.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the message is not found or the database operation fails.
+    pub fn update_message_feedback(
+        &self,
+        id: &str,
+        feedback: Option<MessageFeedback>,
+    ) -> Result<(), ChatStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        // Load current metadata
+        let metadata_json: Option<String> = conn
+            .query_row(
+                "SELECT metadata FROM chat_messages WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        let mut metadata: MessageMetadata = metadata_json
+            .and_then(|j| serde_json::from_str(&j).ok())
+            .unwrap_or_default();
+
+        // Update feedback
+        metadata.feedback = feedback;
+
+        let new_metadata_json = serde_json::to_string(&metadata)?;
+
+        let rows_affected = conn.execute(
+            "UPDATE chat_messages SET metadata = ?1 WHERE id = ?2",
+            params![new_metadata_json, id],
+        )?;
+
+        if rows_affected == 0 {
+            return Err(ChatStoreError::NotFound("Message", id.to_string()));
+        }
+
+        Ok(())
+    }
+
+    /// Loads messages with feedback for a specific thread.
+    ///
+    /// Returns messages that have feedback (like or dislike) set, ordered by timestamp descending.
+    /// Limited to the specified count.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database query fails.
+    pub fn load_thread_feedback(
+        &self,
+        thread_id: &str,
+        limit: usize,
+    ) -> Result<Vec<(ChatMessage, MessageFeedback)>, ChatStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, conversation_id, thread_id, role, content, timestamp, status, metadata
+             FROM chat_messages
+             WHERE thread_id = ?1 AND metadata IS NOT NULL
+             ORDER BY timestamp DESC
+             LIMIT ?2",
+        )?;
+
+        let messages_with_feedback = stmt
+            .query_map(params![thread_id, limit as i64], |row| {
+                let metadata_json: Option<String> = row.get(7)?;
+                let metadata: Option<MessageMetadata> =
+                    metadata_json.and_then(|j| serde_json::from_str(&j).ok());
+
+                let message = ChatMessage {
+                    id: row.get(0)?,
+                    conversation_id: row.get(1)?,
+                    thread_id: row.get(2)?,
+                    role: MessageRole::from_str(&row.get::<_, String>(3)?),
+                    content: row.get(4)?,
+                    timestamp: parse_datetime(&row.get::<_, String>(5)?),
+                    status: parse_status(&row.get::<_, String>(6)?),
+                    metadata: metadata.clone(),
+                };
+
+                // Extract feedback from metadata
+                let feedback = metadata.and_then(|m| m.feedback);
+
+                Ok((message, feedback))
+            })?
+            .filter_map(|result| {
+                // Only include messages that actually have feedback
+                let (message, feedback) = result.ok()?;
+                feedback.map(|f| (message, f))
+            })
+            .collect::<Vec<_>>();
+
+        Ok(messages_with_feedback)
     }
 
     // =========================================================================
@@ -893,9 +1022,7 @@ mod tests {
 
         assert_eq!(conv.title, "Test Conversation");
 
-        let loaded = store
-            .load_conversation(&conv.id)
-            .expect("Failed to load");
+        let loaded = store.load_conversation(&conv.id).expect("Failed to load");
 
         assert_eq!(loaded.id, conv.id);
         assert_eq!(loaded.title, conv.title);
@@ -905,9 +1032,7 @@ mod tests {
     fn test_create_and_load_thread() {
         let store = ChatStore::in_memory().expect("Failed to create store");
 
-        let conv = store
-            .create_conversation("Test")
-            .expect("Failed to create");
+        let conv = store.create_conversation("Test").expect("Failed to create");
 
         let thread = store
             .create_thread(&conv.id, "Test Thread")
@@ -924,15 +1049,15 @@ mod tests {
     fn test_load_single_thread() {
         let store = ChatStore::in_memory().expect("Failed to create store");
 
-        let conv = store
-            .create_conversation("Test")
-            .expect("Failed to create");
+        let conv = store.create_conversation("Test").expect("Failed to create");
 
         let thread = store
             .create_thread(&conv.id, "Test Thread")
             .expect("Failed to create thread");
 
-        let loaded = store.load_thread(&thread.id).expect("Failed to load thread");
+        let loaded = store
+            .load_thread(&thread.id)
+            .expect("Failed to load thread");
         assert_eq!(loaded.id, thread.id);
         assert_eq!(loaded.title, thread.title);
         assert!(!loaded.metadata.resolved);
@@ -942,9 +1067,7 @@ mod tests {
     fn test_add_and_load_messages() {
         let store = ChatStore::in_memory().expect("Failed to create store");
 
-        let conv = store
-            .create_conversation("Test")
-            .expect("Failed to create");
+        let conv = store.create_conversation("Test").expect("Failed to create");
 
         let msg = ChatMessage::user(&conv.id, "Hello world");
         store.add_message(&msg).expect("Failed to add message");
@@ -974,9 +1097,7 @@ mod tests {
     fn test_delete_conversation() {
         let store = ChatStore::in_memory().expect("Failed to create store");
 
-        let conv = store
-            .create_conversation("Test")
-            .expect("Failed to create");
+        let conv = store.create_conversation("Test").expect("Failed to create");
 
         store
             .delete_conversation(&conv.id)
@@ -990,9 +1111,7 @@ mod tests {
     fn test_thread_resolved_status() {
         let store = ChatStore::in_memory().expect("Failed to create store");
 
-        let conv = store
-            .create_conversation("Test")
-            .expect("Failed to create");
+        let conv = store.create_conversation("Test").expect("Failed to create");
 
         let thread = store
             .create_thread(&conv.id, "Test Thread")
@@ -1007,7 +1126,9 @@ mod tests {
             .expect("Failed to resolve thread");
 
         // Load and verify resolved status
-        let loaded = store.load_thread(&thread.id).expect("Failed to load thread");
+        let loaded = store
+            .load_thread(&thread.id)
+            .expect("Failed to load thread");
         assert!(loaded.metadata.resolved);
 
         // Unresolve the thread
@@ -1015,7 +1136,9 @@ mod tests {
             .update_thread_resolved(&thread.id, false)
             .expect("Failed to unresolve thread");
 
-        let loaded = store.load_thread(&thread.id).expect("Failed to load thread");
+        let loaded = store
+            .load_thread(&thread.id)
+            .expect("Failed to load thread");
         assert!(!loaded.metadata.resolved);
     }
 
@@ -1024,5 +1147,122 @@ mod tests {
         let error = ChatStoreError::ThreadResolved("thread-123".to_string());
         assert!(error.to_string().contains("resolved"));
         assert!(error.to_string().contains("thread-123"));
+    }
+
+    #[test]
+    fn test_update_conversation_settings() {
+        let store = ChatStore::in_memory().expect("Failed to create store");
+
+        let conv = store.create_conversation("Test").expect("Failed to create");
+
+        // Verify default settings
+        assert_eq!(conv.settings.model, "claude-sonnet-4-20250514");
+        assert_eq!(conv.settings.temperature, 0.7);
+        assert_eq!(conv.settings.max_tokens, 4096);
+
+        // Update settings with new model
+        let new_settings = ConversationSettings {
+            model: "openai-gpt-4".to_string(),
+            temperature: 0.5,
+            max_tokens: 2048,
+            system_prompt: Some("Custom prompt".to_string()),
+        };
+
+        let updated = store
+            .update_conversation_settings(&conv.id, &new_settings)
+            .expect("Failed to update settings");
+
+        assert_eq!(updated.settings.model, "openai-gpt-4");
+        assert_eq!(updated.settings.temperature, 0.5);
+        assert_eq!(updated.settings.max_tokens, 2048);
+        assert_eq!(
+            updated.settings.system_prompt,
+            Some("Custom prompt".to_string())
+        );
+    }
+
+    #[test]
+    fn test_update_conversation_settings_partial_model_only() {
+        let store = ChatStore::in_memory().expect("Failed to create store");
+
+        let conv = store.create_conversation("Test").expect("Failed to create");
+
+        // Update only the model, keeping other settings
+        let new_settings = ConversationSettings {
+            model: "anthropic-claude-3".to_string(),
+            ..conv.settings.clone()
+        };
+
+        let updated = store
+            .update_conversation_settings(&conv.id, &new_settings)
+            .expect("Failed to update");
+
+        assert_eq!(updated.settings.model, "anthropic-claude-3");
+        // Other settings preserved
+        assert_eq!(updated.settings.temperature, conv.settings.temperature);
+        assert_eq!(updated.settings.max_tokens, conv.settings.max_tokens);
+    }
+
+    #[test]
+    fn test_update_conversation_settings_not_found() {
+        let store = ChatStore::in_memory().expect("Failed to create store");
+
+        let settings = ConversationSettings::default();
+        let result = store.update_conversation_settings("non-existent-id", &settings);
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ChatStoreError::NotFound(entity, id) => {
+                assert_eq!(entity, "Conversation");
+                assert_eq!(id, "non-existent-id");
+            }
+            _ => panic!("Expected NotFound error"),
+        }
+    }
+
+    #[test]
+    fn test_conversation_settings_persistence() {
+        let store = ChatStore::in_memory().expect("Failed to create store");
+
+        let conv = store.create_conversation("Test").expect("Failed to create");
+
+        // Update settings
+        let new_settings = ConversationSettings {
+            model: "custom-model".to_string(),
+            temperature: 0.9,
+            max_tokens: 8192,
+            system_prompt: None,
+        };
+        store
+            .update_conversation_settings(&conv.id, &new_settings)
+            .expect("Failed to update");
+
+        // Reload and verify persistence
+        let reloaded = store.load_conversation(&conv.id).expect("Failed to load");
+        assert_eq!(reloaded.settings.model, "custom-model");
+        assert_eq!(reloaded.settings.temperature, 0.9);
+        assert_eq!(reloaded.settings.max_tokens, 8192);
+    }
+
+    #[test]
+    fn test_update_conversation_settings_updates_timestamp() {
+        let store = ChatStore::in_memory().expect("Failed to create store");
+
+        let conv = store.create_conversation("Test").expect("Failed to create");
+        let original_updated_at = conv.updated_at;
+
+        // Wait a tiny bit to ensure timestamp difference
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        let new_settings = ConversationSettings {
+            model: "new-model".to_string(),
+            ..conv.settings.clone()
+        };
+        let updated = store
+            .update_conversation_settings(&conv.id, &new_settings)
+            .expect("Failed to update");
+
+        // Verify updatedAt was updated
+        assert!(updated.updated_at > original_updated_at);
     }
 }

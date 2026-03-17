@@ -58,6 +58,8 @@
 		onSettings?: () => void;
 		/** Handler when model changes for selected conversation */
 		onModelChange?: (conversationId: string, modelId: string) => void;
+		/** Handler for message feedback (like/dislike) */
+		onMessageFeedback?: (messageId: string, feedback: 'like' | 'dislike' | null) => void;
 		/** Loading state */
 		loading?: boolean;
 		/** Threads loading state */
@@ -91,7 +93,8 @@
 		loading = false,
 		threadsLoading = false,
 		hasConfiguredProvider = true,
-		onModelChange
+		onModelChange,
+		onMessageFeedback
 	}: Props = $props();
 
 	// UI state for responsive behavior
@@ -279,6 +282,7 @@
 					{loading}
 					{initialModelId}
 					onModelChange={handleModelChange}
+					onMessageFeedback={onMessageFeedback}
 				/>
 			{:else if hasSelectedConversation}
 				<!-- Chat area for conversation (no thread selected) -->
@@ -294,6 +298,7 @@
 					onOpenSettings={onSettings}
 					{initialModelId}
 					onModelChange={handleModelChange}
+					onMessageFeedback={onMessageFeedback}
 				/>
 			{:else}
 				<!-- Empty state -->
