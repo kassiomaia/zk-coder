@@ -37,22 +37,25 @@ pub fn run() {
         .setup(|app| {
             // Get the app data directory
             let data_dir = get_app_data_dir(app.handle())?;
+            let config_db = data_dir.join("coder_config.db");
+            let context_db = data_dir.join("coder_context.db");
+            let chat_db = data_dir.join("coder_chat.db");
 
             // Initialize NLP state
-            let nlp_state = NlpState::new_dev(&data_dir.join("coder_context.db").to_string_lossy())
+            let nlp_state = NlpState::new(&config_db.to_string_lossy(), &context_db.to_string_lossy())
                 .expect("Failed to initialize NLP state");
 
             // Initialize Chat state
-            let chat_state = ChatState::new(&data_dir.join("coder_chat.db").to_string_lossy())
-                .expect("Failed to initialize Chat state");
+            let chat_state =
+                ChatState::new(&chat_db.to_string_lossy()).expect("Failed to initialize Chat state");
 
             // Initialize Config state
-            let config_state = ConfigState::new(&data_dir.join("coder_config.db").to_string_lossy())
+            let config_state = ConfigState::new(&config_db.to_string_lossy())
                 .expect("Failed to initialize Config state");
 
             // Initialize LLM state (uses same database as config)
-            let llm_state = LlmState::new(&data_dir.join("coder_config.db").to_string_lossy())
-                .expect("Failed to initialize LLM state");
+            let llm_state =
+                LlmState::new(&config_db.to_string_lossy()).expect("Failed to initialize LLM state");
 
             // Manage states
             app.manage(nlp_state);
@@ -64,7 +67,7 @@ pub fn run() {
             let log_targets = if cfg!(debug_assertions) {
                 vec![
                     Target::new(TargetKind::LogDir { file_name: None }),
-                    Target::new(TargetKind::Stdout)
+                    Target::new(TargetKind::Stdout),
                 ]
             } else {
                 vec![Target::new(TargetKind::LogDir { file_name: None })]
@@ -103,6 +106,7 @@ pub fn run() {
             commands::chat::load_conversation,
             commands::chat::rename_conversation,
             commands::chat::delete_conversation,
+            commands::chat::update_conversation_settings,
             commands::chat::load_threads,
             commands::chat::create_thread,
             commands::chat::resolve_thread,
@@ -113,6 +117,7 @@ pub fn run() {
             commands::chat::send_message,
             commands::chat::delete_message,
             commands::chat::update_message_status,
+            commands::chat::update_message_feedback,
             commands::chat::create_thread_with_message,
             // Config commands
             commands::config::get_providers,
