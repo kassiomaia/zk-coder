@@ -18,8 +18,6 @@
 	import { configStore } from '$lib/stores/configStore';
 	import {
 		saveScrollPosition,
-		restoreScrollPosition,
-		hasSavedPosition,
 		initializeThreadScroll,
 		cleanupThreadScroll
 	} from '$lib/utils/scrollManager';
@@ -35,10 +33,11 @@
 		scrollToBottom as controllerScrollToBottom,
 		isAutoScrollEnabled as controllerIsAutoScrollEnabled
 	} from '$lib/utils/scrollController';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { chatStore } from '$lib/stores';
 	import type { ResolutionType } from '$lib/types/nlp';
 	import { createLogger } from '$lib/utils/logger';
+	import { shouldForceInitialBottomScroll } from './chatAreaScroll';
 
 	const log = createLogger('ChatArea');
 
@@ -175,6 +174,9 @@
 	// Track last scroll position to detect user scrolling UP
 	let lastScrollTop = $state(0);
 
+	// Track pending one-time bottom positioning when opening a thread
+	let pendingInitialBottomScrollThreadId = $state<string | null>(null);
+
 	// Threshold for showing scroll button (larger zone for visibility)
 	const SCROLL_BUTTON_THRESHOLD = 100;
 
@@ -296,18 +298,49 @@
 
 		previousThreadId = currentThreadId;
 
-		// Restore position or scroll to bottom
+		// For thread selection UX, always open at bottom.
+		// We defer the final jump until messages are loaded/rendered.
 		if (ref && currentThreadId) {
-			if (hasSavedPosition(currentThreadId)) {
-				restoreScrollPosition(currentThreadId, ref);
-			} else {
-				// New thread - scroll to bottom immediately (no animation, no RAF)
-				// This prevents the visual "flash" of seeing top before scrolling
-				ref.scrollTop = ref.scrollHeight;
-			}
-			// Update lastScrollTop after setting position
+			// Prevent initial visual flash while loading
+			ref.scrollTop = ref.scrollHeight;
+			pendingInitialBottomScrollThreadId = currentThreadId;
 			lastScrollTop = ref.scrollTop;
+			showScrollButton = false;
 		}
+	});
+
+	// After selected thread messages are loaded and rendered, force instant bottom positioning once.
+	$effect(() => {
+		const ref = messagesWrapperRef;
+		const currentThreadId = threadId;
+		const loadingState = messagesLoading;
+		const pendingThreadId = pendingInitialBottomScrollThreadId;
+
+		if (!ref || !currentThreadId) return;
+		if (
+			!shouldForceInitialBottomScroll({
+				currentThreadId,
+				pendingThreadId,
+				messagesLoading: loadingState
+			})
+		)
+			return;
+
+		let cancelled = false;
+
+		void (async () => {
+			await tick();
+			if (cancelled || pendingInitialBottomScrollThreadId !== currentThreadId) return;
+
+			controllerScrollToBottom(currentThreadId, { priority: 'programmatic', animated: false });
+			lastScrollTop = ref.scrollTop;
+			showScrollButton = false;
+			pendingInitialBottomScrollThreadId = null;
+		})();
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	// Auto-scroll when messages change - using new controller
