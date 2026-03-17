@@ -3,7 +3,12 @@
 //! This module provides Tauri commands for LLM chat completions and streaming.
 
 use futures::future::BoxFuture;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
@@ -12,7 +17,8 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::config::get_code_operation_model;
 use crate::llm::{
-    create_client, ChatRequest, ChatResponse, LlmClient, LlmEvent, Message, ToolCall as LlmToolCall,
+    create_client, ChatRequest, ChatResponse, LlmClient, LlmEvent, Message,
+    ToolCall as LlmToolCall, ToolDefinition as LlmToolDefinition,
 };
 use crate::nlp::chat::{ChatMessage, MessageFeedback, MessageRole};
 use crate::nlp::config::ApiType;
@@ -23,6 +29,10 @@ use super::ChatState;
 
 /// Environment flag for enabling the orchestrated runner path.
 const ORCHESTRATOR_FLAG_ENV: &str = "CODER_LLM_ORCHESTRATOR";
+/// Environment flag for enabling real tool execution in the orchestrator.
+const ORCHESTRATOR_TOOL_REGISTRY_ENV: &str = "CODER_LLM_TOOL_REGISTRY";
+/// Optional workspace root override for workspace-scoped tool handlers.
+const ORCHESTRATOR_WORKSPACE_ROOT_ENV: &str = "CODER_LLM_TOOL_WORKSPACE_ROOT";
 /// Safety bound for orchestrated request loops.
 const ORCHESTRATOR_MAX_STEPS: usize = 6;
 
@@ -108,10 +118,10 @@ impl ConversationRunner for LegacyConversationRunner {
     }
 }
 
-/// Orchestrated runner stub (Step 2b).
+/// Orchestrated runner for bounded non-streaming tool-capable turns.
 ///
-/// This placeholder keeps behavior identical by delegating to legacy handlers,
-/// while providing a dedicated integration point for the future tool loop.
+/// This path is still env-gated and preserves streaming behavior by delegating
+/// streaming requests to the legacy implementation.
 pub struct OrchestratedConversationRunner;
 
 impl ConversationRunner for OrchestratedConversationRunner {
@@ -124,8 +134,9 @@ impl ConversationRunner for OrchestratedConversationRunner {
             info!(
                 "[LLM] Orchestrated runner enabled: executing loop skeleton for non-streaming request"
             );
-            let tool_executor = NoopToolExecutor;
-            send_chat_message_orchestrated_non_stream(request, app_handle, &tool_executor).await
+            let tool_executor = select_tool_executor_from_env(&request.conversation_id);
+            send_chat_message_orchestrated_non_stream(request, app_handle, tool_executor.as_ref())
+                .await
         })
     }
 
@@ -155,12 +166,46 @@ fn parse_env_flag(value: Option<&str>) -> bool {
 fn select_runner_from_env() -> Arc<dyn ConversationRunner> {
     if parse_env_flag(std::env::var(ORCHESTRATOR_FLAG_ENV).ok().as_deref()) {
         info!(
-            "[LLM] {}=true -> using OrchestratedConversationRunner stub",
+            "[LLM] {}=true -> using OrchestratedConversationRunner",
             ORCHESTRATOR_FLAG_ENV
         );
         Arc::new(OrchestratedConversationRunner)
     } else {
         Arc::new(LegacyConversationRunner)
+    }
+}
+
+/// Selects the tool executor strategy from environment configuration.
+fn select_tool_executor_from_env(conversation_id: &str) -> Box<dyn ToolExecutor> {
+    if !parse_env_flag(
+        std::env::var(ORCHESTRATOR_TOOL_REGISTRY_ENV)
+            .ok()
+            .as_deref(),
+    ) {
+        return Box::new(NoopToolExecutor);
+    }
+
+    match ToolRegistry::new() {
+        Ok(registry) => {
+            info!(
+                "[LLM] {}=true -> enabling registry-backed tool execution ({} tools)",
+                ORCHESTRATOR_TOOL_REGISTRY_ENV,
+                registry.definitions().len()
+            );
+            Box::new(RegistryToolExecutor {
+                registry: Arc::new(registry),
+                context: ToolExecutionContext {
+                    conversation_id: conversation_id.to_string(),
+                },
+            })
+        }
+        Err(err) => {
+            warn!(
+                "[LLM] Tool registry initialization failed, using noop executor. error={}",
+                err
+            );
+            Box::new(NoopToolExecutor)
+        }
     }
 }
 
@@ -195,6 +240,8 @@ fn append_tool_results_to_context(
 
 /// Tool execution abstraction for orchestrated turns.
 trait ToolExecutor: Send + Sync {
+    fn definitions(&self) -> Vec<LlmToolDefinition>;
+
     fn execute<'a>(
         &'a self,
         call: LlmToolCall,
@@ -203,11 +250,13 @@ trait ToolExecutor: Send + Sync {
 }
 
 /// Default executor placeholder.
-///
-/// Real tool dispatch will be plugged in as dedicated handlers in the next phase.
 struct NoopToolExecutor;
 
 impl ToolExecutor for NoopToolExecutor {
+    fn definitions(&self) -> Vec<LlmToolDefinition> {
+        Vec::new()
+    }
+
     fn execute<'a>(
         &'a self,
         call: LlmToolCall,
@@ -225,6 +274,517 @@ impl ToolExecutor for NoopToolExecutor {
             }
         })
     }
+}
+
+/// Per-request context for tool execution.
+#[derive(Debug, Clone)]
+struct ToolExecutionContext {
+    conversation_id: String,
+}
+
+/// Async handler signature for registry-backed tools.
+type ToolHandler = fn(
+    ToolExecutionContext,
+    serde_json::Value,
+    AppHandle,
+    PathBuf,
+) -> BoxFuture<'static, Result<serde_json::Value, String>>;
+
+/// Registered tool metadata and handler.
+#[derive(Clone)]
+struct ToolRegistration {
+    definition: LlmToolDefinition,
+    handler: ToolHandler,
+}
+
+/// In-process registry for orchestrator tool execution.
+#[derive(Clone)]
+struct ToolRegistry {
+    workspace_root: PathBuf,
+    tools: HashMap<String, ToolRegistration>,
+}
+
+/// Registry-backed executor for orchestrated turns.
+struct RegistryToolExecutor {
+    registry: Arc<ToolRegistry>,
+    context: ToolExecutionContext,
+}
+
+impl ToolExecutor for RegistryToolExecutor {
+    fn definitions(&self) -> Vec<LlmToolDefinition> {
+        self.registry.definitions()
+    }
+
+    fn execute<'a>(
+        &'a self,
+        call: LlmToolCall,
+        app_handle: AppHandle,
+    ) -> BoxFuture<'a, OrchestratorToolResult> {
+        let registry = self.registry.clone();
+        let context = self.context.clone();
+        Box::pin(async move { registry.execute(context, call, app_handle).await })
+    }
+}
+
+impl ToolRegistry {
+    fn new() -> Result<Self, String> {
+        let workspace_root = resolve_workspace_root()?;
+        Ok(Self {
+            workspace_root,
+            tools: Self::build_builtin_tools(),
+        })
+    }
+
+    fn definitions(&self) -> Vec<LlmToolDefinition> {
+        self.tools
+            .values()
+            .map(|registration| registration.definition.clone())
+            .collect()
+    }
+
+    async fn execute(
+        &self,
+        context: ToolExecutionContext,
+        call: LlmToolCall,
+        app_handle: AppHandle,
+    ) -> OrchestratorToolResult {
+        let Some(registration) = self.tools.get(&call.name) else {
+            let mut available = self.tools.keys().cloned().collect::<Vec<_>>();
+            available.sort();
+            return OrchestratorToolResult {
+                call_id: call.id,
+                name: call.name,
+                output: serde_json::json!({
+                    "error": "Unknown tool name",
+                    "available_tools": available,
+                }),
+                is_error: true,
+            };
+        };
+
+        let handler = registration.handler;
+        match handler(
+            context,
+            call.arguments,
+            app_handle,
+            self.workspace_root.clone(),
+        )
+        .await
+        {
+            Ok(output) => OrchestratorToolResult {
+                call_id: call.id,
+                name: call.name,
+                output,
+                is_error: false,
+            },
+            Err(error_message) => OrchestratorToolResult {
+                call_id: call.id,
+                name: call.name,
+                output: serde_json::json!({
+                    "error": error_message,
+                }),
+                is_error: true,
+            },
+        }
+    }
+
+    fn build_builtin_tools() -> HashMap<String, ToolRegistration> {
+        let mut tools = HashMap::new();
+        let get_app_info_name = "get_app_info".to_string();
+        tools.insert(
+            get_app_info_name.clone(),
+            ToolRegistration {
+                definition: LlmToolDefinition {
+                    name: get_app_info_name,
+                    description: "Return backend application metadata (name/version).".to_string(),
+                    input_schema: serde_json::json!({
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {}
+                    }),
+                },
+                handler: get_app_info_tool,
+            },
+        );
+
+        let read_file_name = "read_workspace_file".to_string();
+        tools.insert(
+            read_file_name.clone(),
+            ToolRegistration {
+                definition: LlmToolDefinition {
+                    name: read_file_name,
+                    description: "Read UTF-8 content from a file inside the workspace root."
+                        .to_string(),
+                    input_schema: serde_json::json!({
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "path": { "type": "string" },
+                            "max_bytes": { "type": "integer", "minimum": 1, "maximum": 200000 }
+                        },
+                        "required": ["path"]
+                    }),
+                },
+                handler: read_workspace_file_tool,
+            },
+        );
+
+        let list_files_name = "list_workspace_files".to_string();
+        tools.insert(
+            list_files_name.clone(),
+            ToolRegistration {
+                definition: LlmToolDefinition {
+                    name: list_files_name,
+                    description:
+                        "List files under a workspace path with bounded recursion and limit."
+                            .to_string(),
+                    input_schema: serde_json::json!({
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "path": { "type": "string" },
+                            "max_depth": { "type": "integer", "minimum": 0, "maximum": 8 },
+                            "limit": { "type": "integer", "minimum": 1, "maximum": 500 }
+                        }
+                    }),
+                },
+                handler: list_workspace_files_tool,
+            },
+        );
+
+        let search_messages_name = "search_conversation_messages".to_string();
+        tools.insert(
+            search_messages_name.clone(),
+            ToolRegistration {
+                definition: LlmToolDefinition {
+                    name: search_messages_name,
+                    description:
+                        "Search existing conversation messages for a query (case-insensitive)."
+                            .to_string(),
+                    input_schema: serde_json::json!({
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "query": { "type": "string" },
+                            "limit": { "type": "integer", "minimum": 1, "maximum": 100 }
+                        },
+                        "required": ["query"]
+                    }),
+                },
+                handler: search_conversation_messages_tool,
+            },
+        );
+
+        tools
+    }
+}
+
+const TOOL_DEFAULT_READ_MAX_BYTES: usize = 16_000;
+const TOOL_MAX_READ_MAX_BYTES: usize = 200_000;
+const TOOL_DEFAULT_LIST_DEPTH: usize = 3;
+const TOOL_MAX_LIST_DEPTH: usize = 8;
+const TOOL_DEFAULT_LIST_LIMIT: usize = 200;
+const TOOL_MAX_LIST_LIMIT: usize = 500;
+const TOOL_DEFAULT_MESSAGE_SEARCH_LIMIT: usize = 20;
+const TOOL_MAX_MESSAGE_SEARCH_LIMIT: usize = 100;
+
+#[derive(Debug, serde::Deserialize)]
+struct ReadWorkspaceFileArgs {
+    path: String,
+    #[serde(default = "default_tool_read_max_bytes")]
+    max_bytes: usize,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ListWorkspaceFilesArgs {
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default = "default_tool_list_depth")]
+    max_depth: usize,
+    #[serde(default = "default_tool_list_limit")]
+    limit: usize,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct SearchConversationMessagesArgs {
+    query: String,
+    #[serde(default = "default_tool_message_search_limit")]
+    limit: usize,
+}
+
+const fn default_tool_read_max_bytes() -> usize {
+    TOOL_DEFAULT_READ_MAX_BYTES
+}
+
+const fn default_tool_list_depth() -> usize {
+    TOOL_DEFAULT_LIST_DEPTH
+}
+
+const fn default_tool_list_limit() -> usize {
+    TOOL_DEFAULT_LIST_LIMIT
+}
+
+const fn default_tool_message_search_limit() -> usize {
+    TOOL_DEFAULT_MESSAGE_SEARCH_LIMIT
+}
+
+fn parse_tool_args<T>(tool_name: &str, arguments: serde_json::Value) -> Result<T, String>
+where
+    T: serde::de::DeserializeOwned,
+{
+    serde_json::from_value(arguments)
+        .map_err(|err| format!("Invalid arguments for '{}': {}", tool_name, err))
+}
+
+fn resolve_workspace_root() -> Result<PathBuf, String> {
+    let root_candidate = std::env::var(ORCHESTRATOR_WORKSPACE_ROOT_ENV)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .map(PathBuf::from)
+        .map_or_else(std::env::current_dir, Ok)
+        .map_err(|err| format!("Failed to resolve current directory for tool root: {}", err))?;
+
+    let canonical = root_candidate
+        .canonicalize()
+        .map_err(|err| format!("Failed to canonicalize tool root: {}", err))?;
+    if !canonical.is_dir() {
+        return Err(format!(
+            "Tool workspace root is not a directory: {}",
+            canonical.display()
+        ));
+    }
+
+    Ok(canonical)
+}
+
+fn resolve_workspace_path(workspace_root: &Path, raw_path: &str) -> Result<PathBuf, String> {
+    let trimmed = raw_path.trim();
+    if trimmed.is_empty() {
+        return Err("Path argument cannot be empty".to_string());
+    }
+
+    let candidate = if Path::new(trimmed).is_absolute() {
+        PathBuf::from(trimmed)
+    } else {
+        workspace_root.join(trimmed)
+    };
+
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|err| format!("Failed to resolve path '{}': {}", trimmed, err))?;
+    if !canonical.starts_with(workspace_root) {
+        return Err(format!(
+            "Path '{}' resolves outside workspace root",
+            trimmed
+        ));
+    }
+
+    Ok(canonical)
+}
+
+fn workspace_relative_path(workspace_root: &Path, absolute_path: &Path) -> String {
+    absolute_path.strip_prefix(workspace_root).map_or_else(
+        |_| absolute_path.to_string_lossy().to_string(),
+        |relative| {
+            let value = relative.to_string_lossy().to_string();
+            if value.is_empty() {
+                ".".to_string()
+            } else {
+                value
+            }
+        },
+    )
+}
+
+fn should_skip_directory(name: &str) -> bool {
+    matches!(
+        name,
+        ".git" | "node_modules" | "target" | "dist" | "build" | ".next"
+    )
+}
+
+fn collect_workspace_files(
+    workspace_root: &Path,
+    current_path: &Path,
+    depth: usize,
+    max_depth: usize,
+    limit: usize,
+    out: &mut Vec<String>,
+) {
+    if out.len() >= limit || depth > max_depth {
+        return;
+    }
+
+    let entries = match fs::read_dir(current_path) {
+        Ok(entries) => entries,
+        Err(err) => {
+            warn!(
+                "[LLM] Skipping unreadable directory '{}': {}",
+                current_path.display(),
+                err
+            );
+            return;
+        }
+    };
+
+    for entry in entries {
+        if out.len() >= limit {
+            break;
+        }
+        let Ok(entry) = entry else {
+            continue;
+        };
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+
+        let path = entry.path();
+        if file_type.is_dir() {
+            let directory_name = entry.file_name().to_string_lossy().to_string();
+            if should_skip_directory(&directory_name) {
+                continue;
+            }
+            collect_workspace_files(workspace_root, &path, depth + 1, max_depth, limit, out);
+            continue;
+        }
+        if file_type.is_file() {
+            out.push(workspace_relative_path(workspace_root, &path));
+        }
+    }
+}
+
+fn get_app_info_tool(
+    _context: ToolExecutionContext,
+    arguments: serde_json::Value,
+    _app_handle: AppHandle,
+    _workspace_root: PathBuf,
+) -> BoxFuture<'static, Result<serde_json::Value, String>> {
+    Box::pin(async move {
+        if !arguments.is_null() && arguments != serde_json::json!({}) {
+            return Err("get_app_info does not accept arguments".to_string());
+        }
+        Ok(serde_json::json!({
+            "name": env!("CARGO_PKG_NAME"),
+            "version": env!("CARGO_PKG_VERSION"),
+        }))
+    })
+}
+
+fn read_workspace_file_tool(
+    _context: ToolExecutionContext,
+    arguments: serde_json::Value,
+    _app_handle: AppHandle,
+    workspace_root: PathBuf,
+) -> BoxFuture<'static, Result<serde_json::Value, String>> {
+    Box::pin(async move {
+        let args: ReadWorkspaceFileArgs = parse_tool_args("read_workspace_file", arguments)?;
+        let absolute_path = resolve_workspace_path(&workspace_root, &args.path)?;
+        if !absolute_path.is_file() {
+            return Err(format!("Path is not a file: {}", args.path));
+        }
+
+        let max_bytes = args.max_bytes.clamp(1, TOOL_MAX_READ_MAX_BYTES);
+        let bytes = fs::read(&absolute_path)
+            .map_err(|err| format!("Failed to read file '{}': {}", args.path, err))?;
+        let size_bytes = bytes.len();
+        let truncated = size_bytes > max_bytes;
+        let content_bytes = if truncated {
+            &bytes[..max_bytes]
+        } else {
+            &bytes
+        };
+        let content = String::from_utf8_lossy(content_bytes).to_string();
+
+        Ok(serde_json::json!({
+            "path": workspace_relative_path(&workspace_root, &absolute_path),
+            "size_bytes": size_bytes,
+            "truncated": truncated,
+            "content": content,
+        }))
+    })
+}
+
+fn list_workspace_files_tool(
+    _context: ToolExecutionContext,
+    arguments: serde_json::Value,
+    _app_handle: AppHandle,
+    workspace_root: PathBuf,
+) -> BoxFuture<'static, Result<serde_json::Value, String>> {
+    Box::pin(async move {
+        let args: ListWorkspaceFilesArgs = parse_tool_args("list_workspace_files", arguments)?;
+        let max_depth = args.max_depth.min(TOOL_MAX_LIST_DEPTH);
+        let limit = args.limit.clamp(1, TOOL_MAX_LIST_LIMIT);
+        let base_path = args.path.unwrap_or_else(|| ".".to_string());
+        let absolute_path = resolve_workspace_path(&workspace_root, &base_path)?;
+        if !absolute_path.is_dir() {
+            return Err(format!("Path is not a directory: {}", base_path));
+        }
+
+        let mut files = Vec::with_capacity(limit.min(128));
+        collect_workspace_files(
+            &workspace_root,
+            &absolute_path,
+            0,
+            max_depth,
+            limit,
+            &mut files,
+        );
+        files.sort();
+
+        Ok(serde_json::json!({
+            "root": workspace_root.to_string_lossy().to_string(),
+            "path": workspace_relative_path(&workspace_root, &absolute_path),
+            "count": files.len(),
+            "files": files,
+        }))
+    })
+}
+
+fn search_conversation_messages_tool(
+    context: ToolExecutionContext,
+    arguments: serde_json::Value,
+    app_handle: AppHandle,
+    _workspace_root: PathBuf,
+) -> BoxFuture<'static, Result<serde_json::Value, String>> {
+    Box::pin(async move {
+        let args: SearchConversationMessagesArgs =
+            parse_tool_args("search_conversation_messages", arguments)?;
+        let needle = args.query.trim().to_ascii_lowercase();
+        if needle.is_empty() {
+            return Err("query cannot be empty".to_string());
+        }
+        let limit = args.limit.clamp(1, TOOL_MAX_MESSAGE_SEARCH_LIMIT);
+
+        let chat_state = app_handle.state::<ChatState>();
+        let chat_store = chat_state.store.lock().await;
+        let history = chat_store
+            .load_messages(&context.conversation_id)
+            .map_err(|err| err.to_string())?;
+
+        let mut matches = Vec::new();
+        for message in history {
+            if matches.len() >= limit {
+                break;
+            }
+            if !message.content.to_ascii_lowercase().contains(&needle) {
+                continue;
+            }
+            matches.push(serde_json::json!({
+                "id": message.id,
+                "role": message.role.as_str(),
+                "thread_id": message.thread_id,
+                "timestamp": message.timestamp,
+                "content": message.content,
+            }));
+        }
+
+        Ok(serde_json::json!({
+            "conversation_id": context.conversation_id,
+            "query": args.query,
+            "count": matches.len(),
+            "matches": matches,
+        }))
+    })
 }
 
 // =============================================================================
@@ -456,6 +1016,7 @@ async fn send_chat_message_orchestrated_non_stream(
     let system_prompt = request.system_prompt.clone().unwrap_or_default();
     let temperature = request.temperature.unwrap_or(0.7);
     let max_tokens = request.max_tokens.unwrap_or(4096);
+    let tool_definitions = tool_executor.definitions();
 
     for step in 1..=ORCHESTRATOR_MAX_STEPS {
         info!(
@@ -464,10 +1025,13 @@ async fn send_chat_message_orchestrated_non_stream(
         );
 
         let llm_messages = convert_messages(&context_messages);
-        let chat_request = ChatRequest::new(&model.name, llm_messages)
+        let mut chat_request = ChatRequest::new(&model.name, llm_messages)
             .with_system(&system_prompt)
             .with_temperature(temperature)
             .with_max_tokens(max_tokens);
+        if !tool_definitions.is_empty() {
+            chat_request = chat_request.with_tools(tool_definitions.clone());
+        }
 
         let response: ChatResponse = client.chat(chat_request).await.map_err(|e| {
             error!(
@@ -912,6 +1476,7 @@ pub async fn cancel_chat_request(request_id: String, app_handle: AppHandle) -> R
 mod tests {
     use super::*;
     use crate::nlp::chat::MessageFeedback;
+    use std::fs as std_fs;
 
     #[test]
     fn test_llm_state_creation() {
@@ -932,6 +1497,47 @@ mod tests {
             assert!(!parse_env_flag(Some(value)), "expected falsy for {}", value);
         }
         assert!(!parse_env_flag(None));
+    }
+
+    #[test]
+    fn test_tool_registry_builds_expected_tools() {
+        let registry = ToolRegistry {
+            workspace_root: PathBuf::from("/tmp"),
+            tools: ToolRegistry::build_builtin_tools(),
+        };
+        let mut names = registry
+            .definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect::<Vec<_>>();
+        names.sort();
+
+        assert!(names.contains(&"get_app_info".to_string()));
+        assert!(names.contains(&"list_workspace_files".to_string()));
+        assert!(names.contains(&"read_workspace_file".to_string()));
+        assert!(names.contains(&"search_conversation_messages".to_string()));
+    }
+
+    #[test]
+    fn test_resolve_workspace_path_rejects_escape_attempts() {
+        let workspace_root =
+            std::env::temp_dir().join(format!("coder-tool-test-{}", uuid::Uuid::new_v4()));
+        std_fs::create_dir_all(workspace_root.join("nested"))
+            .expect("failed to create test workspace");
+        std_fs::write(workspace_root.join("nested/file.txt"), "hello")
+            .expect("failed to write test file");
+
+        let canonical_root = workspace_root
+            .canonicalize()
+            .expect("failed to canonicalize root");
+        let allowed = resolve_workspace_path(&canonical_root, "nested/file.txt")
+            .expect("expected nested file to resolve");
+        assert!(allowed.starts_with(&canonical_root));
+
+        let escaped = resolve_workspace_path(&canonical_root, "../");
+        assert!(escaped.is_err());
+
+        let _ = std_fs::remove_dir_all(&workspace_root);
     }
 
     #[test]

@@ -238,6 +238,9 @@ pub struct ChatRequest {
     /// Whether to stream the response
     #[serde(default)]
     pub stream: bool,
+    /// Tool definitions available to the model for this request.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tools: Vec<ToolDefinition>,
 }
 
 impl ChatRequest {
@@ -253,6 +256,7 @@ impl ChatRequest {
             top_p: None,
             stop: None,
             stream: false,
+            tools: Vec::new(),
         }
     }
 
@@ -283,6 +287,24 @@ impl ChatRequest {
         self.stream = true;
         self
     }
+
+    /// Sets available tool definitions.
+    #[must_use]
+    pub fn with_tools(mut self, tools: Vec<ToolDefinition>) -> Self {
+        self.tools = tools;
+        self
+    }
+}
+
+/// Provider-agnostic tool definition for request payloads.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ToolDefinition {
+    /// Tool name.
+    pub name: String,
+    /// Short tool description.
+    pub description: String,
+    /// JSON Schema for tool arguments.
+    pub input_schema: serde_json::Value,
 }
 
 /// Response from a chat completion.
@@ -586,6 +608,26 @@ mod tests {
         assert_eq!(request.temperature, Some(0.7));
         assert_eq!(request.max_tokens, Some(100));
         assert!(request.stream);
+    }
+
+    #[test]
+    fn test_chat_request_with_tools() {
+        let request = ChatRequest::new("gpt-4.1", vec![Message::user("Hi")]).with_tools(vec![
+            ToolDefinition {
+                name: "read_workspace_file".to_string(),
+                description: "Read file content".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"}
+                    },
+                    "required": ["path"]
+                }),
+            },
+        ]);
+
+        assert_eq!(request.tools.len(), 1);
+        assert_eq!(request.tools[0].name, "read_workspace_file");
     }
 
     #[test]

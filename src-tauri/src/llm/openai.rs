@@ -13,7 +13,7 @@ use std::pin::Pin;
 
 use super::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, StreamChunk, StreamDelta,
-    ToolCall, UsageStats,
+    ToolCall, ToolDefinition, UsageStats,
 };
 use crate::nlp::config::ApiType;
 
@@ -37,6 +37,24 @@ struct OpenAiRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     stop: Option<Vec<String>>,
     stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<OpenAiRequestTool>>,
+}
+
+/// OpenAI tool definition in chat completion requests.
+#[derive(Debug, Serialize)]
+struct OpenAiRequestTool {
+    #[serde(rename = "type")]
+    tool_type: String,
+    function: OpenAiRequestFunction,
+}
+
+/// OpenAI function definition in request tools.
+#[derive(Debug, Serialize)]
+struct OpenAiRequestFunction {
+    name: String,
+    description: String,
+    parameters: serde_json::Value,
 }
 
 /// OpenAI message format.
@@ -271,6 +289,7 @@ impl OpenAiClient {
             top_p: request.top_p,
             stop: request.stop,
             stream: request.stream,
+            tools: convert_tools(request.tools),
         }
     }
 
@@ -629,6 +648,26 @@ impl LlmClient for OpenAiClient {
     }
 }
 
+/// Converts provider-agnostic tool definitions to OpenAI request tools.
+fn convert_tools(tools: Vec<ToolDefinition>) -> Option<Vec<OpenAiRequestTool>> {
+    if tools.is_empty() {
+        return None;
+    }
+    Some(
+        tools
+            .into_iter()
+            .map(|tool| OpenAiRequestTool {
+                tool_type: "function".to_string(),
+                function: OpenAiRequestFunction {
+                    name: tool.name,
+                    description: tool.description,
+                    parameters: tool.input_schema,
+                },
+            })
+            .collect(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -664,6 +703,31 @@ mod tests {
         assert_eq!(openai_request.messages[0].role, "system");
         assert_eq!(openai_request.messages[1].role, "system");
         assert_eq!(openai_request.messages[2].role, "user");
+        assert!(openai_request.tools.is_none());
+    }
+
+    #[test]
+    fn test_convert_request_with_tools() {
+        let client = OpenAiClient::new("test-key".to_string(), None);
+        let request = ChatRequest::new("gpt-4.1", vec![Message::user("Hello")]).with_tools(vec![
+            ToolDefinition {
+                name: "read_workspace_file".to_string(),
+                description: "Read a UTF-8 file from the workspace".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"}
+                    },
+                    "required": ["path"]
+                }),
+            },
+        ]);
+
+        let openai_request = client.convert_request(request);
+        let tools = openai_request.tools.expect("tools should be present");
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0].tool_type, "function");
+        assert_eq!(tools[0].function.name, "read_workspace_file");
     }
 
     #[test]

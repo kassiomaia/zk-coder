@@ -18,7 +18,7 @@ use std::pin::Pin;
 
 use super::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, StreamChunk, StreamDelta,
-    ToolCall, UsageStats,
+    ToolCall, ToolDefinition, UsageStats,
 };
 use crate::nlp::config::ApiType;
 
@@ -41,6 +41,8 @@ struct AnthropicRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     stop_sequences: Option<Vec<String>>,
     stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<AnthropicTool>>,
 }
 
 /// Anthropic message format.
@@ -77,6 +79,14 @@ struct AnthropicImageSource {
     source_type: String,
     media_type: String,
     data: String,
+}
+
+/// Anthropic tool definition in messages API requests.
+#[derive(Debug, Serialize)]
+struct AnthropicTool {
+    name: String,
+    description: String,
+    input_schema: serde_json::Value,
 }
 
 /// Anthropic messages API response.
@@ -305,6 +315,7 @@ impl AnthropicClient {
             top_p: request.top_p,
             stop_sequences: request.stop,
             stream: request.stream,
+            tools: convert_tools(request.tools),
         }
     }
 
@@ -722,6 +733,23 @@ impl LlmClient for AnthropicClient {
     }
 }
 
+/// Converts provider-agnostic tool definitions to Anthropic request tools.
+fn convert_tools(tools: Vec<ToolDefinition>) -> Option<Vec<AnthropicTool>> {
+    if tools.is_empty() {
+        return None;
+    }
+    Some(
+        tools
+            .into_iter()
+            .map(|tool| AnthropicTool {
+                name: tool.name,
+                description: tool.description,
+                input_schema: tool.input_schema,
+            })
+            .collect(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -758,6 +786,28 @@ mod tests {
         assert_eq!(anthropic_request.messages.len(), 2);
         assert_eq!(anthropic_request.messages[0].role, "user");
         assert_eq!(anthropic_request.messages[1].role, "assistant");
+        assert!(anthropic_request.tools.is_none());
+    }
+
+    #[test]
+    fn test_convert_request_with_tools() {
+        let client = AnthropicClient::new("test-key".to_string(), None);
+        let request = ChatRequest::new("claude-3-5-sonnet-20241022", vec![Message::user("Hello")])
+            .with_tools(vec![ToolDefinition {
+                name: "list_workspace_files".to_string(),
+                description: "List files in workspace".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"}
+                    }
+                }),
+            }]);
+
+        let anthropic_request = client.convert_request(request);
+        let tools = anthropic_request.tools.expect("tools should be present");
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0].name, "list_workspace_files");
     }
 
     #[test]
