@@ -18,7 +18,7 @@ use std::pin::Pin;
 
 use super::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, StreamChunk, StreamDelta,
-    UsageStats,
+    ToolCall, UsageStats,
 };
 use crate::nlp::config::ApiType;
 
@@ -99,7 +99,14 @@ struct AnthropicResponseContent {
     #[serde(rename = "type")]
     #[allow(dead_code)]
     content_type: String,
+    #[serde(default)]
     text: Option<String>,
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    input: Option<serde_json::Value>,
 }
 
 /// Anthropic usage statistics.
@@ -388,26 +395,52 @@ impl AnthropicClient {
             .await
             .map_err(|e| LlmError::parse(format!("Failed to parse response: {}", e)))?;
 
-        // Extract text content from response
-        let content = anthropic_response
-            .content
-            .iter()
-            .filter_map(|c| c.text.clone())
-            .collect::<Vec<_>>()
-            .join("");
+        let AnthropicResponse {
+            id,
+            model,
+            content: response_blocks,
+            usage,
+            stop_reason,
+            ..
+        } = anthropic_response;
 
-        let usage = anthropic_response.usage.map(|u| UsageStats {
+        // Extract text content and structured tool calls from response blocks.
+        let mut text_parts = Vec::new();
+        let mut tool_calls = Vec::new();
+        for block in response_blocks {
+            match block.content_type.as_str() {
+                "text" => {
+                    if let Some(text) = block.text {
+                        text_parts.push(text);
+                    }
+                }
+                "tool_use" => {
+                    if let Some(name) = block.name {
+                        tool_calls.push(ToolCall {
+                            id: block.id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+                            name,
+                            arguments: block.input.unwrap_or_else(|| serde_json::json!({})),
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+        let content = text_parts.join("");
+
+        let usage = usage.map(|u| UsageStats {
             input_tokens: u.input_tokens,
             output_tokens: u.output_tokens,
             total_tokens: u.input_tokens + u.output_tokens,
         });
 
         Ok(ChatResponse {
-            id: anthropic_response.id,
-            model: anthropic_response.model,
+            id,
+            model,
             content,
             usage,
-            finish_reason: anthropic_response.stop_reason,
+            finish_reason: stop_reason,
+            tool_calls,
         })
     }
 }
@@ -769,6 +802,28 @@ mod tests {
             }
             _ => panic!("Expected ContentBlockDelta event"),
         }
+    }
+
+    #[test]
+    fn test_anthropic_response_deserializes_tool_use_block() {
+        let json = r#"{
+            "id": "msg_1",
+            "model": "claude-3-5-sonnet-20241022",
+            "role": "assistant",
+            "content": [
+                {"type":"text","text":"Let me call a tool."},
+                {"type":"tool_use","id":"toolu_1","name":"search_code","input":{"query":"runner"}}
+            ],
+            "usage": {"input_tokens": 10, "output_tokens": 3},
+            "stop_reason": "tool_use"
+        }"#;
+
+        let parsed: AnthropicResponse =
+            serde_json::from_str(json).expect("valid Anthropic response");
+        assert_eq!(parsed.content.len(), 2);
+        assert_eq!(parsed.content[1].content_type, "tool_use");
+        assert_eq!(parsed.content[1].id.as_deref(), Some("toolu_1"));
+        assert_eq!(parsed.content[1].name.as_deref(), Some("search_code"));
     }
 
     #[test]

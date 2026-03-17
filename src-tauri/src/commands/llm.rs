@@ -11,7 +11,9 @@ use log::{error, info, warn};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::config::get_code_operation_model;
-use crate::llm::{create_client, ChatRequest, ChatResponse, LlmClient, LlmEvent, Message};
+use crate::llm::{
+    create_client, ChatRequest, ChatResponse, LlmClient, LlmEvent, Message, ToolCall as LlmToolCall,
+};
 use crate::nlp::chat::{ChatMessage, MessageFeedback, MessageRole};
 use crate::nlp::config::ApiType;
 use crate::storage::ConfigStore;
@@ -162,90 +164,13 @@ fn select_runner_from_env() -> Arc<dyn ConversationRunner> {
     }
 }
 
-/// Internal representation of a parsed tool call.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct OrchestratorToolCall {
-    id: String,
-    name: String,
-    arguments: String,
-}
-
 /// Internal representation of tool execution output.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct OrchestratorToolResult {
     call_id: String,
     name: String,
-    output: String,
+    output: serde_json::Value,
     is_error: bool,
-}
-
-/// Parses tool-call directives from assistant content.
-///
-/// Current skeleton format:
-/// `<tool_call>{"id":"...","name":"tool","arguments":"{...json...}"}</tool_call>`
-fn parse_tool_calls_from_content(content: &str) -> Vec<OrchestratorToolCall> {
-    #[derive(serde::Deserialize)]
-    struct ToolCallPayload {
-        #[serde(default)]
-        id: Option<String>,
-        name: String,
-        #[serde(default)]
-        arguments: Option<String>,
-    }
-
-    let start_tag = "<tool_call>";
-    let end_tag = "</tool_call>";
-    let mut remaining = content;
-    let mut calls = Vec::new();
-
-    while let Some(start_idx) = remaining.find(start_tag) {
-        let after_start = &remaining[start_idx + start_tag.len()..];
-        let Some(end_idx) = after_start.find(end_tag) else {
-            break;
-        };
-        let raw_payload = after_start[..end_idx].trim();
-        match serde_json::from_str::<ToolCallPayload>(raw_payload) {
-            Ok(payload) => {
-                calls.push(OrchestratorToolCall {
-                    id: payload
-                        .id
-                        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
-                    name: payload.name,
-                    arguments: payload.arguments.unwrap_or_else(|| "{}".to_string()),
-                });
-            }
-            Err(err) => {
-                warn!(
-                    "[LLM] Failed to parse tool call payload, ignoring block. error={}",
-                    err
-                );
-            }
-        }
-        remaining = &after_start[end_idx + end_tag.len()..];
-    }
-
-    calls
-}
-
-/// Removes tool-call blocks from assistant-visible content.
-fn strip_tool_call_blocks(content: &str) -> String {
-    let start_tag = "<tool_call>";
-    let end_tag = "</tool_call>";
-    let mut out = String::new();
-    let mut remaining = content;
-
-    while let Some(start_idx) = remaining.find(start_tag) {
-        out.push_str(&remaining[..start_idx]);
-        let after_start = &remaining[start_idx + start_tag.len()..];
-        let Some(end_idx) = after_start.find(end_tag) else {
-            // Unclosed block: drop the marker and stop.
-            break;
-        };
-        remaining = &after_start[end_idx + end_tag.len()..];
-    }
-
-    out.push_str(remaining);
-    out.trim().to_string()
 }
 
 /// Appends tool results to context as system messages for the next model turn.
@@ -256,9 +181,11 @@ fn append_tool_results_to_context(
 ) {
     for result in results {
         let status = if result.is_error { "ERROR" } else { "OK" };
+        let output = serde_json::to_string_pretty(&result.output)
+            .unwrap_or_else(|_| result.output.to_string());
         let content = format!(
             "TOOL_RESULT id={} name={} status={}\n{}",
-            result.call_id, result.name, status, result.output
+            result.call_id, result.name, status, output
         );
         let mut message = ChatMessage::assistant(conversation_id, &content);
         message.role = MessageRole::System;
@@ -270,7 +197,7 @@ fn append_tool_results_to_context(
 trait ToolExecutor: Send + Sync {
     fn execute<'a>(
         &'a self,
-        call: OrchestratorToolCall,
+        call: LlmToolCall,
         app_handle: AppHandle,
     ) -> BoxFuture<'a, OrchestratorToolResult>;
 }
@@ -283,14 +210,17 @@ struct NoopToolExecutor;
 impl ToolExecutor for NoopToolExecutor {
     fn execute<'a>(
         &'a self,
-        call: OrchestratorToolCall,
+        call: LlmToolCall,
         _app_handle: AppHandle,
     ) -> BoxFuture<'a, OrchestratorToolResult> {
         Box::pin(async move {
             OrchestratorToolResult {
                 call_id: call.id,
                 name: call.name,
-                output: "Tool execution not implemented yet in this environment".to_string(),
+                output: serde_json::json!({
+                    "error": "Tool execution not implemented yet in this environment",
+                    "arguments": call.arguments
+                }),
                 is_error: true,
             }
         })
@@ -547,18 +477,17 @@ async fn send_chat_message_orchestrated_non_stream(
             e.to_string()
         })?;
 
-        let tool_calls = parse_tool_calls_from_content(&response.content);
+        let tool_calls = response.tool_calls.clone();
         if tool_calls.is_empty() {
-            let visible_content = strip_tool_call_blocks(&response.content);
             let assistant_message =
-                ChatMessage::assistant(&request.conversation_id, &visible_content);
+                ChatMessage::assistant(&request.conversation_id, &response.content);
             let chat_store = chat_state.store.lock().await;
             chat_store
                 .add_message(&assistant_message)
                 .map_err(|e| e.to_string())?;
 
             return Ok(SendChatResponse {
-                content: visible_content,
+                content: response.content,
                 model: response.model,
                 usage: response.usage,
                 message: assistant_message,
@@ -1006,40 +935,12 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_tool_calls_from_content_none() {
-        let content = "Normal assistant response without tools.";
-        let calls = parse_tool_calls_from_content(content);
-        assert!(calls.is_empty());
-    }
-
-    #[test]
-    fn test_parse_tool_calls_from_content_single_block() {
-        let content = r#"Planning...
-<tool_call>{"id":"call-1","name":"search_code","arguments":"{\"query\":\"runner\"}"}</tool_call>
-Done."#;
-        let calls = parse_tool_calls_from_content(content);
-        assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].id, "call-1");
-        assert_eq!(calls[0].name, "search_code");
-        assert_eq!(calls[0].arguments, "{\"query\":\"runner\"}");
-    }
-
-    #[test]
-    fn test_strip_tool_call_blocks() {
-        let content = r#"Before
-<tool_call>{"id":"1","name":"tool","arguments":"{}"}</tool_call>
-After"#;
-        let stripped = strip_tool_call_blocks(content);
-        assert_eq!(stripped, "Before\n\nAfter");
-    }
-
-    #[test]
     fn test_append_tool_results_to_context() {
         let mut context = vec![ChatMessage::user("conv-1", "Hi")];
         let results = vec![OrchestratorToolResult {
             call_id: "c1".to_string(),
             name: "search_code".to_string(),
-            output: "{\"ok\":true}".to_string(),
+            output: serde_json::json!({"ok": true}),
             is_error: false,
         }];
         append_tool_results_to_context(&mut context, "conv-1", &results);

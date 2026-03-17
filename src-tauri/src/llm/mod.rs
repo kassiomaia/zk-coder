@@ -298,6 +298,20 @@ pub struct ChatResponse {
     pub usage: Option<UsageStats>,
     /// Finish reason (e.g., "stop", "length")
     pub finish_reason: Option<String>,
+    /// Structured tool calls requested by the model for this turn.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_calls: Vec<ToolCall>,
+}
+
+/// Provider-agnostic tool call representation.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ToolCall {
+    /// Unique call identifier emitted by the model/provider.
+    pub id: String,
+    /// Tool name.
+    pub name: String,
+    /// JSON arguments for the tool invocation.
+    pub arguments: serde_json::Value,
 }
 
 /// Token usage statistics.
@@ -702,7 +716,9 @@ mod tests {
                 } if request_id == "req-2"
             )
         }));
-        assert!(!events.iter().any(|e| matches!(e, LlmEvent::Complete { .. })));
+        assert!(!events
+            .iter()
+            .any(|e| matches!(e, LlmEvent::Complete { .. })));
     }
 
     #[tokio::test]

@@ -13,7 +13,7 @@ use std::pin::Pin;
 
 use super::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, StreamChunk, StreamDelta,
-    UsageStats,
+    ToolCall, UsageStats,
 };
 use crate::nlp::config::ApiType;
 
@@ -70,9 +70,30 @@ struct OpenAiChoice {
 /// OpenAI response message.
 #[derive(Debug, Deserialize)]
 struct OpenAiResponseMessage {
+    #[serde(default)]
     #[allow(dead_code)]
-    role: String,
-    content: String,
+    role: Option<String>,
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    tool_calls: Option<Vec<OpenAiToolCall>>,
+}
+
+/// OpenAI tool-call payload in chat completion responses.
+#[derive(Debug, Deserialize)]
+struct OpenAiToolCall {
+    id: String,
+    #[allow(dead_code)]
+    #[serde(rename = "type")]
+    tool_type: String,
+    function: OpenAiToolFunction,
+}
+
+/// OpenAI function payload for a tool call.
+#[derive(Debug, Deserialize)]
+struct OpenAiToolFunction {
+    name: String,
+    arguments: String,
 }
 
 /// OpenAI streaming delta.
@@ -326,13 +347,35 @@ impl OpenAiClient {
             .await
             .map_err(|e| LlmError::parse(format!("Failed to parse response: {}", e)))?;
 
-        // Extract content from first choice
-        let content = openai_response
+        // Extract content and structured tool calls from first choice.
+        let (content, tool_calls) = openai_response
             .choices
             .first()
             .and_then(|c| c.message.as_ref())
-            .map(|m| m.content.clone())
-            .unwrap_or_default();
+            .map(|m| {
+                let content = m.content.clone().unwrap_or_default();
+                let tool_calls = m
+                    .tool_calls
+                    .as_ref()
+                    .map(|calls| calls.iter())
+                    .into_iter()
+                    .flatten()
+                    .map(|call| {
+                        let arguments =
+                            serde_json::from_str::<serde_json::Value>(&call.function.arguments)
+                                .unwrap_or_else(|_| {
+                                    serde_json::Value::String(call.function.arguments.clone())
+                                });
+                        ToolCall {
+                            id: call.id.clone(),
+                            name: call.function.name.clone(),
+                            arguments,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                (content, tool_calls)
+            })
+            .unwrap_or_else(|| (String::new(), Vec::new()));
 
         let finish_reason = openai_response
             .choices
@@ -351,6 +394,7 @@ impl OpenAiClient {
             content,
             usage,
             finish_reason,
+            tool_calls,
         })
     }
 }
@@ -648,6 +692,49 @@ mod tests {
     fn test_parse_sse_line_empty() {
         assert!(OpenAiClient::parse_sse_line("").is_none());
         assert!(OpenAiClient::parse_sse_line(": comment").is_none());
+    }
+
+    #[test]
+    fn test_openai_response_deserializes_tool_calls() {
+        let json = r#"{
+            "id": "chatcmpl-tool-1",
+            "model": "gpt-4.1",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": null,
+                    "tool_calls": [{
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {
+                            "name": "search_code",
+                            "arguments": "{\"query\":\"runner\"}"
+                        }
+                    }]
+                },
+                "finish_reason": "tool_calls"
+            }],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 2,
+                "total_tokens": 12
+            }
+        }"#;
+
+        let parsed: OpenAiResponse = serde_json::from_str(json).expect("valid OpenAI response");
+        let message = parsed
+            .choices
+            .first()
+            .and_then(|c| c.message.as_ref())
+            .expect("message should exist");
+        let tool_calls = message
+            .tool_calls
+            .as_ref()
+            .expect("tool calls should exist");
+        assert_eq!(tool_calls.len(), 1);
+        assert_eq!(tool_calls[0].id, "call_1");
+        assert_eq!(tool_calls[0].function.name, "search_code");
     }
 
     #[test]
