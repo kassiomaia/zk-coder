@@ -6,10 +6,12 @@
 use std::sync::Arc;
 
 use chrono::Utc;
+use log::warn;
 use thiserror::Error;
 
 use super::context::{ContextMessage, ContextMetadata, ContextWindow, ConversationContext};
-use crate::ai::{ClaudeClient, ClaudeError};
+use super::llm_gateway::{NlpLlmError, NlpLlmGateway};
+use crate::ai::ClaudeClient;
 use crate::storage::{ContextStore, StoreError};
 
 /// Maximum tokens before compression
@@ -23,15 +25,28 @@ const KEEP_RECENT_COUNT: usize = 20;
 pub struct ContextManager {
     /// Storage backend
     store: ContextStore,
-    /// Claude client for compression
-    claude: Arc<ClaudeClient>,
+    /// LLM gateway for summarization/compression
+    gateway: Arc<dyn NlpLlmGateway + Send + Sync>,
 }
 
 impl ContextManager {
-    /// Creates a new context manager.
+    /// Creates a new context manager from a legacy Claude client.
+    ///
+    /// This compatibility constructor is kept temporarily while NLP state wiring
+    /// is migrated to the shared LLM layer.
     #[must_use]
     pub fn new(store: ContextStore, claude: Arc<ClaudeClient>) -> Self {
-        Self { store, claude }
+        let gateway = Arc::new(LegacyClaudeGateway { claude });
+        Self::with_gateway(store, gateway)
+    }
+
+    /// Creates a new context manager with an abstract NLP LLM gateway.
+    #[must_use]
+    pub fn with_gateway(
+        store: ContextStore,
+        gateway: Arc<dyn NlpLlmGateway + Send + Sync>,
+    ) -> Self {
+        Self { store, gateway }
     }
 
     /// Adds a message to a conversation context.
@@ -152,9 +167,19 @@ impl ContextManager {
         let to_compress_count = message_count / 2;
         let to_compress: Vec<_> = window.messages.drain(0..to_compress_count).collect();
 
-        // Generate summary
-        let summary = self.generate_summary(&to_compress).await?;
-        window.metadata.summary = Some(summary);
+        // Generate summary with safe fallback: if summarization fails, restore messages
+        // and continue without compressed summary.
+        match self.generate_summary(&to_compress).await {
+            Ok(summary) => {
+                window.metadata.summary = Some(summary);
+            }
+            Err(error) => {
+                warn!("Context compression summary failed, preserving full context: {error}");
+                let mut restored = to_compress;
+                restored.extend(window.messages);
+                window.messages = restored;
+            }
+        }
 
         Ok(window)
     }
@@ -170,7 +195,7 @@ impl ContextManager {
             "Summarize this conversation concisely, preserving key technical details:\n\n{content}"
         );
 
-        self.claude
+        self.gateway
             .complete(
                 "You are a conversation summarizer. Provide concise technical summaries.",
                 &prompt,
@@ -188,17 +213,42 @@ pub enum ContextError {
     Store(#[from] StoreError),
     /// AI error
     #[error("AI error: {0}")]
-    Ai(#[from] ClaudeError),
+    Ai(#[from] NlpLlmError),
+}
+
+/// Temporary adapter from legacy Claude client to NLP gateway.
+struct LegacyClaudeGateway {
+    claude: Arc<ClaudeClient>,
+}
+
+impl NlpLlmGateway for LegacyClaudeGateway {
+    fn complete<'a>(
+        &'a self,
+        system: &'a str,
+        user: &'a str,
+    ) -> futures::future::BoxFuture<'a, Result<String, NlpLlmError>> {
+        Box::pin(async move {
+            self.claude
+                .complete(system, user)
+                .await
+                .map_err(|e| NlpLlmError::Llm(crate::llm::LlmError::Internal(e.to_string())))
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nlp::test_utils::{failing_gateway, fixed_gateway};
 
     fn create_test_manager() -> ContextManager {
         let store = ContextStore::in_memory().expect("Failed to create store");
-        let claude = Arc::new(ClaudeClient::new("test-key"));
-        ContextManager::new(store, claude)
+        ContextManager::with_gateway(store, fixed_gateway("summary"))
+    }
+
+    fn create_failing_compression_manager() -> ContextManager {
+        let store = ContextStore::in_memory().expect("Failed to create store");
+        ContextManager::with_gateway(store, failing_gateway("summary unavailable"))
     }
 
     #[test]
@@ -282,5 +332,27 @@ mod tests {
         let manager = create_test_manager();
         let result = manager.clear("missing-conversation");
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_compression_failure_preserves_messages() {
+        let manager = create_failing_compression_manager();
+
+        let large_message = "x".repeat(10_000);
+        for idx in 0..21 {
+            manager
+                .add_message(
+                    "conv-compress-fail",
+                    ContextMessage::user(&format!("{idx}-{large_message}")),
+                )
+                .await
+                .expect("Should keep context even when summarization fails");
+        }
+
+        let window = manager
+            .get_window("conv-compress-fail")
+            .expect("Should load context window");
+        assert_eq!(window.messages.len(), 21);
+        assert!(window.metadata.summary.is_none());
     }
 }
