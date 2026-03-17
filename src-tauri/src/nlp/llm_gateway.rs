@@ -261,4 +261,25 @@ mod tests {
             .expect("Should resolve target");
         assert_eq!(target.model.id, "openai-gpt-4");
     }
+
+    #[tokio::test]
+    async fn missing_api_key_returns_error() {
+        let gateway = ConfigBackedNlpLlmGateway::in_memory().expect("Should create gateway");
+        let store = gateway.config_store.lock().await;
+
+        let model = Model::new("openai", "gpt-4", ModelCapabilities::default());
+        store
+            .save_models("openai", &[model])
+            .expect("Should save models");
+        store
+            .set_operation_default(OperationType::Code, "openai-gpt-4")
+            .expect("Should set code default");
+        drop(store);
+
+        let error = gateway
+            .resolve_completion_target()
+            .await
+            .expect_err("Should fail without API key");
+        assert!(matches!(error, NlpLlmError::ApiKey(_)));
+    }
 }

@@ -6,6 +6,7 @@
 use serde::Deserialize;
 use std::sync::Arc;
 use thiserror::Error;
+use log::warn;
 
 use super::context::ConversationContext;
 use super::intent::{Intent, IntentClassification, IntentParams};
@@ -52,8 +53,14 @@ impl IntentClassifier {
             return Ok(IntentClassification::new(intent.clone(), confidence));
         }
 
-        // Slow path: AI classification
-        self.classify_with_ai(input, context).await
+        // Slow path: AI classification with deterministic fallback.
+        match self.classify_with_ai(input, context).await {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                warn!("Intent classification AI fallback triggered: {error}");
+                Ok(IntentClassification::new(Intent::Unknown, 0.5))
+            }
+        }
     }
 
     /// Classifies with additional alternatives.
@@ -82,8 +89,14 @@ impl IntentClassifier {
             ));
         }
 
-        // Slow path: AI classification
-        self.classify_with_ai(input, context).await
+        // Slow path: AI classification with deterministic fallback.
+        match self.classify_with_ai(input, context).await {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                warn!("Intent alternatives AI fallback triggered: {error}");
+                Ok(IntentClassification::new(Intent::Unknown, 0.5))
+            }
+        }
     }
 
     async fn classify_with_ai(
@@ -220,7 +233,7 @@ pub enum ClassifierError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nlp::test_utils::{self, fixed_gateway};
+    use crate::nlp::test_utils::{self, failing_gateway, fixed_gateway};
 
     fn create_test_classifier() -> IntentClassifier {
         IntentClassifier::new(fixed_gateway("{}"))
@@ -295,5 +308,19 @@ mod tests {
             .expect("Classification should succeed");
 
         assert_eq!(result.intent, Intent::GenerateCode);
+    }
+
+    #[tokio::test]
+    async fn test_ai_failure_falls_back_to_unknown_intent() {
+        let classifier = IntentClassifier::new(failing_gateway("llm unavailable"));
+        let context = test_utils::empty_context();
+
+        let result = classifier
+            .classify("do something very specific with no known pattern", &context)
+            .await
+            .expect("Classifier should fallback");
+
+        assert_eq!(result.intent, Intent::Unknown);
+        assert!((result.confidence - 0.5).abs() < f64::EPSILON);
     }
 }
