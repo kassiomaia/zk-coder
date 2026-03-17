@@ -54,7 +54,9 @@ interface StreamEventHandler {
 	bindRequestId: (requestId: string) => void;
 }
 
-const STREAM_INACTIVITY_TIMEOUT_MS = 45_000;
+// Allow slower providers/models enough time before declaring stream inactivity.
+// Backend/provider request timeouts and explicit cancellation still bound total wait.
+const STREAM_INACTIVITY_TIMEOUT_MS = 150_000;
 const MAX_BUFFERED_EVENTS = 300;
 
 // ============================================================================

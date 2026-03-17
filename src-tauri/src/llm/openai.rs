@@ -6,13 +6,15 @@
 use async_stream::stream;
 use futures::future::BoxFuture;
 use futures::Stream;
-use log::{info, error};
+use log::{error, info};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
-use std::time::Duration;
 
-use super::{ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, StreamChunk, StreamDelta, UsageStats};
+use super::{
+    ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, StreamChunk, StreamDelta,
+    UsageStats,
+};
 use crate::nlp::config::ApiType;
 
 // =============================================================================
@@ -111,9 +113,6 @@ const OPENAI_BASE_URL: &str = "https://api.openai.com/v1";
 /// Default base URL for Google OpenAI-compatible API.
 const GOOGLE_BASE_URL: &str = "https://generativelanguage.googleapis.com/v1beta/openai";
 
-/// Request timeout in seconds.
-const REQUEST_TIMEOUT_SECS: u64 = 120;
-
 /// OpenAI-compatible API client.
 pub struct OpenAiClient {
     /// HTTP client
@@ -131,14 +130,12 @@ impl OpenAiClient {
     #[must_use]
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
         let client = Client::builder()
-            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
             .build()
             .expect("Failed to create HTTP client");
 
         // Normalize base URL: strip any endpoint paths that might have been incorrectly included
-        let normalized_base_url = Self::normalize_base_url(
-            base_url.unwrap_or_else(|| OPENAI_BASE_URL.to_string())
-        );
+        let normalized_base_url =
+            Self::normalize_base_url(base_url.unwrap_or_else(|| OPENAI_BASE_URL.to_string()));
 
         Self {
             client,
@@ -180,7 +177,6 @@ impl OpenAiClient {
     #[must_use]
     pub fn new_google(api_key: String) -> Self {
         let client = Client::builder()
-            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
             .build()
             .expect("Failed to create HTTP client");
 
@@ -284,7 +280,9 @@ impl OpenAiClient {
             Err(e) => {
                 // Try parsing without the "data: " prefix if it was already stripped
                 if line.starts_with("data: ") {
-                    match serde_json::from_str::<OpenAiStreamResponse>(line.strip_prefix("data: ").unwrap()) {
+                    match serde_json::from_str::<OpenAiStreamResponse>(
+                        line.strip_prefix("data: ").unwrap(),
+                    ) {
                         Ok(response) => Some(Ok(response)),
                         Err(_) => Some(Err(LlmError::parse(format!(
                             "Failed to parse stream chunk: {} | Line: {}",
@@ -316,7 +314,10 @@ impl OpenAiClient {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(LlmError::api(status.as_u16(), error_text));
         }
 
@@ -535,8 +536,8 @@ impl LlmClient for OpenAiClient {
     fn validate_api_key(&self) -> BoxFuture<'_, LlmResult<bool>> {
         Box::pin(async {
             // Make a minimal request to validate the API key
-            let request = ChatRequest::new("gpt-3.5-turbo", vec![Message::user("test")])
-                .with_max_tokens(1);
+            let request =
+                ChatRequest::new("gpt-3.5-turbo", vec![Message::user("test")]).with_max_tokens(1);
 
             match self.chat_internal(request).await {
                 Ok(_) => Ok(true),
@@ -557,7 +558,10 @@ impl LlmClient for OpenAiClient {
 
             let status = response.status();
             if !status.is_success() {
-                let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
                 return Err(LlmError::api(status.as_u16(), error_text));
             }
 
@@ -602,10 +606,11 @@ mod tests {
     #[test]
     fn test_convert_request() {
         let client = OpenAiClient::new("test-key".to_string(), None);
-        let request = ChatRequest::new("gpt-4", vec![
-            Message::system("Be helpful"),
-            Message::user("Hello"),
-        ]).with_system("System prompt");
+        let request = ChatRequest::new(
+            "gpt-4",
+            vec![Message::system("Be helpful"), Message::user("Hello")],
+        )
+        .with_system("System prompt");
 
         let openai_request = client.convert_request(request);
 
@@ -661,7 +666,9 @@ mod tests {
 
         // Test base URL with /chat/completions (the bug case)
         assert_eq!(
-            OpenAiClient::normalize_base_url("https://api.openai.com/v1/chat/completions".to_string()),
+            OpenAiClient::normalize_base_url(
+                "https://api.openai.com/v1/chat/completions".to_string()
+            ),
             "https://api.openai.com/v1"
         );
 
@@ -679,7 +686,9 @@ mod tests {
 
         // Test custom provider URL
         assert_eq!(
-            OpenAiClient::normalize_base_url("https://custom.api.com/api/v1/chat/completions".to_string()),
+            OpenAiClient::normalize_base_url(
+                "https://custom.api.com/api/v1/chat/completions".to_string()
+            ),
             "https://custom.api.com/api/v1"
         );
     }
@@ -689,7 +698,7 @@ mod tests {
         // Test that client normalizes incorrect base URL
         let client = OpenAiClient::new(
             "test-key".to_string(),
-            Some("https://api.openai.com/v1/chat/completions".to_string())
+            Some("https://api.openai.com/v1/chat/completions".to_string()),
         );
         assert_eq!(client.base_url, "https://api.openai.com/v1");
     }

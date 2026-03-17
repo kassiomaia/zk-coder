@@ -2,15 +2,16 @@
 //!
 //! This module provides Tauri commands for LLM chat completions and streaming.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
-use log::{error, info};
+use log::{error, info, warn};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::config::get_code_operation_model;
-use crate::llm::{ChatRequest, ChatResponse, LlmClient, LlmEvent, Message, create_client};
-use crate::nlp::chat::{ChatMessage, MessageRole};
+use crate::llm::{create_client, ChatRequest, ChatResponse, LlmClient, LlmEvent, Message};
+use crate::nlp::chat::{ChatMessage, MessageFeedback, MessageRole};
 use crate::nlp::config::ApiType;
 use crate::storage::ConfigStore;
 
@@ -21,6 +22,8 @@ use super::ChatState;
 pub struct LlmState {
     /// Config store for provider/model lookup
     pub config_store: Arc<Mutex<ConfigStore>>,
+    /// Active streaming tasks keyed by request ID for cancellation.
+    pub active_requests: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
 }
 
 impl LlmState {
@@ -33,6 +36,7 @@ impl LlmState {
         let config_store = ConfigStore::new(db_path).map_err(|e| e.to_string())?;
         Ok(Self {
             config_store: Arc::new(Mutex::new(config_store)),
+            active_requests: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -45,6 +49,7 @@ impl LlmState {
         let config_store = ConfigStore::in_memory().map_err(|e| e.to_string())?;
         Ok(Self {
             config_store: Arc::new(Mutex::new(config_store)),
+            active_requests: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 }
@@ -108,7 +113,10 @@ async fn resolve_model_id(
 }
 
 /// Gets the API key for a provider from the database.
-fn get_api_key_for_provider(provider_id: &str, config_store: &ConfigStore) -> Result<String, String> {
+fn get_api_key_for_provider(
+    provider_id: &str,
+    config_store: &ConfigStore,
+) -> Result<String, String> {
     config_store.retrieve_api_key(provider_id).map_err(|e| {
         format!(
             "API key not found for provider '{}'. Please configure it first. Error: {}",
@@ -145,6 +153,69 @@ fn convert_messages(messages: &[ChatMessage]) -> Vec<Message> {
 }
 
 // =============================================================================
+// Feedback Context Injection
+// =============================================================================
+
+/// System prompt explaining the feedback system.
+/// This is injected when feedback exists for the conversation.
+const FEEDBACK_SYSTEM_PROMPT: &str = r#"The user may provide feedback (like/dislike) on earlier assistant responses. A feedback summary section will be provided, including stable IDs for reference. Use that feedback to improve your response quality and avoid repeating disliked patterns."#;
+
+/// Maximum number of feedback items to include in context.
+const FEEDBACK_LIMIT: usize = 5;
+
+/// Builds a feedback summary string referencing message IDs.
+/// Returns None if no feedback messages are provided.
+fn build_feedback_summary(feedback_messages: &[(ChatMessage, MessageFeedback)]) -> Option<String> {
+    if feedback_messages.is_empty() {
+        return None;
+    }
+
+    let feedback_lines: Vec<String> = feedback_messages
+        .iter()
+        .map(|(msg, feedback)| {
+            let short_id = &msg.id[..8.min(msg.id.len())];
+            let action = match feedback {
+                MessageFeedback::Like => "LIKED",
+                MessageFeedback::Dislike => "DISLIKED",
+            };
+            format!("- [ID:{}] {} by user", short_id, action)
+        })
+        .collect();
+
+    Some(format!(
+        "Feedback on previous messages:\n{}",
+        feedback_lines.join("\n")
+    ))
+}
+
+/// Builds the combined system prompt including feedback context.
+/// Returns the original system prompt if no feedback exists.
+fn build_system_prompt_with_feedback(
+    original_prompt: &str,
+    feedback_summary: Option<&str>,
+) -> String {
+    match feedback_summary {
+        Some(summary) => {
+            if original_prompt.is_empty() {
+                format!(
+                    "{}\n\n{}\n\n{}",
+                    FEEDBACK_SYSTEM_PROMPT, summary, "Now continue the conversation below:"
+                )
+            } else {
+                format!(
+                    "{}\n\n{}\n\n{}\n\n{}",
+                    original_prompt,
+                    FEEDBACK_SYSTEM_PROMPT,
+                    summary,
+                    "Now continue the conversation below:"
+                )
+            }
+        }
+        None => original_prompt.to_string(),
+    }
+}
+
+// =============================================================================
 // Chat Commands
 // =============================================================================
 
@@ -171,7 +242,10 @@ pub async fn send_chat_message(
         Ok(Some(m)) => m,
         Ok(None) => {
             // Try to parse provider_id and model name from the ID
-            info!("Model '{}' not found by ID, trying to resolve by name", model_id);
+            info!(
+                "Model '{}' not found by ID, trying to resolve by name",
+                model_id
+            );
 
             if let Some(dash_pos) = model_id.find('-') {
                 let provider_id = &model_id[..dash_pos];
@@ -180,9 +254,7 @@ pub async fn send_chat_message(
                 config_store
                     .get_model_by_name(provider_id, model_name)
                     .map_err(|e| e.to_string())?
-                    .ok_or_else(|| {
-                        format!("Model '{}' not found", model_id)
-                    })?
+                    .ok_or_else(|| format!("Model '{}' not found", model_id))?
             } else {
                 return Err(format!("Model '{}' not found", model_id));
             }
@@ -278,6 +350,7 @@ pub async fn send_chat_message_streaming(
 
     // Get config store
     let llm_state = app_handle.state::<LlmState>();
+    let active_requests = llm_state.active_requests.clone();
     let config_store = llm_state.config_store.lock().await;
 
     // Resolve model ID (use code operation default if not provided)
@@ -295,7 +368,10 @@ pub async fn send_chat_message_streaming(
         Ok(None) => {
             // Try to parse provider_id and model name from the ID
             // ID format is typically: "provider_id-model-name"
-            info!("[LLM] Model '{}' not found by ID, trying to resolve by name", model_id);
+            info!(
+                "[LLM] Model '{}' not found by ID, trying to resolve by name",
+                model_id
+            );
 
             // Find the first dash to split provider_id from model name
             if let Some(dash_pos) = model_id.find('-') {
@@ -306,8 +382,10 @@ pub async fn send_chat_message_streaming(
                     .get_model_by_name(provider_id, model_name)
                     .map_err(|e| e.to_string())?
                     .ok_or_else(|| {
-                        format!("Model '{}' not found (also tried name lookup: provider={}, name={})",
-                            model_id, provider_id, model_name)
+                        format!(
+                            "Model '{}' not found (also tried name lookup: provider={}, name={})",
+                            model_id, provider_id, model_name
+                        )
                     })?
             } else {
                 return Err(format!("Model '{}' not found", model_id));
@@ -351,6 +429,27 @@ pub async fn send_chat_message_streaming(
             .map_err(|e| e.to_string())?
     };
 
+    // Load feedback for the current thread (only if thread_id exists)
+    let feedback_messages = if let Some(ref thread_id) = request.thread_id {
+        chat_store
+            .load_thread_feedback(thread_id, FEEDBACK_LIMIT)
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    // Build feedback summary if feedback exists
+    let feedback_summary = build_feedback_summary(&feedback_messages);
+    let has_feedback = feedback_summary.is_some();
+
+    if has_feedback {
+        info!(
+            "[LLM] Injecting feedback context: {} feedback items for thread_id={:?}",
+            feedback_messages.len(),
+            request.thread_id
+        );
+    }
+
     // DO NOT save user message here - frontend already saved it
     // Just add to context for LLM
     let user_context_message = ChatMessage::user(&request.conversation_id, &request.content);
@@ -359,12 +458,19 @@ pub async fn send_chat_message_streaming(
 
     drop(chat_store); // Release lock before streaming
 
-    // Convert messages for LLM
+    // Convert messages for LLM.
+    // Feedback context is provided via system prompt only; message bodies are not rewritten.
     let llm_messages = convert_messages(&context_messages);
+
+    // Build system prompt with feedback context if available
+    let system_prompt = build_system_prompt_with_feedback(
+        &request.system_prompt.unwrap_or_default(),
+        feedback_summary.as_deref(),
+    );
 
     // Create chat request with streaming enabled
     let chat_request = ChatRequest::new(&model.name, llm_messages)
-        .with_system(request.system_prompt.unwrap_or_default())
+        .with_system(&system_prompt)
         .with_temperature(request.temperature.unwrap_or(0.7))
         .with_max_tokens(request.max_tokens.unwrap_or(4096))
         .with_stream();
@@ -377,9 +483,16 @@ pub async fn send_chat_message_streaming(
     let model_name_for_log = model.name.clone();
 
     // Spawn streaming task
-    tokio::spawn(async move {
+    let active_requests_for_task = active_requests.clone();
+    let request_id_for_cleanup = request_id.clone();
+
+    let handle = tokio::spawn(async move {
         let stream = client.chat_stream(chat_request);
-        let events = crate::llm::stream_to_events(request_id_clone.clone(), model_name_for_log.clone(), stream);
+        let events = crate::llm::stream_to_events(
+            request_id_clone.clone(),
+            model_name_for_log.clone(),
+            stream,
+        );
 
         #[allow(clippy::expect_used)]
         let mut events = std::pin::pin!(events);
@@ -411,7 +524,8 @@ pub async fn send_chat_message_streaming(
 
         info!(
             "[LLM] Stream completed: request_id={}, content_length={}",
-            request_id_clone, final_content.len()
+            request_id_clone,
+            final_content.len()
         );
 
         // Save assistant message after streaming completes
@@ -436,25 +550,48 @@ pub async fn send_chat_message_streaming(
                 error!("[LLM] Failed to save assistant message: {}", e);
             }
         }
+
+        let mut active = active_requests_for_task.lock().await;
+        active.remove(&request_id_for_cleanup);
     });
+
+    {
+        let mut active = active_requests.lock().await;
+        if let Some(previous) = active.insert(request_id.clone(), handle) {
+            warn!(
+                "[LLM] Replaced existing streaming task for request_id={}, aborting previous task",
+                request_id
+            );
+            previous.abort();
+        }
+    }
 
     Ok(request_id)
 }
 
 /// Cancels an in-progress streaming request.
 #[tauri::command]
-pub async fn cancel_chat_request(
-    request_id: String,
-) -> Result<(), String> {
-    // For now, just log the cancellation
-    // In the future, we could implement proper cancellation
-    info!("cancel_chat_request: request_id={}", request_id);
+pub async fn cancel_chat_request(request_id: String, app_handle: AppHandle) -> Result<(), String> {
+    let llm_state = app_handle.state::<LlmState>();
+    let mut active_requests = llm_state.active_requests.lock().await;
+
+    if let Some(handle) = active_requests.remove(&request_id) {
+        info!("[LLM] Cancelling active stream request_id={}", request_id);
+        handle.abort();
+    } else {
+        info!(
+            "[LLM] cancel_chat_request: no active stream found for request_id={}",
+            request_id
+        );
+    }
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nlp::chat::MessageFeedback;
 
     #[test]
     fn test_llm_state_creation() {
@@ -474,5 +611,54 @@ mod tests {
         assert_eq!(llm_messages.len(), 2);
         assert_eq!(llm_messages[0].role, crate::llm::MessageRole::User);
         assert_eq!(llm_messages[1].role, crate::llm::MessageRole::Assistant);
+    }
+
+    #[test]
+    fn test_build_feedback_summary_empty() {
+        let feedback: Vec<(ChatMessage, MessageFeedback)> = vec![];
+        let summary = build_feedback_summary(&feedback);
+        assert!(summary.is_none());
+    }
+
+    #[test]
+    fn test_build_feedback_summary_with_likes() {
+        let msg1 = ChatMessage::assistant("conv-1", "Response 1");
+        let msg2 = ChatMessage::assistant("conv-1", "Response 2");
+
+        let feedback = vec![
+            (msg1, MessageFeedback::Like),
+            (msg2, MessageFeedback::Dislike),
+        ];
+
+        let summary = build_feedback_summary(&feedback);
+        assert!(summary.is_some());
+
+        let summary = summary.unwrap();
+        assert!(summary.contains("Feedback on previous messages:"));
+        assert!(summary.contains("LIKED"));
+        assert!(summary.contains("DISLIKED"));
+        assert!(summary.contains("[ID:"));
+    }
+
+    #[test]
+    fn test_build_system_prompt_with_feedback() {
+        let original = "You are a helpful assistant.";
+        let feedback_summary =
+            Some("Feedback on previous messages:\n- [ID:abc12345] LIKED by user");
+
+        let combined = build_system_prompt_with_feedback(original, feedback_summary);
+
+        assert!(combined.contains("You are a helpful assistant."));
+        assert!(combined.contains("including stable IDs for reference"));
+        assert!(combined.contains("Feedback on previous messages:"));
+    }
+
+    #[test]
+    fn test_build_system_prompt_without_feedback() {
+        let original = "You are a helpful assistant.";
+        let combined = build_system_prompt_with_feedback(original, None);
+
+        // Should return original when no feedback
+        assert_eq!(combined, original);
     }
 }

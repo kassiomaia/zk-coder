@@ -15,9 +15,11 @@ use log::{error, info};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
-use std::time::Duration;
 
-use super::{ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, StreamChunk, StreamDelta, UsageStats};
+use super::{
+    ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, StreamChunk, StreamDelta,
+    UsageStats,
+};
 use crate::nlp::config::ApiType;
 
 // =============================================================================
@@ -205,9 +207,6 @@ const ANTHROPIC_VERSION: &str = "2023-06-01";
 /// Default maximum tokens for requests.
 const DEFAULT_MAX_TOKENS: u32 = 4096;
 
-/// Request timeout in seconds.
-const REQUEST_TIMEOUT_SECS: u64 = 120;
-
 /// Anthropic Claude API client.
 pub struct AnthropicClient {
     /// HTTP client
@@ -223,7 +222,6 @@ impl AnthropicClient {
     #[must_use]
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
         let client = Client::builder()
-            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
             .build()
             .expect("Failed to create HTTP client");
 
@@ -250,9 +248,7 @@ impl AnthropicClient {
                 }
                 super::MessageRole::User | super::MessageRole::Assistant => {
                     let content = match &msg.content {
-                        super::MessageContent::Text(text) => {
-                            AnthropicContent::Text(text.clone())
-                        }
+                        super::MessageContent::Text(text) => AnthropicContent::Text(text.clone()),
                         super::MessageContent::Blocks(blocks) => {
                             let anthropic_blocks: Vec<AnthropicContentBlock> = blocks
                                 .iter()
@@ -266,7 +262,10 @@ impl AnthropicClient {
                                             Some(AnthropicContentBlock::Image {
                                                 source: AnthropicImageSource {
                                                     source_type: "base64".to_string(),
-                                                    media_type: source.media_type.clone().unwrap_or_else(|| "image/png".to_string()),
+                                                    media_type: source
+                                                        .media_type
+                                                        .clone()
+                                                        .unwrap_or_else(|| "image/png".to_string()),
                                                     data: source.data.clone(),
                                                 },
                                             })
@@ -377,7 +376,10 @@ impl AnthropicClient {
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(LlmError::api(status.as_u16(), error_text));
         }
 
@@ -605,7 +607,10 @@ impl LlmClient for AnthropicClient {
 
     fn fetch_models(&self) -> BoxFuture<'_, LlmResult<Vec<String>>> {
         Box::pin(async {
-            info!("anthropic::fetch_models: starting request to {}/models", self.base_url);
+            info!(
+                "anthropic::fetch_models: starting request to {}/models",
+                self.base_url
+            );
 
             // Response types for OpenAI-compatible models endpoint
             #[derive(Debug, Deserialize)]
@@ -635,15 +640,26 @@ impl LlmClient for AnthropicClient {
                     if status.is_success() {
                         match resp.json::<ModelsResponse>().await {
                             Ok(models_response) => {
-                                let models: Vec<String> = models_response.data.into_iter().map(|m| m.id).collect();
-                                info!("anthropic::fetch_models: successfully fetched {} models: {:?}", models.len(), models);
+                                let models: Vec<String> =
+                                    models_response.data.into_iter().map(|m| m.id).collect();
+                                info!(
+                                    "anthropic::fetch_models: successfully fetched {} models: {:?}",
+                                    models.len(),
+                                    models
+                                );
                                 Ok(models)
                             }
                             Err(e) => {
-                                error!("anthropic::fetch_models: failed to parse models response: {}", e);
+                                error!(
+                                    "anthropic::fetch_models: failed to parse models response: {}",
+                                    e
+                                );
                                 // Return default models if parsing fails
                                 let defaults = self.get_default_models();
-                                info!("anthropic::fetch_models: returning {} default models", defaults.len());
+                                info!(
+                                    "anthropic::fetch_models: returning {} default models",
+                                    defaults.len()
+                                );
                                 Ok(defaults)
                             }
                         }
@@ -651,7 +667,10 @@ impl LlmClient for AnthropicClient {
                         info!("anthropic::fetch_models: API returned non-success status {}, returning default models", status);
                         // For native Anthropic API, return known models since they don't have a models endpoint
                         let defaults = self.get_default_models();
-                        info!("anthropic::fetch_models: returning {} default models", defaults.len());
+                        info!(
+                            "anthropic::fetch_models: returning {} default models",
+                            defaults.len()
+                        );
                         Ok(defaults)
                     }
                 }
@@ -659,7 +678,10 @@ impl LlmClient for AnthropicClient {
                     error!("anthropic::fetch_models: request failed: {}", e);
                     // Return default models if request fails
                     let defaults = self.get_default_models();
-                    info!("anthropic::fetch_models: returning {} default models due to error", defaults.len());
+                    info!(
+                        "anthropic::fetch_models: returning {} default models due to error",
+                        defaults.len()
+                    );
                     Ok(defaults)
                 }
             }
@@ -680,17 +702,21 @@ mod tests {
 
     #[test]
     fn test_client_with_custom_url() {
-        let client = AnthropicClient::new("test-key".to_string(), Some("https://custom.api.com".to_string()));
+        let client = AnthropicClient::new(
+            "test-key".to_string(),
+            Some("https://custom.api.com".to_string()),
+        );
         assert_eq!(client.base_url, "https://custom.api.com");
     }
 
     #[test]
     fn test_convert_request() {
         let client = AnthropicClient::new("test-key".to_string(), None);
-        let request = ChatRequest::new("claude-3-opus-20240229", vec![
-            Message::user("Hello"),
-            Message::assistant("Hi there!"),
-        ]).with_system("Be helpful");
+        let request = ChatRequest::new(
+            "claude-3-opus-20240229",
+            vec![Message::user("Hello"), Message::assistant("Hi there!")],
+        )
+        .with_system("Be helpful");
 
         let anthropic_request = client.convert_request(request);
 
@@ -750,7 +776,9 @@ mod tests {
         let client = AnthropicClient::new("test-key".to_string(), None);
         let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
         // Since we're using a test key, the API call will fail and return default models
-        let models = rt.block_on(client.fetch_models()).expect("Failed to fetch models");
+        let models = rt
+            .block_on(client.fetch_models())
+            .expect("Failed to fetch models");
 
         // Should return default models when API fails
         assert!(!models.is_empty());
