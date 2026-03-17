@@ -61,7 +61,28 @@ struct OpenAiRequestFunction {
 #[derive(Debug, Serialize)]
 struct OpenAiMessage {
     role: String,
-    content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<OpenAiRequestMessageToolCall>>,
+}
+
+/// OpenAI assistant tool-call payload in request messages.
+#[derive(Debug, Serialize)]
+struct OpenAiRequestMessageToolCall {
+    id: String,
+    #[serde(rename = "type")]
+    tool_type: String,
+    function: OpenAiRequestMessageToolFunction,
+}
+
+/// OpenAI assistant function payload in request messages.
+#[derive(Debug, Serialize)]
+struct OpenAiRequestMessageToolFunction {
+    name: String,
+    arguments: String,
 }
 
 /// OpenAI chat completion response.
@@ -240,12 +261,28 @@ impl OpenAiClient {
         if let Some(system) = &request.system {
             messages.push(OpenAiMessage {
                 role: "system".to_string(),
-                content: system.clone(),
+                content: Some(system.clone()),
+                tool_call_id: None,
+                tool_calls: None,
             });
         }
 
         // Convert messages
         for msg in request.messages {
+            if msg.role == super::MessageRole::Tool {
+                if let Some(tool_result) = &msg.tool_result {
+                    let output = serde_json::to_string(&tool_result.output)
+                        .unwrap_or_else(|_| tool_result.output.to_string());
+                    messages.push(OpenAiMessage {
+                        role: "tool".to_string(),
+                        content: Some(output),
+                        tool_call_id: Some(tool_result.call_id.clone()),
+                        tool_calls: None,
+                    });
+                }
+                continue;
+            }
+
             let content = match &msg.content {
                 super::MessageContent::Text(text) => text.clone(),
                 super::MessageContent::Blocks(blocks) => {
@@ -260,9 +297,35 @@ impl OpenAiClient {
                         .join("\n")
                 }
             };
+            let request_tool_calls =
+                if msg.role == super::MessageRole::Assistant && !msg.tool_calls.is_empty() {
+                    Some(
+                        msg.tool_calls
+                            .iter()
+                            .map(|call| OpenAiRequestMessageToolCall {
+                                id: call.id.clone(),
+                                tool_type: "function".to_string(),
+                                function: OpenAiRequestMessageToolFunction {
+                                    name: call.name.clone(),
+                                    arguments: serde_json::to_string(&call.arguments)
+                                        .unwrap_or_else(|_| call.arguments.to_string()),
+                                },
+                            })
+                            .collect(),
+                    )
+                } else {
+                    None
+                };
+            let content = if content.is_empty() && request_tool_calls.is_some() {
+                None
+            } else {
+                Some(content)
+            };
             messages.push(OpenAiMessage {
                 role: msg.role.as_str().to_string(),
                 content,
+                tool_call_id: None,
+                tool_calls: request_tool_calls,
             });
         }
 
@@ -728,6 +791,35 @@ mod tests {
         assert_eq!(tools.len(), 1);
         assert_eq!(tools[0].tool_type, "function");
         assert_eq!(tools[0].function.name, "read_workspace_file");
+    }
+
+    #[test]
+    fn test_convert_request_with_tool_messages() {
+        let client = OpenAiClient::new("test-key".to_string(), None);
+        let request = ChatRequest::new(
+            "gpt-4.1",
+            vec![
+                Message::assistant_with_tool_calls(
+                    "",
+                    vec![ToolCall {
+                        id: "call_1".to_string(),
+                        name: "search_code".to_string(),
+                        arguments: serde_json::json!({"query": "runner"}),
+                    }],
+                ),
+                Message::tool_result("call_1", serde_json::json!({"ok": true}), false),
+            ],
+        );
+
+        let openai_request = client.convert_request(request);
+        assert_eq!(openai_request.messages.len(), 2);
+        assert_eq!(openai_request.messages[0].role, "assistant");
+        assert!(openai_request.messages[0].tool_calls.is_some());
+        assert_eq!(openai_request.messages[1].role, "tool");
+        assert_eq!(
+            openai_request.messages[1].tool_call_id.as_deref(),
+            Some("call_1")
+        );
     }
 
     #[test]

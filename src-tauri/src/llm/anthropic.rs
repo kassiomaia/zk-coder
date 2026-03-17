@@ -70,6 +70,19 @@ enum AnthropicContentBlock {
     Text { text: String },
     /// Image content
     Image { source: AnthropicImageSource },
+    /// Assistant tool call block.
+    ToolUse {
+        id: String,
+        name: String,
+        input: serde_json::Value,
+    },
+    /// User tool result block.
+    ToolResult {
+        tool_use_id: String,
+        content: String,
+        #[serde(skip_serializing_if = "std::ops::Not::not")]
+        is_error: bool,
+    },
 }
 
 /// Anthropic image source.
@@ -263,8 +276,25 @@ impl AnthropicClient {
                         system_prompt = msg.as_text().map(|s| s.to_string());
                     }
                 }
+                super::MessageRole::Tool => {
+                    let Some(tool_result) = &msg.tool_result else {
+                        continue;
+                    };
+                    let output = serde_json::to_string(&tool_result.output)
+                        .unwrap_or_else(|_| tool_result.output.to_string());
+                    messages.push(AnthropicMessage {
+                        role: "user".to_string(),
+                        content: AnthropicContent::Blocks(vec![
+                            AnthropicContentBlock::ToolResult {
+                                tool_use_id: tool_result.call_id.clone(),
+                                content: output,
+                                is_error: tool_result.is_error,
+                            },
+                        ]),
+                    });
+                }
                 super::MessageRole::User | super::MessageRole::Assistant => {
-                    let content = match &msg.content {
+                    let text_or_blocks = match &msg.content {
                         super::MessageContent::Text(text) => AnthropicContent::Text(text.clone()),
                         super::MessageContent::Blocks(blocks) => {
                             let anthropic_blocks: Vec<AnthropicContentBlock> = blocks
@@ -274,7 +304,6 @@ impl AnthropicClient {
                                         Some(AnthropicContentBlock::Text { text: text.clone() })
                                     }
                                     super::ContentBlock::Image { source } => {
-                                        // Convert image source to Anthropic format
                                         if source.source_type == "base64" {
                                             Some(AnthropicContentBlock::Image {
                                                 source: AnthropicImageSource {
@@ -287,8 +316,6 @@ impl AnthropicClient {
                                                 },
                                             })
                                         } else {
-                                            // Anthropic doesn't support URL images directly
-                                            // Would need to download and convert to base64
                                             None
                                         }
                                     }
@@ -298,10 +325,35 @@ impl AnthropicClient {
                         }
                     };
 
-                    messages.push(AnthropicMessage {
-                        role: msg.role.as_str().to_string(),
-                        content,
-                    });
+                    if msg.role == super::MessageRole::Assistant && !msg.tool_calls.is_empty() {
+                        let mut blocks = match text_or_blocks {
+                            AnthropicContent::Text(text) => {
+                                if text.is_empty() {
+                                    Vec::new()
+                                } else {
+                                    vec![AnthropicContentBlock::Text { text }]
+                                }
+                            }
+                            AnthropicContent::Blocks(existing) => existing,
+                        };
+                        blocks.extend(msg.tool_calls.iter().map(|call| {
+                            AnthropicContentBlock::ToolUse {
+                                id: call.id.clone(),
+                                name: call.name.clone(),
+                                input: call.arguments.clone(),
+                            }
+                        }));
+
+                        messages.push(AnthropicMessage {
+                            role: "assistant".to_string(),
+                            content: AnthropicContent::Blocks(blocks),
+                        });
+                    } else {
+                        messages.push(AnthropicMessage {
+                            role: msg.role.as_str().to_string(),
+                            content: text_or_blocks,
+                        });
+                    }
                 }
             }
         }
@@ -808,6 +860,45 @@ mod tests {
         let tools = anthropic_request.tools.expect("tools should be present");
         assert_eq!(tools.len(), 1);
         assert_eq!(tools[0].name, "list_workspace_files");
+    }
+
+    #[test]
+    fn test_convert_request_with_tool_messages() {
+        let client = AnthropicClient::new("test-key".to_string(), None);
+        let request = ChatRequest::new(
+            "claude-3-5-sonnet-20241022",
+            vec![
+                Message::assistant_with_tool_calls(
+                    "",
+                    vec![ToolCall {
+                        id: "toolu_1".to_string(),
+                        name: "search_code".to_string(),
+                        arguments: serde_json::json!({"query": "runner"}),
+                    }],
+                ),
+                Message::tool_result("toolu_1", serde_json::json!({"ok": true}), false),
+            ],
+        );
+
+        let anthropic_request = client.convert_request(request);
+        assert_eq!(anthropic_request.messages.len(), 2);
+        assert_eq!(anthropic_request.messages[0].role, "assistant");
+        assert_eq!(anthropic_request.messages[1].role, "user");
+        match &anthropic_request.messages[0].content {
+            AnthropicContent::Blocks(blocks) => {
+                assert!(matches!(blocks[0], AnthropicContentBlock::ToolUse { .. }));
+            }
+            _ => panic!("assistant tool call should be sent as blocks"),
+        }
+        match &anthropic_request.messages[1].content {
+            AnthropicContent::Blocks(blocks) => {
+                assert!(matches!(
+                    blocks[0],
+                    AnthropicContentBlock::ToolResult { .. }
+                ));
+            }
+            _ => panic!("tool result should be sent as blocks"),
+        }
     }
 
     #[test]

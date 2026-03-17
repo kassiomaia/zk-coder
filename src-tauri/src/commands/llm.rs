@@ -118,10 +118,7 @@ impl ConversationRunner for LegacyConversationRunner {
     }
 }
 
-/// Orchestrated runner for bounded non-streaming tool-capable turns.
-///
-/// This path is still env-gated and preserves streaming behavior by delegating
-/// streaming requests to the legacy implementation.
+/// Orchestrated runner for bounded tool-capable turns.
 pub struct OrchestratedConversationRunner;
 
 impl ConversationRunner for OrchestratedConversationRunner {
@@ -147,9 +144,9 @@ impl ConversationRunner for OrchestratedConversationRunner {
     ) -> BoxFuture<'a, Result<String, String>> {
         Box::pin(async move {
             info!(
-                "[LLM] Orchestrated runner enabled: streaming still delegated to legacy path in this phase"
+                "[LLM] Orchestrated runner enabled: streaming request using orchestrated loop path"
             );
-            send_chat_message_streaming_legacy(request, app_handle).await
+            send_chat_message_streaming_orchestrated(request, app_handle).await
         })
     }
 }
@@ -218,23 +215,17 @@ struct OrchestratorToolResult {
     is_error: bool,
 }
 
-/// Appends tool results to context as system messages for the next model turn.
-fn append_tool_results_to_context(
-    context_messages: &mut Vec<ChatMessage>,
-    conversation_id: &str,
+/// Appends structured tool results to LLM context for the next model turn.
+fn append_tool_results_to_llm_context(
+    llm_messages: &mut Vec<Message>,
     results: &[OrchestratorToolResult],
 ) {
     for result in results {
-        let status = if result.is_error { "ERROR" } else { "OK" };
-        let output = serde_json::to_string_pretty(&result.output)
-            .unwrap_or_else(|_| result.output.to_string());
-        let content = format!(
-            "TOOL_RESULT id={} name={} status={}\n{}",
-            result.call_id, result.name, status, output
-        );
-        let mut message = ChatMessage::assistant(conversation_id, &content);
-        message.role = MessageRole::System;
-        context_messages.push(message);
+        llm_messages.push(Message::tool_result(
+            result.call_id.clone(),
+            result.output.clone(),
+            result.is_error,
+        ));
     }
 }
 
@@ -880,6 +871,8 @@ fn convert_messages(messages: &[ChatMessage]) -> Vec<Message> {
             Some(Message {
                 role,
                 content: crate::llm::MessageContent::Text(msg.content.clone()),
+                tool_calls: Vec::new(),
+                tool_result: None,
             })
         })
         .collect()
@@ -952,17 +945,21 @@ fn build_system_prompt_with_feedback(
 // Chat Commands
 // =============================================================================
 
-/// Orchestrated non-streaming execution skeleton with bounded turn loop.
-async fn send_chat_message_orchestrated_non_stream(
-    request: SendChatRequest,
-    app_handle: AppHandle,
-    tool_executor: &dyn ToolExecutor,
-) -> Result<SendChatResponse, String> {
-    info!(
-        "send_chat_message_orchestrated_non_stream: conversation_id={}, model_id={:?}",
-        request.conversation_id, request.model_id
-    );
+/// Final output from one orchestrated bounded loop execution.
+struct OrchestratedLoopOutput {
+    content: String,
+    model: String,
+    usage: Option<crate::llm::UsageStats>,
+}
 
+/// Runs the bounded orchestrated conversation loop and returns the final model response.
+async fn run_orchestrated_loop(
+    request: &SendChatRequest,
+    app_handle: &AppHandle,
+    tool_executor: &dyn ToolExecutor,
+    include_thread_history: bool,
+    persist_user_message: bool,
+) -> Result<OrchestratedLoopOutput, String> {
     // Resolve model/provider as in the legacy path.
     let llm_state = app_handle.state::<LlmState>();
     let config_store = llm_state.config_store.lock().await;
@@ -997,21 +994,33 @@ async fn send_chat_message_orchestrated_non_stream(
     let chat_state = app_handle.state::<ChatState>();
     let chat_store = chat_state.store.lock().await;
 
-    // Preserve current non-streaming behavior (conversation-level history).
-    let history = chat_store
-        .load_messages(&request.conversation_id)
-        .map_err(|e| e.to_string())?;
+    let history = if include_thread_history {
+        if let Some(thread_id) = &request.thread_id {
+            chat_store
+                .load_thread_messages(thread_id)
+                .map_err(|e| e.to_string())?
+        } else {
+            chat_store
+                .load_messages(&request.conversation_id)
+                .map_err(|e| e.to_string())?
+        }
+    } else {
+        chat_store
+            .load_messages(&request.conversation_id)
+            .map_err(|e| e.to_string())?
+    };
 
     let user_message = ChatMessage::user(&request.conversation_id, &request.content);
-    let mut context_messages = history;
-    context_messages.push(user_message.clone());
-
-    // Persist the user message exactly once.
-    chat_store
-        .add_message(&user_message)
-        .map_err(|e| e.to_string())?;
+    if persist_user_message {
+        chat_store
+            .add_message(&user_message)
+            .map_err(|e| e.to_string())?;
+    }
 
     drop(chat_store);
+
+    let mut llm_context = convert_messages(&history);
+    llm_context.push(Message::user(request.content.clone()));
 
     let system_prompt = request.system_prompt.clone().unwrap_or_default();
     let temperature = request.temperature.unwrap_or(0.7);
@@ -1024,8 +1033,7 @@ async fn send_chat_message_orchestrated_non_stream(
             step, ORCHESTRATOR_MAX_STEPS
         );
 
-        let llm_messages = convert_messages(&context_messages);
-        let mut chat_request = ChatRequest::new(&model.name, llm_messages)
+        let mut chat_request = ChatRequest::new(&model.name, llm_context.clone())
             .with_system(&system_prompt)
             .with_temperature(temperature)
             .with_max_tokens(max_tokens);
@@ -1043,25 +1051,17 @@ async fn send_chat_message_orchestrated_non_stream(
 
         let tool_calls = response.tool_calls.clone();
         if tool_calls.is_empty() {
-            let assistant_message =
-                ChatMessage::assistant(&request.conversation_id, &response.content);
-            let chat_store = chat_state.store.lock().await;
-            chat_store
-                .add_message(&assistant_message)
-                .map_err(|e| e.to_string())?;
-
-            return Ok(SendChatResponse {
+            return Ok(OrchestratedLoopOutput {
                 content: response.content,
                 model: response.model,
                 usage: response.usage,
-                message: assistant_message,
             });
         }
 
-        // Preserve the assistant planning output for subsequent model turns.
-        context_messages.push(ChatMessage::assistant(
-            &request.conversation_id,
-            &response.content,
+        // Preserve assistant tool-call turn in structured form.
+        llm_context.push(Message::assistant_with_tool_calls(
+            response.content,
+            tool_calls.clone(),
         ));
 
         let mut tool_results = Vec::with_capacity(tool_calls.len());
@@ -1069,17 +1069,42 @@ async fn send_chat_message_orchestrated_non_stream(
             let result = tool_executor.execute(call, app_handle.clone()).await;
             tool_results.push(result);
         }
-        append_tool_results_to_context(
-            &mut context_messages,
-            &request.conversation_id,
-            &tool_results,
-        );
+        append_tool_results_to_llm_context(&mut llm_context, &tool_results);
     }
 
     Err(format!(
         "Orchestrator exceeded max steps ({}) without final response",
         ORCHESTRATOR_MAX_STEPS
     ))
+}
+
+/// Orchestrated non-streaming execution skeleton with bounded turn loop.
+async fn send_chat_message_orchestrated_non_stream(
+    request: SendChatRequest,
+    app_handle: AppHandle,
+    tool_executor: &dyn ToolExecutor,
+) -> Result<SendChatResponse, String> {
+    info!(
+        "send_chat_message_orchestrated_non_stream: conversation_id={}, model_id={:?}",
+        request.conversation_id, request.model_id
+    );
+
+    let final_output =
+        run_orchestrated_loop(&request, &app_handle, tool_executor, false, true).await?;
+
+    let assistant_message = ChatMessage::assistant(&request.conversation_id, &final_output.content);
+    let chat_state = app_handle.state::<ChatState>();
+    let chat_store = chat_state.store.lock().await;
+    chat_store
+        .add_message(&assistant_message)
+        .map_err(|e| e.to_string())?;
+
+    Ok(SendChatResponse {
+        content: final_output.content,
+        model: final_output.model,
+        usage: final_output.usage,
+        message: assistant_message,
+    })
 }
 
 /// Legacy implementation for non-streaming chat requests.
@@ -1208,6 +1233,121 @@ pub async fn send_chat_message(
 ///
 /// Note: The frontend is responsible for saving the user message BEFORE calling this.
 /// This function only saves the assistant message after streaming completes.
+async fn send_chat_message_streaming_orchestrated(
+    request: SendChatRequest,
+    app_handle: AppHandle,
+) -> Result<String, String> {
+    let request_id = uuid::Uuid::new_v4().to_string();
+    info!(
+        "[LLM] Starting orchestrated streaming request: request_id={}, conversation_id={}, thread_id={:?}",
+        request_id, request.conversation_id, request.thread_id
+    );
+
+    let llm_state = app_handle.state::<LlmState>();
+    let active_requests = llm_state.active_requests.clone();
+
+    let app_handle_clone = app_handle.clone();
+    let request_id_clone = request_id.clone();
+    let request_for_task = request.clone();
+    let model_for_started = request
+        .model_id
+        .clone()
+        .unwrap_or_else(|| "orchestrated".to_string());
+
+    let active_requests_for_task = active_requests.clone();
+    let request_id_for_cleanup = request_id.clone();
+
+    let handle = tokio::spawn(async move {
+        let started_event = LlmEvent::Started {
+            request_id: request_id_clone.clone(),
+            model: model_for_started,
+        };
+        if let Err(e) = app_handle_clone.emit("llm:event", &started_event) {
+            error!("[LLM] Failed to emit orchestrated started event: {}", e);
+        }
+
+        let tool_executor = select_tool_executor_from_env(&request_for_task.conversation_id);
+        match run_orchestrated_loop(
+            &request_for_task,
+            &app_handle_clone,
+            tool_executor.as_ref(),
+            true,
+            false,
+        )
+        .await
+        {
+            Ok(final_output) => {
+                if !final_output.content.is_empty() {
+                    let chunk_event = LlmEvent::Chunk {
+                        request_id: request_id_clone.clone(),
+                        delta: final_output.content.clone(),
+                    };
+                    if let Err(e) = app_handle_clone.emit("llm:event", &chunk_event) {
+                        error!("[LLM] Failed to emit orchestrated chunk event: {}", e);
+                    }
+                }
+
+                let complete_event = LlmEvent::Complete {
+                    request_id: request_id_clone.clone(),
+                    content: final_output.content.clone(),
+                    usage: final_output.usage.clone(),
+                    finish_reason: Some("stop".to_string()),
+                };
+                if let Err(e) = app_handle_clone.emit("llm:event", &complete_event) {
+                    error!("[LLM] Failed to emit orchestrated complete event: {}", e);
+                }
+
+                if !final_output.content.is_empty() {
+                    let mut assistant_message = ChatMessage::assistant(
+                        &request_for_task.conversation_id,
+                        &final_output.content,
+                    );
+                    if let Some(thread_id) = &request_for_task.thread_id {
+                        assistant_message = assistant_message.with_thread(thread_id);
+                    }
+                    assistant_message.metadata = Some(crate::nlp::chat::MessageMetadata {
+                        model: Some(final_output.model),
+                        tokens: final_output.usage.as_ref().map(|u| u.total_tokens as usize),
+                        ..Default::default()
+                    });
+
+                    let chat_state = app_handle_clone.state::<ChatState>();
+                    let chat_store = chat_state.store.lock().await;
+                    if let Err(e) = chat_store.add_message(&assistant_message) {
+                        error!("[LLM] Failed to save orchestrated assistant message: {}", e);
+                    }
+                }
+            }
+            Err(err) => {
+                let event = LlmEvent::Error {
+                    request_id: request_id_clone.clone(),
+                    error: err,
+                    retryable: false,
+                };
+                if let Err(e) = app_handle_clone.emit("llm:event", &event) {
+                    error!("[LLM] Failed to emit orchestrated error event: {}", e);
+                }
+            }
+        }
+
+        let mut active = active_requests_for_task.lock().await;
+        active.remove(&request_id_for_cleanup);
+    });
+
+    {
+        let mut active = active_requests.lock().await;
+        if let Some(previous) = active.insert(request_id.clone(), handle) {
+            warn!(
+                "[LLM] Replaced existing streaming task for request_id={}, aborting previous task",
+                request_id
+            );
+            previous.abort();
+        }
+    }
+
+    Ok(request_id)
+}
+
 async fn send_chat_message_streaming_legacy(
     request: SendChatRequest,
     app_handle: AppHandle,
@@ -1541,19 +1681,24 @@ mod tests {
     }
 
     #[test]
-    fn test_append_tool_results_to_context() {
-        let mut context = vec![ChatMessage::user("conv-1", "Hi")];
+    fn test_append_tool_results_to_llm_context() {
+        let mut context = vec![Message::user("Hi")];
         let results = vec![OrchestratorToolResult {
             call_id: "c1".to_string(),
             name: "search_code".to_string(),
             output: serde_json::json!({"ok": true}),
             is_error: false,
         }];
-        append_tool_results_to_context(&mut context, "conv-1", &results);
+        append_tool_results_to_llm_context(&mut context, &results);
         assert_eq!(context.len(), 2);
-        assert_eq!(context[1].role, MessageRole::System);
-        assert!(context[1].content.contains("TOOL_RESULT id=c1"));
-        assert!(context[1].content.contains("status=OK"));
+        assert_eq!(context[1].role, crate::llm::MessageRole::Tool);
+        let tool_result = context[1]
+            .tool_result
+            .as_ref()
+            .expect("tool result should be present");
+        assert_eq!(tool_result.call_id, "c1");
+        assert_eq!(tool_result.output, serde_json::json!({"ok": true}));
+        assert!(!tool_result.is_error);
     }
 
     #[test]

@@ -56,6 +56,8 @@ pub enum MessageRole {
     User,
     /// Assistant/AI message
     Assistant,
+    /// Tool result message
+    Tool,
 }
 
 impl MessageRole {
@@ -66,6 +68,7 @@ impl MessageRole {
             Self::System => "system",
             Self::User => "user",
             Self::Assistant => "assistant",
+            Self::Tool => "tool",
         }
     }
 }
@@ -150,6 +153,12 @@ pub struct Message {
     pub role: MessageRole,
     /// Content of the message (can be simple text or multi-modal)
     pub content: MessageContent,
+    /// Structured tool calls emitted by an assistant message.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_calls: Vec<ToolCall>,
+    /// Structured tool result payload (for tool role messages).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_result: Option<ToolResult>,
 }
 
 /// Content of a message.
@@ -169,6 +178,8 @@ impl Message {
         Self {
             role: MessageRole::User,
             content: MessageContent::Text(content.into()),
+            tool_calls: Vec::new(),
+            tool_result: None,
         }
     }
 
@@ -178,6 +189,8 @@ impl Message {
         Self {
             role: MessageRole::Assistant,
             content: MessageContent::Text(content.into()),
+            tool_calls: Vec::new(),
+            tool_result: None,
         }
     }
 
@@ -187,6 +200,8 @@ impl Message {
         Self {
             role: MessageRole::System,
             content: MessageContent::Text(content.into()),
+            tool_calls: Vec::new(),
+            tool_result: None,
         }
     }
 
@@ -196,6 +211,41 @@ impl Message {
         Self {
             role,
             content: MessageContent::Blocks(blocks),
+            tool_calls: Vec::new(),
+            tool_result: None,
+        }
+    }
+
+    /// Creates an assistant message that carries structured tool calls.
+    #[must_use]
+    pub fn assistant_with_tool_calls(
+        content: impl Into<String>,
+        tool_calls: Vec<ToolCall>,
+    ) -> Self {
+        Self {
+            role: MessageRole::Assistant,
+            content: MessageContent::Text(content.into()),
+            tool_calls,
+            tool_result: None,
+        }
+    }
+
+    /// Creates a tool result message for a given tool call ID.
+    #[must_use]
+    pub fn tool_result(
+        call_id: impl Into<String>,
+        output: serde_json::Value,
+        is_error: bool,
+    ) -> Self {
+        Self {
+            role: MessageRole::Tool,
+            content: MessageContent::Text(String::new()),
+            tool_calls: Vec::new(),
+            tool_result: Some(ToolResult {
+                call_id: call_id.into(),
+                output,
+                is_error,
+            }),
         }
     }
 
@@ -207,6 +257,18 @@ impl Message {
             MessageContent::Blocks(_) => None,
         }
     }
+}
+
+/// Structured tool result payload for tool-role messages.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ToolResult {
+    /// Tool call identifier this result belongs to.
+    pub call_id: String,
+    /// Tool output JSON payload.
+    pub output: serde_json::Value,
+    /// Whether the result represents an error.
+    #[serde(default)]
+    pub is_error: bool,
 }
 
 // =============================================================================
@@ -588,6 +650,8 @@ mod tests {
         let msg = Message::user("Hello!");
         assert_eq!(msg.role, MessageRole::User);
         assert_eq!(msg.as_text(), Some("Hello!"));
+        assert!(msg.tool_calls.is_empty());
+        assert!(msg.tool_result.is_none());
     }
 
     #[test]
@@ -595,6 +659,19 @@ mod tests {
         let msg = Message::system("You are a helpful assistant.");
         assert_eq!(msg.role, MessageRole::System);
         assert_eq!(msg.as_text(), Some("You are a helpful assistant."));
+        assert!(msg.tool_calls.is_empty());
+        assert!(msg.tool_result.is_none());
+    }
+
+    #[test]
+    fn test_message_tool_result_creation() {
+        let msg = Message::tool_result("call_1", serde_json::json!({"ok": true}), false);
+        assert_eq!(msg.role, MessageRole::Tool);
+        assert!(msg.tool_calls.is_empty());
+        let result = msg.tool_result.expect("tool result should exist");
+        assert_eq!(result.call_id, "call_1");
+        assert_eq!(result.output, serde_json::json!({"ok": true}));
+        assert!(!result.is_error);
     }
 
     #[test]
