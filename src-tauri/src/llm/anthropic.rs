@@ -43,6 +43,15 @@ struct AnthropicRequest {
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<AnthropicTool>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_choice: Option<AnthropicToolChoice>,
+}
+
+/// Anthropic tool selection strategy.
+#[derive(Debug, Serialize)]
+struct AnthropicToolChoice {
+    #[serde(rename = "type")]
+    choice_type: String,
 }
 
 /// Anthropic message format.
@@ -358,6 +367,11 @@ impl AnthropicClient {
             }
         }
 
+        let tools = convert_tools(request.tools);
+        let tool_choice = tools.as_ref().map(|_| AnthropicToolChoice {
+            choice_type: "auto".to_string(),
+        });
+
         AnthropicRequest {
             model: request.model,
             messages,
@@ -367,7 +381,8 @@ impl AnthropicClient {
             top_p: request.top_p,
             stop_sequences: request.stop,
             stream: request.stream,
-            tools: convert_tools(request.tools),
+            tools,
+            tool_choice,
         }
     }
 
@@ -839,6 +854,7 @@ mod tests {
         assert_eq!(anthropic_request.messages[0].role, "user");
         assert_eq!(anthropic_request.messages[1].role, "assistant");
         assert!(anthropic_request.tools.is_none());
+        assert!(anthropic_request.tool_choice.is_none());
     }
 
     #[test]
@@ -860,6 +876,13 @@ mod tests {
         let tools = anthropic_request.tools.expect("tools should be present");
         assert_eq!(tools.len(), 1);
         assert_eq!(tools[0].name, "list_workspace_files");
+        assert_eq!(
+            anthropic_request
+                .tool_choice
+                .as_ref()
+                .map(|choice| choice.choice_type.as_str()),
+            Some("auto")
+        );
     }
 
     #[test]

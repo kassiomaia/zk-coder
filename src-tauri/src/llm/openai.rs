@@ -39,6 +39,8 @@ struct OpenAiRequest {
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<OpenAiRequestTool>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_choice: Option<String>,
 }
 
 /// OpenAI tool definition in chat completion requests.
@@ -343,6 +345,9 @@ impl OpenAiClient {
             (request.max_tokens, None)
         };
 
+        let tools = convert_tools(request.tools);
+        let tool_choice = tools.as_ref().map(|_| "auto".to_string());
+
         OpenAiRequest {
             model: request.model,
             messages,
@@ -352,7 +357,8 @@ impl OpenAiClient {
             top_p: request.top_p,
             stop: request.stop,
             stream: request.stream,
-            tools: convert_tools(request.tools),
+            tools,
+            tool_choice,
         }
     }
 
@@ -767,6 +773,7 @@ mod tests {
         assert_eq!(openai_request.messages[1].role, "system");
         assert_eq!(openai_request.messages[2].role, "user");
         assert!(openai_request.tools.is_none());
+        assert!(openai_request.tool_choice.is_none());
     }
 
     #[test]
@@ -791,6 +798,7 @@ mod tests {
         assert_eq!(tools.len(), 1);
         assert_eq!(tools[0].tool_type, "function");
         assert_eq!(tools[0].function.name, "read_workspace_file");
+        assert_eq!(openai_request.tool_choice.as_deref(), Some("auto"));
     }
 
     #[test]

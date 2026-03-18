@@ -233,6 +233,45 @@ fn append_tool_results_to_llm_context(
     }
 }
 
+fn is_textual_tool_plan(content: &str) -> bool {
+    fn is_tool_call_object(value: &serde_json::Value) -> bool {
+        let serde_json::Value::Object(object) = value else {
+            return false;
+        };
+        let Some(serde_json::Value::String(name)) = object.get("name") else {
+            return false;
+        };
+        if name.trim().is_empty() {
+            return false;
+        }
+
+        matches!(
+            object.get("arguments"),
+            Some(serde_json::Value::Object(_)) | Some(serde_json::Value::String(_))
+        )
+    }
+
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) else {
+        return false;
+    };
+
+    match value {
+        serde_json::Value::Array(items) => {
+            !items.is_empty() && items.iter().all(is_tool_call_object)
+        }
+        serde_json::Value::Object(object) => object
+            .get("tool_calls")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|items| !items.is_empty() && items.iter().all(is_tool_call_object)),
+        _ => false,
+    }
+}
+
 /// Tool execution abstraction for orchestrated turns.
 trait ToolExecutor: Send + Sync {
     fn definitions(&self) -> Vec<LlmToolDefinition>;
@@ -1277,6 +1316,13 @@ async fn run_orchestrated_loop(
 
         let tool_calls = response.tool_calls.clone();
         if tool_calls.is_empty() {
+            if !tool_definitions.is_empty() && is_textual_tool_plan(&response.content) {
+                return Err(
+                    "Model returned a textual tool plan instead of native tool calls. \
+Enable a model/provider with native tool-calling support for orchestrated execution."
+                        .to_string(),
+                );
+            }
             return Ok(OrchestratedLoopOutput {
                 content: response.content,
                 model: response.model,
@@ -1962,6 +2008,39 @@ mod tests {
         assert_eq!(tool_result.call_id, "c1");
         assert_eq!(tool_result.output, serde_json::json!({"ok": true}));
         assert!(!tool_result.is_error);
+    }
+
+    #[test]
+    fn test_is_textual_tool_plan_array_shape() {
+        let content = r#"
+        [
+          {
+            "name": "google_web_search_scrape",
+            "arguments": "{\"query\":\"tokio joinhandle\",\"num_results\":5}"
+          }
+        ]
+        "#;
+        assert!(is_textual_tool_plan(content));
+    }
+
+    #[test]
+    fn test_is_textual_tool_plan_wrapper_shape() {
+        let content = r#"
+        {
+          "tool_calls": [
+            {
+              "name": "list_workspace_files",
+              "arguments": {"path":"."}
+            }
+          ]
+        }
+        "#;
+        assert!(is_textual_tool_plan(content));
+    }
+
+    #[test]
+    fn test_is_textual_tool_plan_false_for_regular_text() {
+        assert!(!is_textual_tool_plan("Here is your answer."));
     }
 
     #[test]
