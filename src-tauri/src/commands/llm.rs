@@ -19,7 +19,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::config::get_code_operation_model;
 use crate::llm::{
-    create_client, ChatRequest, ChatResponse, LlmClient, LlmEvent, Message,
+    create_client, ChatRequest, ChatResponse, LlmClient, LlmError, LlmEvent, Message,
     ToolCall as LlmToolCall, ToolDefinition as LlmToolDefinition,
 };
 use crate::nlp::chat::{ChatMessage, MessageFeedback, MessageRole};
@@ -39,6 +39,10 @@ const ORCHESTRATOR_WORKSPACE_ROOT_ENV: &str = "CODER_LLM_TOOL_WORKSPACE_ROOT";
 const ORCHESTRATOR_GOOGLE_SCRAPE_TOOL_ENV: &str = "CODER_LLM_TOOL_GOOGLE_SCRAPE";
 /// Safety bound for orchestrated request loops.
 const ORCHESTRATOR_MAX_STEPS: usize = 6;
+/// Max retries for transient provider failures during one orchestrator step.
+const ORCHESTRATOR_LLM_MAX_RETRIES: usize = 2;
+/// Base retry delay for transient provider failures.
+const ORCHESTRATOR_LLM_RETRY_BASE_MS: u64 = 500;
 
 /// Application state for LLM commands.
 pub struct LlmState {
@@ -1123,6 +1127,36 @@ fn create_client_for_provider(
     create_client(api_type, api_key, base_url)
 }
 
+/// Executes one non-streaming chat request with bounded retries for transient errors.
+async fn run_chat_with_retry(
+    client: &dyn LlmClient,
+    request: &ChatRequest,
+) -> Result<ChatResponse, LlmError> {
+    let mut attempt = 0usize;
+    loop {
+        match client.chat(request.clone()).await {
+            Ok(response) => return Ok(response),
+            Err(err) => {
+                let can_retry = err.is_retryable() && attempt < ORCHESTRATOR_LLM_MAX_RETRIES;
+                if !can_retry {
+                    return Err(err);
+                }
+
+                let delay_ms = ORCHESTRATOR_LLM_RETRY_BASE_MS * (1u64 << attempt);
+                warn!(
+                    "[LLM] Transient LLM error (attempt {}/{}), retrying in {}ms: {}",
+                    attempt + 1,
+                    ORCHESTRATOR_LLM_MAX_RETRIES + 1,
+                    delay_ms,
+                    err
+                );
+                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                attempt += 1;
+            }
+        }
+    }
+}
+
 /// Converts chat messages from storage to LLM format.
 fn convert_messages(messages: &[ChatMessage]) -> Vec<Message> {
     messages
@@ -1306,13 +1340,15 @@ async fn run_orchestrated_loop(
             chat_request = chat_request.with_tools(tool_definitions.clone());
         }
 
-        let response: ChatResponse = client.chat(chat_request).await.map_err(|e| {
-            error!(
-                "send_chat_message_orchestrated_non_stream: LLM error: {}",
-                e
-            );
-            e.to_string()
-        })?;
+        let response: ChatResponse = run_chat_with_retry(client.as_ref(), &chat_request)
+            .await
+            .map_err(|e| {
+                error!(
+                    "send_chat_message_orchestrated_non_stream: LLM error: {}",
+                    e
+                );
+                e.to_string()
+            })?;
 
         let tool_calls = response.tool_calls.clone();
         if tool_calls.is_empty() {

@@ -6,7 +6,7 @@
 use async_stream::stream;
 use futures::future::BoxFuture;
 use futures::Stream;
-use log::{error, info};
+use log::{error, info, warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
@@ -257,6 +257,14 @@ impl OpenAiClient {
 
     /// Converts a ChatRequest to OpenAI format.
     fn convert_request(&self, request: ChatRequest) -> OpenAiRequest {
+        self.convert_request_with_tool_choice(request, true)
+    }
+
+    fn convert_request_with_tool_choice(
+        &self,
+        request: ChatRequest,
+        include_tool_choice: bool,
+    ) -> OpenAiRequest {
         let mut messages = Vec::new();
 
         // Add system message if provided
@@ -346,7 +354,11 @@ impl OpenAiClient {
         };
 
         let tools = convert_tools(request.tools);
-        let tool_choice = tools.as_ref().map(|_| "auto".to_string());
+        let tool_choice = if include_tool_choice {
+            tools.as_ref().map(|_| "auto".to_string())
+        } else {
+            None
+        };
 
         OpenAiRequest {
             model: request.model,
@@ -410,30 +422,46 @@ impl OpenAiClient {
 
     /// Makes a non-streaming chat request.
     async fn chat_internal(&self, request: ChatRequest) -> LlmResult<ChatResponse> {
-        let openai_request = self.convert_request(request);
+        let mut include_tool_choice = true;
+        let can_retry_without_tool_choice = !request.tools.is_empty();
+        let openai_response: OpenAiResponse = loop {
+            let openai_request =
+                self.convert_request_with_tool_choice(request.clone(), include_tool_choice);
 
-        let response = self
-            .client
-            .post(format!("{}/chat/completions", self.base_url))
-            .header("Authorization", self.auth_header())
-            .header("Content-Type", "application/json")
-            .json(&openai_request)
-            .send()
-            .await?;
+            let response = self
+                .client
+                .post(format!("{}/chat/completions", self.base_url))
+                .header("Authorization", self.auth_header())
+                .header("Content-Type", "application/json")
+                .json(&openai_request)
+                .send()
+                .await?;
 
-        let status = response.status();
-        if !status.is_success() {
-            let error_text = response
-                .text()
+            let status = response.status();
+            if !status.is_success() {
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
+
+                if include_tool_choice && can_retry_without_tool_choice && status.is_server_error()
+                {
+                    warn!(
+                        "openai::chat_internal: tool-enabled request failed with status {}; retrying once without tool_choice",
+                        status.as_u16()
+                    );
+                    include_tool_choice = false;
+                    continue;
+                }
+
+                return Err(LlmError::api(status.as_u16(), error_text));
+            }
+
+            break response
+                .json()
                 .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(LlmError::api(status.as_u16(), error_text));
-        }
-
-        let openai_response: OpenAiResponse = response
-            .json()
-            .await
-            .map_err(|e| LlmError::parse(format!("Failed to parse response: {}", e)))?;
+                .map_err(|e| LlmError::parse(format!("Failed to parse response: {}", e)))?;
+        };
 
         // Extract content and structured tool calls from first choice.
         let (content, tool_calls) = openai_response
@@ -799,6 +827,28 @@ mod tests {
         assert_eq!(tools[0].tool_type, "function");
         assert_eq!(tools[0].function.name, "read_workspace_file");
         assert_eq!(openai_request.tool_choice.as_deref(), Some("auto"));
+    }
+
+    #[test]
+    fn test_convert_request_with_tools_without_tool_choice() {
+        let client = OpenAiClient::new("test-key".to_string(), None);
+        let request = ChatRequest::new("gpt-4.1", vec![Message::user("Hello")]).with_tools(vec![
+            ToolDefinition {
+                name: "read_workspace_file".to_string(),
+                description: "Read a UTF-8 file from the workspace".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"}
+                    },
+                    "required": ["path"]
+                }),
+            },
+        ]);
+
+        let openai_request = client.convert_request_with_tool_choice(request, false);
+        assert!(openai_request.tools.is_some());
+        assert!(openai_request.tool_choice.is_none());
     }
 
     #[test]

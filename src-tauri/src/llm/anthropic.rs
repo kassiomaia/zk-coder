@@ -11,7 +11,7 @@
 use async_stream::stream;
 use futures::future::BoxFuture;
 use futures::Stream;
-use log::{error, info};
+use log::{error, info, warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
@@ -273,6 +273,14 @@ impl AnthropicClient {
 
     /// Converts a ChatRequest to Anthropic format.
     fn convert_request(&self, request: ChatRequest) -> AnthropicRequest {
+        self.convert_request_with_tool_choice(request, true)
+    }
+
+    fn convert_request_with_tool_choice(
+        &self,
+        request: ChatRequest,
+        include_tool_choice: bool,
+    ) -> AnthropicRequest {
         let mut messages = Vec::new();
         let mut system_prompt = request.system.clone();
 
@@ -368,9 +376,13 @@ impl AnthropicClient {
         }
 
         let tools = convert_tools(request.tools);
-        let tool_choice = tools.as_ref().map(|_| AnthropicToolChoice {
-            choice_type: "auto".to_string(),
-        });
+        let tool_choice = if include_tool_choice {
+            tools.as_ref().map(|_| AnthropicToolChoice {
+                choice_type: "auto".to_string(),
+            })
+        } else {
+            None
+        };
 
         AnthropicRequest {
             model: request.model,
@@ -447,31 +459,47 @@ impl AnthropicClient {
 
     /// Makes a non-streaming chat request.
     async fn chat_internal(&self, request: ChatRequest) -> LlmResult<ChatResponse> {
-        let anthropic_request = self.convert_request(request);
+        let mut include_tool_choice = true;
+        let can_retry_without_tool_choice = !request.tools.is_empty();
+        let anthropic_response: AnthropicResponse = loop {
+            let anthropic_request =
+                self.convert_request_with_tool_choice(request.clone(), include_tool_choice);
 
-        let response = self
-            .client
-            .post(format!("{}/messages", self.base_url))
-            .header("x-api-key", &self.api_key)
-            .header("anthropic-version", ANTHROPIC_VERSION)
-            .header("Content-Type", "application/json")
-            .json(&anthropic_request)
-            .send()
-            .await?;
+            let response = self
+                .client
+                .post(format!("{}/messages", self.base_url))
+                .header("x-api-key", &self.api_key)
+                .header("anthropic-version", ANTHROPIC_VERSION)
+                .header("Content-Type", "application/json")
+                .json(&anthropic_request)
+                .send()
+                .await?;
 
-        let status = response.status();
-        if !status.is_success() {
-            let error_text = response
-                .text()
+            let status = response.status();
+            if !status.is_success() {
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
+
+                if include_tool_choice && can_retry_without_tool_choice && status.is_server_error()
+                {
+                    warn!(
+                        "anthropic::chat_internal: tool-enabled request failed with status {}; retrying once without tool_choice",
+                        status.as_u16()
+                    );
+                    include_tool_choice = false;
+                    continue;
+                }
+
+                return Err(LlmError::api(status.as_u16(), error_text));
+            }
+
+            break response
+                .json()
                 .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(LlmError::api(status.as_u16(), error_text));
-        }
-
-        let anthropic_response: AnthropicResponse = response
-            .json()
-            .await
-            .map_err(|e| LlmError::parse(format!("Failed to parse response: {}", e)))?;
+                .map_err(|e| LlmError::parse(format!("Failed to parse response: {}", e)))?;
+        };
 
         let AnthropicResponse {
             id,
@@ -883,6 +911,26 @@ mod tests {
                 .map(|choice| choice.choice_type.as_str()),
             Some("auto")
         );
+    }
+
+    #[test]
+    fn test_convert_request_with_tools_without_tool_choice() {
+        let client = AnthropicClient::new("test-key".to_string(), None);
+        let request = ChatRequest::new("claude-3-5-sonnet-20241022", vec![Message::user("Hello")])
+            .with_tools(vec![ToolDefinition {
+                name: "list_workspace_files".to_string(),
+                description: "List files in workspace".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"}
+                    }
+                }),
+            }]);
+
+        let anthropic_request = client.convert_request_with_tool_choice(request, false);
+        assert!(anthropic_request.tools.is_some());
+        assert!(anthropic_request.tool_choice.is_none());
     }
 
     #[test]
