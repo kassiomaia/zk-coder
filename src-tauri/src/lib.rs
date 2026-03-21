@@ -8,6 +8,7 @@ pub mod commands;
 pub mod llm;
 pub mod nlp;
 pub mod storage;
+pub mod tools;
 pub mod utils;
 
 use commands::{ChatState, ConfigState, LlmState, NlpState};
