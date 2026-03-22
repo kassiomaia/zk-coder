@@ -140,8 +140,17 @@ impl ConversationRunner for OrchestratedConversationRunner {
                 "[LLM] Orchestrated runner enabled: executing loop skeleton for non-streaming request"
             );
             let tool_executor = select_tool_executor_from_env(&request.conversation_id);
-            send_chat_message_orchestrated_non_stream(request, app_handle, tool_executor.as_ref())
-                .await
+            match send_chat_message_orchestrated_non_stream(request.clone(), app_handle.clone(), tool_executor.as_ref()).await {
+                Ok(response) => Ok(response),
+                Err(e) => {
+                    warn!(
+                        "[LLM] Orchestrated runner failed, falling back to legacy: {}",
+                        e
+                    );
+                    // Fallback to legacy runner
+                    send_chat_message_legacy(request, app_handle).await
+                }
+            }
         })
     }
 
@@ -154,7 +163,17 @@ impl ConversationRunner for OrchestratedConversationRunner {
             info!(
                 "[LLM] Orchestrated runner enabled: streaming request using orchestrated loop path"
             );
-            send_chat_message_streaming_orchestrated(request, app_handle).await
+            match send_chat_message_streaming_orchestrated(request.clone(), app_handle.clone()).await {
+                Ok(response_id) => Ok(response_id),
+                Err(e) => {
+                    warn!(
+                        "[LLM] Orchestrated streaming runner failed, falling back to legacy: {}",
+                        e
+                    );
+                    // Fallback to legacy runner
+                    send_chat_message_streaming_legacy(request, app_handle).await
+                }
+            }
         })
     }
 }
@@ -176,7 +195,8 @@ fn select_runner_from_env() -> Arc<dyn ConversationRunner> {
         );
         Arc::new(OrchestratedConversationRunner)
     } else {
-        Arc::new(LegacyConversationRunner)
+        info!("[LLM] Defaulting to OrchestratedConversationRunner (tools enabled)");
+        Arc::new(OrchestratedConversationRunner)
     }
 }
 

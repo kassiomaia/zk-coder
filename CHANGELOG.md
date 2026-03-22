@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated NLP components (`IntentClassifier`, `MultiIntentDetector`, `ContextManager`) from legacy Claude-specific usage to shared gateway abstractions with deterministic fallback behavior on LLM failures.
 - Rewired NLP app state/bootstrap initialization to use config/context databases and removed hardcoded dev API-key initialization paths from runtime wiring.
 - Removed legacy Claude module files (`src-tauri/src/ai/claude.rs`, `src-tauri/src/ai/mod.rs`) and `pub mod ai` export from backend crate root.
+- **Enabled LLM tools by default**: The orchestrated conversation runner with tool support is now the default, restoring workspace file listing and other tool functionality without requiring environment variable configuration.
+
+### Fixed
+
+- **LLM tools regression**: Tools like workspace file listing were disabled after the refactor due to environment flag requirements. Now tools work out-of-the-box with graceful fallback to legacy runner if needed.
 
 ### Technical Details
 
