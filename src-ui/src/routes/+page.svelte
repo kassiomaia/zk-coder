@@ -34,6 +34,7 @@
 	let messages = $state<Message[]>([]);
 	let threads = $state<Thread[]>([]);
 	let conversations = $state<Conversation[]>([]);
+	let searchQuery = $state<string>('');
 	let selectedThreadId = $state<string | null>(null);
 	let processingThreadIds = $state<string[]>([]);
 	let unreadThreads = $state<string[]>([]);
@@ -41,6 +42,31 @@
 	let currentThreadsLoading = $state<LoadingState>('idle');
 
 	type LoadingState = 'idle' | 'loading' | 'success' | 'error';
+
+	// Filtered conversations based on search query
+	let filteredConversations = $derived(() => {
+		if (!searchQuery.trim()) {
+			return conversations;
+		}
+
+		const query = searchQuery.toLowerCase().trim();
+
+		return conversations.filter(conversation => {
+			// Search conversation title
+			if (conversation.title.toLowerCase().includes(query)) {
+				return true;
+			}
+
+			// Search threads within this conversation (only if available)
+			if (conversation.threads && conversation.threads.length > 0) {
+				return conversation.threads.some(thread =>
+					thread.title.toLowerCase().includes(query)
+				);
+			}
+
+			return false;
+		});
+	});
 
 	// Config modal state
 	type ModalState = 'closed' | 'providers' | 'config' | 'custom-provider' | 'settings';
@@ -242,8 +268,7 @@
 	}
 
 	function handleSearch(query: string) {
-		// TODO: Implement search via backend
-		console.log('Search:', query);
+		searchQuery = query;
 	}
 
 	function handleErrorRetry() {
@@ -318,6 +343,7 @@
 		loading={$isLoading}
 		threadsLoading={currentThreadsLoading === 'loading'}
 		hasConfiguredProvider={$hasConfiguredProvider}
+		searchQuery={searchQuery}
 	/>
 
 	<!-- Status indicator -->

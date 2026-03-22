@@ -66,6 +66,8 @@
 		threadsLoading?: boolean;
 		/** Whether any provider is configured */
 		hasConfiguredProvider?: boolean;
+		/** Search query for filtering conversations and threads */
+		searchQuery?: string;
 	}
 
 	let {
@@ -94,7 +96,8 @@
 		threadsLoading = false,
 		hasConfiguredProvider = true,
 		onModelChange,
-		onMessageFeedback
+		onMessageFeedback,
+		searchQuery
 	}: Props = $props();
 
 	// UI state for responsive behavior
@@ -264,6 +267,7 @@
 				{onArchiveThread}
 				{onSettings}
 				{hasConfiguredProvider}
+				{searchQuery}
 			/>
 		</div>
 

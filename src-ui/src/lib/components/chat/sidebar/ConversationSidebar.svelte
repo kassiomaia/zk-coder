@@ -62,6 +62,8 @@
 		loading?: boolean;
 		/** Whether any provider is configured */
 		hasConfiguredProvider?: boolean;
+		/** Search query for filtering */
+		searchQuery?: string;
 	}
 
 	let {
@@ -86,16 +88,46 @@
 		onArchiveThread,
 		onSettings,
 		loading = false,
-		hasConfiguredProvider = true
+		hasConfiguredProvider = true,
+		searchQuery = ''
 	}: Props = $props();
 
-	let searchQuery = $state('');
 	let isNewMenuOpen = $state(false);
 	let newButtonRef: HTMLButtonElement | undefined = $state(undefined);
 
 	let hasSelectedConversation = $derived(!!selectedId);
 	let hasSelectedThread = $derived(!!selectedThreadId);
 	let hasThreads = $derived(threadsForSelected.length > 0);
+
+	// Filter conversations based on search query
+	function getFilteredConversations() {
+		if (!searchQuery?.trim()) {
+			return conversations;
+		}
+
+		const query = searchQuery.toLowerCase().trim();
+
+		return conversations.filter(conversation => {
+			// Search conversation title
+			if (conversation.title.toLowerCase().includes(query)) {
+				return true;
+			}
+
+			// Search threads within this conversation (only if available)
+			if (conversation.threads && conversation.threads.length > 0) {
+				return conversation.threads.some(thread =>
+					thread.title.toLowerCase().includes(query)
+				);
+			}
+
+			return false;
+		});
+	}
+
+	// Group filtered conversations by date
+	function getGroupedFilteredConversations() {
+		return groupConversations(getFilteredConversations());
+	}
 
 	let statusText = $derived(() => {
 		if (hasSelectedThread) return 'Active thread';
@@ -157,8 +189,6 @@
 		return groups.filter((g) => g.conversations.length > 0);
 	}
 
-	let groupedConversations = $derived(groupConversations(conversations));
-
 	function handleSearch(query: string) {
 		searchQuery = query;
 		onSearch?.(query);
@@ -189,55 +219,52 @@
 	<!-- Header -->
 	<header class={styles.header}>
 		<div class={styles.headerTop}>
-			<div class={styles.headerInfo}>
-				<h2 class={styles.title}>CHATS</h2>
-			</div>
-			<div class={styles.headerActions}>
-				<div class={styles.menuWrapper}>
-					<button
-						bind:this={newButtonRef}
-						class={[styles.newButton, isNewMenuOpen && styles.active].filter(Boolean).join(' ')}
-						onclick={toggleNewMenu}
-						aria-label="Create new..."
-						aria-expanded={isNewMenuOpen}
-						aria-haspopup="true"
-						type="button"
-					>
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M12 5v14M5 12h14" />
-						</svg>
-					</button>
+			<!-- Search -->
+			{#if onSearch}
+				<div class={styles.searchContainer}>
+					<SearchBar value={searchQuery} oninput={handleSearch} placeholder="Search conversations and threads..." />
+					<div class={styles.headerActions}>
+						<div class={styles.menuWrapper}>
+							<button
+								bind:this={newButtonRef}
+								class={[styles.newButton, isNewMenuOpen && styles.active].filter(Boolean).join(' ')}
+								onclick={toggleNewMenu}
+								aria-label="Create new..."
+								aria-expanded={isNewMenuOpen}
+								aria-haspopup="true"
+								type="button"
+							>
+								<svg
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<path d="M12 5v14M5 12h14" />
+								</svg>
+							</button>
 
-					<Popover
-						open={isNewMenuOpen}
-						onClose={closeNewMenu}
-						items={newMenuItems}
-						onSelect={handleNewMenuSelect}
-						anchorEl={newButtonRef}
-						origin="bottom-right"
-					/>
+							<Popover
+								open={isNewMenuOpen}
+								onClose={closeNewMenu}
+								items={newMenuItems}
+								onSelect={handleNewMenuSelect}
+								anchorEl={newButtonRef}
+								origin="bottom-right"
+							/>
+						</div>
+					</div>
 				</div>
-			</div>
+			{:else}
+				<div class={styles.statusRow}>
+					<p class={styles.statusText}>{statusText()}</p>
+				</div>
+			{/if}
 		</div>
-		<!-- Status row below title/buttons -->
-
-		<div class={styles.statusRow}>
-			<p class={styles.statusText}>{statusText()}</p>
-		</div>
-
-		<!-- Search -->
-		{#if onSearch}
-			<SearchBar value={searchQuery} oninput={handleSearch} placeholder="Search conversations..." />
-		{/if}
 	</header>
 
 	<!-- Content -->
@@ -246,7 +273,7 @@
 			<div class={styles.loading} aria-label="Loading conversations">
 				<div class={styles.spinner}></div>
 			</div>
-		{:else if conversations.length === 0}
+		{:else if getFilteredConversations().length === 0}
 			<div class={styles.empty}>
 				<svg
 					class={styles.emptyIcon}
@@ -269,10 +296,10 @@
 				{/if}
 			</div>
 		{:else}
-			{#each groupedConversations as group, groupIndex (group.label)}
-				{@const groupOffset = groupedConversations
+			{#each getGroupedFilteredConversations() as group, groupIndex (group.label)}
+				{@const groupOffset = getGroupedFilteredConversations()
 					.slice(0, groupIndex)
-					.reduce((acc, g) => acc + g.conversations.length, 0)}
+					.reduce((acc: number, g: ConversationGroup) => acc + g.conversations.length, 0)}
 				<section class={styles.group}>
 					<h3 class={styles.groupLabel}>{group.label}</h3>
 					<ul class={styles.list} role="listbox" aria-label="{group.label} conversations">
