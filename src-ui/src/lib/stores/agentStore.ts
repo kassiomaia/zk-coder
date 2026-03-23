@@ -178,14 +178,20 @@ function createAgentStore() {
 						const newFile = {
 							path: event.filePath,
 							modified: event.action !== 'read',
-							action: event.action
+							action: event.action,
+							// Include diff if provided by the event
+							...(event.diff !== undefined ? { diff: event.diff } : {})
 						} as import('$lib/types/agent').TouchedFile;
 
 						let updatedFiles;
 						if (fileIndex >= 0) {
-							// Update existing file entry
+							// Update existing file entry, preserving existing diff if new one not provided
 							updatedFiles = [...existingFiles];
-							updatedFiles[fileIndex] = newFile;
+							updatedFiles[fileIndex] = {
+								...newFile,
+								// Keep existing diff if the new event doesn't have one
+								diff: event.diff ?? existingFiles[fileIndex].diff
+							};
 						} else {
 							// Add new file
 							updatedFiles = [...existingFiles, newFile];

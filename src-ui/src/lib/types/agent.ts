@@ -184,6 +184,8 @@ export type AgentEvent =
 			sessionId: string;
 			filePath: string;
 			action: FileAction;
+			/** Unified diff of changes (only present for write actions) */
+			diff?: string;
 	  }
 	| { type: 'status_phrase'; sessionId: string; message: string; timestamp: string }
 	| {
