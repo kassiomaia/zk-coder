@@ -6,6 +6,7 @@
 	 */
 	import Modal from '$lib/components/shared/Modal.svelte';
 	import Button from '$lib/components/shared/Button.svelte';
+	import DiffViewer from './DiffViewer.svelte';
 	import { AlertTriangle, FileEdit, Trash2, Terminal, Globe } from 'lucide-svelte';
 	import type { PendingAction, ActionType } from '$lib/types/agent';
 
@@ -94,12 +95,16 @@
 			{#if action.preview}
 				<div class="preview-section">
 					<div class="preview-header">
-						<span>Preview</span>
+						<span>{action.preview.contentType === 'diff' ? 'Changes' : 'Preview'}</span>
 						{#if action.preview.language}
 							<span class="preview-lang">{action.preview.language}</span>
 						{/if}
 					</div>
-					<pre class="preview-content"><code>{action.preview.content}</code></pre>
+					{#if action.preview.contentType === 'diff'}
+						<DiffViewer diff={action.preview.content} maxHeight={250} />
+					{:else}
+						<pre class="preview-content"><code>{action.preview.content}</code></pre>
+					{/if}
 				</div>
 			{/if}
 		</div>
