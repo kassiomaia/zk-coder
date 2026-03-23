@@ -348,7 +348,9 @@
 		open={showFileDiff}
 		onclose={closeFileDiff}
 		filePath={selectedFile.path}
-		diff={selectedFile.diff ?? ''}
+		workspaceRoot={session.workspaceRoot ?? ''}
+		sessionId={session.id}
+		existingDiff={selectedFile.diff}
 	/>
 {/if}
 

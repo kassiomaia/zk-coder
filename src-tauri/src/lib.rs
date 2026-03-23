@@ -174,6 +174,8 @@ pub fn run() {
             commands::agent::create_subtask,
             commands::agent::update_subtask_status,
             commands::agent::get_subtasks,
+            // File viewing commands (UI-only, no LLM consumption)
+            commands::file::get_file_content,
             // Session history commands
             commands::agent::get_conversation_session_history,
             commands::agent::get_session_details,
