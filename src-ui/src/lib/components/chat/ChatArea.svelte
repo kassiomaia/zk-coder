@@ -10,6 +10,10 @@
 	import MessageActions from './MessageActions.svelte';
 	import EmptyThreadState from './EmptyThreadState.svelte';
 	import ClarificationBanner from './ClarificationBanner.svelte';
+	// Agent message components
+	import ThinkingMessage from './messages/ThinkingMessage.svelte';
+	import ToolCallMessage from './messages/ToolCallMessage.svelte';
+	import TerminalOutput from './messages/TerminalOutput.svelte';
 	import type { Message } from '$lib/types/message';
 	import type { Thread } from '$lib/types/thread';
 	import styles from './ChatArea.module.css';
@@ -452,29 +456,6 @@
 		}
 	}
 
-	/**
-	 * Determines if a message should display a group header.
-	 * A header is shown when:
-	 * - It's the first message, OR
-	 * - The role changes from the previous message, OR
-	 * - There's a time gap > 5 minutes from the previous message
-	 */
-	function shouldShowGroupHeader(index: number): boolean {
-		if (index === 0) return true;
-
-		const currentMessage = messages[index];
-		const previousMessage = messages[index - 1];
-
-		// Show header if role changed
-		if (currentMessage.role !== previousMessage.role) return true;
-
-		// Show header if time gap > 5 minutes
-		const timeDiff = currentMessage.timestamp.getTime() - previousMessage.timestamp.getTime();
-		if (timeDiff >= 5 * 60 * 1000) return true;
-
-		return false;
-	}
-
 	function handleRetry() {
 		onRetry?.();
 	}
@@ -507,6 +488,38 @@
 	function getThreadTitle(threadId: string | undefined): string | undefined {
 		if (!threadId) return undefined;
 		return threads.find((t) => t.id === threadId)?.title;
+	}
+
+	/**
+	 * Check if a message should use specialized rendering based on its kind.
+	 */
+	function getMessageKind(message: Message): 'thinking' | 'tool_call' | 'terminal' | null {
+		return message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal'
+			? message.kind
+			: null;
+	}
+
+	/**
+	 * Check if a message should show a group header.
+	 * Agent messages (thinking, tool_call, terminal) don't show group headers.
+	 */
+	function shouldShowGroupHeader(index: number): boolean {
+		if (index === 0) return true;
+
+		const currentMessage = messages[index];
+		const previousMessage = messages[index - 1];
+
+		// Skip group header for agent-specific messages
+		if (getMessageKind(currentMessage)) return false;
+
+		// Show header if role changed
+		if (currentMessage.role !== previousMessage.role) return true;
+
+		// Show header if time gap > 5 minutes
+		const timeDiff = currentMessage.timestamp.getTime() - previousMessage.timestamp.getTime();
+		if (timeDiff >= 5 * 60 * 1000) return true;
+
+		return false;
 	}
 
 	// Ambiguity resolution handlers
@@ -592,94 +605,104 @@
 		{:else}
 			<!-- Messages - flat rendering to avoid Svelte 5 nested #each reconciliation issues -->
 			{#each messages as message, index (message.id)}
-				{#if shouldShowGroupHeader(index)}
-					<div
-						class={[styles.messageGroup, index === 0 && styles.messageGroupFirst]
-							.filter(Boolean)
-							.join(' ')}
-					>
-						<div class={styles.groupHeader}>
-							<span class={styles.groupRole}>{message.role}</span>
-							<span class={styles.groupTime}>{formatGroupTime(message.timestamp)}</span>
+				<!-- Agent-specific messages (thinking, tool_call, terminal) -->
+				{#if message.kind === 'thinking'}
+					<ThinkingMessage {message} />
+				{:else if message.kind === 'tool_call'}
+					<ToolCallMessage {message} />
+				{:else if message.kind === 'terminal'}
+					<TerminalOutput {message} />
+				{:else}
+					<!-- Normal messages (user, assistant, system) -->
+					{#if shouldShowGroupHeader(index)}
+						<div
+							class={[styles.messageGroup, index === 0 && styles.messageGroupFirst]
+								.filter(Boolean)
+								.join(' ')}
+						>
+							<div class={styles.groupHeader}>
+								<span class={styles.groupRole}>{message.role}</span>
+								<span class={styles.groupTime}>{formatGroupTime(message.timestamp)}</span>
+							</div>
 						</div>
-					</div>
-				{/if}
-				<div
-					class={[
-						styles.messageWrapper,
-						message.role === 'user' ? styles.userWrapper : styles.assistantWrapper
-					]
-						.filter(Boolean)
-						.join(' ')}
-				>
+					{/if}
 					<div
 						class={[
-							styles.message,
-							styles[getRoleClass(message.role)],
-							getMessageStatusClass(message.status)
+							styles.messageWrapper,
+							message.role === 'user' ? styles.userWrapper : styles.assistantWrapper
 						]
 							.filter(Boolean)
 							.join(' ')}
 					>
-						<!-- Thread indicator -->
-						{#if message.threadId && getThreadTitle(message.threadId)}
-							<ThreadIndicator
-								thread={{
-									id: message.threadId,
-									title: getThreadTitle(message.threadId)!
-								} as any}
-								onclick={() => onThreadClick?.(message.threadId!)}
-								compact
-							/>
-						{/if}
-						<div class={styles.messageContent}>
-							<MarkdownRenderer content={message.content} />
-						</div>
-						<!-- Message status indicator -->
-						{#if message.status === 'sending' && message.content.trim() === ''}
-							<AnsweringIndicator status={agentStatus} />
-						{:else if message.status === 'error'}
-							<div class={styles.statusIndicator} aria-label="Failed to send">
-								<button
-									class={styles.retryIconButton}
-									onclick={() => onRetryMessage?.(message.id)}
-									title="Retry sending"
-									type="button"
-								>
-									<svg
-										width="14"
-										height="14"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
+						<div
+							class={[
+								styles.message,
+								styles[getRoleClass(message.role)],
+								getMessageStatusClass(message.status)
+							]
+								.filter(Boolean)
+								.join(' ')}
+						>
+							<!-- Thread indicator -->
+							{#if message.threadId && getThreadTitle(message.threadId)}
+								<ThreadIndicator
+									thread={{
+										id: message.threadId,
+										title: getThreadTitle(message.threadId)!
+									} as any}
+									onclick={() => onThreadClick?.(message.threadId!)}
+									compact
+								/>
+							{/if}
+							<div class={styles.messageContent}>
+								<MarkdownRenderer content={message.content} />
+							</div>
+							<!-- Message status indicator -->
+							{#if message.status === 'sending' && message.content.trim() === ''}
+								<AnsweringIndicator status={agentStatus} />
+							{:else if message.status === 'error'}
+								<div class={styles.statusIndicator} aria-label="Failed to send">
+									<button
+										class={styles.retryIconButton}
+										onclick={() => onRetryMessage?.(message.id)}
+										title="Retry sending"
+										type="button"
 									>
-										<path d="M1 4v6h6" />
-										<path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-									</svg>
-								</button>
+										<svg
+											width="14"
+											height="14"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<path d="M1 4v6h6" />
+											<path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+										</svg>
+									</button>
+								</div>
+							{/if}
+						</div>
+						<!-- Message actions -->
+						{#if message.status !== 'sending'}
+							<div class={styles.actionsContainer}>
+								<MessageActions
+									showCopy={true}
+									showEdit={message.role === 'user'}
+									showDelete={true}
+									showRetry={message.status === 'error'}
+									showFeedback={message.role === 'assistant'}
+									feedback={message.metadata?.feedback}
+									onCopy={() => handleCopyMessage(message.content)}
+									onEdit={() => onEditMessage?.(message.id)}
+									onDelete={() => onDeleteMessage?.(message.id)}
+									onRetry={() => onRetryMessage?.(message.id)}
+									onFeedback={(feedback) => onMessageFeedback?.(message.id, feedback)}
+								/>
 							</div>
 						{/if}
 					</div>
-					<!-- Message actions -->
-					{#if message.status !== 'sending'}
-						<div class={styles.actionsContainer}>
-							<MessageActions
-								showCopy={true}
-								showEdit={message.role === 'user'}
-								showDelete={true}
-								showRetry={message.status === 'error'}
-								showFeedback={message.role === 'assistant'}
-								feedback={message.metadata?.feedback}
-								onCopy={() => handleCopyMessage(message.content)}
-								onEdit={() => onEditMessage?.(message.id)}
-								onDelete={() => onDeleteMessage?.(message.id)}
-								onRetry={() => onRetryMessage?.(message.id)}
-								onFeedback={(feedback) => onMessageFeedback?.(message.id, feedback)}
-							/>
-						</div>
-					{/if}
-				</div>
+				{/if}
 			{/each}
 
 			<!-- Answering indicator -->

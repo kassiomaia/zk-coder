@@ -1,0 +1,95 @@
+/**
+ * ThinkingMessage Styles
+ * Muted, collapsible section for agent thinking
+ */
+
+.thinkingMessage {
+	margin: var(--space-2) 0;
+	border-radius: var(--radius-md);
+	background: var(--color-surface-active);
+	border: 1px solid var(--color-neutral-800);
+	overflow: hidden;
+	transition: all var(--transition-fast);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
+	background: transparent;
+	border: none;
+	width: 100%;
+	text-align: left;
+	cursor: pointer;
+	color: var(--color-text-tertiary);
+	font-family: var(--font-sans);
+	font-size: var(--text-sm);
+	transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.header:hover {
+	background: var(--color-surface-hover);
+	color: var(--color-text-secondary);
+}
+
+.icon {
+	font-size: var(--text-base);
+	line-height: 1;
+}
+
+.label {
+	flex: 1;
+	font-weight: var(--font-medium);
+}
+
+.toggle {
+	font-size: var(--text-lg);
+	line-height: 1;
+	width: 1.5rem;
+	height: 1.5rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--radius-sm);
+	background: var(--color-neutral-800);
+	transition: background var(--transition-fast);
+}
+
+.header:hover .toggle {
+	background: var(--color-neutral-700);
+}
+
+.collapsed .toggle {
+	background: transparent;
+}
+
+.content {
+	padding: 0 var(--space-3) var(--space-3);
+	border-top: 1px solid var(--color-neutral-800);
+	padding-top: var(--space-2);
+	animation: slideDown var(--transition-fast) ease-out;
+}
+
+@keyframes slideDown {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.collapsed .content {
+	display: none;
+}
+
+.status {
+	margin: 0;
+	color: var(--color-text-tertiary);
+	font-size: var(--text-sm);
+	line-height: var(--leading-relaxed);
+	font-style: italic;
+}

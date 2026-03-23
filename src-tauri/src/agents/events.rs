@@ -156,6 +156,21 @@ pub enum AgentEvent {
         timestamp: DateTime<Utc>,
     },
 
+    /// Content streaming chunk for the final response.
+    StreamingContent {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "conversationId")]
+        conversation_id: String,
+        #[serde(rename = "threadId")]
+        thread_id: String,
+        /// Content chunk (partial text)
+        chunk: String,
+        /// Whether this is the final chunk
+        #[serde(rename = "isFinal")]
+        is_final: bool,
+    },
+
     /// Context was compacted to stay within token limits.
     ContextCompacted {
         #[serde(rename = "sessionId")]

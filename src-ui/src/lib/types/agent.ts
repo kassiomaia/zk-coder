@@ -48,6 +48,7 @@ export interface AgentSession {
 	terminalOutput?: TerminalLine[];
 	executionSteps?: ExecutionStep[]; // Track execution steps for UI progress display
 	statusPhrases?: string[]; // Accumulated status phrases for rotation
+	streamingAssistantContent?: string; // Accumulated content for streaming assistant message
 	createdAt: string;
 	updatedAt: string;
 }
@@ -188,6 +189,14 @@ export type AgentEvent =
 			diff?: string;
 	  }
 	| { type: 'status_phrase'; sessionId: string; message: string; timestamp: string }
+	| {
+		type: 'streaming_content';
+		sessionId: string;
+		conversationId: string;
+		threadId: string;
+		chunk: string;
+		isFinal: boolean;
+	  }
 	| {
 		type: 'context_compacted';
 		sessionId: string;

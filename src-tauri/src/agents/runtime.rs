@@ -12,7 +12,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::{ChatState, LlmState};
 use crate::llm::{
-    create_client, ChatRequest, ChatResponse, LlmClient, Message, ToolCall,
+    create_client, ChatRequest, ChatResponse, LlmClient, LlmError, Message, ToolCall,
     ToolResult as LlmToolResult,
 };
 use crate::storage::ConfigStore;
@@ -248,8 +248,26 @@ impl AgentRuntime {
 
             // If no tool calls, we're done - agent has completed its task
             if response.tool_calls.is_empty() {
+                // Use streaming for the final response to show real-time progress
+                let stream_response = self
+                    .chat_streaming_final(
+                        client.as_ref(),
+                        &chat_request,
+                        &session_id,
+                        &session.conversation_id,
+                        &session.thread_id,
+                        app_handle,
+                    )
+                    .await?;
+
+                // Update usage with streaming response
+                if let Some(usage) = &stream_response.usage {
+                    total_input_tokens += usage.input_tokens;
+                    total_output_tokens += usage.output_tokens;
+                }
+
                 let result = AgentExecutionResult {
-                    content: response.content,
+                    content: stream_response.content,
                     steps,
                     usage: Some(UsageStats {
                         input_tokens: total_input_tokens,
@@ -830,6 +848,157 @@ impl AgentRuntime {
                     attempt += 1;
                 }
             }
+        }
+    }
+
+    /// Execute a streaming chat request for the final agent response.
+    /// Emits StreamingContent events as chunks arrive and returns the complete response.
+    ///
+    /// Uses non-blocking event emission via tokio spawn to prevent the backend
+    /// from freezing if the frontend is slow to process events.
+    async fn chat_streaming_final(
+        &self,
+        client: &dyn LlmClient,
+        request: &ChatRequest,
+        session_id: &str,
+        conversation_id: &str,
+        thread_id: &str,
+        app_handle: &AppHandle,
+    ) -> Result<ChatResponse, AgentRuntimeError> {
+        use futures::StreamExt;
+
+        // Enable streaming for the request
+        let mut stream_request = request.clone();
+        stream_request.stream = true;
+
+        let mut attempt = 0usize;
+        loop {
+            let mut stream = client.chat_stream(stream_request.clone());
+
+            let mut full_content = String::new();
+            let mut final_usage = None;
+            let mut final_finish_reason = None;
+            let mut response_id = String::new();
+            let mut response_model = String::new();
+
+            let mut succeeded = false;
+            let mut last_error = None;
+
+            // Add a timeout to prevent infinite hanging (5 minutes for long LLM responses)
+            let stream_timeout = tokio::time::sleep(Duration::from_secs(300));
+            tokio::pin!(stream_timeout);
+
+            loop {
+                tokio::select! {
+                    chunk_result = StreamExt::next(&mut stream) => {
+                        match chunk_result {
+                            Some(Ok(chunk)) => {
+                                response_id = chunk.id;
+                                response_model = chunk.model;
+
+                                if let Some(ref delta) = chunk.delta {
+                                    if let Some(ref content) = delta.content {
+                                        // Clone data for non-blocking emit
+                                        let session_id = session_id.to_string();
+                                        let conversation_id = conversation_id.to_string();
+                                        let thread_id = thread_id.to_string();
+                                        let chunk_content = content.clone();
+                                        let app_handle = app_handle.clone();
+
+                                        // Spawn a task to emit the event non-blockingly
+                                        tokio::spawn(async move {
+                                            let _ = app_handle.emit(
+                                                AGENT_EVENT_NAME,
+                                                AgentEvent::StreamingContent {
+                                                    session_id,
+                                                    conversation_id,
+                                                    thread_id,
+                                                    chunk: chunk_content,
+                                                    is_final: false,
+                                                },
+                                            );
+                                        });
+
+                                        full_content.push_str(content);
+                                    }
+                                }
+
+                                if chunk.is_final {
+                                    final_usage = chunk.usage;
+                                    final_finish_reason = chunk.finish_reason;
+                                }
+                            }
+                            Some(Err(err)) => {
+                                last_error = Some(err);
+                                break;
+                            }
+                            None => {
+                                // Stream ended naturally
+                                break;
+                            }
+                        }
+                    }
+                    _ = &mut stream_timeout => {
+                        error!("[AgentRuntime] Streaming timeout after 300s");
+                        last_error = Some(LlmError::timeout(300));
+                        break;
+                    }
+                }
+
+                // Break on error
+                if last_error.is_some() {
+                    break;
+                }
+            }
+
+            // Check if we completed successfully
+            if last_error.is_none() && !full_content.is_empty() {
+                // Emit final chunk non-blockingly
+                let session_id = session_id.to_string();
+                let conversation_id = conversation_id.to_string();
+                let thread_id = thread_id.to_string();
+                let app_handle = app_handle.clone();
+
+                tokio::spawn(async move {
+                    let _ = app_handle.emit(
+                        AGENT_EVENT_NAME,
+                        AgentEvent::StreamingContent {
+                            session_id,
+                            conversation_id,
+                            thread_id,
+                            chunk: String::new(),
+                            is_final: true,
+                        },
+                    );
+                });
+
+                return Ok(ChatResponse {
+                    id: response_id,
+                    model: response_model,
+                    content: full_content,
+                    usage: final_usage,
+                    finish_reason: final_finish_reason,
+                    tool_calls: Vec::new(),
+                });
+            }
+
+            // Handle retry
+            let err = last_error.unwrap();
+            let can_retry = err.is_retryable() && attempt < LLM_MAX_RETRIES;
+            if !can_retry {
+                return Err(AgentRuntimeError::Llm(err.to_string()));
+            }
+
+            let delay_ms = LLM_RETRY_BASE_MS * (1u64 << attempt);
+            warn!(
+                "[AgentRuntime] Transient LLM streaming error (attempt {}/{}), retrying in {}ms: {}",
+                attempt + 1,
+                LLM_MAX_RETRIES + 1,
+                delay_ms,
+                err
+            );
+            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            attempt += 1;
         }
     }
 

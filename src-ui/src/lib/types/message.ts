@@ -12,6 +12,35 @@ export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'error';
 /** Feedback type for a message (like/dislike) */
 export type MessageFeedback = 'like' | 'dislike';
 
+/** Kind of message for specialized rendering */
+export type MessageKind = 'normal' | 'thinking' | 'tool_call' | 'terminal';
+
+/**
+ * Agent-specific data for messages that represent agent activity.
+ */
+export interface AgentMessageData {
+	/** Tool name (for tool_call kind) */
+	toolName?: string;
+	/** Tool arguments (for tool_call kind) */
+	toolArgs?: Record<string, unknown>;
+	/** Tool result (for tool_call kind) */
+	toolResult?: unknown;
+	/** Whether the tool call resulted in an error */
+	toolError?: boolean;
+	/** Streaming content (for terminal/tool_call kinds) */
+	streamingContent?: string;
+	/** Stream type (for terminal kind) */
+	streamType?: 'stdout' | 'stderr' | 'command';
+	/** Session ID for agent messages */
+	sessionId?: string;
+	/** Whether the message is expanded (for tool_call) */
+	expanded?: boolean;
+	/** Exit code for finished commands */
+	exitCode?: number | null;
+	/** Tool call status: 'pending' | 'success' | 'error' */
+	toolCallStatus?: 'pending' | 'success' | 'error';
+}
+
 /**
  * Represents a single chat message.
  */
@@ -36,6 +65,15 @@ export interface Message {
 
 	/** Current status of the message */
 	status?: MessageStatus;
+
+	/** Kind of message for specialized rendering (default: 'normal') */
+	kind?: MessageKind;
+
+	/** Agent-specific data for messages that represent agent activity */
+	agentData?: AgentMessageData;
+
+	/** Whether this message should be auto-removed (e.g., transient status updates) */
+	isTransient?: boolean;
 
 	/** Optional metadata about the message */
 	metadata?: MessageMetadata;

@@ -307,6 +307,12 @@
 			});
 
 			try {
+				// Get the active session to find the streaming message ID
+				const session = get(activeSession);
+				const streamingMessageId = session?.id
+					? `streaming-assistant-${session.id}`
+					: null;
+
 				// Persist the assistant message to the backend
 				const { sendMessage } = await import('$lib/api/chat');
 				const savedMessage = await sendMessage({
@@ -316,8 +322,30 @@
 					content
 				});
 
-				// Add to local state with the saved message (which has the correct ID from backend)
-				chatStore.addMessage(savedMessage);
+				// Remove the temporary streaming message if it exists
+				if (streamingMessageId) {
+					const chatState = get(chatStore);
+					const hasStreamingMessage = chatState.messages.some(
+						(m) => m.id === streamingMessageId
+					);
+
+					if (hasStreamingMessage) {
+						// Replace streaming message with persisted one
+						chatStore.updateMessage(streamingMessageId, {
+							id: savedMessage.id,
+							content: savedMessage.content,
+							status: 'sent',
+							metadata: savedMessage.metadata
+						});
+					} else {
+						// No streaming message found, just add the saved one
+						chatStore.addMessage(savedMessage);
+					}
+				} else {
+					// No streaming message ID, just add the saved message
+					chatStore.addMessage(savedMessage);
+				}
+
 				console.debug('[+page] Agent message persisted and added to chatStore:', savedMessage.id);
 			} catch (error) {
 				console.error('[+page] Failed to persist agent message:', error);
@@ -377,6 +405,44 @@
 			}
 		});
 		console.debug('[+page] System message callback registered');
+
+		// Set callback to add agent activity messages (thinking, tool_call, terminal) to chat
+		// These messages are transient and show agent progress during execution
+		agentStore.setAgentActivityCallback((conversationId, threadId, messageData) => {
+			console.debug('[+page] Agent activity callback:', { kind: messageData.kind, id: messageData.id, content: messageData.content });
+
+			const messageId = messageData.id ?? crypto.randomUUID();
+
+			// For thinking and tool_call messages, check if message already exists to decide add vs update
+			const shouldUpdateExisting = messageData.kind === 'thinking' || messageData.kind === 'tool_call';
+
+			if (shouldUpdateExisting && messageData.id) {
+				const chatState = get(chatStore);
+				const existingMessage = chatState.messages.find((m: Message) => m.id === messageData.id);
+				if (existingMessage) {
+					console.debug('[+page] Updating existing message:', messageData.id, messageData.content);
+					// Update existing message with new agentData
+					// For thinking: update content (status_phrase)
+					// For tool_call: update with toolResult, toolError, toolCallStatus
+					chatStore.updateMessage(messageData.id, {
+						...(messageData.content !== undefined && { content: messageData.content }),
+						...(messageData.agentData && { agentData: messageData.agentData })
+					});
+					return;
+				}
+			}
+
+			console.debug('[+page] Creating new message:', messageId, messageData.kind);
+			// Create new message for other types or if message doesn't exist yet
+			chatStore.addMessage({
+				...messageData,
+				id: messageId,
+				conversationId,
+				threadId,
+				timestamp: messageData.timestamp ?? new Date()
+			} as Message);
+		});
+		console.debug('[+page] Agent activity callback registered');
 
 		// Initialize config store and show providers modal if no providers configured
 		await configStore.initialize();

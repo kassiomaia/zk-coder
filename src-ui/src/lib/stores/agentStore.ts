@@ -36,6 +36,80 @@ function createAgentStore() {
 	/** Callback for agent system messages (e.g., context compaction) - returns (conversationId, message) */
 	let onSystemMessage: ((conversationId: string, message: string) => void) | null = null;
 
+	/** Callback for agent activity messages (thinking, tool_call, terminal) - adds transient messages to chat */
+	let onAgentActivity: ((conversationId: string, threadId: string, message: Partial<Message>) => void) | null = null;
+
+	// Streaming throttle state
+	const pendingStreamingUpdates = new Map<string, {
+		conversationId: string;
+		threadId: string;
+		messageId: string;
+		content: string;
+		status: string;
+	}>();
+	const streamingThrottleTimers = new Map<string, ReturnType<typeof setTimeout>>();
+	const STREAM_THROTTLE_MS = 50; // Update UI at most every 50ms during streaming
+
+	/**
+	 * Flush a pending streaming update to the UI
+	 */
+	function flushStreamingUpdate(sessionId: string) {
+		const pending = pendingStreamingUpdates.get(sessionId);
+		if (pending && onAgentActivity) {
+			onAgentActivity(pending.conversationId, pending.threadId, {
+				id: pending.messageId,
+				conversationId: pending.conversationId,
+				threadId: pending.threadId,
+				role: 'assistant',
+				content: pending.content,
+				timestamp: new Date(),
+				status: pending.status as any
+			});
+			pendingStreamingUpdates.delete(sessionId);
+		}
+	}
+
+	/**
+	 * Schedule a throttled streaming update
+	 */
+	function scheduleStreamingUpdate(
+		sessionId: string,
+		conversationId: string,
+		threadId: string,
+		messageId: string,
+		content: string,
+		status: string,
+		immediate = false
+	) {
+		// Store the update
+		pendingStreamingUpdates.set(sessionId, {
+			conversationId,
+			threadId,
+			messageId,
+			content,
+			status
+		});
+
+		// Clear existing timer
+		const existingTimer = streamingThrottleTimers.get(sessionId);
+		if (existingTimer) {
+			clearTimeout(existingTimer);
+		}
+
+		if (immediate) {
+			// Flush immediately for final chunk
+			flushStreamingUpdate(sessionId);
+			streamingThrottleTimers.delete(sessionId);
+		} else {
+			// Schedule throttled update
+			const timer = setTimeout(() => {
+				flushStreamingUpdate(sessionId);
+				streamingThrottleTimers.delete(sessionId);
+			}, STREAM_THROTTLE_MS);
+			streamingThrottleTimers.set(sessionId, timer);
+		}
+	}
+
 	/**
 	 * Set a callback for execution completion.
 	 * This allows the chat store to add the assistant message when the agent finishes.
@@ -52,6 +126,16 @@ function createAgentStore() {
 	 */
 	function setSystemMessageCallback(callback: (conversationId: string, message: string) => void) {
 		onSystemMessage = callback;
+	}
+
+	/**
+	 * Set a callback for agent activity messages.
+	 * This allows transient messages (thinking, tool_call, terminal) to be added to the chat.
+	 */
+	function setAgentActivityCallback(
+		callback: (conversationId: string, threadId: string, message: Partial<Message>) => void
+	) {
+		onAgentActivity = callback;
 	}
 
 	/**
@@ -107,6 +191,7 @@ function createAgentStore() {
 					break;
 				}
 				case 'command_output': {
+					// Add to terminal and create terminal output message in chat
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
 						const line: import('$lib/types/agent').TerminalLine = {
@@ -119,6 +204,24 @@ function createAgentStore() {
 							...session,
 							terminalOutput: [...(session.terminalOutput ?? []), line]
 						});
+
+						// Create terminal output message in chat (transient, auto-dismiss)
+						if (onAgentActivity) {
+							onAgentActivity(session.conversationId, session.threadId, {
+								id: `terminal-${event.sessionId}-${crypto.randomUUID()}`,
+								conversationId: session.conversationId,
+								threadId: session.threadId,
+								role: 'system',
+								kind: 'terminal',
+								content: event.content,
+								agentData: {
+									streamType: event.stream,
+									sessionId: event.sessionId
+								},
+								isTransient: true,
+								timestamp: new Date()
+							});
+						}
 					}
 					break;
 				}
@@ -205,13 +308,34 @@ function createAgentStore() {
 					break;
 				}
 				case 'execution_started': {
-					// Agent has started execution - update session state
+					// Agent has started execution - update session state and create thinking message
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
+						console.debug('[agentStore] execution_started:', {
+							sessionId: event.sessionId,
+							conversationId: session.conversationId,
+							threadId: session.threadId
+						});
+
 						state.sessions.set(event.sessionId, {
 							...session,
 							state: { type: 'running', currentStep: 0, contextUsage: 0 }
 						});
+
+						// Create thinking message in chat with consistent ID for updates
+						if (onAgentActivity) {
+							console.debug('[agentStore] Creating thinking message');
+							onAgentActivity(session.conversationId, session.threadId, {
+								id: `thinking-${event.sessionId}`,
+								conversationId: session.conversationId,
+								threadId: session.threadId,
+								role: 'system',
+								kind: 'thinking',
+								content: 'Thinking...',
+								timestamp: new Date(),
+								isTransient: false
+							});
+						}
 					}
 					break;
 				}
@@ -235,7 +359,7 @@ function createAgentStore() {
 					break;
 				}
 				case 'tool_call': {
-					// Log tool call to terminal
+					// Log tool call to terminal and create tool call message in chat
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
 						const argsStr = JSON.stringify(event.arguments);
@@ -249,11 +373,34 @@ function createAgentStore() {
 							...session,
 							terminalOutput: [...(session.terminalOutput ?? []), line]
 						});
+
+						// Create tool call message in chat
+						// Use a consistent ID that can be updated when tool_result arrives
+						const toolCallId = `tool-${event.sessionId}-${event.tool}`;
+						if (onAgentActivity) {
+							onAgentActivity(session.conversationId, session.threadId, {
+								id: toolCallId,
+								conversationId: session.conversationId,
+								threadId: session.threadId,
+								role: 'system',
+								kind: 'tool_call',
+								content: '',
+								agentData: {
+									toolName: event.tool,
+									toolArgs: event.arguments,
+									sessionId: event.sessionId,
+									expanded: false,
+									// Track that this is a call (not result yet)
+									toolCallStatus: 'pending'
+								},
+								timestamp: new Date()
+							});
+						}
 					}
 					break;
 				}
 				case 'tool_result': {
-					// Log tool result to terminal
+					// Log tool result to terminal and update tool call message
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
 						const status = event.isError ? '❌' : '✓';
@@ -268,6 +415,28 @@ function createAgentStore() {
 							...session,
 							terminalOutput: [...(session.terminalOutput ?? []), line]
 						});
+
+						// Update the existing tool call message with result
+						// Use the SAME ID as the tool_call so it updates the existing message
+						const toolCallId = `tool-${event.sessionId}-${event.tool}`;
+						if (onAgentActivity) {
+							onAgentActivity(session.conversationId, session.threadId, {
+								id: toolCallId, // Same ID as tool_call to update the existing message
+								conversationId: session.conversationId,
+								threadId: session.threadId,
+								role: 'system',
+								kind: 'tool_call',
+								content: '',
+								agentData: {
+									toolName: event.tool,
+									toolResult: event.result,
+									toolError: event.isError,
+									sessionId: event.sessionId,
+									toolCallStatus: event.isError ? 'error' : 'success'
+								},
+								timestamp: new Date()
+							});
+						}
 					}
 					break;
 				}
@@ -298,6 +467,7 @@ function createAgentStore() {
 				}
 				case 'status_phrase': {
 					// Accumulate status phrases for rotation (keep last 10)
+					// and update thinking message in chat
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
 						const existingPhrases = session.statusPhrases ?? [];
@@ -307,6 +477,85 @@ function createAgentStore() {
 							...session,
 							statusPhrases: newPhrases
 						});
+
+						console.debug('[agentStore] status_phrase:', {
+							sessionId: event.sessionId,
+							message: event.message,
+							conversationId: session.conversationId,
+							threadId: session.threadId
+						});
+
+						// Update thinking message in chat with latest status
+						if (onAgentActivity) {
+							onAgentActivity(session.conversationId, session.threadId, {
+								id: `thinking-${event.sessionId}`,
+								conversationId: session.conversationId,
+								threadId: session.threadId,
+								role: 'system',
+								kind: 'thinking',
+								content: event.message,
+								timestamp: new Date()
+							});
+						}
+					}
+					break;
+				}
+				case 'streaming_content': {
+					// Content streaming in for final response (throttled to prevent UI freezing)
+					const session = state.sessions.get(event.sessionId);
+					if (session && onAgentActivity) {
+						// For streaming content, we use a special message ID for the assistant response
+						const assistantMessageId = `streaming-assistant-${event.sessionId}`;
+
+						// Track accumulated content in session state
+						const existingContent = session.streamingAssistantContent ?? '';
+						const newContent = existingContent + event.chunk;
+
+						if (!event.isFinal) {
+							// Update streaming state
+							state.sessions.set(event.sessionId, {
+								...session,
+								streamingAssistantContent: newContent
+							});
+
+							// Schedule throttled UI update (non-blocking)
+							scheduleStreamingUpdate(
+								event.sessionId,
+								session.conversationId,
+								session.threadId,
+								assistantMessageId,
+								newContent,
+								'sending'
+							);
+						}
+						// is_final: flush immediately with 'sent' status and clear streaming state
+						else {
+							// Clear any pending throttled update
+							const timer = streamingThrottleTimers.get(event.sessionId);
+							if (timer) {
+								clearTimeout(timer);
+								streamingThrottleTimers.delete(event.sessionId);
+							}
+
+							// Clear streaming state
+							state.sessions.set(event.sessionId, {
+								...session,
+								streamingAssistantContent: undefined
+							});
+
+							// If we have accumulated content, flush immediately
+							if (newContent.length > 0) {
+								scheduleStreamingUpdate(
+									event.sessionId,
+									session.conversationId,
+									session.threadId,
+									assistantMessageId,
+									newContent,
+									'sent',
+									true // immediate flush
+								);
+							}
+						}
 					}
 					break;
 				}
@@ -661,6 +910,7 @@ function createAgentStore() {
 		initialize,
 		setExecutionCompleteCallback,
 		setSystemMessageCallback,
+		setAgentActivityCallback,
 		createSession,
 		sendRequest,
 		approveAction,
