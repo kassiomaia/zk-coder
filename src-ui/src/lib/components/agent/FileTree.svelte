@@ -2,6 +2,7 @@
 	/**
 	 * FileTree Component
 	 * Displays files touched by the agent in a hierarchical tree.
+	 * Supports recursive rendering of nested directories.
 	 */
 	import {
 		File,
@@ -106,14 +107,29 @@
 		if (file.action === 'delete') return { label: 'D', cssClass: 'deleted' };
 		return null;
 	}
+
+	/** Base indentation for nested items */
+	const BASE_INDENT = 12;
+	const INDENT_PER_LEVEL = 16;
 </script>
 
 <div class="file-tree" aria-label="File tree">
-	{#each fileTree.children as node (node.path)}
+	{#if fileTree.children.length > 0}
+		{@render TreeNode(fileTree.children, 0)}
+	{:else}
+		<div class="empty-state">
+			<p>No files touched</p>
+		</div>
+	{/if}
+</div>
+
+{#snippet TreeNode(nodes: FileTreeNode[], depth: number)}
+	{#each nodes as node (node.path)}
 		{#if node.type === 'directory'}
 			{@const isExpanded = expandedPaths.has(node.path)}
 			<button
 				class="tree-node directory"
+				style="padding-left: {BASE_INDENT + depth * INDENT_PER_LEVEL}px"
 				onclick={() => toggleExpanded(node.path)}
 				type="button"
 				aria-expanded={isExpanded}
@@ -129,27 +145,11 @@
 			</button>
 
 			{#if isExpanded}
-				{#each node.children as child (child.path)}
-					{#if child.type === 'file' && child.file}
-						{@const indicator = getChangeIndicator(child.file)}
-						{@const FileIcon = getFileIcon(child.path)}
-						<button
-							class="tree-node file"
-							class:modified={child.file.action === 'write'}
-							class:deleted={child.file.action === 'delete'}
-							style="padding-left: 24px"
-							onclick={() => onfileclick?.(child.path)}
-							type="button"
-						>
-							<FileIcon size={14} />
-							<span>{child.name}</span>
-							{#if indicator}
-								<span class="change-indicator {indicator.cssClass}">{indicator.label}</span>
-							{/if}
-						</button>
-					{/if}
-				{/each}
+				{#if node.children.length > 0}
+					{@render TreeNode(node.children, depth + 1)}
+				{/if}
 			{/if}
+
 		{:else if node.file}
 			{@const indicator = getChangeIndicator(node.file)}
 			{@const FileIcon = getFileIcon(node.path)}
@@ -157,9 +157,11 @@
 				class="tree-node file"
 				class:modified={node.file.action === 'write'}
 				class:deleted={node.file.action === 'delete'}
+				style="padding-left: {BASE_INDENT + depth * INDENT_PER_LEVEL}px"
 				onclick={() => onfileclick?.(node.path)}
 				type="button"
 			>
+				<span class="file-icon-spacer"></span>
 				<FileIcon size={14} />
 				<span>{node.name}</span>
 				{#if indicator}
@@ -167,12 +169,8 @@
 				{/if}
 			</button>
 		{/if}
-	{:else}
-		<div class="empty-state">
-			<p>No files touched</p>
-		</div>
 	{/each}
-</div>
+{/snippet}
 
 <style>
 	.file-tree {
@@ -185,7 +183,6 @@
 		gap: var(--space-1-5);
 		width: 100%;
 		padding: var(--space-1) var(--space-2);
-		padding-left: var(--space-3);
 		font-size: var(--text-xs);
 		color: var(--color-text-secondary);
 		border-radius: var(--radius-sm);
@@ -213,6 +210,12 @@
 	.tree-node.deleted {
 		color: var(--color-error);
 		text-decoration: line-through;
+	}
+
+	.file-icon-spacer {
+		display: inline-block;
+		width: 12px;
+		flex-shrink: 0;
 	}
 
 	.change-indicator {

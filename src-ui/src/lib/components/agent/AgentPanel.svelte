@@ -123,11 +123,12 @@
 		showFileDiff = false;
 	}
 
-	/** Calculate total tokens used from all execution steps */
+	/** Calculate total tokens used - latest step's total (API reports cumulative) */
 	let totalTokensUsed = $derived(() => {
-		return session.executionSteps?.reduce((sum, step) => {
-			return sum + (step.result?.tokensUsed ?? 0);
-		}, 0) ?? 0;
+		// tokens_used is cumulative (total_tokens), so take latest, not sum
+		if (!session.executionSteps || session.executionSteps.length === 0) return 0;
+		const latestStep = session.executionSteps[session.executionSteps.length - 1];
+		return latestStep.result?.tokensUsed ?? 0;
 	});
 
 	/** Format token count for display (e.g., 12.5k) */
