@@ -330,6 +330,62 @@ pub async fn get_agent(
 }
 
 // =========================================================================
+// Subtask Commands
+// =========================================================================
+
+/// Create a new subtask for decomposition.
+#[tauri::command]
+pub async fn create_subtask(
+    task_id: String,
+    title: String,
+    description: Option<String>,
+    order: i32,
+    state: tauri::State<'_, AgentState>,
+) -> Result<String, String> {
+    let subtask = crate::agents::task::SubTask::new(task_id, title, order);
+    let subtask = if let Some(desc) = description {
+        subtask.with_description(desc)
+    } else {
+        subtask
+    };
+
+    state
+        .session_store
+        .create_subtask(&subtask)
+        .map_err(|e| e.to_string())?;
+
+    Ok(subtask.id)
+}
+
+/// Update subtask status.
+#[tauri::command]
+pub async fn update_subtask_status(
+    subtask_id: String,
+    status: String,
+    state: tauri::State<'_, AgentState>,
+) -> Result<(), String> {
+    let task_status: crate::agents::task::TaskStatus = serde_json::from_str(&status)
+        .map_err(|e| format!("Invalid status: {e}"))?;
+
+    state
+        .session_store
+        .update_subtask_status(&subtask_id, &task_status)
+        .map_err(|e| e.to_string())
+}
+
+/// Get all subtasks for a task.
+#[tauri::command]
+pub async fn get_subtasks(
+    task_id: String,
+    state: tauri::State<'_, AgentState>,
+) -> Result<Vec<crate::agents::task::SubTask>, String> {
+    state
+        .session_store
+        .get_subtasks(&task_id)
+        .map_err(|e| e.to_string())
+}
+
+// =========================================================================
 // Rollback Commands
 // =========================================================================
 

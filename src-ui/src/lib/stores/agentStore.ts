@@ -117,6 +117,37 @@ function createAgentStore() {
 					}
 					break;
 				}
+				case 'subtask_created':
+				case 'subtask_updated': {
+					const session = state.sessions.get(event.sessionId);
+					if (session && session.tasks.length > 0) {
+						// Find the task that owns this subtask and add/update the subtask
+						const updatedTasks = session.tasks.map((task) => {
+							if (task.id === event.subtask.taskId) {
+								const existingSubtasks = task.subtasks ?? [];
+								const subtaskIndex = existingSubtasks.findIndex((st) => st.id === event.subtask.id);
+								if (subtaskIndex >= 0) {
+									// Update existing subtask
+									const newSubtasks = [...existingSubtasks];
+									newSubtasks[subtaskIndex] = event.subtask;
+									return { ...task, subtasks: newSubtasks };
+								} else {
+									// Add new subtask, maintaining order
+									const newSubtasks = [...existingSubtasks, event.subtask].sort(
+										(a, b) => a.order - b.order
+									);
+									return { ...task, subtasks: newSubtasks };
+								}
+							}
+							return task;
+						});
+						state.sessions.set(event.sessionId, {
+							...session,
+							tasks: updatedTasks
+						});
+					}
+					break;
+				}
 			}
 			return { ...state, sessions: new Map(state.sessions) };
 		});
@@ -257,6 +288,47 @@ function createAgentStore() {
 	}
 
 	/**
+	 * Create a new subtask for task decomposition.
+	 */
+	async function createSubtask(
+		taskId: string,
+		title: string,
+		description?: string,
+		order?: number
+	): Promise<string | null> {
+		try {
+			const { invoke } = await import('@tauri-apps/api/core');
+			const subtaskId = await invoke<string>('create_subtask', {
+				taskId,
+				title,
+				description
+			});
+			return subtaskId;
+		} catch (error) {
+			update((s) => ({ ...s, error: String(error) }));
+			return null;
+		}
+	}
+
+	/**
+	 * Update subtask status.
+	 */
+	async function updateSubtaskStatus(
+		subtaskId: string,
+		status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled'
+	): Promise<void> {
+		try {
+			const { invoke } = await import('@tauri-apps/api/core');
+			await invoke('update_subtask_status', {
+				subtaskId,
+				status: JSON.stringify({ type: status })
+			});
+		} catch (error) {
+			update((s) => ({ ...s, error: String(error) }));
+		}
+	}
+
+	/**
 	 * Toggle the agent panel visibility.
 	 */
 	function togglePanel() {
@@ -294,6 +366,8 @@ function createAgentStore() {
 		cancelSession,
 		rollbackSession,
 		updateSessionWorkspace,
+		createSubtask,
+		updateSubtaskStatus,
 		togglePanel,
 		setActiveSession,
 		clearError,

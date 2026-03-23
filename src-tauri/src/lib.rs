@@ -167,6 +167,10 @@ pub fn run() {
             commands::agent::get_session_file_snapshots,
             commands::agent::rollback_file,
             commands::agent::rollback_session,
+            // Agent subtask commands
+            commands::agent::create_subtask,
+            commands::agent::update_subtask_status,
+            commands::agent::get_subtasks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

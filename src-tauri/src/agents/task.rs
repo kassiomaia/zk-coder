@@ -131,3 +131,50 @@ pub struct UsageStats {
     pub output_tokens: u32,
     pub total_tokens: u32,
 }
+
+/// A sub-task within an agent's task decomposition.
+///
+/// Agents can break down complex requests into smaller sub-tasks
+/// for better tracking and user visibility.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubTask {
+    pub id: String,
+    pub task_id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub status: TaskStatus,
+    pub order: i32,
+    pub created_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+impl SubTask {
+    pub fn new(task_id: String, title: String, order: i32) -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            task_id,
+            title,
+            description: None,
+            status: TaskStatus::Pending,
+            order,
+            created_at: Utc::now(),
+            completed_at: None,
+        }
+    }
+
+    pub fn with_description(mut self, description: String) -> Self {
+        self.description = Some(description);
+        self
+    }
+
+    pub fn complete(&mut self) {
+        self.status = TaskStatus::Completed;
+        self.completed_at = Some(Utc::now());
+    }
+
+    pub fn fail(&mut self) {
+        self.status = TaskStatus::Failed;
+        self.completed_at = Some(Utc::now());
+    }
+}

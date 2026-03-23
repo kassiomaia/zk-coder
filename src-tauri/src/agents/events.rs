@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::session::{PendingAction, SessionState};
-use super::task::{AgentExecutionResult, ExecutionStep};
+use super::task::{AgentExecutionResult, ExecutionStep, SubTask};
 
 /// Events emitted by the agent system to the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,6 +94,18 @@ pub enum AgentEvent {
     CommandFinished {
         session_id: String,
         exit_code: Option<i32>,
+    },
+
+    /// A subtask was created.
+    SubtaskCreated {
+        session_id: String,
+        subtask: SubTask,
+    },
+
+    /// A subtask was updated.
+    SubtaskUpdated {
+        session_id: String,
+        subtask: SubTask,
     },
 }
 

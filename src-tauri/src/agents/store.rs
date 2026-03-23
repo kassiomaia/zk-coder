@@ -68,6 +68,18 @@ impl SessionStore {
                 FOREIGN KEY (session_id) REFERENCES agent_sessions(id)
             );
 
+            CREATE TABLE IF NOT EXISTS agent_subtasks (
+                id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL,
+                order_index INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                completed_at TEXT,
+                FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
+            );
+
             CREATE INDEX IF NOT EXISTS idx_sessions_conversation
                 ON agent_sessions(conversation_id);
             CREATE INDEX IF NOT EXISTS idx_sessions_thread
@@ -261,6 +273,125 @@ impl SessionStore {
         // Delete tasks first (foreign key)
         conn.execute("DELETE FROM agent_tasks WHERE session_id = ?1", params![id.0])?;
         conn.execute("DELETE FROM agent_sessions WHERE id = ?1", params![id.0])?;
+        Ok(())
+    }
+
+    // ========================================================================
+    // Subtask methods
+    // ========================================================================
+
+    /// Create a new subtask.
+    pub fn create_subtask(
+        &self,
+        subtask: &crate::agents::task::SubTask,
+    ) -> Result<(), SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        conn.execute(
+            "INSERT INTO agent_subtasks (id, task_id, title, description, status, order_index, created_at, completed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                subtask.id,
+                subtask.task_id,
+                subtask.title,
+                subtask.description,
+                serde_json::to_string(&subtask.status)?,
+                subtask.order,
+                subtask.created_at.to_rfc3339(),
+                subtask.completed_at.map(|t| t.to_rfc3339()),
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Update subtask status.
+    pub fn update_subtask_status(
+        &self,
+        subtask_id: &str,
+        status: &crate::agents::task::TaskStatus,
+    ) -> Result<(), SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        let completed_at = if matches!(
+            status,
+            crate::agents::task::TaskStatus::Completed
+                | crate::agents::task::TaskStatus::Failed
+                | crate::agents::task::TaskStatus::Cancelled
+        ) {
+            Some(Utc::now().to_rfc3339())
+        } else {
+            None
+        };
+
+        conn.execute(
+            "UPDATE agent_subtasks SET status = ?1, completed_at = ?2 WHERE id = ?3",
+            params![serde_json::to_string(status)?, completed_at, subtask_id],
+        )?;
+        Ok(())
+    }
+
+    /// Get all subtasks for a task.
+    pub fn get_subtasks(&self, task_id: &str) -> Result<Vec<crate::agents::task::SubTask>, SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, task_id, title, description, status, order_index, created_at, completed_at
+             FROM agent_subtasks WHERE task_id = ?1 ORDER BY order_index",
+        )?;
+
+        let subtasks = stmt
+            .query_map(params![task_id], |row| {
+                let status_str: String = row.get(4)?;
+                let status: crate::agents::task::TaskStatus = match serde_json::from_str(&status_str) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        return Err(rusqlite::Error::ToSqlConversionFailure(
+                            Box::new(e) as Box<dyn std::error::Error + Send + Sync>,
+                        ));
+                    }
+                };
+                Ok(crate::agents::task::SubTask {
+                    id: row.get(0)?,
+                    task_id: row.get(1)?,
+                    title: row.get(2)?,
+                    description: row.get(3)?,
+                    status,
+                    order: row.get(5)?,
+                    created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(6)?)
+                        .unwrap_or_default()
+                        .with_timezone(&Utc),
+                    completed_at: row
+                        .get::<_, Option<String>>(7)?
+                        .map(|s| {
+                            chrono::DateTime::parse_from_rfc3339(&s)
+                                .unwrap_or_default()
+                                .with_timezone(&Utc)
+                        }),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(subtasks)
+    }
+
+    /// Delete all subtasks for a task.
+    pub fn delete_subtasks(&self, task_id: &str) -> Result<(), SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        conn.execute("DELETE FROM agent_subtasks WHERE task_id = ?1", params![task_id])?;
         Ok(())
     }
 }

@@ -71,6 +71,21 @@ export interface AgentTask {
 	description?: string;
 	status: TaskStatus;
 	selected?: boolean;
+	subtasks?: SubTask[];
+}
+
+/**
+ * A subtask within an agent's task decomposition
+ */
+export interface SubTask {
+	id: string;
+	taskId: string;
+	title: string;
+	description?: string;
+	status: TaskStatus;
+	order: number;
+	createdAt: string;
+	completedAt?: string;
 }
 
 /**
@@ -138,7 +153,9 @@ export type AgentEvent =
 	| { type: 'approval_approved'; sessionId: string; actionId: string }
 	| { type: 'approval_denied'; sessionId: string; actionId: string }
 	| { type: 'command_output'; sessionId: string; stream: 'stdout' | 'stderr'; content: string }
-	| { type: 'command_finished'; sessionId: string; exitCode: number | null };
+	| { type: 'command_finished'; sessionId: string; exitCode: number | null }
+	| { type: 'subtask_created'; sessionId: string; subtask: SubTask }
+	| { type: 'subtask_updated'; sessionId: string; subtask: SubTask };
 
 /**
  * Single step in agent execution
