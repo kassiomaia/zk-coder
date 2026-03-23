@@ -18,6 +18,7 @@ use crate::agents::session::{AgentSession, PendingAction, SessionId, SessionStat
 use crate::agents::store::SessionStore;
 use crate::agents::task::AgentRequest;
 use crate::agents::types::AgentId;
+use crate::tools::ToolRegistry;
 
 /// Application state for agent commands.
 pub struct AgentState {
@@ -35,9 +36,13 @@ impl AgentState {
                 .map_err(|e| format!("Failed to init session store: {e}"))?,
         );
         let approval_queue = Arc::new(ApprovalQueue::new());
+        let tool_registry = Arc::new(
+            ToolRegistry::new().map_err(|e| format!("Failed to init tool registry: {e}"))?,
+        );
         let runtime = Arc::new(AgentRuntime::new(
             session_store.clone(),
             approval_queue.clone(),
+            tool_registry,
         ));
         Ok(Self {
             registry: Arc::new(AgentRegistry::new()),
@@ -206,8 +211,6 @@ pub async fn send_agent_request(
     let runtime = state.runtime.clone();
     let system_prompt = agent.system_prompt.clone();
     let trust_mode = agent.trust_mode;
-    // Tool definitions will be populated when tool registry integration is complete
-    let tool_definitions = vec![];
 
     // Spawn async execution - results come back via events
     tokio::spawn(async move {
@@ -217,7 +220,6 @@ pub async fn send_agent_request(
                 request,
                 &system_prompt,
                 trust_mode,
-                tool_definitions,
                 &app_handle,
             )
             .await;

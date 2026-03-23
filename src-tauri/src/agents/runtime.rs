@@ -13,11 +13,14 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::commands::{ChatState, LlmState};
 use crate::llm::{
     create_client, ChatRequest, ChatResponse, LlmClient, Message, ToolCall, ToolDefinition,
+    ToolResult as LlmToolResult,
 };
 use crate::nlp::chat::ChatMessage;
 use crate::nlp::config::ApiType;
 use crate::storage::ConfigStore;
+use crate::tools::context::ToolExecutionContext;
 use crate::tools::OrchestratorToolResult;
+use crate::tools::ToolRegistry;
 
 use super::approval::{ApprovalEvent, ApprovalQueue};
 use super::events::{AgentEvent, AGENT_EVENT_NAME};
@@ -66,14 +69,20 @@ pub enum AgentRuntimeError {
 pub struct AgentRuntime {
     session_store: Arc<SessionStore>,
     approval_queue: Arc<ApprovalQueue>,
+    tool_registry: Arc<ToolRegistry>,
 }
 
 impl AgentRuntime {
     /// Create a new agent runtime.
-    pub fn new(session_store: Arc<SessionStore>, approval_queue: Arc<ApprovalQueue>) -> Self {
+    pub fn new(
+        session_store: Arc<SessionStore>,
+        approval_queue: Arc<ApprovalQueue>,
+        tool_registry: Arc<ToolRegistry>,
+    ) -> Self {
         Self {
             session_store,
             approval_queue,
+            tool_registry,
         }
     }
 
@@ -91,9 +100,9 @@ impl AgentRuntime {
         request: AgentRequest,
         agent_system_prompt: &str,
         trust_mode: TrustMode,
-        tool_definitions: Vec<ToolDefinition>,
         app_handle: &AppHandle,
     ) -> Result<AgentExecutionResult, AgentRuntimeError> {
+        let tool_definitions = self.tool_registry.definitions();
         let session_id = session.id.0.clone();
         let permission_resolver = PermissionResolver::new(trust_mode);
 
@@ -285,8 +294,8 @@ impl AgentRuntime {
 
             let result = match permission {
                 PermissionLevel::AutoRun => {
-                    // Execute directly (tool execution happens via the existing tool system)
-                    self.execute_tool(call, app_handle).await
+                    // Execute directly using the tool registry
+                    self.execute_tool(call, session, app_handle).await
                 }
                 PermissionLevel::ApprovalRequired => {
                     // Queue for approval and wait
@@ -320,25 +329,37 @@ impl AgentRuntime {
         Ok(results)
     }
 
-    /// Execute a tool call directly (auto-run permission).
+    /// Execute a tool call using the tool registry.
     async fn execute_tool(
         &self,
         call: &ToolCall,
-        _app_handle: &AppHandle,
+        session: &AgentSession,
+        app_handle: &AppHandle,
     ) -> OrchestratorToolResult {
-        // For now, return a placeholder. The actual tool execution will be wired
-        // to the existing ToolRegistry once we refactor it out of commands/llm.rs.
-        // This is safe because the runtime won't be invoked until the full
-        // tool execution pipeline is integrated.
-        OrchestratorToolResult {
-            call_id: call.id.clone(),
+        let context = ToolExecutionContext::new(&session.conversation_id)
+            .with_thread(session.thread_id.clone());
+        let context = if let Some(ref workspace) = session.workspace_root {
+            context.with_workspace(workspace.clone())
+        } else {
+            context
+        };
+
+        let llm_call = crate::llm::ToolCall {
+            id: call.id.clone(),
             name: call.name.clone(),
-            output: serde_json::json!({
-                "status": "Tool execution pending integration",
-                "tool": call.name,
-                "arguments": call.arguments
-            }),
-            is_error: false,
+            arguments: call.arguments.clone(),
+        };
+
+        let result: LlmToolResult = self
+            .tool_registry
+            .execute(llm_call, context, app_handle.clone())
+            .await;
+
+        OrchestratorToolResult {
+            call_id: result.call_id,
+            name: call.name.clone(),
+            output: result.output,
+            is_error: result.is_error,
         }
     }
 
@@ -394,7 +415,7 @@ impl AgentRuntime {
                             if approved_id == action_id =>
                         {
                             info!("[AgentRuntime] Action {} approved", action_id);
-                            return Ok(self.execute_tool(call, app_handle).await);
+                            return Ok(self.execute_tool(call, session, app_handle).await);
                         }
                         Ok(ApprovalEvent::ActionDenied { action_id: denied_id })
                             if denied_id == action_id =>
