@@ -16,6 +16,7 @@
 	import FileTree from './FileTree.svelte';
 	import TerminalView from './TerminalView.svelte';
 	import ApprovalDialog from './ApprovalDialog.svelte';
+	import WorkspaceSelector from './WorkspaceSelector.svelte';
 	import type { AgentSession, PendingAction } from '$lib/types/agent';
 
 	interface Props {
@@ -23,10 +24,12 @@
 		pendingActions: PendingAction[];
 		onApprove: (actionId: string) => void;
 		onDeny: (actionId: string) => void;
+		onWorkspaceChange: (path: string) => void;
 		onclose: () => void;
 	}
 
-	let { session, pendingActions, onApprove, onDeny, onclose }: Props = $props();
+	let { session, pendingActions, onApprove, onDeny, onWorkspaceChange, onclose }: Props =
+		$props();
 
 	/** Collapsible section state */
 	let tasksExpanded = $state(true);
@@ -88,6 +91,13 @@
 			<X size={16} />
 		</button>
 	</header>
+
+	<!-- Workspace selector -->
+	<WorkspaceSelector
+		workspacePath={session.workspaceRoot}
+		onSelect={onWorkspaceChange}
+		disabled={session.state.type === 'running' || session.state.type === 'launching'}
+	/>
 
 	<!-- Status bar -->
 	<div

@@ -90,6 +90,9 @@ pub fn run() {
             // Register notification plugin
             app.handle().plugin(tauri_plugin_notification::init())?;
 
+            // Register dialog plugin (for workspace folder selection)
+            app.handle().plugin(tauri_plugin_dialog::init())?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

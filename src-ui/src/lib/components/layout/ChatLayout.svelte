@@ -82,6 +82,8 @@
 		onApproveAction?: (actionId: string) => void;
 		/** Handler to deny an agent action */
 		onDenyAction?: (actionId: string) => void;
+		/** Handler for workspace path change */
+		onWorkspaceChange?: (path: string) => void;
 	}
 
 	let {
@@ -117,7 +119,8 @@
 		agentPanelOpen = false,
 		onToggleAgentPanel,
 		onApproveAction,
-		onDenyAction
+		onDenyAction,
+		onWorkspaceChange
 	}: Props = $props();
 
 	// UI state for responsive behavior
@@ -346,6 +349,7 @@
 						pendingActions={agentPendingActions}
 						onApprove={(id) => onApproveAction?.(id)}
 						onDeny={(id) => onDenyAction?.(id)}
+						onWorkspaceChange={(path) => onWorkspaceChange?.(path)}
 						onclose={() => onToggleAgentPanel?.()}
 					/>
 				{:else}

@@ -89,6 +89,12 @@
 		}
 	}
 
+	function handleWorkspaceChange(path: string) {
+		if (agentSession) {
+			agentStore.updateSessionWorkspace(agentSession.id, path);
+		}
+	}
+
 	// Filtered conversations based on search query
 	let filteredConversations = $derived(() => {
 		if (!searchQuery.trim()) {
@@ -399,6 +405,7 @@
 		onToggleAgentPanel={handleToggleAgentPanel}
 		onApproveAction={handleApproveAction}
 		onDenyAction={handleDenyAction}
+		onWorkspaceChange={handleWorkspaceChange}
 	/>
 
 	<!-- Status indicator -->

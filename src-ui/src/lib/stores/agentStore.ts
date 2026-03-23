@@ -227,6 +227,22 @@ function createAgentStore() {
 	}
 
 	/**
+	 * Update the workspace root for a session (local state only).
+	 */
+	function updateSessionWorkspace(sessionId: string, workspacePath: string) {
+		update((state) => {
+			const session = state.sessions.get(sessionId);
+			if (session) {
+				state.sessions.set(sessionId, {
+					...session,
+					workspaceRoot: workspacePath
+				});
+			}
+			return { ...state, sessions: new Map(state.sessions) };
+		});
+	}
+
+	/**
 	 * Toggle the agent panel visibility.
 	 */
 	function togglePanel() {
@@ -262,6 +278,7 @@ function createAgentStore() {
 		approveAction,
 		denyAction,
 		cancelSession,
+		updateSessionWorkspace,
 		togglePanel,
 		setActiveSession,
 		clearError,
