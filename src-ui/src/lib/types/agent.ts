@@ -43,9 +43,10 @@ export interface AgentSession {
 	threadId: string;
 	state: SessionState;
 	workspaceRoot?: string;
-	tasks: AgentTask[];
-	filesTouched: TouchedFile[];
-	terminalOutput: TerminalLine[];
+	tasks?: AgentTask[];
+	filesTouched?: TouchedFile[];
+	terminalOutput?: TerminalLine[];
+	executionSteps?: ExecutionStep[]; // Track execution steps for UI progress display
 	createdAt: string;
 	updatedAt: string;
 }
@@ -57,7 +58,7 @@ export type SessionState =
 	| { type: 'launching' }
 	| { type: 'running'; currentStep: number; maxSteps: number }
 	| { type: 'wait_for_request'; lastActionAt: string }
-	| { type: 'user_input_required'; pendingActions: PendingAction[] }
+	| { type: 'user_input_required'; pendingActionIds: string[] }
 	| { type: 'finished'; completedAt: string }
 	| { type: 'cancelled'; reason: string }
 	| { type: 'error'; message: string; recoverable: boolean };
@@ -147,15 +148,43 @@ export type AgentEvent =
 	| { type: 'session_state_changed'; sessionId: string; state: SessionState }
 	| { type: 'execution_started'; sessionId: string; requestId: string }
 	| { type: 'execution_step'; sessionId: string; step: ExecutionStep }
-	| { type: 'execution_complete'; sessionId: string; result: ExecutionResult }
+	| {
+			type: 'execution_complete';
+			sessionId: string;
+			conversationId: string;
+			threadId: string;
+			result: ExecutionResult;
+	  }
 	| { type: 'execution_error'; sessionId: string; error: string }
 	| { type: 'approval_required'; sessionId: string; action: PendingAction }
 	| { type: 'approval_approved'; sessionId: string; actionId: string }
 	| { type: 'approval_denied'; sessionId: string; actionId: string }
 	| { type: 'command_output'; sessionId: string; stream: 'stdout' | 'stderr'; content: string }
 	| { type: 'command_finished'; sessionId: string; exitCode: number | null }
+	| {
+			type: 'tool_call';
+			sessionId: string;
+			tool: string;
+			arguments: Record<string, unknown>;
+	  }
+	| {
+			type: 'tool_result';
+			sessionId: string;
+			tool: string;
+			result: Record<string, unknown>;
+			isError: boolean;
+	  }
 	| { type: 'subtask_created'; sessionId: string; subtask: SubTask }
-	| { type: 'subtask_updated'; sessionId: string; subtask: SubTask };
+	| { type: 'subtask_updated'; sessionId: string; subtask: SubTask }
+	| {
+			type: 'file_touched';
+			sessionId: string;
+			filePath: string;
+			action: FileAction;
+	  };
+
+/** Action performed on a file */
+export type FileAction = 'read' | 'write' | 'delete';
 
 /**
  * Single step in agent execution

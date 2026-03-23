@@ -10,7 +10,10 @@
 		Terminal,
 		FileText,
 		ListChecks,
-		X
+		X,
+		History,
+		Settings,
+		Activity
 	} from 'lucide-svelte';
 	import TaskList from './TaskList.svelte';
 	import FileTree from './FileTree.svelte';
@@ -18,6 +21,8 @@
 	import ApprovalDialog from './ApprovalDialog.svelte';
 	import WorkspaceSelector from './WorkspaceSelector.svelte';
 	import SessionTabs from './SessionTabs.svelte';
+	import SessionHistory from './SessionHistory.svelte';
+	import AgentConfig from './AgentConfig.svelte';
 	import type { AgentSession, PendingAction } from '$lib/types/agent';
 
 	interface Props {
@@ -29,6 +34,7 @@
 		onWorkspaceChange: (path: string) => void;
 		onSelectSession?: (sessionId: string) => void;
 		onCreateSession?: () => void;
+		onChangeAgent?: (agentId: string) => void;
 		onclose: () => void;
 	}
 
@@ -41,13 +47,19 @@
 		onWorkspaceChange,
 		onSelectSession,
 		onCreateSession,
+		onChangeAgent,
 		onclose
 	}: Props = $props();
 
 	/** Collapsible section state */
 	let tasksExpanded = $state(true);
+	let stepsExpanded = $state(true);
 	let filesExpanded = $state(true);
 	let terminalExpanded = $state(false);
+
+	/** Modal states */
+	let showSessionHistory = $state(false);
+	let showAgentConfig = $state(false);
 
 	/** Approval dialog derived from pending actions */
 	let showApprovalDialog = $derived(pendingActions.length > 0);
@@ -89,20 +101,41 @@
 				return '';
 		}
 	}
+
+	function getStepActionLabel(step: import('$lib/types/agent').ExecutionStep): string {
+		if (step.action.type === 'llm_request') return `LLM: ${step.action.model}`;
+		if (step.action.type === 'tool_call') return `Tool: ${step.action.tool}`;
+		return 'Unknown';
+	}
 </script>
 
 <nav class="agent-panel" aria-label="Agent panel">
 	<!-- Header -->
 	<header class="panel-header">
 		<h3 class="panel-title">{session.agentName}</h3>
-		<button
-			class="close-btn"
-			onclick={onclose}
-			type="button"
-			aria-label="Close agent panel"
-		>
-			<X size={16} />
-		</button>
+		<div class="header-actions">
+			<button
+				class="config-btn"
+				onclick={() => (showAgentConfig = true)}
+				type="button"
+				aria-label="Agent configuration"
+				title="Agent Configuration"
+			>
+				<Settings size={14} />
+			</button>
+			<button
+				class="history-btn"
+				onclick={() => (showSessionHistory = true)}
+				type="button"
+				aria-label="View session history"
+				title="Session History"
+			>
+				<History size={14} />
+			</button>
+			<button class="close-btn" onclick={onclose} type="button" aria-label="Close agent panel">
+				<X size={16} />
+			</button>
+		</div>
 	</header>
 
 	<!-- Session tabs (shown when multiple sessions exist) -->
@@ -148,13 +181,52 @@
 			{/if}
 			<ListChecks size={14} />
 			<span>Tasks</span>
-			{#if session.tasks.length > 0}
-				<span class="badge">{session.tasks.length}</span>
+			{#if (session.tasks?.length ?? 0) > 0}
+				<span class="badge">{session.tasks?.length ?? 0}</span>
 			{/if}
 		</button>
 		{#if tasksExpanded}
 			<div id="tasks-section">
-				<TaskList tasks={session.tasks} />
+				<TaskList tasks={session.tasks ?? []} />
+			</div>
+		{/if}
+	</section>
+
+	<!-- Execution Progress section -->
+	<section class="panel-section">
+		<button
+			class="section-header"
+			onclick={() => (stepsExpanded = !stepsExpanded)}
+			type="button"
+			aria-expanded={stepsExpanded}
+			aria-controls="steps-section"
+		>
+			{#if stepsExpanded}
+				<ChevronDown size={14} />
+			{:else}
+				<ChevronRight size={14} />
+			{/if}
+			<Activity size={14} />
+			<span>Progress</span>
+			{#if session.state.type === 'running'}
+				<span class="badge">{session.state.currentStep}/{session.state.maxSteps}</span>
+			{/if}
+		</button>
+		{#if stepsExpanded && (session.executionSteps?.length ?? 0) > 0}
+			<div id="steps-section" class="steps-list">
+				{#each session.executionSteps ?? [] as step}
+					<div
+						class="step-item"
+						class:current={session.state.type === 'running' &&
+							step.stepNumber === session.state.currentStep}
+					>
+						<span class="step-number">{step.stepNumber}</span>
+						<span class="step-action">{getStepActionLabel(step)}</span>
+						{#if step.result}
+							<span class="step-duration">{step.result.durationMs}ms</span>
+						{/if}
+					</div>
+				{/each}
 			</div>
 		{/if}
 	</section>
@@ -175,13 +247,13 @@
 			{/if}
 			<FileText size={14} />
 			<span>Files</span>
-			{#if session.filesTouched.length > 0}
-				<span class="badge">{session.filesTouched.length}</span>
+			{#if (session.filesTouched?.length ?? 0) > 0}
+				<span class="badge">{session.filesTouched?.length ?? 0}</span>
 			{/if}
 		</button>
 		{#if filesExpanded}
 			<div id="files-section">
-				<FileTree files={session.filesTouched} />
+				<FileTree files={session.filesTouched ?? []} />
 			</div>
 		{/if}
 	</section>
@@ -205,7 +277,7 @@
 		</button>
 		{#if terminalExpanded}
 			<div id="terminal-section" class="terminal-content">
-				<TerminalView output={session.terminalOutput} />
+				<TerminalView output={session.terminalOutput ?? []} />
 			</div>
 		{/if}
 	</section>
@@ -220,12 +292,28 @@
 	/>
 {/if}
 
+<!-- Session History (modal overlay) -->
+<SessionHistory
+	open={showSessionHistory}
+	conversationId={session.conversationId}
+	onClose={() => (showSessionHistory = false)}
+	onSelectSession={(id) => onSelectSession?.(id)}
+/>
+
+<!-- Agent Config (modal overlay) -->
+<AgentConfig
+	open={showAgentConfig}
+	onClose={() => (showAgentConfig = false)}
+	onSelectAgent={(id) => onChangeAgent?.(id)}
+	selectedAgentId={session.agentId}
+/>
+
 <style>
 	.agent-panel {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		width: var(--agent-panel-width, 320px);
+		width: var(--agent-panel-width);
 		background: var(--color-bg-secondary);
 		font-size: var(--text-sm);
 		overflow-y: auto;
@@ -245,6 +333,62 @@
 		font-weight: var(--font-medium);
 		color: var(--color-text-primary);
 		margin: 0;
+	}
+
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+	}
+
+	.history-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--space-1);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-muted);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		transition:
+			background var(--transition-fast),
+			color var(--transition-fast);
+	}
+
+	.history-btn:hover {
+		background: var(--color-interactive-hover);
+		color: var(--color-text-primary);
+	}
+
+	.history-btn:focus-visible {
+		outline: 2px solid var(--color-primary-500);
+		outline-offset: 2px;
+	}
+
+	.config-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--space-1);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-muted);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		transition:
+			background var(--transition-fast),
+			color var(--transition-fast);
+	}
+
+	.config-btn:hover {
+		background: var(--color-interactive-hover);
+		color: var(--color-text-primary);
+	}
+
+	.config-btn:focus-visible {
+		outline: 2px solid var(--color-primary-500);
+		outline-offset: 2px;
 	}
 
 	.close-btn {
@@ -369,6 +513,62 @@
 		font-size: var(--text-2xs);
 		color: var(--color-text-muted);
 		line-height: 1.6;
+	}
+
+	/* Execution Steps */
+	.steps-list {
+		padding: var(--space-2) var(--space-4);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+
+	.step-item {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-1-5) var(--space-2);
+		border-radius: var(--radius-sm);
+		font-size: var(--text-xs);
+		color: var(--color-text-secondary);
+		transition: background var(--transition-fast);
+	}
+
+	.step-item.current {
+		background: var(--color-primary-500/10);
+		color: var(--color-primary-400);
+	}
+
+	.step-number {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 18px;
+		height: 18px;
+		border-radius: var(--radius-full);
+		background: var(--color-neutral-700);
+		font-size: var(--text-2xs);
+		font-weight: var(--font-medium);
+		flex-shrink: 0;
+	}
+
+	.step-item.current .step-number {
+		background: var(--color-primary-500);
+		color: var(--color-bg-primary);
+	}
+
+	.step-action {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.step-duration {
+		font-size: var(--text-2xs);
+		color: var(--color-text-muted);
+		flex-shrink: 0;
 	}
 
 	.terminal-section {
