@@ -276,6 +276,20 @@ impl SessionStore {
         Ok(())
     }
 
+    /// Update the workspace root for a session.
+    pub fn update_workspace(&self, id: &SessionId, workspace_root: &str) -> Result<(), SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        conn.execute(
+            "UPDATE agent_sessions SET workspace_root = ?1, updated_at = ?2 WHERE id = ?3",
+            params![workspace_root, Utc::now().to_rfc3339(), id.0],
+        )?;
+        Ok(())
+    }
+
     // ========================================================================
     // Subtask methods
     // ========================================================================

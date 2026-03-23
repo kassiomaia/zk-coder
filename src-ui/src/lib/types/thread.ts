@@ -56,6 +56,9 @@ export interface ThreadMetadata {
 
 	/** Summary of the thread */
 	summary?: string;
+
+	/** ID of the associated agent session (if any) */
+	agentSessionId?: string;
 }
 
 /**
@@ -102,6 +105,9 @@ export interface ConversationSettings {
 
 	/** Custom system prompt */
 	systemPrompt?: string;
+
+	/** Workspace directory for agent operations */
+	workspaceRoot?: string;
 }
 
 /**

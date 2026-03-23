@@ -112,6 +112,19 @@ pub async fn update_conversation_settings(
         .map_err(|e| e.to_string())
 }
 
+/// Updates a conversation's workspace root.
+#[tauri::command]
+pub async fn set_conversation_workspace(
+    id: String,
+    workspace_root: String,
+    state: tauri::State<'_, ChatState>,
+) -> Result<Conversation, String> {
+    let store = state.store.lock().await;
+    store
+        .update_conversation_workspace(&id, &workspace_root)
+        .map_err(|e| e.to_string())
+}
+
 // =========================================================================
 // Thread Commands
 // =========================================================================
@@ -170,6 +183,19 @@ pub async fn rename_thread(
 ) -> Result<Thread, String> {
     let store = state.store.lock().await;
     store.rename_thread(&id, &title).map_err(|e| e.to_string())
+}
+
+/// Sets or clears the agent session for a thread.
+#[tauri::command]
+pub async fn set_thread_agent_session(
+    id: String,
+    agent_session_id: Option<String>,
+    state: tauri::State<'_, ChatState>,
+) -> Result<(), String> {
+    let store = state.store.lock().await;
+    store
+        .set_thread_agent_session(&id, agent_session_id)
+        .map_err(|e| e.to_string())
 }
 
 /// Creates a thread with its first message atomically.

@@ -169,6 +169,8 @@ pub struct ThreadMetadata {
     pub intent: Option<String>,
     /// Summary of the thread
     pub summary: Option<String>,
+    /// ID of the associated agent session (if any)
+    pub agent_session_id: Option<String>,
 }
 
 /// Represents a thread within a conversation.
@@ -226,6 +228,9 @@ pub struct ConversationSettings {
     /// Custom system prompt
     #[serde(default)]
     pub system_prompt: Option<String>,
+    /// Workspace directory for agent operations
+    #[serde(default)]
+    pub workspace_root: Option<String>,
 }
 
 fn default_model() -> String {
@@ -247,6 +252,7 @@ impl Default for ConversationSettings {
             temperature: default_temperature(),
             max_tokens: default_max_tokens(),
             system_prompt: None,
+            workspace_root: None,
         }
     }
 }

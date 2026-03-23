@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::Utc;
-use log::{info, warn};
+use log::{error, info, warn};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::{ChatState, LlmState};
@@ -230,6 +230,8 @@ impl AgentRuntime {
                     AGENT_EVENT_NAME,
                     AgentEvent::ExecutionComplete {
                         session_id: session_id.clone(),
+                        conversation_id: session.conversation_id.clone(),
+                        thread_id: session.thread_id.clone(),
                         result: result.clone(),
                     },
                 );
@@ -376,6 +378,49 @@ impl AgentRuntime {
             .tool_registry
             .execute(llm_call, context, app_handle.clone())
             .await;
+
+        // Emit file touched event for successful file operations
+        if !result.is_error {
+            match call.name.as_str() {
+                "fs_write_file" => {
+                    if let Some(path) = call.arguments.get("path").and_then(|v| v.as_str()) {
+                        let _ = app_handle.emit(
+                            AGENT_EVENT_NAME,
+                            AgentEvent::FileTouched {
+                                session_id: session.id.0.clone(),
+                                file_path: path.to_string(),
+                                action: super::events::FileAction::Write,
+                            },
+                        );
+                    }
+                }
+                "fs_delete_file" => {
+                    if let Some(path) = call.arguments.get("path").and_then(|v| v.as_str()) {
+                        let _ = app_handle.emit(
+                            AGENT_EVENT_NAME,
+                            AgentEvent::FileTouched {
+                                session_id: session.id.0.clone(),
+                                file_path: path.to_string(),
+                                action: super::events::FileAction::Delete,
+                            },
+                        );
+                    }
+                }
+                "fs_read_file" => {
+                    if let Some(path) = call.arguments.get("path").and_then(|v| v.as_str()) {
+                        let _ = app_handle.emit(
+                            AGENT_EVENT_NAME,
+                            AgentEvent::FileTouched {
+                                session_id: session.id.0.clone(),
+                                file_path: path.to_string(),
+                                action: super::events::FileAction::Read,
+                            },
+                        );
+                    }
+                }
+                _ => {}
+            }
+        }
 
         OrchestratorToolResult {
             call_id: result.call_id,
@@ -530,29 +575,40 @@ impl AgentRuntime {
         &self,
         app_handle: &AppHandle,
     ) -> Result<(Box<dyn LlmClient>, String), AgentRuntimeError> {
+        info!("[AgentRuntime] Creating LLM client for agent execution");
         let llm_state = app_handle.state::<LlmState>();
         let config_store = llm_state.config_store.lock().await;
 
         // Use the "code" operation default model
         let model = crate::commands::config::get_code_operation_model(&config_store)
-            .map_err(AgentRuntimeError::Config)?;
+            .map_err(|e| {
+                error!("[AgentRuntime] Failed to get code operation model: {}", e);
+                AgentRuntimeError::Config(e.to_string())
+            })?;
+
+        info!("[AgentRuntime] Using model: {} ({})", model.name, model.provider_id);
 
         let provider = config_store
             .get_provider(&model.provider_id)
             .map_err(|e| AgentRuntimeError::Config(e.to_string()))?
             .ok_or_else(|| {
+                error!("[AgentRuntime] Provider '{}' not found", model.provider_id);
                 AgentRuntimeError::Config(format!(
                     "Provider '{}' not found",
                     model.provider_id
                 ))
             })?;
 
+        info!("[AgentRuntime] Provider found: {}", provider.id);
+
         let api_key = get_api_key_for_provider(&provider.id, &config_store)?;
         let model_name = model.name.clone();
 
         drop(config_store);
 
+        info!("[AgentRuntime] Creating client with api_type: {:?}", provider.api_type);
         let client = create_client(provider.api_type, api_key, provider.base_url);
+        info!("[AgentRuntime] LLM client created successfully");
         Ok((client, model_name))
     }
 

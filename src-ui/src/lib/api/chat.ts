@@ -77,6 +77,7 @@ export interface ConversationResponse {
 		temperature: number;
 		maxTokens: number;
 		systemPrompt?: string;
+		workspaceRoot?: string;
 	};
 }
 
@@ -97,6 +98,7 @@ export interface ThreadResponse {
 		priority: 'low' | 'medium' | 'high';
 		intent?: string;
 		summary?: string;
+		agentSessionId?: string;
 	};
 }
 
@@ -169,6 +171,8 @@ export interface ConversationSettingsUpdate {
 	maxTokens: number;
 	/** Custom system prompt */
 	systemPrompt?: string;
+	/** Workspace directory for agent operations */
+	workspaceRoot?: string;
 }
 
 /**
@@ -188,8 +192,27 @@ export async function updateConversationSettings(
 			model: settings.model,
 			temperature: settings.temperature,
 			maxTokens: settings.maxTokens,
-			systemPrompt: settings.systemPrompt
+			systemPrompt: settings.systemPrompt,
+			workspaceRoot: settings.workspaceRoot
 		}
+	});
+	return convToClient(response);
+}
+
+/**
+ * Sets a conversation's workspace root.
+ *
+ * @param id - Conversation ID
+ * @param workspaceRoot - Workspace directory path
+ * @returns The updated conversation
+ */
+export async function setConversationWorkspace(
+	id: string,
+	workspaceRoot: string
+): Promise<Conversation> {
+	const response = await safeInvoke<ConversationResponse>('set_conversation_workspace', {
+		id,
+		workspaceRoot
 	});
 	return convToClient(response);
 }
@@ -250,6 +273,19 @@ export async function deleteThread(id: string): Promise<void> {
 export async function renameThread(id: string, title: string): Promise<Thread> {
 	const response = await safeInvoke<ThreadResponse>('rename_thread', { id, title });
 	return threadToClient(response);
+}
+
+/**
+ * Sets or clears the agent session for a thread.
+ *
+ * @param id - Thread ID
+ * @param agentSessionId - Agent session ID, or null to clear
+ */
+export async function setThreadAgentSession(
+	id: string,
+	agentSessionId: string | null
+): Promise<void> {
+	await safeInvoke<void>('set_thread_agent_session', { id, agentSessionId });
 }
 
 // ============================================================================
@@ -406,7 +442,8 @@ function convToClient(conv: ConversationResponse): Conversation {
 			model: conv.settings.model,
 			temperature: conv.settings.temperature,
 			maxTokens: conv.settings.maxTokens,
-			systemPrompt: conv.settings.systemPrompt
+			systemPrompt: conv.settings.systemPrompt,
+			workspaceRoot: conv.settings.workspaceRoot
 		}
 	};
 }
@@ -428,7 +465,8 @@ function threadToClient(thread: ThreadResponse): Thread {
 			tags: thread.metadata.tags,
 			priority: thread.metadata.priority,
 			intent: thread.metadata.intent,
-			summary: thread.metadata.summary
+			summary: thread.metadata.summary,
+			agentSessionId: thread.metadata.agentSessionId
 		}
 	};
 }

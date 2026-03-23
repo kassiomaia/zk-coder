@@ -117,11 +117,13 @@ pub fn run() {
             commands::chat::rename_conversation,
             commands::chat::delete_conversation,
             commands::chat::update_conversation_settings,
+            commands::chat::set_conversation_workspace,
             commands::chat::load_threads,
             commands::chat::create_thread,
             commands::chat::resolve_thread,
             commands::chat::delete_thread,
             commands::chat::rename_thread,
+            commands::chat::set_thread_agent_session,
             commands::chat::load_messages,
             commands::chat::load_thread_messages,
             commands::chat::send_message,
@@ -158,6 +160,7 @@ pub fn run() {
             commands::agent::get_agent_sessions_for_conversation,
             commands::agent::cancel_agent_session,
             commands::agent::delete_agent_session,
+            commands::agent::update_agent_session_workspace,
             commands::agent::approve_agent_action,
             commands::agent::deny_agent_action,
             commands::agent::get_pending_agent_actions,
@@ -171,6 +174,9 @@ pub fn run() {
             commands::agent::create_subtask,
             commands::agent::update_subtask_status,
             commands::agent::get_subtasks,
+            // Session history commands
+            commands::agent::get_conversation_session_history,
+            commands::agent::get_session_details,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

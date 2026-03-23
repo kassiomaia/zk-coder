@@ -6,9 +6,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use log::{error, info};
 use tauri::Emitter;
-
-use log::error;
 
 use crate::agents::approval::ApprovalQueue;
 use crate::agents::events::{AgentEvent, AGENT_EVENT_NAME};
@@ -67,6 +66,11 @@ pub async fn create_agent_session(
     state: tauri::State<'_, AgentState>,
     app_handle: tauri::AppHandle,
 ) -> Result<AgentSession, String> {
+    info!(
+        "[AgentCommand] create_agent_session called with workspace_root: {:?}",
+        workspace_root
+    );
+
     let agent = state
         .registry
         .get(&AgentId(agent_id.clone()))
@@ -79,6 +83,11 @@ pub async fn create_agent_session(
         conversation_id,
         thread_id,
         workspace_root.map(PathBuf::from),
+    );
+
+    info!(
+        "[AgentCommand] Session created with workspace_root: {:?}",
+        session.workspace_root
     );
 
     state
@@ -173,6 +182,31 @@ pub async fn delete_agent_session(
         .map_err(|e| e.to_string())
 }
 
+/// Update the workspace root for a session.
+#[tauri::command]
+pub async fn update_agent_session_workspace(
+    session_id: String,
+    workspace_root: String,
+    state: tauri::State<'_, AgentState>,
+) -> Result<(), String> {
+    let sid = SessionId(session_id.clone());
+    info!(
+        "[AgentCommand] Updating workspace for session {} to {}",
+        session_id, workspace_root
+    );
+
+    state
+        .session_store
+        .update_workspace(&sid, &workspace_root)
+        .map_err(|e| e.to_string())?;
+
+    info!(
+        "[AgentCommand] Workspace updated successfully for session {}",
+        session_id
+    );
+    Ok(())
+}
+
 // =========================================================================
 // Execution Commands
 // =========================================================================
@@ -196,6 +230,11 @@ pub async fn send_agent_request(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Session not found: {session_id}"))?;
 
+    info!(
+        "[AgentCommand] Session {} loaded: workspace_root={:?}",
+        session_id, session.workspace_root
+    );
+
     let agent = state
         .registry
         .get(&session.agent_id)
@@ -212,8 +251,11 @@ pub async fn send_agent_request(
     let system_prompt = agent.system_prompt.clone();
     let trust_mode = agent.trust_mode;
 
+    info!("[AgentCommand] Spawning agent execution for session {}", session_id);
+
     // Spawn async execution - results come back via events
     tokio::spawn(async move {
+        info!("[AgentCommand] Agent task started for session {}", session_id);
         let result = runtime
             .execute(
                 &session,
@@ -224,15 +266,21 @@ pub async fn send_agent_request(
             )
             .await;
 
-        if let Err(e) = &result {
-            error!("[AgentRuntime] Execution failed for session {}: {}", session_id, e);
-            let _ = app_handle.emit(
-                AGENT_EVENT_NAME,
-                AgentEvent::ExecutionError {
-                    session_id,
-                    error: e.to_string(),
-                },
-            );
+        match &result {
+            Ok(execution_result) => {
+                info!("[AgentCommand] Agent execution completed for session {}, content length: {}",
+                    session_id, execution_result.content.len());
+            }
+            Err(e) => {
+                error!("[AgentRuntime] Execution failed for session {}: {}", session_id, e);
+                let _ = app_handle.emit(
+                    AGENT_EVENT_NAME,
+                    AgentEvent::ExecutionError {
+                        session_id,
+                        error: e.to_string(),
+                    },
+                );
+            }
         }
     });
 
@@ -383,6 +431,50 @@ pub async fn get_subtasks(
         .session_store
         .get_subtasks(&task_id)
         .map_err(|e| e.to_string())
+}
+
+// =========================================================================
+// Session History Commands
+// =========================================================================
+
+/// Get completed session history for a conversation.
+#[tauri::command]
+pub async fn get_conversation_session_history(
+    conversation_id: String,
+    state: tauri::State<'_, AgentState>,
+) -> Result<Vec<AgentSession>, String> {
+    let sessions = state
+        .session_store
+        .get_sessions_for_conversation(&conversation_id)
+        .map_err(|e| e.to_string())?;
+
+    // Filter to only completed sessions (plus those that failed/cancelled for review)
+    let history: Vec<AgentSession> = sessions
+        .into_iter()
+        .filter(|s| {
+            matches!(
+                s.state,
+                SessionState::Finished { .. }
+                    | SessionState::Error { .. }
+                    | SessionState::Cancelled { .. }
+            )
+        })
+        .collect();
+
+    Ok(history)
+}
+
+/// Get full session details including steps and results.
+#[tauri::command]
+pub async fn get_session_details(
+    session_id: String,
+    state: tauri::State<'_, AgentState>,
+) -> Result<AgentSession, String> {
+    state
+        .session_store
+        .get_session(&SessionId(session_id.clone()))
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Session not found: {session_id}"))
 }
 
 // =========================================================================

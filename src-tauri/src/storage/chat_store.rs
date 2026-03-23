@@ -324,6 +324,59 @@ impl ChatStore {
         self.load_conversation(id)
     }
 
+    /// Updates a conversation's workspace root.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the conversation is not found or database fails.
+    pub fn update_conversation_workspace(
+        &self,
+        id: &str,
+        workspace_root: &str,
+    ) -> Result<Conversation, ChatStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        let mut settings: ConversationSettings = conn
+            .query_row(
+                "SELECT settings FROM conversations WHERE id = ?1",
+                params![id],
+                |row| {
+                    let settings_json: String = row.get(0)?;
+                    serde_json::from_str(&settings_json).map_err(|_| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            0,
+                            rusqlite::types::Type::Text,
+                            Box::new(std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                "Invalid settings JSON",
+                            )),
+                        )
+                    })
+                },
+            )
+            .map_err(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => {
+                    ChatStoreError::NotFound("Conversation", id.to_string())
+                }
+                _ => ChatStoreError::Sqlite(e),
+            })?;
+
+        settings.workspace_root = Some(workspace_root.to_string());
+        let settings_json = serde_json::to_string(&settings)?;
+        let now = Utc::now();
+
+        conn.execute(
+            "UPDATE conversations SET settings = ?1, updated_at = ?2 WHERE id = ?3",
+            params![settings_json, now.to_rfc3339(), id],
+        )?;
+
+        drop(conn);
+        self.load_conversation(id)
+    }
+
     // =========================================================================
     // Thread Operations
     // =========================================================================
@@ -456,6 +509,46 @@ impl ChatStore {
             .and_then(|j| serde_json::from_str(&j).ok())
             .unwrap_or_default();
         metadata.resolved = resolved;
+
+        let new_metadata_json = serde_json::to_string(&metadata)?;
+        let now = Utc::now();
+
+        conn.execute(
+            "UPDATE threads SET metadata = ?1, updated_at = ?2 WHERE id = ?3",
+            params![new_metadata_json, now.to_rfc3339(), id],
+        )?;
+
+        Ok(())
+    }
+
+    /// Sets the agent session ID for a thread.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn set_thread_agent_session(
+        &self,
+        id: &str,
+        agent_session_id: Option<String>,
+    ) -> Result<(), ChatStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))?;
+
+        // Load current metadata
+        let metadata_json: Option<String> = conn
+            .query_row(
+                "SELECT metadata FROM threads WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        let mut metadata: ThreadMetadata = metadata_json
+            .and_then(|j| serde_json::from_str(&j).ok())
+            .unwrap_or_default();
+        metadata.agent_session_id = agent_session_id;
 
         let new_metadata_json = serde_json::to_string(&metadata)?;
         let now = Utc::now();
