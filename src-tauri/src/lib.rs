@@ -163,6 +163,10 @@ pub fn run() {
             commands::agent::get_pending_agent_actions,
             commands::agent::list_agents,
             commands::agent::get_agent,
+            // Agent rollback commands
+            commands::agent::get_session_file_snapshots,
+            commands::agent::rollback_file,
+            commands::agent::rollback_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

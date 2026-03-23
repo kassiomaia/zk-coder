@@ -12,6 +12,7 @@ pub mod registry;
 pub mod events;
 pub mod store;
 pub mod runtime;
+pub mod rollback;
 
 pub use types::*;
 pub use session::*;

@@ -22,6 +22,7 @@ use crate::tools::OrchestratorToolResult;
 use crate::tools::ToolRegistry;
 
 use super::approval::{ApprovalEvent, ApprovalQueue};
+use super::rollback::RollbackStore;
 use super::events::{AgentEvent, AGENT_EVENT_NAME};
 use super::permissions::PermissionResolver;
 use super::session::{AgentSession, PendingAction, SessionId, SessionState};
@@ -69,6 +70,7 @@ pub struct AgentRuntime {
     session_store: Arc<SessionStore>,
     approval_queue: Arc<ApprovalQueue>,
     tool_registry: Arc<ToolRegistry>,
+    rollback_store: Arc<RollbackStore>,
 }
 
 impl AgentRuntime {
@@ -82,7 +84,13 @@ impl AgentRuntime {
             session_store,
             approval_queue,
             tool_registry,
+            rollback_store: Arc::new(RollbackStore::new()),
         }
+    }
+
+    /// Get the rollback store for external access (e.g., Tauri commands).
+    pub fn rollback_store(&self) -> &Arc<RollbackStore> {
+        &self.rollback_store
     }
 
     /// Execute an agent request within a session.
@@ -335,6 +343,20 @@ impl AgentRuntime {
         session: &AgentSession,
         app_handle: &AppHandle,
     ) -> OrchestratorToolResult {
+        // Capture file state before write operations for rollback
+        if call.name == "fs_write_file" {
+            if let Some(path) = call.arguments.get("path").and_then(|v| v.as_str()) {
+                if let Some(ref workspace) = session.workspace_root {
+                    let target = if std::path::Path::new(path).is_absolute() {
+                        std::path::PathBuf::from(path)
+                    } else {
+                        workspace.join(path)
+                    };
+                    self.rollback_store.capture(&session.id.0, &target);
+                }
+            }
+        }
+
         let context = ToolExecutionContext::new(&session.conversation_id)
             .with_thread(session.thread_id.clone())
             .with_session(session.id.0.clone());

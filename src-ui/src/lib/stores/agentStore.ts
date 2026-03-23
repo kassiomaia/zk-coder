@@ -227,6 +227,20 @@ function createAgentStore() {
 	}
 
 	/**
+	 * Roll back all file changes made during a session.
+	 */
+	async function rollbackSession(sessionId: string): Promise<string[]> {
+		try {
+			const { invoke } = await import('@tauri-apps/api/core');
+			const reverted = await invoke<string[]>('rollback_session', { sessionId });
+			return reverted;
+		} catch (error) {
+			update((s) => ({ ...s, error: String(error) }));
+			return [];
+		}
+	}
+
+	/**
 	 * Update the workspace root for a session (local state only).
 	 */
 	function updateSessionWorkspace(sessionId: string, workspacePath: string) {
@@ -278,6 +292,7 @@ function createAgentStore() {
 		approveAction,
 		denyAction,
 		cancelSession,
+		rollbackSession,
 		updateSessionWorkspace,
 		togglePanel,
 		setActiveSession,
