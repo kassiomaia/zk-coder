@@ -308,6 +308,11 @@ export const activeSession = derived(agentStore, ($state) =>
 	$state.activeSessionId ? $state.sessions.get($state.activeSessionId) ?? null : null
 );
 
+/** All sessions as an array */
+export const allSessions = derived(agentStore, ($state) =>
+	Array.from($state.sessions.values())
+);
+
 /** Pending actions for the active session */
 export const pendingActions = derived(agentStore, ($state) => $state.pendingActions);
 

@@ -84,6 +84,12 @@
 		onDenyAction?: (actionId: string) => void;
 		/** Handler for workspace path change */
 		onWorkspaceChange?: (path: string) => void;
+		/** All agent sessions for this conversation */
+		agentSessions?: AgentSession[];
+		/** Handler to select a different agent session */
+		onSelectSession?: (sessionId: string) => void;
+		/** Handler to create a new agent session */
+		onCreateSession?: () => void;
 	}
 
 	let {
@@ -120,7 +126,10 @@
 		onToggleAgentPanel,
 		onApproveAction,
 		onDenyAction,
-		onWorkspaceChange
+		onWorkspaceChange,
+		agentSessions = [],
+		onSelectSession,
+		onCreateSession
 	}: Props = $props();
 
 	// UI state for responsive behavior
@@ -346,10 +355,13 @@
 				{#if agentSession}
 					<AgentPanel
 						session={agentSession}
+						allSessions={agentSessions}
 						pendingActions={agentPendingActions}
 						onApprove={(id) => onApproveAction?.(id)}
 						onDeny={(id) => onDenyAction?.(id)}
 						onWorkspaceChange={(path) => onWorkspaceChange?.(path)}
+						onSelectSession={(id) => onSelectSession?.(id)}
+						onCreateSession={() => onCreateSession?.()}
 						onclose={() => onToggleAgentPanel?.()}
 					/>
 				{:else}

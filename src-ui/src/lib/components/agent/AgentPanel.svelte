@@ -17,19 +17,32 @@
 	import TerminalView from './TerminalView.svelte';
 	import ApprovalDialog from './ApprovalDialog.svelte';
 	import WorkspaceSelector from './WorkspaceSelector.svelte';
+	import SessionTabs from './SessionTabs.svelte';
 	import type { AgentSession, PendingAction } from '$lib/types/agent';
 
 	interface Props {
 		session: AgentSession;
+		allSessions?: AgentSession[];
 		pendingActions: PendingAction[];
 		onApprove: (actionId: string) => void;
 		onDeny: (actionId: string) => void;
 		onWorkspaceChange: (path: string) => void;
+		onSelectSession?: (sessionId: string) => void;
+		onCreateSession?: () => void;
 		onclose: () => void;
 	}
 
-	let { session, pendingActions, onApprove, onDeny, onWorkspaceChange, onclose }: Props =
-		$props();
+	let {
+		session,
+		allSessions = [],
+		pendingActions,
+		onApprove,
+		onDeny,
+		onWorkspaceChange,
+		onSelectSession,
+		onCreateSession,
+		onclose
+	}: Props = $props();
 
 	/** Collapsible section state */
 	let tasksExpanded = $state(true);
@@ -91,6 +104,16 @@
 			<X size={16} />
 		</button>
 	</header>
+
+	<!-- Session tabs (shown when multiple sessions exist) -->
+	{#if allSessions.length > 1 || allSessions.length === 0}
+		<SessionTabs
+			sessions={allSessions}
+			activeSessionId={session.id}
+			onSelect={(id) => onSelectSession?.(id)}
+			onCreate={() => onCreateSession?.()}
+		/>
+	{/if}
 
 	<!-- Workspace selector -->
 	<WorkspaceSelector

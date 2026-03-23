@@ -40,6 +40,7 @@ export type { ConfigState, ValidationState } from './configStore.js';
 export {
 	agentStore,
 	activeSession,
+	allSessions,
 	pendingActions,
 	agentPanelOpen,
 	agentLoading,

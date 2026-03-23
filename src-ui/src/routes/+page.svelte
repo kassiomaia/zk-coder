@@ -29,6 +29,7 @@
 	import {
 		agentStore,
 		activeSession,
+		allSessions as allSessionsStore,
 		pendingActions as agentPendingActionsStore,
 		agentPanelOpen as agentPanelOpenStore
 	} from '$lib/stores';
@@ -54,6 +55,7 @@
 	let agentPanelOpen = $state(false);
 	let agentSession = $state<AgentSession | null>(null);
 	let agentPendingActions = $state<PendingAction[]>([]);
+	let agentSessions = $state<AgentSession[]>([]);
 
 	// Subscribe to agent store
 	$effect(() => {
@@ -66,10 +68,14 @@
 		const unsubActions = agentPendingActionsStore.subscribe((actions) => {
 			agentPendingActions = actions;
 		});
+		const unsubSessions = allSessionsStore.subscribe((sessions) => {
+			agentSessions = sessions;
+		});
 		return () => {
 			unsubPanel();
 			unsubSession();
 			unsubActions();
+			unsubSessions();
 		};
 	});
 
@@ -93,6 +99,30 @@
 		if (agentSession) {
 			agentStore.updateSessionWorkspace(agentSession.id, path);
 		}
+	}
+
+	function handleSelectSession(sessionId: string) {
+		agentStore.setActiveSession(sessionId);
+	}
+
+	async function handleCreateSession() {
+		// Get the current conversation
+		const currentConversation = $selectedConversation;
+		if (!currentConversation?.id) return;
+
+		// Get the current thread ID
+		const currentThread = selectedThreadId ?? currentConversation.threads?.[0]?.id;
+		if (!currentThread) return;
+
+		// Use the existing workspace from the current session if available
+		const workspace = agentSession?.workspaceRoot;
+
+		await agentStore.createSession(
+			'code', // Use the code agent by default
+			currentConversation.id,
+			currentThread,
+			workspace
+		);
 	}
 
 	// Filtered conversations based on search query
@@ -406,6 +436,9 @@
 		onApproveAction={handleApproveAction}
 		onDenyAction={handleDenyAction}
 		onWorkspaceChange={handleWorkspaceChange}
+		agentSessions={agentSessions}
+		onSelectSession={handleSelectSession}
+		onCreateSession={handleCreateSession}
 	/>
 
 	<!-- Status indicator -->
