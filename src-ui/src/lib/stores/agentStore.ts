@@ -85,6 +85,38 @@ function createAgentStore() {
 					}
 					break;
 				}
+				case 'command_output': {
+					const session = state.sessions.get(event.sessionId);
+					if (session) {
+						const line: import('$lib/types/agent').TerminalLine = {
+							id: crypto.randomUUID(),
+							type: event.stream,
+							content: event.content,
+							timestamp: new Date().toISOString()
+						};
+						state.sessions.set(event.sessionId, {
+							...session,
+							terminalOutput: [...session.terminalOutput, line]
+						});
+					}
+					break;
+				}
+				case 'command_finished': {
+					const session = state.sessions.get(event.sessionId);
+					if (session) {
+						const line: import('$lib/types/agent').TerminalLine = {
+							id: crypto.randomUUID(),
+							type: 'info',
+							content: `Process exited with code ${event.exitCode ?? 'unknown'}`,
+							timestamp: new Date().toISOString()
+						};
+						state.sessions.set(event.sessionId, {
+							...session,
+							terminalOutput: [...session.terminalOutput, line]
+						});
+					}
+					break;
+				}
 			}
 			return { ...state, sessions: new Map(state.sessions) };
 		});

@@ -81,6 +81,20 @@ pub enum AgentEvent {
         result: serde_json::Value,
         is_error: bool,
     },
+
+    /// Command output chunk (streamed during execution).
+    CommandOutput {
+        session_id: String,
+        /// "stdout" or "stderr"
+        stream: String,
+        content: String,
+    },
+
+    /// Command execution finished.
+    CommandFinished {
+        session_id: String,
+        exit_code: Option<i32>,
+    },
 }
 
 /// Tauri event name for agent events.

@@ -136,7 +136,9 @@ export type AgentEvent =
 	| { type: 'execution_error'; sessionId: string; error: string }
 	| { type: 'approval_required'; sessionId: string; action: PendingAction }
 	| { type: 'approval_approved'; sessionId: string; actionId: string }
-	| { type: 'approval_denied'; sessionId: string; actionId: string };
+	| { type: 'approval_denied'; sessionId: string; actionId: string }
+	| { type: 'command_output'; sessionId: string; stream: 'stdout' | 'stderr'; content: string }
+	| { type: 'command_finished'; sessionId: string; exitCode: number | null };
 
 /**
  * Single step in agent execution

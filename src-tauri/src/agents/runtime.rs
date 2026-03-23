@@ -336,7 +336,8 @@ impl AgentRuntime {
         app_handle: &AppHandle,
     ) -> OrchestratorToolResult {
         let context = ToolExecutionContext::new(&session.conversation_id)
-            .with_thread(session.thread_id.clone());
+            .with_thread(session.thread_id.clone())
+            .with_session(session.id.0.clone());
         let context = if let Some(ref workspace) = session.workspace_root {
             context.with_workspace(workspace.clone())
         } else {

@@ -16,6 +16,8 @@ pub struct ToolExecutionContext {
     pub thread_id: Option<String>,
     /// Optional workspace root path for filesystem tools.
     pub workspace_root: Option<PathBuf>,
+    /// Optional agent session ID (set when running inside an agent).
+    pub session_id: Option<String>,
 }
 
 impl ToolExecutionContext {
@@ -26,6 +28,7 @@ impl ToolExecutionContext {
             conversation_id: conversation_id.into(),
             thread_id: None,
             workspace_root: None,
+            session_id: None,
         }
     }
 
@@ -40,6 +43,13 @@ impl ToolExecutionContext {
     #[must_use]
     pub fn with_workspace(mut self, workspace_root: PathBuf) -> Self {
         self.workspace_root = Some(workspace_root);
+        self
+    }
+
+    /// Add agent session ID to the context.
+    #[must_use]
+    pub fn with_session(mut self, session_id: impl Into<String>) -> Self {
+        self.session_id = Some(session_id.into());
         self
     }
 }
