@@ -464,17 +464,103 @@ pub async fn get_conversation_session_history(
     Ok(history)
 }
 
-/// Get full session details including steps and results.
+/// Session details response with runtime data.
+#[derive(Debug, serde::Serialize)]
+pub struct SessionDetailsResponse {
+    #[serde(flatten)]
+    pub session: AgentSession,
+    #[serde(rename = "filesTouched", skip_serializing_if = "Option::is_none")]
+    pub files_touched: Option<Vec<serde_json::Value>>,
+    #[serde(rename = "terminalOutput", skip_serializing_if = "Option::is_none")]
+    pub terminal_output: Option<Vec<serde_json::Value>>,
+    #[serde(rename = "executionSteps", skip_serializing_if = "Option::is_none")]
+    pub execution_steps: Option<Vec<serde_json::Value>>,
+    #[serde(rename = "statusPhrases", skip_serializing_if = "Option::is_none")]
+    pub status_phrases: Option<Vec<String>>,
+}
+
+/// Get full session details including runtime data (files, terminal, execution steps, status phrases).
 #[tauri::command]
 pub async fn get_session_details(
     session_id: String,
     state: tauri::State<'_, AgentState>,
-) -> Result<AgentSession, String> {
-    state
+) -> Result<SessionDetailsResponse, String> {
+    let session = state
         .session_store
         .get_session(&SessionId(session_id.clone()))
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Session not found: {session_id}"))
+        .ok_or_else(|| format!("Session not found: {session_id}"))?;
+
+    // Fetch runtime data
+    let files_touched = state
+        .session_store
+        .get_session_files(&session.id)
+        .ok()
+        .map(|files| {
+            files
+                .into_iter()
+                .map(|f| {
+                    serde_json::json!({
+                        "path": f.file_path,
+                        "modified": f.action != "read",
+                        "action": match f.action.as_str() {
+                            "read" => "read",
+                            "write" => "write",
+                            "delete" => "delete",
+                            _ => "read",
+                        },
+                        "diff": f.diff,
+                    })
+                })
+                .collect()
+        });
+
+    let terminal_output = state
+        .session_store
+        .get_session_terminal_output(&session.id)
+        .ok()
+        .map(|lines| {
+            lines
+                .into_iter()
+                .map(|l| {
+                    serde_json::json!({
+                        "id": l.id,
+                        "type": l.line_type,
+                        "content": l.content,
+                        "timestamp": l.timestamp,
+                    })
+                })
+                .collect()
+        });
+
+    // Fetch tasks and extract execution steps
+    let execution_steps = state
+        .session_store
+        .get_session_tasks(&session.id)
+        .ok()
+        .map(|tasks| {
+            let mut all_steps: Vec<serde_json::Value> = Vec::new();
+            for task in tasks {
+                for step in task.steps {
+                    all_steps.push(serde_json::to_value(step).map_err(|e| e.to_string())?);
+                }
+            }
+            Ok::<Vec<serde_json::Value>, String>(all_steps)
+        })
+        .transpose()?;
+
+    let status_phrases = state
+        .session_store
+        .get_session_status_phrases(&session.id)
+        .ok();
+
+    Ok(SessionDetailsResponse {
+        session,
+        files_touched,
+        terminal_output,
+        execution_steps,
+        status_phrases,
+    })
 }
 
 // =========================================================================

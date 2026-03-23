@@ -6,6 +6,7 @@
 use std::sync::Mutex;
 
 use chrono::Utc;
+use uuid::Uuid;
 use rusqlite::{params, Connection, OptionalExtension};
 use thiserror::Error;
 
@@ -86,6 +87,40 @@ impl SessionStore {
                 ON agent_sessions(thread_id);
             CREATE INDEX IF NOT EXISTS idx_tasks_session
                 ON agent_tasks(session_id);
+
+            CREATE TABLE IF NOT EXISTS agent_files_touched (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                action TEXT NOT NULL,
+                diff TEXT,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_terminal_output (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                line_type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_status_phrases (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                phrase TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_files_session
+                ON agent_files_touched(session_id);
+            CREATE INDEX IF NOT EXISTS idx_terminal_session
+                ON agent_terminal_output(session_id);
+            CREATE INDEX IF NOT EXISTS idx_phrases_session
+                ON agent_status_phrases(session_id);
             ",
         )?;
         Ok(())
@@ -408,6 +443,247 @@ impl SessionStore {
         conn.execute("DELETE FROM agent_subtasks WHERE task_id = ?1", params![task_id])?;
         Ok(())
     }
+
+    // ========================================================================
+    // Task methods
+    // ========================================================================
+
+    /// Get all tasks for a session with their execution steps.
+    pub fn get_session_tasks(&self, session_id: &SessionId) -> Result<Vec<crate::agents::task::AgentTask>, SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, session_id, request, status, steps, created_at, completed_at
+             FROM agent_tasks WHERE session_id = ?1 ORDER BY created_at",
+        )?;
+
+        let tasks = stmt
+            .query_map(params![session_id.0], |row| {
+                let request_str: String = row.get(2)?;
+                let status_str: String = row.get(3)?;
+                let steps_str: String = row.get(4)?;
+
+                let request: crate::agents::task::AgentRequest = serde_json::from_str(&request_str)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e) as Box<dyn std::error::Error + Send + Sync>))?;
+                let status: crate::agents::task::TaskStatus = serde_json::from_str(&status_str)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e) as Box<dyn std::error::Error + Send + Sync>))?;
+                let steps: Vec<crate::agents::task::ExecutionStep> = serde_json::from_str(&steps_str)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e) as Box<dyn std::error::Error + Send + Sync>))?;
+
+                Ok(crate::agents::task::AgentTask {
+                    id: row.get(0)?,
+                    session_id: SessionId(row.get(1)?),
+                    request,
+                    status,
+                    steps,
+                    created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
+                        .unwrap_or_default()
+                        .with_timezone(&Utc),
+                    completed_at: row
+                        .get::<_, Option<String>>(6)?
+                        .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
+                        .unwrap_or_default()
+                        .with_timezone(&Utc)),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(tasks)
+    }
+
+    // ========================================================================
+    // Runtime data methods (files, terminal, status phrases)
+    // ========================================================================
+
+    /// Add a file operation record.
+    pub fn add_file_touched(
+        &self,
+        session_id: &SessionId,
+        file_path: &str,
+        action: &str,
+        diff: Option<&str>,
+    ) -> Result<(), SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        conn.execute(
+            "INSERT INTO agent_files_touched (id, session_id, file_path, action, diff, timestamp)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                Uuid::new_v4().to_string(),
+                session_id.0,
+                file_path,
+                action,
+                diff,
+                Utc::now().to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Get all files touched for a session.
+    pub fn get_session_files(&self, session_id: &SessionId) -> Result<Vec<TouchedFileEntry>, SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, session_id, file_path, action, diff, timestamp
+             FROM agent_files_touched WHERE session_id = ?1 ORDER BY timestamp",
+        )?;
+
+        let files = stmt
+            .query_map(params![session_id.0], |row| {
+                Ok(TouchedFileEntry {
+                    id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    file_path: row.get(2)?,
+                    action: row.get(3)?,
+                    diff: row.get(4)?,
+                    timestamp: row.get(5)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(files)
+    }
+
+    /// Add a terminal output line.
+    pub fn add_terminal_line(
+        &self,
+        session_id: &SessionId,
+        line_type: &str,
+        content: &str,
+    ) -> Result<(), SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        conn.execute(
+            "INSERT INTO agent_terminal_output (id, session_id, line_type, content, timestamp)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                Uuid::new_v4().to_string(),
+                session_id.0,
+                line_type,
+                content,
+                Utc::now().to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Get all terminal output for a session.
+    pub fn get_session_terminal_output(&self, session_id: &SessionId) -> Result<Vec<TerminalLineEntry>, SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, session_id, line_type, content, timestamp
+             FROM agent_terminal_output WHERE session_id = ?1 ORDER BY timestamp",
+        )?;
+
+        let lines = stmt
+            .query_map(params![session_id.0], |row| {
+                Ok(TerminalLineEntry {
+                    id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    line_type: row.get(2)?,
+                    content: row.get(3)?,
+                    timestamp: row.get(4)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(lines)
+    }
+
+    /// Add a status phrase.
+    pub fn add_status_phrase(
+        &self,
+        session_id: &SessionId,
+        phrase: &str,
+    ) -> Result<(), SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        conn.execute(
+            "INSERT INTO agent_status_phrases (id, session_id, phrase, timestamp)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                Uuid::new_v4().to_string(),
+                session_id.0,
+                phrase,
+                Utc::now().to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Get all status phrases for a session.
+    pub fn get_session_status_phrases(&self, session_id: &SessionId) -> Result<Vec<String>, SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        let mut stmt = conn.prepare(
+            "SELECT phrase FROM agent_status_phrases WHERE session_id = ?1 ORDER BY timestamp",
+        )?;
+
+        let phrases = stmt
+            .query_map(params![session_id.0], |row| row.get(0))
+            .and_then(|mapped| mapped.collect::<Result<Vec<_>, _>>())?;
+
+        Ok(phrases)
+    }
+
+    /// Clear all runtime data for a session (useful for cleanup).
+    pub fn clear_session_runtime_data(&self, session_id: &SessionId) -> Result<(), SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        conn.execute("DELETE FROM agent_files_touched WHERE session_id = ?1", params![session_id.0])?;
+        conn.execute("DELETE FROM agent_terminal_output WHERE session_id = ?1", params![session_id.0])?;
+        conn.execute("DELETE FROM agent_status_phrases WHERE session_id = ?1", params![session_id.0])?;
+        Ok(())
+    }
+}
+
+/// Database entry for a file touched during a session.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct TouchedFileEntry {
+    pub id: String,
+    pub session_id: String,
+    pub file_path: String,
+    pub action: String,
+    pub diff: Option<String>,
+    pub timestamp: String,
+}
+
+/// Database entry for a terminal output line.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct TerminalLineEntry {
+    pub id: String,
+    pub session_id: String,
+    pub line_type: String,
+    pub content: String,
+    pub timestamp: String,
 }
 
 #[cfg(test)]

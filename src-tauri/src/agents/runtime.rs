@@ -507,9 +507,15 @@ impl AgentRuntime {
                                 session_id: session.id.0.clone(),
                                 file_path: path.to_string(),
                                 action: super::events::FileAction::Write,
-                                diff,
+                                diff: diff.clone(),
                             },
                         );
+
+                        // Persist to database for reload
+                        let action_str = "write";
+                        let _ = self
+                            .session_store
+                            .add_file_touched(&session.id, path, action_str, diff.as_deref());
                     }
                 }
                 "fs_delete_file" => {
@@ -523,6 +529,11 @@ impl AgentRuntime {
                                 diff: None,
                             },
                         );
+
+                        // Persist to database for reload
+                        let _ = self
+                            .session_store
+                            .add_file_touched(&session.id, path, "delete", None);
                     }
                 }
                 "fs_read_file" => {
@@ -536,6 +547,11 @@ impl AgentRuntime {
                                 diff: None,
                             },
                         );
+
+                        // Persist to database for reload
+                        let _ = self
+                            .session_store
+                            .add_file_touched(&session.id, path, "read", None);
                     }
                 }
                 "agent_emit_status" => {
@@ -550,6 +566,9 @@ impl AgentRuntime {
                                 timestamp: Utc::now(),
                             },
                         );
+
+                        // Persist to database for reload
+                        let _ = self.session_store.add_status_phrase(&session.id, message);
                     }
                 }
                 _ => {}

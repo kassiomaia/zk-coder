@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use log::info;
+use tauri::Manager;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use tauri::{AppHandle, Emitter};
@@ -111,6 +112,11 @@ impl Tool for ExecuteCommandTool {
                 cwd.display()
             );
 
+            // Get the session store BEFORE spawning (must be on main thread)
+            let store: Option<std::sync::Arc<crate::agents::store::SessionStore>> =
+                app_handle.try_state::<crate::commands::AgentState>()
+                    .and_then(|s| Some(s.session_store.clone()));
+
             // Spawn the command
             let mut child = Command::new("sh")
                 .arg("-c")
@@ -130,6 +136,7 @@ impl Tool for ExecuteCommandTool {
             let stdout_handle = {
                 let app = app_handle.clone();
                 let sid = session_id.clone();
+                let store_clone = store.clone();
                 tokio::spawn(async move {
                     let mut output = String::new();
                     if let Some(stdout) = stdout {
@@ -143,6 +150,10 @@ impl Tool for ExecuteCommandTool {
                                     content: line.clone(),
                                 },
                             );
+                            // Persist to database if we have a session store
+                            if let Some(ref store) = store_clone {
+                                let _ = store.add_terminal_line(&crate::agents::session::SessionId(sid.clone()), "stdout", &line);
+                            }
                             output.push_str(&line);
                             output.push('\n');
                         }
@@ -167,6 +178,10 @@ impl Tool for ExecuteCommandTool {
                                     content: line.clone(),
                                 },
                             );
+                            // Persist to database if we have a session store
+                            if let Some(ref store) = store {
+                                let _ = store.add_terminal_line(&crate::agents::session::SessionId(sid.clone()), "stderr", &line);
+                            }
                             output.push_str(&line);
                             output.push('\n');
                         }
