@@ -25,6 +25,7 @@
 	} from '$lib/stores';
 	import type { Conversation, Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
+	import type { AgentSession, PendingAction } from '$lib/types/agent';
 
 	// App state
 	let appInfo = $state<{ name: string; version: string } | null>(null);
@@ -42,6 +43,52 @@
 	let currentThreadsLoading = $state<LoadingState>('idle');
 
 	type LoadingState = 'idle' | 'loading' | 'success' | 'error';
+
+	// Agent panel state
+	let agentPanelOpen = $state(false);
+	let agentSession = $state<AgentSession | null>(null);
+	let agentPendingActions = $state<PendingAction[]>([]);
+
+	function handleToggleAgentPanel() {
+		agentPanelOpen = !agentPanelOpen;
+
+		// Create mock session when opening for the first time (dev/testing only)
+		if (agentPanelOpen && !agentSession) {
+			agentSession = {
+				id: 'mock-session-1',
+				agentId: 'code-agent',
+				agentName: 'Code Agent',
+				conversationId: '',
+				threadId: '',
+				state: { type: 'wait_for_request', lastActionAt: new Date().toISOString() },
+				tasks: [
+					{ id: '1', title: 'Read project config', status: 'completed' },
+					{ id: '2', title: 'Analyze code structure', status: 'in_progress', description: 'Scanning src/ directory' },
+					{ id: '3', title: 'Generate implementation', status: 'pending' }
+				],
+				filesTouched: [
+					{ path: 'src/config.ts', modified: true, action: 'write' },
+					{ path: 'src/types/index.ts', modified: false, action: 'read' },
+					{ path: 'src/utils/helpers.ts', modified: true, action: 'write' }
+				],
+				terminalOutput: [
+					{ id: '1', type: 'command', content: '$ npm run build', timestamp: new Date().toISOString() },
+					{ id: '2', type: 'stdout', content: 'Building project...', timestamp: new Date().toISOString() },
+					{ id: '3', type: 'stdout', content: 'Compiled successfully in 2.3s', timestamp: new Date().toISOString() }
+				],
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString()
+			};
+		}
+	}
+
+	function handleApproveAction(actionId: string) {
+		agentPendingActions = agentPendingActions.filter(a => a.id !== actionId);
+	}
+
+	function handleDenyAction(actionId: string) {
+		agentPendingActions = agentPendingActions.filter(a => a.id !== actionId);
+	}
 
 	// Filtered conversations based on search query
 	let filteredConversations = $derived(() => {
@@ -344,6 +391,12 @@
 		threadsLoading={currentThreadsLoading === 'loading'}
 		hasConfiguredProvider={$hasConfiguredProvider}
 		searchQuery={searchQuery}
+		{agentSession}
+		{agentPendingActions}
+		{agentPanelOpen}
+		onToggleAgentPanel={handleToggleAgentPanel}
+		onApproveAction={handleApproveAction}
+		onDenyAction={handleDenyAction}
 	/>
 
 	<!-- Status indicator -->
@@ -356,9 +409,21 @@
 				{backendStatus}
 			{/if}
 		</span>
-		{#if appInfo}
-			<span class="version">{appInfo.name} v{appInfo.version}</span>
-		{/if}
+		<span class="status-actions">
+			<button
+				class="agent-toggle-btn"
+				class:active={agentPanelOpen}
+				onclick={handleToggleAgentPanel}
+				type="button"
+				aria-label="Toggle agent panel"
+				title="Toggle agent panel"
+			>
+				Agent
+			</button>
+			{#if appInfo}
+				<span class="version">{appInfo.name} v{appInfo.version}</span>
+			{/if}
+		</span>
 	</div>
 </div>
 
@@ -480,9 +545,38 @@
 		background: var(--color-bg-hover);
 	}
 
+	.status-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
 	.version {
 		font-family: var(--font-mono);
 		opacity: 0.7;
+	}
+
+	.agent-toggle-btn {
+		padding: 2px 8px;
+		font-size: var(--text-2xs);
+		font-family: var(--font-mono);
+		background: var(--color-bg-tertiary);
+		border: 1px solid var(--color-border-primary);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.agent-toggle-btn:hover {
+		background: var(--color-bg-hover);
+		color: var(--color-text-primary);
+	}
+
+	.agent-toggle-btn.active {
+		background: var(--color-primary-500);
+		border-color: var(--color-primary-500);
+		color: white;
 	}
 
 	@media (max-width: 600px) {

@@ -9,8 +9,10 @@
 	import ConversationSidebar from '../chat/sidebar/ConversationSidebar.svelte';
 	import ThreadPanel from '../chat/thread/ThreadPanel.svelte';
 	import ChatArea from '../chat/ChatArea.svelte';
+	import AgentPanel from '../agent/AgentPanel.svelte';
 	import type { Conversation, Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
+	import type { AgentSession, PendingAction } from '$lib/types/agent';
 	import { createAppShortcuts, unregisterShortcuts } from '$lib/utils/keyboardShortcuts';
 
 	interface Props {
@@ -68,6 +70,18 @@
 		hasConfiguredProvider?: boolean;
 		/** Search query for filtering conversations and threads */
 		searchQuery?: string;
+		/** Active agent session (if any) */
+		agentSession?: AgentSession | null;
+		/** Pending actions awaiting approval */
+		agentPendingActions?: PendingAction[];
+		/** Whether the agent panel is open */
+		agentPanelOpen?: boolean;
+		/** Handler to toggle agent panel */
+		onToggleAgentPanel?: () => void;
+		/** Handler to approve an agent action */
+		onApproveAction?: (actionId: string) => void;
+		/** Handler to deny an agent action */
+		onDenyAction?: (actionId: string) => void;
 	}
 
 	let {
@@ -97,7 +111,13 @@
 		hasConfiguredProvider = true,
 		onModelChange,
 		onMessageFeedback,
-		searchQuery
+		searchQuery,
+		agentSession = null,
+		agentPendingActions = [],
+		agentPanelOpen = false,
+		onToggleAgentPanel,
+		onApproveAction,
+		onDenyAction
 	}: Props = $props();
 
 	// UI state for responsive behavior
@@ -316,5 +336,24 @@
 				/>
 			{/if}
 		</div>
+
+		<!-- Agent Panel (right side) -->
+		{#if agentPanelOpen}
+			<div class={styles.agentPanelWrapper}>
+				{#if agentSession}
+					<AgentPanel
+						session={agentSession}
+						pendingActions={agentPendingActions}
+						onApprove={(id) => onApproveAction?.(id)}
+						onDeny={(id) => onDenyAction?.(id)}
+						onclose={() => onToggleAgentPanel?.()}
+					/>
+				{:else}
+					<div class={styles.agentPanelEmpty}>
+						<p>No active agent session</p>
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</div>
 </div>

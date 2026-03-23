@@ -108,7 +108,7 @@
 	}
 </script>
 
-<div class="file-tree" role="tree" aria-label="File tree">
+<div class="file-tree" aria-label="File tree">
 	{#each fileTree.children as node (node.path)}
 		{#if node.type === 'directory'}
 			{@const isExpanded = expandedPaths.has(node.path)}
@@ -116,7 +116,6 @@
 				class="tree-node directory"
 				onclick={() => toggleExpanded(node.path)}
 				type="button"
-				role="treeitem"
 				aria-expanded={isExpanded}
 			>
 				{#if isExpanded}
@@ -133,6 +132,7 @@
 				{#each node.children as child (child.path)}
 					{#if child.type === 'file' && child.file}
 						{@const indicator = getChangeIndicator(child.file)}
+						{@const FileIcon = getFileIcon(child.path)}
 						<button
 							class="tree-node file"
 							class:modified={child.file.action === 'write'}
@@ -140,9 +140,8 @@
 							style="padding-left: 24px"
 							onclick={() => onfileclick?.(child.path)}
 							type="button"
-							role="treeitem"
 						>
-							<svelte:component this={getFileIcon(child.path)} size={14} />
+							<FileIcon size={14} />
 							<span>{child.name}</span>
 							{#if indicator}
 								<span class="change-indicator {indicator.cssClass}">{indicator.label}</span>
@@ -153,15 +152,15 @@
 			{/if}
 		{:else if node.file}
 			{@const indicator = getChangeIndicator(node.file)}
+			{@const FileIcon = getFileIcon(node.path)}
 			<button
 				class="tree-node file"
 				class:modified={node.file.action === 'write'}
 				class:deleted={node.file.action === 'delete'}
 				onclick={() => onfileclick?.(node.path)}
 				type="button"
-				role="treeitem"
 			>
-				<svelte:component this={getFileIcon(node.path)} size={14} />
+				<FileIcon size={14} />
 				<span>{node.name}</span>
 				{#if indicator}
 					<span class="change-indicator {indicator.cssClass}">{indicator.label}</span>

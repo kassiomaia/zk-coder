@@ -70,16 +70,20 @@
 				return 'warning';
 		}
 	}
+
+	let ActionIcon = $derived(getActionIcon(action.actionType));
+	let actionLabel = $derived(getActionLabel(action.actionType));
+	let iconClass = $derived(getIconClass(action.actionType));
 </script>
 
 <Modal open={true} onclose={ondeny} title="Action Approval">
 	<div class="approval-dialog">
 		<div class="dialog-header">
-			<div class="icon-wrapper {getIconClass(action.actionType)}">
-				<svelte:component this={getActionIcon(action.actionType)} size={20} />
+			<div class="icon-wrapper {iconClass}">
+				<ActionIcon size={20} />
 			</div>
 			<div class="header-text">
-				<h3>Allow {getActionLabel(action.actionType)}?</h3>
+				<h3>Allow {actionLabel}?</h3>
 				<p class="tool-name">Tool: {action.toolName}</p>
 			</div>
 		</div>

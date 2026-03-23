@@ -27,14 +27,13 @@
 	}
 </script>
 
-<div class="task-list" role="list" aria-label="Task list">
+<div class="task-list" aria-label="Task list">
 	{#each tasks as task (task.id)}
 		<button
 			class="task-item"
 			class:selected={task.selected}
 			onclick={() => ontaskclick?.(task)}
 			type="button"
-			role="listitem"
 			aria-label="{task.title} - {task.status}"
 		>
 			<span class="status-icon {getStatusClass(task.status)}">
