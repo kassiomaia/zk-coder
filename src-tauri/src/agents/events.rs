@@ -140,6 +140,9 @@ pub enum AgentEvent {
         file_path: String,
         #[serde(rename = "action")]
         action: FileAction,
+        /// Unified diff of changes (only present for write actions)
+        #[serde(rename = "diff", skip_serializing_if = "Option::is_none")]
+        diff: Option<String>,
     },
 }
 

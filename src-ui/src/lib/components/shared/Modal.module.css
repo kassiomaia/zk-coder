@@ -66,6 +66,12 @@
 	max-width: 960px;
 }
 
+.modal.full {
+	max-width: 95vw;
+	width: 95vw;
+	max-height: 92vh;
+}
+
 /* ============================================================================
    TWO-PHASE ENTRANCE ANIMATION
    Phase 1: Fast scale + opacity capture (0-160ms)

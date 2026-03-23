@@ -384,12 +384,50 @@ impl AgentRuntime {
             match call.name.as_str() {
                 "fs_write_file" => {
                     if let Some(path) = call.arguments.get("path").and_then(|v| v.as_str()) {
+                        // Generate diff for post-session review
+                        let diff = if let Some(workspace_root) = &session.workspace_root {
+                            // Get the original content from snapshot (if available)
+                            let original_content = self
+                                .rollback_store
+                                .get_snapshot_content(&session.id.0, path);
+
+                            // Read current file content
+                            let current_content = std::fs::read_to_string(workspace_root.join(path)).ok();
+
+                            // Generate diff between original and current
+                            let diff = match (original_content, current_content) {
+                                (Some(original), Some(current)) => {
+                                    Some(generate_diff_from_content(path, &original, &current))
+                                }
+                                (None, Some(current)) => {
+                                    // New file - show entire content as addition
+                                    let line_count = current.lines().count();
+                                    let lines: String = current
+                                        .lines()
+                                        .map(|line| format!("+{}", line))
+                                        .collect::<Vec<_>>()
+                                        .join("\n");
+                                    Some(format!("--- /dev/null\n+++ b/{}\n@@ -0,0 +1,{} @@\n{}",
+                                        path,
+                                        line_count,
+                                        lines
+                                    ))
+                                }
+                                _ => None
+                            };
+
+                            diff
+                        } else {
+                            None
+                        };
+
                         let _ = app_handle.emit(
                             AGENT_EVENT_NAME,
                             AgentEvent::FileTouched {
                                 session_id: session.id.0.clone(),
                                 file_path: path.to_string(),
                                 action: super::events::FileAction::Write,
+                                diff,
                             },
                         );
                     }
@@ -402,6 +440,7 @@ impl AgentRuntime {
                                 session_id: session.id.0.clone(),
                                 file_path: path.to_string(),
                                 action: super::events::FileAction::Delete,
+                                diff: None,
                             },
                         );
                     }
@@ -414,6 +453,7 @@ impl AgentRuntime {
                                 session_id: session.id.0.clone(),
                                 file_path: path.to_string(),
                                 action: super::events::FileAction::Read,
+                                diff: None,
                             },
                         );
                     }
@@ -734,6 +774,29 @@ fn get_api_key_for_provider(
     config_store
         .retrieve_api_key(provider_id)
         .map_err(|e| AgentRuntimeError::Config(e.to_string()))
+}
+
+/// Generate a unified diff from original and new content strings.
+fn generate_diff_from_content(path: &str, original: &str, new: &str) -> String {
+    let diff = similar::TextDiff::from_lines(original, new);
+
+    let hunks: Vec<String> = diff
+        .unified_diff()
+        .context_radius(3)
+        .iter_hunks()
+        .map(|h| h.to_string())
+        .collect();
+
+    if hunks.is_empty() {
+        // No changes - return empty diff
+        return format!("--- a/{}\n+++ b/{}\n", path, path);
+    }
+
+    let mut output = format!("--- a/{}\n+++ b/{}\n", path, path);
+    for hunk in hunks {
+        output.push_str(&hunk);
+    }
+    output
 }
 
 #[cfg(test)]

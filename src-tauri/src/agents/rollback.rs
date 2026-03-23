@@ -166,6 +166,23 @@ impl RollbackStore {
         let mut store = self.snapshots.lock().unwrap_or_else(|e| e.into_inner());
         store.remove(session_id);
     }
+
+    /// Get the original content from a snapshot for diff generation.
+    ///
+    /// Returns the original file content if a snapshot exists, None otherwise.
+    pub fn get_snapshot_content(&self, session_id: &str, path: &str) -> Option<String> {
+        let store = self.snapshots.lock().ok()?;
+        let session_map = store.get(session_id)?;
+        // Try to find by exact path match first
+        session_map.get(Path::new(path))
+            .or_else(|| {
+                // Try as relative path - check all snapshots for matching filename
+                session_map.values().find(|s| {
+                    s.path.ends_with(path) || s.path.file_name().map_or(false, |n| n.to_string_lossy() == path)
+                })
+            })
+            .and_then(|s| s.original_content.clone())
+    }
 }
 
 impl Default for RollbackStore {

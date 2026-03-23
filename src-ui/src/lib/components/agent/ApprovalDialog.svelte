@@ -77,7 +77,7 @@
 	let iconClass = $derived(getIconClass(action.actionType));
 </script>
 
-<Modal open={true} onclose={ondeny} title="Action Approval">
+<Modal open={true} onclose={ondeny} title="Action Approval" size="xl">
 	<div class="approval-dialog">
 		<div class="dialog-header">
 			<div class="icon-wrapper {iconClass}">
@@ -101,7 +101,7 @@
 						{/if}
 					</div>
 					{#if action.preview.contentType === 'diff'}
-						<DiffViewer diff={action.preview.content} maxHeight={250} />
+						<DiffViewer diff={action.preview.content} maxHeight={500} />
 					{:else}
 						<pre class="preview-content"><code>{action.preview.content}</code></pre>
 					{/if}
@@ -122,8 +122,6 @@
 		flex-direction: column;
 		gap: var(--space-4);
 		padding: var(--space-4);
-		min-width: 400px;
-		max-width: 600px;
 	}
 
 	.dialog-header {

@@ -23,6 +23,7 @@
 	import SessionTabs from './SessionTabs.svelte';
 	import SessionHistory from './SessionHistory.svelte';
 	import AgentConfig from './AgentConfig.svelte';
+	import FileDiffModal from './FileDiffModal.svelte';
 	import type { AgentSession, PendingAction } from '$lib/types/agent';
 
 	interface Props {
@@ -60,6 +61,8 @@
 	/** Modal states */
 	let showSessionHistory = $state(false);
 	let showAgentConfig = $state(false);
+	let showFileDiff = $state(false);
+	let selectedFile = $state<{ path: string; diff?: string } | null>(null);
 
 	/** Approval dialog derived from pending actions */
 	let showApprovalDialog = $derived(pendingActions.length > 0);
@@ -106,6 +109,18 @@
 		if (step.action.type === 'llm_request') return `LLM: ${step.action.model}`;
 		if (step.action.type === 'tool_call') return `Tool: ${step.action.tool}`;
 		return 'Unknown';
+	}
+
+	function handleFileClick(path: string) {
+		const file = session.filesTouched?.find((f) => f.path === path);
+		if (file) {
+			selectedFile = { path: file.path, diff: file.diff };
+			showFileDiff = true;
+		}
+	}
+
+	function closeFileDiff() {
+		showFileDiff = false;
 	}
 </script>
 
@@ -253,7 +268,7 @@
 		</button>
 		{#if filesExpanded}
 			<div id="files-section">
-				<FileTree files={session.filesTouched ?? []} />
+				<FileTree files={session.filesTouched ?? []} onfileclick={handleFileClick} />
 			</div>
 		{/if}
 	</section>
@@ -307,6 +322,16 @@
 	onSelectAgent={(id) => onChangeAgent?.(id)}
 	selectedAgentId={session.agentId}
 />
+
+<!-- File Diff Modal (modal overlay) -->
+{#if showFileDiff && selectedFile}
+	<FileDiffModal
+		open={showFileDiff}
+		onclose={closeFileDiff}
+		filePath={selectedFile.path}
+		diff={selectedFile.diff ?? ''}
+	/>
+{/if}
 
 <style>
 	.agent-panel {

@@ -96,6 +96,8 @@ export interface TouchedFile {
 	path: string;
 	modified: boolean;
 	action: 'read' | 'write' | 'delete';
+	/** Unified diff content for write operations (available after approval) */
+	diff?: string;
 }
 
 /**
