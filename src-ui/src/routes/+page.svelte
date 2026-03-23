@@ -26,6 +26,12 @@
 	import type { Conversation, Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
 	import type { AgentSession, PendingAction } from '$lib/types/agent';
+	import {
+		agentStore,
+		activeSession,
+		pendingActions as agentPendingActionsStore,
+		agentPanelOpen as agentPanelOpenStore
+	} from '$lib/stores';
 
 	// App state
 	let appInfo = $state<{ name: string; version: string } | null>(null);
@@ -44,50 +50,43 @@
 
 	type LoadingState = 'idle' | 'loading' | 'success' | 'error';
 
-	// Agent panel state
+	// Agent panel state (derived from agent store)
 	let agentPanelOpen = $state(false);
 	let agentSession = $state<AgentSession | null>(null);
 	let agentPendingActions = $state<PendingAction[]>([]);
 
-	function handleToggleAgentPanel() {
-		agentPanelOpen = !agentPanelOpen;
+	// Subscribe to agent store
+	$effect(() => {
+		const unsubPanel = agentPanelOpenStore.subscribe((open) => {
+			agentPanelOpen = open;
+		});
+		const unsubSession = activeSession.subscribe((session) => {
+			agentSession = session;
+		});
+		const unsubActions = agentPendingActionsStore.subscribe((actions) => {
+			agentPendingActions = actions;
+		});
+		return () => {
+			unsubPanel();
+			unsubSession();
+			unsubActions();
+		};
+	});
 
-		// Create mock session when opening for the first time (dev/testing only)
-		if (agentPanelOpen && !agentSession) {
-			agentSession = {
-				id: 'mock-session-1',
-				agentId: 'code-agent',
-				agentName: 'Code Agent',
-				conversationId: '',
-				threadId: '',
-				state: { type: 'wait_for_request', lastActionAt: new Date().toISOString() },
-				tasks: [
-					{ id: '1', title: 'Read project config', status: 'completed' },
-					{ id: '2', title: 'Analyze code structure', status: 'in_progress', description: 'Scanning src/ directory' },
-					{ id: '3', title: 'Generate implementation', status: 'pending' }
-				],
-				filesTouched: [
-					{ path: 'src/config.ts', modified: true, action: 'write' },
-					{ path: 'src/types/index.ts', modified: false, action: 'read' },
-					{ path: 'src/utils/helpers.ts', modified: true, action: 'write' }
-				],
-				terminalOutput: [
-					{ id: '1', type: 'command', content: '$ npm run build', timestamp: new Date().toISOString() },
-					{ id: '2', type: 'stdout', content: 'Building project...', timestamp: new Date().toISOString() },
-					{ id: '3', type: 'stdout', content: 'Compiled successfully in 2.3s', timestamp: new Date().toISOString() }
-				],
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString()
-			};
+	function handleToggleAgentPanel() {
+		agentStore.togglePanel();
+	}
+
+	async function handleApproveAction(actionId: string) {
+		if (agentSession) {
+			await agentStore.approveAction(agentSession.id, actionId);
 		}
 	}
 
-	function handleApproveAction(actionId: string) {
-		agentPendingActions = agentPendingActions.filter(a => a.id !== actionId);
-	}
-
-	function handleDenyAction(actionId: string) {
-		agentPendingActions = agentPendingActions.filter(a => a.id !== actionId);
+	async function handleDenyAction(actionId: string) {
+		if (agentSession) {
+			await agentStore.denyAction(agentSession.id, actionId);
+		}
 	}
 
 	// Filtered conversations based on search query
@@ -184,6 +183,9 @@
 
 		// Initialize chat store (loads conversations from backend)
 		await chatStore.initialize();
+
+		// Initialize agent store (listens for backend events)
+		await agentStore.initialize();
 
 		// Initialize config store and show providers modal if no providers configured
 		await configStore.initialize();

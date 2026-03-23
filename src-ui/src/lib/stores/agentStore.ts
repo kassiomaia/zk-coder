@@ -130,14 +130,13 @@ function createAgentStore() {
 
 	/**
 	 * Send a request to an active agent session.
+	 * Note: Requires agent runtime to be implemented (future work).
 	 */
-	async function sendRequest(sessionId: string, content: string): Promise<void> {
-		try {
-			const { invoke } = await import('@tauri-apps/api/core');
-			await invoke('send_agent_request', { sessionId, content });
-		} catch (error) {
-			update((s) => ({ ...s, error: String(error) }));
-		}
+	async function sendRequest(_sessionId: string, _content: string): Promise<void> {
+		update((s) => ({
+			...s,
+			error: 'Agent runtime is not yet implemented. Session management is available.'
+		}));
 	}
 
 	/**
@@ -146,7 +145,7 @@ function createAgentStore() {
 	async function approveAction(sessionId: string, actionId: string): Promise<void> {
 		try {
 			const { invoke } = await import('@tauri-apps/api/core');
-			await invoke('approve_action', { sessionId, actionId });
+			await invoke('approve_agent_action', { sessionId, actionId });
 			update((state) => ({
 				...state,
 				pendingActions: state.pendingActions.filter((a) => a.id !== actionId)
@@ -162,7 +161,7 @@ function createAgentStore() {
 	async function denyAction(sessionId: string, actionId: string): Promise<void> {
 		try {
 			const { invoke } = await import('@tauri-apps/api/core');
-			await invoke('deny_action', { sessionId, actionId });
+			await invoke('deny_agent_action', { sessionId, actionId });
 			update((state) => ({
 				...state,
 				pendingActions: state.pendingActions.filter((a) => a.id !== actionId)
@@ -178,7 +177,7 @@ function createAgentStore() {
 	async function cancelSession(sessionId: string): Promise<void> {
 		try {
 			const { invoke } = await import('@tauri-apps/api/core');
-			await invoke('cancel_session', { sessionId });
+			await invoke('cancel_agent_session', { sessionId });
 			update((state) => {
 				state.sessions.delete(sessionId);
 				return {
