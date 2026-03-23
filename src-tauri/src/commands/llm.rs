@@ -179,10 +179,11 @@ impl ConversationRunner for OrchestratedConversationRunner {
 }
 
 /// Parses common truthy values from an environment variable.
+/// Returns true by default if the variable is not set.
 fn parse_env_flag(value: Option<&str>) -> bool {
     match value.map(str::trim).map(|v| v.to_ascii_lowercase()) {
-        Some(v) => matches!(v.as_str(), "1" | "true" | "yes" | "on"),
-        None => false,
+        Some(v) => !matches!(v.as_str(), "0" | "false" | "no" | "off" | "disable"),
+        None => true,
     }
 }
 
