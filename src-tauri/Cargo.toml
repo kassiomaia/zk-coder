@@ -41,12 +41,18 @@ reqwest = { version = "0.12", features = ["json", "stream"] }
 futures = "0.3"
 async-stream = "0.3"
 
+# Diff generation for file write previews
+similar = "2"
+
 # Code parsing (for Phase 6 - Code Understanding)
 tree-sitter = "0.22"
 tree-sitter-rust = "0.21"
 tree-sitter-typescript = "0.21"
 tree-sitter-python = "0.21"
 tauri-plugin-notification = "2.3.3"
+
+[dev-dependencies]
+tempfile = "3"
 
 [lints.clippy]
 pedantic = "warn"

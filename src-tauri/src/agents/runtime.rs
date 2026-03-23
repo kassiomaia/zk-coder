@@ -7,18 +7,17 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::Utc;
-use log::{error, info, warn};
+use log::{info, warn};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::{ChatState, LlmState};
 use crate::llm::{
-    create_client, ChatRequest, ChatResponse, LlmClient, Message, ToolCall, ToolDefinition,
+    create_client, ChatRequest, ChatResponse, LlmClient, Message, ToolCall,
     ToolResult as LlmToolResult,
 };
-use crate::nlp::chat::ChatMessage;
-use crate::nlp::config::ApiType;
 use crate::storage::ConfigStore;
 use crate::tools::context::ToolExecutionContext;
+use crate::tools::fs::write_file::generate_diff;
 use crate::tools::OrchestratorToolResult;
 use crate::tools::ToolRegistry;
 
@@ -30,7 +29,7 @@ use super::store::SessionStore;
 use super::task::{
     AgentExecutionResult, AgentRequest, ExecutionStep, StepAction, StepResult, UsageStats,
 };
-use super::types::{ActionType, AgentId, PermissionLevel, TrustMode};
+use super::types::{ActionType, PermissionLevel, TrustMode};
 
 /// Maximum orchestration steps before aborting.
 const MAX_STEPS: u32 = 6;
@@ -371,13 +370,35 @@ impl AgentRuntime {
         app_handle: &AppHandle,
     ) -> Result<OrchestratorToolResult, AgentRuntimeError> {
         let action_type = infer_action_type(&call.name, &call.arguments);
-        let pending = PendingAction::new(
+        let mut pending = PendingAction::new(
             session.id.clone(),
             call.name.clone(),
             action_type,
             format!("Agent wants to call tool: {}", call.name),
             call.arguments.clone(),
         );
+
+        // Generate diff preview for file write operations
+        if call.name == "fs_write_file" {
+            if let (Some(path), Some(content)) = (
+                call.arguments.get("path").and_then(|v| v.as_str()),
+                call.arguments.get("content").and_then(|v| v.as_str()),
+            ) {
+                if let Some(ref workspace) = session.workspace_root {
+                    if let Some(diff) = generate_diff(workspace, path, content) {
+                        let lang = std::path::Path::new(path)
+                            .extension()
+                            .and_then(|e| e.to_str())
+                            .map(String::from);
+                        pending = pending.with_preview(super::types::ActionPreview {
+                            content_type: "diff".to_string(),
+                            content: diff,
+                            language: lang,
+                        });
+                    }
+                }
+            }
+        }
 
         let action_id = pending.id.clone();
 
