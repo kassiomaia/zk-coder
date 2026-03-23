@@ -8,11 +8,15 @@ use std::sync::Arc;
 
 use tauri::Emitter;
 
+use log::error;
+
 use crate::agents::approval::ApprovalQueue;
 use crate::agents::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::agents::registry::AgentRegistry;
+use crate::agents::runtime::AgentRuntime;
 use crate::agents::session::{AgentSession, PendingAction, SessionId, SessionState};
 use crate::agents::store::SessionStore;
+use crate::agents::task::AgentRequest;
 use crate::agents::types::AgentId;
 
 /// Application state for agent commands.
@@ -20,17 +24,26 @@ pub struct AgentState {
     pub registry: Arc<AgentRegistry>,
     pub session_store: Arc<SessionStore>,
     pub approval_queue: Arc<ApprovalQueue>,
+    pub runtime: Arc<AgentRuntime>,
 }
 
 impl AgentState {
     /// Creates a new agent state.
     pub fn new(db_path: &str) -> Result<Self, String> {
-        let session_store =
-            SessionStore::new(db_path).map_err(|e| format!("Failed to init session store: {e}"))?;
+        let session_store = Arc::new(
+            SessionStore::new(db_path)
+                .map_err(|e| format!("Failed to init session store: {e}"))?,
+        );
+        let approval_queue = Arc::new(ApprovalQueue::new());
+        let runtime = Arc::new(AgentRuntime::new(
+            session_store.clone(),
+            approval_queue.clone(),
+        ));
         Ok(Self {
             registry: Arc::new(AgentRegistry::new()),
-            session_store: Arc::new(session_store),
-            approval_queue: Arc::new(ApprovalQueue::new()),
+            session_store,
+            approval_queue,
+            runtime,
         })
     }
 }
@@ -153,6 +166,75 @@ pub async fn delete_agent_session(
         .session_store
         .delete_session(&sid)
         .map_err(|e| e.to_string())
+}
+
+// =========================================================================
+// Execution Commands
+// =========================================================================
+
+/// Send a request to an agent session for execution.
+///
+/// Spawns the agent runtime asynchronously. Results and progress
+/// are delivered via Tauri events (agent:event).
+#[tauri::command]
+pub async fn send_agent_request(
+    session_id: String,
+    content: String,
+    state: tauri::State<'_, AgentState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    let sid = SessionId(session_id.clone());
+
+    let session = state
+        .session_store
+        .get_session(&sid)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Session not found: {session_id}"))?;
+
+    let agent = state
+        .registry
+        .get(&session.agent_id)
+        .await
+        .ok_or_else(|| format!("Agent not found: {}", session.agent_id.0))?;
+
+    let request = AgentRequest {
+        content,
+        attachments: vec![],
+        context: None,
+    };
+
+    let runtime = state.runtime.clone();
+    let system_prompt = agent.system_prompt.clone();
+    let trust_mode = agent.trust_mode;
+    // Tool definitions will be populated when tool registry integration is complete
+    let tool_definitions = vec![];
+
+    // Spawn async execution - results come back via events
+    tokio::spawn(async move {
+        let result = runtime
+            .execute(
+                &session,
+                request,
+                &system_prompt,
+                trust_mode,
+                tool_definitions,
+                &app_handle,
+            )
+            .await;
+
+        if let Err(e) = &result {
+            error!("[AgentRuntime] Execution failed for session {}: {}", session_id, e);
+            let _ = app_handle.emit(
+                AGENT_EVENT_NAME,
+                AgentEvent::ExecutionError {
+                    session_id,
+                    error: e.to_string(),
+                },
+            );
+        }
+    });
+
+    Ok(sid.0)
 }
 
 // =========================================================================

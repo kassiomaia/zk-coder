@@ -150,6 +150,7 @@ pub fn run() {
             commands::llm::cancel_chat_request,
             // Agent commands
             commands::agent::create_agent_session,
+            commands::agent::send_agent_request,
             commands::agent::get_agent_session,
             commands::agent::get_agent_sessions_for_conversation,
             commands::agent::cancel_agent_session,

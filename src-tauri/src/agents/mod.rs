@@ -11,6 +11,7 @@ pub mod approval;
 pub mod registry;
 pub mod events;
 pub mod store;
+pub mod runtime;
 
 pub use types::*;
 pub use session::*;

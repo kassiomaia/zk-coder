@@ -130,13 +130,15 @@ function createAgentStore() {
 
 	/**
 	 * Send a request to an active agent session.
-	 * Note: Requires agent runtime to be implemented (future work).
+	 * Execution happens asynchronously; results arrive via events.
 	 */
-	async function sendRequest(_sessionId: string, _content: string): Promise<void> {
-		update((s) => ({
-			...s,
-			error: 'Agent runtime is not yet implemented. Session management is available.'
-		}));
+	async function sendRequest(sessionId: string, content: string): Promise<void> {
+		try {
+			const { invoke } = await import('@tauri-apps/api/core');
+			await invoke('send_agent_request', { sessionId, content });
+		} catch (error) {
+			update((s) => ({ ...s, error: String(error) }));
+		}
 	}
 
 	/**
