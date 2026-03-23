@@ -123,8 +123,9 @@ impl ToolRegistry {
             }
         }
 
-        // Check workspace requirement
-        if meta.requires_workspace && self.workspace_root.is_none() {
+        // Check workspace requirement - use context workspace first, fall back to registry
+        let effective_workspace = context.workspace_root.as_ref().or(self.workspace_root.as_ref());
+        if meta.requires_workspace && effective_workspace.is_none() {
             return ToolResult {
                 call_id: call.id,
                 output: serde_json::json!({
@@ -134,9 +135,10 @@ impl ToolRegistry {
             };
         }
 
-        // Execute tool
+        // Execute tool - use context workspace first, fall back to registry workspace
+        let workspace_for_tool = context.workspace_root.clone().or(self.workspace_root.clone());
         match tool
-            .execute(context, call.arguments, app_handle, self.workspace_root.clone())
+            .execute(context, call.arguments, app_handle, workspace_for_tool)
             .await
         {
             Ok(output) => ToolResult {
