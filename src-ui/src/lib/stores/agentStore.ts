@@ -277,6 +277,20 @@ function createAgentStore() {
 					}
 					break;
 				}
+				case 'status_phrase': {
+					// Accumulate status phrases for rotation (keep last 10)
+					const session = state.sessions.get(event.sessionId);
+					if (session) {
+						const existingPhrases = session.statusPhrases ?? [];
+						// Keep only the last 10 phrases
+						const newPhrases = [...existingPhrases, event.message].slice(-10);
+						state.sessions.set(event.sessionId, {
+							...session,
+							statusPhrases: newPhrases
+						});
+					}
+					break;
+				}
 			}
 			return { ...state, sessions: new Map(state.sessions) };
 		});

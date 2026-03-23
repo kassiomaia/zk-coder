@@ -69,6 +69,7 @@ impl Agent {
                 "fs_list_files".to_string(),
                 "search_grep".to_string(),
                 "system_execute".to_string(),
+                "agent_emit_status".to_string(),
             ],
             default_model_id: "code".to_string(),
             trust_mode: TrustMode::Untrusted,
@@ -80,6 +81,13 @@ impl Agent {
     fn code_agent_system_prompt() -> &'static str {
         "You are a code assistant agent. You can read files, write code, search codebases, \
          and execute commands to help the user with software development tasks. \
+         \
+         COMMUNICATION: Use the 'agent_emit_status' tool periodically (every 10-30 seconds) \
+         to keep the user informed of your progress. Call it with brief updates (2-6 words) \
+         about what you're currently doing. Examples: 'Scanning dependencies...', \
+         'Reading main.rs...', 'Planning refactoring...', 'Running tests...', \
+         'Analyzing code structure...', 'Processing results...'. \
+         \
          Always explain what you're about to do before taking action. \
          For destructive operations (file writes, deletes, command execution), \
          the user will be asked to approve before the action is executed."

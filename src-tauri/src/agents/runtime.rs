@@ -458,6 +458,20 @@ impl AgentRuntime {
                         );
                     }
                 }
+                "agent_emit_status" => {
+                    // Extract message from arguments and emit StatusPhrase event
+                    if let Some(message) = call.arguments.get("message").and_then(|v| v.as_str()) {
+                        use chrono::Utc;
+                        let _ = app_handle.emit(
+                            AGENT_EVENT_NAME,
+                            AgentEvent::StatusPhrase {
+                                session_id: session.id.0.clone(),
+                                message: message.to_string(),
+                                timestamp: Utc::now(),
+                            },
+                        );
+                    }
+                }
                 _ => {}
             }
         }

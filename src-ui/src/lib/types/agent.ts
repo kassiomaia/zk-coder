@@ -47,6 +47,7 @@ export interface AgentSession {
 	filesTouched?: TouchedFile[];
 	terminalOutput?: TerminalLine[];
 	executionSteps?: ExecutionStep[]; // Track execution steps for UI progress display
+	statusPhrases?: string[]; // Accumulated status phrases for rotation
 	createdAt: string;
 	updatedAt: string;
 }
@@ -183,7 +184,8 @@ export type AgentEvent =
 			sessionId: string;
 			filePath: string;
 			action: FileAction;
-	  };
+	  }
+	| { type: 'status_phrase'; sessionId: string; message: string; timestamp: string };
 
 /** Action performed on a file */
 export type FileAction = 'read' | 'write' | 'delete';

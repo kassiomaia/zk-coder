@@ -16,6 +16,8 @@
 	import { isLlmStreaming, streamingContent, nlpState } from '$lib/stores/chat';
 	import { notifyAssistantComplete, initNotifications } from '$lib/utils/notifications';
 	import { configStore } from '$lib/stores/configStore';
+	import { activeSession, pendingActions } from '$lib/stores/agentStore';
+	import { getAgentStatus } from '$lib/utils/agentStatus';
 	import {
 		saveScrollPosition,
 		initializeThreadScroll,
@@ -518,6 +520,33 @@
 
 	// Track messages presence for CSS transitions
 	let hasMessages = $derived(messages.length > 0);
+
+	// Derive agent status from active session
+	let agentStatus = $derived(
+		(() => {
+			const session = $activeSession;
+			if (!session) return null;
+
+			const hasPendingApproval = $pendingActions.length > 0;
+
+			// Get latest execution step
+			const latestStep = session.executionSteps?.[session.executionSteps.length - 1] ?? null;
+
+			// Get current in-progress subtask
+			const currentSubtask =
+				session.tasks
+					?.flatMap((t) => t.subtasks ?? [])
+					.find((st) => st.status === 'in_progress') ?? null;
+
+			return getAgentStatus(
+				session.state,
+				latestStep,
+				currentSubtask,
+				hasPendingApproval,
+				session.statusPhrases
+			);
+		})()
+	);
 </script>
 
 <div class={[styles.chatArea, hasMessages && styles.hasMessages].filter(Boolean).join(' ')}>
@@ -604,7 +633,7 @@
 						</div>
 						<!-- Message status indicator -->
 						{#if message.status === 'sending' && message.content.trim() === ''}
-							<AnsweringIndicator />
+							<AnsweringIndicator status={agentStatus} />
 						{:else if message.status === 'error'}
 							<div class={styles.statusIndicator} aria-label="Failed to send">
 								<button
@@ -651,7 +680,7 @@
 
 			<!-- Answering indicator -->
 			{#if isTyping}
-				<AnsweringIndicator />
+				<AnsweringIndicator status={agentStatus} />
 			{/if}
 		{/if}
 

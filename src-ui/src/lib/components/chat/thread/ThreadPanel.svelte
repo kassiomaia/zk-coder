@@ -42,6 +42,8 @@
 		loading?: boolean;
 		/** Error state */
 		error?: string;
+		/** Whether agent/LLM is currently active */
+		isTyping?: boolean;
 	}
 
 	let {
@@ -58,7 +60,8 @@
 		onModelChange,
 		onMessageFeedback,
 		loading = false,
-		error
+		error,
+		isTyping = false
 	}: Props = $props();
 
 	// Derive resolved state for styling
@@ -291,6 +294,7 @@
 			threadId={thread.id}
 			{loading}
 			{error}
+			{isTyping}
 			{onSendMessage}
 			{onOpenSettings}
 			{onRetry}

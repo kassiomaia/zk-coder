@@ -1,47 +1,67 @@
 <script lang="ts">
 	/**
 	 * AnsweringIndicator Component
-	 * Redesigned to follow a structured, Claude-style activity panel with
-	 * deterministic letter-shuffle transformations and damped easing.
+	 * Shows agent execution status with elegant letter-shuffle animation.
+	 * Displays real-time status from agent events or fallback phases.
 	 */
 	import { onMount, onDestroy } from 'svelte';
-	import { Scan, Layout, Sparkles, ShieldCheck, CheckCircle } from 'lucide-svelte';
+	import { Scan, Terminal, File, Edit, Clock, CheckCircle, Sparkles } from 'lucide-svelte';
 	import styles from './AnsweringIndicator.module.css';
+	import type { AgentStatus } from '$lib/utils/agentStatus';
 
-	/**
-	 * Animation configuration constants.
-	 * These control the timing of the phase transitions and text scrambling effects.
-	 */
-	const PHASE_DURATION = 2200; // Duration for each phase in milliseconds (includes scramble time)
 	const SCRAMBLE_DURATION = 800; // Duration for the letter scramble animation in milliseconds
-
-	// User-defined phases with action-oriented microcopy
-	const phases = [
-		{ label: 'Analyzing Context', icon: Scan },
-		{ label: 'Structuring Response', icon: Layout },
-		{ label: 'Refining Clarity', icon: Sparkles },
-		{ label: 'Validating Logic', icon: ShieldCheck },
-		{ label: 'Finalizing Output', icon: CheckCircle }
-	];
 
 	const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
 
-	let currentPhaseIndex = $state(0);
-	let displayText = $state(phases[0].label);
+	interface Props {
+		/** Current agent status text (if not provided, shows default phases) */
+		status?: AgentStatus | null;
+		/** Whether the indicator is active/animating */
+		active?: boolean;
+	}
+
+	let { status, active = true }: Props = $props();
+
+	// Animation configuration
+	const SCRAMBLE_LOOP_INTERVAL = 3000; // Re-scramble same text every 3 seconds
+
+	// Phrase rotation state
+	let currentPhraseIndex = 0;
+
+	// Phrase rotation configuration
+	const ROTATION_INTERVAL = 2500; // Rotate every 2.5 seconds
+
+	// Icon mapping for status types
+	const iconMap = {
+		scan: Scan,
+		terminal: Terminal,
+		file: File,
+		edit: Edit,
+		wait: Clock,
+		check: CheckCircle,
+		sparkle: Sparkles
+	} as const;
+
+	// Current display state
+	let displayText = $state('Starting...');
 	let isStable = $state(true);
 	let isComplete = $state(false);
 
-	// Single-state animation controller variables
+	// Animation state
 	let animationFrame: number;
-	let timeoutId: ReturnType<typeof setTimeout>;
 	let mounted = false;
+
+	// Get the current icon type based on status
+	let currentIconType = $derived(
+		status?.icon ?? 'sparkle'
+	);
 
 	// Damped easing function (easeOutQuart) for smooth resolution
 	function easeOutQuart(x: number): number {
 		return 1 - Math.pow(1 - x, 4);
 	}
 
-	function scrambleText(target: string, onComplete: () => void) {
+	function scrambleText(target: string) {
 		isStable = false;
 		let startTime: number;
 		const startText = displayText;
@@ -76,58 +96,139 @@
 			} else {
 				displayText = target;
 				isStable = true;
-				onComplete();
 			}
 		};
 
 		animationFrame = requestAnimationFrame(run);
 	}
 
-	function runPhaseSequence(index: number) {
-		if (index >= phases.length) {
-			// Sequence complete
+	// Watch for status changes and animate the transition
+	// Also handles phrase rotation and continuous loop animation
+	let rotationTimer: ReturnType<typeof setInterval> | null = null;
+	let loopTimer: ReturnType<typeof setInterval> | null = null;
+
+	// Track the actual values that matter, not object references
+	let currentDisplayText = '';
+	let currentPhrases: string[] = [];
+
+	$effect(() => {
+		// Clear any existing timers
+		if (rotationTimer) {
+			clearInterval(rotationTimer);
+			rotationTimer = null;
+		}
+		if (loopTimer) {
+			clearInterval(loopTimer);
+			loopTimer = null;
+		}
+
+		const newPhrases = status?.phrases ?? [];
+		const newActive = status?.active ?? true;
+		const newText = status?.text ?? '';
+
+		// Determine what to display
+		const targetText = newPhrases.length > 0 ? newPhrases[0] : newText;
+
+		// Check if anything meaningful changed
+		if (targetText === currentDisplayText && newPhrases.length === currentPhrases.length) {
+			// Nothing meaningful changed, but we still need to keep the loop running if active
+			if (newActive && targetText && !loopTimer) {
+				// Restart the loop timer
+				loopTimer = setInterval(() => {
+					if (mounted && targetText) {
+						scrambleText(targetText);
+					}
+				}, SCRAMBLE_LOOP_INTERVAL);
+			}
+			return;
+		}
+
+		// Update tracked values
+		currentDisplayText = targetText;
+		currentPhrases = newPhrases;
+
+		if (!newActive) {
 			isComplete = true;
 			return;
 		}
 
-		currentPhaseIndex = index;
+		// Update completion state
+		isComplete = !newActive;
 
-		scrambleText(phases[index].label, () => {
-			if (!mounted) return;
+		// Initial animation
+		if (targetText) {
+			scrambleText(targetText);
+		}
 
-			// Wait before next phase, unless it's the last one
-			if (index < phases.length - 1) {
-				timeoutId = setTimeout(() => {
-					runPhaseSequence(index + 1);
-				}, PHASE_DURATION - SCRAMBLE_DURATION); // Balance the total duration
-			} else {
-				// Final phase stabilization
-				isComplete = true;
+		// Start phrase rotation if we have multiple phrases
+		if (newPhrases.length > 1) {
+			// Set up rotation timer - rotate every 2.5 seconds
+			rotationTimer = setInterval(() => {
+				currentPhraseIndex = (currentPhraseIndex + 1) % newPhrases.length;
+				if (mounted && newPhrases[currentPhraseIndex]) {
+					scrambleText(newPhrases[currentPhraseIndex]);
+				}
+			}, 2500);
+		}
+
+		// Always run the continuous loop animation when active
+		// This keeps the scramble effect running even with a single phrase
+		if (newActive && targetText) {
+			loopTimer = setInterval(() => {
+				if (mounted && targetText) {
+					scrambleText(targetText);
+				}
+			}, SCRAMBLE_LOOP_INTERVAL);
+		}
+
+		// Cleanup: clear timers when effect reruns or component unmounts
+		return () => {
+			if (rotationTimer) {
+				clearInterval(rotationTimer);
+				rotationTimer = null;
 			}
-		});
-	}
+			if (loopTimer) {
+				clearInterval(loopTimer);
+				loopTimer = null;
+			}
+		};
+	});
 
 	onMount(() => {
 		mounted = true;
-		// Start the sequence
-		runPhaseSequence(0);
 
 		return () => {
 			mounted = false;
 			cancelAnimationFrame(animationFrame);
-			clearTimeout(timeoutId);
+			if (rotationTimer) {
+				clearInterval(rotationTimer);
+			}
 		};
 	});
 </script>
 
-<div class={styles.container} role="status" aria-live="polite" aria-label="Assistant is answering">
+<div class={styles.container} role="status" aria-live="polite" aria-label="Agent status">
 	<div
 		class={[styles.panel, isStable && styles.stable, isComplete && styles.complete]
 			.filter(Boolean)
 			.join(' ')}
 	>
 		<div class={styles.iconWrapper}>
-			<svelte:component this={phases[currentPhaseIndex].icon} size={16} class={styles.icon} />
+			{#if currentIconType === 'scan'}
+				<Scan size={16} class={styles.icon} />
+			{:else if currentIconType === 'terminal'}
+				<Terminal size={16} class={styles.icon} />
+			{:else if currentIconType === 'file'}
+				<File size={16} class={styles.icon} />
+			{:else if currentIconType === 'edit'}
+				<Edit size={16} class={styles.icon} />
+			{:else if currentIconType === 'wait'}
+				<Clock size={16} class={styles.icon} />
+			{:else if currentIconType === 'check'}
+				<CheckCircle size={16} class={styles.icon} />
+			{:else}
+				<Sparkles size={16} class={styles.icon} />
+			{/if}
 		</div>
 
 		<div class={styles.labelContainer}>

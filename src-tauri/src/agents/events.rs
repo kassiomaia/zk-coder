@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use super::session::{PendingAction, SessionState};
 use super::task::{AgentExecutionResult, ExecutionStep, SubTask};
+use chrono::{DateTime, Utc};
 
 /// Events emitted by the agent system to the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,6 +144,16 @@ pub enum AgentEvent {
         /// Unified diff of changes (only present for write actions)
         #[serde(rename = "diff", skip_serializing_if = "Option::is_none")]
         diff: Option<String>,
+    },
+
+    /// Agent emitted a status phrase for UI display.
+    StatusPhrase {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        /// The status message to display
+        message: String,
+        /// Timestamp when emitted
+        timestamp: DateTime<Utc>,
     },
 }
 

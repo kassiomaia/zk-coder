@@ -7,6 +7,7 @@ pub mod context;
 pub mod error;
 pub mod traits;
 
+pub mod agent;
 pub mod conversation;
 pub mod fs;
 pub mod search;
@@ -53,6 +54,7 @@ impl ToolRegistry {
         registry.register_category(fs::FsCategory);
         registry.register_category(conversation::ConversationCategory);
         registry.register_category(search::SearchCategory);
+        registry.register_category(agent::AgentCategory);
 
         Ok(registry)
     }

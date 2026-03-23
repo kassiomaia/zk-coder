@@ -231,6 +231,11 @@
 			? [{ id: selectedConversation?.id || '', title: selectedConversation?.title || '' }]
 			: []
 	);
+
+	// Determine if agent or LLM is actively working
+	let isAgentRunning = $derived(
+		agentSession?.state?.type === 'running' || agentSession?.state?.type === 'launching'
+	);
 </script>
 
 <div class={styles.layout} data-sidebar-open={sidebarOpen}>
@@ -323,6 +328,7 @@
 					onReopenThread={handleReopenThread}
 					onToggleSidebar={toggleSidebar}
 					{loading}
+					isTyping={isAgentRunning}
 					{initialModelId}
 					onModelChange={handleModelChange}
 					{onMessageFeedback}
@@ -336,6 +342,7 @@
 					emptyContext="conversation"
 					conversationTitle={selectedConversation?.title}
 					{loading}
+					isTyping={isAgentRunning}
 					onSendMessage={handleSendMessage}
 					onThreadClick={handleSelectThreadById}
 					onOpenSettings={onSettings}
@@ -350,6 +357,7 @@
 					threadId={selectedThreadId}
 					emptyContext="none"
 					{loading}
+					isTyping={isAgentRunning}
 					onSendMessage={handleSendMessage}
 					onOpenSettings={onSettings}
 				/>
