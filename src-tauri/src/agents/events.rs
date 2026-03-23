@@ -14,61 +14,79 @@ use super::task::{AgentExecutionResult, ExecutionStep, SubTask};
 pub enum AgentEvent {
     /// A new session was created.
     SessionCreated {
+        #[serde(rename = "sessionId")]
         session_id: String,
+        #[serde(rename = "agentId")]
         agent_id: String,
         agent_name: String,
     },
 
     /// Session state changed.
     SessionStateChanged {
+        #[serde(rename = "sessionId")]
         session_id: String,
         state: SessionState,
     },
 
     /// Agent started executing a request.
     ExecutionStarted {
+        #[serde(rename = "sessionId")]
         session_id: String,
+        #[serde(rename = "requestId")]
         request_id: String,
     },
 
     /// Agent completed one execution step.
     ExecutionStep {
+        #[serde(rename = "sessionId")]
         session_id: String,
         step: ExecutionStep,
     },
 
     /// Agent finished executing a request.
     ExecutionComplete {
+        #[serde(rename = "sessionId")]
         session_id: String,
+        #[serde(rename = "conversationId")]
+        conversation_id: String,
+        #[serde(rename = "threadId")]
+        thread_id: String,
         result: AgentExecutionResult,
     },
 
     /// Agent execution encountered an error.
     ExecutionError {
+        #[serde(rename = "sessionId")]
         session_id: String,
         error: String,
     },
 
     /// An action requires user approval.
     ApprovalRequired {
+        #[serde(rename = "sessionId")]
         session_id: String,
         action: PendingAction,
     },
 
     /// An action was approved by the user.
     ApprovalApproved {
+        #[serde(rename = "sessionId")]
         session_id: String,
+        #[serde(rename = "actionId")]
         action_id: String,
     },
 
     /// An action was denied by the user.
     ApprovalDenied {
+        #[serde(rename = "sessionId")]
         session_id: String,
+        #[serde(rename = "actionId")]
         action_id: String,
     },
 
     /// A tool was called.
     ToolCall {
+        #[serde(rename = "sessionId")]
         session_id: String,
         tool: String,
         arguments: serde_json::Value,
@@ -76,6 +94,7 @@ pub enum AgentEvent {
 
     /// A tool returned a result.
     ToolResult {
+        #[serde(rename = "sessionId")]
         session_id: String,
         tool: String,
         result: serde_json::Value,
@@ -84,6 +103,7 @@ pub enum AgentEvent {
 
     /// Command output chunk (streamed during execution).
     CommandOutput {
+        #[serde(rename = "sessionId")]
         session_id: String,
         /// "stdout" or "stderr"
         stream: String,
@@ -92,21 +112,44 @@ pub enum AgentEvent {
 
     /// Command execution finished.
     CommandFinished {
+        #[serde(rename = "sessionId")]
         session_id: String,
+        #[serde(rename = "exitCode")]
         exit_code: Option<i32>,
     },
 
     /// A subtask was created.
     SubtaskCreated {
+        #[serde(rename = "sessionId")]
         session_id: String,
         subtask: SubTask,
     },
 
     /// A subtask was updated.
     SubtaskUpdated {
+        #[serde(rename = "sessionId")]
         session_id: String,
         subtask: SubTask,
     },
+
+    /// A file was touched (read, written, or deleted) during execution.
+    FileTouched {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "filePath")]
+        file_path: String,
+        #[serde(rename = "action")]
+        action: FileAction,
+    },
+}
+
+/// Action performed on a file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileAction {
+    Read,
+    Write,
+    Delete,
 }
 
 /// Tauri event name for agent events.

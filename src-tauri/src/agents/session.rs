@@ -88,19 +88,24 @@ pub enum SessionState {
     Launching,
     /// Agent is actively executing.
     Running {
+        #[serde(rename = "currentStep")]
         current_step: u32,
+        #[serde(rename = "maxSteps")]
         max_steps: u32,
     },
     /// Agent has finished a request and is waiting for the next one.
     WaitForRequest {
+        #[serde(rename = "lastActionAt")]
         last_action_at: DateTime<Utc>,
     },
     /// Agent is blocked waiting for user approval.
     UserInputRequired {
+        #[serde(rename = "pendingActionIds")]
         pending_action_ids: Vec<String>,
     },
     /// Session completed successfully.
     Finished {
+        #[serde(rename = "completedAt")]
         completed_at: DateTime<Utc>,
     },
     /// Session was cancelled by user.
