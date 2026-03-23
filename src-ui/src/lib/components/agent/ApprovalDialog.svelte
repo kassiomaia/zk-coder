@@ -110,12 +110,8 @@
 		</div>
 
 		<div class="dialog-actions">
-			<Button variant="ghost" onclick={ondeny} disabled={isLoading}>
-				Deny
-			</Button>
-			<Button variant="primary" onclick={handleApprove} loading={isLoading}>
-				Allow
-			</Button>
+			<Button variant="ghost" onclick={ondeny} disabled={isLoading}>Deny</Button>
+			<Button variant="primary" onclick={handleApprove} loading={isLoading}>Allow</Button>
 		</div>
 	</div>
 </Modal>

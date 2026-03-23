@@ -107,7 +107,7 @@
 
 		const query = searchQuery.toLowerCase().trim();
 
-		return conversations.filter(conversation => {
+		return conversations.filter((conversation) => {
 			// Search conversation title
 			if (conversation.title.toLowerCase().includes(query)) {
 				return true;
@@ -115,9 +115,7 @@
 
 			// Search threads within this conversation (only if available)
 			if (conversation.threads && conversation.threads.length > 0) {
-				return conversation.threads.some(thread =>
-					thread.title.toLowerCase().includes(query)
-				);
+				return conversation.threads.some((thread) => thread.title.toLowerCase().includes(query));
 			}
 
 			return false;
@@ -222,7 +220,11 @@
 			<!-- Search -->
 			{#if onSearch}
 				<div class={styles.searchContainer}>
-					<SearchBar value={searchQuery} oninput={handleSearch} placeholder="Search conversations and threads..." />
+					<SearchBar
+						value={searchQuery}
+						oninput={handleSearch}
+						placeholder="Search conversations and threads..."
+					/>
 					<div class={styles.headerActions}>
 						<div class={styles.menuWrapper}>
 							<button

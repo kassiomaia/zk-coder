@@ -33,6 +33,7 @@
 		pendingActions as agentPendingActionsStore,
 		agentPanelOpen as agentPanelOpenStore
 	} from '$lib/stores';
+	import { setThreadAgentSession } from '$lib/api/chat';
 
 	// App state
 	let appInfo = $state<{ name: string; version: string } | null>(null);
@@ -99,6 +100,40 @@
 		if (agentSession) {
 			agentStore.updateSessionWorkspace(agentSession.id, path);
 		}
+		// Also update the conversation workspace
+		const conversation = $selectedConversation;
+		if (conversation) {
+			chatStore.setConversationWorkspace(conversation.id, path);
+		}
+	}
+
+	async function handleSetConversationWorkspace(path: string) {
+		console.debug('[+page] handleSetConversationWorkspace called:', { path });
+		const conversation = $selectedConversation;
+		if (conversation) {
+			await chatStore.setConversationWorkspace(conversation.id, path);
+		}
+		// Also update the existing agent session's workspace if one exists
+		// Check both the active session and any session linked to the current thread
+		if (agentSession) {
+			console.debug('[+page] Updating active agent session workspace:', agentSession.id);
+			agentStore.updateSessionWorkspace(agentSession.id, path);
+		} else {
+			// Check if the current thread has an agentSessionId
+			const currentThread = threads.find((t) => t.id === selectedThreadId);
+			console.debug('[+page] Checking thread for agentSessionId:', {
+				selectedThreadId,
+				currentThread,
+				agentSessionId: currentThread?.metadata.agentSessionId
+			});
+			if (currentThread?.metadata.agentSessionId) {
+				console.debug(
+					'[+page] Updating thread agent session workspace:',
+					currentThread.metadata.agentSessionId
+				);
+				agentStore.updateSessionWorkspace(currentThread.metadata.agentSessionId, path);
+			}
+		}
 	}
 
 	function handleSelectSession(sessionId: string) {
@@ -108,21 +143,60 @@
 	async function handleCreateSession() {
 		// Get the current conversation
 		const currentConversation = $selectedConversation;
-		if (!currentConversation?.id) return;
+		console.debug('[+page] handleCreateSession called:', {
+			conversationId: currentConversation?.id,
+			workspaceRoot: currentConversation?.settings.workspaceRoot,
+			settings: currentConversation?.settings
+		});
+		if (!currentConversation?.id) {
+			console.warn('[Agent] No conversation selected. Start a conversation first.');
+			return;
+		}
 
 		// Get the current thread ID
 		const currentThread = selectedThreadId ?? currentConversation.threads?.[0]?.id;
-		if (!currentThread) return;
+		if (!currentThread) {
+			console.warn('[Agent] No thread available in this conversation.');
+			return;
+		}
 
-		// Use the existing workspace from the current session if available
-		const workspace = agentSession?.workspaceRoot;
+		// Check if thread already has an agent session
+		const thread = threads.find((t) => t.id === currentThread);
+		const existingSessionId = thread?.metadata.agentSessionId;
+		console.debug('[+page] Checking for existing session:', {
+			threadId: currentThread,
+			existingSessionId
+		});
 
-		await agentStore.createSession(
-			'code', // Use the code agent by default
+		if (existingSessionId) {
+			// Thread already has a session - just activate it and update workspace
+			console.debug('[+page] Using existing session:', existingSessionId);
+			agentStore.setActiveSession(existingSessionId);
+
+			// Update the session's workspace if conversation has one set
+			const workspace = currentConversation.settings.workspaceRoot;
+			if (workspace) {
+				console.debug('[+page] Updating existing session workspace:', workspace);
+				await agentStore.updateSessionWorkspace(existingSessionId, workspace);
+			}
+			return;
+		}
+
+		// No existing session - create a new one
+		const workspace = currentConversation.settings.workspaceRoot ?? agentSession?.workspaceRoot;
+		console.debug('[+page] Creating new session with workspace:', { workspace });
+
+		const newSession = await agentStore.createSession(
+			'code-agent',
 			currentConversation.id,
 			currentThread,
 			workspace
 		);
+
+		if (newSession) {
+			// Update thread metadata with the new session ID
+			await setThreadAgentSession(currentThread, newSession.id);
+		}
 	}
 
 	// Filtered conversations based on search query
@@ -133,7 +207,7 @@
 
 		const query = searchQuery.toLowerCase().trim();
 
-		return conversations.filter(conversation => {
+		return conversations.filter((conversation) => {
 			// Search conversation title
 			if (conversation.title.toLowerCase().includes(query)) {
 				return true;
@@ -141,9 +215,7 @@
 
 			// Search threads within this conversation (only if available)
 			if (conversation.threads && conversation.threads.length > 0) {
-				return conversation.threads.some(thread =>
-					thread.title.toLowerCase().includes(query)
-				);
+				return conversation.threads.some((thread) => thread.title.toLowerCase().includes(query));
 			}
 
 			return false;
@@ -222,6 +294,45 @@
 
 		// Initialize agent store (listens for backend events)
 		await agentStore.initialize();
+
+		// Set callback to add assistant message when agent completes execution
+		// Import the API function to persist messages to backend
+		agentStore.setExecutionCompleteCallback(async (conversationId, threadId, content) => {
+			console.debug('[+page] Execution complete callback invoked:', {
+				conversationId,
+				threadId,
+				contentLength: content?.length ?? 0,
+				content
+			});
+
+			try {
+				// Persist the assistant message to the backend
+				const { sendMessage } = await import('$lib/api/chat');
+				const savedMessage = await sendMessage({
+					conversationId,
+					threadId,
+					role: 'assistant',
+					content
+				});
+
+				// Add to local state with the saved message (which has the correct ID from backend)
+				chatStore.addMessage(savedMessage);
+				console.debug('[+page] Agent message persisted and added to chatStore:', savedMessage.id);
+			} catch (error) {
+				console.error('[+page] Failed to persist agent message:', error);
+				// Still add locally even if backend save fails
+				chatStore.addMessage({
+					id: crypto.randomUUID(),
+					conversationId,
+					threadId,
+					role: 'assistant',
+					content,
+					timestamp: new Date(),
+					status: 'error'
+				});
+			}
+		});
+		console.debug('[+page] Execution complete callback registered');
 
 		// Initialize config store and show providers modal if no providers configured
 		await configStore.initialize();
@@ -428,7 +539,7 @@
 		loading={$isLoading}
 		threadsLoading={currentThreadsLoading === 'loading'}
 		hasConfiguredProvider={$hasConfiguredProvider}
-		searchQuery={searchQuery}
+		{searchQuery}
 		{agentSession}
 		{agentPendingActions}
 		{agentPanelOpen}
@@ -436,9 +547,11 @@
 		onApproveAction={handleApproveAction}
 		onDenyAction={handleDenyAction}
 		onWorkspaceChange={handleWorkspaceChange}
-		agentSessions={agentSessions}
+		{agentSessions}
 		onSelectSession={handleSelectSession}
 		onCreateSession={handleCreateSession}
+		conversationWorkspace={$selectedConversation?.settings.workspaceRoot}
+		onSetConversationWorkspace={handleSetConversationWorkspace}
 	/>
 
 	<!-- Status indicator -->

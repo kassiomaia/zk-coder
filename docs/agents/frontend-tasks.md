@@ -1388,36 +1388,43 @@ async setWorkspace(conversationId: string, workspacePath: string): Promise<void>
 ## Task Checklist
 
 ### §1 Layout Integration
-- [ ] Create `AgentLayout.svelte` wrapper
-- [ ] Update `ChatLayout.svelte` with agent panel slot
-- [ ] Add CSS variable `--agent-panel-width`
-- [ ] Add responsive behavior (hide on mobile)
+- [x] Create `AgentLayout.svelte` wrapper → Integrated directly into ChatLayout (valid simplification)
+- [x] Update `ChatLayout.svelte` with agent panel slot
+- [x] Add CSS variable `--agent-panel-width` (in design-system.css)
+- [x] Add responsive behavior (hide on mobile)
 
 ### §2 Core Components
-- [ ] Create `AgentPanel.svelte` main container
-- [ ] Create `TaskList.svelte` with status icons
-- [ ] Create `FileTree.svelte` with tree rendering
-- [ ] Create `TerminalView.svelte` with auto-scroll
-- [ ] Create `ApprovalDialog.svelte` modal
+- [x] Create `AgentPanel.svelte` main container
+- [x] Create `TaskList.svelte` with status icons and subtask support
+- [x] Create `FileTree.svelte` with tree rendering and change indicators (M/A/D)
+- [x] Create `TerminalView.svelte` with auto-scroll
+- [x] Create `ApprovalDialog.svelte` modal with DiffViewer preview
+- [x] Create `DiffViewer.svelte` (bonus - syntax-colored diff)
+- [x] Create `WorkspaceSelector.svelte` (bonus - folder picker)
+- [x] Create `SessionHistory.svelte` (bonus - view completed sessions)
+- [x] Create `SessionTabs.svelte` (bonus - multiple sessions)
+- [x] Create `AgentConfig.svelte` (bonus - agent selection modal)
 
 ### §3 Types and Store
-- [ ] Create `types/agent.ts` with all interfaces
-- [ ] Create `stores/agentStore.ts` with state management
-- [ ] Add event listener initialization
-- [ ] Export from `lib/index.ts`
+- [x] Create `types/agent.ts` with all interfaces
+- [x] Create `stores/agentStore.ts` with state management
+- [x] Add event listener initialization
+- [x] Export from `lib/index.ts`
+- [x] Fix optional fields (`tasks`, `filesTouched`, `terminalOutput`) in AgentSession type
 
 ### §4 API Integration
-- [ ] Wire Tauri commands to store methods
-- [ ] Handle agent events from backend
-- [ ] Add error handling and loading states
+- [x] Wire Tauri commands to store methods
+- [x] Handle agent events from backend
+- [x] Add error handling and loading states
+- [x] Fix ExecutionComplete event to include conversationId/threadId (for page reload scenario)
 
 ### §5 Workspace Integration
-- [ ] Update `Conversation` type with `workspaceRoot`
-- [ ] Update `ConversationSettings` with `workspacePath`
-- [ ] Add workspace selector to conversation creation
-- [ ] Add workspace indicator to conversation header
-- [ ] Update chat store with workspace methods
-- [ ] Add `set_conversation_workspace` command handler
+- [x] Update `Conversation` type with `workspaceRoot`
+- [x] Update `ConversationSettings` with `workspaceRoot`
+- [x] Add workspace selector to agent panel empty state
+- [x] Update chat store with `setConversationWorkspace` method
+- [x] Add `setConversationWorkspace` API function
+- [x] Wire workspace changes to sync both session AND conversation
 
 ### §6 Testing
 - [ ] Unit tests for components
@@ -1431,11 +1438,15 @@ async setWorkspace(conversationId: string, workspacePath: string): Promise<void>
 
 ```
 src-ui/src/lib/components/agent/
-├── AgentPanel.svelte          # Main panel container
-├── TaskList.svelte            # Task list with status
-├── FileTree.svelte            # File tree view
-├── TerminalView.svelte        # Terminal output
-├── ApprovalDialog.svelte      # Approval modal
-├── SessionIndicator.svelte    # Status indicator
-└── index.ts                   # Exports
+├── AgentPanel.svelte          # Main panel container ✅
+├── TaskList.svelte            # Task list with status ✅
+├── FileTree.svelte            # File tree view ✅
+├── TerminalView.svelte        # Terminal output ✅
+├── ApprovalDialog.svelte      # Approval modal ✅
+├── DiffViewer.svelte          # Diff preview ✅ (bonus)
+├── WorkspaceSelector.svelte   # Folder picker ✅ (bonus)
+├── SessionHistory.svelte      # View completed sessions ✅ (bonus)
+├── SessionTabs.svelte         # Multi-session tabs ✅ (bonus)
+├── AgentConfig.svelte         # Agent selection ✅ (bonus)
+└── index.ts                   # Exports ✅
 ```

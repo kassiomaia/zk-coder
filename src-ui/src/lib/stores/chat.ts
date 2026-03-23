@@ -23,6 +23,7 @@ import {
 	renameConversation as apiRenameConversation,
 	deleteConversation as apiDeleteConversation,
 	updateConversationSettings as apiUpdateConversationSettings,
+	setConversationWorkspace as apiSetConversationWorkspace,
 	loadThreads,
 	createThread as apiCreateThread,
 	resolveThread as apiResolveThread,
@@ -33,11 +34,13 @@ import {
 	deleteMessage as apiDeleteMessage,
 	updateMessageStatus as apiUpdateMessageStatus,
 	updateMessageFeedback as apiUpdateMessageFeedback,
-	createThreadWithMessage as apiCreateThreadWithMessage
+	createThreadWithMessage as apiCreateThreadWithMessage,
+	setThreadAgentSession
 } from '$lib/api/chat';
 import { LlmHandler } from './chat/llm-handler';
 import type { ChatState, LlmRequestOptions } from './chat/types';
 import { deriveThreadTitle, sortThreadsByRecent } from './chat/utils';
+import { agentStore } from './agentStore';
 
 // ============================================================================
 // Initial State
@@ -296,7 +299,8 @@ function createChatStore() {
 					model: newSettings.model,
 					temperature: newSettings.temperature,
 					maxTokens: newSettings.maxTokens,
-					systemPrompt: newSettings.systemPrompt
+					systemPrompt: newSettings.systemPrompt,
+					workspaceRoot: newSettings.workspaceRoot
 				});
 
 				update((state) => ({
@@ -310,6 +314,30 @@ function createChatStore() {
 				update((state) => ({
 					...state,
 					error: error instanceof Error ? error.message : 'Failed to update settings'
+				}));
+				return false;
+			}
+		},
+
+		/**
+		 * Set a conversation's workspace root.
+		 */
+		async setConversationWorkspace(id: string, workspaceRoot: string): Promise<boolean> {
+			try {
+				const updated = await apiSetConversationWorkspace(id, workspaceRoot);
+				update((state) => ({
+					...state,
+					conversations: state.conversations.map((c) =>
+						c.id === id
+							? { ...c, settings: { ...c.settings, workspaceRoot: updated.settings.workspaceRoot } }
+							: c
+					)
+				}));
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to set workspace'
 				}));
 				return false;
 			}
@@ -371,6 +399,16 @@ function createChatStore() {
 			}));
 
 			if (id) {
+				// Check if thread has an agent session and activate it
+				const thread = get({ subscribe }).threads.find((t) => t.id === id);
+				if (thread?.metadata.agentSessionId) {
+					// Load the session from backend before setting as active
+					const session = await agentStore.loadSession(thread.metadata.agentSessionId);
+					if (session) {
+						agentStore.setActiveSession(thread.metadata.agentSessionId);
+					}
+				}
+
 				try {
 					const loadedMessages = await loadThreadMessages(id);
 					update((state) => {
@@ -427,6 +465,7 @@ function createChatStore() {
 
 		/**
 		 * Create a new thread in the current conversation.
+		 * Automatically creates an agent session for the thread.
 		 */
 		async createThread(title: string = 'New Thread'): Promise<Thread | null> {
 			const state = get({ subscribe });
@@ -439,6 +478,29 @@ function createChatStore() {
 			const readyPromise = (async () => {
 				try {
 					const thread = await apiCreateThread(conversationId, title);
+
+					// Auto-create an agent session for this thread
+					try {
+						const agentSession = await agentStore.createSession(
+							'code-agent', // Default to code agent
+							conversationId,
+							thread.id,
+							undefined // No workspace root initially
+						);
+
+						if (agentSession) {
+							// Update thread metadata with agent session ID
+							await setThreadAgentSession(thread.id, agentSession.id);
+							thread.metadata.agentSessionId = agentSession.id;
+
+							// Open the agent panel
+							agentStore.setActiveSession(agentSession.id);
+						}
+					} catch (agentError) {
+						console.warn('[chatStore] Failed to create agent session:', agentError);
+						// Continue without agent - thread can still work as a regular chat
+					}
+
 					update((s) => ({
 						...s,
 						threads: [...s.threads, thread],
@@ -591,6 +653,28 @@ function createChatStore() {
 							role
 						});
 
+						// Auto-create an agent session for this thread
+						try {
+							// Get the conversation's workspace if set
+							const conversation = state.conversations.find((c) => c.id === conversationId);
+							const workspaceRoot = conversation?.settings.workspaceRoot;
+
+							const agentSession = await agentStore.createSession(
+								'code-agent',
+								conversationId,
+								thread.id,
+								workspaceRoot
+							);
+
+							if (agentSession) {
+								await setThreadAgentSession(thread.id, agentSession.id);
+								thread.metadata.agentSessionId = agentSession.id;
+								agentStore.setActiveSession(agentSession.id);
+							}
+						} catch (agentError) {
+							console.warn('[chatStore] Failed to create agent session:', agentError);
+						}
+
 						update((s) => ({
 							...s,
 							threads: [...s.threads, thread],
@@ -739,10 +823,7 @@ function createChatStore() {
 		 * Pass null to clear the feedback.
 		 * Clicking the same feedback toggles it off.
 		 */
-		async updateMessageFeedback(
-			id: string,
-			feedback: 'like' | 'dislike' | null
-		): Promise<boolean> {
+		async updateMessageFeedback(id: string, feedback: 'like' | 'dislike' | null): Promise<boolean> {
 			try {
 				await apiUpdateMessageFeedback(id, feedback);
 				update((state) => ({
@@ -969,21 +1050,45 @@ function createChatStore() {
 
 		/**
 		 * Send a message and get an LLM response with streaming.
+		 * Routes through agent if the thread has an active agent session.
 		 */
 		async sendMessageWithLlm(
 			content: string,
 			options?: LlmRequestOptions
 		): Promise<Message | null> {
-			// Validate
-			const validationError = llmHandler.validateCanStream(options);
-			if (validationError) {
-				update((s) => ({ ...s, error: validationError }));
-				return null;
-			}
-
 			// Send user message first
 			const userMessage = await this.sendMessage(content, 'user');
 			if (!userMessage) return null;
+
+			// Check if thread has an agent session - route through agent instead
+			const state = get({ subscribe });
+			const thread = state.threads.find((t) => t.id === userMessage.threadId);
+			console.debug('[chatStore] sendMessageWithLlm:', {
+				threadId: userMessage.threadId,
+				hasAgentSession: !!thread?.metadata.agentSessionId,
+				agentSessionId: thread?.metadata.agentSessionId
+			});
+
+			if (thread?.metadata.agentSessionId) {
+				// Route through agent - the agent will emit events with results
+				// We'll add the assistant message when execution_complete event arrives
+				console.debug('[chatStore] Routing to agent:', thread.metadata.agentSessionId);
+				try {
+					await agentStore.sendRequest(thread.metadata.agentSessionId, content);
+				} catch (err) {
+					console.error('[chatStore] Agent request failed:', err);
+					update((s) => ({ ...s, error: `Agent request failed: ${err}` }));
+				}
+				return userMessage;
+			}
+
+			console.debug('[chatStore] Using normal LLM flow');
+			// Normal LLM flow (no agent)
+			const validationError = llmHandler.validateCanStream(options);
+			if (validationError) {
+				update((s) => ({ ...s, error: validationError }));
+				return userMessage;
+			}
 
 			// Initialize streaming
 			const init = llmHandler.initStreaming(userMessage, options);

@@ -286,15 +286,60 @@ similar = "2.0"
 
 ---
 
-## Next Steps
+## Implementation Status (Updated 2026-03-23)
 
-1. Review this plan and resolve open questions
-2. Begin Backend Tasks §1 (Agent types and session)
-3. Begin Frontend Tasks §1 (Agent panel scaffold)
-4. Iterate on integration
+### Backend: ✅ Phase 1 Complete
+
+| Milestone | Status | Notes |
+|-----------|--------|-------|
+| 1.1 Agent types and session abstraction | ✅ Done | `types.rs`, `session.rs`, `task.rs` |
+| 1.2 Permission system and approval queue | ✅ Done | `permissions.rs`, `approval.rs` with 5-min timeout |
+| 1.3 Agent runtime extraction | ✅ Done | `runtime.rs` with LLM retry, permission checks |
+| 1.4 Tauri commands | ✅ Done | Full command set in `commands/agent.rs` |
+| 1.5 Session storage (SQLite) | ✅ Done | `store.rs` with persistence |
+| 1.6 Event system | ✅ Done | `events.rs` with all event types |
+| **Bonus: Rollback system** | ✅ Done | `rollback.rs` for file reverts |
+| **Bonus: Subtasks** | ✅ Done | Task decomposition support |
+| **Bonus: Conversation workspace** | ✅ Done | `workspace_root` on ConversationSettings |
+
+### Frontend: ✅ Phase 1 Complete
+
+| Milestone | Status | Notes |
+|-----------|--------|-------|
+| 1.4 Agent panel components | ✅ Done | All core components implemented |
+| 1.5 Approval dialog | ✅ Done | With DiffViewer preview |
+| Integration | ✅ Done | ChatLayout integrated, store wiring complete |
+| Conversation workspace | ✅ Done | WorkspaceSelector in agent panel empty state |
+| Execution complete fix | ✅ Done | Event now includes conversationId/threadId |
+
+### Missing / Deviated Items
+
+| Item | Plan | Actual | Action |
+|------|------|--------|--------|
+| AgentLayout component | Separate wrapper | Integrated in ChatLayout | Valid simplification - works |
+| ~~Conversation workspace~~ | ~~Persistent on Conversation~~ | ✅ Implemented | `workspace_root` on ConversationSettings |
+| ~~CSS variable~~ | ~~`--agent-panel-width`~~ | ✅ Implemented | In design-system.css with responsive behavior |
+| Frontend tests | Required | Not done | Add tests |
+| Focus management | Specified | Partial | Complete implementation |
+
+### Recent Fixes (2026-03-23)
+
+1. **AgentSession optional fields**: Made `tasks`, `filesTouched`, `terminalOutput` optional in TypeScript type to match backend response
+2. **ExecutionComplete event**: Added `conversationId` and `threadId` to event so assistant message can be added even when session not in store (page reload scenario)
+3. **AgentPanel null checks**: Added `?? []` fallbacks for optional session fields
+4. **CSS variable cleanup**: Removed redundant fallback in `AgentPanel.svelte` since `--agent-panel-width` is always defined in design system
 
 ---
 
-**Document Status**: Draft - Pending Review
+## Next Steps
+
+1. ~~Add conversation-level workspace persistence~~ ✅ Done
+2. ~~Add CSS variable for agent panel width~~ ✅ Done
+3. Add frontend tests for agent components
+4. Complete focus management in approval dialog
+
+---
+
+**Document Status**: Updated - Phase 1 Complete
 **Author**: Development Team
-**Reviewers**: Product, Architecture
+**Last Updated**: 2026-03-23

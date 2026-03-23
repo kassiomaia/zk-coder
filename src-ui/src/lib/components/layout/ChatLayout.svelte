@@ -10,6 +10,7 @@
 	import ThreadPanel from '../chat/thread/ThreadPanel.svelte';
 	import ChatArea from '../chat/ChatArea.svelte';
 	import AgentPanel from '../agent/AgentPanel.svelte';
+	import WorkspaceSelector from '../agent/WorkspaceSelector.svelte';
 	import type { Conversation, Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
 	import type { AgentSession, PendingAction } from '$lib/types/agent';
@@ -90,6 +91,10 @@
 		onSelectSession?: (sessionId: string) => void;
 		/** Handler to create a new agent session */
 		onCreateSession?: () => void;
+		/** Conversation's workspace root (for agent sessions) */
+		conversationWorkspace?: string;
+		/** Handler to set conversation workspace */
+		onSetConversationWorkspace?: (path: string) => void;
 	}
 
 	let {
@@ -129,7 +134,9 @@
 		onWorkspaceChange,
 		agentSessions = [],
 		onSelectSession,
-		onCreateSession
+		onCreateSession,
+		conversationWorkspace,
+		onSetConversationWorkspace
 	}: Props = $props();
 
 	// UI state for responsive behavior
@@ -318,7 +325,7 @@
 					{loading}
 					{initialModelId}
 					onModelChange={handleModelChange}
-					onMessageFeedback={onMessageFeedback}
+					{onMessageFeedback}
 				/>
 			{:else if hasSelectedConversation}
 				<!-- Chat area for conversation (no thread selected) -->
@@ -334,7 +341,7 @@
 					onOpenSettings={onSettings}
 					{initialModelId}
 					onModelChange={handleModelChange}
-					onMessageFeedback={onMessageFeedback}
+					{onMessageFeedback}
 				/>
 			{:else}
 				<!-- Empty state -->
@@ -366,7 +373,15 @@
 					/>
 				{:else}
 					<div class={styles.agentPanelEmpty}>
-						<p>No active agent session</p>
+						<p class={styles.emptyTitle}>No active agent session</p>
+						<p class={styles.emptyHint}>Select a workspace and launch an agent.</p>
+						<WorkspaceSelector
+							workspacePath={conversationWorkspace}
+							onSelect={(path) => onSetConversationWorkspace?.(path)}
+						/>
+						<button class={styles.emptyButton} onclick={() => onCreateSession?.()} type="button">
+							Launch Agent
+						</button>
 					</div>
 				{/if}
 			</div>
