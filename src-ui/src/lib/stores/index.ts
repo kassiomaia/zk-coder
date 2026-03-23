@@ -35,3 +35,13 @@ export {
 	isSetupComplete
 } from './configStore.js';
 export type { ConfigState, ValidationState } from './configStore.js';
+
+// Agent store
+export {
+	agentStore,
+	activeSession,
+	pendingActions,
+	agentPanelOpen,
+	agentLoading,
+	agentError
+} from './agentStore.js';
