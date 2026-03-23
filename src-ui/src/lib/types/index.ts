@@ -68,6 +68,29 @@ export type {
 	CodeUnderstanding
 } from './nlp.js';
 
+// Agent types
+export type {
+	SessionId,
+	AgentId,
+	TrustMode,
+	TaskStatus,
+	PermissionLevel,
+	Agent,
+	AgentSession,
+	SessionState,
+	AgentTask,
+	TouchedFile,
+	TerminalLine,
+	PendingAction,
+	ActionType,
+	ActionPreview,
+	AgentEvent,
+	ExecutionStep,
+	StepAction,
+	StepResult,
+	ExecutionResult
+} from './agent.js';
+
 // NLP constants and utilities
 export {
 	INTENT_LABELS,
