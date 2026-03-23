@@ -4,12 +4,14 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod agent;
 pub mod chat;
 pub mod config;
 pub mod llm;
 pub mod nlp;
 
 // Re-export state types for convenience
+pub use agent::AgentState;
 pub use chat::ChatState;
 pub use config::ConfigState;
 pub use llm::LlmState;

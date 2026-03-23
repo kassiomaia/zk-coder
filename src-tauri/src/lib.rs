@@ -11,7 +11,7 @@ pub mod storage;
 pub mod tools;
 pub mod utils;
 
-use commands::{ChatState, ConfigState, LlmState, NlpState};
+use commands::{AgentState, ChatState, ConfigState, LlmState, NlpState};
 use std::path::PathBuf;
 use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
@@ -58,11 +58,17 @@ pub fn run() {
             let llm_state = LlmState::new(&config_db.to_string_lossy())
                 .expect("Failed to initialize LLM state");
 
+            // Initialize Agent state
+            let agent_db = data_dir.join("coder_agents.db");
+            let agent_state = AgentState::new(&agent_db.to_string_lossy())
+                .expect("Failed to initialize Agent state");
+
             // Manage states
             app.manage(nlp_state);
             app.manage(chat_state);
             app.manage(config_state);
             app.manage(llm_state);
+            app.manage(agent_state);
 
             // Configure logging - always log to file, also log to stdout in debug mode
             let log_targets = if cfg!(debug_assertions) {
@@ -142,6 +148,17 @@ pub fn run() {
             commands::llm::send_chat_message,
             commands::llm::send_chat_message_streaming,
             commands::llm::cancel_chat_request,
+            // Agent commands
+            commands::agent::create_agent_session,
+            commands::agent::get_agent_session,
+            commands::agent::get_agent_sessions_for_conversation,
+            commands::agent::cancel_agent_session,
+            commands::agent::delete_agent_session,
+            commands::agent::approve_agent_action,
+            commands::agent::deny_agent_action,
+            commands::agent::get_pending_agent_actions,
+            commands::agent::list_agents,
+            commands::agent::get_agent,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
