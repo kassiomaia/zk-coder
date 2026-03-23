@@ -155,6 +155,28 @@ pub enum AgentEvent {
         /// Timestamp when emitted
         timestamp: DateTime<Utc>,
     },
+
+    /// Context was compacted to stay within token limits.
+    ContextCompacted {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "conversationId")]
+        conversation_id: String,
+        /// Number of messages before compaction
+        #[serde(rename = "beforeCount")]
+        before_count: usize,
+        /// Number of messages after compaction
+        #[serde(rename = "afterCount")]
+        after_count: usize,
+        /// Estimated tokens before compaction
+        #[serde(rename = "beforeTokens")]
+        before_tokens: usize,
+        /// Estimated tokens after compaction
+        #[serde(rename = "afterTokens")]
+        after_tokens: usize,
+        /// Timestamp when compacted
+        timestamp: DateTime<Utc>,
+    },
 }
 
 /// Action performed on a file.

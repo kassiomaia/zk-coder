@@ -32,8 +32,17 @@ use super::task::{
 };
 use super::types::{ActionType, PermissionLevel, TrustMode};
 
-/// Maximum orchestration steps before aborting.
-const MAX_STEPS: u32 = 6;
+/// Approximate context window size for token budgeting (conservative 128k).
+const CONTEXT_WINDOW: usize = 128_000;
+
+/// Threshold (60%) at which to compact the context.
+const COMPRESSION_THRESHOLD: f64 = 0.60;
+
+/// Number of recent messages to preserve during compaction.
+const KEEP_RECENT_MESSAGES: usize = 15;
+
+/// Maximum same-action repetitions before detecting a loop.
+const MAX_REPETITIONS: u32 = 3;
 
 /// Maximum LLM retries for transient errors.
 const LLM_MAX_RETRIES: usize = 2;
@@ -53,8 +62,8 @@ pub enum AgentRuntimeError {
     SessionNotFound(String),
     #[error("LLM error: {0}")]
     Llm(String),
-    #[error("Max steps exceeded ({0})")]
-    MaxStepsExceeded(u32),
+    #[error("Detected repetitive action loop")]
+    LoopDetected,
     #[error("Action denied by user")]
     ActionDenied,
     #[error("Action timed out waiting for approval")]
@@ -63,6 +72,15 @@ pub enum AgentRuntimeError {
     Store(String),
     #[error("Config error: {0}")]
     Config(String),
+}
+
+/// Details about context compaction.
+#[derive(Debug, Clone)]
+struct CompactionDetails {
+    before_count: usize,
+    after_count: usize,
+    before_tokens: usize,
+    after_tokens: usize,
 }
 
 /// The agent runtime orchestrates LLM + tool execution with permissions.
@@ -116,10 +134,7 @@ impl AgentRuntime {
         // Update session state to running
         self.update_session_state(
             &session.id,
-            SessionState::Running {
-                current_step: 0,
-                max_steps: MAX_STEPS,
-            },
+            SessionState::Running { current_step: 0, context_usage: 0.0 },
             app_handle,
         )?;
 
@@ -141,20 +156,46 @@ impl AgentRuntime {
         let mut steps: Vec<ExecutionStep> = Vec::new();
         let mut total_input_tokens: u32 = 0;
         let mut total_output_tokens: u32 = 0;
+        let mut step_num: u32 = 0;
 
-        for step_num in 1..=MAX_STEPS {
-            info!(
-                "[AgentRuntime] Step {}/{} for session {}",
-                step_num, MAX_STEPS, session_id
-            );
+        // Track recent tool calls for loop detection: (tool_name, arguments_hash)
+        let mut recent_tool_calls: Vec<(String, u64)> = Vec::new();
 
-            // Update session state
+        // Agent runs until it has no more tool calls (decides it's done)
+        loop {
+            step_num += 1;
+            info!("[AgentRuntime] Step {} for session {}", step_num, session_id);
+
+            // Calculate context usage percentage
+            let estimated_tokens = Self::estimate_context_tokens(&llm_context);
+            let context_usage = (estimated_tokens as f64 / CONTEXT_WINDOW as f64 * 100.0).min(100.0);
+
+            // Auto-compact context if it's getting too large (60% of context window)
+            if let Some(compaction) = Self::maybe_compact_context(&mut llm_context) {
+                info!(
+                    "[AgentRuntime] Context compacted: {} messages → {}, {} tokens → {}",
+                    compaction.before_count, compaction.after_count, compaction.before_tokens, compaction.after_tokens
+                );
+
+                // Emit compaction event for frontend to show as chat message
+                let _ = app_handle.emit(
+                    AGENT_EVENT_NAME,
+                    AgentEvent::ContextCompacted {
+                        session_id: session_id.clone(),
+                        conversation_id: session.conversation_id.clone(),
+                        before_count: compaction.before_count,
+                        after_count: compaction.after_count,
+                        before_tokens: compaction.before_tokens,
+                        after_tokens: compaction.after_tokens,
+                        timestamp: Utc::now(),
+                    },
+                );
+            }
+
+            // Update session state with current context usage
             self.update_session_state(
                 &session.id,
-                SessionState::Running {
-                    current_step: step_num,
-                    max_steps: MAX_STEPS,
-                },
+                SessionState::Running { current_step: step_num, context_usage },
                 app_handle,
             )?;
 
@@ -205,7 +246,7 @@ impl AgentRuntime {
             );
             steps.push(llm_step);
 
-            // If no tool calls, we're done
+            // If no tool calls, we're done - agent has completed its task
             if response.tool_calls.is_empty() {
                 let result = AgentExecutionResult {
                     content: response.content,
@@ -239,6 +280,57 @@ impl AgentRuntime {
                 return Ok(result);
             }
 
+            // Check for repetitive action loops before executing tool calls
+            for tool_call in &response.tool_calls {
+                // Create a hash of the tool call arguments for comparison
+                let args_hash = {
+                    use std::hash::{Hash, Hasher};
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    tool_call.arguments.hash(&mut hasher);
+                    hasher.finish()
+                };
+
+                let tool_key = (tool_call.name.clone(), args_hash);
+
+                // Count how many times this exact tool call has appeared recently
+                let repeat_count = recent_tool_calls.iter().filter(|x| **x == tool_key).count();
+
+                if repeat_count >= MAX_REPETITIONS as usize {
+                    let msg = format!(
+                        "Detected repetitive loop: tool '{}' called with same arguments {} times",
+                        tool_call.name, repeat_count + 1
+                    );
+                    warn!("[AgentRuntime] {}", msg);
+
+                    self.update_session_state(
+                        &session.id,
+                        SessionState::Error {
+                            message: msg.clone(),
+                            recoverable: true,
+                        },
+                        app_handle,
+                    )?;
+
+                    return Err(AgentRuntimeError::LoopDetected);
+                }
+            }
+
+            // Add current tool calls to history
+            for tool_call in &response.tool_calls {
+                let args_hash = {
+                    use std::hash::{Hash, Hasher};
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    tool_call.arguments.hash(&mut hasher);
+                    hasher.finish()
+                };
+                recent_tool_calls.push((tool_call.name.clone(), args_hash));
+            }
+
+            // Keep only recent tool calls (last 10) for loop detection
+            if recent_tool_calls.len() > 10 {
+                recent_tool_calls.drain(0..recent_tool_calls.len() - 10);
+            }
+
             // Process tool calls with permission checks
             llm_context.push(Message::assistant_with_tool_calls(
                 response.content,
@@ -263,18 +355,6 @@ impl AgentRuntime {
                 ));
             }
         }
-
-        // Max steps exceeded
-        self.update_session_state(
-            &session.id,
-            SessionState::Error {
-                message: format!("Max steps exceeded ({MAX_STEPS})"),
-                recoverable: false,
-            },
-            app_handle,
-        )?;
-
-        Err(AgentRuntimeError::MaxStepsExceeded(MAX_STEPS))
     }
 
     /// Process tool calls with permission checks, requesting approval as needed.
@@ -732,6 +812,77 @@ impl AgentRuntime {
                 }
             }
         }
+    }
+
+    /// Estimate token count for the LLM context.
+    /// This is a rough estimate: ~4 chars per token for English text.
+    fn estimate_context_tokens(context: &[Message]) -> usize {
+        let total_chars: usize = context
+            .iter()
+            .map(|m| {
+                let content_len = m.as_text().map(|s| s.chars().count()).unwrap_or(0);
+                // Add overhead for role, tool calls, tool results, etc.
+                content_len + 100
+            })
+            .sum();
+        total_chars / 4 // Rough estimate: ~4 chars per token
+    }
+
+    /// Compact the context if it exceeds the compression threshold.
+    /// Keeps the most recent messages and discards older ones.
+    /// Returns compaction details if compaction occurred.
+    fn maybe_compact_context(context: &mut Vec<Message>) -> Option<CompactionDetails> {
+        let estimated = Self::estimate_context_tokens(context);
+        let threshold = (CONTEXT_WINDOW as f64 * COMPRESSION_THRESHOLD) as usize;
+
+        if estimated > threshold {
+            let before_count = context.len();
+            let before_tokens = estimated;
+            info!(
+                "[AgentRuntime] Context at {} tokens (threshold {}), compacting from {} messages...",
+                estimated, threshold, before_count
+            );
+
+            // Always keep the first message (usually user request) and most recent messages
+            if context.len() > KEEP_RECENT_MESSAGES + 1 {
+                // Keep first message + last N messages
+                let first = context.first().cloned();
+                let recent: Vec<Message> = context
+                    .iter()
+                    .rev()
+                    .take(KEEP_RECENT_MESSAGES)
+                    .cloned()
+                    .collect();
+
+                *context = recent.into_iter().rev().collect();
+
+                // Prepend the first message if it exists and isn't already included
+                if let Some(first_msg) = first {
+                    let first_text = first_msg.as_text();
+                    let already_has_first = context
+                        .iter()
+                        .any(|m| m.as_text() == first_text);
+                    if !already_has_first {
+                        context.insert(0, first_msg);
+                    }
+                }
+
+                let after_tokens = Self::estimate_context_tokens(context);
+                info!(
+                    "[AgentRuntime] Compacted context to {} messages, {} tokens",
+                    context.len(),
+                    after_tokens
+                );
+
+                return Some(CompactionDetails {
+                    before_count,
+                    after_count: context.len(),
+                    before_tokens,
+                    after_tokens,
+                });
+            }
+        }
+        None
     }
 }
 

@@ -90,8 +90,9 @@ pub enum SessionState {
     Running {
         #[serde(rename = "currentStep")]
         current_step: u32,
-        #[serde(rename = "maxSteps")]
-        max_steps: u32,
+        /// Context usage as a percentage (0-100) of the context window
+        #[serde(rename = "contextUsage")]
+        context_usage: f64,
     },
     /// Agent has finished a request and is waiting for the next one.
     WaitForRequest {

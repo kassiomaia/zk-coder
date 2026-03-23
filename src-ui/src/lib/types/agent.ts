@@ -57,7 +57,7 @@ export interface AgentSession {
  */
 export type SessionState =
 	| { type: 'launching' }
-	| { type: 'running'; currentStep: number; maxSteps: number }
+	| { type: 'running'; currentStep: number; contextUsage: number }
 	| { type: 'wait_for_request'; lastActionAt: string }
 	| { type: 'user_input_required'; pendingActionIds: string[] }
 	| { type: 'finished'; completedAt: string }
@@ -185,7 +185,17 @@ export type AgentEvent =
 			filePath: string;
 			action: FileAction;
 	  }
-	| { type: 'status_phrase'; sessionId: string; message: string; timestamp: string };
+	| { type: 'status_phrase'; sessionId: string; message: string; timestamp: string }
+	| {
+		type: 'context_compacted';
+		sessionId: string;
+		conversationId: string;
+		beforeCount: number;
+		afterCount: number;
+		beforeTokens: number;
+		afterTokens: number;
+		timestamp: string;
+	};
 
 /** Action performed on a file */
 export type FileAction = 'read' | 'write' | 'delete';

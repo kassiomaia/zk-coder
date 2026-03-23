@@ -73,7 +73,7 @@
 			case 'launching':
 				return 'Launching...';
 			case 'running':
-				return `Step ${session.state.currentStep}/${session.state.maxSteps}`;
+				return `Step ${session.state.currentStep}`;
 			case 'wait_for_request':
 				return 'Idle';
 			case 'user_input_required':
@@ -121,6 +121,21 @@
 
 	function closeFileDiff() {
 		showFileDiff = false;
+	}
+
+	/** Calculate total tokens used from all execution steps */
+	let totalTokensUsed = $derived(() => {
+		return session.executionSteps?.reduce((sum, step) => {
+			return sum + (step.result?.tokensUsed ?? 0);
+		}, 0) ?? 0;
+	});
+
+	/** Format token count for display (e.g., 12.5k) */
+	function formatTokenCount(tokens: number): string {
+		if (tokens >= 1000) {
+			return `${(tokens / 1000).toFixed(1)}k`;
+		}
+		return tokens.toString();
 	}
 </script>
 
@@ -224,7 +239,10 @@
 			<Activity size={14} />
 			<span>Progress</span>
 			{#if session.state.type === 'running'}
-				<span class="badge">{session.state.currentStep}/{session.state.maxSteps}</span>
+				<span class="badge">{session.state.currentStep}</span>
+			{/if}
+			{#if totalTokensUsed() > 0}
+				<span class="badge tokens" title="Total tokens used">{formatTokenCount(totalTokensUsed())} tokens</span>
 			{/if}
 		</button>
 		{#if stepsExpanded && (session.executionSteps?.length ?? 0) > 0}
@@ -538,6 +556,12 @@
 		font-size: var(--text-2xs);
 		color: var(--color-text-muted);
 		line-height: 1.6;
+	}
+
+	.badge.tokens {
+		background: var(--color-primary-900);
+		color: var(--color-primary-300);
+		font-weight: 500;
 	}
 
 	/* Execution Steps */

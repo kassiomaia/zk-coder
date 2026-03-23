@@ -15,6 +15,8 @@ export interface AgentStatus {
 	active: boolean;
 	/** Array of phrases to rotate through (from LLM-generated status updates) */
 	phrases?: string[];
+	/** Context usage percentage (0-100) - if > 50, will be shown in status */
+	contextUsage?: number;
 }
 
 /** Default idle status */
@@ -157,8 +159,12 @@ export function getAgentStatus(
 	latestStep: ExecutionStep | null,
 	currentSubtask: SubTask | null,
 	hasPendingApproval: boolean,
-	statusPhrases?: string[]
+	statusPhrases?: string[],
+	contextUsage?: number
 ): AgentStatus {
+	// Extract context usage from state if not provided
+	const usage = contextUsage ?? (state?.type === 'running' ? state.contextUsage : 0);
+
 	// Approval pending takes priority
 	if (hasPendingApproval) {
 		return WAITING_STATUS;
@@ -166,29 +172,52 @@ export function getAgentStatus(
 
 	// LLM-generated status phrases take priority when available and agent is running
 	if (state?.type === 'running' && statusPhrases && statusPhrases.length > 0) {
+		let text = statusPhrases[statusPhrases.length - 1];
+		// Append context usage if > 50%
+		if (usage > 50) {
+			text += ` (${Math.round(usage)}%)`;
+		}
 		return {
-			text: statusPhrases[statusPhrases.length - 1], // Latest phrase as current text
+			text,
 			icon: 'sparkle',
 			active: true,
-			phrases: statusPhrases
+			phrases: statusPhrases,
+			contextUsage: usage
 		};
 	}
 
 	// Latest execution step
 	if (latestStep) {
 		const stepStatus = stepToStatus(latestStep);
-		if (stepStatus) return stepStatus;
+		if (stepStatus) {
+			// Append context usage if > 50%
+			if (usage > 50) {
+				return { ...stepStatus, text: `${stepStatus.text} (${Math.round(usage)}%)`, contextUsage: usage };
+			}
+			return stepStatus;
+		}
 	}
 
 	// Current in-progress subtask
 	if (currentSubtask && currentSubtask.status === 'in_progress') {
 		const subtaskStatus = subtaskToStatus(currentSubtask);
-		if (subtaskStatus) return subtaskStatus;
+		if (subtaskStatus) {
+			// Append context usage if > 50%
+			if (usage > 50) {
+				return { ...subtaskStatus, text: `${subtaskStatus.text} (${Math.round(usage)}%)`, contextUsage: usage };
+			}
+			return subtaskStatus;
+		}
 	}
 
 	// Fall back to session state
 	if (state) {
-		return stateToStatus(state);
+		const status = stateToStatus(state);
+		// Append context usage if > 50%
+		if (usage > 50) {
+			return { ...status, text: `${status.text} (${Math.round(usage)}%)`, contextUsage: usage };
+		}
+		return status;
 	}
 
 	// Default idle

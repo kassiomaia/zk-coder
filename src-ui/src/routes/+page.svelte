@@ -4,6 +4,7 @@
 	 * Connected to the real backend via chat store.
 	 */
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { invoke } from '@tauri-apps/api/core';
 	import ChatLayout from '$lib/components/layout/ChatLayout.svelte';
 	import ProvidersModal from '$lib/components/config/ProvidersModal.svelte';
@@ -333,6 +334,49 @@
 			}
 		});
 		console.debug('[+page] Execution complete callback registered');
+
+		// Set callback to add system messages from agent (e.g., context compaction)
+		agentStore.setSystemMessageCallback(async (conversationId, content) => {
+			console.debug('[+page] System message callback invoked:', { conversationId, content });
+
+			// Get the current thread for this conversation
+			const state = get(chatStore);
+			const threadId = state.selectedThreadId;
+
+			if (!threadId) {
+				console.warn('[+page] No active thread for system message');
+				return;
+			}
+
+			try {
+				// Add system message as a special user message with indicator
+				// Using role: 'user' with special styling for visibility
+				const { sendMessage } = await import('$lib/api/chat');
+				const savedMessage = await sendMessage({
+					conversationId,
+					threadId,
+					role: 'user',
+					content
+				});
+
+				// Add to local state
+				chatStore.addMessage(savedMessage);
+				console.debug('[+page] System message persisted and added to chatStore:', savedMessage.id);
+			} catch (error) {
+				console.error('[+page] Failed to persist system message:', error);
+				// Still add locally even if backend save fails
+				chatStore.addMessage({
+					id: crypto.randomUUID(),
+					conversationId,
+					threadId,
+					role: 'user',
+					content,
+					timestamp: new Date(),
+					status: 'error'
+				});
+			}
+		});
+		console.debug('[+page] System message callback registered');
 
 		// Initialize config store and show providers modal if no providers configured
 		await configStore.initialize();

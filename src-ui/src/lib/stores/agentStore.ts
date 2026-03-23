@@ -33,6 +33,9 @@ function createAgentStore() {
 		| ((conversationId: string, threadId: string, content: string) => void)
 		| null = null;
 
+	/** Callback for agent system messages (e.g., context compaction) - returns (conversationId, message) */
+	let onSystemMessage: ((conversationId: string, message: string) => void) | null = null;
+
 	/**
 	 * Set a callback for execution completion.
 	 * This allows the chat store to add the assistant message when the agent finishes.
@@ -41,6 +44,14 @@ function createAgentStore() {
 		callback: (conversationId: string, threadId: string, content: string) => void
 	) {
 		onExecutionComplete = callback;
+	}
+
+	/**
+	 * Set a callback for system messages from the agent.
+	 * This allows adding informative messages to the chat (e.g., context compaction).
+	 */
+	function setSystemMessageCallback(callback: (conversationId: string, message: string) => void) {
+		onSystemMessage = callback;
 	}
 
 	/**
@@ -193,7 +204,7 @@ function createAgentStore() {
 					if (session) {
 						state.sessions.set(event.sessionId, {
 							...session,
-							state: { type: 'running', currentStep: 0, maxSteps: 6 }
+							state: { type: 'running', currentStep: 0, contextUsage: 0 }
 						});
 					}
 					break;
@@ -203,13 +214,15 @@ function createAgentStore() {
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
 						const existingSteps = session.executionSteps ?? [];
+						// Preserve context usage from current state
+						const currentUsage = session.state.type === 'running' ? session.state.contextUsage : 0;
 						state.sessions.set(event.sessionId, {
 							...session,
 							executionSteps: [...existingSteps, event.step],
 							state: {
 								type: 'running',
 								currentStep: event.step.stepNumber,
-								maxSteps: 6
+								contextUsage: currentUsage
 							}
 						});
 					}
@@ -288,6 +301,14 @@ function createAgentStore() {
 							...session,
 							statusPhrases: newPhrases
 						});
+					}
+					break;
+				}
+				case 'context_compacted': {
+					// Context was compacted - send system message to chat
+					if (onSystemMessage) {
+						const summary = `🗜️ **Context compacted**\n\n${event.beforeCount} → ${event.afterCount} messages\n${event.beforeTokens.toLocaleString()} → ${event.afterTokens.toLocaleString()} tokens`;
+						onSystemMessage(event.conversationId, summary);
 					}
 					break;
 				}
@@ -633,6 +654,7 @@ function createAgentStore() {
 		subscribe,
 		initialize,
 		setExecutionCompleteCallback,
+		setSystemMessageCallback,
 		createSession,
 		sendRequest,
 		approveAction,

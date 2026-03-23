@@ -538,12 +538,16 @@
 					?.flatMap((t) => t.subtasks ?? [])
 					.find((st) => st.status === 'in_progress') ?? null;
 
+			// Get context usage from session state
+			const contextUsage = session.state.type === 'running' ? session.state.contextUsage : 0;
+
 			return getAgentStatus(
 				session.state,
 				latestStep,
 				currentSubtask,
 				hasPendingApproval,
-				session.statusPhrases
+				session.statusPhrases,
+				contextUsage
 			);
 		})()
 	);
