@@ -166,16 +166,14 @@
 
 	.line-content {
 		padding: 0 var(--space-2);
-		white-space: pre-wrap;
-		word-break: break-all;
+		white-space: pre;
 		color: var(--color-text-primary);
 	}
 
 	.line-content pre {
 		margin: 0;
 		font: inherit;
-		white-space: pre-wrap;
-		word-break: break-all;
+		white-space: pre;
 	}
 
 	/* Scrollbar */

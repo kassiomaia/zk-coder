@@ -45,12 +45,20 @@
 		{@const hasSubtasks = task.subtasks && task.subtasks.length > 0}
 		{@const isExpanded = expandedTasks.has(task.id)}
 		<div class="task-wrapper">
-			<button
+			<div
 				class="task-item"
 				class:selected={task.selected}
-				onclick={() => ontaskclick?.(task)}
-				type="button"
+				class:clickable={ontaskclick !== undefined}
+				role="button"
+				tabindex={ontaskclick ? 0 : -1}
 				aria-label="{task.title} - {task.status}"
+				onclick={() => ontaskclick?.(task)}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						ontaskclick?.(task);
+					}
+				}}
 			>
 				<span class="status-icon {getStatusClass(task.status)}">
 					{#if task.status === 'in_progress'}
@@ -87,7 +95,7 @@
 						{/if}
 					</button>
 				{/if}
-			</button>
+			</div>
 			{#if hasSubtasks && isExpanded}
 				<div class="subtasks">
 					{#each task.subtasks as subtask (subtask.id)}
@@ -148,22 +156,24 @@
 		text-align: left;
 		width: 100%;
 		background: transparent;
-		border: none;
+	}
+
+	.task-item.clickable {
 		cursor: pointer;
 		transition: background var(--transition-fast);
 	}
 
-	.task-item:hover {
+	.task-item.clickable:hover {
 		background: var(--color-interactive-hover);
+	}
+
+	.task-item.clickable:focus-visible {
+		outline: 2px solid var(--color-primary-500);
+		outline-offset: -2px;
 	}
 
 	.task-item.selected {
 		background: var(--color-interactive-selected);
-	}
-
-	.task-item:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: -2px;
 	}
 
 	.status-icon {

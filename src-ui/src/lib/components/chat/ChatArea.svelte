@@ -434,7 +434,7 @@
 			controllerHandleUserSendMessage(currentThreadId);
 		}
 
-		if (canSubmit) {
+		if (canSubmit && onSendMessage) {
 			onSendMessage(content, { modelId: selectedModelId ?? undefined });
 			inputValue = '';
 			// Keep selected model for subsequent messages in this conversation
