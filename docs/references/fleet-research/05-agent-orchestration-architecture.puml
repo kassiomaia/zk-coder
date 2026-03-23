@@ -1,0 +1,67 @@
+@startuml Agent Orchestration Architecture
+
+!theme plain
+skinparam linetype ortho
+skinparam nodesep 100
+skinparam ranksep 100
+
+title Agent Orchestration Architecture
+
+package "Frontend Layer" {
+    component "User Interface" as UI
+    component "Agent Chat Request API" as ChatAPI
+    component "Agent Compatibility" as AgentCompat
+}
+
+package "Agent Layer" {
+    component "Agent Launcher API" as LauncherAPI
+    component "Agent Session" as Session
+    component "Agent Frontend" as AgentFrontend
+    component "Direct Request Executor" as DirectExec
+}
+
+package "Protocol Layer" {
+    component "ACP" as ACP
+    component "MCP" as MCP
+    component "Claude Protocol" as Claude
+}
+
+package "External Services" {
+    component "LLM Provider" as LLM
+    component "Terminal" as Terminal
+    component "File System" as FileSystem
+    component "External Tools" as ExtTools
+}
+
+package "Context & Permissions" {
+    component "Context Manager" as Context
+    component "Permission System" as Perm
+}
+
+UI --> ChatAPI : "User Input"
+ChatAPI --> AgentCompat : "sendRequest()"
+AgentCompat --> LauncherAPI : "createSession()"
+LauncherAPI --> Session : "Start Agent"
+Session --> AgentFrontend : "buildArguments()"
+AgentFrontend --> Claude : "Claude Protocol"
+Claude --> LLM : "API Request"
+LLM --> Claude : "Response"
+Claude --> AgentFrontend : "Stream Events"
+AgentFrontend --> LauncherAPI : "sendRequest()"
+LauncherAPI --> ACP : "Control Commands"
+ACP --> Terminal : "Terminal Operations"
+ACP --> FileSystem : "File Operations"
+ACP --> Perm : "Permission Check"
+Session --> Context : "Context Access"
+Context --> Perm : "Token Management"
+AgentFrontend --> MCP : "Tool Requests"
+MCP --> ExtTools : "Execute Tools"
+
+legend right
+  = Agent Orchestration Components
+  = Communication Protocols
+  = External Services
+  = Core Systems
+endlegend
+
+@enduml

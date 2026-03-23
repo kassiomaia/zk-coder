@@ -1,0 +1,49 @@
+@startuml Agent Request Sequence Diagram
+
+!theme plain
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 80
+
+title Agent Request Processing Sequence
+
+actor User as U
+participant ChatUI as UI
+participant AgentChatRequestApi as API
+participant ChatAgentSessionEntity as Session
+participant AgentLauncherApi as Launcher
+participant AgentSession as AgSession
+participant AgentFrontend as Frontend
+participant LLMProvider as LLM
+
+U -> UI: Enter request
+UI -> API: sendRequest(request)
+API -> Session: Get/Create session
+Session -> Launcher: createSession(config)
+Launcher -> AgSession: Start agent process
+AgSession --> Launcher: Agent started
+
+note right of Launcher
+  AgentLauncherApi handles
+  session lifecycle and
+  RPC communication
+end note
+
+AgSession -> Frontend: buildArguments()
+Frontend -> AgSession: Request preparation
+AgSession -> LLM: API request
+LLM -> Frontend: Stream response
+Frontend -> AgSession: Response events
+AgSession -> Launcher: Event stream
+Launcher -> API: Event updates
+API -> UI: Update UI
+
+U -> UI: View response
+
+note over Session,Frontend
+  Session checks permissions
+  and builds context before
+  sending to LLM provider
+end note
+
+@enduml

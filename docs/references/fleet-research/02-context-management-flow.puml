@@ -1,0 +1,72 @@
+@startuml Context Management Flow
+
+!theme plain
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 80
+
+title Context Management Flow
+
+package "Context Types" {
+    component "Global Context" as Global
+    component "Pinned Context" as Pinned
+    component "Local Context" as Local
+    component "Context Entry" as Entry
+}
+
+package "Context Operations" {
+    component "Context Collector" as Collector
+    component "Token Manager" as TokenMgr
+    component "Context Cleanup" as Cleanup
+}
+
+package "Usage" {
+    component "Chat 1" as Chat1
+    component "Chat 2" as Chat2
+    component "Parallel Task 1" as Task1
+    component "Parallel Task 2" as Task2
+}
+
+' Global context flow
+Global --> Collector : "Shared Baseline"
+Pinned --> Collector : "Chat-specific Priority"
+Local --> Collector : "Isolated Entries"
+
+' Context collection
+Collector --> Chat1 : "collectContext()"
+Collector --> Chat2 : "collectContext()"
+
+' Token management
+TokenMgr --> Collector : "Token Budget"
+TokenMgr --> Entry : "Count Tokens"
+TokenMgr --> Cleanup : "Cleanup Stale"
+
+' Context cleanup
+Cleanup --> Entry : "Remove Obsolete"
+Cleanup --> Pinned : "AI Analysis"
+
+' Parallel task usage
+Chat1 --> Task1 : "Context View"
+Chat2 --> Task2 : "Context View"
+
+Task1 --> Global : "Read Shared"
+Task1 --> Local : "Read Isolated"
+Task1 --> TokenMgr : "Budget Check"
+
+Task2 --> Global : "Read Shared"
+Task2 --> Local : "Read Isolated"
+Task2 --> TokenMgr : "Budget Check"
+
+' Context manipulation
+Entry --> Pinned : "Toggle Pin"
+Entry --> Cleanup : "Mark for Removal"
+Entry --> TokenMgr : "Update Count"
+
+legend right
+  = Context Types
+  = Context Operations
+  = Usage Scenarios
+  = Data Flow
+endlegend
+
+@enduml
