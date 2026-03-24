@@ -8,6 +8,7 @@
 
 import type { Message } from '$lib/types/message';
 import styles from './ThinkingMessage.module.css';
+import { Cpu, ChevronDown, ChevronUp } from 'lucide-svelte';
 
 interface Props {
 	message: Message;
@@ -17,6 +18,7 @@ let { message }: Props = $props();
 
 // Use $derived for reactive values from props
 const content = $derived(message.content || 'Analyzing request...');
+const modelName = $derived(message.metadata?.model);
 
 // Collapsed state
 let collapsed = $state(false);
@@ -24,12 +26,6 @@ let collapsed = $state(false);
 function toggleCollapse() {
 	collapsed = !collapsed;
 }
-
-// Auto-collapse after completion (if message is done)
-$effect(() => {
-	// If this is not a transient message, it means the agent is done
-	// We could auto-collapse here, but let's keep it manual for now
-});
 </script>
 
 <div class={[styles.thinkingMessage, collapsed && styles.collapsed].filter(Boolean).join(' ')}>
@@ -40,9 +36,22 @@ $effect(() => {
 		aria-label={collapsed ? 'Expand thinking' : 'Collapse thinking'}
 		aria-expanded={!collapsed}
 	>
-		<span class={styles.icon} class:animate={true}>💭</span>
+		<span class={styles.iconContainer}>
+			<Cpu size={14} class={styles.icon} />
+		</span>
 		<span class={styles.label}>Thinking...</span>
-		<span class={styles.toggle}>{collapsed ? '+' : '−'}</span>
+		
+		{#if modelName}
+			<span class={styles.modelTag}>{modelName}</span>
+		{/if}
+
+		<span class={styles.toggle}>
+			{#if collapsed}
+				<ChevronDown size={14} />
+			{:else}
+				<ChevronUp size={14} />
+			{/if}
+		</span>
 	</button>
 
 	{#if !collapsed}
@@ -53,8 +62,7 @@ $effect(() => {
 </div>
 
 <style>
-	.animate {
-		display: inline-block;
+	:global(.lucide-cpu) {
 		animation: pulse 2s ease-in-out infinite;
 	}
 
@@ -66,7 +74,7 @@ $effect(() => {
 		}
 		50% {
 			opacity: 0.7;
-			transform: scale(1.05);
+			transform: scale(1.1);
 		}
 	}
 </style>

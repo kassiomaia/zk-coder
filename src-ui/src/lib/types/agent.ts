@@ -46,6 +46,7 @@ export interface AgentSession {
 	tasks?: AgentTask[];
 	filesTouched?: TouchedFile[];
 	terminalOutput?: TerminalLine[];
+	toolCalls?: ToolCallRecord[];
 	executionSteps?: ExecutionStep[]; // Track execution steps for UI progress display
 	statusPhrases?: string[]; // Accumulated status phrases for rotation
 	streamingAssistantContent?: string; // Accumulated content for streaming assistant message
@@ -103,7 +104,20 @@ export interface TouchedFile {
 }
 
 /**
- * Terminal output line
+ * Tool call record (for technical debugging/tracing)
+ */
+export interface ToolCallRecord {
+	id: string;
+	tool: string;
+	arguments: Record<string, any>;
+	result?: Record<string, any>;
+	isError?: boolean;
+	durationMs?: number;
+	timestamp: string;
+}
+
+/**
+ * Terminal output line (Legacy/Stream output)
  */
 export interface TerminalLine {
 	id: string;

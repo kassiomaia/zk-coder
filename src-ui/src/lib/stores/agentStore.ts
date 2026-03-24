@@ -428,24 +428,23 @@ function createAgentStore() {
 					break;
 				}
 				case 'tool_call': {
-					// Log tool call to terminal and create tool call message in chat
+					// Log tool call to toolCalls and create tool call message in chat
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
-						const argsStr = JSON.stringify(event.arguments);
-						const line: import('$lib/types/agent').TerminalLine = {
-							id: crypto.randomUUID(),
-							type: 'info',
-							content: `→ ${event.tool}(${argsStr.length > 100 ? argsStr.slice(0, 100) + '...' : argsStr})`,
+						const record: import('$lib/types/agent').ToolCallRecord = {
+							id: `tool-${event.sessionId}-${event.tool}`,
+							tool: event.tool,
+							arguments: event.arguments,
 							timestamp: new Date().toISOString()
 						};
+
 						state.sessions.set(event.sessionId, {
 							...session,
-							terminalOutput: [...(session.terminalOutput ?? []), line]
+							toolCalls: [...(session.toolCalls ?? []), record]
 						});
 
 						// Create tool call message in chat
-						// Use a consistent ID that can be updated when tool_result arrives
-						const toolCallId = `tool-${event.sessionId}-${event.tool}`;
+						const toolCallId = record.id;
 						if (onAgentActivity) {
 							onAgentActivity(session.conversationId, session.threadId, {
 								id: toolCallId,
@@ -459,7 +458,6 @@ function createAgentStore() {
 									toolArgs: event.arguments,
 									sessionId: event.sessionId,
 									expanded: false,
-									// Track that this is a call (not result yet)
 									toolCallStatus: 'pending'
 								},
 								timestamp: new Date()
@@ -469,28 +467,30 @@ function createAgentStore() {
 					break;
 				}
 				case 'tool_result': {
-					// Log tool result to terminal and update tool call message
+					// Update tool call record and tool call message
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
-						const status = event.isError ? '❌' : '✓';
-						const resultStr = JSON.stringify(event.result);
-						const line: import('$lib/types/agent').TerminalLine = {
-							id: crypto.randomUUID(),
-							type: event.isError ? 'stderr' : 'stdout',
-							content: `${status} ${event.tool}: ${resultStr.length > 200 ? resultStr.slice(0, 200) + '...' : resultStr}`,
-							timestamp: new Date().toISOString()
-						};
+						const toolCallId = `tool-${event.sessionId}-${event.tool}`;
+						const toolCalls = (session.toolCalls ?? []).map((call) => {
+							if (call.id === toolCallId) {
+								return {
+									...call,
+									result: event.result,
+									isError: event.isError
+								};
+							}
+							return call;
+						});
+
 						state.sessions.set(event.sessionId, {
 							...session,
-							terminalOutput: [...(session.terminalOutput ?? []), line]
+							toolCalls
 						});
 
 						// Update the existing tool call message with result
-						// Use the SAME ID as the tool_call so it updates the existing message
-						const toolCallId = `tool-${event.sessionId}-${event.tool}`;
 						if (onAgentActivity) {
 							onAgentActivity(session.conversationId, session.threadId, {
-								id: toolCallId, // Same ID as tool_call to update the existing message
+								id: toolCallId,
 								conversationId: session.conversationId,
 								threadId: session.threadId,
 								role: 'assistant',

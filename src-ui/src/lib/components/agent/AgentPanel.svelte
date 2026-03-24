@@ -17,7 +17,7 @@
 	} from 'lucide-svelte';
 	import TaskList from './TaskList.svelte';
 	import FileTree from './FileTree.svelte';
-	import TerminalView from './TerminalView.svelte';
+	import ToolCallsView from './ToolCallsView.svelte';
 	import ApprovalDialog from './ApprovalDialog.svelte';
 	import WorkspaceSelector from './WorkspaceSelector.svelte';
 	import SessionTabs from './SessionTabs.svelte';
@@ -56,7 +56,7 @@
 	let tasksExpanded = $state(true);
 	let stepsExpanded = $state(true);
 	let filesExpanded = $state(true);
-	let terminalExpanded = $state(false);
+	let toolCallsExpanded = $state(false);
 
 	/** Modal states */
 	let showSessionHistory = $state(false);
@@ -268,29 +268,29 @@
 		{/if}
 	</section>
 
-	<!-- Terminal section -->
-	<section class="panel-section terminal-section">
+	<!-- Tool Calls section -->
+	<section class="panel-section tool-calls-section">
 		<button
 			class="section-header"
-			onclick={() => (terminalExpanded = !terminalExpanded)}
+			onclick={() => (toolCallsExpanded = !toolCallsExpanded)}
 			type="button"
-			aria-expanded={terminalExpanded}
-			aria-controls="terminal-section"
+			aria-expanded={toolCallsExpanded}
+			aria-controls="tool-calls-section"
 		>
 			<span class="header-main">
-				<span class="chevron-icon" class:is-expanded={terminalExpanded}>
+				<span class="chevron-icon" class:is-expanded={toolCallsExpanded}>
 					<ChevronRight size={14} strokeWidth={2.5} />
 				</span>
-				<span class="header-label">Terminal</span>
+				<span class="header-label">Tool Calls</span>
 			</span>
 
 			<div class="header-meta">
-				<Terminal size={13} strokeWidth={1.5} class="section-icon" />
+				<Activity size={13} strokeWidth={1.5} class="section-icon" />
 			</div>
 		</button>
-		{#if terminalExpanded}
-			<div id="terminal-section" class="terminal-content">
-				<TerminalView output={session.terminalOutput ?? []} />
+		{#if toolCallsExpanded}
+			<div id="tool-calls-section" class="tool-calls-content">
+				<ToolCallsView toolCalls={session.toolCalls ?? []} />
 			</div>
 		{/if}
 	</section>
@@ -638,7 +638,7 @@
 		flex-shrink: 0;
 	}
 
-	.terminal-section {
+	.tool-calls-section {
 		flex: 1;
 		min-height: 200px;
 		display: flex;
@@ -647,7 +647,7 @@
 		margin-top: auto;
 	}
 
-	.terminal-content {
+	.tool-calls-content {
 		flex: 1;
 		min-height: 0;
 		display: flex;

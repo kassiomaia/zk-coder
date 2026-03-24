@@ -9,18 +9,21 @@
 import type { Message } from '$lib/types/message';
 import styles from './ToolCallMessage.module.css';
 import {
-	FileText,
-	Edit,
-	Trash2,
-	Zap,
-	Search,
-	Globe,
-	Wrench,
-	Check,
-	X,
+	Activity,
 	ChevronDown,
-	ChevronUp
+	ChevronUp,
+	CheckCircle2,
+	AlertCircle,
+	Clock,
+	FileText,
+	FilePenLine,
+	FileSearch,
+	Terminal,
+	Globe,
+	Code
 } from 'lucide-svelte';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
 
 interface Props {
 	message: Message;
@@ -32,6 +35,7 @@ let { message }: Props = $props();
 const agentData = $derived(message.agentData);
 const toolName = $derived(agentData?.toolName ?? 'unknown');
 const toolCallStatus = $derived(agentData?.toolCallStatus ?? 'pending');
+const isError = $derived(toolCallStatus === 'error');
 
 let expanded = $state(false);
 
@@ -39,35 +43,52 @@ function toggleExpand() {
 	expanded = !expanded;
 }
 
-function getToolIcon(name: string): typeof FileText {
-	// Return an icon component based on the tool name
-	const iconMap: Record<string, any> = {
-		read_file: FileText,
-		write_file: Edit,
-		delete_file: Trash2,
-		execute_command: Zap,
-		web_search: Search,
-		web_fetch: Globe
-	};
-	return iconMap[name] || Wrench;
+const toolIconMap: Record<string, any> = {
+	'fs_read_file': FileText,
+	'fs_write_file': FilePenLine,
+	'fs_glob': FileSearch,
+	'fs_grep': FileSearch,
+	'execute_command': Terminal,
+	'web_request': Globe,
+	'llm_request': Code,
+	'read_file': FileText, // compatibility
+	'write_file': FilePenLine, // compatibility
+	'web_fetch': Globe // compatibility
+};
+
+const ToolIcon = $derived(toolIconMap[toolName] || Activity);
+
+function formatJSON(obj: any): string {
+	if (!obj) return '';
+	try {
+		const json = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+		return hljs.highlight(json, { language: 'json' }).value;
+	} catch (e) {
+		return String(obj);
+	}
 }
 
-const ToolIcon = $derived(getToolIcon(toolName));
-
-function formatArgs(args: Record<string, unknown> | undefined): string {
-	if (!args) return '';
-	return JSON.stringify(args, null, 2);
+function getPrimaryArg(data: any): string {
+	if (!data?.toolArgs) return '';
+	const args = data.toolArgs;
+	if (args.path) return String(args.path);
+	if (args.pattern) return String(args.pattern);
+	if (args.command) return String(args.command);
+	if (args.url) return String(args.url);
+	return '';
 }
 
-function formatResult(result: unknown): string {
-	if (result === null || result === undefined) return '';
-	if (typeof result === 'string') return result;
-	return JSON.stringify(result, null, 2);
+function formatTime(date: Date): string {
+	return date.toLocaleTimeString('en-US', {
+		hour12: false,
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit'
+	});
 }
 </script>
 
-<div class={[styles.toolCall, expanded && styles.expanded].filter(Boolean).join(' ')}>
-	<!-- Collapsed header (always visible) -->
+<div class={[styles.toolCall, expanded && styles.expanded, isError && styles.hasError].filter(Boolean).join(' ')}>
 	<button
 		class={styles.header}
 		onclick={toggleExpand}
@@ -75,52 +96,62 @@ function formatResult(result: unknown): string {
 		aria-label={expanded ? 'Collapse tool call' : 'Expand tool call'}
 		aria-expanded={expanded}
 	>
-		<span class={styles.icon}>
-			<ToolIcon size={16} />
+		<span class={styles.chevron} class:rotated={expanded}>
+			<ChevronDown size={14} />
 		</span>
+		
+		<span class={styles.toolIcon}>
+			<ToolIcon size={14} />
+		</span>
+
 		<span class={styles.toolName}>{toolName}</span>
-		<span class={[styles.status, toolCallStatus === 'error' && styles.error, toolCallStatus === 'pending' && styles.pending].filter(Boolean).join(' ')}>
+		
+		{#if getPrimaryArg(agentData)}
+			<span class={styles.primaryArg}>{getPrimaryArg(agentData)}</span>
+		{/if}
+
+		<div class={styles.headerMeta}>
 			{#if toolCallStatus === 'pending'}
 				<span class={styles.spinner}></span>
-			{:else if toolCallStatus === 'error'}
-				<X size={14} />
+			{:else if isError}
+				<span class={[styles.statusIcon, styles.error].join(' ')}>
+					<AlertCircle size={14} />
+				</span>
 			{:else}
-				<Check size={14} />
+				<span class={styles.statusIcon}>
+					<CheckCircle2 size={14} />
+				</span>
 			{/if}
-		</span>
-		<span class={styles.toggle}>
-			{#if expanded}
-				<ChevronUp size={14} />
-			{:else}
-				<ChevronDown size={14} />
-			{/if}
-		</span>
+		</div>
 	</button>
 
-	<!-- Expanded content -->
 	{#if expanded}
 		<div class={styles.content}>
 			{#if agentData?.toolArgs && Object.keys(agentData.toolArgs).length > 0}
 				<div class={styles.section}>
 					<div class={styles.sectionTitle}>Arguments</div>
-					<pre class={[styles.code, styles.args].filter(Boolean).join('')}><code>{formatArgs(agentData.toolArgs)}</code></pre>
+					<pre class={styles.jsonBlock}>{@html formatJSON(agentData.toolArgs)}</pre>
 				</div>
 			{/if}
 
 			{#if agentData?.streamingContent || agentData?.toolResult !== undefined}
 				<div class={styles.section}>
-					<div class={styles.sectionTitle}>Output</div>
-					<pre class={[styles.code, styles.output].filter(Boolean).join(' ')}><code>{agentData.streamingContent ?? formatResult(agentData.toolResult)}</code></pre>
+					<div class={styles.sectionTitle}>Result</div>
+					<pre class={styles.jsonBlock}>{@html formatJSON(agentData.streamingContent ?? agentData.toolResult)}</pre>
 				</div>
 			{/if}
 
 			{#if agentData?.exitCode !== undefined}
 				<div class={styles.section}>
 					<div class={styles.exitCode}>
-						Exit code: {agentData.exitCode ?? 'unknown'}
+						Exit code: {agentData.exitCode}
 					</div>
 				</div>
 			{/if}
+			
+			<div class={styles.timestampFooter}>
+				Executed at {formatTime(message.timestamp)}
+			</div>
 		</div>
 	{/if}
 </div>
