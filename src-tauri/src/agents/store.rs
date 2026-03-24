@@ -74,9 +74,11 @@ impl SessionStore {
                 task_id TEXT NOT NULL,
                 title TEXT NOT NULL,
                 description TEXT,
+                mode TEXT NOT NULL DEFAULT 'full_access',
                 status TEXT NOT NULL,
                 order_index INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
+                started_at TEXT,
                 completed_at TEXT,
                 FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
             );
@@ -138,6 +140,33 @@ impl SessionStore {
                 ON agent_tool_calls(session_id);
             ",
         )?;
+
+        // Run migrations for schema updates
+        Self::run_migrations(conn)?;
+
+        Ok(())
+    }
+
+    /// Run database migrations for schema updates.
+    fn run_migrations(conn: &Connection) -> Result<(), SessionStoreError> {
+        // Migration 1: Add mode column to agent_subtasks
+        let _ = conn.execute(
+            "ALTER TABLE agent_subtasks ADD COLUMN mode TEXT NOT NULL DEFAULT 'full_access'",
+            [],
+        ); // Ignore error if column exists
+
+        // Migration 2: Add started_at column to agent_subtasks
+        let _ = conn.execute(
+            "ALTER TABLE agent_subtasks ADD COLUMN started_at TEXT",
+            [],
+        ); // Ignore error if column exists
+
+        // Migration 3: Add subtask_id column to agent_tool_calls
+        let _ = conn.execute(
+            "ALTER TABLE agent_tool_calls ADD COLUMN subtask_id TEXT REFERENCES agent_subtasks(id)",
+            [],
+        ); // Ignore error if column exists
+
         Ok(())
     }
 
@@ -414,16 +443,18 @@ impl SessionStore {
             .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
 
         conn.execute(
-            "INSERT INTO agent_subtasks (id, task_id, title, description, status, order_index, created_at, completed_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO agent_subtasks (id, task_id, title, description, mode, status, order_index, created_at, started_at, completed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 subtask.id,
                 subtask.task_id,
                 subtask.title,
                 subtask.description,
+                serde_json::to_string(&subtask.mode)?,
                 serde_json::to_string(&subtask.status)?,
                 subtask.order,
                 subtask.created_at.to_rfc3339(),
+                subtask.started_at.map(|t| t.to_rfc3339()),
                 subtask.completed_at.map(|t| t.to_rfc3339()),
             ],
         )?;
@@ -441,6 +472,14 @@ impl SessionStore {
             .lock()
             .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
 
+        // Get current status to check if we're transitioning to InProgress
+        let current_status: Option<String> = conn
+            .query_row("SELECT status FROM agent_subtasks WHERE id = ?1", params![subtask_id], |row| row.get(0))
+            .ok();
+
+        let is_transitioning_to_in_progress = current_status.as_deref() == Some(r#""pending""#)
+            && matches!(status, crate::agents::task::TaskStatus::InProgress);
+
         let completed_at = if matches!(
             status,
             crate::agents::task::TaskStatus::Completed
@@ -452,10 +491,17 @@ impl SessionStore {
             None
         };
 
-        conn.execute(
-            "UPDATE agent_subtasks SET status = ?1, completed_at = ?2 WHERE id = ?3",
-            params![serde_json::to_string(status)?, completed_at, subtask_id],
-        )?;
+        if is_transitioning_to_in_progress {
+            conn.execute(
+                "UPDATE agent_subtasks SET status = ?1, started_at = ?2 WHERE id = ?3",
+                params![serde_json::to_string(status)?, Utc::now().to_rfc3339(), subtask_id],
+            )?;
+        } else {
+            conn.execute(
+                "UPDATE agent_subtasks SET status = ?1, completed_at = ?2 WHERE id = ?3",
+                params![serde_json::to_string(status)?, completed_at, subtask_id],
+            )?;
+        }
         Ok(())
     }
 
@@ -467,13 +513,22 @@ impl SessionStore {
             .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
 
         let mut stmt = conn.prepare(
-            "SELECT id, task_id, title, description, status, order_index, created_at, completed_at
+            "SELECT id, task_id, title, description, mode, status, order_index, created_at, started_at, completed_at
              FROM agent_subtasks WHERE task_id = ?1 ORDER BY order_index",
         )?;
 
         let subtasks = stmt
             .query_map(params![task_id], |row| {
-                let status_str: String = row.get(4)?;
+                // Parse mode (default to FullAccess for backward compatibility)
+                let mode_str: Option<String> = row.get(4)?;
+                let mode = match mode_str.as_deref() {
+                    Some(s) => serde_json::from_str::<crate::agents::task::SubTaskMode>(s)
+                        .unwrap_or(crate::agents::task::SubTaskMode::FullAccess),
+                    None => crate::agents::task::SubTaskMode::FullAccess,
+                };
+
+                // Parse status
+                let status_str: String = row.get(5)?;
                 let status: crate::agents::task::TaskStatus = match serde_json::from_str(&status_str) {
                     Ok(s) => s,
                     Err(e) => {
@@ -482,23 +537,41 @@ impl SessionStore {
                         ));
                     }
                 };
+
+                // Parse created_at
+                let created_at = chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(7)?)
+                    .unwrap_or_default()
+                    .with_timezone(&Utc);
+
+                // Parse started_at (optional)
+                let started_at = row
+                    .get::<_, Option<String>>(8)?
+                    .map(|s| {
+                        chrono::DateTime::parse_from_rfc3339(&s)
+                            .unwrap_or_default()
+                            .with_timezone(&Utc)
+                    });
+
+                // Parse completed_at (optional)
+                let completed_at = row
+                    .get::<_, Option<String>>(9)?
+                    .map(|s| {
+                        chrono::DateTime::parse_from_rfc3339(&s)
+                            .unwrap_or_default()
+                            .with_timezone(&Utc)
+                    });
+
                 Ok(crate::agents::task::SubTask {
                     id: row.get(0)?,
                     task_id: row.get(1)?,
                     title: row.get(2)?,
                     description: row.get(3)?,
+                    mode,
                     status,
-                    order: row.get(5)?,
-                    created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(6)?)
-                        .unwrap_or_default()
-                        .with_timezone(&Utc),
-                    completed_at: row
-                        .get::<_, Option<String>>(7)?
-                        .map(|s| {
-                            chrono::DateTime::parse_from_rfc3339(&s)
-                                .unwrap_or_default()
-                                .with_timezone(&Utc)
-                        }),
+                    order: row.get(6)?,
+                    created_at,
+                    started_at,
+                    completed_at,
                 })
             })?
             .filter_map(|r| r.ok())
@@ -764,7 +837,6 @@ pub struct TerminalLineEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agents::types::TrustMode;
 
     fn make_session() -> AgentSession {
         AgentSession::new(
@@ -799,18 +871,18 @@ mod tests {
 
         let new_state = SessionState::Running {
             current_step: 1,
-            max_steps: 6,
+            context_usage: 50.0,
         };
         store.update_state(&session.id, &new_state).unwrap();
 
         let loaded = store.get_session(&session.id).unwrap().unwrap();
-        match loaded.state {
+        match &loaded.state {
             SessionState::Running {
                 current_step,
-                max_steps,
+                context_usage,
             } => {
-                assert_eq!(current_step, 1);
-                assert_eq!(max_steps, 6);
+                assert_eq!(*current_step, 1);
+                assert_eq!(*context_usage, 50.0);
             }
             _ => panic!("Expected Running state"),
         }
@@ -841,5 +913,294 @@ mod tests {
         store.delete_session(&session.id).unwrap();
         let loaded = store.get_session(&session.id).unwrap();
         assert!(loaded.is_none());
+    }
+
+    // ------------------------------------------------------------------------
+    // Helper Functions
+    // ------------------------------------------------------------------------
+
+    /// Create a test session for tests.
+    fn make_test_session(store: &SessionStore) -> SessionId {
+        let session = make_session();
+        store.create_session(&session).unwrap();
+        session.id
+    }
+
+    /// Create a test task for subtask tests (also creates session).
+    fn make_test_task(store: &SessionStore, task_id: &str, session_id: &SessionId) {
+        let request = crate::agents::task::AgentRequest {
+            content: "Test request".to_string(),
+            attachments: vec![],
+            context: None,
+        };
+
+        let task = crate::agents::task::AgentTask {
+            id: task_id.to_string(),
+            session_id: session_id.clone(),
+            request,
+            status: crate::agents::task::TaskStatus::Pending,
+            steps: vec![],
+            created_at: chrono::Utc::now(),
+            completed_at: None,
+        };
+
+        let conn = store.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO agent_tasks (id, session_id, request, status, steps, created_at, completed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            [
+                task.id,
+                task.session_id.0,
+                serde_json::to_string(&task.request).unwrap(),
+                serde_json::to_string(&task.status).unwrap(),
+                serde_json::to_string(&task.steps).unwrap(),
+                task.created_at.to_rfc3339(),
+                String::new(),
+            ],
+        ).unwrap();
+    }
+
+    // ------------------------------------------------------------------------
+    // SubTask Tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn test_create_subtask_with_mode_persists() {
+        let store = SessionStore::new(":memory:").unwrap();
+        let session_id = make_test_session(&store);
+
+        // Create task first (foreign key requirement)
+        make_test_task(&store, "task-1", &session_id);
+
+        let subtask = crate::agents::task::SubTask::new(
+            "task-1".to_string(),
+            "Test Subtask".to_string(),
+            crate::agents::task::SubTaskMode::Read,
+            0,
+        );
+
+        store.create_subtask(&subtask).unwrap();
+
+        let fetched = store.get_subtasks("task-1").unwrap();
+        assert_eq!(fetched.len(), 1);
+        assert_eq!(fetched[0].mode, crate::agents::task::SubTaskMode::Read);
+        assert_eq!(fetched[0].title, "Test Subtask");
+        assert_eq!(fetched[0].status, crate::agents::task::TaskStatus::Pending);
+    }
+
+    #[test]
+    fn test_update_subtask_status_to_in_progress_sets_started_at() {
+        let store = SessionStore::new(":memory:").unwrap();
+        let session_id = make_test_session(&store);
+
+        // Create task first (foreign key requirement)
+        make_test_task(&store, "task-1", &session_id);
+
+        let mut subtask = crate::agents::task::SubTask::new(
+            "task-1".to_string(),
+            "Test Subtask".to_string(),
+            crate::agents::task::SubTaskMode::Write,
+            0,
+        );
+
+        store.create_subtask(&subtask).unwrap();
+
+        // Update status to InProgress should set started_at
+        store
+            .update_subtask_status(&subtask.id, &crate::agents::task::TaskStatus::InProgress)
+            .unwrap();
+
+        let fetched = store.get_subtasks("task-1").unwrap();
+        assert_eq!(fetched[0].status, crate::agents::task::TaskStatus::InProgress);
+        assert!(fetched[0].started_at.is_some(), "started_at should be set when status becomes InProgress");
+    }
+
+    #[test]
+    fn test_update_subtask_status_to_completed_sets_completed_at() {
+        let store = SessionStore::new(":memory:").unwrap();
+        let session_id = make_test_session(&store);
+
+        // Create task first (foreign key requirement)
+        make_test_task(&store, "task-1", &session_id);
+
+        let subtask = crate::agents::task::SubTask::new(
+            "task-1".to_string(),
+            "Test Subtask".to_string(),
+            crate::agents::task::SubTaskMode::Execute,
+            0,
+        );
+
+        store.create_subtask(&subtask).unwrap();
+
+        // Update status to Completed should set completed_at
+        store
+            .update_subtask_status(&subtask.id, &crate::agents::task::TaskStatus::Completed)
+            .unwrap();
+
+        let fetched = store.get_subtasks("task-1").unwrap();
+        assert_eq!(fetched[0].status, crate::agents::task::TaskStatus::Completed);
+        assert!(fetched[0].completed_at.is_some(), "completed_at should be set when status becomes Completed");
+    }
+
+    #[test]
+    fn test_get_subtasks_returns_in_order() {
+        let store = SessionStore::new(":memory:").unwrap();
+        let session_id = make_test_session(&store);
+
+        // Create task first (foreign key requirement)
+        make_test_task(&store, "task-1", &session_id);
+
+        // Create subtasks in reverse order
+        let subtask2 = crate::agents::task::SubTask::new(
+            "task-1".to_string(),
+            "Second".to_string(),
+            crate::agents::task::SubTaskMode::Read,
+            1,
+        );
+        let subtask1 = crate::agents::task::SubTask::new(
+            "task-1".to_string(),
+            "First".to_string(),
+            crate::agents::task::SubTaskMode::Read,
+            0,
+        );
+
+        store.create_subtask(&subtask2).unwrap();
+        store.create_subtask(&subtask1).unwrap();
+
+        let fetched = store.get_subtasks("task-1").unwrap();
+        assert_eq!(fetched.len(), 2);
+        assert_eq!(fetched[0].order, 0);
+        assert_eq!(fetched[0].title, "First");
+        assert_eq!(fetched[1].order, 1);
+        assert_eq!(fetched[1].title, "Second");
+    }
+
+    #[test]
+    fn test_get_subtasks_for_different_tasks() {
+        let store = SessionStore::new(":memory:").unwrap();
+        let session_id = make_test_session(&store);
+
+        // Create tasks first (foreign key requirement)
+        make_test_task(&store, "task-1", &session_id);
+        make_test_task(&store, "task-2", &session_id);
+
+        let subtask1 = crate::agents::task::SubTask::new(
+            "task-1".to_string(),
+            "Task 1 Subtask".to_string(),
+            crate::agents::task::SubTaskMode::Read,
+            0,
+        );
+        let subtask2 = crate::agents::task::SubTask::new(
+            "task-2".to_string(),
+            "Task 2 Subtask".to_string(),
+            crate::agents::task::SubTaskMode::Write,
+            0,
+        );
+
+        store.create_subtask(&subtask1).unwrap();
+        store.create_subtask(&subtask2).unwrap();
+
+        let task1_subtasks = store.get_subtasks("task-1").unwrap();
+        let task2_subtasks = store.get_subtasks("task-2").unwrap();
+
+        assert_eq!(task1_subtasks.len(), 1);
+        assert_eq!(task2_subtasks.len(), 1);
+        assert_eq!(task1_subtasks[0].task_id, "task-1");
+        assert_eq!(task2_subtasks[0].task_id, "task-2");
+    }
+
+    // ------------------------------------------------------------------------
+    // Tool Call Tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn test_tool_call_with_subtask_id() {
+        let store = SessionStore::new(":memory:").unwrap();
+        let session_id = make_test_session(&store);
+
+        // Create task first (foreign key requirement)
+        make_test_task(&store, "task-1", &session_id);
+
+        // Create a subtask
+        let subtask = crate::agents::task::SubTask::new(
+            "task-1".to_string(),
+            "Test Subtask".to_string(),
+            crate::agents::task::SubTaskMode::Read,
+            0,
+        );
+        store.create_subtask(&subtask).unwrap();
+
+        // Insert tool call with subtask_id
+        let tool_call_id = "tool-call-1";
+        store
+            .insert_tool_call(
+                &session_id,
+                tool_call_id,
+                "fs_read_file",
+                &serde_json::json!({"path": "/test/file.txt"}),
+                Some(&subtask.id),
+            )
+            .unwrap();
+
+        // Get tool calls for session
+        let tool_calls = store.get_tool_calls_for_session(&session_id).unwrap();
+        assert_eq!(tool_calls.len(), 1);
+        assert_eq!(tool_calls[0].id, tool_call_id);
+        assert_eq!(tool_calls[0].tool_name, "fs_read_file");
+        assert_eq!(tool_calls[0].subtask_id, Some(subtask.id));
+    }
+
+    #[test]
+    fn test_tool_call_without_subtask_id() {
+        let store = SessionStore::new(":memory:").unwrap();
+        let session_id = make_test_session(&store);
+
+        // Insert tool call without subtask_id (before subtask creation)
+        let tool_call_id = "tool-call-1";
+        store
+            .insert_tool_call(
+                &session_id,
+                tool_call_id,
+                "agent_plan_subtasks",
+                &serde_json::json!({"subtasks": []}),
+                None,
+            )
+            .unwrap();
+
+        // Get tool calls for session
+        let tool_calls = store.get_tool_calls_for_session(&session_id).unwrap();
+        assert_eq!(tool_calls.len(), 1);
+        assert_eq!(tool_calls[0].subtask_id, None, "subtask_id should be None for tool calls before subtask creation");
+    }
+
+    #[test]
+    fn test_update_tool_call_result() {
+        let store = SessionStore::new(":memory:").unwrap();
+        let session_id = make_test_session(&store);
+
+        let tool_call_id = "tool-call-1";
+        store
+            .insert_tool_call(
+                &session_id,
+                tool_call_id,
+                "fs_read_file",
+                &serde_json::json!({"path": "/test/file.txt"}),
+                None,
+            )
+            .unwrap();
+
+        // Update with result
+        let result = serde_json::json!({"content": "file content"});
+        store
+            .update_tool_call_result(tool_call_id, &result, false, Some(100))
+            .unwrap();
+
+        // Verify result was stored
+        let tool_calls = store.get_tool_calls_for_session(&session_id).unwrap();
+        assert_eq!(tool_calls.len(), 1);
+        assert!(tool_calls[0].result.is_some());
+        assert_eq!(tool_calls[0].result.as_ref().unwrap(), &result);
+        assert_eq!(tool_calls[0].is_error, false);
+        assert_eq!(tool_calls[0].duration_ms, Some(100));
     }
 }

@@ -418,7 +418,12 @@ pub async fn create_subtask(
     order: i32,
     state: tauri::State<'_, AgentState>,
 ) -> Result<String, String> {
-    let subtask = crate::agents::task::SubTask::new(task_id, title, order);
+    let subtask = crate::agents::task::SubTask::new(
+        task_id,
+        title,
+        crate::agents::task::SubTaskMode::FullAccess,
+        order,
+    );
     let subtask = if let Some(desc) = description {
         subtask.with_description(desc)
     } else {

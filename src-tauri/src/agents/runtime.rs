@@ -82,6 +82,7 @@ struct CompactionDetails {
     after_count: usize,
     before_tokens: usize,
     after_tokens: usize,
+    needs_reinjection: bool,
 }
 
 /// The agent runtime orchestrates LLM + tool execution with permissions.
@@ -128,7 +129,8 @@ impl AgentRuntime {
         trust_mode: TrustMode,
         app_handle: &AppHandle,
     ) -> Result<AgentExecutionResult, AgentRuntimeError> {
-        let tool_definitions = self.tool_registry.definitions();
+        // Get all tool definitions (will be filtered per subtask mode in the loop)
+        let all_tool_definitions = self.tool_registry.definitions();
         let session_id = session.id.0.clone();
         let permission_resolver = PermissionResolver::new(trust_mode);
 
@@ -178,6 +180,9 @@ impl AgentRuntime {
         // Track recent tool calls for loop detection: (tool_name, arguments_hash)
         let mut recent_tool_calls: Vec<(String, u64)> = Vec::new();
 
+        // Track which subtask we last injected context for (to detect changes)
+        let mut last_injected_subtask_order: Option<i32> = None;
+
         // Mark task as in progress
         let _ = self.session_store.update_task_status(&task_id, &TaskStatus::InProgress);
 
@@ -213,6 +218,15 @@ impl AgentRuntime {
                         timestamp: Utc::now(),
                     },
                 );
+
+                // If subtask context was removed, reset tracking to force re-injection
+                if compaction.needs_reinjection {
+                    if let Some(current) = last_injected_subtask_order {
+                        info!("[AgentRuntime] Re-injecting subtask context for subtask {}", current);
+                        // Reset to None so change detection will trigger re-injection
+                        last_injected_subtask_order = None;
+                    }
+                }
             }
 
             // Update session state with current context usage
@@ -222,9 +236,85 @@ impl AgentRuntime {
                 app_handle,
             )?;
 
+            // Get current subtask for mode filtering and prompt derivation
+            let (current_subtask_info, tool_names) = if let Ok(subtasks) = self.session_store.get_subtasks(&task_id) {
+                let total = subtasks.len();
+                if let Some(current) = subtasks.iter().find(|st| st.status == TaskStatus::InProgress) {
+                    // Clone the subtask data we need (title, mode, status, order) since we need it beyond this scope
+                    let subtask_summary = (current.title.clone(), current.mode.clone(), current.status.clone(), current.order);
+                    let allowed = current.mode.allowed_tools();
+                    info!(
+                        "[AgentRuntime] Subtask '{}' ({} mode): {} tools available",
+                        current.title,
+                        current.mode.icon(),
+                        allowed.len()
+                    );
+                    (Some((subtask_summary, total)), allowed)
+                } else {
+                    (None, all_tool_definitions.iter().map(|t| t.name.as_str()).collect::<Vec<_>>())
+                }
+            } else {
+                (None, all_tool_definitions.iter().map(|t| t.name.as_str()).collect::<Vec<_>>())
+            };
+
+            // Detect and log subtask changes
+            let current_order = current_subtask_info.as_ref()
+                .map(|(subtask, _)| subtask.3); // order is at index 3: (title, mode, status, order)
+
+            if last_injected_subtask_order != current_order {
+                match (last_injected_subtask_order, current_order) {
+                    (None, Some(order)) => {
+                        info!("[AgentRuntime] Subtask changed: None → Some({})", order);
+                    }
+                    (Some(prev), Some(curr)) => {
+                        info!("[AgentRuntime] Subtask changed: Some({}) → Some({})", prev, curr);
+                    }
+                    (Some(prev), None) => {
+                        info!("[AgentRuntime] Subtask changed: Some({}) → None (no active subtask)", prev);
+                    }
+                    (None, None) => {}
+                }
+                last_injected_subtask_order = current_order;
+            }
+
+            // Derive system prompt with subtask context
+            let system_prompt = match &current_subtask_info {
+                Some((subtask, total)) => {
+                    // Reconstruct the needed data for derive_system_prompt
+                    // We use a simpler approach here since we have the summary
+                    let (title, mode, status, order) = subtask;
+                    if *status == TaskStatus::InProgress {
+                        format!(
+                            "{}\n\n## Current Task ({}/{}): {}\n\n{}\n\nFocus on completing this task. \
+                            When done, call agent_advance_to_next_subtask.",
+                            agent_system_prompt,
+                            order + 1,
+                            total,
+                            title,
+                            mode.instruction_text()
+                        )
+                    } else {
+                        agent_system_prompt.to_string()
+                    }
+                }
+                None => agent_system_prompt.to_string(),
+            };
+            info!(
+                "[AgentRuntime] System prompt length: {}{}",
+                system_prompt.len(),
+                if current_subtask_info.is_some() { " (with subtask context)" } else { "" }
+            );
+
+            // Filter tool definitions based on current mode
+            let tool_definitions: Vec<crate::llm::ToolDefinition> = all_tool_definitions
+                .iter()
+                .filter(|t| tool_names.contains(&t.name.as_str()))
+                .cloned()
+                .collect();
+
             // Build chat request
             let mut chat_request = ChatRequest::new(&model_name, llm_context.clone())
-                .with_system(agent_system_prompt)
+                .with_system(&system_prompt)
                 .with_temperature(0.7)
                 .with_max_tokens(4096);
             if !tool_definitions.is_empty() {
@@ -440,11 +530,22 @@ impl AgentRuntime {
             // Generate unique ID, persist, and emit tool call event
             let tool_call_id = uuid::Uuid::new_v4().to_string();
 
+            // Get current subtask_id for tool call linkage
+            let current_subtask_id = if let Ok(subtasks) = self.session_store.get_subtasks(&task_id) {
+                subtasks
+                    .iter()
+                    .find(|st| st.status == TaskStatus::InProgress)
+                    .map(|st| st.id.clone())
+            } else {
+                None
+            };
+
             if let Err(e) = self.session_store.insert_tool_call(
                 &session.id,
                 &tool_call_id,
                 &call.name,
                 &call.arguments,
+                current_subtask_id.as_deref(),
             ) {
                 warn!("[AgentRuntime] Failed to persist tool call: {e}");
             }
@@ -663,12 +764,21 @@ impl AgentRuntime {
                 "agent_plan_subtasks" => {
                     // Create subtasks from the planned list
                     if let Some(subtasks_arr) = call.arguments.get("subtasks").and_then(|v| v.as_array()) {
-                        use super::task::{SubTask, TaskStatus};
+                        use super::task::{SubTask, SubTaskMode, TaskStatus};
                         for (i, item) in subtasks_arr.iter().enumerate() {
                             let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled");
                             let description = item.get("description").and_then(|v| v.as_str());
 
-                            let mut subtask = SubTask::new(task_id.to_string(), title.to_string(), i as i32);
+                            // Parse mode from request, default to FullAccess
+                            let mode_str = item.get("mode").and_then(|v| v.as_str()).unwrap_or("full_access");
+                            let mode = match mode_str {
+                                "read" => SubTaskMode::Read,
+                                "write" => SubTaskMode::Write,
+                                "execute" => SubTaskMode::Execute,
+                                _ => SubTaskMode::FullAccess,
+                            };
+
+                            let mut subtask = SubTask::new(task_id.to_string(), title.to_string(), mode, i as i32);
                             if let Some(desc) = description {
                                 subtask = subtask.with_description(desc.to_string());
                             }
@@ -1233,9 +1343,15 @@ impl AgentRuntime {
         if estimated > threshold {
             let before_count = context.len();
             let before_tokens = estimated;
+
+            // Check if we have subtask context before compaction
+            let has_subtask_context_before = context.iter().any(|m| {
+                m.role == crate::llm::MessageRole::System && m.as_text().unwrap_or_default().contains("## Current Task")
+            });
+
             info!(
-                "[AgentRuntime] Context at {} tokens (threshold {}), compacting from {} messages...",
-                estimated, threshold, before_count
+                "[AgentRuntime] Context at {} tokens (threshold {}), compacting from {} messages... (has subtask context: {})",
+                estimated, threshold, before_count, has_subtask_context_before
             );
 
             // Always keep the first message (usually user request) and most recent messages
@@ -1263,6 +1379,20 @@ impl AgentRuntime {
                 }
 
                 let after_tokens = Self::estimate_context_tokens(context);
+
+                // Check if subtask context was removed
+                let has_subtask_context_after = context.iter().any(|m| {
+                    m.role == crate::llm::MessageRole::System && m.as_text().unwrap_or_default().contains("## Current Task")
+                });
+
+                let needs_reinjection = has_subtask_context_before && !has_subtask_context_after;
+
+                if needs_reinjection {
+                    info!(
+                        "[AgentRuntime] Compaction removed subtask context - will re-inject"
+                    );
+                }
+
                 info!(
                     "[AgentRuntime] Compacted context to {} messages, {} tokens",
                     context.len(),
@@ -1274,6 +1404,7 @@ impl AgentRuntime {
                     after_count: context.len(),
                     before_tokens,
                     after_tokens,
+                    needs_reinjection,
                 });
             }
         }

@@ -24,6 +24,8 @@ pub struct ToolCallEntry {
     #[serde(rename = "durationMs")]
     pub duration_ms: Option<i64>,
     pub timestamp: String,
+    #[serde(rename = "subtaskId")]
+    pub subtask_id: Option<String>,
 }
 
 impl SessionStore {
@@ -34,6 +36,7 @@ impl SessionStore {
         id: &str,
         tool_name: &str,
         arguments: &serde_json::Value,
+        subtask_id: Option<&str>,
     ) -> Result<(), SessionStoreError> {
         let conn = self
             .conn
@@ -44,9 +47,9 @@ impl SessionStore {
         let args_str = serde_json::to_string(arguments)?;
 
         conn.execute(
-            "INSERT INTO agent_tool_calls (id, session_id, tool_name, arguments, timestamp, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![id, session_id.0, tool_name, args_str, now, now],
+            "INSERT INTO agent_tool_calls (id, session_id, tool_name, arguments, subtask_id, timestamp, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![id, session_id.0, tool_name, args_str, subtask_id, now, now],
         )?;
 
         Ok(())
@@ -86,7 +89,7 @@ impl SessionStore {
             .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
 
         let mut stmt = conn.prepare(
-            "SELECT id, session_id, tool_name, arguments, result, is_error, duration_ms, timestamp
+            "SELECT id, session_id, tool_name, arguments, result, is_error, duration_ms, timestamp, subtask_id
              FROM agent_tool_calls
              WHERE session_id = ?1
              ORDER BY timestamp ASC",
@@ -109,6 +112,7 @@ impl SessionStore {
                 is_error: is_error_int != 0,
                 duration_ms: row.get(6)?,
                 timestamp: row.get(7)?,
+                subtask_id: row.get(8)?,
             });
         }
 

@@ -370,6 +370,7 @@ mod tests {
             temperature: 0.5,
             max_tokens: 2048,
             system_prompt: Some("Custom prompt".to_string()),
+            workspace_root: None,
         };
 
         let updated = store

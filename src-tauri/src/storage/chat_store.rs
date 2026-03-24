@@ -1259,6 +1259,7 @@ mod tests {
             temperature: 0.5,
             max_tokens: 2048,
             system_prompt: Some("Custom prompt".to_string()),
+            workspace_root: None,
         };
 
         let updated = store
@@ -1325,6 +1326,7 @@ mod tests {
             temperature: 0.9,
             max_tokens: 8192,
             system_prompt: None,
+            workspace_root: None,
         };
         store
             .update_conversation_settings(&conv.id, &new_settings)

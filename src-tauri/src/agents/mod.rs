@@ -15,9 +15,18 @@ pub mod tool_call_store;
 pub mod runtime;
 pub mod rollback;
 
+#[cfg(test)]
+mod tests;
+
 pub use types::*;
 pub use session::*;
 pub use task::{
     AgentExecutionResult, AgentRequest, AgentTask, ExecutionStep, StepAction, StepResult,
-    SubTask, TaskStatus, UsageStats,
+    SubTask, SubTaskMode, TaskStatus, UsageStats,
 };
+
+// Re-export for tests
+#[cfg(test)]
+pub use types::AgentId;
+#[cfg(test)]
+pub use session::AgentSession;

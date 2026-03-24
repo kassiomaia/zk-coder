@@ -339,12 +339,212 @@ impl Plan {
             .iter()
             .enumerate()
             .map(|(i, step)| {
-                let mut subtask = SubTask::new(task_id.to_string(), step.title.clone(), i as i32);
+                // Default to FullAccess for plan-generated subtasks
+                // Agent will specify mode directly via agent_plan_subtasks tool
+                let mut subtask = SubTask::new(
+                    task_id.to_string(),
+                    step.title.clone(),
+                    SubTaskMode::FullAccess,
+                    i as i32,
+                );
                 if let Some(ref desc) = step.description {
                     subtask = subtask.with_description(desc.clone());
                 }
                 subtask
             })
             .collect()
+    }
+}
+
+// =========================================================================
+// Unit Tests
+// =========================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ------------------------------------------------------------------------
+    // SubTaskMode Tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn read_mode_excludes_write_tools() {
+        let tools = SubTaskMode::Read.allowed_tools();
+        assert!(!tools.contains(&"fs_write_file"), "Read mode should not allow fs_write_file");
+        assert!(!tools.contains(&"system_execute"), "Read mode should not allow system_execute");
+        assert!(tools.contains(&"fs_read_file"), "Read mode should allow fs_read_file");
+        assert!(tools.contains(&"search_grep"), "Read mode should allow search_grep");
+    }
+
+    #[test]
+    fn write_mode_includes_read_tools() {
+        let tools = SubTaskMode::Write.allowed_tools();
+        assert!(tools.contains(&"fs_read_file"), "Write mode should allow fs_read_file");
+        assert!(tools.contains(&"fs_write_file"), "Write mode should allow fs_write_file");
+        assert!(!tools.contains(&"system_execute"), "Write mode should not allow system_execute");
+    }
+
+    #[test]
+    fn execute_mode_includes_read_and_execute() {
+        let tools = SubTaskMode::Execute.allowed_tools();
+        assert!(tools.contains(&"fs_read_file"), "Execute mode should allow fs_read_file");
+        assert!(tools.contains(&"system_execute"), "Execute mode should allow system_execute");
+        assert!(!tools.contains(&"fs_write_file"), "Execute mode should not allow fs_write_file");
+    }
+
+    #[test]
+    fn full_access_has_all_tools() {
+        let tools = SubTaskMode::FullAccess.allowed_tools();
+        assert!(tools.contains(&"fs_read_file"), "FullAccess should allow fs_read_file");
+        assert!(tools.contains(&"fs_write_file"), "FullAccess should allow fs_write_file");
+        assert!(tools.contains(&"system_execute"), "FullAccess should allow system_execute");
+        assert!(tools.contains(&"agent_plan_subtasks"), "FullAccess should allow agent_plan_subtasks");
+    }
+
+    #[test]
+    fn instruction_text_mode_specific() {
+        assert!(SubTaskMode::Read.instruction_text().contains("READ-ONLY"));
+        assert!(SubTaskMode::Write.instruction_text().contains("WRITE"));
+        assert!(SubTaskMode::Execute.instruction_text().contains("EXECUTE"));
+        assert!(SubTaskMode::FullAccess.instruction_text().contains("FULL ACCESS"));
+    }
+
+    #[test]
+    fn icon_returns_emoji() {
+        assert_eq!(SubTaskMode::Read.icon(), "👁️");
+        assert_eq!(SubTaskMode::Write.icon(), "✏️");
+        assert_eq!(SubTaskMode::Execute.icon(), "⚡");
+        assert_eq!(SubTaskMode::FullAccess.icon(), "🔓");
+    }
+
+    // ------------------------------------------------------------------------
+    // SubTask Tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn subtask_new_creates_pending() {
+        let subtask = SubTask::new("task-1".to_string(), "Test".to_string(), SubTaskMode::Read, 0);
+        assert_eq!(subtask.status, TaskStatus::Pending);
+        assert_eq!(subtask.task_id, "task-1");
+        assert_eq!(subtask.title, "Test");
+        assert_eq!(subtask.mode, SubTaskMode::Read);
+        assert_eq!(subtask.order, 0);
+        assert!(subtask.started_at.is_none());
+        assert!(subtask.completed_at.is_none());
+    }
+
+    #[test]
+    fn subtask_with_description_adds_description() {
+        let subtask = SubTask::new("task-1".to_string(), "Test".to_string(), SubTaskMode::Read, 0)
+            .with_description("A description".to_string());
+        assert_eq!(subtask.description, Some("A description".to_string()));
+    }
+
+    #[test]
+    fn subtask_complete_sets_status_and_timestamp() {
+        let mut subtask = SubTask::new("task-1".to_string(), "Test".to_string(), SubTaskMode::Read, 0);
+        assert!(subtask.completed_at.is_none());
+        subtask.complete();
+        assert_eq!(subtask.status, TaskStatus::Completed);
+        assert!(subtask.completed_at.is_some());
+    }
+
+    #[test]
+    fn subtask_fail_sets_status_and_timestamp() {
+        let mut subtask = SubTask::new("task-1".to_string(), "Test".to_string(), SubTaskMode::Read, 0);
+        assert!(subtask.completed_at.is_none());
+        subtask.fail();
+        assert_eq!(subtask.status, TaskStatus::Failed);
+        assert!(subtask.completed_at.is_some());
+    }
+
+    // ------------------------------------------------------------------------
+    // Plan Tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn plan_new_sets_estimated_steps() {
+        let steps = vec![
+            PlanStep::new("Step 1".to_string()),
+            PlanStep::new("Step 2".to_string()),
+        ];
+        let plan = Plan::new("Summary".to_string(), steps);
+        assert_eq!(plan.estimated_steps, 2);
+        assert_eq!(plan.summary, "Summary");
+    }
+
+    #[test]
+    fn plan_to_subtasks_creates_correct_subtasks() {
+        let steps = vec![
+            PlanStep::new("Step 1".to_string()),
+            PlanStep::new("Step 2".to_string()).with_description("Description".to_string()),
+        ];
+        let plan = Plan::new("Summary".to_string(), steps);
+        let subtasks = plan.to_subtasks("task-1");
+
+        assert_eq!(subtasks.len(), 2);
+        assert_eq!(subtasks[0].title, "Step 1");
+        assert_eq!(subtasks[0].order, 0);
+        assert_eq!(subtasks[0].mode, SubTaskMode::FullAccess);
+        assert_eq!(subtasks[1].title, "Step 2");
+        assert_eq!(subtasks[1].order, 1);
+        assert_eq!(subtasks[1].description, Some("Description".to_string()));
+    }
+
+    // ------------------------------------------------------------------------
+    // AgentTask Tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn agent_task_new_creates_pending() {
+        let session_id = SessionId("session-1".to_string());
+        let request = AgentRequest {
+            content: "Test request".to_string(),
+            attachments: vec![],
+            context: None,
+        };
+        let task = AgentTask::new(session_id, request);
+
+        assert_eq!(task.status, TaskStatus::Pending);
+        assert!(task.steps.is_empty());
+        assert!(task.completed_at.is_none());
+    }
+
+    #[test]
+    fn agent_task_set_status_terminal_sets_completed_at() {
+        let session_id = SessionId("session-1".to_string());
+        let request = AgentRequest {
+            content: "Test request".to_string(),
+            attachments: vec![],
+            context: None,
+        };
+        let mut task = AgentTask::new(session_id, request);
+        assert!(task.completed_at.is_none());
+
+        task.set_status(TaskStatus::Completed);
+        assert_eq!(task.status, TaskStatus::Completed);
+        assert!(task.completed_at.is_some());
+    }
+
+    #[test]
+    fn agent_task_add_step_increases_steps() {
+        let session_id = SessionId("session-1".to_string());
+        let request = AgentRequest {
+            content: "Test request".to_string(),
+            attachments: vec![],
+            context: None,
+        };
+        let mut task = AgentTask::new(session_id, request);
+
+        let step = ExecutionStep {
+            step_number: 1,
+            action: StepAction::LlmRequest { model: "test-model".to_string() },
+            result: None,
+            timestamp: Utc::now(),
+        };
+
+        task.add_step(step);
+        assert_eq!(task.steps.len(), 1);
     }
 }
