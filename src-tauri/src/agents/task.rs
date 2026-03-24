@@ -132,6 +132,92 @@ pub struct UsageStats {
     pub total_tokens: u32,
 }
 
+/// Execution mode for a subtask. Determines what tools are available.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SubTaskMode {
+    /// Read-only mode: Can read files and search. Cannot write or execute.
+    Read,
+    /// Write mode: Can read and write files. Cannot execute commands.
+    Write,
+    /// Execute mode: Can read files and execute commands. Cannot write.
+    Execute,
+    /// Full access: Can read, write, and execute.
+    FullAccess,
+}
+
+impl SubTaskMode {
+    /// Get allowed tools for this mode.
+    pub fn allowed_tools(&self) -> Vec<&'static str> {
+        match self {
+            SubTaskMode::Read => vec![
+                "fs_read_file",
+                "search_grep",
+                "fs_list_files",
+                "agent_emit_status",
+                "agent_advance_to_next_subtask",
+            ],
+            SubTaskMode::Write => vec![
+                "fs_read_file",
+                "fs_write_file",
+                "search_grep",
+                "fs_list_files",
+                "agent_emit_status",
+                "agent_advance_to_next_subtask",
+            ],
+            SubTaskMode::Execute => vec![
+                "fs_read_file",
+                "search_grep",
+                "fs_list_files",
+                "system_execute",
+                "agent_emit_status",
+                "agent_advance_to_next_subtask",
+            ],
+            SubTaskMode::FullAccess => vec![
+                "fs_read_file",
+                "fs_write_file",
+                "fs_list_files",
+                "search_grep",
+                "system_execute",
+                "agent_emit_status",
+                "agent_plan_subtasks",
+                "agent_advance_to_next_subtask",
+            ],
+        }
+    }
+
+    /// Get mode-specific instruction text.
+    pub fn instruction_text(&self) -> &'static str {
+        match self {
+            SubTaskMode::Read => {
+                "READ-ONLY: You may only read files and search code. \
+                DO NOT create new plans, write files, delete files, or execute commands."
+            }
+            SubTaskMode::Write => {
+                "WRITE: You may read and write files. \
+                DO NOT create new plans or execute commands."
+            }
+            SubTaskMode::Execute => {
+                "EXECUTE: You may read files and execute commands. \
+                DO NOT create new plans or write files."
+            }
+            SubTaskMode::FullAccess => {
+                "FULL ACCESS: You may read files, write files, and execute commands."
+            }
+        }
+    }
+
+    /// Get display icon for UI.
+    pub fn icon(&self) -> &'static str {
+        match self {
+            SubTaskMode::Read => "👁️",
+            SubTaskMode::Write => "✏️",
+            SubTaskMode::Execute => "⚡",
+            SubTaskMode::FullAccess => "🔓",
+        }
+    }
+}
+
 /// A sub-task within an agent's task decomposition.
 ///
 /// Agents can break down complex requests into smaller sub-tasks
@@ -143,22 +229,26 @@ pub struct SubTask {
     pub task_id: String,
     pub title: String,
     pub description: Option<String>,
+    pub mode: SubTaskMode,
     pub status: TaskStatus,
     pub order: i32,
     pub created_at: DateTime<Utc>,
+    pub started_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
 }
 
 impl SubTask {
-    pub fn new(task_id: String, title: String, order: i32) -> Self {
+    pub fn new(task_id: String, title: String, mode: SubTaskMode, order: i32) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
             task_id,
             title,
             description: None,
+            mode,
             status: TaskStatus::Pending,
             order,
             created_at: Utc::now(),
+            started_at: None,
             completed_at: None,
         }
     }
@@ -176,5 +266,85 @@ impl SubTask {
     pub fn fail(&mut self) {
         self.status = TaskStatus::Failed;
         self.completed_at = Some(Utc::now());
+    }
+}
+
+/// Complexity estimate for a plan step.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Complexity {
+    Simple,
+    Medium,
+    Complex,
+}
+
+/// A single step in an execution plan.
+///
+/// Generated during the planning phase before execution begins.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanStep {
+    pub title: String,
+    pub description: Option<String>,
+    pub complexity: Complexity,
+}
+
+impl PlanStep {
+    pub fn new(title: String) -> Self {
+        Self {
+            title,
+            description: None,
+            complexity: Complexity::Medium,
+        }
+    }
+
+    pub fn with_description(mut self, description: String) -> Self {
+        self.description = Some(description);
+        self
+    }
+
+    pub fn with_complexity(mut self, complexity: Complexity) -> Self {
+        self.complexity = complexity;
+        self
+    }
+}
+
+/// An execution plan generated during the planning phase.
+///
+/// The planner analyzes the user's request and generates a structured
+/// plan before execution begins.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Plan {
+    pub summary: String,
+    pub steps: Vec<PlanStep>,
+    pub estimated_steps: usize,
+    pub created_at: DateTime<Utc>,
+}
+
+impl Plan {
+    pub fn new(summary: String, steps: Vec<PlanStep>) -> Self {
+        let estimated_steps = steps.len();
+        Self {
+            summary,
+            steps,
+            estimated_steps,
+            created_at: Utc::now(),
+        }
+    }
+
+    /// Convert plan steps to subtasks for a given task.
+    pub fn to_subtasks(&self, task_id: &str) -> Vec<SubTask> {
+        self.steps
+            .iter()
+            .enumerate()
+            .map(|(i, step)| {
+                let mut subtask = SubTask::new(task_id.to_string(), step.title.clone(), i as i32);
+                if let Some(ref desc) = step.description {
+                    subtask = subtask.with_description(desc.clone());
+                }
+                subtask
+            })
+            .collect()
     }
 }

@@ -17,4 +17,7 @@ pub mod rollback;
 
 pub use types::*;
 pub use session::*;
-pub use task::{AgentExecutionResult, AgentRequest, AgentTask, ExecutionStep, StepAction, StepResult, SubTask, TaskStatus, UsageStats};
+pub use task::{
+    AgentExecutionResult, AgentRequest, AgentTask, ExecutionStep, StepAction, StepResult,
+    SubTask, TaskStatus, UsageStats,
+};

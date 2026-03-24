@@ -181,7 +181,10 @@ impl AgentRuntime {
         // Mark task as in progress
         let _ = self.session_store.update_task_status(&task_id, &TaskStatus::InProgress);
 
+        // === EXECUTION PHASE ===
         // Agent runs until it has no more tool calls (decides it's done)
+        // The agent is responsible for creating its own plan via agent_plan_subtasks
+        // as its first action for non-trivial tasks.
         loop {
             step_num += 1;
             info!("[AgentRuntime] Step {} for session {}", step_num, session_id);
@@ -660,7 +663,7 @@ impl AgentRuntime {
                 "agent_plan_subtasks" => {
                     // Create subtasks from the planned list
                     if let Some(subtasks_arr) = call.arguments.get("subtasks").and_then(|v| v.as_array()) {
-                        use super::task::SubTask;
+                        use super::task::{SubTask, TaskStatus};
                         for (i, item) in subtasks_arr.iter().enumerate() {
                             let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled");
                             let description = item.get("description").and_then(|v| v.as_str());
@@ -668,6 +671,11 @@ impl AgentRuntime {
                             let mut subtask = SubTask::new(task_id.to_string(), title.to_string(), i as i32);
                             if let Some(desc) = description {
                                 subtask = subtask.with_description(desc.to_string());
+                            }
+
+                            // Mark the first subtask as in_progress automatically
+                            if i == 0 {
+                                subtask.status = TaskStatus::InProgress;
                             }
 
                             // Persist to database
@@ -682,6 +690,108 @@ impl AgentRuntime {
                                 },
                             );
                         }
+                    }
+                }
+                "agent_mark_subtask_status" => {
+                    // Update subtask status during execution for real-time progress tracking
+                    if let (Some(subtask_index), Some(status_str)) = (
+                        call.arguments.get("index").and_then(|v| v.as_i64()),
+                        call.arguments.get("status").and_then(|v| v.as_str())
+                    ) {
+                        use super::task::TaskStatus;
+
+                        // Parse status string to TaskStatus enum
+                        let task_status: Option<TaskStatus> = match status_str {
+                            "pending" => Some(TaskStatus::Pending),
+                            "in_progress" => Some(TaskStatus::InProgress),
+                            "completed" => Some(TaskStatus::Completed),
+                            "failed" => Some(TaskStatus::Failed),
+                            _ => {
+                                warn!("Invalid subtask status: {status_str}");
+                                None
+                            }
+                        };
+
+                        // Only proceed if status is valid
+                        if let Some(task_status) = task_status {
+                            // Find the subtask by order index
+                            match self.session_store.get_subtasks(task_id) {
+                                Ok(mut subtasks) => {
+                                    if let Some(subtask) = subtasks.iter_mut().find(|st| st.order == subtask_index as i32) {
+                                        // Update status and timestamps
+                                        match task_status {
+                                            TaskStatus::Completed => subtask.complete(),
+                                            TaskStatus::Failed => subtask.fail(),
+                                            _ => subtask.status = task_status.clone(),
+                                        };
+
+                                        // Persist to database
+                                        if let Err(e) = self.session_store.update_subtask_status(&subtask.id, &subtask.status) {
+                                            error!("Failed to update subtask status: {e}");
+                                        }
+
+                                        // Emit event for real-time UI update
+                                        let _ = app_handle.emit(
+                                            AGENT_EVENT_NAME,
+                                            AgentEvent::SubtaskUpdated {
+                                                session_id: session.id.0.clone(),
+                                                subtask: subtask.clone(),
+                                            },
+                                        );
+
+                                        info!("Updated subtask {} to status: {:?}", subtask_index, task_status);
+                                    } else {
+                                        warn!("Subtask with index {subtask_index} not found");
+                                    }
+                                }
+                                Err(e) => error!("Failed to get subtasks: {e}"),
+                            }
+                        }
+                    }
+                }
+                "agent_advance_to_next_subtask" => {
+                    // Convenience tool to advance from current subtask to next one
+                    // Marks current in_progress subtask as completed, next as in_progress
+                    match self.session_store.get_subtasks(task_id) {
+                        Ok(mut subtasks) => {
+                            // Find current in_progress subtask
+                            let current_idx = subtasks.iter().position(|st| st.status == TaskStatus::InProgress);
+
+                            if let Some(idx) = current_idx {
+                                // Mark current as completed
+                                subtasks[idx].complete();
+                                let _ = self.session_store.update_subtask_status(&subtasks[idx].id, &subtasks[idx].status);
+                                let _ = app_handle.emit(
+                                    AGENT_EVENT_NAME,
+                                    AgentEvent::SubtaskUpdated {
+                                        session_id: session.id.0.clone(),
+                                        subtask: subtasks[idx].clone(),
+                                    },
+                                );
+
+                                info!("Marked subtask {} as completed", idx);
+
+                                // Mark next as in_progress
+                                if idx + 1 < subtasks.len() {
+                                    subtasks[idx + 1].status = TaskStatus::InProgress;
+                                    let _ = self.session_store.update_subtask_status(&subtasks[idx + 1].id, &subtasks[idx + 1].status);
+                                    let _ = app_handle.emit(
+                                        AGENT_EVENT_NAME,
+                                        AgentEvent::SubtaskUpdated {
+                                            session_id: session.id.0.clone(),
+                                            subtask: subtasks[idx + 1].clone(),
+                                        },
+                                    );
+
+                                    info!("Marked subtask {} as in_progress", idx + 1);
+                                } else {
+                                    info!("No more subtasks to advance to");
+                                }
+                            } else {
+                                warn!("No in_progress subtask found to advance from");
+                            }
+                        }
+                        Err(e) => error!("Failed to get subtasks: {e}"),
                     }
                 }
                 _ => {}
@@ -815,6 +925,7 @@ impl AgentRuntime {
         }
     }
 
+    /// Generate an execution plan for the given request.
     /// Update session state and emit event.
     fn update_session_state(
         &self,
