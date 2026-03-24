@@ -522,6 +522,35 @@
 		return false;
 	}
 
+	/**
+	 * Check if an agent message should show an ASSISTANT group header.
+	 * Shows header when starting a new agent message sequence or after a time gap.
+	 */
+	function shouldShowAgentHeader(index: number): boolean {
+		const currentMessage = messages[index];
+
+		// Only for agent-specific messages
+		if (!getMessageKind(currentMessage)) return false;
+
+		// First message always shows header
+		if (index === 0) return true;
+
+		const previousMessage = messages[index - 1];
+
+		// Show if previous message wasn't an agent message
+		const prevIsAgentMessage = getMessageKind(previousMessage) !== null;
+		if (!prevIsAgentMessage) {
+			// Only show if coming from a different role (not assistant) or first in sequence
+			return previousMessage.role !== 'assistant';
+		}
+
+		// Show if time gap > 5 minutes between agent messages
+		const timeDiff = currentMessage.timestamp.getTime() - previousMessage.timestamp.getTime();
+		if (timeDiff >= 5 * 60 * 1000) return true;
+
+		return false;
+	}
+
 	// Ambiguity resolution handlers
 	function handleResolveAmbiguity(ambiguityId: string, resolution: string, type: ResolutionType) {
 		chatStore.resolveAmbiguity(ambiguityId, resolution, type);
@@ -617,8 +646,17 @@
 			{#each messages as message, index (message.id)}
 				<!-- Agent-specific messages (thinking, tool_call, terminal) - rendered with assistant styling -->
 				{#if message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal'}
+					<!-- Show ASSISTANT group header for agent messages -->
+					{#if shouldShowAgentHeader(index)}
+						<div class={styles.messageGroup}>
+							<div class={styles.groupHeader}>
+								<span class={styles.groupRole}>ASSISTANT</span>
+								<span class={styles.groupTime}>{formatGroupTime(message.timestamp)}</span>
+							</div>
+						</div>
+					{/if}
 					<div
-						class={[styles.messageWrapper, styles.assistantWrapper]
+						class={[styles.messageWrapper, styles.assistantWrapper, styles.agentMessageWrapper]
 							.filter(Boolean)
 							.join(' ')}
 					>

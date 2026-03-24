@@ -110,15 +110,30 @@ pub async fn create_agent_session(
     let new_state = SessionState::WaitForRequest {
         last_action_at: Utc::now(),
     };
+
+    // Update the session in the store with the new state
+    state
+        .session_store
+        .update_state(&session.id, &new_state)
+        .map_err(|e| e.to_string())?;
+
+    // Emit state change event
     let _ = app_handle.emit(
         AGENT_EVENT_NAME,
         AgentEvent::SessionStateChanged {
             session_id: session.id.0.clone(),
-            state: new_state,
+            state: new_state.clone(),
         },
     );
 
-    Ok(session)
+    // Return the updated session by fetching it from the store
+    let updated_session = state
+        .session_store
+        .get_session(&session.id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Session not found after creation: {}", session.id.0))?;
+
+    Ok(updated_session)
 }
 
 /// Get session state by ID.
