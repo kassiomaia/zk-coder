@@ -3,48 +3,32 @@
 	 * TaskList Component
 	 * Displays agent tasks with status indicators and subtasks.
 	 */
-	import { CheckCircle, Circle, Loader2, XCircle, ChevronRight, ChevronDown } from 'lucide-svelte';
-	import type { AgentTask, TaskStatus, SubTask } from '$lib/types/agent';
+	import { CheckCircle, Circle, Loader2, XCircle, ChevronRight, ChevronDown, Activity } from 'lucide-svelte';
+	import type { AgentTask, TaskStatus, SubTask, ExecutionStep } from '$lib/types/agent';
 
 	interface Props {
 		tasks: AgentTask[];
+		executionSteps?: ExecutionStep[];
+		currentStep?: number;
 		ontaskclick?: (task: AgentTask) => void;
 		onsubtaskclick?: (subtask: SubTask) => void;
 	}
 
-	let { tasks, ontaskclick, onsubtaskclick }: Props = $props();
+	let { tasks, executionSteps = [], currentStep, ontaskclick, onsubtaskclick }: Props = $props();
 
-	/** Track which tasks are expanded to show subtasks */
-	let expandedTasks = $state<Set<string>>(new Set());
-
-	function getStatusClass(status: TaskStatus): string {
-		switch (status) {
-			case 'completed':
-				return 'completed';
-			case 'in_progress':
-				return 'running';
-			case 'failed':
-				return 'failed';
-			default:
-				return 'pending';
-		}
-	}
-
-	function toggleTask(taskId: string) {
-		if (expandedTasks.has(taskId)) {
-			expandedTasks.delete(taskId);
-		} else {
-			expandedTasks.add(taskId);
-		}
-		expandedTasks = new Set(expandedTasks);
+	function getStepActionLabel(step: ExecutionStep): string {
+		if (step.action.type === 'llm_request') return `LLM: ${step.action.model}`;
+		if (step.action.type === 'tool_call') return `Tool: ${step.action.tool}`;
+		return 'Step';
 	}
 </script>
 
 <div class="task-list" aria-label="Task list">
 	{#each tasks as task (task.id)}
 		{@const hasSubtasks = task.subtasks && task.subtasks.length > 0}
-		{@const isExpanded = expandedTasks.has(task.id)}
-		<div class="task-wrapper">
+		{@const isExpanded = expandedTasks.has(task.id) || task.status === 'in_progress'}
+		{@const isRunning = task.status === 'in_progress'}
+		<div class="task-wrapper" class:is-running={isRunning}>
 			<div
 				class="task-item"
 				class:selected={task.selected}
@@ -53,12 +37,6 @@
 				tabindex={ontaskclick ? 0 : -1}
 				aria-label="{task.title} - {task.status}"
 				onclick={() => ontaskclick?.(task)}
-				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') {
-						e.preventDefault();
-						ontaskclick?.(task);
-					}
-				}}
 			>
 				<span class="status-icon {getStatusClass(task.status)}">
 					{#if task.status === 'in_progress'}
@@ -77,26 +55,25 @@
 						<span class="task-description">{task.description}</span>
 					{/if}
 				</span>
-				{#if hasSubtasks}
-					<button
-						class="expand-toggle"
-						class:expanded={isExpanded}
-						onclick={(e) => {
-							e.stopPropagation();
-							toggleTask(task.id);
-						}}
-						type="button"
-						aria-label="Toggle subtasks"
-					>
-						{#if isExpanded}
-							<ChevronDown size={12} />
-						{:else}
-							<ChevronRight size={12} />
-						{/if}
-					</button>
-				{/if}
 			</div>
+
+			{#if isRunning && executionSteps.length > 0}
+				<div class="live-steps">
+					<div class="steps-connector"></div>
+					{#each executionSteps as step}
+						<div class="step-mini-item" class:is-current={step.stepNumber === currentStep}>
+							<Activity size={10} />
+							<span class="step-label">{getStepActionLabel(step)}</span>
+							{#if step.result}
+								<span class="step-time">{step.result.durationMs}ms</span>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+
 			{#if hasSubtasks && isExpanded}
+
 				<div class="subtasks">
 					{#each task.subtasks as subtask (subtask.id)}
 						<button
@@ -138,9 +115,85 @@
 	.task-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1);
-		padding: var(--space-2) var(--space-4);
+		gap: 0;
+		padding: var(--space-1) 0;
 	}
+
+	.task-wrapper {
+		display: flex;
+		flex-direction: column;
+		border-left: 2px solid transparent;
+		transition: all var(--transition-fast);
+	}
+
+	.task-wrapper.is-running {
+		background: var(--color-primary-500/5);
+		border-left-color: var(--color-primary-500);
+	}
+
+	.task-item {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-4);
+		text-align: left;
+		width: 100%;
+		background: transparent;
+	}
+
+	.task-item.clickable {
+		cursor: pointer;
+	}
+
+	.task-item.clickable:hover {
+		background: var(--color-interactive-hover);
+	}
+
+	.live-steps {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		margin-left: calc(var(--space-4) + 7px);
+		padding: var(--space-1) 0 var(--space-3) var(--space-4);
+		border-left: 1px solid var(--color-border-subtle);
+	}
+
+	.step-mini-item {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-1) var(--space-2);
+		font-size: 10px;
+		color: var(--color-text-muted);
+		border-radius: var(--radius-sm);
+		transition: all var(--transition-fast);
+	}
+
+	.step-mini-item.is-current {
+		color: var(--color-primary-400);
+		background: var(--color-primary-500/10);
+	}
+
+	.step-label {
+		flex: 1;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.step-time {
+		font-size: 9px;
+		opacity: 0.6;
+	}
+
+	.task-title {
+		font-size: var(--text-xs);
+		font-weight: 500;
+		color: var(--color-text-primary);
+		line-height: 1.4;
+	}
+
 
 	.task-wrapper {
 		display: flex;
@@ -309,9 +362,24 @@
 	}
 
 	.empty-state {
-		padding: var(--space-4);
-		text-align: center;
+		padding: var(--space-4) var(--space-4) var(--space-6);
+		text-align: left;
 		color: var(--color-text-muted);
-		font-size: var(--text-xs);
+		font-size: 11px;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+
+	.empty-state p {
+		margin: 0;
+		opacity: 0.7;
+		font-style: italic;
+	}
+
+	.empty-state::after {
+		content: 'Waiting for instructions to begin execution.';
+		font-size: 10px;
+		opacity: 0.4;
 	}
 </style>

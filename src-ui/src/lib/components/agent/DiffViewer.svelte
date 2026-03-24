@@ -87,7 +87,7 @@
 			diff2HtmlUi.highlightCode();
 		} catch (error) {
 			console.error('[DiffViewer] Failed to render diff:', error);
-			container.innerHTML = `<div class="diff-error">Failed to render diff: ${error}</div>`;
+			container.innerHTML = `<div class="diff-error">Failed to render diff: \${error}</div>`;
 		}
 	}
 
@@ -103,7 +103,7 @@
 	});
 </script>
 
-<div class="diff-viewer-wrapper" style:max-height="{maxHeight}px">
+<div class="diff-viewer-wrapper">
 	<div class="diff-header">
 		<span class="diff-title">Changes</span>
 		<button
@@ -126,43 +126,44 @@
 	.diff-viewer-wrapper {
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
+		height: 100%;
+		min-height: 0;
 		background: var(--color-bg-primary);
+		border: 1px solid var(--color-border-primary);
 		border-radius: var(--radius-md);
-		font-family: var(--font-mono);
-		font-size: var(--text-xs);
-		line-height: var(--leading-normal);
-		border: 1px solid var(--color-border-subtle);
+		overflow: hidden;
 	}
 
 	.diff-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: var(--space-2) var(--space-3);
-		background: var(--color-surface);
-		border-bottom: 1px solid var(--color-border-subtle);
+		padding: var(--space-2) var(--space-4);
+		background: var(--color-bg-secondary);
+		border-bottom: 1px solid var(--color-border-primary);
 		flex-shrink: 0;
 	}
 
 	.diff-title {
-		font-size: var(--text-xs);
-		font-weight: var(--font-medium);
-		color: var(--color-text-secondary);
+		font-size: 10px;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		color: var(--color-text-muted);
 	}
 
 	.view-toggle {
-		padding: var(--space-1) var(--space-2);
-		font-size: var(--text-2xs);
-		font-weight: var(--font-medium);
-		color: var(--color-text-muted);
+		padding: 2px 8px;
+		font-size: 10px;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-secondary);
 		background: var(--color-neutral-800);
 		border: 1px solid var(--color-border-subtle);
-		border-radius: var(--radius-sm);
+		border-radius: 4px;
 		cursor: pointer;
-		transition:
-			background var(--transition-fast),
-			color var(--transition-fast);
+		transition: all var(--transition-fast);
 	}
 
 	.view-toggle:hover {
@@ -170,210 +171,286 @@
 		color: var(--color-text-primary);
 	}
 
-	.view-toggle:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: 2px;
-	}
-
 	.diff2html-container {
-		overflow: auto;
 		flex: 1;
 		min-height: 0;
+		overflow: hidden !important; /* Prevent the main container from scrolling */
+		background: var(--color-bg-primary);
+		display: flex;
+		flex-direction: column;
 	}
 
-	/* ============================================================================
-	   Diff2Html Custom Theme - Matches Coder Design System
-	   ============================================================================ */
-
-	/* Base wrapper */
-	:global(.d2h-wrapper) {
+	:global(.d2h-file-diff) {
+		overflow: auto !important; /* Only this element should scroll */
+		flex: 1 !important;
+		min-height: 0 !important;
 		background: transparent !important;
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-neutral-700) transparent;
+	}
+
+	:global(.d2h-file-diff::-webkit-scrollbar) {
+		width: 6px;
+		height: 6px;
+	}
+
+	:global(.d2h-file-diff::-webkit-scrollbar-track) {
+		background: transparent;
+	}
+
+	:global(.d2h-file-diff::-webkit-scrollbar-thumb) {
+		background: var(--color-neutral-700);
+		border-radius: var(--radius-full);
+	}
+
+	:global(.d2h-files-diff) {
+		display: flex !important;
+		flex-direction: column !important;
+		flex: 1 !important;
+		min-height: 0 !important;
+		overflow: hidden !important;
+	}
+
+	:global(.d2h-wrapper) {
+		display: flex !important;
+		flex-direction: column !important;
+		flex: 1 !important;
+		min-height: 0 !important;
+		overflow: hidden !important;
 		border: none !important;
+		margin: 0 !important;
 		padding: 0 !important;
+		background: transparent !important;
 	}
 
-	/* File header */
-	:global(.d2h-file-header) {
-		background: var(--color-surface) !important;
-		border-bottom: 1px solid var(--color-border-subtle) !important;
-		border-top: 1px solid var(--color-border-subtle) !important;
-		padding: var(--space-2) var(--space-3) !important;
+	:global(.d2h-file-wrapper) {
+		border: none !important;
+		margin: 0 !important;
+		margin-bottom: 0 !important;
+		display: flex !important;
+		flex-direction: column !important;
+		flex: 1 !important;
+		min-height: 0 !important;
+		overflow: hidden !important;
 	}
 
-	:global(.d2h-file-name) {
-		color: var(--color-text-primary) !important;
-		font-size: var(--text-xs) !important;
-		font-family: var(--font-mono) !important;
+	/* Target split view specifically for vertical alignment */
+	:global(.d2h-file-side-diff) {
+		margin-bottom: 0 !important;
+		display: table-cell !important;
+		width: 50% !important; 
+		vertical-align: top !important;
+		position: relative !important;
+		float: none !important; /* Ensure table-cell behavior is not overridden by floats */
 	}
 
-	:global(.d2h-file-stats) {
-		color: var(--color-text-muted) !important;
-		font-size: var(--text-2xs) !important;
+	:global(.d2h-files-diff) {
+		display: table !important;
+		width: 100% !important;
+		table-layout: fixed !important;
+		border-spacing: 0 !important;
+		border-collapse: collapse !important;
 	}
 
-	/* Line numbers */
-	:global(.d2h-code-line-header),
-	:global(.d2h-code-side-linenumber) {
-		background: var(--color-bg-elevated) !important;
-		color: var(--color-text-muted) !important;
-		border-color: var(--color-border-subtle) !important;
-		line-height: 1.6 !important;
+	:global(.d2h-file-side-diff table) {
+		width: 100% !important;
+		table-layout: fixed !important;
+		border-collapse: collapse !important;
 	}
 
-	/* Line content - unchanged */
-	:global(.d2h-code-line) {
-		color: var(--color-text-secondary) !important;
-		background: var(--color-bg-primary) !important;
-	}
-
+	/* Reset code lines to block/table-row to ensure they fill the side panels */
 	:global(.d2h-code-side-line) {
-		color: var(--color-text-secondary) !important;
-		background: var(--color-bg-primary) !important;
+		display: table-row !important;
+		width: 100% !important;
 	}
 
-	/* Deleted lines (red) */
-	:global(.d2h-del) {
-		background: var(--color-error-light) !important;
+	:global(.d2h-code-side-linenumber) {
+		width: 50px !important;
+		min-width: 50px !important;
+		display: table-cell !important;
 	}
 
-	:global(.d2h-del .d2h-code-line),
-	:global(.d2h-del .d2h-code-side-line) {
-		background: var(--color-error-light) !important;
-		color: var(--color-error-text) !important;
+	:global(.d2h-code-side-line-ctn) {
+		display: table-cell !important;
+		width: 100% !important;
 	}
 
-	:global(.d2h-del .d2h-code-line-prefix),
-	:global(.d2h-del .d2h-code-side-line-prefix) {
-		color: var(--color-error) !important;
+	/* Prevent internal diff2html headers/containers from introducing independent scrolls */
+	:global(.d2h-file-diff) {
+		overflow-y: auto !important;
+		overflow-x: auto !important;
+		flex: 1 !important;
+		min-height: 0 !important;
+		display: block !important;
+		height: 100% !important; /* Ensure it takes full height to enable scrolling */
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-neutral-700) transparent;
 	}
 
-	/* Added lines (green) */
-	:global(.d2h-ins) {
-		background: var(--color-success-subtle) !important;
+	:global(.d2h-files-diff) {
+		display: table !important;
+		width: 100% !important;
+		height: 100% !important; /* Fixed height for table within scroller */
+		table-layout: fixed !important;
+		border-spacing: 0 !important;
+		border-collapse: collapse !important;
+		min-height: 100% !important;
 	}
 
-	:global(.d2h-ins .d2h-code-line),
-	:global(.d2h-ins .d2h-code-side-line) {
-		background: var(--color-success-subtle) !important;
-		color: var(--color-text-primary) !important;
+	:global(.d2h-file-side-diff) {
+		margin-bottom: 0 !important;
+		display: table-cell !important;
+		width: 50% !important; 
+		height: 100% !important; /* Ensure columns fill scroller height */
+		vertical-align: top !important;
+		position: relative !important;
+		float: none !important;
 	}
 
-	:global(.d2h-ins .d2h-code-line-prefix),
-	:global(.d2h-ins .d2h-code-side-line-prefix) {
-		color: var(--color-success) !important;
+	:global(.d2h-file-side-diff table) {
+		width: 100% !important;
+		height: 100% !important; /* Ensure internal table fills the column */
+		table-layout: fixed !important;
+		border-collapse: collapse !important;
 	}
 
-	/* Diff with no changes */
-	:global(.d2h-d-none) {
-		background: var(--color-bg-elevated) !important;
+	:global(.d2h-file-wrapper) {
+		display: flex !important;
+		flex-direction: column !important;
+		flex: 1 !important;
+		min-height: 0 !important;
 	}
 
-	/* Change markers */
-	:global(.d2h-change) {
-		background: var(--color-warning-light) !important;
+	/* Ensure the "Original" and "Modified" headers don't push the tables out of sync */
+	:global(.d2h-file-side-diff .d2h-code-side-linenumber) {
+		position: sticky !important;
+		left: 0 !important;
+		z-index: 2 !important;
 	}
 
-	/* Syntax highlighting colors (optimized for dark backgrounds) */
-	:global(.hljs-keyword) {
-		color: #ff79c6 !important;
+	:global(.d2h-file-header) {
+		display: none !important;
 	}
-	:global(.hljs-string) {
-		color: #f1fa8c !important;
+
+	/* Ensure the header (hunk lines) stay while code scrolls if we want, 
+	   but for now let's just make the whole diff area scrollable 
+	*/
+
+	/* CORE ALIGNMENT: Standard Table Flow */
+	:global(.d2h-diff-table) {
+		display: table !important;
+		width: 100% !important;
+		border-collapse: collapse !important;
+		table-layout: auto !important;
+		font-family: var(--font-mono) !important;
+		font-size: 12px !important;
+		border: none !important;
 	}
-	:global(.hljs-number) {
-		color: #bd93f9 !important;
+
+	:global(.d2h-code-line) {
+		display: table-row !important;
+		background: transparent !important;
 	}
-	:global(.hljs-comment) {
-		color: #6272a4 !important;
-	}
-	:global(.hljs-function) {
-		color: #50fa7b !important;
-	}
-	:global(.hljs-title) {
-		color: #8be9fd !important;
-	}
-	:global(.hljs-params) {
-		color: var(--color-text-secondary) !important;
-	}
-	:global(.hljs-built_in) {
-		color: #ffb86c !important;
-	}
-	:global(.hljs-literal) {
-		color: #bd93f9 !important;
-	}
-	:global(.hljs-class) {
-		color: #ff79c6 !important;
-	}
-	:global(.hljs-attr) {
-		color: #8be9fd !important;
-	}
-	:global(.hljs-tag) {
-		color: #ff79c6 !important;
-	}
-	:global(.hljs-name) {
-		color: #50fa7b !important;
-	}
-	:global(.hljs-property) {
-		color: #66d9ef !important;
-	}
-	:global(.hljs-operator) {
-		color: #ff79c6 !important;
-	}
-	:global(.hljs-punctuation) {
+
+	:global(.d2h-code-linenumber),
+	:global(.d2h-code-side-linenumber) {
+		display: table-cell !important;
+		position: relative !important;
+		float: none !important; /* Eliminate float-based detachment */
+		width: 50px !important;
+		min-width: 50px !important;
+		background: var(--color-bg-secondary) !important;
 		color: var(--color-text-muted) !important;
+		border: none !important;
+		border-right: 1px solid var(--color-border-subtle) !important;
+		text-align: right !important;
+		padding: 0 8px !important;
+		line-height: 20px !important;
+		user-select: none !important;
+		vertical-align: top !important;
 	}
-	:global(.hljs-subst) {
-		color: var(--color-text-secondary) !important;
+
+	:global(.d2h-code-line-ctn) {
+		display: table-cell !important;
+		position: relative !important;
+		float: none !important; /* Eliminate float-based detachment */
+		padding: 0 16px !important;
+		line-height: 20px !important;
+		vertical-align: top !important;
+		width: 100% !important;
+		white-space: pre !important;
+		word-break: normal !important;
 	}
-	:global(.hljs-symbol) {
-		color: #ffb86c !important;
+
+	/* TINTS & MARKERS */
+	:global(.d2h-del) {
+		background: rgba(248, 81, 73, 0.1) !important;
 	}
-	:global(.hljs-variable) {
-		color: #f8f8f2 !important;
+
+	:global(.d2h-ins) {
+		background: rgba(63, 185, 80, 0.1) !important;
 	}
-	:global(.hljs-bullet) {
-		color: #8be9fd !important;
+
+	/* Fix white background in split view (d2h-code-line/d2h-code-side-line) */
+	:global(.d2h-code-line),
+	:global(.d2h-code-side-line),
+	:global(.d2h-code-line-ctn),
+	:global(.d2h-code-side-linenumber) {
+		background: transparent !important;
 	}
-	:global(.hljs-code) {
-		color: #50fa7b !important;
+
+	/* Ensure the empty/spacer side of a diff also uses a dark background */
+	:global(.d2h-code-side-emptyplaceholder),
+	:global(.d2h-emptyplaceholder) {
+		background: var(--color-bg-primary) !important;
+		border: none !important;
+		display: table-row !important; /* Ensure it behaves like a row to maintain height */
 	}
-	:global(.hljs-emphasis) {
-		font-style: italic !important;
+
+	/* Fix: Ensure split view tables always have at least 100% height to trigger scroll even if one side is empty */
+	:global(.d2h-files-diff) {
+		display: table !important;
+		width: 100% !important;
+		height: 100% !important;
+		table-layout: fixed !important;
+		border-spacing: 0 !important;
+		border-collapse: collapse !important;
+		min-height: 100% !important;
 	}
-	:global(.hljs-strong) {
+
+	:global(.d2h-code-line-prefix) {
+		display: inline-block !important;
+		width: 1ch !important;
+		margin-right: 8px !important;
+		opacity: 0.5 !important;
 		font-weight: bold !important;
 	}
-	:global(.hljs-formula) {
-		background: #3d3d3d !important;
+
+	/* Hunk header (The \"@@\" line) */
+	:global(.d2h-info) {
+		background: var(--color-neutral-900) !important;
+		border: none !important;
+		color: var(--color-text-muted) !important;
+		font-size: 11px !important;
+		font-style: italic !important;
+		padding: 6px 16px !important;
+		border-bottom: 1px solid var(--color-border-subtle) !important;
+		border-top: 1px solid var(--color-border-subtle) !important;
 	}
-	:global(.hljs-link) {
-		color: #8be9fd !important;
-		text-decoration: underline !important;
+
+	:global(.d2h-code-linenumber.d2h-info),
+	:global(.d2h-code-side-linenumber.d2h-info) {
+		background: var(--color-neutral-800) !important;
+		border: none !important;
 	}
-	:global(.hljs-quote) {
-		color: #6272a4 !important;
-	}
-	:global(.hljs-selector-tag) {
-		color: #ff79c6 !important;
-	}
-	:global(.hljs-selector-id) {
-		color: #8be9fd !important;
-	}
-	:global(.hljs-selector-class) {
-		color: #50fa7b !important;
-	}
-	:global(.hljs-selector-attr) {
-		color: #bd93f9 !important;
-	}
-	:global(.hljs-selector-pseudo) {
-		color: #ffb86c !important;
-	}
-	:global(.hljs-template-tag) {
-		color: #ff79c6 !important;
-	}
-	:global(.hljs-template-variable) {
-		color: #f1fa8c !important;
-	}
+
+	/* Syntax highlighting colors */
+	:global(.hljs-keyword) { color: #ff79c6 !important; }
+	:global(.hljs-string) { color: #f1fa8c !important; }
+	:global(.hljs-number) { color: #bd93f9 !important; }
+	:global(.hljs-comment) { color: #6272a4 !important; }
+	:global(.hljs-function) { color: #50fa7b !important; }
+	:global(.hljs-title) { color: #8be9fd !important; }
 
 	/* Scrollbar styling */
 	.diff2html-container::-webkit-scrollbar {
@@ -388,10 +465,6 @@
 	.diff2html-container::-webkit-scrollbar-thumb {
 		background: var(--color-neutral-700);
 		border-radius: var(--radius-full);
-	}
-
-	.diff2html-container::-webkit-scrollbar-thumb:hover {
-		background: var(--color-neutral-600);
 	}
 
 	/* Error state */

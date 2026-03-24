@@ -26,9 +26,10 @@
 	interface Props {
 		files: TouchedFile[];
 		onfileclick?: (path: string) => void;
+		activePath?: string;
 	}
 
-	let { files, onfileclick }: Props = $props();
+	let { files, onfileclick, activePath }: Props = $props();
 
 	/** Track expanded directories */
 	let expandedPaths = $state<Set<string>>(new Set());
@@ -85,26 +86,27 @@
 			case 'js':
 			case 'tsx':
 			case 'jsx':
+				return { icon: FileCode, color: 'var(--color-primary-400)' };
 			case 'rs':
+				return { icon: FileCode, color: '#f74c00' };
 			case 'py':
-			case 'go':
-				return FileCode;
+				return { icon: FileCode, color: '#3776ab' };
 			case 'md':
-			case 'txt':
+				return { icon: FileText, color: 'var(--color-text-muted)' };
 			case 'toml':
 			case 'yaml':
 			case 'yml':
 			case 'json':
-				return FileText;
+				return { icon: FileText, color: 'var(--color-warning-dark)' };
 			default:
-				return File;
+				return { icon: File, color: 'var(--color-text-muted)' };
 		}
 	}
 
-	function getChangeIndicator(file: TouchedFile): { label: string; cssClass: string } | null {
-		if (file.action === 'write' && file.modified) return { label: 'M', cssClass: 'modified' };
-		if (file.action === 'write' && !file.modified) return { label: 'A', cssClass: 'added' };
-		if (file.action === 'delete') return { label: 'D', cssClass: 'deleted' };
+	function getChangeIndicator(file: TouchedFile): { label: string; cssClass: string; color: string } | null {
+		if (file.action === 'write' && file.modified) return { label: 'M', cssClass: 'modified', color: 'var(--color-warning)' };
+		if (file.action === 'write' && !file.modified) return { label: 'A', cssClass: 'added', color: 'var(--color-success)' };
+		if (file.action === 'delete') return { label: 'D', cssClass: 'deleted', color: 'var(--color-error)' };
 		return null;
 	}
 
@@ -118,7 +120,7 @@
 		{@render TreeNode(fileTree.children, 0)}
 	{:else}
 		<div class="empty-state">
-			<p>No files touched</p>
+			<p>No files changed in this session.</p>
 		</div>
 	{/if}
 </div>
@@ -134,14 +136,17 @@
 				type="button"
 				aria-expanded={isExpanded}
 			>
-				{#if isExpanded}
-					<ChevronDown size={12} />
-					<FolderOpen size={14} />
-				{:else}
-					<ChevronRight size={12} />
-					<Folder size={14} />
-				{/if}
-				<span>{node.name}/</span>
+				<span class="chevron-wrapper" class:is-expanded={isExpanded}>
+					<ChevronRight size={12} strokeWidth={2.5} />
+				</span>
+				<span class="node-content">
+					{#if isExpanded}
+						<FolderOpen size={14} strokeWidth={1.5} class="folder-icon" />
+					{:else}
+						<Folder size={14} strokeWidth={1.5} class="folder-icon" />
+					{/if}
+					<span class="node-name">{node.name}</span>
+				</span>
 			</button>
 
 			{#if isExpanded}
@@ -152,20 +157,23 @@
 
 		{:else if node.file}
 			{@const indicator = getChangeIndicator(node.file)}
-			{@const FileIcon = getFileIcon(node.path)}
+			{@const iconData = getFileIcon(node.path)}
+			{@const FileIcon = iconData.icon}
 			<button
 				class="tree-node file"
-				class:modified={node.file.action === 'write'}
-				class:deleted={node.file.action === 'delete'}
-				style="padding-left: {BASE_INDENT + depth * INDENT_PER_LEVEL}px"
+				class:is-active={activePath === node.path}
+				class:is-modified={node.file.action === 'write'}
+				class:is-deleted={node.file.action === 'delete'}
+				style="padding-left: {BASE_INDENT + depth * INDENT_PER_LEVEL + 16}px; --status-color: {indicator?.color ?? 'transparent'}"
 				onclick={() => onfileclick?.(node.path)}
 				type="button"
 			>
-				<span class="file-icon-spacer"></span>
-				<FileIcon size={14} />
-				<span>{node.name}</span>
+				<span class="node-content">
+					<FileIcon size={14} strokeWidth={1.5} style="color: {iconData.color}" />
+					<span class="node-name">{node.name}</span>
+				</span>
 				{#if indicator}
-					<span class="change-indicator {indicator.cssClass}">{indicator.label}</span>
+					<span class="change-badge {indicator.cssClass}">{indicator.label}</span>
 				{/if}
 			</button>
 		{/if}
@@ -174,23 +182,22 @@
 
 <style>
 	.file-tree {
-		padding: var(--space-2) var(--space-4);
+		padding: var(--space-1) 0;
 	}
 
 	.tree-node {
 		display: flex;
 		align-items: center;
-		gap: var(--space-1-5);
+		justify-content: space-between;
 		width: 100%;
-		padding: var(--space-1) var(--space-2);
-		font-size: var(--text-xs);
+		padding: var(--space-1) var(--space-4);
+		font-size: 11px;
 		color: var(--color-text-secondary);
-		border-radius: var(--radius-sm);
-		text-align: left;
 		background: transparent;
 		border: none;
 		cursor: pointer;
-		transition: background var(--transition-fast);
+		transition: all var(--transition-fast);
+		position: relative;
 	}
 
 	.tree-node:hover {
@@ -198,48 +205,89 @@
 		color: var(--color-text-primary);
 	}
 
-	.tree-node:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: -2px;
+	.tree-node.file.is-active {
+		background: var(--color-interactive-active);
+		color: var(--color-text-primary);
 	}
 
-	.tree-node.modified {
-		color: var(--color-warning);
+	.tree-node.file.is-active::after {
+		content: '';
+		position: absolute;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		width: 2px;
+		background: var(--color-primary-500);
 	}
 
-	.tree-node.deleted {
-		color: var(--color-error);
+	.tree-node.file::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		top: 2px;
+		bottom: 2px;
+		width: 2px;
+		background: var(--status-color);
+		opacity: 0.6;
+	}
+
+	.node-content {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		min-width: 0;
+		flex: 1;
+	}
+
+	.node-name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.chevron-wrapper {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-right: var(--space-1);
+		transition: transform var(--transition-fast);
+		opacity: 0.5;
+	}
+
+	.chevron-wrapper.is-expanded {
+		transform: rotate(90deg);
+	}
+
+	.folder-icon {
+		color: var(--color-primary-400);
+		opacity: 0.8;
+	}
+
+	.change-badge {
+		font-size: 9px;
+		font-weight: 700;
+		width: 14px;
+		height: 14px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 2px;
+		margin-left: var(--space-2);
+	}
+
+	.change-badge.modified { color: var(--color-warning); background: var(--color-warning-light); }
+	.change-badge.added { color: var(--color-success); background: var(--color-success-light); }
+	.change-badge.deleted { color: var(--color-error); background: var(--color-error-light); }
+
+	.tree-node.is-deleted .node-name {
 		text-decoration: line-through;
-	}
-
-	.file-icon-spacer {
-		display: inline-block;
-		width: 12px;
-		flex-shrink: 0;
-	}
-
-	.change-indicator {
-		margin-left: auto;
-		font-size: var(--text-2xs);
-		font-weight: var(--font-medium);
-	}
-
-	.change-indicator.modified {
-		color: var(--color-warning);
-	}
-
-	.change-indicator.added {
-		color: var(--color-success);
-	}
-
-	.change-indicator.deleted {
-		color: var(--color-error);
+		opacity: 0.5;
 	}
 
 	.empty-state {
-		padding: var(--space-4);
-		text-align: center;
+		padding: var(--space-4) var(--space-4) var(--space-6);
 		color: var(--color-text-muted);
-		font-size: var(--text-xs);
+		font-size: 11px;
+		font-style: italic;
 	}
 </style>

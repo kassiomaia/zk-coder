@@ -7,7 +7,7 @@
 	import Modal from '$lib/components/shared/Modal.svelte';
 	import Button from '$lib/components/shared/Button.svelte';
 	import DiffViewer from './DiffViewer.svelte';
-	import { FileText, FilePlus, FileX } from 'lucide-svelte';
+	import { FileText, FilePlus, FileX, X } from 'lucide-svelte';
 	import { getFileContent, type FileContentResponse } from '$lib/api/file';
 
 	interface Props {
@@ -79,33 +79,53 @@
 	});
 </script>
 
-<Modal open={open} onclose={onclose} size="full" title={undefined}>
+<Modal open={open} onclose={onclose} size="full" showClose={false} contentClass="no-padding-body">
 	<div class="file-diff-modal">
 		<header class="modal-header-alt">
-			<div class="header-content">
-				{#if fileData?.is_new || fileData?.current_content && !fileData?.original_content}
-					<FilePlus size={18} class="icon-new" />
-				{:else if !fileData?.exists}
-					<FileX size={18} class="icon-deleted" />
-				{:else}
-					<FileText size={18} />
-				{/if}
+			<div class="header-left">
+				<div class="file-icon-wrapper" class:is-new={fileData?.is_new} class:is-deleted={!fileData?.exists}>
+					{#if fileData?.is_new || fileData?.current_content && !fileData?.original_content}
+						<FilePlus size={16} strokeWidth={2.5} />
+					{:else if !fileData?.exists}
+						<FileX size={16} strokeWidth={2.5} />
+					{:else}
+						<FileText size={16} strokeWidth={2} />
+					{/if}
+				</div>
 				<div class="file-info">
-					<h3 class="file-name">{fileName}</h3>
+					<div class="file-name-row">
+						<h3 class="file-name">{fileName}</h3>
+						{#if fileData?.is_new}
+							<span class="status-tag new">New</span>
+						{:else if !fileData?.exists}
+							<span class="status-tag deleted">Deleted</span>
+						{:else}
+							<span class="status-tag modified">Modified</span>
+						{/if}
+					</div>
 					<p class="file-path">{filePath}</p>
 				</div>
+			</div>
+
+			<div class="header-actions">
+				<Button variant="ghost" size="sm" onclick={onclose} aria-label="Close modal">
+					<X size={18} />
+				</Button>
 			</div>
 		</header>
 
 		<div class="modal-body">
 			{#if diffToShow}
-				<DiffViewer diff={diffToShow} maxHeight={maxHeight} view={view} />
+				<div class="diff-container-fixed">
+					<DiffViewer diff={diffToShow} maxHeight={maxHeight} view={view} />
+				</div>
 			{:else if isLoading}
 				<div class="loading">
-					<p>Loading file content...</p>
+					<div class="spinner"></div>
+					<p>Analyzing changes...</p>
 				</div>
 			{:else if error}
-				<div class="no-content">
+				<div class="error-state">
 					<p>{error}</p>
 				</div>
 			{:else if fileData?.current_content}
@@ -113,172 +133,201 @@
 					<div class="content-header">
 						<span class="content-label">
 							{#if fileData.is_new}
-								New file
+								New File Content
 							{:else}
-								Current content
+								Final Result
 							{/if}
 						</span>
 					</div>
 					<pre class="file-content-pre"><code>{fileData.current_content}</code></pre>
 				</div>
 			{:else}
-				<div class="no-content">
+				<div class="error-state">
 					<p>File not found or cannot be read.</p>
 				</div>
 			{/if}
 		</div>
-
-		<footer class="modal-footer">
-			<Button variant="primary" onclick={onclose}>Close</Button>
-		</footer>
 	</div>
 </Modal>
 
 <style>
+	:global(.no-padding-body) {
+		padding: 0 !important;
+		overflow: hidden !important;
+		display: flex !important;
+		flex-direction: column !important;
+	}
+
 	.file-diff-modal {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		max-height: 92vh;
+		flex: 1;
+		min-height: 0;
+		background: var(--color-bg-primary);
+		overflow: hidden;
 	}
 
-	/* Custom header with file info */
 	.modal-header-alt {
 		display: flex;
+		justify-content: space-between;
 		align-items: center;
-		gap: var(--space-3);
-		padding: var(--space-4) var(--space-6);
-		border-bottom: 1px solid var(--color-border-subtle);
-		background: var(--color-surface);
+		padding: var(--space-3) var(--space-6);
+		background: var(--color-bg-secondary);
+		border-bottom: 1px solid var(--color-border-primary);
 		flex-shrink: 0;
+		z-index: 10;
 	}
 
-	.header-content {
+	.header-left {
 		display: flex;
 		align-items: center;
 		gap: var(--space-3);
+		min-width: 0;
 	}
 
-	.header-content :global(svg) {
+	.file-icon-wrapper {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		background: var(--color-neutral-800);
+		border-radius: var(--radius-md);
 		color: var(--color-text-muted);
-		flex-shrink: 0;
 	}
 
-	.header-content :global(.icon-new) {
+	.file-icon-wrapper.is-new {
 		color: var(--color-success);
+		background: var(--color-success-light);
 	}
 
-	.header-content :global(.icon-deleted) {
+	.file-icon-wrapper.is-deleted {
 		color: var(--color-error);
+		background: var(--color-error-light);
 	}
 
 	.file-info {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-0-5);
 		min-width: 0;
+	}
+
+	.file-name-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
 	}
 
 	.file-name {
 		font-size: var(--text-base);
-		font-weight: var(--font-semibold);
+		font-weight: 700;
 		color: var(--color-text-primary);
 		margin: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		line-height: 1.2;
 	}
+
+	.status-tag {
+		font-size: 10px;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		padding: 2px 6px;
+		border-radius: 4px;
+	}
+
+	.status-tag.new { color: var(--color-success); background: var(--color-success-subtle); }
+	.status-tag.modified { color: var(--color-warning); background: var(--color-warning-subtle); }
+	.status-tag.deleted { color: var(--color-error); background: var(--color-error-subtle); }
 
 	.file-path {
-		font-size: var(--text-xs);
-		font-family: var(--font-mono);
+		font-size: 11px;
 		color: var(--color-text-muted);
+		font-family: var(--font-mono);
 		margin: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		opacity: 0.7;
 	}
 
-	/* Body with diff viewer */
 	.modal-body {
 		flex: 1;
 		min-height: 0;
-		overflow: hidden;
-		padding: var(--space-4) var(--space-6);
+		background: var(--color-bg-primary);
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
 	}
 
-	/* Loading state */
-	.loading {
+	.diff-container-fixed {
+		flex: 1;
+		min-height: 0;
 		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
+		flex-direction: column;
+		overflow: hidden;
 	}
 
-	/* No content state */
-	.no-content {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-	}
-
-	/* File content display */
 	.file-content {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-lg);
 		overflow: hidden;
 	}
 
 	.content-header {
-		padding: var(--space-2) var(--space-3);
-		background: var(--color-surface);
-		border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-		border: 1px solid var(--color-border-subtle);
-		border-bottom: none;
+		padding: var(--space-2) var(--space-4);
+		background: var(--color-bg-secondary);
+		border-bottom: 1px solid var(--color-border-subtle);
 	}
 
 	.content-label {
-		font-size: var(--text-xs);
-		font-weight: var(--font-medium);
-		color: var(--color-text-secondary);
+		font-size: 10px;
+		font-weight: 700;
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-wide);
+		color: var(--color-text-muted);
+		letter-spacing: 0.1em;
 	}
 
 	.file-content-pre {
-		flex: 1;
 		margin: 0;
-		padding: var(--space-4);
-		background: var(--color-bg-secondary);
-		border: 1px solid var(--color-border-subtle);
-		border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+		padding: var(--space-6);
+		background: var(--color-bg-primary);
 		overflow: auto;
 		font-family: var(--font-mono);
-		font-size: var(--text-sm);
+		font-size: 13px;
 		line-height: 1.6;
-		color: var(--color-text-primary);
 	}
 
-	.file-content-pre code {
-		font-family: inherit;
-		font-size: inherit;
-	}
-
-	/* Footer with close button */
-	.modal-footer {
+	.error-state {
 		display: flex;
-		justify-content: flex-end;
-		padding: var(--space-3) var(--space-6);
-		border-top: 1px solid var(--color-border-subtle);
-		background: var(--color-surface);
-		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+		color: var(--color-error);
+		font-size: var(--text-sm);
+		font-style: italic;
+	}
+
+	.loading {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-3);
+		height: 100%;
+		color: var(--color-text-muted);
+	}
+
+	.spinner {
+		width: 24px;
+		height: 24px;
+		border: 2px solid var(--color-border-subtle);
+		border-top-color: var(--color-primary-500);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
 	}
 </style>

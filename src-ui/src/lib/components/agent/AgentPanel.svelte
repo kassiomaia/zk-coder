@@ -121,6 +121,7 @@
 
 	function closeFileDiff() {
 		showFileDiff = false;
+		selectedFile = null;
 	}
 
 	/** Calculate total tokens used - latest step's total (API reports cumulative) */
@@ -143,10 +144,17 @@
 <nav class="agent-panel" aria-label="Agent panel">
 	<!-- Header -->
 	<header class="panel-header">
-		<h3 class="panel-title">{session.agentName}</h3>
+		<div class="header-left">
+			<h3 class="panel-title">{session.agentName}</h3>
+			<WorkspaceSelector
+				workspacePath={session.workspaceRoot}
+				onSelect={onWorkspaceChange}
+				disabled={session.state.type === 'running' || session.state.type === 'user_input_required'}
+			/>
+		</div>
 		<div class="header-actions">
 			<button
-				class="config-btn"
+				class="header-btn"
 				onclick={() => (showAgentConfig = true)}
 				type="button"
 				aria-label="Agent configuration"
@@ -155,7 +163,7 @@
 				<Settings size={14} />
 			</button>
 			<button
-				class="history-btn"
+				class="header-btn"
 				onclick={() => (showSessionHistory = true)}
 				type="button"
 				aria-label="View session history"
@@ -163,7 +171,7 @@
 			>
 				<History size={14} />
 			</button>
-			<button class="close-btn" onclick={onclose} type="button" aria-label="Close agent panel">
+			<button class="header-btn close" onclick={onclose} type="button" aria-label="Close agent panel">
 				<X size={16} />
 			</button>
 		</div>
@@ -179,13 +187,6 @@
 		/>
 	{/if}
 
-	<!-- Workspace selector -->
-	<WorkspaceSelector
-		workspacePath={session.workspaceRoot}
-		onSelect={onWorkspaceChange}
-		disabled={session.state.type === 'running' || session.state.type === 'user_input_required'}
-	/>
-
 	<!-- Status bar -->
 	<div
 		class="session-status"
@@ -193,74 +194,42 @@
 		class:error={session.state.type === 'error'}
 	>
 		<span class="status-dot {getStatusDotClass(session)}"></span>
-		<span>{getStatusLabel(session)}</span>
+		<span class="status-label">{getStatusLabel(session)}</span>
 	</div>
 
-	<!-- Tasks section -->
-	<section class="panel-section">
+	<!-- Activity (Tasks + Progress) section -->
+	<section class="panel-section activity-section">
 		<button
 			class="section-header"
 			onclick={() => (tasksExpanded = !tasksExpanded)}
 			type="button"
 			aria-expanded={tasksExpanded}
-			aria-controls="tasks-section"
+			aria-controls="activity-section"
 		>
-			{#if tasksExpanded}
-				<ChevronDown size={14} />
-			{:else}
-				<ChevronRight size={14} />
-			{/if}
-			<ListChecks size={14} />
-			<span>Tasks</span>
-			{#if (session.tasks?.length ?? 0) > 0}
-				<span class="badge">{session.tasks?.length ?? 0}</span>
-			{/if}
+			<span class="header-main">
+				<span class="chevron-icon" class:is-expanded={tasksExpanded}>
+					<ChevronRight size={14} strokeWidth={2.5} />
+				</span>
+				<span class="header-label">Activity</span>
+			</span>
+			
+			<div class="header-meta">
+				{#if session.state.type === 'running'}
+					<span class="badge running">Step {session.state.currentStep}</span>
+				{/if}
+				{#if totalTokensUsed() > 0}
+					<span class="badge tokens" title="Total tokens used">{formatTokenCount(totalTokensUsed())}</span>
+				{/if}
+				<Activity size={13} strokeWidth={1.5} class="section-icon" />
+			</div>
 		</button>
 		{#if tasksExpanded}
-			<div id="tasks-section">
-				<TaskList tasks={session.tasks ?? []} />
-			</div>
-		{/if}
-	</section>
-
-	<!-- Execution Progress section -->
-	<section class="panel-section">
-		<button
-			class="section-header"
-			onclick={() => (stepsExpanded = !stepsExpanded)}
-			type="button"
-			aria-expanded={stepsExpanded}
-			aria-controls="steps-section"
-		>
-			{#if stepsExpanded}
-				<ChevronDown size={14} />
-			{:else}
-				<ChevronRight size={14} />
-			{/if}
-			<Activity size={14} />
-			<span>Progress</span>
-			{#if session.state.type === 'running'}
-				<span class="badge">{session.state.currentStep}</span>
-			{/if}
-			{#if totalTokensUsed() > 0}
-				<span class="badge tokens" title="Total tokens used">{formatTokenCount(totalTokensUsed())} tokens</span>
-			{/if}
-		</button>
-		{#if stepsExpanded && (session.executionSteps?.length ?? 0) > 0}
-			<div id="steps-section" class="steps-list">
-				{#each session.executionSteps ?? [] as step}
-					<div
-						class="step-item"
-						class:current={session.state.type === 'running' &&
-							step.stepNumber === session.state.currentStep}
-					>
-						<span class="step-number">{step.stepNumber}</span>
-						<span class="step-action">{getStepActionLabel(step)}</span>
-						{#if step.result}
-							<span class="step-duration">{step.result.durationMs}ms</span>
-						{/if}
-					</div>
-				{/each}
+			<div id="activity-section">
+				<TaskList 
+					tasks={session.tasks ?? []} 
+					executionSteps={session.executionSteps ?? []}
+					currentStep={session.state.type === 'running' ? session.state.currentStep : undefined}
+				/>
 			</div>
 		{/if}
 	</section>
@@ -274,20 +243,27 @@
 			aria-expanded={filesExpanded}
 			aria-controls="files-section"
 		>
-			{#if filesExpanded}
-				<ChevronDown size={14} />
-			{:else}
-				<ChevronRight size={14} />
-			{/if}
-			<FileText size={14} />
-			<span>Files</span>
-			{#if (session.filesTouched?.length ?? 0) > 0}
-				<span class="badge">{session.filesTouched?.length ?? 0}</span>
-			{/if}
+			<span class="header-main">
+				<span class="chevron-icon" class:is-expanded={filesExpanded}>
+					<ChevronRight size={14} strokeWidth={2.5} />
+				</span>
+				<span class="header-label">Files</span>
+			</span>
+
+			<div class="header-meta">
+				{#if (session.filesTouched?.length ?? 0) > 0}
+					<span class="badge">{session.filesTouched?.length ?? 0}</span>
+				{/if}
+				<FileText size={13} strokeWidth={1.5} class="section-icon" />
+			</div>
 		</button>
 		{#if filesExpanded}
 			<div id="files-section">
-				<FileTree files={session.filesTouched ?? []} onfileclick={handleFileClick} />
+				<FileTree 
+					files={session.filesTouched ?? []} 
+					onfileclick={handleFileClick} 
+					activePath={selectedFile?.path}
+				/>
 			</div>
 		{/if}
 	</section>
@@ -301,13 +277,16 @@
 			aria-expanded={terminalExpanded}
 			aria-controls="terminal-section"
 		>
-			{#if terminalExpanded}
-				<ChevronDown size={14} />
-			{:else}
-				<ChevronRight size={14} />
-			{/if}
-			<Terminal size={14} />
-			<span>Terminal</span>
+			<span class="header-main">
+				<span class="chevron-icon" class:is-expanded={terminalExpanded}>
+					<ChevronRight size={14} strokeWidth={2.5} />
+				</span>
+				<span class="header-label">Terminal</span>
+			</span>
+
+			<div class="header-meta">
+				<Terminal size={13} strokeWidth={1.5} class="section-icon" />
+			</div>
 		</button>
 		{#if terminalExpanded}
 			<div id="terminal-section" class="terminal-content">
@@ -368,26 +347,38 @@
 	.panel-header {
 		display: flex;
 		justify-content: space-between;
-		align-items: center;
+		align-items: flex-start;
 		padding: var(--space-3) var(--space-4);
 		border-bottom: 1px solid var(--color-border-primary);
 		flex-shrink: 0;
+		background: var(--color-bg-secondary);
+	}
+
+	.header-left {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+		flex: 1;
 	}
 
 	.panel-title {
 		font-size: var(--text-sm);
-		font-weight: var(--font-medium);
+		font-weight: 700;
 		color: var(--color-text-primary);
 		margin: 0;
+		letter-spacing: -0.01em;
+		line-height: 1;
 	}
 
 	.header-actions {
 		display: flex;
 		align-items: center;
 		gap: var(--space-1);
+		margin-top: -2px;
 	}
 
-	.history-btn {
+	.header-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -397,67 +388,21 @@
 		background: transparent;
 		border: none;
 		cursor: pointer;
-		transition:
-			background var(--transition-fast),
-			color var(--transition-fast);
+		opacity: 0.6;
+		transition: all var(--transition-fast);
 	}
 
-	.history-btn:hover {
+	.header-btn:hover {
 		background: var(--color-interactive-hover);
 		color: var(--color-text-primary);
+		opacity: 1;
 	}
 
-	.history-btn:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: 2px;
+	.header-btn.close:hover {
+		color: var(--color-error);
 	}
 
-	.config-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: var(--space-1);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
-		background: transparent;
-		border: none;
-		cursor: pointer;
-		transition:
-			background var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.config-btn:hover {
-		background: var(--color-interactive-hover);
-		color: var(--color-text-primary);
-	}
-
-	.config-btn:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: 2px;
-	}
-
-	.close-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: var(--space-1);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
-		background: transparent;
-		border: none;
-		cursor: pointer;
-		transition:
-			background var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.close-btn:hover {
-		background: var(--color-interactive-hover);
-		color: var(--color-text-primary);
-	}
-
-	.close-btn:focus-visible {
+	.header-btn:focus-visible {
 		outline: 2px solid var(--color-primary-500);
 		outline-offset: 2px;
 	}
@@ -467,11 +412,18 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-surface);
-		font-size: var(--text-xs);
+		padding: var(--space-1-5) var(--space-4);
+		background: var(--color-bg-secondary);
+		border-bottom: 1px solid var(--color-border-subtle);
+		font-size: var(--text-2xs);
+		font-weight: var(--font-medium);
 		color: var(--color-text-secondary);
 		flex-shrink: 0;
+	}
+
+	.status-label {
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wider);
 	}
 
 	.session-status.waiting {
@@ -526,20 +478,83 @@
 
 	.section-header {
 		display: flex;
+		justify-content: space-between;
 		align-items: center;
-		gap: var(--space-2);
 		width: 100%;
-		padding: var(--space-2) var(--space-4);
-		text-align: left;
-		font-size: var(--text-xs);
-		font-weight: var(--font-medium);
-		color: var(--color-text-secondary);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-wide);
+		padding: var(--space-1-5) var(--space-4);
 		background: transparent;
 		border: none;
 		cursor: pointer;
 		transition: background var(--transition-fast);
+	}
+
+	.header-main {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		color: var(--color-text-primary);
+	}
+
+	.chevron-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: transform var(--transition-fast);
+		color: var(--color-text-muted);
+	}
+
+	.chevron-icon.is-expanded {
+		transform: rotate(90deg);
+	}
+
+	.header-label {
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		color: var(--color-text-primary);
+	}
+
+	.badge {
+		margin-left: auto;
+		padding: 2px 6px;
+		background: var(--color-neutral-800);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: 4px;
+		font-size: 9px;
+		font-weight: 600;
+		color: var(--color-text-secondary);
+		line-height: 1;
+		white-space: nowrap;
+	}
+
+	.badge.running {
+		background: var(--color-primary-900/30);
+		border-color: var(--color-primary-500/30);
+		color: var(--color-primary-300);
+	}
+
+	.badge.tokens {
+		background: var(--color-neutral-900);
+		border-color: var(--color-border-subtle);
+		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+	}
+
+
+	.header-meta {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		color: var(--color-text-muted);
+	}
+
+	:global(.section-icon) {
+		opacity: 0.3;
+		transition: opacity var(--transition-fast);
+	}
+
+	.section-header:hover :global(.section-icon) {
+		opacity: 0.7;
 	}
 
 	.section-header:hover {
@@ -625,9 +640,11 @@
 
 	.terminal-section {
 		flex: 1;
-		min-height: 0;
+		min-height: 200px;
 		display: flex;
 		flex-direction: column;
+		background: var(--color-neutral-950);
+		margin-top: auto;
 	}
 
 	.terminal-content {
@@ -635,6 +652,7 @@
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
 	}
 
 	/* Scrollbar styling */
