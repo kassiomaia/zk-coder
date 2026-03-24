@@ -11,6 +11,7 @@ pub mod approval;
 pub mod registry;
 pub mod events;
 pub mod store;
+pub mod tool_call_store;
 pub mod runtime;
 pub mod rollback;
 

@@ -210,12 +210,14 @@ export type AgentEvent =
 	| {
 			type: 'tool_call';
 			sessionId: string;
+			toolCallId: string;
 			tool: string;
 			arguments: Record<string, unknown>;
 	  }
 	| {
 			type: 'tool_result';
 			sessionId: string;
+			toolCallId: string;
 			tool: string;
 			result: Record<string, unknown>;
 			isError: boolean;

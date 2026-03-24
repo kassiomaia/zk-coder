@@ -417,6 +417,12 @@
 		});
 		console.debug('[+page] System message callback registered');
 
+		// Set callback to clean up transient messages (tool_call, thinking) from chat after execution.
+		// The Code Agent panel preserves tool call history — chat stays clean.
+		agentStore.setCleanupTransientCallback((_convId, _threadId, sessionId) => {
+			chatStore.removeTransientMessages(sessionId);
+		});
+
 		// Set callback to add agent activity messages (thinking, tool_call, terminal, streaming) to chat
 		// These messages show agent progress and the final response
 

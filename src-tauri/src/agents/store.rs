@@ -28,7 +28,7 @@ pub enum SessionStoreError {
 
 /// SQLite-based session store.
 pub struct SessionStore {
-    conn: Mutex<Connection>,
+    pub(crate) conn: Mutex<Connection>,
 }
 
 impl SessionStore {
@@ -115,12 +115,27 @@ impl SessionStore {
                 FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS agent_tool_calls (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                tool_name TEXT NOT NULL,
+                arguments TEXT NOT NULL,
+                result TEXT,
+                is_error INTEGER NOT NULL DEFAULT 0,
+                duration_ms INTEGER,
+                timestamp TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+            );
+
             CREATE INDEX IF NOT EXISTS idx_files_session
                 ON agent_files_touched(session_id);
             CREATE INDEX IF NOT EXISTS idx_terminal_session
                 ON agent_terminal_output(session_id);
             CREATE INDEX IF NOT EXISTS idx_phrases_session
                 ON agent_status_phrases(session_id);
+            CREATE INDEX IF NOT EXISTS idx_tool_calls_session
+                ON agent_tool_calls(session_id);
             ",
         )?;
         Ok(())
@@ -720,6 +735,7 @@ impl SessionStore {
         conn.execute("DELETE FROM agent_files_touched WHERE session_id = ?1", params![session_id.0])?;
         conn.execute("DELETE FROM agent_terminal_output WHERE session_id = ?1", params![session_id.0])?;
         conn.execute("DELETE FROM agent_status_phrases WHERE session_id = ?1", params![session_id.0])?;
+        conn.execute("DELETE FROM agent_tool_calls WHERE session_id = ?1", params![session_id.0])?;
         Ok(())
     }
 }

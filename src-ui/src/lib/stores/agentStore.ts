@@ -40,6 +40,9 @@ function createAgentStore() {
 	/** Callback for agent activity messages (thinking, tool_call, terminal) - adds transient messages to chat */
 	let onAgentActivity: ((conversationId: string, threadId: string, message: Partial<Message>) => void) | null = null;
 
+	/** Callback to clean up transient messages from chat after execution completes */
+	let onCleanupTransients: ((conversationId: string, threadId: string, sessionId: string) => void) | null = null;
+
 	// Streaming throttle state
 	const pendingStreamingUpdates = new Map<string, {
 		conversationId: string;
@@ -219,6 +222,12 @@ function createAgentStore() {
 		callback: (conversationId: string, threadId: string, message: Partial<Message>) => void
 	) {
 		onAgentActivity = callback;
+	}
+
+	function setCleanupTransientCallback(
+		callback: (conversationId: string, threadId: string, sessionId: string) => void
+	) {
+		onCleanupTransients = callback;
 	}
 
 	/**
@@ -457,7 +466,7 @@ function createAgentStore() {
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
 						const record: import('$lib/types/agent').ToolCallRecord = {
-							id: `tool-${event.sessionId}-${event.tool}`,
+							id: event.toolCallId,
 							tool: event.tool,
 							arguments: event.arguments,
 							timestamp: new Date().toISOString()
@@ -495,7 +504,7 @@ function createAgentStore() {
 					// Update tool call record and tool call message
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
-						const toolCallId = `tool-${event.sessionId}-${event.tool}`;
+						const toolCallId = event.toolCallId;
 						const toolCalls = (session.toolCalls ?? []).map((call) => {
 							if (call.id === toolCallId) {
 								return {
@@ -549,19 +558,10 @@ function createAgentStore() {
 						});
 					}
 
-					// Update thinking message in chat to mark as completed (remove reasoning/content)
-					if (onAgentActivity && session) {
-						onAgentActivity(session.conversationId, session.threadId, {
-							id: `thinking-${event.sessionId}`,
-							conversationId: session.conversationId,
-							threadId: session.threadId,
-							role: 'assistant',
-							kind: 'thinking',
-							content: 'Completed',
-							reasoning: undefined,
-							status: 'sent',
-							timestamp: new Date()
-						});
+					// Clean up transient messages (tool_call, thinking) from chat —
+					// the Code Agent panel is the authoritative source for tool call history
+					if (onCleanupTransients && session) {
+						onCleanupTransients(session.conversationId, session.threadId, event.sessionId);
 					}
 					break;
 				}
@@ -924,6 +924,26 @@ function createAgentStore() {
 			if (backendTasks && Array.isArray(backendTasks)) {
 				(raw as Record<string, unknown>).tasks = backendTasks.map(toAgentTask);
 			}
+			// Transform backend tool calls to frontend ToolCallRecord format
+			const backendToolCalls = raw.toolCalls as Record<string, unknown>[] | undefined;
+			if (backendToolCalls && Array.isArray(backendToolCalls)) {
+				(raw as Record<string, unknown>).toolCalls = backendToolCalls.map((tc) => ({
+					id: tc.id,
+					tool: tc.toolName,
+					arguments:
+						typeof tc.arguments === 'string'
+							? JSON.parse(tc.arguments as string)
+							: tc.arguments,
+					result: tc.result
+						? typeof tc.result === 'string'
+							? JSON.parse(tc.result as string)
+							: tc.result
+						: undefined,
+					isError: (tc.isError as boolean) ?? false,
+					durationMs: tc.durationMs,
+					timestamp: tc.timestamp
+				}));
+			}
 			return raw as unknown as AgentSession;
 		} catch (error) {
 			update((s) => ({ ...s, error: String(error) }));
@@ -1022,6 +1042,7 @@ function createAgentStore() {
 		setExecutionCompleteCallback,
 		setSystemMessageCallback,
 		setAgentActivityCallback,
+		setCleanupTransientCallback,
 		createSession,
 		sendRequest,
 		approveAction,

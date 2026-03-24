@@ -89,6 +89,8 @@ pub enum AgentEvent {
     ToolCall {
         #[serde(rename = "sessionId")]
         session_id: String,
+        #[serde(rename = "toolCallId")]
+        tool_call_id: String,
         tool: String,
         arguments: serde_json::Value,
     },
@@ -97,6 +99,8 @@ pub enum AgentEvent {
     ToolResult {
         #[serde(rename = "sessionId")]
         session_id: String,
+        #[serde(rename = "toolCallId")]
+        tool_call_id: String,
         tool: String,
         result: serde_json::Value,
         is_error: bool,

@@ -434,11 +434,23 @@ impl AgentRuntime {
             let action_type = infer_action_type(&call.name, &call.arguments);
             let permission = permission_resolver.check(&call.name, &action_type);
 
-            // Emit tool call event
+            // Generate unique ID, persist, and emit tool call event
+            let tool_call_id = uuid::Uuid::new_v4().to_string();
+
+            if let Err(e) = self.session_store.insert_tool_call(
+                &session.id,
+                &tool_call_id,
+                &call.name,
+                &call.arguments,
+            ) {
+                warn!("[AgentRuntime] Failed to persist tool call: {e}");
+            }
+
             let _ = app_handle.emit(
                 AGENT_EVENT_NAME,
                 AgentEvent::ToolCall {
                     session_id: session.id.0.clone(),
+                    tool_call_id: tool_call_id.clone(),
                     tool: call.name.clone(),
                     arguments: call.arguments.clone(),
                 },
@@ -464,11 +476,21 @@ impl AgentRuntime {
                 },
             };
 
-            // Emit tool result event
+            // Persist result and emit tool result event
+            if let Err(e) = self.session_store.update_tool_call_result(
+                &tool_call_id,
+                &result.output,
+                result.is_error,
+                None,
+            ) {
+                warn!("[AgentRuntime] Failed to persist tool result: {e}");
+            }
+
             let _ = app_handle.emit(
                 AGENT_EVENT_NAME,
                 AgentEvent::ToolResult {
                     session_id: session.id.0.clone(),
+                    tool_call_id: tool_call_id.clone(),
                     tool: call.name.clone(),
                     result: result.output.clone(),
                     is_error: result.is_error,

@@ -804,6 +804,21 @@ function createChatStore() {
 		},
 
 		/**
+		 * Remove transient agent messages (tool_call, thinking) for a session.
+		 * Called after execution completes — the Code Agent panel preserves tool call history.
+		 */
+		removeTransientMessages(sessionId: string) {
+			update((state) => ({
+				...state,
+				messages: state.messages.filter((m) => {
+					if (m.agentData?.sessionId !== sessionId) return true;
+					if (m.kind === 'tool_call' || m.kind === 'thinking') return false;
+					return true;
+				})
+			}));
+		},
+
+		/**
 		 * Update a message status.
 		 */
 		async updateMessageStatus(

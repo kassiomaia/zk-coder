@@ -507,6 +507,8 @@ pub struct SessionDetailsResponse {
     pub status_phrases: Option<Vec<String>>,
     #[serde(rename = "tasks", skip_serializing_if = "Option::is_none")]
     pub tasks: Option<Vec<crate::agents::task::AgentTask>>,
+    #[serde(rename = "toolCalls", skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<crate::agents::tool_call_store::ToolCallEntry>>,
 }
 
 /// Get full session details including runtime data (files, terminal, execution steps, status phrases).
@@ -590,6 +592,12 @@ pub async fn get_session_details(
         .get_session_tasks(&session.id)
         .ok();
 
+    // Fetch tool call history
+    let tool_calls = state
+        .session_store
+        .get_tool_calls_for_session(&session.id)
+        .ok();
+
     Ok(SessionDetailsResponse {
         session,
         files_touched,
@@ -597,6 +605,7 @@ pub async fn get_session_details(
         execution_steps,
         status_phrases,
         tasks,
+        tool_calls,
     })
 }
 
