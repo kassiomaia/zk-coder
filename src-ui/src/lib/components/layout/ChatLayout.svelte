@@ -87,6 +87,8 @@
 		onWorkspaceChange?: (path: string) => void;
 		/** All agent sessions for this conversation */
 		agentSessions?: AgentSession[];
+		/** Map of sessionId to thread title for tab display */
+		agentSessionTitles?: Map<string, string>;
 		/** Handler to select a different agent session */
 		onSelectSession?: (sessionId: string) => void;
 		/** Handler to create a new agent session */
@@ -133,6 +135,7 @@
 		onDenyAction,
 		onWorkspaceChange,
 		agentSessions = [],
+		agentSessionTitles = new Map(),
 		onSelectSession,
 		onCreateSession,
 		conversationWorkspace,
@@ -371,6 +374,7 @@
 					<AgentPanel
 						session={agentSession}
 						allSessions={agentSessions}
+						sessionTitles={agentSessionTitles}
 						pendingActions={agentPendingActions}
 						onApprove={(id) => onApproveAction?.(id)}
 						onDeny={(id) => onDenyAction?.(id)}

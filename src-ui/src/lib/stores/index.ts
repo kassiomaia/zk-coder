@@ -47,3 +47,37 @@ export {
 	agentLoading,
 	agentError
 } from './agentStore.js';
+
+// Cross-store derived: sessions filtered to current conversation
+import { derived } from 'svelte/store';
+import { chatStore } from './chat.js';
+import { agentStore as _agentStore } from './agentStore.js';
+
+export const conversationSessions = derived(
+	[_agentStore, chatStore],
+	([$agentState, $chatState]) => {
+		const conversationId = $chatState.selectedConversationId;
+		if (!conversationId) return [];
+		return Array.from($agentState.sessions.values()).filter((s) => {
+			if (s.conversationId !== conversationId) return false;
+			// Hide sessions for resolved threads
+			const thread = $chatState.threads.find((t) => t.id === s.threadId);
+			return !thread?.metadata.resolved;
+		});
+	}
+);
+
+/** Map of sessionId → thread title for display in tabs */
+export const sessionThreadTitles = derived(
+	[_agentStore, chatStore],
+	([$agentState, $chatState]) => {
+		const titles = new Map<string, string>();
+		for (const session of $agentState.sessions.values()) {
+			const thread = $chatState.threads.find((t) => t.id === session.threadId);
+			if (thread) {
+				titles.set(session.id, thread.title);
+			}
+		}
+		return titles;
+	}
+);

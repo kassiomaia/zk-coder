@@ -29,6 +29,7 @@
 	interface Props {
 		session: AgentSession;
 		allSessions?: AgentSession[];
+		sessionTitles?: Map<string, string>;
 		pendingActions: PendingAction[];
 		onApprove: (actionId: string) => void;
 		onDeny: (actionId: string) => void;
@@ -42,6 +43,7 @@
 	let {
 		session,
 		allSessions = [],
+		sessionTitles = new Map(),
 		pendingActions,
 		onApprove,
 		onDeny,
@@ -200,6 +202,7 @@
 				<SessionTabs
 					sessions={allSessions}
 					activeSessionId={session.id}
+					threadTitles={sessionTitles}
 					onSelect={(id) => onSelectSession?.(id)}
 					onCreate={() => onCreateSession?.()}
 				/>

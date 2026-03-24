@@ -10,11 +10,12 @@
 	interface Props {
 		sessions: AgentSession[];
 		activeSessionId: string | null;
+		threadTitles?: Map<string, string>;
 		onSelect: (sessionId: string) => void;
 		onCreate: () => void;
 	}
 
-	let { sessions, activeSessionId, onSelect, onCreate }: Props = $props();
+	let { sessions, activeSessionId, threadTitles, onSelect, onCreate }: Props = $props();
 
 	function getStatusColor(session: AgentSession): string {
 		switch (session.state.type) {
@@ -34,9 +35,12 @@
 		}
 	}
 
+	function getDisplayName(session: AgentSession): string {
+		return threadTitles?.get(session.id) ?? session.agentName;
+	}
+
 	function getShortName(session: AgentSession): string {
-		// Show agent name, truncated
-		const name = session.agentName;
+		const name = getDisplayName(session);
 		return name.length > 12 ? name.slice(0, 11) + '\u2026' : name;
 	}
 </script>
@@ -51,7 +55,7 @@
 				aria-selected={session.id === activeSessionId}
 				onclick={() => onSelect(session.id)}
 				type="button"
-				title={session.agentName}
+				title={getDisplayName(session)}
 			>
 				<span
 					class="tab-dot"

@@ -30,7 +30,8 @@
 	import {
 		agentStore,
 		activeSession,
-		allSessions as allSessionsStore,
+		conversationSessions,
+		sessionThreadTitles,
 		pendingActions as agentPendingActionsStore,
 		agentPanelOpen as agentPanelOpenStore
 	} from '$lib/stores';
@@ -58,6 +59,7 @@
 	let agentSession = $state<AgentSession | null>(null);
 	let agentPendingActions = $state<PendingAction[]>([]);
 	let agentSessions = $state<AgentSession[]>([]);
+	let agentSessionTitles = $state<Map<string, string>>(new Map());
 
 	// Subscribe to agent store
 	$effect(() => {
@@ -70,14 +72,18 @@
 		const unsubActions = agentPendingActionsStore.subscribe((actions) => {
 			agentPendingActions = actions;
 		});
-		const unsubSessions = allSessionsStore.subscribe((sessions) => {
+		const unsubSessions = conversationSessions.subscribe((sessions) => {
 			agentSessions = sessions;
+		});
+		const unsubTitles = sessionThreadTitles.subscribe((titles) => {
+			agentSessionTitles = titles;
 		});
 		return () => {
 			unsubPanel();
 			unsubSession();
 			unsubActions();
 			unsubSessions();
+			unsubTitles();
 		};
 	});
 
@@ -139,6 +145,11 @@
 
 	function handleSelectSession(sessionId: string) {
 		agentStore.setActiveSession(sessionId);
+		// Sync thread to match the selected session
+		const session = agentSessions.find((s) => s.id === sessionId);
+		if (session?.threadId) {
+			chatStore.selectThread(session.threadId);
+		}
 	}
 
 	async function handleCreateSession() {
@@ -689,6 +700,7 @@
 		onDenyAction={handleDenyAction}
 		onWorkspaceChange={handleWorkspaceChange}
 		{agentSessions}
+		{agentSessionTitles}
 		onSelectSession={handleSelectSession}
 		onCreateSession={handleCreateSession}
 		conversationWorkspace={$selectedConversation?.settings.workspaceRoot}

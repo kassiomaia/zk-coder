@@ -407,6 +407,9 @@ function createChatStore() {
 					if (session) {
 						agentStore.setActiveSession(thread.metadata.agentSessionId);
 					}
+				} else {
+					// Thread has no agent session - clear active session
+					agentStore.setActiveSession(null);
 				}
 
 				try {
@@ -475,6 +478,8 @@ function createChatStore() {
 			}
 
 			const conversationId = state.selectedConversationId;
+			const conversation = state.conversations.find((c) => c.id === conversationId);
+			const workspaceRoot = conversation?.settings?.workspaceRoot;
 			const readyPromise = (async () => {
 				try {
 					const thread = await apiCreateThread(conversationId, title);
@@ -485,7 +490,7 @@ function createChatStore() {
 							'code-agent', // Default to code agent
 							conversationId,
 							thread.id,
-							undefined // No workspace root initially
+							workspaceRoot // Inherit workspace from conversation
 						);
 
 						if (agentSession) {
@@ -1141,19 +1146,19 @@ function createChatStore() {
 		},
 
 		/**
-1144: 		 * Mark a thread as read (clears unread indicator).
-1145: 		 */
-1146: 		markThreadRead(threadId: string) {
-1147: 			update((state) => {
-1148: 				if (!state.unreadThreadIds.includes(threadId)) {
-1149: 					return state;
-1150: 				}
-1151: 				return {
-1152: 					...state,
-1153: 					unreadThreadIds: clearUnreadForThread(state.unreadThreadIds, threadId)
-1154: 				};
-1155: 			});
-1156: 		},
+		 * Mark a thread as read (clears unread indicator).
+		 */
+		markThreadRead(threadId: string) {
+			update((state) => {
+				if (!state.unreadThreadIds.includes(threadId)) {
+					return state;
+				}
+				return {
+					...state,
+					unreadThreadIds: clearUnreadForThread(state.unreadThreadIds, threadId)
+				};
+			});
+		},
 
 		/**
 		 * Set a thread's workspace root.
