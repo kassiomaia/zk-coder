@@ -58,6 +58,9 @@
 	let filesExpanded = $state(true);
 	let toolCallsExpanded = $state(false);
 
+	/** View state: 'active' (current session) or 'history' (all sessions) */
+	let currentView = $state<'active' | 'history'>('active');
+
 	/** Modal states */
 	let showSessionHistory = $state(false);
 	let showAgentConfig = $state(false);
@@ -155,6 +158,27 @@
 		<div class="header-actions">
 			<button
 				class="header-btn"
+				class:active={currentView === 'active'}
+				onclick={() => (currentView = 'active')}
+				type="button"
+				aria-label="Active session"
+				title="Active Session"
+			>
+				<Activity size={14} />
+			</button>
+			<button
+				class="header-btn"
+				class:active={currentView === 'history'}
+				onclick={() => (currentView = 'history')}
+				type="button"
+				aria-label="View session history"
+				title="Session History"
+			>
+				<History size={14} />
+			</button>
+			<div class="header-divider"></div>
+			<button
+				class="header-btn"
 				onclick={() => (showAgentConfig = true)}
 				type="button"
 				aria-label="Agent configuration"
@@ -162,138 +186,143 @@
 			>
 				<Settings size={14} />
 			</button>
-			<button
-				class="header-btn"
-				onclick={() => (showSessionHistory = true)}
-				type="button"
-				aria-label="View session history"
-				title="Session History"
-			>
-				<History size={14} />
-			</button>
 			<button class="header-btn close" onclick={onclose} type="button" aria-label="Close agent panel">
 				<X size={16} />
 			</button>
 		</div>
 	</header>
 
-	<!-- Session tabs (shown when multiple sessions exist) -->
-	{#if allSessions.length > 1 || allSessions.length === 0}
-		<SessionTabs
-			sessions={allSessions}
-			activeSessionId={session.id}
-			onSelect={(id) => onSelectSession?.(id)}
-			onCreate={() => onCreateSession?.()}
-		/>
-	{/if}
+	<!-- Content Area -->
+	<div class="panel-content">
+		{#if currentView === 'active'}
+			<!-- Session tabs (shown when multiple sessions exist) -->
+			{#if allSessions.length > 1 || allSessions.length === 0}
+				<SessionTabs
+					sessions={allSessions}
+					activeSessionId={session.id}
+					onSelect={(id) => onSelectSession?.(id)}
+					onCreate={() => onCreateSession?.()}
+				/>
+			{/if}
 
-	<!-- Status bar -->
-	<div
-		class="session-status"
-		class:waiting={session.state.type === 'user_input_required'}
-		class:error={session.state.type === 'error'}
-	>
-		<span class="status-dot {getStatusDotClass(session)}"></span>
-		<span class="status-label">{getStatusLabel(session)}</span>
+			<!-- Status bar -->
+			<div
+				class="session-status"
+				class:waiting={session.state.type === 'user_input_required'}
+				class:error={session.state.type === 'error'}
+			>
+				<span class="status-dot {getStatusDotClass(session)}"></span>
+				<span class="status-label">{getStatusLabel(session)}</span>
+			</div>
+
+			<!-- Activity (Tasks + Progress) section -->
+			<section class="panel-section activity-section">
+				<button
+					class="section-header"
+					onclick={() => (tasksExpanded = !tasksExpanded)}
+					type="button"
+					aria-expanded={tasksExpanded}
+					aria-controls="activity-section"
+				>
+					<span class="header-main">
+						<span class="chevron-icon" class:is-expanded={tasksExpanded}>
+							<ChevronRight size={14} strokeWidth={2.5} />
+						</span>
+						<span class="header-label">Activity</span>
+					</span>
+					
+					<div class="header-meta">
+						{#if session.state.type === 'running'}
+							<span class="badge running">Step {session.state.currentStep}</span>
+						{/if}
+						{#if totalTokensUsed() > 0}
+							<span class="badge tokens" title="Total tokens used">{formatTokenCount(totalTokensUsed())}</span>
+						{/if}
+						<Activity size={13} strokeWidth={1.5} class="section-icon" />
+					</div>
+				</button>
+				{#if tasksExpanded}
+					<div id="activity-section">
+						<TaskList 
+							tasks={session.tasks ?? []} 
+							executionSteps={session.executionSteps ?? []}
+							currentStep={session.state.type === 'running' ? session.state.currentStep : undefined}
+						/>
+					</div>
+				{/if}
+			</section>
+
+			<!-- Files section -->
+			<section class="panel-section">
+				<button
+					class="section-header"
+					onclick={() => (filesExpanded = !filesExpanded)}
+					type="button"
+					aria-expanded={filesExpanded}
+					aria-controls="files-section"
+				>
+					<span class="header-main">
+						<span class="chevron-icon" class:is-expanded={filesExpanded}>
+							<ChevronRight size={14} strokeWidth={2.5} />
+						</span>
+						<span class="header-label">Files</span>
+					</span>
+
+					<div class="header-meta">
+						{#if (session.filesTouched?.length ?? 0) > 0}
+							<span class="badge">{session.filesTouched?.length ?? 0}</span>
+						{/if}
+						<FileText size={13} strokeWidth={1.5} class="section-icon" />
+					</div>
+				</button>
+				{#if filesExpanded}
+					<div id="files-section">
+						<FileTree 
+							files={session.filesTouched ?? []} 
+							onfileclick={handleFileClick} 
+							activePath={selectedFile?.path}
+						/>
+					</div>
+				{/if}
+			</section>
+
+			<!-- Tool Calls section -->
+			<section class="panel-section tool-calls-section">
+				<button
+					class="section-header"
+					onclick={() => (toolCallsExpanded = !toolCallsExpanded)}
+					type="button"
+					aria-expanded={toolCallsExpanded}
+					aria-controls="tool-calls-section"
+				>
+					<span class="header-main">
+						<span class="chevron-icon" class:is-expanded={toolCallsExpanded}>
+							<ChevronRight size={14} strokeWidth={2.5} />
+						</span>
+						<span class="header-label">Tool Calls</span>
+					</span>
+
+					<div class="header-meta">
+						<Activity size={13} strokeWidth={1.5} class="section-icon" />
+					</div>
+				</button>
+				{#if toolCallsExpanded}
+					<div id="tool-calls-section" class="tool-calls-content">
+						<ToolCallsView toolCalls={session.toolCalls ?? []} />
+					</div>
+				{/if}
+			</section>
+		{:else if currentView === 'history'}
+			<SessionHistory
+				conversationId={session.conversationId}
+				onSelectSession={(id) => {
+					onSelectSession?.(id);
+					currentView = 'active';
+				}}
+				inline={true}
+			/>
+		{/if}
 	</div>
-
-	<!-- Activity (Tasks + Progress) section -->
-	<section class="panel-section activity-section">
-		<button
-			class="section-header"
-			onclick={() => (tasksExpanded = !tasksExpanded)}
-			type="button"
-			aria-expanded={tasksExpanded}
-			aria-controls="activity-section"
-		>
-			<span class="header-main">
-				<span class="chevron-icon" class:is-expanded={tasksExpanded}>
-					<ChevronRight size={14} strokeWidth={2.5} />
-				</span>
-				<span class="header-label">Activity</span>
-			</span>
-			
-			<div class="header-meta">
-				{#if session.state.type === 'running'}
-					<span class="badge running">Step {session.state.currentStep}</span>
-				{/if}
-				{#if totalTokensUsed() > 0}
-					<span class="badge tokens" title="Total tokens used">{formatTokenCount(totalTokensUsed())}</span>
-				{/if}
-				<Activity size={13} strokeWidth={1.5} class="section-icon" />
-			</div>
-		</button>
-		{#if tasksExpanded}
-			<div id="activity-section">
-				<TaskList 
-					tasks={session.tasks ?? []} 
-					executionSteps={session.executionSteps ?? []}
-					currentStep={session.state.type === 'running' ? session.state.currentStep : undefined}
-				/>
-			</div>
-		{/if}
-	</section>
-
-	<!-- Files section -->
-	<section class="panel-section">
-		<button
-			class="section-header"
-			onclick={() => (filesExpanded = !filesExpanded)}
-			type="button"
-			aria-expanded={filesExpanded}
-			aria-controls="files-section"
-		>
-			<span class="header-main">
-				<span class="chevron-icon" class:is-expanded={filesExpanded}>
-					<ChevronRight size={14} strokeWidth={2.5} />
-				</span>
-				<span class="header-label">Files</span>
-			</span>
-
-			<div class="header-meta">
-				{#if (session.filesTouched?.length ?? 0) > 0}
-					<span class="badge">{session.filesTouched?.length ?? 0}</span>
-				{/if}
-				<FileText size={13} strokeWidth={1.5} class="section-icon" />
-			</div>
-		</button>
-		{#if filesExpanded}
-			<div id="files-section">
-				<FileTree 
-					files={session.filesTouched ?? []} 
-					onfileclick={handleFileClick} 
-					activePath={selectedFile?.path}
-				/>
-			</div>
-		{/if}
-	</section>
-
-	<!-- Tool Calls section -->
-	<section class="panel-section tool-calls-section">
-		<button
-			class="section-header"
-			onclick={() => (toolCallsExpanded = !toolCallsExpanded)}
-			type="button"
-			aria-expanded={toolCallsExpanded}
-			aria-controls="tool-calls-section"
-		>
-			<span class="header-main">
-				<span class="chevron-icon" class:is-expanded={toolCallsExpanded}>
-					<ChevronRight size={14} strokeWidth={2.5} />
-				</span>
-				<span class="header-label">Tool Calls</span>
-			</span>
-
-			<div class="header-meta">
-				<Activity size={13} strokeWidth={1.5} class="section-icon" />
-			</div>
-		</button>
-		{#if toolCallsExpanded}
-			<div id="tool-calls-section" class="tool-calls-content">
-				<ToolCallsView toolCalls={session.toolCalls ?? []} />
-			</div>
-		{/if}
-	</section>
 </nav>
 
 <!-- Approval Dialog (modal overlay) -->
@@ -305,15 +334,7 @@
 	/>
 {/if}
 
-<!-- Session History (modal overlay) -->
-<SessionHistory
-	open={showSessionHistory}
-	conversationId={session.conversationId}
-	onClose={() => (showSessionHistory = false)}
-	onSelectSession={(id) => onSelectSession?.(id)}
-/>
-
-<!-- Agent Config (modal overlay) -->
+	<!-- Agent Config (modal overlay) -->
 <AgentConfig
 	open={showAgentConfig}
 	onClose={() => (showAgentConfig = false)}
@@ -392,10 +413,17 @@
 		transition: all var(--transition-fast);
 	}
 
-	.header-btn:hover {
-		background: var(--color-interactive-hover);
-		color: var(--color-text-primary);
+	.header-btn.active {
+		color: var(--color-primary-400);
 		opacity: 1;
+		background: var(--color-primary-500/10);
+	}
+
+	.header-divider {
+		width: 1px;
+		height: 14px;
+		background: var(--color-border-subtle);
+		margin: 0 var(--space-1);
 	}
 
 	.header-btn.close:hover {
@@ -653,6 +681,23 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+	}
+
+	.panel-content {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		overflow-y: auto;
+	}
+
+	.history-view-placeholder {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+		color: var(--color-text-muted);
+		font-style: italic;
 	}
 
 	/* Scrollbar styling */
