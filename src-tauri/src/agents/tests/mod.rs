@@ -3,6 +3,7 @@
 //! These tests verify complete user workflows end-to-end.
 
 mod common;
+mod subtask_advancement;
 
 use crate::agents::store::SessionStore;
 use crate::agents::task::{SubTask, SubTaskMode, TaskStatus};

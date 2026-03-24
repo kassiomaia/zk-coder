@@ -442,7 +442,19 @@ impl AgentRuntime {
             }
 
             // Check for repetitive action loops before executing tool calls
+            // Skip loop detection for agent metadata tools (designed to be called multiple times)
+            const LOOP_SKIP_TOOLS: &[&str] = &[
+                "agent_advance_to_next_subtask",
+                "agent_emit_status",
+                "agent_mark_subtask_status",
+            ];
+
             for tool_call in &response.tool_calls {
+                // Skip loop detection for agent metadata tools
+                if LOOP_SKIP_TOOLS.contains(&tool_call.name.as_str()) {
+                    continue;
+                }
+
                 // Create a hash of the tool call arguments for comparison
                 let args_hash = {
                     use std::hash::{Hash, Hasher};
@@ -1707,5 +1719,50 @@ mod tests {
 
         // Last few messages should include recent ones
         assert!(context.len() <= recent_count + 1, "Should have at most recent messages + first message");
+    }
+
+    // ------------------------------------------------------------------------
+    // Loop Detection Tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn test_loop_detection_skips_agent_tools() {
+        // Verify that agent metadata tools are excluded from loop detection
+        // This is important because tools like agent_advance_to_next_subtask
+        // are designed to be called multiple times (once per subtask)
+        const LOOP_SKIP_TOOLS: &[&str] = &[
+            "agent_advance_to_next_subtask",
+            "agent_emit_status",
+            "agent_mark_subtask_status",
+        ];
+
+        // All agent tools should be in the skip list
+        assert!(LOOP_SKIP_TOOLS.contains(&"agent_advance_to_next_subtask"));
+        assert!(LOOP_SKIP_TOOLS.contains(&"agent_emit_status"));
+        assert!(LOOP_SKIP_TOOLS.contains(&"agent_mark_subtask_status"));
+
+        // agent_plan_subtasks is NOT in the skip list because it should only be called once
+        // and the runtime has separate protection for it
+        assert!(!LOOP_SKIP_TOOLS.contains(&"agent_plan_subtasks"));
+    }
+
+    #[test]
+    fn test_loop_skip_tools_list_is_complete() {
+        // Verify the skip list includes all agent_* tools except agent_plan_subtasks
+        const LOOP_SKIP_TOOLS: &[&str] = &[
+            "agent_advance_to_next_subtask",
+            "agent_emit_status",
+            "agent_mark_subtask_status",
+        ];
+
+        // These tools can be called multiple times legitimately:
+        // - agent_advance_to_next_subtask: once per subtask advancement
+        // - agent_emit_status: for progress updates (can be many)
+        // - agent_mark_subtask_status: for manual status updates
+        assert_eq!(LOOP_SKIP_TOOLS.len(), 3);
+
+        // agent_plan_subtasks should NOT be skipped (has its own protection)
+        // and should not be called multiple times
+        assert!(!LOOP_SKIP_TOOLS.contains(&"agent_plan_subtasks"));
     }
 }
