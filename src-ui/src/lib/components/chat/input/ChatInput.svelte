@@ -10,12 +10,14 @@
 	import MentionMenu from './MentionMenu.svelte';
 	import ModelSelector from './ModelSelector.svelte';
 	import IconButton from '$lib/components/shared/IconButton.svelte';
+	import { ArrowUp, Square } from 'lucide-svelte';
 	import type { Command } from '$lib/types/command';
 	import { BUILT_IN_COMMANDS, filterCommands } from '$lib/types/command';
 	import type { IntentClassification } from '$lib/types/nlp';
-	import { chatStore, nlpState } from '$lib/stores';
+	import { chatStore, nlpState, isLlmStreaming } from '$lib/stores';
 	import { isBackendAvailable } from '$lib/api/nlp';
 	import { isValidModelId, sanitizeModelId } from '$lib/utils/validation';
+	import { agentStore } from '$lib/stores/agentStore';
 
 	interface FileAttachment {
 		id: string;
@@ -111,13 +113,16 @@
 	let isShaking = $state(false);
 	let isSending = $state(false);
 
-	// Note: $nlpState auto-subscribes to nlpState store from $lib/stores
-
+	// Note: $nlpState and $isLlmStreaming auto-subscribe to stores from $lib/stores
+	
 	// Derived values
 	let filteredCommands = $derived(filterCommands(commands, commandQuery));
 	let filteredMentions = $derived(
 		mentionItems.filter((item) => item.name.toLowerCase().includes(mentionQuery.toLowerCase()))
 	);
+
+	// Determine if the agent is actively working (LLM streaming OR Agent running)
+	let isAgentWorking = $derived($isLlmStreaming || loading || isSending);
 
 	// Intent detection: use backend if available and enabled, otherwise fallback to frontend
 	let detectedIntent = $derived(() => {
@@ -177,6 +182,21 @@
 	});
 
 	async function handleSendMessage() {
+		// Handle Stop action if agent is working
+		if (isAgentWorking) {
+			if ($isLlmStreaming) {
+				await chatStore.cancelLlmStream();
+			} else {
+				// If agent session is active, cancel it
+				const activeSessionId = agentStore.activeSessionId;
+				if (activeSessionId) {
+					await agentStore.cancelSession(activeSessionId);
+				}
+			}
+			isSending = false;
+			return;
+		}
+
 		if (!value.trim() || isOverLimit) {
 			isShaking = true;
 			setTimeout(() => {
@@ -519,42 +539,24 @@
 			{/if}
 
 			<IconButton
-				label="Send message"
-				tooltip="Send"
+				label={isAgentWorking ? 'Stop generation' : 'Send message'}
+				tooltip={isAgentWorking ? 'Stop' : 'Send'}
 				variant="subtle"
-				intent={canSubmit ? 'success' : 'default'}
+				intent={isAgentWorking ? 'danger' : canSubmit ? 'success' : 'default'}
 				size="sm"
-				disabled={!canSubmit}
-				loading={loading || isSending}
+				disabled={!canSubmit && !isAgentWorking}
 				onclick={handleSendMessage}
-				class={styles.sendButton}
+				class={[
+					styles.sendButton,
+					canSubmit && !isAgentWorking && styles.canSubmit,
+					isAgentWorking && styles.isRunning
+				].filter(Boolean).join(' ')}
 			>
 				{#snippet icon()}
-					{#if loading}
-						<svg
-							class={styles.spinner}
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="20">
-								<animateTransform
-									attributeName="transform"
-									type="rotate"
-									from="0 12 12"
-									to="360 12 12"
-									dur="1s"
-									repeatCount="indefinite"
-								/>
-							</circle>
-						</svg>
+					{#if isAgentWorking}
+						<Square size={12} strokeWidth={3} fill="currentColor" />
 					{:else}
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-						</svg>
+						<ArrowUp size={16} strokeWidth={2.5} />
 					{/if}
 				{/snippet}
 			</IconButton>

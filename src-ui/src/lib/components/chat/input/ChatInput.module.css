@@ -12,8 +12,8 @@
 .container {
 	background: var(--color-surface);
 	border: 1px solid var(--color-border-primary);
-	border-radius: var(--radius-2xl);
-	padding: var(--space-3);
+	border-radius: var(--radius-lg);
+	padding: var(--space-2) var(--space-3);
 	transition: all var(--transition-fast);
 	width: 100%;
 }
@@ -25,10 +25,6 @@
 .container:focus-within {
 	background: var(--color-surface);
 	border-color: var(--color-primary-400);
-	box-shadow:
-		0 4px 12px rgba(0, 0, 0, 0.05),
-		0 0 0 2px rgba(99, 102, 241, 0.1);
-	transform: scale(1.005);
 }
 
 .container.shake {
@@ -191,9 +187,6 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding-top: var(--space-2);
-	border-top: 1px solid var(--color-border-subtle);
-	margin-top: var(--space-2);
 }
 
 .leftActions,
@@ -263,54 +256,48 @@
 	justify-content: center;
 	width: 28px;
 	height: 28px;
-	background: var(--color-surface-elevated);
-	color: var(--color-text-primary);
+	background: var(--color-bg-tertiary);
+	color: var(--color-text-muted);
 	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-sm);
 	cursor: pointer;
 	transition: all var(--transition-fast);
 	overflow: hidden;
 }
 
-.sendButton::after {
-	content: '';
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	width: 100%;
-	height: 100%;
-	background: rgba(0, 0, 0, 0.1);
-	border-radius: 50%;
-	transform: translate(-50%, -50%) scale(0);
-	opacity: 0;
-	transition:
-		transform 0.4s ease-out,
-		opacity 0.4s ease-out;
+.sendButton.canSubmit {
+	background: var(--color-primary-500);
+	color: white;
+	border-color: var(--color-primary-600);
 }
 
-.sendButton:active::after {
-	transform: translate(-50%, -50%) scale(2);
-	opacity: 1;
-	transition: 0s;
+.sendButton.isRunning {
+	background: var(--color-error);
+	color: white;
+	border-color: var(--color-error-dark);
 }
 
-.sendButton:hover:not(.disabled) {
-	background: var(--color-surface-hover);
-	border-color: var(--color-border-secondary);
+.sendButton.canSubmit:hover {
+	background: var(--color-primary-600);
 	transform: translateY(-1px);
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.sendButton.isRunning:hover {
+	background: var(--color-error-hover);
+	transform: scale(1.05);
 }
 
 .sendButton:active:not(.disabled) {
 	transform: scale(0.95);
-	box-shadow: none;
 }
 
-.sendButton:disabled {
-	background: transparent;
+.sendButton:disabled:not(.isRunning) {
+	background: var(--color-bg-tertiary);
 	color: var(--color-text-disabled);
-	border-color: transparent;
+	border-color: var(--color-border-subtle);
 	cursor: not-allowed;
+	opacity: 0.5;
 }
 
 .sendButton:focus-visible {

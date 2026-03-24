@@ -187,80 +187,26 @@
 						onmouseenter={() => (selectedIndex = index)}
 						type="button"
 					>
-						<span class={styles.checkmark}>
-							{#if isSelected}
-								<svg
-									width="14"
-									height="14"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								>
-									<polyline points="20 6 9 17 4 12" />
-								</svg>
-							{/if}
-						</span>
-						<span class={styles.itemContent}>
+							<span class={styles.checkmark}>
+								{#if isSelected}
+									<svg
+										width="10"
+										height="10"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="3"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<polyline points="20 6 9 17 4 12" />
+									</svg>
+								{/if}
+							</span>
 							<span class={styles.itemName}>{model.name}</span>
 							<span class={styles.itemMeta}>
 								<span class={styles.provider}>{model.providerId}</span>
-								<span class={styles.capabilities}>
-									{#if model.capabilities.code}
-										<span class={styles.capabilityIcon} title="Code">
-											<svg
-												width="10"
-												height="10"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											>
-												<polyline points="16 18 22 12 16 6" />
-												<polyline points="8 6 2 12 8 18" />
-											</svg>
-										</span>
-									{/if}
-									{#if model.capabilities.vision}
-										<span class={styles.capabilityIcon} title="Vision">
-											<svg
-												width="10"
-												height="10"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											>
-												<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-												<circle cx="12" cy="12" r="3" />
-											</svg>
-										</span>
-									{/if}
-									{#if model.capabilities.streaming}
-										<span class={styles.capabilityIcon} title="Streaming">
-											<svg
-												width="10"
-												height="10"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											>
-												<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-											</svg>
-										</span>
-									{/if}
-								</span>
 							</span>
-						</span>
 					</button>
 				{/each}
 			</ul>
