@@ -1141,18 +1141,36 @@ function createChatStore() {
 		},
 
 		/**
-		 * Mark a thread as read (clears unread indicator).
+1144: 		 * Mark a thread as read (clears unread indicator).
+1145: 		 */
+1146: 		markThreadRead(threadId: string) {
+1147: 			update((state) => {
+1148: 				if (!state.unreadThreadIds.includes(threadId)) {
+1149: 					return state;
+1150: 				}
+1151: 				return {
+1152: 					...state,
+1153: 					unreadThreadIds: clearUnreadForThread(state.unreadThreadIds, threadId)
+1154: 				};
+1155: 			});
+1156: 		},
+
+		/**
+		 * Set a thread's workspace root.
 		 */
-		markThreadRead(threadId: string) {
-			update((state) => {
-				if (!state.unreadThreadIds.includes(threadId)) {
-					return state;
-				}
-				return {
+		async setThreadWorkspace(id: string, workspaceRoot: string): Promise<boolean> {
+			try {
+				update((state) => ({
 					...state,
-					unreadThreadIds: clearUnreadForThread(state.unreadThreadIds, threadId)
-				};
-			});
+					threads: state.threads.map((t) =>
+						t.id === id ? { ...t, metadata: { ...t.metadata, workspaceRoot } } : t
+					)
+				}));
+				return true;
+			} catch (error) {
+				console.error('Failed to set thread workspace:', error);
+				return false;
+			}
 		},
 
 		/**

@@ -8,7 +8,7 @@
 
 import type { Message } from '$lib/types/message';
 import styles from './ThinkingMessage.module.css';
-import { Cpu, ChevronDown, ChevronUp } from 'lucide-svelte';
+import { Cpu, ChevronDown, ChevronUp, CheckCircle } from 'lucide-svelte';
 
 interface Props {
 	message: Message;
@@ -18,7 +18,9 @@ let { message }: Props = $props();
 
 // Use $derived for reactive values from props
 const content = $derived(message.content || 'Analyzing request...');
+const reasoning = $derived(message.reasoning);
 const modelName = $derived(message.metadata?.model);
+const isComplete = $derived(message.status === 'sent' || message.content === 'Completed');
 
 // Collapsed state
 let collapsed = $state(false);
@@ -28,7 +30,7 @@ function toggleCollapse() {
 }
 </script>
 
-<div class={[styles.thinkingMessage, collapsed && styles.collapsed].filter(Boolean).join(' ')}>
+<div class={[styles.thinkingMessage, collapsed && styles.collapsed, isComplete && styles.isComplete].filter(Boolean).join(' ')}>
 	<button
 		class={styles.header}
 		onclick={toggleCollapse}
@@ -37,9 +39,13 @@ function toggleCollapse() {
 		aria-expanded={!collapsed}
 	>
 		<span class={styles.iconContainer}>
-			<Cpu size={14} class={styles.icon} />
+			{#if isComplete}
+				<CheckCircle size={12} class={styles.checkIcon} />
+			{:else}
+				<span class={styles.spinner}></span>
+			{/if}
 		</span>
-		<span class={styles.label}>Thinking...</span>
+		<span class={styles.label}>{isComplete ? 'Thought for a few seconds' : content}</span>
 		
 		{#if modelName}
 			<span class={styles.modelTag}>{modelName}</span>
@@ -54,9 +60,11 @@ function toggleCollapse() {
 		</span>
 	</button>
 
-	{#if !collapsed}
+	{#if !collapsed && reasoning}
 		<div class={styles.content}>
-			<p class={styles.status}>{content}</p>
+			<div class={styles.reasoning}>
+				{reasoning}
+			</div>
 		</div>
 	{/if}
 </div>

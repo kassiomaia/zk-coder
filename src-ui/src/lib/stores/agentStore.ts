@@ -289,7 +289,7 @@ function createAgentStore() {
 
 						// Batch terminal output for chat - accumulate and send in batches
 						// Prefix with stream type indicator
-						const prefix = event.stream === 'stderr' ? 'ERR: ' : (event.stream === 'stdin' ? '< ' : '> ');
+						const prefix = event.stream === 'stderr' ? 'ERR: ' : (event.stream === ('stdin' as any) ? '< ' : '> ');
 						scheduleTerminalOutput(
 							event.sessionId,
 							session.conversationId,
@@ -523,6 +523,21 @@ function createAgentStore() {
 							state: { type: 'finished', completedAt: new Date().toISOString() }
 						});
 					}
+
+					// Update thinking message in chat to mark as completed (remove reasoning/content)
+					if (onAgentActivity && session) {
+						onAgentActivity(session.conversationId, session.threadId, {
+							id: `thinking-${event.sessionId}`,
+							conversationId: session.conversationId,
+							threadId: session.threadId,
+							role: 'assistant',
+							kind: 'thinking',
+							content: 'Completed',
+							reasoning: undefined,
+							status: 'sent',
+							timestamp: new Date()
+						});
+					}
 					break;
 				}
 				case 'status_phrase': {
@@ -547,6 +562,7 @@ function createAgentStore() {
 								role: 'assistant',
 								kind: 'thinking',
 								content: event.message,
+								reasoning: event.message, // Map to reasoning for better visibility
 								timestamp: new Date()
 							});
 						}

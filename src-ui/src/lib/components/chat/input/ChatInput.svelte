@@ -14,10 +14,10 @@
 	import type { Command } from '$lib/types/command';
 	import { BUILT_IN_COMMANDS, filterCommands } from '$lib/types/command';
 	import type { IntentClassification } from '$lib/types/nlp';
-	import { chatStore, nlpState, isLlmStreaming } from '$lib/stores';
+	import { chatStore, nlpState, isLlmStreaming, agentStore } from '$lib/stores';
 	import { isBackendAvailable } from '$lib/api/nlp';
+	import { get } from 'svelte/store';
 	import { isValidModelId, sanitizeModelId } from '$lib/utils/validation';
-	import { agentStore } from '$lib/stores/agentStore';
 
 	interface FileAttachment {
 		id: string;
@@ -188,7 +188,8 @@
 				await chatStore.cancelLlmStream();
 			} else {
 				// If agent session is active, cancel it
-				const activeSessionId = agentStore.activeSessionId;
+				const state = get(agentStore);
+				const activeSessionId = state.activeSessionId;
 				if (activeSessionId) {
 					await agentStore.cancelSession(activeSessionId);
 				}

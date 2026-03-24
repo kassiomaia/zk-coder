@@ -96,10 +96,6 @@ function formatTime(date: Date): string {
 		aria-label={expanded ? 'Collapse tool call' : 'Expand tool call'}
 		aria-expanded={expanded}
 	>
-		<span class={styles.chevron} class:rotated={expanded}>
-			<ChevronDown size={14} />
-		</span>
-		
 		<span class={styles.toolIcon}>
 			<ToolIcon size={14} />
 		</span>
@@ -122,6 +118,10 @@ function formatTime(date: Date): string {
 					<CheckCircle2 size={14} />
 				</span>
 			{/if}
+			
+			<span class={styles.chevron} class:rotated={expanded}>
+				<ChevronDown size={14} />
+			</span>
 		</div>
 	</button>
 

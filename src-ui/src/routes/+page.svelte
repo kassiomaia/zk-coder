@@ -504,6 +504,12 @@
 		const thread = await chatStore.createThread('New Thread');
 		if (thread) {
 			await chatStore.selectThread(thread.id);
+			// Inherit workspace from conversation if available
+			const conversation = $selectedConversation;
+			if (conversation?.settings.workspaceRoot) {
+				console.debug('[+page] Inheriting workspace for new thread:', conversation.settings.workspaceRoot);
+				await chatStore.setThreadWorkspace(thread.id, conversation.settings.workspaceRoot);
+			}
 		}
 	}
 

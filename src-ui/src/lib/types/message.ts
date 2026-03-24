@@ -72,6 +72,9 @@ export interface Message {
 	/** Agent-specific data for messages that represent agent activity */
 	agentData?: AgentMessageData;
 
+	/** Dynamic reasoning/chain-of-thought from the LLM (if available) */
+	reasoning?: string;
+
 	/** Whether this message should be auto-removed (e.g., transient status updates) */
 	isTransient?: boolean;
 

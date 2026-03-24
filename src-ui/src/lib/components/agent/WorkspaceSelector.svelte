@@ -5,6 +5,7 @@
 	 * via the native OS folder picker dialog.
 	 */
 	import { FolderOpen, FolderClosed } from 'lucide-svelte';
+	import { open } from '@tauri-apps/plugin-dialog';
 
 	interface Props {
 		workspacePath?: string;
@@ -15,6 +16,25 @@
 	let { workspacePath, onSelect, disabled = false }: Props = $props();
 
 	let selecting = $state(false);
+
+	async function openFolderPicker() {
+		if (selecting || disabled) return;
+		selecting = true;
+		try {
+			const result = await open({
+				directory: true,
+				multiple: false,
+				title: 'Select Workspace Folder'
+			});
+			if (typeof result === 'string') {
+				onSelect(result);
+			}
+		} catch (error) {
+			console.error('Failed to open folder picker:', error);
+		} finally {
+			selecting = false;
+		}
+	}
 
 	function getDisplayPath(path?: string): string {
 		if (!path) return 'No workspace selected';

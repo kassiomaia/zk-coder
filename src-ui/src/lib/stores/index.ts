@@ -19,6 +19,7 @@ export {
 	threadsLoading,
 	chatError,
 	isLoading,
+	isLlmStreaming,
 	generateId,
 	createNewConversation,
 	createNewThread,
