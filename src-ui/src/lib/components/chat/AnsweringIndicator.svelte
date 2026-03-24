@@ -233,6 +233,17 @@
 
 		<div class={styles.labelContainer}>
 			<span class={styles.label}>{displayText}</span>
+			{#if status?.stallWarning && status.elapsedSeconds}
+				<span class={styles.stallWarning}>
+					{#if status.stallWarning === 'still-working'}
+						· Still working...
+					{:else if status.stallWarning === 'taking-longer'}
+						· Taking longer than expected ({Math.floor(status.elapsedSeconds / 60)}:{(status.elapsedSeconds % 60).toString().padStart(2, '0')})
+					{:else if status.stallWarning === 'very-long'}
+						· Still waiting for LLM ({Math.floor(status.elapsedSeconds / 60)}:{(status.elapsedSeconds % 60).toString().padStart(2, '0')})
+					{/if}
+				</span>
+			{/if}
 		</div>
 	</div>
 </div>

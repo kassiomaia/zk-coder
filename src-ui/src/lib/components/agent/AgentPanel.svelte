@@ -183,7 +183,7 @@
 	<WorkspaceSelector
 		workspacePath={session.workspaceRoot}
 		onSelect={onWorkspaceChange}
-		disabled={session.state.type === 'running' || session.state.type === 'launching'}
+		disabled={session.state.type === 'running' || session.state.type === 'user_input_required'}
 	/>
 
 	<!-- Status bar -->

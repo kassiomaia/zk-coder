@@ -138,14 +138,15 @@
 	font-size: var(--text-2xs);
 	line-height: var(--leading-relaxed);
 	overflow-x: auto;
-	white-space: pre-wrap;
-	word-break: break-all;
+	white-space: pre;
+	overflow-wrap: normal;
 }
 
 .args {
 	background: var(--color-neutral-900);
 	color: var(--color-text-secondary);
 	border: 1px solid var(--color-neutral-800);
+	/* Keep JSON formatting intact */
 }
 
 .output {
@@ -154,6 +155,9 @@
 	border: 1px solid var(--color-neutral-800);
 	max-height: 200px;
 	overflow-y: auto;
+	/* Allow long text to wrap in output */
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
 }
 
 .exitCode {

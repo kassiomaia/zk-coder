@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use chrono::Utc;
 use log::{error, info};
 use tauri::Emitter;
 
@@ -102,6 +103,18 @@ pub async fn create_agent_session(
             session_id: session.id.0.clone(),
             agent_id: agent.id.0.clone(),
             agent_name: agent.name.clone(),
+        },
+    );
+
+    // Transition to WaitForRequest state so the session is ready to accept requests
+    let new_state = SessionState::WaitForRequest {
+        last_action_at: Utc::now(),
+    };
+    let _ = app_handle.emit(
+        AGENT_EVENT_NAME,
+        AgentEvent::SessionStateChanged {
+            session_id: session.id.0.clone(),
+            state: new_state,
         },
     );
 

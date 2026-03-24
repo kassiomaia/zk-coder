@@ -406,34 +406,60 @@
 		});
 		console.debug('[+page] System message callback registered');
 
-		// Set callback to add agent activity messages (thinking, tool_call, terminal) to chat
-		// These messages are transient and show agent progress during execution
-		agentStore.setAgentActivityCallback((conversationId, threadId, messageData) => {
-			console.debug('[+page] Agent activity callback:', { kind: messageData.kind, id: messageData.id, content: messageData.content });
+		// Set callback to add agent activity messages (thinking, tool_call, terminal, streaming) to chat
+		// These messages show agent progress and the final response
 
+		// Track known message IDs for O(1) lookup instead of O(n) array find
+		const knownMessageIds = new Set<string>();
+		let messagesLength = 0; // Track length to detect when to rebuild cache
+
+		agentStore.setAgentActivityCallback((conversationId, threadId, messageData) => {
 			const messageId = messageData.id ?? crypto.randomUUID();
 
-			// For thinking and tool_call messages, check if message already exists to decide add vs update
-			const shouldUpdateExisting = messageData.kind === 'thinking' || messageData.kind === 'tool_call';
+			// Check if message with this ID already exists (for thinking, tool_call, and streaming assistant messages)
+			// These should update in-place rather than creating duplicates
+			if (messageData.id) {
+				// Fast path: check Set cache first
+				let exists = knownMessageIds.has(messageData.id);
 
-			if (shouldUpdateExisting && messageData.id) {
-				const chatState = get(chatStore);
-				const existingMessage = chatState.messages.find((m: Message) => m.id === messageData.id);
-				if (existingMessage) {
-					console.debug('[+page] Updating existing message:', messageData.id, messageData.content);
-					// Update existing message with new agentData
-					// For thinking: update content (status_phrase)
-					// For tool_call: update with toolResult, toolError, toolCallStatus
-					chatStore.updateMessage(messageData.id, {
-						...(messageData.content !== undefined && { content: messageData.content }),
-						...(messageData.agentData && { agentData: messageData.agentData })
-					});
-					return;
+				// Slow path: rebuild cache if messages changed (thread switch, etc.)
+				if (!exists || messagesLength !== get(chatStore).messages.length) {
+					const chatState = get(chatStore);
+					messagesLength = chatState.messages.length;
+					// Rebuild cache
+					knownMessageIds.clear();
+					for (const m of chatState.messages) {
+						knownMessageIds.add(m.id);
+					}
+					exists = knownMessageIds.has(messageData.id);
 				}
+
+				if (exists) {
+					const chatState = get(chatStore);
+					const existingMessage = chatState.messages.find((m: Message) => m.id === messageData.id);
+					if (existingMessage) {
+						// Update existing message
+						// For agentData, merge with existing to preserve fields like toolArgs
+						const updates: Partial<Message> = {};
+						if (messageData.content !== undefined) updates.content = messageData.content;
+						if (messageData.status !== undefined) updates.status = messageData.status as any;
+						if (messageData.agentData) {
+							// Deep merge agentData to preserve existing fields
+							updates.agentData = {
+								...existingMessage.agentData,
+								...messageData.agentData
+							};
+						}
+						chatStore.updateMessage(messageData.id, updates);
+						return;
+					}
+				}
+
+				// Add to cache when creating new message
+				knownMessageIds.add(messageData.id);
 			}
 
-			console.debug('[+page] Creating new message:', messageId, messageData.kind);
-			// Create new message for other types or if message doesn't exist yet
+			// Create new message if it doesn't exist yet
 			chatStore.addMessage({
 				...messageData,
 				id: messageId,
@@ -442,7 +468,6 @@
 				timestamp: messageData.timestamp ?? new Date()
 			} as Message);
 		});
-		console.debug('[+page] Agent activity callback registered');
 
 		// Initialize config store and show providers modal if no providers configured
 		await configStore.initialize();

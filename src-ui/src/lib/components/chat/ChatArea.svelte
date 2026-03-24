@@ -534,6 +534,12 @@
 	// Track messages presence for CSS transitions
 	let hasMessages = $derived(messages.length > 0);
 
+	// Check if current messages contain agent activity (thinking, tool_call, terminal)
+	// When present, we suppress the generic AnsweringIndicator to avoid duplicates
+	let hasAgentMessages = $derived(
+		messages.some((m) => m.kind === 'thinking' || m.kind === 'tool_call' || m.kind === 'terminal')
+	);
+
 	// Derive agent status from active session
 	let agentStatus = $derived(
 		(() => {
@@ -554,13 +560,17 @@
 			// Get context usage from session state
 			const contextUsage = session.state.type === 'running' ? session.state.contextUsage : 0;
 
+			// Get last activity timestamp for stall detection
+			const lastActivityAt = session.updatedAt ? new Date(session.updatedAt) : null;
+
 			return getAgentStatus(
 				session.state,
 				latestStep,
 				currentSubtask,
 				hasPendingApproval,
 				session.statusPhrases,
-				contextUsage
+				contextUsage,
+				lastActivityAt
 			);
 		})()
 	);
@@ -605,13 +615,27 @@
 		{:else}
 			<!-- Messages - flat rendering to avoid Svelte 5 nested #each reconciliation issues -->
 			{#each messages as message, index (message.id)}
-				<!-- Agent-specific messages (thinking, tool_call, terminal) -->
-				{#if message.kind === 'thinking'}
-					<ThinkingMessage {message} />
-				{:else if message.kind === 'tool_call'}
-					<ToolCallMessage {message} />
-				{:else if message.kind === 'terminal'}
-					<TerminalOutput {message} />
+				<!-- Agent-specific messages (thinking, tool_call, terminal) - rendered with assistant styling -->
+				{#if message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal'}
+					<div
+						class={[styles.messageWrapper, styles.assistantWrapper]
+							.filter(Boolean)
+							.join(' ')}
+					>
+						<div
+							class={[styles.message, styles.roleAssistant]
+								.filter(Boolean)
+								.join(' ')}
+						>
+							{#if message.kind === 'thinking'}
+								<ThinkingMessage {message} />
+							{:else if message.kind === 'tool_call'}
+								<ToolCallMessage {message} />
+							{:else if message.kind === 'terminal'}
+								<TerminalOutput {message} />
+							{/if}
+						</div>
+					</div>
 				{:else}
 					<!-- Normal messages (user, assistant, system) -->
 					{#if shouldShowGroupHeader(index)}
@@ -658,7 +682,7 @@
 								<MarkdownRenderer content={message.content} />
 							</div>
 							<!-- Message status indicator -->
-							{#if message.status === 'sending' && message.content.trim() === ''}
+							{#if message.status === 'sending' && message.content.trim() === '' && !hasAgentMessages}
 								<AnsweringIndicator status={agentStatus} />
 							{:else if message.status === 'error'}
 								<div class={styles.statusIndicator} aria-label="Failed to send">
@@ -705,8 +729,8 @@
 				{/if}
 			{/each}
 
-			<!-- Answering indicator -->
-			{#if isTyping}
+			<!-- Answering indicator (only show when no specialized agent messages are present) -->
+			{#if isTyping && !hasAgentMessages}
 				<AnsweringIndicator status={agentStatus} />
 			{/if}
 		{/if}

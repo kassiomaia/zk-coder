@@ -48,7 +48,16 @@ function createAgentStore() {
 		status: string;
 	}>();
 	const streamingThrottleTimers = new Map<string, ReturnType<typeof setTimeout>>();
-	const STREAM_THROTTLE_MS = 50; // Update UI at most every 50ms during streaming
+	const STREAM_THROTTLE_MS = 16; // Update UI at ~60fps (16ms) for smoother streaming
+
+	// Terminal output batching state - accumulate output to avoid flooding chat
+	const pendingTerminalOutput = new Map<string, {
+		conversationId: string;
+		threadId: string;
+		lines: string[];
+		timer: ReturnType<typeof setTimeout> | null;
+	}>();
+	const TERMINAL_BATCH_MS = 100; // Batch terminal output for 100ms
 
 	/**
 	 * Flush a pending streaming update to the UI
@@ -61,6 +70,7 @@ function createAgentStore() {
 				conversationId: pending.conversationId,
 				threadId: pending.threadId,
 				role: 'assistant',
+				kind: 'normal', // Mark as normal so it updates in-place
 				content: pending.content,
 				timestamp: new Date(),
 				status: pending.status as any
@@ -108,6 +118,78 @@ function createAgentStore() {
 			}, STREAM_THROTTLE_MS);
 			streamingThrottleTimers.set(sessionId, timer);
 		}
+	}
+
+	/**
+	 * Flush pending terminal output to the UI as a single message
+	 */
+	function flushTerminalOutput(sessionId: string) {
+		const pending = pendingTerminalOutput.get(sessionId);
+		if (pending && pending.lines.length > 0 && onAgentActivity) {
+			// Combine all lines into a single message
+			const combinedContent = pending.lines.join('\n');
+			onAgentActivity(pending.conversationId, pending.threadId, {
+				id: `terminal-${sessionId}-${Date.now()}`,
+				conversationId: pending.conversationId,
+				threadId: pending.threadId,
+				role: 'assistant',
+				kind: 'terminal',
+				content: combinedContent,
+				agentData: {
+					sessionId
+				},
+				timestamp: new Date()
+			});
+			// Clear pending lines
+			pending.lines = [];
+		}
+	}
+
+	/**
+	 * Schedule a batched terminal output update
+	 */
+	function scheduleTerminalOutput(
+		sessionId: string,
+		conversationId: string,
+		threadId: string,
+		line: string
+	) {
+		let pending = pendingTerminalOutput.get(sessionId);
+		if (!pending) {
+			pending = {
+				conversationId,
+				threadId,
+				lines: [],
+				timer: null
+			};
+			pendingTerminalOutput.set(sessionId, pending);
+		}
+
+		// Add the line
+		pending.lines.push(line);
+
+		// Clear existing timer
+		if (pending.timer) {
+			clearTimeout(pending.timer);
+		}
+
+		// Schedule batched update
+		pending.timer = setTimeout(() => {
+			flushTerminalOutput(sessionId);
+			if (pending) pending.timer = null;
+		}, TERMINAL_BATCH_MS);
+	}
+
+	/**
+	 * Flush any pending terminal output immediately
+	 */
+	function flushPendingTerminalOutput(sessionId: string) {
+		const pending = pendingTerminalOutput.get(sessionId);
+		if (pending?.timer) {
+			clearTimeout(pending.timer);
+			pending.timer = null;
+		}
+		flushTerminalOutput(sessionId);
 	}
 
 	/**
@@ -191,7 +273,7 @@ function createAgentStore() {
 					break;
 				}
 				case 'command_output': {
-					// Add to terminal and create terminal output message in chat
+					// Add to terminal and batch terminal output for chat
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
 						const line: import('$lib/types/agent').TerminalLine = {
@@ -205,23 +287,15 @@ function createAgentStore() {
 							terminalOutput: [...(session.terminalOutput ?? []), line]
 						});
 
-						// Create terminal output message in chat (transient, auto-dismiss)
-						if (onAgentActivity) {
-							onAgentActivity(session.conversationId, session.threadId, {
-								id: `terminal-${event.sessionId}-${crypto.randomUUID()}`,
-								conversationId: session.conversationId,
-								threadId: session.threadId,
-								role: 'system',
-								kind: 'terminal',
-								content: event.content,
-								agentData: {
-									streamType: event.stream,
-									sessionId: event.sessionId
-								},
-								isTransient: true,
-								timestamp: new Date()
-							});
-						}
+						// Batch terminal output for chat - accumulate and send in batches
+						// Prefix with stream type indicator
+						const prefix = event.stream === 'stderr' ? 'ERR: ' : (event.stream === 'stdin' ? '< ' : '> ');
+						scheduleTerminalOutput(
+							event.sessionId,
+							session.conversationId,
+							session.threadId,
+							prefix + event.content
+						);
 					}
 					break;
 				}
@@ -238,6 +312,9 @@ function createAgentStore() {
 							...session,
 							terminalOutput: [...(session.terminalOutput ?? []), line]
 						});
+
+						// Flush any pending terminal output
+						flushPendingTerminalOutput(event.sessionId);
 					}
 					break;
 				}
@@ -311,12 +388,6 @@ function createAgentStore() {
 					// Agent has started execution - update session state and create thinking message
 					const session = state.sessions.get(event.sessionId);
 					if (session) {
-						console.debug('[agentStore] execution_started:', {
-							sessionId: event.sessionId,
-							conversationId: session.conversationId,
-							threadId: session.threadId
-						});
-
 						state.sessions.set(event.sessionId, {
 							...session,
 							state: { type: 'running', currentStep: 0, contextUsage: 0 }
@@ -324,16 +395,14 @@ function createAgentStore() {
 
 						// Create thinking message in chat with consistent ID for updates
 						if (onAgentActivity) {
-							console.debug('[agentStore] Creating thinking message');
 							onAgentActivity(session.conversationId, session.threadId, {
 								id: `thinking-${event.sessionId}`,
 								conversationId: session.conversationId,
 								threadId: session.threadId,
-								role: 'system',
+								role: 'assistant',
 								kind: 'thinking',
 								content: 'Thinking...',
-								timestamp: new Date(),
-								isTransient: false
+								timestamp: new Date()
 							});
 						}
 					}
@@ -382,7 +451,7 @@ function createAgentStore() {
 								id: toolCallId,
 								conversationId: session.conversationId,
 								threadId: session.threadId,
-								role: 'system',
+								role: 'assistant',
 								kind: 'tool_call',
 								content: '',
 								agentData: {
@@ -424,7 +493,7 @@ function createAgentStore() {
 								id: toolCallId, // Same ID as tool_call to update the existing message
 								conversationId: session.conversationId,
 								threadId: session.threadId,
-								role: 'system',
+								role: 'assistant',
 								kind: 'tool_call',
 								content: '',
 								agentData: {
@@ -441,17 +510,8 @@ function createAgentStore() {
 					break;
 				}
 				case 'execution_complete': {
-					console.debug('[agentStore] execution_complete:', {
-						sessionId: event.sessionId,
-						conversationId: event.conversationId,
-						threadId: event.threadId,
-						contentLength: event.result.content?.length ?? 0,
-						content: event.result.content
-					});
-
 					// Call the callback with conversation/thread IDs from the event
 					if (onExecutionComplete) {
-						console.debug('[agentStore] Calling executionComplete callback');
 						onExecutionComplete(event.conversationId, event.threadId, event.result.content);
 					}
 
@@ -478,20 +538,13 @@ function createAgentStore() {
 							statusPhrases: newPhrases
 						});
 
-						console.debug('[agentStore] status_phrase:', {
-							sessionId: event.sessionId,
-							message: event.message,
-							conversationId: session.conversationId,
-							threadId: session.threadId
-						});
-
 						// Update thinking message in chat with latest status
 						if (onAgentActivity) {
 							onAgentActivity(session.conversationId, session.threadId, {
 								id: `thinking-${event.sessionId}`,
 								conversationId: session.conversationId,
 								threadId: session.threadId,
-								role: 'system',
+								role: 'assistant',
 								kind: 'thinking',
 								content: event.message,
 								timestamp: new Date()
@@ -568,6 +621,17 @@ function createAgentStore() {
 					break;
 				}
 			}
+
+			// Update the session's updatedAt timestamp for stall detection
+			// This applies to all events that reference a valid session
+			const session = state.sessions.get(event.sessionId);
+			if (session) {
+				state.sessions.set(event.sessionId, {
+					...session,
+					updatedAt: new Date().toISOString()
+				});
+			}
+
 			return { ...state, sessions: new Map(state.sessions) };
 		});
 	}

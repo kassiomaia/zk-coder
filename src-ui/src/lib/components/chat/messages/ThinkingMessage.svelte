@@ -15,6 +15,9 @@ interface Props {
 
 let { message }: Props = $props();
 
+// Use $derived for reactive values from props
+const content = $derived(message.content || 'Analyzing request...');
+
 // Collapsed state
 let collapsed = $state(false);
 
@@ -44,7 +47,7 @@ $effect(() => {
 
 	{#if !collapsed}
 		<div class={styles.content}>
-			<p class={styles.status}>{message.content || 'Analyzing request...'}</p>
+			<p class={styles.status}>{content}</p>
 		</div>
 	{/if}
 </div>

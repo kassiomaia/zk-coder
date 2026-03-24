@@ -17,6 +17,10 @@ export interface AgentStatus {
 	phrases?: string[];
 	/** Context usage percentage (0-100) - if > 50, will be shown in status */
 	contextUsage?: number;
+	/** Stall warning when LLM is taking too long (null = not stalled) */
+	stallWarning?: 'still-working' | 'taking-longer' | 'very-long';
+	/** Elapsed time since last activity in seconds (for display) */
+	elapsedSeconds?: number;
 }
 
 /** Default idle status */
@@ -160,10 +164,39 @@ export function getAgentStatus(
 	currentSubtask: SubTask | null,
 	hasPendingApproval: boolean,
 	statusPhrases?: string[],
-	contextUsage?: number
+	contextUsage?: number,
+	lastActivityAt?: Date | null
 ): AgentStatus {
 	// Extract context usage from state if not provided
 	const usage = contextUsage ?? (state?.type === 'running' ? state.contextUsage : 0);
+
+	// Compute stall warning based on last activity time
+	let stallWarning: AgentStatus['stallWarning'] = undefined;
+	let elapsedSeconds = 0;
+
+	if (lastActivityAt && state?.type === 'running') {
+		const now = new Date();
+		const elapsedMs = now.getTime() - lastActivityAt.getTime();
+		elapsedSeconds = Math.floor(elapsedMs / 1000);
+
+		if (elapsedSeconds >= 120) {
+			stallWarning = 'very-long'; // 2+ minutes
+		} else if (elapsedSeconds >= 60) {
+			stallWarning = 'taking-longer'; // 1+ minute
+		} else if (elapsedSeconds >= 30) {
+			stallWarning = 'still-working'; // 30+ seconds
+		}
+	}
+
+	// Helper to add stall info to status
+	const addStallInfo = (status: AgentStatus): AgentStatus => {
+		if (!stallWarning || !status.active) return status;
+		return {
+			...status,
+			stallWarning,
+			elapsedSeconds
+		};
+	};
 
 	// Approval pending takes priority
 	if (hasPendingApproval) {
@@ -177,13 +210,13 @@ export function getAgentStatus(
 		if (usage > 50) {
 			text += ` (${Math.round(usage)}%)`;
 		}
-		return {
+		return addStallInfo({
 			text,
 			icon: 'sparkle',
 			active: true,
 			phrases: statusPhrases,
 			contextUsage: usage
-		};
+		});
 	}
 
 	// Latest execution step
@@ -192,9 +225,9 @@ export function getAgentStatus(
 		if (stepStatus) {
 			// Append context usage if > 50%
 			if (usage > 50) {
-				return { ...stepStatus, text: `${stepStatus.text} (${Math.round(usage)}%)`, contextUsage: usage };
+				return addStallInfo({ ...stepStatus, text: `${stepStatus.text} (${Math.round(usage)}%)`, contextUsage: usage });
 			}
-			return stepStatus;
+			return addStallInfo(stepStatus);
 		}
 	}
 
@@ -204,9 +237,9 @@ export function getAgentStatus(
 		if (subtaskStatus) {
 			// Append context usage if > 50%
 			if (usage > 50) {
-				return { ...subtaskStatus, text: `${subtaskStatus.text} (${Math.round(usage)}%)`, contextUsage: usage };
+				return addStallInfo({ ...subtaskStatus, text: `${subtaskStatus.text} (${Math.round(usage)}%)`, contextUsage: usage });
 			}
-			return subtaskStatus;
+			return addStallInfo(subtaskStatus);
 		}
 	}
 
@@ -215,9 +248,9 @@ export function getAgentStatus(
 		const status = stateToStatus(state);
 		// Append context usage if > 50%
 		if (usage > 50) {
-			return { ...status, text: `${status.text} (${Math.round(usage)}%)`, contextUsage: usage };
+			return addStallInfo({ ...status, text: `${status.text} (${Math.round(usage)}%)`, contextUsage: usage });
 		}
-		return status;
+		return addStallInfo(status);
 	}
 
 	// Default idle
