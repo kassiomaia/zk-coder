@@ -28,7 +28,8 @@ use super::permissions::PermissionResolver;
 use super::session::{AgentSession, PendingAction, SessionId, SessionState};
 use super::store::SessionStore;
 use super::task::{
-    AgentExecutionResult, AgentRequest, ExecutionStep, StepAction, StepResult, UsageStats,
+    AgentExecutionResult, AgentRequest, AgentTask, ExecutionStep, StepAction, StepResult,
+    TaskStatus, UsageStats,
 };
 use super::types::{ActionType, PermissionLevel, TrustMode};
 
@@ -147,6 +148,22 @@ impl AgentRuntime {
             },
         );
 
+        // Create and persist the task for this execution
+        let task = AgentTask::new(session.id.clone(), request.clone());
+        if let Err(e) = self.session_store.create_task(&task) {
+            warn!("[AgentRuntime] Failed to persist task: {e}");
+        }
+        let task_id = task.id.clone();
+
+        // Emit task created event
+        let _ = app_handle.emit(
+            AGENT_EVENT_NAME,
+            AgentEvent::TaskCreated {
+                session_id: session_id.clone(),
+                task: task,
+            },
+        );
+
         // Create LLM client
         let (client, model_name) = self.create_llm_client(app_handle).await?;
 
@@ -160,6 +177,9 @@ impl AgentRuntime {
 
         // Track recent tool calls for loop detection: (tool_name, arguments_hash)
         let mut recent_tool_calls: Vec<(String, u64)> = Vec::new();
+
+        // Mark task as in progress
+        let _ = self.session_store.update_task_status(&task_id, &TaskStatus::InProgress);
 
         // Agent runs until it has no more tool calls (decides it's done)
         loop {
@@ -276,6 +296,19 @@ impl AgentRuntime {
                     }),
                 };
 
+                // Update task to completed
+                if let Err(e) = self.session_store.update_task_status(&task_id, &TaskStatus::Completed) {
+                    warn!("[AgentRuntime] Failed to update task status: {e}");
+                }
+                let _ = app_handle.emit(
+                    AGENT_EVENT_NAME,
+                    AgentEvent::TaskUpdated {
+                        session_id: session_id.clone(),
+                        task_id: task_id.clone(),
+                        status: TaskStatus::Completed,
+                    },
+                );
+
                 // Update session to finished
                 self.update_session_state(
                     &session.id,
@@ -329,6 +362,16 @@ impl AgentRuntime {
                         app_handle,
                     )?;
 
+                    // Mark task as failed
+                    let _ = self.session_store.update_task_status(&task_id, &TaskStatus::Failed);
+                    let _ = app_handle.emit(
+                        AGENT_EVENT_NAME,
+                        AgentEvent::TaskUpdated {
+                            session_id: session_id.clone(),
+                            task_id: task_id.clone(),
+                            status: TaskStatus::Failed,
+                        },
+                    );
                     return Err(AgentRuntimeError::LoopDetected);
                 }
             }
@@ -359,6 +402,7 @@ impl AgentRuntime {
                 .process_tool_calls_with_permissions(
                     &response.tool_calls,
                     session,
+                    &task_id,
                     &permission_resolver,
                     app_handle,
                 )
@@ -380,6 +424,7 @@ impl AgentRuntime {
         &self,
         tool_calls: &[ToolCall],
         session: &AgentSession,
+        task_id: &str,
         permission_resolver: &PermissionResolver,
         app_handle: &AppHandle,
     ) -> Result<Vec<OrchestratorToolResult>, AgentRuntimeError> {
@@ -402,11 +447,11 @@ impl AgentRuntime {
             let result = match permission {
                 PermissionLevel::AutoRun => {
                     // Execute directly using the tool registry
-                    self.execute_tool(call, session, app_handle).await
+                    self.execute_tool(call, session, task_id, app_handle).await
                 }
                 PermissionLevel::ApprovalRequired => {
                     // Queue for approval and wait
-                    self.execute_with_approval(call, session, app_handle)
+                    self.execute_with_approval(call, session, task_id, app_handle)
                         .await?
                 }
                 PermissionLevel::Disabled => OrchestratorToolResult {
@@ -441,6 +486,7 @@ impl AgentRuntime {
         &self,
         call: &ToolCall,
         session: &AgentSession,
+        task_id: &str,
         app_handle: &AppHandle,
     ) -> OrchestratorToolResult {
         // Capture file state before write operations for rollback
@@ -589,6 +635,33 @@ impl AgentRuntime {
                         let _ = self.session_store.add_status_phrase(&session.id, message);
                     }
                 }
+                "agent_plan_subtasks" => {
+                    // Create subtasks from the planned list
+                    if let Some(subtasks_arr) = call.arguments.get("subtasks").and_then(|v| v.as_array()) {
+                        use super::task::SubTask;
+                        for (i, item) in subtasks_arr.iter().enumerate() {
+                            let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled");
+                            let description = item.get("description").and_then(|v| v.as_str());
+
+                            let mut subtask = SubTask::new(task_id.to_string(), title.to_string(), i as i32);
+                            if let Some(desc) = description {
+                                subtask = subtask.with_description(desc.to_string());
+                            }
+
+                            // Persist to database
+                            let _ = self.session_store.create_subtask(&subtask);
+
+                            // Emit event for frontend
+                            let _ = app_handle.emit(
+                                AGENT_EVENT_NAME,
+                                AgentEvent::SubtaskCreated {
+                                    session_id: session.id.0.clone(),
+                                    subtask,
+                                },
+                            );
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -606,6 +679,7 @@ impl AgentRuntime {
         &self,
         call: &ToolCall,
         session: &AgentSession,
+        task_id: &str,
         app_handle: &AppHandle,
     ) -> Result<OrchestratorToolResult, AgentRuntimeError> {
         let action_type = infer_action_type(&call.name, &call.arguments);
@@ -675,7 +749,7 @@ impl AgentRuntime {
                             if approved_id == action_id =>
                         {
                             info!("[AgentRuntime] Action {} approved", action_id);
-                            return Ok(self.execute_tool(call, session, app_handle).await);
+                            return Ok(self.execute_tool(call, session, task_id, app_handle).await);
                         }
                         Ok(ApprovalEvent::ActionDenied { action_id: denied_id })
                             if denied_id == action_id =>
@@ -951,8 +1025,8 @@ impl AgentRuntime {
                 }
             }
 
-            // Check if we completed successfully
-            if last_error.is_none() && !full_content.is_empty() {
+            // Check if we completed successfully (empty content is valid for streaming)
+            if last_error.is_none() {
                 // Emit final chunk non-blockingly
                 let session_id = session_id.to_string();
                 let conversation_id = conversation_id.to_string();

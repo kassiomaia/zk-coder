@@ -4,7 +4,8 @@
  * Will connect to Tauri IPC commands once the backend is implemented.
  */
 import { writable, derived, get } from 'svelte/store';
-import type { AgentSession, PendingAction, AgentEvent, SessionState } from '$lib/types/agent';
+import type { AgentSession, PendingAction, AgentEvent, SessionState, BackendAgentTask } from '$lib/types/agent';
+import { toAgentTask } from '$lib/types/agent';
 import type { Message } from '$lib/types/message';
 
 interface AgentState {
@@ -318,22 +319,46 @@ function createAgentStore() {
 					}
 					break;
 				}
+				case 'task_created': {
+					const session = state.sessions.get(event.sessionId);
+					if (session) {
+						const newTask = toAgentTask(event.task);
+						const existingTasks = session.tasks ?? [];
+						state.sessions.set(event.sessionId, {
+							...session,
+							tasks: [...existingTasks, newTask]
+						});
+					}
+					break;
+				}
+				case 'task_updated': {
+					const session = state.sessions.get(event.sessionId);
+					if (session && session.tasks) {
+						const updatedTasks = session.tasks.map((task) =>
+							task.id === event.taskId ? { ...task, status: event.status } : task
+						);
+						state.sessions.set(event.sessionId, {
+							...session,
+							tasks: updatedTasks
+						});
+					}
+					break;
+				}
 				case 'subtask_created':
 				case 'subtask_updated': {
 					const session = state.sessions.get(event.sessionId);
-					if (session && (session.tasks?.length ?? 0) > 0) {
-						// Find the task that owns this subtask and add/update the subtask
-						const updatedTasks = (session.tasks ?? []).map((task) => {
+					if (session) {
+						const tasks = session.tasks ?? [];
+						// Find the task that owns this subtask and add/update
+						const updatedTasks = tasks.map((task) => {
 							if (task.id === event.subtask.taskId) {
 								const existingSubtasks = task.subtasks ?? [];
 								const subtaskIndex = existingSubtasks.findIndex((st) => st.id === event.subtask.id);
 								if (subtaskIndex >= 0) {
-									// Update existing subtask
 									const newSubtasks = [...existingSubtasks];
 									newSubtasks[subtaskIndex] = event.subtask;
 									return { ...task, subtasks: newSubtasks };
 								} else {
-									// Add new subtask, maintaining order
 									const newSubtasks = [...existingSubtasks, event.subtask].sort(
 										(a, b) => a.order - b.order
 									);
@@ -890,10 +915,16 @@ function createAgentStore() {
 	): Promise<import('$lib/types/agent').AgentSession | null> {
 		try {
 			const { invoke } = await import('@tauri-apps/api/core');
-			const session = await invoke<import('$lib/types/agent').AgentSession>('get_session_details', {
+			// Backend returns SessionDetailsResponse with flattened session + tasks in backend format
+			const raw = await invoke<Record<string, unknown>>('get_session_details', {
 				sessionId
 			});
-			return session;
+			// Transform backend tasks to frontend AgentTask format
+			const backendTasks = raw.tasks as BackendAgentTask[] | undefined;
+			if (backendTasks && Array.isArray(backendTasks)) {
+				(raw as Record<string, unknown>).tasks = backendTasks.map(toAgentTask);
+			}
+			return raw as unknown as AgentSession;
 		} catch (error) {
 			update((s) => ({ ...s, error: String(error) }));
 			return null;

@@ -79,6 +79,34 @@ export interface AgentTask {
 }
 
 /**
+ * Raw task shape from the Rust backend (used in events and API responses).
+ * Maps to frontend AgentTask via toAgentTask().
+ */
+export interface BackendAgentTask {
+	id: string;
+	sessionId: string;
+	request: { content: string };
+	status: TaskStatus;
+	steps: unknown[];
+	createdAt: string;
+	completedAt?: string;
+}
+
+/** Convert a backend task to the frontend AgentTask shape. */
+export function toAgentTask(bt: BackendAgentTask): AgentTask {
+	// Use the first line of the request as the title, full content as description
+	const content = bt.request.content;
+	const firstLine = content.split('\n')[0].slice(0, 80);
+	return {
+		id: bt.id,
+		title: firstLine || 'Task',
+		description: content.length > 80 ? content : undefined,
+		status: bt.status,
+		subtasks: []
+	};
+}
+
+/**
  * A subtask within an agent's task decomposition
  */
 export interface SubTask {
@@ -192,6 +220,8 @@ export type AgentEvent =
 			result: Record<string, unknown>;
 			isError: boolean;
 	  }
+	| { type: 'task_created'; sessionId: string; task: BackendAgentTask }
+	| { type: 'task_updated'; sessionId: string; taskId: string; status: TaskStatus }
 	| { type: 'subtask_created'; sessionId: string; subtask: SubTask }
 	| { type: 'subtask_updated'; sessionId: string; subtask: SubTask }
 	| {

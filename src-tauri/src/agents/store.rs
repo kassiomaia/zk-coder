@@ -326,6 +326,65 @@ impl SessionStore {
     }
 
     // ========================================================================
+    // Task methods
+    // ========================================================================
+
+    /// Create a new agent task.
+    pub fn create_task(
+        &self,
+        task: &crate::agents::task::AgentTask,
+    ) -> Result<(), SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        conn.execute(
+            "INSERT INTO agent_tasks (id, session_id, request, status, steps, created_at, completed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                task.id,
+                task.session_id.0,
+                serde_json::to_string(&task.request)?,
+                serde_json::to_string(&task.status)?,
+                serde_json::to_string(&task.steps)?,
+                task.created_at.to_rfc3339(),
+                task.completed_at.map(|t| t.to_rfc3339()),
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Update task status.
+    pub fn update_task_status(
+        &self,
+        task_id: &str,
+        status: &crate::agents::task::TaskStatus,
+    ) -> Result<(), SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        let completed_at = if matches!(
+            status,
+            crate::agents::task::TaskStatus::Completed
+                | crate::agents::task::TaskStatus::Failed
+                | crate::agents::task::TaskStatus::Cancelled
+        ) {
+            Some(Utc::now().to_rfc3339())
+        } else {
+            None
+        };
+
+        conn.execute(
+            "UPDATE agent_tasks SET status = ?1, completed_at = ?2 WHERE id = ?3",
+            params![serde_json::to_string(status)?, completed_at, task_id],
+        )?;
+        Ok(())
+    }
+
+    // ========================================================================
     // Subtask methods
     // ========================================================================
 

@@ -505,6 +505,8 @@ pub struct SessionDetailsResponse {
     pub execution_steps: Option<Vec<serde_json::Value>>,
     #[serde(rename = "statusPhrases", skip_serializing_if = "Option::is_none")]
     pub status_phrases: Option<Vec<String>>,
+    #[serde(rename = "tasks", skip_serializing_if = "Option::is_none")]
+    pub tasks: Option<Vec<crate::agents::task::AgentTask>>,
 }
 
 /// Get full session details including runtime data (files, terminal, execution steps, status phrases).
@@ -582,12 +584,19 @@ pub async fn get_session_details(
         .get_session_status_phrases(&session.id)
         .ok();
 
+    // Fetch tasks with subtasks for the Activity section
+    let tasks = state
+        .session_store
+        .get_session_tasks(&session.id)
+        .ok();
+
     Ok(SessionDetailsResponse {
         session,
         files_touched,
         terminal_output,
         execution_steps,
         status_phrases,
+        tasks,
     })
 }
 

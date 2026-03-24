@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::session::{PendingAction, SessionState};
-use super::task::{AgentExecutionResult, ExecutionStep, SubTask};
+use super::task::{AgentExecutionResult, AgentTask, ExecutionStep, SubTask, TaskStatus};
 use chrono::{DateTime, Utc};
 
 /// Events emitted by the agent system to the frontend.
@@ -117,6 +117,22 @@ pub enum AgentEvent {
         session_id: String,
         #[serde(rename = "exitCode")]
         exit_code: Option<i32>,
+    },
+
+    /// A task was created for this session.
+    TaskCreated {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        task: AgentTask,
+    },
+
+    /// A task status was updated.
+    TaskUpdated {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "taskId")]
+        task_id: String,
+        status: TaskStatus,
     },
 
     /// A subtask was created.

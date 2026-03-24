@@ -70,6 +70,7 @@ impl Agent {
                 "search_grep".to_string(),
                 "system_execute".to_string(),
                 "agent_emit_status".to_string(),
+                "agent_plan_subtasks".to_string(),
             ],
             default_model_id: "code".to_string(),
             trust_mode: TrustMode::Untrusted,
@@ -81,6 +82,10 @@ impl Agent {
     fn code_agent_system_prompt() -> &'static str {
         "You are a code assistant agent. You can read files, write code, search codebases, \
          and execute commands to help the user with software development tasks. \
+         \
+         PLANNING: For non-trivial tasks, use 'agent_plan_subtasks' early in execution to \
+         break your work into logical steps. This shows the user your plan and lets them \
+         track progress. Skip planning for simple tasks like reading a single file. \
          \
          COMMUNICATION: Use the 'agent_emit_status' tool periodically (every 10-30 seconds) \
          to keep the user informed of your progress. Call it with brief updates (2-6 words) \
