@@ -477,7 +477,12 @@ impl SessionStore {
             .query_row("SELECT status FROM agent_subtasks WHERE id = ?1", params![subtask_id], |row| row.get(0))
             .ok();
 
-        let is_transitioning_to_in_progress = current_status.as_deref() == Some(r#""pending""#)
+        // Parse current status to enum for robust comparison (not brittle to serialization changes)
+        let is_transitioning_to_in_progress = current_status
+            .as_deref()
+            .and_then(|s| serde_json::from_str::<crate::agents::task::TaskStatus>(s).ok())
+            .map(|current| matches!(current, crate::agents::task::TaskStatus::Pending))
+            .unwrap_or(false)
             && matches!(status, crate::agents::task::TaskStatus::InProgress);
 
         let completed_at = if matches!(

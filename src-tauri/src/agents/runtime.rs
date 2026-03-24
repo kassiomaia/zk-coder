@@ -85,6 +85,27 @@ struct CompactionDetails {
     needs_reinjection: bool,
 }
 
+/// Summary of subtask data needed for prompt derivation and tracking.
+/// Extracted to avoid magic tuple indices and improve code clarity.
+#[derive(Debug, Clone)]
+struct SubtaskSummary {
+    title: String,
+    mode: super::task::SubTaskMode,
+    status: TaskStatus,
+    order: i32,
+}
+
+impl SubtaskSummary {
+    fn from_subtask(subtask: &super::task::SubTask) -> Self {
+        Self {
+            title: subtask.title.clone(),
+            mode: subtask.mode.clone(),
+            status: subtask.status.clone(),
+            order: subtask.order,
+        }
+    }
+}
+
 /// The agent runtime orchestrates LLM + tool execution with permissions.
 pub struct AgentRuntime {
     session_store: Arc<SessionStore>,
@@ -237,11 +258,10 @@ impl AgentRuntime {
             )?;
 
             // Get current subtask for mode filtering and prompt derivation
-            let (current_subtask_info, tool_names) = if let Ok(subtasks) = self.session_store.get_subtasks(&task_id) {
+            let (current_subtask_summary, tool_names) = if let Ok(subtasks) = self.session_store.get_subtasks(&task_id) {
                 let total = subtasks.len();
                 if let Some(current) = subtasks.iter().find(|st| st.status == TaskStatus::InProgress) {
-                    // Clone the subtask data we need (title, mode, status, order) since we need it beyond this scope
-                    let subtask_summary = (current.title.clone(), current.mode.clone(), current.status.clone(), current.order);
+                    let summary = SubtaskSummary::from_subtask(current);
                     let allowed = current.mode.allowed_tools();
                     info!(
                         "[AgentRuntime] Subtask '{}' ({} mode): {} tools available",
@@ -249,7 +269,7 @@ impl AgentRuntime {
                         current.mode.icon(),
                         allowed.len()
                     );
-                    (Some((subtask_summary, total)), allowed)
+                    (Some((summary, total)), allowed)
                 } else {
                     (None, all_tool_definitions.iter().map(|t| t.name.as_str()).collect::<Vec<_>>())
                 }
@@ -258,8 +278,8 @@ impl AgentRuntime {
             };
 
             // Detect and log subtask changes
-            let current_order = current_subtask_info.as_ref()
-                .map(|(subtask, _)| subtask.3); // order is at index 3: (title, mode, status, order)
+            let current_order = current_subtask_summary.as_ref()
+                .map(|(summary, _)| summary.order);
 
             if last_injected_subtask_order != current_order {
                 match (last_injected_subtask_order, current_order) {
@@ -278,20 +298,17 @@ impl AgentRuntime {
             }
 
             // Derive system prompt with subtask context
-            let system_prompt = match &current_subtask_info {
-                Some((subtask, total)) => {
-                    // Reconstruct the needed data for derive_system_prompt
-                    // We use a simpler approach here since we have the summary
-                    let (title, mode, status, order) = subtask;
-                    if *status == TaskStatus::InProgress {
+            let system_prompt = match &current_subtask_summary {
+                Some((summary, total)) => {
+                    if summary.status == TaskStatus::InProgress {
                         format!(
                             "{}\n\n## Current Task ({}/{}): {}\n\n{}\n\nFocus on completing this task. \
                             When done, call agent_advance_to_next_subtask.",
                             agent_system_prompt,
-                            order + 1,
+                            summary.order + 1,
                             total,
-                            title,
-                            mode.instruction_text()
+                            summary.title,
+                            summary.mode.instruction_text()
                         )
                     } else {
                         agent_system_prompt.to_string()
@@ -302,7 +319,7 @@ impl AgentRuntime {
             info!(
                 "[AgentRuntime] System prompt length: {}{}",
                 system_prompt.len(),
-                if current_subtask_info.is_some() { " (with subtask context)" } else { "" }
+                if current_subtask_summary.is_some() { " (with subtask context)" } else { "" }
             );
 
             // Filter tool definitions based on current mode
@@ -784,12 +801,19 @@ impl AgentRuntime {
                             }
 
                             // Mark the first subtask as in_progress automatically
-                            if i == 0 {
+                            let is_first_subtask = i == 0;
+                            if is_first_subtask {
                                 subtask.status = TaskStatus::InProgress;
                             }
 
                             // Persist to database
                             let _ = self.session_store.create_subtask(&subtask);
+
+                            // For first subtask, also update status to ensure started_at is set
+                            // (create_subtask only inserts, doesn't set started_at for InProgress)
+                            if is_first_subtask {
+                                let _ = self.session_store.update_subtask_status(&subtask.id, &TaskStatus::InProgress);
+                            }
 
                             // Emit event for frontend
                             let _ = app_handle.emit(
@@ -1540,5 +1564,148 @@ mod tests {
             ActionType::ReadFile { path } => assert_eq!(path, ""),
             _ => panic!("Expected ReadFile as default"),
         }
+    }
+
+    // ------------------------------------------------------------------------
+    // Context Compaction Tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn test_context_compaction_preserves_subtask_context() {
+        // Test that context compaction detects and preserves subtask context markers
+        use crate::llm::{Message, MessageRole};
+
+        // Create a context large enough to trigger compaction (> 60% of 128k tokens)
+        let mut context = Vec::new();
+
+        // Add initial user message (first message is always preserved)
+        context.push(Message::user("Initial request to analyze the codebase".to_string()));
+
+        // Add subtask context as a system message
+        context.push(Message::system(
+            "## Current Task (1/3): Explore codebase structure\n\nREAD-ONLY: You may only read files.".to_string()
+        ));
+
+        // Add many messages to exceed threshold (need > 60% of 128k tokens = ~76800 tokens)
+        // At ~150 chars per message (content + overhead), need ~512 messages to trigger compaction
+        for i in 0..2500 {
+            context.push(Message::user(format!("Message {} with some content to fill space and ensure we exceed the compression threshold significantly", i)));
+            context.push(Message::assistant(format!("Response {} for message with more content to increase token count", i)));
+        }
+
+        // Get initial count
+        let initial_count = context.len();
+        let has_subtask_before = context.iter().any(|m| {
+            m.role == MessageRole::System && m.as_text().unwrap_or_default().contains("## Current Task")
+        });
+
+        assert!(has_subtask_before, "Should have subtask context before compaction");
+
+        // Run compaction
+        let result = AgentRuntime::maybe_compact_context(&mut context);
+
+        // Verify compaction occurred
+        assert!(result.is_some(), "Compaction should have occurred");
+        let compaction = result.unwrap();
+        assert!(compaction.after_count < initial_count, "Context should be smaller after compaction");
+        assert!(compaction.before_tokens > compaction.after_tokens, "Token count should decrease");
+
+        // Check if subtask context was preserved
+        let has_subtask_after = context.iter().any(|m| {
+            m.role == MessageRole::System && m.as_text().unwrap_or_default().contains("## Current Task")
+        });
+
+        // The key assertion: if subtask context was removed, needs_reinjection should be true
+        if !has_subtask_after {
+            assert!(compaction.needs_reinjection, "needs_reinjection should be true when subtask context was removed");
+        }
+
+        // Verify the first message was preserved
+        assert!(context.first().unwrap().as_text().unwrap().contains("Initial request"));
+    }
+
+    #[test]
+    fn test_context_compaction_without_subtask_context() {
+        // Test compaction when there's no subtask context (should not set needs_reinjection)
+        use crate::llm::Message;
+
+        let mut context = Vec::new();
+
+        // Add initial user message
+        context.push(Message::user("Simple request".to_string()));
+
+        // Add many messages to exceed threshold (no subtask context this time)
+        for i in 0..2500 {
+            context.push(Message::user(format!("Message {} with some content to fill space and ensure we exceed the compression threshold", i)));
+            context.push(Message::assistant(format!("Response {} for message", i)));
+        }
+
+        // Run compaction
+        let result = AgentRuntime::maybe_compact_context(&mut context);
+
+        // Verify compaction occurred
+        assert!(result.is_some(), "Compaction should have occurred");
+        let compaction = result.unwrap();
+
+        // Since there was no subtask context to begin with, needs_reinjection should be false
+        assert!(!compaction.needs_reinjection, "needs_reinjection should be false when there was no subtask context");
+    }
+
+    #[test]
+    fn test_context_compaction_below_threshold() {
+        // Test that compaction doesn't occur when context is small
+        use crate::llm::Message;
+
+        let mut context = Vec::new();
+        for i in 0..10 {
+            context.push(Message::user(format!("Message {}", i)));
+            context.push(Message::assistant(format!("Response {}", i)));
+        }
+
+        let result = AgentRuntime::maybe_compact_context(&mut context);
+
+        // No compaction should occur
+        assert!(result.is_none(), "Compaction should not occur for small contexts");
+        assert_eq!(context.len(), 20, "Context should remain unchanged");
+    }
+
+    #[test]
+    fn test_context_compaction_keeps_first_and_recent_messages() {
+        // Test that compaction preserves the first message and most recent messages
+        use crate::llm::Message;
+
+        let mut context = Vec::new();
+
+        // First message (should be preserved)
+        context.push(Message::user("FIRST MESSAGE - important context".to_string()));
+
+        // Middle messages (should be discarded)
+        for i in 0..2500 {
+            context.push(Message::user(format!("Middle message {} with filler content", i)));
+            context.push(Message::assistant(format!("Middle response {} with filler content", i)));
+        }
+
+        // Recent messages (should be preserved - last 15)
+        let recent_count = 15;
+        for i in 0..recent_count {
+            context.push(Message::user(format!("Recent message {}", i)));
+            context.push(Message::assistant(format!("Recent response {}", i)));
+        }
+
+        let initial_count = context.len();
+        let result = AgentRuntime::maybe_compact_context(&mut context);
+
+        assert!(result.is_some(), "Compaction should occur");
+        let compaction = result.unwrap();
+
+        // Should be much smaller
+        assert!(compaction.after_count < initial_count);
+
+        // First message should be preserved
+        let first_msg = context.first().unwrap();
+        assert!(first_msg.as_text().unwrap().contains("FIRST MESSAGE"));
+
+        // Last few messages should include recent ones
+        assert!(context.len() <= recent_count + 1, "Should have at most recent messages + first message");
     }
 }
