@@ -28,13 +28,9 @@ Be respectful and inclusive. We welcome contributions from everyone.
 1. Clone the repository
 2. Install frontend dependencies:
    ```bash
-   cd src-ui && npm install
+   cd src-ui && npm install && cd ..
    ```
-3. Build the Rust backend:
-   ```bash
-   cargo build --manifest-path src-tauri/Cargo.toml
-   ```
-4. Run in development mode:
+3. Run in development mode:
    ```bash
    cargo tauri dev
    ```
@@ -69,11 +65,17 @@ Be respectful and inclusive. We welcome contributions from everyone.
 - One component per file
 - Use CSS modules for component styles
 
+### File Size Limits
+
+- **Soft limit**: 500 lines per file
+- **Hard limit**: 800 lines per file
+- When files exceed the soft limit, refactor into smaller, focused modules
+
 ### Running Linters
 
 ```bash
 # Rust
-cargo clippy --manifest-path src-tauri/Cargo.toml
+cargo clippy
 
 # Frontend
 cd src-ui && npm run lint
@@ -95,7 +97,14 @@ type(scope): description
 [optional footer]
 ```
 
-Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+**Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+
+**Examples:**
+```
+feat(chat): add message editing capability
+fix(scroll): prevent auto-scroll during user interaction
+docs(readme): update installation instructions
+```
 
 ## Pull Request Process
 
@@ -108,8 +117,29 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 ### PR Checklist
 
 - [ ] Code compiles without errors
-- [ ] All tests pass
-- [ ] Linters pass without warnings
+- [ ] All tests pass (`cargo test` and `npm test`)
+- [ ] Linters pass without warnings (`cargo clippy` and `npm run lint`)
 - [ ] Documentation updated if needed
 - [ ] CHANGELOG.md updated
 - [ ] PR description is clear and complete
+
+### PR Description Template
+
+```markdown
+## Summary
+Brief description of changes
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation update
+
+## Testing
+How was this tested?
+
+## Checklist
+- [ ] Tests pass
+- [ ] Linting passes
+- [ ] Documentation updated
+```
