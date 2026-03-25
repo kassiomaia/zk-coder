@@ -11,7 +11,7 @@ use crate::llm::{
 };
 use crate::storage::ConfigStore;
 
-use super::AgentRuntimeError;
+use super::types::AgentRuntimeError;
 
 /// Retry configuration for LLM calls.
 pub struct LlmRetryConfig {
