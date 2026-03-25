@@ -571,6 +571,64 @@ impl SessionStore {
         Ok(steps)
     }
 
+    /// Get all execution steps for a session in chronological order.
+    ///
+    /// This fetches execution steps from the `agent_execution_steps` table,
+    /// which is the correct source for execution steps persisted during runtime.
+    pub fn get_session_execution_steps(
+        &self,
+        session_id: &SessionId,
+    ) -> Result<Vec<crate::agents::task::ExecutionStep>, SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        let mut stmt = conn.prepare(
+            "SELECT action_data, result_data, step_number, input_tokens, output_tokens, total_tokens, duration_ms
+             FROM agent_execution_steps
+             WHERE session_id = ?1
+             ORDER BY created_at ASC",
+        )?;
+
+        let steps = stmt
+            .query_map(params![session_id.0], |row| {
+                let action_data: String = row.get(0)?;
+                let result_data: Option<String> = row.get(1)?;
+                let step_number: u32 = row.get(2)?;
+
+                let action: crate::agents::task::StepAction = match serde_json::from_str(&action_data) {
+                    Ok(a) => a,
+                    Err(e) => {
+                        return Err(rusqlite::Error::ToSqlConversionFailure(
+                            Box::new(e) as Box<dyn std::error::Error + Send + Sync>,
+                        ));
+                    }
+                };
+
+                let result = match result_data {
+                    Some(data) => {
+                        Some(serde_json::from_str(&data).map_err(|e| {
+                            rusqlite::Error::ToSqlConversionFailure(
+                                Box::new(e) as Box<dyn std::error::Error + Send + Sync>,
+                            )
+                        })?)
+                    }
+                    None => None,
+                };
+
+                Ok(crate::agents::task::ExecutionStep {
+                    step_number,
+                    action,
+                    result,
+                    timestamp: Utc::now(),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(steps)
+    }
+
     // ========================================================================
     // Subtask methods
     // ========================================================================
@@ -757,6 +815,7 @@ impl SessionStore {
 
         let tasks = stmt
             .query_map(params![session_id.0], |row| {
+                let task_id: String = row.get(0)?;
                 let request_str: String = row.get(2)?;
                 let status_str: String = row.get(3)?;
                 let steps_str: String = row.get(4)?;
@@ -768,12 +827,13 @@ impl SessionStore {
                 let steps: Vec<crate::agents::task::ExecutionStep> = serde_json::from_str(&steps_str)
                     .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e) as Box<dyn std::error::Error + Send + Sync>))?;
 
-                Ok(crate::agents::task::AgentTask {
-                    id: row.get(0)?,
+                Ok((crate::agents::task::AgentTask {
+                    id: task_id.clone(),
                     session_id: SessionId(row.get(1)?),
                     request,
                     status,
                     steps,
+                    subtasks: None, // Will be populated below
                     created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
                         .unwrap_or_default()
                         .with_timezone(&Utc),
@@ -782,11 +842,30 @@ impl SessionStore {
                         .map(|s| chrono::DateTime::parse_from_rfc3339(&s)
                         .unwrap_or_default()
                         .with_timezone(&Utc)),
-                })
+                }, task_id))
             })?
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(tasks)
+        // Fetch subtasks for each task
+        let tasks_with_subtasks = tasks
+            .into_iter()
+            .map(|(mut task, task_id)| {
+                // Fetch subtasks for this task
+                match self.get_subtasks(&task_id) {
+                    Ok(subtasks) => {
+                        if !subtasks.is_empty() {
+                            task.subtasks = Some(subtasks);
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Failed to fetch subtasks for task {}: {}", task_id, e);
+                    }
+                }
+                task
+            })
+            .collect();
+
+        Ok(tasks_with_subtasks)
     }
 
     // ========================================================================

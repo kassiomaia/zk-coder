@@ -44,6 +44,8 @@ pub struct AgentTask {
     pub request: AgentRequest,
     pub status: TaskStatus,
     pub steps: Vec<ExecutionStep>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subtasks: Option<Vec<SubTask>>,
     pub created_at: DateTime<Utc>,
     pub completed_at: Option<DateTime<Utc>>,
 }
@@ -56,6 +58,7 @@ impl AgentTask {
             request,
             status: TaskStatus::Pending,
             steps: Vec::new(),
+            subtasks: None,
             created_at: Utc::now(),
             completed_at: None,
         }

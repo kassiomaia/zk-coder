@@ -570,19 +570,16 @@ pub async fn get_session_details(
                 .collect()
         });
 
-    // Fetch tasks and extract execution steps
+    // Fetch execution steps from the correct table (agent_execution_steps)
     let execution_steps = state
         .session_store
-        .get_session_tasks(&session.id)
+        .get_session_execution_steps(&session.id)
         .ok()
-        .map(|tasks| {
-            let mut all_steps: Vec<serde_json::Value> = Vec::new();
-            for task in tasks {
-                for step in task.steps {
-                    all_steps.push(serde_json::to_value(step).map_err(|e| e.to_string())?);
-                }
-            }
-            Ok::<Vec<serde_json::Value>, String>(all_steps)
+        .map(|steps| {
+            steps
+                .into_iter()
+                .map(|step| serde_json::to_value(step).map_err(|e| e.to_string()))
+                .collect::<Result<Vec<_>, String>>()
         })
         .transpose()?;
 
@@ -592,6 +589,7 @@ pub async fn get_session_details(
         .ok();
 
     // Fetch tasks with subtasks for the Activity section
+    // (get_session_tasks now includes subtasks automatically)
     let tasks = state
         .session_store
         .get_session_tasks(&session.id)

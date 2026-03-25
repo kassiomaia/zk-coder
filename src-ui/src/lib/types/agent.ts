@@ -88,6 +88,7 @@ export interface BackendAgentTask {
 	request: { content: string };
 	status: TaskStatus;
 	steps: unknown[];
+	subtasks?: SubTask[];
 	createdAt: string;
 	completedAt?: string;
 }
@@ -102,9 +103,14 @@ export function toAgentTask(bt: BackendAgentTask): AgentTask {
 		title: firstLine || 'Task',
 		description: content.length > 80 ? content : undefined,
 		status: bt.status,
-		subtasks: []
+		subtasks: bt.subtasks ?? []
 	};
 }
+
+/**
+ * Subtask execution mode (determines what tools are available)
+ */
+export type SubTaskMode = 'read' | 'write' | 'execute' | 'full_access';
 
 /**
  * A subtask within an agent's task decomposition
@@ -114,9 +120,11 @@ export interface SubTask {
 	taskId: string;
 	title: string;
 	description?: string;
+	mode: SubTaskMode;
 	status: TaskStatus;
 	order: number;
 	createdAt: string;
+	startedAt?: string;
 	completedAt?: string;
 }
 
