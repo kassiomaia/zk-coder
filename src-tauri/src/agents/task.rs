@@ -111,6 +111,8 @@ pub struct StepResult {
     pub success: bool,
     pub output: serde_json::Value,
     pub tokens_used: Option<u32>,
+    pub input_tokens: Option<u32>,
+    pub output_tokens: Option<u32>,
     pub duration_ms: u64,
 }
 

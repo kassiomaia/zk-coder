@@ -1,21 +1,19 @@
 <script lang="ts">
 	/**
 	 * TaskList Component
-	 * Displays agent tasks with status indicators, subtasks, and LLM requests.
+	 * Displays agent tasks with status indicators and subtasks.
 	 */
-	import { CheckCircle, Circle, Loader2, XCircle, ChevronRight, Activity, Cpu } from 'lucide-svelte';
-	import type { AgentTask, TaskStatus, SubTask, ExecutionStep } from '$lib/types/agent';
+	import { CheckCircle, Circle, Loader2, XCircle, ChevronRight } from 'lucide-svelte';
+	import type { AgentTask, TaskStatus, SubTask } from '$lib/types/agent';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		tasks: AgentTask[];
-		executionSteps?: ExecutionStep[];
-		currentStep?: number;
 		ontaskclick?: (task: AgentTask) => void;
 		onsubtaskclick?: (subtask: SubTask) => void;
 	}
 
-	let { tasks, executionSteps = [], currentStep, ontaskclick, onsubtaskclick }: Props = $props();
+	let { tasks, ontaskclick, onsubtaskclick }: Props = $props();
 
 	/** Track expanded state for tasks with subtasks */
 	let expandedTasks = new SvelteSet<string>();
@@ -36,12 +34,6 @@
 			default: return '';
 		}
 	}
-
-	function getStepActionLabel(step: ExecutionStep): string {
-		if (step.action.type === 'llm_request') return `LLM: ${step.action.model}`;
-		if (step.action.type === 'tool_call') return `Tool: ${step.action.tool}`;
-		return 'Step';
-	}
 </script>
 
 <div class="task-list" aria-label="Task list">
@@ -49,7 +41,7 @@
 		{@const hasSubtasks = task.subtasks && task.subtasks.length > 0}
 		{@const isExpanded = expandedTasks.has(task.id) || task.status === 'in_progress'}
 		{@const isRunning = task.status === 'in_progress'}
-		
+
 		<div class="task-wrapper" class:is-running={isRunning}>
 			<div
 				class="task-item"
@@ -74,7 +66,7 @@
 						<Circle size={14} />
 					{/if}
 				</span>
-				
+
 				<span class="task-content">
 					<span class="task-title">{task.title}</span>
 					{#if task.description}
@@ -88,25 +80,6 @@
 					</span>
 				{/if}
 			</div>
-
-			<!-- Execution Steps (LLM Requests) -->
-			{#if (isRunning || isExpanded) && executionSteps.length > 0}
-				<div class="live-steps">
-					{#each executionSteps as step}
-						<div class="step-mini-item" class:is-current={step.stepNumber === currentStep}>
-							{#if step.action.type === 'llm_request'}
-								<Cpu size={10} />
-							{:else}
-								<Activity size={10} />
-							{/if}
-							<span class="step-label">{getStepActionLabel(step)}</span>
-							{#if step.result}
-								<span class="step-time">{step.result.durationMs}ms</span>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
 
 			<!-- Subtasks -->
 			{#if hasSubtasks && isExpanded}
@@ -233,43 +206,6 @@
 
 	.expand-icon.is-expanded {
 		transform: rotate(90deg);
-	}
-
-	.live-steps {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		margin-left: var(--space-8);
-		padding: var(--space-1) 0 var(--space-2) var(--space-2);
-		border-left: 1px solid var(--color-border-subtle);
-	}
-
-	.step-mini-item {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-		padding: var(--space-0-5) var(--space-2);
-		font-size: 10px;
-		color: var(--color-text-muted);
-		border-radius: var(--radius-sm);
-	}
-
-	.step-mini-item.is-current {
-		color: var(--color-primary-400);
-		background: var(--color-primary-500/10);
-	}
-
-	.step-label {
-		flex: 1;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.step-time {
-		font-size: 9px;
-		opacity: 0.6;
-		font-family: var(--font-mono);
 	}
 
 	.subtasks {

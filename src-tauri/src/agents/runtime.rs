@@ -349,7 +349,17 @@ impl AgentRuntime {
                 total_output_tokens += usage.output_tokens;
             }
 
-            // Record LLM step
+            // Get current subtask_id for execution step linkage
+            let current_subtask_id = if let Ok(subtasks) = self.session_store.get_subtasks(&task_id) {
+                subtasks
+                    .iter()
+                    .find(|st| st.status == TaskStatus::InProgress)
+                    .map(|st| st.id.clone())
+            } else {
+                None
+            };
+
+            // Record LLM step with full token details
             let llm_step = ExecutionStep {
                 step_number: step_num,
                 action: StepAction::LlmRequest {
@@ -362,10 +372,22 @@ impl AgentRuntime {
                         "tool_calls": response.tool_calls.len(),
                     }),
                     tokens_used: response.usage.as_ref().map(|u| u.total_tokens),
+                    input_tokens: response.usage.as_ref().map(|u| u.input_tokens),
+                    output_tokens: response.usage.as_ref().map(|u| u.output_tokens),
                     duration_ms,
                 }),
                 timestamp: Utc::now(),
             };
+
+            // Persist execution step to database
+            if let Err(e) = self.session_store.create_execution_step(
+                &llm_step,
+                &session_id,
+                Some(&task_id),
+                current_subtask_id.as_deref(),
+            ) {
+                warn!("[AgentRuntime] Failed to persist execution step: {e}");
+            }
 
             let _ = app_handle.emit(
                 AGENT_EVENT_NAME,

@@ -138,6 +138,32 @@ impl SessionStore {
                 ON agent_status_phrases(session_id);
             CREATE INDEX IF NOT EXISTS idx_tool_calls_session
                 ON agent_tool_calls(session_id);
+
+            CREATE TABLE IF NOT EXISTS agent_execution_steps (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                task_id TEXT,
+                subtask_id TEXT,
+                step_number INTEGER NOT NULL,
+                action_type TEXT NOT NULL,
+                action_data TEXT NOT NULL,
+                result_data TEXT,
+                input_tokens INTEGER,
+                output_tokens INTEGER,
+                total_tokens INTEGER,
+                duration_ms INTEGER,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE,
+                FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE,
+                FOREIGN KEY (subtask_id) REFERENCES agent_subtasks(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_execution_steps_session_created
+                ON agent_execution_steps(session_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_execution_steps_task
+                ON agent_execution_steps(task_id);
+            CREATE INDEX IF NOT EXISTS idx_execution_steps_subtask
+                ON agent_execution_steps(subtask_id);
             ",
         )?;
 
@@ -426,6 +452,123 @@ impl SessionStore {
             params![serde_json::to_string(status)?, completed_at, task_id],
         )?;
         Ok(())
+    }
+
+    // ========================================================================
+    // Execution Step methods
+    // ========================================================================
+
+    /// Create a new execution step record.
+    pub fn create_execution_step(
+        &self,
+        step: &crate::agents::task::ExecutionStep,
+        session_id: &str,
+        task_id: Option<&str>,
+        subtask_id: Option<&str>,
+    ) -> Result<(), SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        let action_type = match &step.action {
+            crate::agents::task::StepAction::LlmRequest { .. } => "llm_request",
+            crate::agents::task::StepAction::ToolCall { .. } => "tool_call",
+        };
+
+        let action_data = serde_json::to_string(&step.action)?;
+        let result_data = step.result.as_ref().map(serde_json::to_string).transpose()?;
+
+        // Extract token statistics and duration
+        let (input_tokens, output_tokens, total_tokens, duration_ms) = if let Some(result) = &step.result {
+            (
+                result.input_tokens.map(|t| t as i64),
+                result.output_tokens.map(|t| t as i64),
+                result.tokens_used.map(|t| t as i64),
+                Some(result.duration_ms as i64),
+            )
+        } else {
+            (None, None, None, None)
+        };
+
+        conn.execute(
+            "INSERT INTO agent_execution_steps (id, session_id, task_id, subtask_id, step_number, action_type, action_data, result_data, input_tokens, output_tokens, total_tokens, duration_ms, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            params![
+                Uuid::new_v4().to_string(),
+                session_id,
+                task_id,
+                subtask_id,
+                step.step_number,
+                action_type,
+                action_data,
+                result_data,
+                input_tokens,
+                output_tokens,
+                total_tokens,
+                duration_ms,
+                Utc::now().to_rfc3339(),
+            ],
+        )?;
+
+        Ok(())
+    }
+
+    /// Get recent execution steps for a session.
+    pub fn get_recent_execution_steps(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<crate::agents::task::ExecutionStep>, SessionStoreError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionStoreError::LockError(e.to_string()))?;
+
+        let mut stmt = conn.prepare(
+            "SELECT action_data, result_data, step_number
+             FROM agent_execution_steps
+             WHERE session_id = ?1
+             ORDER BY created_at DESC
+             LIMIT ?2",
+        )?;
+
+        let steps = stmt
+            .query_map(params![session_id, limit], |row| {
+                let action_data: String = row.get(0)?;
+                let result_data: Option<String> = row.get(1)?;
+                let step_number: u32 = row.get(2)?;
+
+                let action: crate::agents::task::StepAction = match serde_json::from_str(&action_data) {
+                    Ok(a) => a,
+                    Err(e) => {
+                        return Err(rusqlite::Error::ToSqlConversionFailure(
+                            Box::new(e) as Box<dyn std::error::Error + Send + Sync>,
+                        ));
+                    }
+                };
+
+                let result = match result_data {
+                    Some(data) => {
+                        Some(serde_json::from_str(&data).map_err(|e| {
+                            rusqlite::Error::ToSqlConversionFailure(
+                                Box::new(e) as Box<dyn std::error::Error + Send + Sync>,
+                            )
+                        })?)
+                    }
+                    None => None,
+                };
+
+                Ok(crate::agents::task::ExecutionStep {
+                    step_number,
+                    action,
+                    result,
+                    timestamp: Utc::now(),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(steps)
     }
 
     // ========================================================================

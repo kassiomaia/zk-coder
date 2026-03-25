@@ -277,6 +277,8 @@ export interface StepResult {
 	success: boolean;
 	output: Record<string, unknown>;
 	tokensUsed?: number;
+	inputTokens?: number;
+	outputTokens?: number;
 	durationMs: number;
 }
 

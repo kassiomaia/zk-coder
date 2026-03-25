@@ -13,9 +13,11 @@
 		X,
 		History,
 		Settings,
-		Activity
+		Activity,
+		Cpu
 	} from 'lucide-svelte';
 	import TaskList from './TaskList.svelte';
+	import RequestsList from './RequestsList.svelte';
 	import FileTree from './FileTree.svelte';
 	import ToolCallsView from './ToolCallsView.svelte';
 	import ApprovalDialog from './ApprovalDialog.svelte';
@@ -56,7 +58,7 @@
 
 	/** Collapsible section state */
 	let tasksExpanded = $state(true);
-	let stepsExpanded = $state(true);
+	let requestsExpanded = $state(true);
 	let filesExpanded = $state(true);
 	let toolCallsExpanded = $state(false);
 
@@ -246,9 +248,40 @@
 				</button>
 				{#if tasksExpanded}
 					<div id="activity-section">
-						<TaskList 
-							tasks={session.tasks ?? []} 
-							executionSteps={session.executionSteps ?? []}
+						<TaskList
+							tasks={session.tasks ?? []}
+						/>
+					</div>
+				{/if}
+			</section>
+
+			<!-- Requests section -->
+			<section class="panel-section requests-section">
+				<button
+					class="section-header"
+					onclick={() => (requestsExpanded = !requestsExpanded)}
+					type="button"
+					aria-expanded={requestsExpanded}
+					aria-controls="requests-section"
+				>
+					<span class="header-main">
+						<span class="chevron-icon" class:is-expanded={requestsExpanded}>
+							<ChevronRight size={14} strokeWidth={2.5} />
+						</span>
+						<span class="header-label">Requests</span>
+					</span>
+
+					<div class="header-meta">
+						{#if (session.executionSteps?.length ?? 0) > 0}
+							<span class="badge">{session.executionSteps?.length ?? 0}</span>
+						{/if}
+						<Cpu size={13} strokeWidth={1.5} class="section-icon" />
+					</div>
+				</button>
+				{#if requestsExpanded}
+					<div id="requests-section">
+						<RequestsList
+							steps={session.executionSteps ?? []}
 							currentStep={session.state.type === 'running' ? session.state.currentStep : undefined}
 						/>
 					</div>
