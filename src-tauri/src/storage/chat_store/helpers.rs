@@ -2,7 +2,7 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::nlp::chat::MessageStatus;
+use crate::core::chat::entities::MessageStatus;
 
 /// Parses a datetime string, returning Utc::now() on failure.
 pub fn parse_datetime(s: &str) -> DateTime<Utc> {

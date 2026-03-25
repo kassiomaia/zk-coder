@@ -3,19 +3,23 @@
 //! This module provides the orchestrated runner that executes bounded
 //! conversation loops with tool-calling support.
 
+use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::core::llm::services::LlmService;
 use crate::commands::{ChatState, LlmState};
-use crate::llm::{
-    create_client, ChatRequest, ChatResponse, LlmClient, LlmError, LlmEvent, Message,
+use crate::core::chat::entities::{ChatMessage, MessageRole};
+use crate::core::chat::repositories::{MessageRepository, ThreadRepository};
+use crate::core::llm::entities::{
+    ChatRequest as CoreChatRequest, ChatResponse as CoreChatResponse, ContentBlock,
+    MessageContent, MessageRole as CoreMessageRole, ToolCall,
 };
-use crate::nlp::chat::{ChatMessage, MessageRole};
-use crate::nlp::config::ApiType;
+use crate::llm::{ChatRequest, ChatResponse, LlmClient, LlmError, LlmEvent, Message, ToolDefinition};
 use crate::storage::ConfigStore;
 use crate::tools::{OrchestratorToolResult, ToolRegistry};
 
-use super::SendChatRequest;
+use super::{SendChatRequest, SendChatResponse};
 
 /// Environment flag for enabling real tool execution in the orchestrator.
 const ORCHESTRATOR_TOOL_REGISTRY_ENV: &str = "CODER_LLM_TOOL_REGISTRY";
@@ -30,28 +34,43 @@ pub const ORCHESTRATOR_LLM_MAX_RETRIES: usize = 2;
 pub const ORCHESTRATOR_LLM_RETRY_BASE_MS: u64 = 500;
 
 /// Orchestrated runner for bounded tool-capable turns.
-pub struct OrchestratedConversationRunner;
+pub struct OrchestratedConversationRunner {
+    llm_service: Arc<dyn LlmService>,
+}
+
+impl OrchestratedConversationRunner {
+    /// Creates a new orchestrated conversation runner.
+    pub fn new(llm_service: Arc<dyn LlmService>) -> Self {
+        Self { llm_service }
+    }
+}
 
 impl super::ConversationRunner for OrchestratedConversationRunner {
     fn send_chat_message<'a>(
         &'a self,
         request: SendChatRequest,
         app_handle: AppHandle,
-    ) -> futures::future::BoxFuture<'a, Result<super::SendChatResponse, String>> {
+    ) -> futures::future::BoxFuture<'a, Result<SendChatResponse, String>> {
         Box::pin(async move {
             log::info!(
                 "[LLM] Orchestrated runner enabled: executing loop skeleton for non-streaming request"
             );
             let tool_executor = select_tool_executor_from_env(&request.conversation_id);
-            match send_chat_message_orchestrated_non_stream(request.clone(), app_handle.clone(), tool_executor.as_ref()).await {
+            match send_chat_message_orchestrated_non_stream(
+                request.clone(),
+                app_handle.clone(),
+                tool_executor.as_ref(),
+                self.llm_service.clone(),
+            )
+            .await
+            {
                 Ok(response) => Ok(response),
                 Err(e) => {
                     log::warn!(
-                        "[LLM] Orchestrated runner failed, falling back to legacy: {}",
+                        "[LLM] Orchestrated runner failed: {}",
                         e
                     );
-                    // Fallback to legacy runner
-                    super::send_chat_message_legacy(request, app_handle).await
+                    Err(e)
                 }
             }
         })
@@ -66,24 +85,19 @@ impl super::ConversationRunner for OrchestratedConversationRunner {
             log::info!(
                 "[LLM] Orchestrated runner enabled: streaming request using orchestrated loop path"
             );
-            match send_chat_message_streaming_orchestrated(request.clone(), app_handle.clone()).await {
-                Ok(response_id) => Ok(response_id),
-                Err(e) => {
-                    log::warn!(
-                        "[LLM] Orchestrated streaming runner failed, falling back to legacy: {}",
-                        e
-                    );
-                    // Fallback to legacy runner
-                    super::send_chat_message_streaming_legacy(request, app_handle).await
-                }
-            }
+            send_chat_message_streaming_orchestrated(
+                request.clone(),
+                app_handle.clone(),
+                self.llm_service.clone(),
+            )
+            .await
         })
     }
 }
 
 /// Tool execution abstraction for orchestrated turns.
 pub trait ToolExecutor: Send + Sync {
-    fn definitions(&self) -> Vec<crate::llm::ToolDefinition>;
+    fn definitions(&self) -> Vec<ToolDefinition>;
 
     fn execute<'a>(
         &'a self,
@@ -108,7 +122,7 @@ impl RegistryToolExecutor {
 }
 
 impl ToolExecutor for RegistryToolExecutor {
-    fn definitions(&self) -> Vec<crate::llm::ToolDefinition> {
+    fn definitions(&self) -> Vec<ToolDefinition> {
         self.registry.definitions()
     }
 
@@ -122,7 +136,7 @@ impl ToolExecutor for RegistryToolExecutor {
             let result = self.registry.execute(call, context, app_handle).await;
             OrchestratorToolResult {
                 call_id: result.call_id,
-                name: String::new(), // The registry doesn't track name in result
+                name: String::new(),
                 output: result.output,
                 is_error: result.is_error,
             }
@@ -134,7 +148,7 @@ impl ToolExecutor for RegistryToolExecutor {
 struct NoopToolExecutor;
 
 impl ToolExecutor for NoopToolExecutor {
-    fn definitions(&self) -> Vec<crate::llm::ToolDefinition> {
+    fn definitions(&self) -> Vec<ToolDefinition> {
         Vec::new()
     }
 
@@ -189,7 +203,6 @@ fn select_tool_executor_from_env(conversation_id: &str) -> Box<dyn ToolExecutor>
 }
 
 /// Parses common truthy values from an environment variable.
-/// Returns false if the variable is not set or is falsy.
 fn parse_env_flag(value: Option<&str>) -> bool {
     match value.map(str::trim).filter(|v| !v.is_empty()).map(|v| v.to_ascii_lowercase()) {
         Some(v) => matches!(v.as_str(), "1" | "true" | "yes" | "on"),
@@ -263,6 +276,7 @@ async fn run_orchestrated_loop(
     request: &SendChatRequest,
     app_handle: &AppHandle,
     tool_executor: &dyn ToolExecutor,
+    llm_service: Arc<dyn LlmService>,
     include_thread_history: bool,
     persist_user_message: bool,
 ) -> Result<OrchestratedLoopOutput, String> {
@@ -287,49 +301,59 @@ async fn run_orchestrated_loop(
         Err(e) => return Err(e.to_string()),
     };
 
-    let provider = config_store
-        .get_provider(&model.provider_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Provider '{}' not found", model.provider_id))?;
-
-    let api_key = get_api_key_for_provider(&provider.id, &config_store)?;
     drop(config_store);
 
-    let client = create_client(ApiType::OpenAI, api_key, provider.base_url);
     let chat_state = app_handle.state::<ChatState>();
-    let chat_store = chat_state.store.lock().await;
 
     let history = if include_thread_history {
         if let Some(thread_id) = &request.thread_id {
-            chat_store
-                .load_thread_messages(thread_id)
+            let store = chat_state.store.lock().await;
+            (&*store as &dyn MessageRepository).load_thread_messages(thread_id)
                 .map_err(|e| e.to_string())?
         } else {
-            chat_store
-                .load_messages(&request.conversation_id)
+            let store = chat_state.store.lock().await;
+            (&*store as &dyn MessageRepository).load_messages(&request.conversation_id)
                 .map_err(|e| e.to_string())?
         }
     } else {
-        chat_store
-            .load_messages(&request.conversation_id)
+        let store = chat_state.store.lock().await;
+        (&*store as &dyn MessageRepository).load_messages(&request.conversation_id)
             .map_err(|e| e.to_string())?
     };
 
     let user_message = ChatMessage::user(&request.conversation_id, &request.content);
     if persist_user_message {
-        chat_store
-            .add_message(&user_message)
+        let store = chat_state.store.lock().await;
+        (&*store as &dyn MessageRepository).add_message(&user_message)
             .map_err(|e| e.to_string())?;
     }
 
-    drop(chat_store);
+    // Build core messages for LlmService
+    let mut core_messages: Vec<crate::core::llm::entities::ChatMessage> = history
+        .iter()
+        .map(|msg| crate::core::llm::entities::ChatMessage {
+            role: match msg.role {
+                MessageRole::User => CoreMessageRole::User,
+                MessageRole::Assistant => CoreMessageRole::Assistant,
+                MessageRole::System => CoreMessageRole::System,
+            },
+            content: MessageContent::Text(msg.content.clone()),
+            tool_calls: Vec::new(),
+            tool_result: None,
+        })
+        .collect();
 
-    let mut llm_context = convert_messages(&history);
-    llm_context.push(Message::user(request.content.clone()));
+    // Add user message
+    core_messages.push(crate::core::llm::entities::ChatMessage {
+        role: CoreMessageRole::User,
+        content: MessageContent::Text(request.content.clone()),
+        tool_calls: Vec::new(),
+        tool_result: None,
+    });
 
     let system_prompt = request.system_prompt.clone().unwrap_or_default();
-    let temperature = request.temperature.unwrap_or(0.7);
-    let max_tokens = request.max_tokens.unwrap_or(4096);
+    let temperature = request.temperature;
+    let max_tokens = request.max_tokens;
     let tool_definitions = tool_executor.definitions();
 
     for step in 1..=ORCHESTRATOR_MAX_STEPS {
@@ -338,23 +362,36 @@ async fn run_orchestrated_loop(
             step, ORCHESTRATOR_MAX_STEPS
         );
 
-        let mut chat_request = ChatRequest::new(&model.name, llm_context.clone())
-            .with_system(&system_prompt)
-            .with_temperature(temperature)
-            .with_max_tokens(max_tokens);
-        if !tool_definitions.is_empty() {
-            chat_request = chat_request.with_tools(tool_definitions.clone());
-        }
+        // Convert core tool definitions to service tool definitions
+        let core_tools: Vec<crate::core::llm::entities::ToolDefinition> = tool_definitions
+            .iter()
+            .map(|t| crate::core::llm::entities::ToolDefinition {
+                name: t.name.clone(),
+                description: t.description.clone(),
+                input_schema: t.input_schema.clone(),
+            })
+            .collect();
 
-        let response: ChatResponse = run_chat_with_retry(client.as_ref(), &chat_request)
-            .await
-            .map_err(|e| {
-                log::error!(
-                    "send_chat_message_orchestrated_non_stream: LLM error: {}",
-                    e
-                );
-                e.to_string()
-            })?;
+        let core_request = CoreChatRequest {
+            model: model.name.clone(),
+            messages: core_messages.clone(),
+            system: Some(system_prompt.clone()),
+            temperature,
+            max_tokens,
+            tools: core_tools,
+            stream: false,
+        };
+
+        let response: CoreChatResponse =
+            run_chat_with_retry(llm_service.as_ref(), &core_request)
+                .await
+                .map_err(|e| {
+                    log::error!(
+                        "send_chat_message_orchestrated_non_stream: LLM error: {}",
+                        e
+                    );
+                    e.to_string()
+                })?;
 
         let tool_calls = response.tool_calls.clone();
         if tool_calls.is_empty() {
@@ -368,22 +405,52 @@ Enable a model/provider with native tool-calling support for orchestrated execut
             return Ok(OrchestratedLoopOutput {
                 content: response.content,
                 model: response.model,
-                usage: response.usage,
+                usage: response.usage.map(|u| crate::llm::UsageStats {
+                    input_tokens: u.input_tokens,
+                    output_tokens: u.output_tokens,
+                    total_tokens: u.total_tokens,
+                }),
             });
         }
 
         // Preserve assistant tool-call turn in structured form.
-        llm_context.push(Message::assistant_with_tool_calls(
-            response.content,
-            tool_calls.clone(),
-        ));
+        let assistant_message = crate::core::llm::entities::ChatMessage {
+            role: CoreMessageRole::Assistant,
+            content: MessageContent::Text(response.content.clone()),
+            tool_calls: tool_calls.clone(),
+            tool_result: None,
+        };
+        core_messages.push(assistant_message);
 
-        let mut tool_results = Vec::with_capacity(tool_calls.len());
-        for call in tool_calls {
+        // Execute tools
+        let llm_tool_calls: Vec<crate::llm::ToolCall> = tool_calls
+            .iter()
+            .map(|tc| crate::llm::ToolCall {
+                id: tc.id.clone(),
+                name: tc.name.clone(),
+                arguments: tc.arguments.clone(),
+            })
+            .collect();
+
+        let mut tool_results = Vec::with_capacity(llm_tool_calls.len());
+        for call in llm_tool_calls {
             let result = tool_executor.execute(call, app_handle.clone()).await;
             tool_results.push(result);
         }
-        append_tool_results_to_llm_context(&mut llm_context, &tool_results);
+
+        // Append tool results to context
+        for result in tool_results {
+            core_messages.push(crate::core::llm::entities::ChatMessage {
+                role: CoreMessageRole::Tool,
+                content: MessageContent::Text(serde_json::to_string(&result.output).unwrap_or_default()),
+                tool_calls: Vec::new(),
+                tool_result: Some(crate::core::llm::entities::ToolResult {
+                    call_id: result.call_id,
+                    output: result.output,
+                    is_error: result.is_error,
+                }),
+            });
+        }
     }
 
     Err(format!(
@@ -397,23 +464,23 @@ async fn send_chat_message_orchestrated_non_stream(
     request: SendChatRequest,
     app_handle: AppHandle,
     tool_executor: &dyn ToolExecutor,
-) -> Result<super::SendChatResponse, String> {
+    llm_service: Arc<dyn LlmService>,
+) -> Result<SendChatResponse, String> {
     log::info!(
         "send_chat_message_orchestrated_non_stream: conversation_id={}, model_id={:?}",
         request.conversation_id, request.model_id
     );
 
     let final_output =
-        run_orchestrated_loop(&request, &app_handle, tool_executor, false, true).await?;
+        run_orchestrated_loop(&request, &app_handle, tool_executor, llm_service, false, true).await?;
 
     let assistant_message = ChatMessage::assistant(&request.conversation_id, &final_output.content);
     let chat_state = app_handle.state::<ChatState>();
-    let chat_store = chat_state.store.lock().await;
-    chat_store
-        .add_message(&assistant_message)
+    let store = chat_state.store.lock().await;
+    (&*store as &dyn MessageRepository).add_message(&assistant_message)
         .map_err(|e| e.to_string())?;
 
-    Ok(super::SendChatResponse {
+    Ok(SendChatResponse {
         content: final_output.content,
         model: final_output.model,
         usage: final_output.usage,
@@ -425,6 +492,7 @@ async fn send_chat_message_orchestrated_non_stream(
 async fn send_chat_message_streaming_orchestrated(
     request: SendChatRequest,
     app_handle: AppHandle,
+    llm_service: Arc<dyn LlmService>,
 ) -> Result<String, String> {
     let request_id = uuid::Uuid::new_v4().to_string();
     log::info!(
@@ -460,6 +528,7 @@ async fn send_chat_message_streaming_orchestrated(
             &request_for_task,
             &app_handle_clone,
             tool_executor.as_ref(),
+            llm_service,
             true,
             false,
         )
@@ -494,15 +563,15 @@ async fn send_chat_message_streaming_orchestrated(
                     if let Some(thread_id) = &request_for_task.thread_id {
                         assistant_message = assistant_message.with_thread(thread_id);
                     }
-                    assistant_message.metadata = Some(crate::nlp::chat::MessageMetadata {
+                    assistant_message.metadata = Some(crate::core::chat::entities::MessageMetadata {
                         model: Some(final_output.model),
                         tokens: final_output.usage.as_ref().map(|u| u.total_tokens as usize),
                         ..Default::default()
                     });
 
                     let chat_state = app_handle_clone.state::<ChatState>();
-                    let chat_store = chat_state.store.lock().await;
-                    if let Err(e) = chat_store.add_message(&assistant_message) {
+                    let store = chat_state.store.lock().await;
+                    if let Err(e) = (&*store as &dyn MessageRepository).add_message(&assistant_message) {
                         log::error!("[LLM] Failed to save orchestrated assistant message: {}", e);
                     }
                 }
@@ -555,32 +624,24 @@ async fn resolve_model_id(
     Ok(model.id)
 }
 
-/// Gets the API key for a provider from the database.
-fn get_api_key_for_provider(
-    provider_id: &str,
-    config_store: &ConfigStore,
-) -> Result<String, String> {
-    config_store.retrieve_api_key(provider_id).map_err(|e| {
-        format!(
-            "API key not found for provider '{}'. Please configure it first. Error: {}",
-            provider_id, e
-        )
-    })
-}
-
 /// Executes one non-streaming chat request with bounded retries for transient errors.
 async fn run_chat_with_retry(
-    client: &dyn LlmClient,
-    request: &ChatRequest,
-) -> Result<ChatResponse, LlmError> {
+    llm_service: &dyn LlmService,
+    request: &CoreChatRequest,
+) -> Result<CoreChatResponse, String> {
     let mut attempt = 0usize;
     loop {
-        match client.chat(request.clone()).await {
+        match llm_service.chat(request.clone()) {
             Ok(response) => return Ok(response),
             Err(err) => {
-                let can_retry = err.is_retryable() && attempt < ORCHESTRATOR_LLM_MAX_RETRIES;
+                // Check if error is retryable (simple heuristic)
+                let is_retryable = err.to_string().to_lowercase().contains("timeout")
+                    || err.to_string().to_lowercase().contains("rate limit")
+                    || err.to_string().to_lowercase().contains("temporary");
+                let can_retry = is_retryable && attempt < ORCHESTRATOR_LLM_MAX_RETRIES;
+
                 if !can_retry {
-                    return Err(err);
+                    return Err(err.to_string());
                 }
 
                 let delay_ms = ORCHESTRATOR_LLM_RETRY_BASE_MS * (1u64 << attempt);
@@ -596,24 +657,4 @@ async fn run_chat_with_retry(
             }
         }
     }
-}
-
-/// Converts chat messages from storage to LLM format.
-fn convert_messages(messages: &[ChatMessage]) -> Vec<Message> {
-    messages
-        .iter()
-        .filter_map(|msg| {
-            let role = match msg.role {
-                MessageRole::User => crate::llm::MessageRole::User,
-                MessageRole::Assistant => crate::llm::MessageRole::Assistant,
-                MessageRole::System => crate::llm::MessageRole::System,
-            };
-            Some(Message {
-                role,
-                content: crate::llm::MessageContent::Text(msg.content.clone()),
-                tool_calls: Vec::new(),
-                tool_result: None,
-            })
-        })
-        .collect()
 }

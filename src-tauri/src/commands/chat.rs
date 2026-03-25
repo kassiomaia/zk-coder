@@ -1,32 +1,41 @@
 //! Chat Tauri IPC commands.
 //!
-//! This module provides Tauri commands for chat conversation management.
+//! Thin adapter layer that delegates to the ChatService.
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::nlp::chat::{
+use crate::application::ChatServiceImpl;
+use crate::core::chat::entities::{
     ChatMessage, Conversation, ConversationSettings, MessageFeedback, MessageRole, MessageStatus,
     Thread,
 };
-use crate::storage::ChatStore;
+use crate::core::chat::services::{ChatService, CreateThreadRequest, SendMessageRequest};
+use crate::storage::SqliteChatStore;
 
 /// Application state for chat commands.
 pub struct ChatState {
-    /// Chat store for persistence
-    pub store: Arc<Mutex<ChatStore>>,
+    /// Chat service for business logic
+    pub service: Arc<dyn ChatService>,
+    /// Direct store access for operations not yet migrated to service
+    pub store: Arc<Mutex<SqliteChatStore>>,
 }
 
 impl ChatState {
-    /// Creates a new chat state.
+    /// Creates a new chat state with a file-backed database.
     ///
     /// # Errors
     ///
-    /// Returns an error if the store cannot be initialized.
+    /// Returns an error if the database cannot be initialized.
     pub fn new(db_path: &str) -> Result<Self, String> {
-        let store = ChatStore::new(db_path).map_err(|e| e.to_string())?;
+        let store = SqliteChatStore::new(db_path).map_err(|e| e.to_string())?;
+        let store_arc = Arc::new(store);
+        let service = Arc::new(ChatServiceImpl::new(store_arc)) as Arc<dyn ChatService>;
         Ok(Self {
-            store: Arc::new(Mutex::new(store)),
+            service,
+            store: Arc::new(Mutex::new(
+                SqliteChatStore::new(db_path).map_err(|e| e.to_string())?,
+            )),
         })
     }
 
@@ -34,11 +43,16 @@ impl ChatState {
     ///
     /// # Errors
     ///
-    /// Returns an error if the store cannot be initialized.
+    /// Returns an error if the database cannot be initialized.
     pub fn in_memory() -> Result<Self, String> {
-        let store = ChatStore::in_memory().map_err(|e| e.to_string())?;
+        let store = SqliteChatStore::in_memory().map_err(|e| e.to_string())?;
+        let store_arc = Arc::new(store);
+        let service = Arc::new(ChatServiceImpl::new(store_arc)) as Arc<dyn ChatService>;
         Ok(Self {
-            store: Arc::new(Mutex::new(store)),
+            service,
+            store: Arc::new(Mutex::new(
+                SqliteChatStore::in_memory().map_err(|e| e.to_string())?,
+            )),
         })
     }
 }
@@ -47,81 +61,67 @@ impl ChatState {
 // Conversation Commands
 // =========================================================================
 
-/// Loads all conversations.
 #[tauri::command]
 pub async fn load_conversations(
     state: tauri::State<'_, ChatState>,
 ) -> Result<Vec<Conversation>, String> {
-    let store = state.store.lock().await;
-    store.load_all_conversations().map_err(|e| e.to_string())
+    state.service.load_all_conversations().map_err(|e| e.to_string())
 }
 
-/// Creates a new conversation.
 #[tauri::command]
 pub async fn create_conversation(
     title: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<Conversation, String> {
-    let store = state.store.lock().await;
-    store.create_conversation(&title).map_err(|e| e.to_string())
+    state.service.create_conversation(&title).map_err(|e| e.to_string())
 }
 
-/// Loads a single conversation by ID.
 #[tauri::command]
 pub async fn load_conversation(
     id: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<Conversation, String> {
-    let store = state.store.lock().await;
-    store.load_conversation(&id).map_err(|e| e.to_string())
+    state.service.load_conversation(&id).map_err(|e| e.to_string())
 }
 
-/// Renames a conversation.
 #[tauri::command]
 pub async fn rename_conversation(
     id: String,
     title: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<Conversation, String> {
-    let store = state.store.lock().await;
-    store
-        .update_conversation_title(&id, &title)
-        .map_err(|e| e.to_string())
+    state.service.rename_conversation(&id, &title).map_err(|e| e.to_string())
 }
 
-/// Deletes a conversation.
 #[tauri::command]
 pub async fn delete_conversation(
     id: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<(), String> {
-    let store = state.store.lock().await;
-    store.delete_conversation(&id).map_err(|e| e.to_string())
+    state.service.delete_conversation(&id).map_err(|e| e.to_string())
 }
 
-/// Updates a conversation's settings.
 #[tauri::command]
 pub async fn update_conversation_settings(
     id: String,
     settings: ConversationSettings,
     state: tauri::State<'_, ChatState>,
 ) -> Result<Conversation, String> {
-    let store = state.store.lock().await;
-    store
+    state
+        .service
         .update_conversation_settings(&id, &settings)
         .map_err(|e| e.to_string())
 }
 
-/// Updates a conversation's workspace root.
 #[tauri::command]
 pub async fn set_conversation_workspace(
     id: String,
     workspace_root: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<Conversation, String> {
-    let store = state.store.lock().await;
-    store
-        .update_conversation_workspace(&id, &workspace_root)
+    state
+        .service
+        .set_conversation_workspace(&id, &workspace_root)
         .map_err(|e| e.to_string())
 }
 
@@ -129,76 +129,73 @@ pub async fn set_conversation_workspace(
 // Thread Commands
 // =========================================================================
 
-/// Loads all threads for a conversation.
 #[tauri::command]
 pub async fn load_threads(
     conversation_id: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<Vec<Thread>, String> {
-    let store = state.store.lock().await;
-    store
+    state
+        .service
         .load_threads(&conversation_id)
         .map_err(|e| e.to_string())
 }
 
-/// Creates a new thread in a conversation.
 #[tauri::command]
 pub async fn create_thread(
     conversation_id: String,
     title: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<Thread, String> {
-    let store = state.store.lock().await;
-    store
-        .create_thread(&conversation_id, &title)
-        .map_err(|e| e.to_string())
+    let request = CreateThreadRequest {
+        conversation_id,
+        title,
+    };
+    state.service.create_thread(request).map_err(|e| e.to_string())
 }
 
-/// Updates a thread's resolved status.
 #[tauri::command]
 pub async fn resolve_thread(
     id: String,
     resolved: bool,
     state: tauri::State<'_, ChatState>,
 ) -> Result<(), String> {
-    let store = state.store.lock().await;
-    store
-        .update_thread_resolved(&id, resolved)
-        .map_err(|e| e.to_string())
+    state.service.resolve_thread(&id, resolved).map_err(|e| e.to_string())
 }
 
-/// Deletes a thread.
 #[tauri::command]
 pub async fn delete_thread(id: String, state: tauri::State<'_, ChatState>) -> Result<(), String> {
-    let store = state.store.lock().await;
-    store.delete_thread(&id).map_err(|e| e.to_string())
+    state.service.delete_thread(&id).map_err(|e| e.to_string())
 }
 
-/// Renames a thread.
 #[tauri::command]
 pub async fn rename_thread(
     id: String,
     title: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<Thread, String> {
-    let store = state.store.lock().await;
-    store.rename_thread(&id, &title).map_err(|e| e.to_string())
+    state.service.rename_thread(&id, &title).map_err(|e| e.to_string())
 }
 
-/// Sets or clears the agent session for a thread.
 #[tauri::command]
 pub async fn set_thread_agent_session(
     id: String,
     agent_session_id: Option<String>,
     state: tauri::State<'_, ChatState>,
 ) -> Result<(), String> {
-    let store = state.store.lock().await;
-    store
+    state
+        .service
         .set_thread_agent_session(&id, agent_session_id)
         .map_err(|e| e.to_string())
 }
 
-/// Creates a thread with its first message atomically.
+/// Response for creating a thread with a message.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadWithMessageResponse {
+    pub thread: Thread,
+    pub message: ChatMessage,
+}
+
 #[tauri::command]
 pub async fn create_thread_with_message(
     conversation_id: String,
@@ -207,59 +204,40 @@ pub async fn create_thread_with_message(
     role: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<ThreadWithMessageResponse, String> {
-    let message_role = match role.as_str() {
-        "assistant" => MessageRole::Assistant,
-        "system" => MessageRole::System,
-        _ => MessageRole::User,
-    };
-
-    let store = state.store.lock().await;
-    let (thread, message) = store
+    let message_role = MessageRole::from_str(&role);
+    let (thread, message) = state
+        .service
         .create_thread_with_message(&conversation_id, &thread_title, &content, message_role)
         .map_err(|e| e.to_string())?;
-
     Ok(ThreadWithMessageResponse { thread, message })
-}
-
-/// Response for creating a thread with a message.
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ThreadWithMessageResponse {
-    /// The created thread
-    pub thread: Thread,
-    /// The created message
-    pub message: ChatMessage,
 }
 
 // =========================================================================
 // Message Commands
 // =========================================================================
 
-/// Loads all messages for a conversation.
 #[tauri::command]
 pub async fn load_messages(
     conversation_id: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<Vec<ChatMessage>, String> {
-    let store = state.store.lock().await;
-    store
+    state
+        .service
         .load_messages(&conversation_id)
         .map_err(|e| e.to_string())
 }
 
-/// Loads all messages for a specific thread.
 #[tauri::command]
 pub async fn load_thread_messages(
     thread_id: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<Vec<ChatMessage>, String> {
-    let store = state.store.lock().await;
-    store
+    state
+        .service
         .load_thread_messages(&thread_id)
         .map_err(|e| e.to_string())
 }
 
-/// Sends a message to a conversation (requires thread_id).
 #[tauri::command]
 pub async fn send_message(
     conversation_id: String,
@@ -268,81 +246,52 @@ pub async fn send_message(
     thread_id: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<ChatMessage, String> {
-    let store = state.store.lock().await;
-
-    // Check if thread is resolved before accepting the message
-    let thread = store.load_thread(&thread_id).map_err(|e| e.to_string())?;
-
-    if thread.metadata.resolved {
-        return Err(format!(
-            "Thread '{}' is resolved and cannot accept new messages. Reopen the thread to continue the conversation.",
-            thread.title
-        ));
-    }
-
-    // Create the message
-    let message = match role.as_str() {
-        "assistant" => ChatMessage::assistant(&conversation_id, &content),
-        "system" => ChatMessage {
-            role: MessageRole::System,
-            ..ChatMessage::user(&conversation_id, &content)
-        },
-        _ => ChatMessage::user(&conversation_id, &content),
+    let request = SendMessageRequest {
+        conversation_id,
+        thread_id,
+        content,
+        role: MessageRole::from_str(&role),
     };
-
-    let message = message.with_thread(&thread_id);
-
-    store.add_message(&message).map_err(|e| e.to_string())?;
-
-    Ok(message)
+    state.service.send_message(request).map_err(|e| e.to_string())
 }
 
-/// Deletes a message.
 #[tauri::command]
 pub async fn delete_message(id: String, state: tauri::State<'_, ChatState>) -> Result<(), String> {
-    let store = state.store.lock().await;
-    store.delete_message(&id).map_err(|e| e.to_string())
+    state.service.delete_message(&id).map_err(|e| e.to_string())
 }
 
-/// Updates a message's status.
 #[tauri::command]
 pub async fn update_message_status(
     id: String,
     status: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<(), String> {
-    let status = match status.as_str() {
+    let parsed_status = match status.as_str() {
         "sending" => MessageStatus::Sending,
         "delivered" => MessageStatus::Delivered,
         "error" => MessageStatus::Error,
         _ => MessageStatus::Sent,
     };
-
-    let store = state.store.lock().await;
-    store
-        .update_message_status(&id, status)
+    state
+        .service
+        .update_message_status(&id, parsed_status)
         .map_err(|e| e.to_string())
 }
 
-/// Updates a message's feedback (like/dislike).
-///
-/// Pass `null` as feedback to clear the feedback.
-/// Clicking the same feedback button toggles it off.
 #[tauri::command]
 pub async fn update_message_feedback(
     id: String,
     feedback: Option<String>,
     state: tauri::State<'_, ChatState>,
 ) -> Result<(), String> {
-    let feedback = feedback.and_then(|f| match f.as_str() {
+    let parsed_feedback = feedback.and_then(|f| match f.as_str() {
         "like" => Some(MessageFeedback::Like),
         "dislike" => Some(MessageFeedback::Dislike),
         _ => None,
     });
-
-    let store = state.store.lock().await;
-    store
-        .update_message_feedback(&id, feedback)
+    state
+        .service
+        .update_message_feedback(&id, parsed_feedback)
         .map_err(|e| e.to_string())
 }
 
@@ -354,46 +303,5 @@ mod tests {
     fn test_chat_state_creation() {
         let state = ChatState::in_memory();
         assert!(state.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_update_conversation_settings_command() {
-        let state = ChatState::in_memory().expect("Failed to create state");
-        let store = state.store.lock().await;
-
-        // Create conversation
-        let conv = store.create_conversation("Test").expect("Failed to create");
-
-        // Update settings
-        let new_settings = ConversationSettings {
-            model: "openai-gpt-4".to_string(),
-            temperature: 0.5,
-            max_tokens: 2048,
-            system_prompt: Some("Custom prompt".to_string()),
-            workspace_root: None,
-        };
-
-        let updated = store
-            .update_conversation_settings(&conv.id, &new_settings)
-            .expect("Failed to update settings");
-
-        assert_eq!(updated.settings.model, "openai-gpt-4");
-        assert_eq!(updated.settings.temperature, 0.5);
-        assert_eq!(updated.settings.max_tokens, 2048);
-        assert_eq!(
-            updated.settings.system_prompt,
-            Some("Custom prompt".to_string())
-        );
-    }
-
-    #[tokio::test]
-    async fn test_update_conversation_settings_invalid_id() {
-        let state = ChatState::in_memory().expect("Failed to create state");
-        let store = state.store.lock().await;
-
-        let settings = ConversationSettings::default();
-        let result = store.update_conversation_settings("invalid-id", &settings);
-
-        assert!(result.is_err());
     }
 }

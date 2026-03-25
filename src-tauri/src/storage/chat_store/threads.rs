@@ -5,7 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use super::ChatStoreError;
 use super::helpers::parse_datetime;
-use crate::nlp::chat::{MessageRole, Thread, ThreadMetadata};
+use crate::core::chat::entities::{MessageRole, Thread, ThreadMetadata};
 
 /// Creates a new thread in a conversation.
 pub fn create_thread(
@@ -177,7 +177,7 @@ pub fn create_thread_with_message(
     thread_title: &str,
     message_content: &str,
     message_role: MessageRole,
-) -> Result<(Thread, crate::nlp::chat::ChatMessage), ChatStoreError> {
+) -> Result<(Thread, crate::core::chat::entities::ChatMessage), ChatStoreError> {
     let now = Utc::now();
 
     // Create thread
@@ -200,14 +200,14 @@ pub fn create_thread_with_message(
     )?;
 
     // Create message with thread_id
-    let message = crate::nlp::chat::ChatMessage {
+    let message = crate::core::chat::entities::ChatMessage {
         id: uuid::Uuid::new_v4().to_string(),
         conversation_id: conversation_id.to_string(),
         thread_id: Some(thread.id.clone()),
         role: message_role,
         content: message_content.to_string(),
         timestamp: now,
-        status: crate::nlp::chat::MessageStatus::Sent,
+        status: crate::core::chat::entities::MessageStatus::Sent,
         metadata: None,
     };
 
@@ -243,7 +243,7 @@ pub fn create_thread_with_message(
 mod tests {
     use super::*;
     use crate::storage::chat_store::schema;
-    use crate::nlp::chat::ChatMessage;
+    use crate::core::chat::entities::ChatMessage;
 
     fn make_test_store() -> Connection {
         let conn = Connection::open_in_memory().unwrap();

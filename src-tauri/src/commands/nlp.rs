@@ -5,10 +5,11 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::core::chat::entities::MessageRole;
 use crate::nlp::llm_gateway::ConfigBackedNlpLlmGateway;
 use crate::nlp::{
     Ambiguity, AmbiguityResolver, CodeAnalyzer, CodeUnderstanding, ContextManager, ContextMessage,
-    ConversationContext, IntentClassification, IntentClassifier, MessageRole, MultiIntentDetector,
+    ConversationContext, IntentClassification, IntentClassifier, MultiIntentDetector,
     MultiIntentResult, NlpLlmGateway, ProgrammingLanguage, ResolutionType, ResolvedAmbiguity,
 };
 use crate::storage::ContextStore;

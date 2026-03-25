@@ -7,6 +7,7 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import { AlertCircleIcon } from '$lib/icons';
 	import styles from './InlineRenameInput.module.css';
 
 	interface Props {
@@ -138,21 +139,7 @@
 		<div class={styles.footer}>
 			{#if error}
 				<div class={styles.errorWrapper} in:fade={{ duration: 100 }}>
-					<svg
-						width="12"
-						height="12"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						class={styles.errorIcon}
-					>
-						<circle cx="12" cy="12" r="10"></circle>
-						<line x1="12" y1="8" x2="12" y2="12"></line>
-						<line x1="12" y1="16" x2="12.01" y2="16"></line>
-					</svg>
+					<AlertCircleIcon size={12} class={styles.errorIcon} />
 					<span class={styles.errorText}>{error}</span>
 				</div>
 			{:else}

@@ -5,7 +5,7 @@ use rusqlite::{params, Connection};
 use std::collections::HashMap;
 
 use super::ChatStoreError;
-use crate::nlp::chat::ThreadMetadata;
+use crate::core::chat::entities::ThreadMetadata;
 
 /// Migrates orphan messages (messages without a thread) to new threads.
 ///
@@ -112,7 +112,7 @@ fn derive_thread_title(content: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nlp::chat::ChatMessage;
+    use crate::core::chat::entities::ChatMessage;
 
     #[test]
     fn test_derive_thread_title_short() {

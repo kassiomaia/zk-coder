@@ -5,7 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use super::ChatStoreError;
 use super::helpers::{parse_datetime, parse_status, status_to_str};
-use crate::nlp::chat::{
+use crate::core::chat::entities::{
     ChatMessage, MessageFeedback, MessageMetadata, MessageRole, MessageStatus,
 };
 

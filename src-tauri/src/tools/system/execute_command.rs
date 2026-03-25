@@ -115,7 +115,7 @@ impl Tool for ExecuteCommandTool {
             // Get the session store BEFORE spawning (must be on main thread)
             let store: Option<std::sync::Arc<crate::agents::store::SessionStore>> =
                 app_handle.try_state::<crate::commands::AgentState>()
-                    .and_then(|s| Some(s.session_store.clone()));
+                    .and_then(|s| Some(s.service.session_store().clone()));
 
             // Spawn the command
             let mut child = Command::new("sh")

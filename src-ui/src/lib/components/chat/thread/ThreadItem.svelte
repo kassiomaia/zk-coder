@@ -6,6 +6,7 @@
 	import styles from './ThreadItem.module.css';
 	import ListItemActions from '$lib/components/shared/ListItemActions.svelte';
 	import InlineRenameInput from '$lib/components/shared/InlineRenameInput.svelte';
+	import { CheckCircleIcon, MessageSquareIcon } from '$lib/icons';
 	import { formatRelativeTime } from '$lib/utils/formatRelativeTime';
 	import type { Thread } from '$lib/types/thread';
 
@@ -90,34 +91,9 @@
 			{#snippet icon()}
 				<div class={styles.icon}>
 					{#if thread.metadata.resolved}
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-							<polyline points="22 4 12 14.01 9 11.01" />
-						</svg>
+						<CheckCircleIcon size={16} />
 					{:else}
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-							<line x1="9" y1="10" x2="15" y2="10" />
-							<line x1="9" y1="14" x2="13" y2="14" />
-						</svg>
+						<MessageSquareIcon size={16} />
 					{/if}
 				</div>
 			{/snippet}
@@ -133,34 +109,9 @@
 	>
 		<div class={styles.icon}>
 			{#if thread.metadata.resolved}
-				<svg
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-					<polyline points="22 4 12 14.01 9 11.01" />
-				</svg>
+				<CheckCircleIcon size={16} />
 			{:else}
-				<svg
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-					<line x1="9" y1="10" x2="15" y2="10" />
-					<line x1="9" y1="14" x2="13" y2="14" />
-				</svg>
+				<MessageSquareIcon size={16} />
 			{/if}
 		</div>
 		<div class={styles.content}>

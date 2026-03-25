@@ -2,6 +2,13 @@
 //!
 //! This is the main library crate for the Coder application backend.
 
+// Core domain layer - foundational entities and interfaces
+pub mod core;
+
+// Application layer - service implementations
+pub mod application;
+
+// Infrastructure modules
 pub mod agents;
 pub mod api;
 pub mod commands;
@@ -13,8 +20,12 @@ pub mod utils;
 
 use commands::{AgentState, ChatState, ConfigState, LlmState, NlpState};
 use std::path::PathBuf;
+use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
+
+use application::llm::LlmServiceImpl;
+use storage::ConfigStore;
 
 /// Get the app data directory for storing databases.
 fn get_app_data_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -54,8 +65,16 @@ pub fn run() {
             let config_state = ConfigState::new(&config_db.to_string_lossy())
                 .expect("Failed to initialize Config state");
 
-            // Initialize LLM state (uses same database as config)
-            let llm_state = LlmState::new(&config_db.to_string_lossy())
+            // Initialize LLM service (uses same database as config)
+            let config_store = Arc::new(
+                ConfigStore::new(&config_db.to_string_lossy())
+                    .expect("Failed to initialize ConfigStore")
+            );
+            let llm_service = Arc::new(LlmServiceImpl::new(config_store.clone()))
+                as Arc<dyn crate::core::llm::services::LlmService>;
+
+            // Initialize LLM state
+            let llm_state = LlmState::new(&config_db.to_string_lossy(), llm_service)
                 .expect("Failed to initialize LLM state");
 
             // Initialize Agent state

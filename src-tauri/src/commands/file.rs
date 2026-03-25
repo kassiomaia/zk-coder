@@ -32,7 +32,7 @@ pub async fn get_file_content(
 	session_id: String,
 	agent_state: tauri::State<'_, AgentState>,
 ) -> Result<FileContentResponse, String> {
-	let rollback_store = agent_state.runtime.rollback_store();
+	let rollback_store = agent_state.service.runtime().rollback_store();
 	let full_path = PathBuf::from(workspace_root).join(&file_path);
 	let exists = full_path.exists();
 

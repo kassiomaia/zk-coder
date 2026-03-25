@@ -9,7 +9,7 @@ use rusqlite::Connection;
 use thiserror::Error;
 
 use crate::nlp::config::{
-    ApiType, ManualModelEntry, Model, ModelCapabilities, ModelsSource, OperationDefault,
+    ManualModelEntry, Model, ModelsSource, OperationDefault,
     OperationType, Provider,
 };
 
@@ -26,7 +26,6 @@ pub mod helpers;
 // Re-export commonly used types
 pub use schema::init_schema;
 pub use migrations::{migrate_api_type_constraint, migrate_models_source, normalize_base_urls};
-pub use helpers::parse_datetime;
 
 /// Errors from the config store.
 #[derive(Debug, Error)]
@@ -413,6 +412,7 @@ impl ConfigStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nlp::config::{ApiType, ModelCapabilities};
 
     #[test]
     fn test_store_creation() {

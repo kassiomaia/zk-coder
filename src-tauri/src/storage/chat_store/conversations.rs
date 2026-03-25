@@ -5,7 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use super::ChatStoreError;
 use super::helpers::parse_datetime;
-use crate::nlp::chat::{Conversation, ConversationSettings};
+use crate::core::chat::entities::{Conversation, ConversationSettings};
 
 /// Creates a new conversation.
 pub fn create_conversation(

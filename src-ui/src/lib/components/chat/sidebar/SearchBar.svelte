@@ -4,6 +4,7 @@
 	 * Search input for filtering conversations.
 	 */
 	import styles from './SearchBar.module.css';
+	import { SearchIcon, CloseIcon } from '$lib/icons';
 
 	interface Props {
 		/** Current search value */
@@ -32,21 +33,7 @@
 </script>
 
 <div class={styles.search}>
-	<svg
-		class={styles.icon}
-		width="16"
-		height="16"
-		viewBox="0 0 24 24"
-		fill="none"
-		stroke="currentColor"
-		stroke-width="2"
-		stroke-linecap="round"
-		stroke-linejoin="round"
-		aria-hidden="true"
-	>
-		<circle cx="11" cy="11" r="8" />
-		<line x1="21" y1="21" x2="16.65" y2="16.65" />
-	</svg>
+	<SearchIcon class={styles.icon} size={16} aria-hidden={true} />
 
 	<input
 		bind:this={inputRef}
@@ -61,19 +48,7 @@
 
 	{#if value}
 		<button class={styles.clear} onclick={clearSearch} aria-label="Clear search" type="button">
-			<svg
-				width="14"
-				height="14"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-			>
-				<line x1="18" y1="6" x2="6" y2="18" />
-				<line x1="6" y1="6" x2="18" y2="18" />
-			</svg>
+			<CloseIcon size={14} />
 		</button>
 	{/if}
 </div>

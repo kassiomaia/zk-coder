@@ -6,6 +6,7 @@
 	 */
 	import styles from './ClarificationBanner.module.css';
 	import IconButton from '$lib/components/shared/IconButton.svelte';
+	import { AlertCircleIcon, SendIcon, CloseIcon, EditIcon } from '$lib/icons';
 	import type { Ambiguity, ClarificationOption, ResolutionType } from '$lib/types/nlp';
 	import { AMBIGUITY_TYPE_LABELS } from '$lib/types/nlp';
 
@@ -78,21 +79,7 @@
 	<!-- Header with type and question -->
 	<div class={styles.header}>
 		<div class={styles.iconWrapper}>
-			<svg
-				class={styles.icon}
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-			>
-				<circle cx="12" cy="12" r="10" />
-				<line x1="12" y1="8" x2="12" y2="12" />
-				<line x1="12" y1="16" x2="12.01" y2="16" />
-			</svg>
+			<AlertCircleIcon class={styles.icon} size={16} />
 		</div>
 		<div class={styles.headerText}>
 			<span class={styles.typeLabel}>{typeLabel}</span>
@@ -141,9 +128,7 @@
 						onclick={handleCustomSubmit}
 					>
 						{#snippet icon()}
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-								<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-							</svg>
+							<SendIcon size={16} filled={true} />
 						{/snippet}
 					</IconButton>
 					<IconButton
@@ -154,34 +139,14 @@
 						onclick={toggleCustomInput}
 					>
 						{#snippet icon()}
-							<svg
-								width="16"
-								height="16"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<line x1="18" y1="6" x2="6" y2="18" />
-								<line x1="6" y1="6" x2="18" y2="18" />
-							</svg>
+							<CloseIcon size={16} />
 						{/snippet}
 					</IconButton>
 				</div>
 			</div>
 		{:else}
 			<button class={styles.customToggle} onclick={toggleCustomInput} type="button">
-				<svg
-					width="14"
-					height="14"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-					<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-				</svg>
+				<EditIcon size={14} />
 				<span>Enter custom value</span>
 			</button>
 		{/if}

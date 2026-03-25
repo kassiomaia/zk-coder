@@ -6,6 +6,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+// Re-export MessageRole from core::chat::entities as the canonical type
+pub use crate::core::chat::entities::MessageRole;
+
 /// Priority level for a thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -42,40 +45,6 @@ pub enum MessageStatus {
     Delivered,
     /// Message failed to send
     Error,
-}
-
-/// Role of a message sender.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum MessageRole {
-    /// User message
-    User,
-    /// Assistant/AI message
-    Assistant,
-    /// System message
-    System,
-}
-
-impl MessageRole {
-    /// Converts the role to a string for database storage.
-    #[must_use]
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::User => "user",
-            Self::Assistant => "assistant",
-            Self::System => "system",
-        }
-    }
-
-    /// Creates a role from a string.
-    #[must_use]
-    pub fn from_str(s: &str) -> Self {
-        match s {
-            "assistant" => Self::Assistant,
-            "system" => Self::System,
-            _ => Self::User,
-        }
-    }
 }
 
 /// Additional metadata for a message.

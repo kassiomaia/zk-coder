@@ -8,7 +8,8 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use thiserror::Error;
 
-use crate::nlp::context::{ContextMessage, ContextMetadata, ContextWindow, MessageRole};
+use crate::core::chat::entities::MessageRole;
+use crate::nlp::context::{ContextMessage, ContextMetadata, ContextWindow};
 
 /// SQLite-based context store.
 pub struct ContextStore {

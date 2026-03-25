@@ -50,9 +50,13 @@ pub use messages::{
 
 pub use migrations::migrate_orphan_messages_to_threads;
 
-use crate::nlp::chat::{
+use crate::core::chat::entities::{
     ChatMessage, Conversation, ConversationSettings, MessageFeedback, MessageMetadata,
-    MessageRole, Thread, ThreadMetadata,
+    MessageRole, MessageStatus, Thread, ThreadMetadata, ChatDomainError,
+};
+
+use crate::core::chat::repositories::{
+    ChatRepository, ThreadRepository, MessageRepository, RepositoryResult, ChatStore as ChatStoreTrait,
 };
 
 /// Errors from the chat store.
@@ -75,13 +79,40 @@ pub enum ChatStoreError {
     ThreadResolved(String),
 }
 
+impl From<ChatStoreError> for ChatDomainError {
+    fn from(err: ChatStoreError) -> Self {
+        match err {
+            ChatStoreError::Sqlite(e) => ChatDomainError::InvalidInput {
+                reason: format!("Database error: {e}"),
+            },
+            ChatStoreError::NotFound(entity, id) => match entity {
+                "Conversation" => ChatDomainError::ConversationNotFound { id },
+                "Thread" => ChatDomainError::ThreadNotFound { id },
+                "Message" => ChatDomainError::MessageNotFound { id },
+                _ => ChatDomainError::InvalidInput {
+                    reason: format!("{entity} not found: {id}"),
+                },
+            },
+            ChatStoreError::LockError(e) => ChatDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            },
+            ChatStoreError::Json(e) => ChatDomainError::InvalidInput {
+                reason: format!("JSON error: {e}"),
+            },
+            ChatStoreError::ThreadResolved(thread_title) => {
+                ChatDomainError::ThreadResolved { thread_title }
+            }
+        }
+    }
+}
+
 /// SQLite-based chat store.
-pub struct ChatStore {
+pub struct SqliteChatStore {
     /// Database connection (protected by mutex for thread safety)
     conn: Mutex<Connection>,
 }
 
-impl ChatStore {
+impl SqliteChatStore {
     /// Creates a new chat store at the given path.
     ///
     /// # Errors
@@ -114,30 +145,37 @@ impl ChatStore {
         })
     }
 
+    /// Acquires the database lock, returning a formatted error on failure.
+    fn acquire_lock(&self) -> Result<std::sync::MutexGuard<'_, Connection>, ChatStoreError> {
+        self.conn
+            .lock()
+            .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))
+    }
+
     // ========================================================================
     // Conversation Operations
     // ========================================================================
 
     /// Creates a new conversation.
-    pub fn create_conversation(&self, title: &str) -> Result<Conversation, ChatStoreError> {
+    pub fn create_conversation_impl(&self, title: &str) -> Result<Conversation, ChatStoreError> {
         let conn = self.acquire_lock()?;
         conversations::create_conversation(&conn, title)
     }
 
     /// Loads a conversation by ID.
-    pub fn load_conversation(&self, id: &str) -> Result<Conversation, ChatStoreError> {
+    pub fn load_conversation_impl(&self, id: &str) -> Result<Conversation, ChatStoreError> {
         let conn = self.acquire_lock()?;
         conversations::load_conversation(&conn, id)
     }
 
     /// Loads all conversations, sorted by update time (newest first).
-    pub fn load_all_conversations(&self) -> Result<Vec<Conversation>, ChatStoreError> {
+    pub fn load_all_conversations_impl(&self) -> Result<Vec<Conversation>, ChatStoreError> {
         let conn = self.acquire_lock()?;
         conversations::load_all_conversations(&conn)
     }
 
     /// Updates a conversation's title.
-    pub fn update_conversation_title(
+    pub fn update_conversation_title_impl(
         &self,
         id: &str,
         title: &str,
@@ -147,13 +185,13 @@ impl ChatStore {
     }
 
     /// Deletes a conversation and all its threads and messages.
-    pub fn delete_conversation(&self, id: &str) -> Result<(), ChatStoreError> {
+    pub fn delete_conversation_impl(&self, id: &str) -> Result<(), ChatStoreError> {
         let conn = self.acquire_lock()?;
         conversations::delete_conversation(&conn, id)
     }
 
     /// Updates a conversation's settings.
-    pub fn update_conversation_settings(
+    pub fn update_conversation_settings_impl(
         &self,
         id: &str,
         settings: &ConversationSettings,
@@ -163,7 +201,7 @@ impl ChatStore {
     }
 
     /// Updates a conversation's workspace root.
-    pub fn update_conversation_workspace(
+    pub fn update_conversation_workspace_impl(
         &self,
         id: &str,
         workspace_root: &str,
@@ -177,7 +215,7 @@ impl ChatStore {
     // ========================================================================
 
     /// Creates a new thread in a conversation.
-    pub fn create_thread(
+    pub fn create_thread_impl(
         &self,
         conversation_id: &str,
         title: &str,
@@ -187,25 +225,25 @@ impl ChatStore {
     }
 
     /// Loads all threads for a conversation.
-    pub fn load_threads(&self, conversation_id: &str) -> Result<Vec<Thread>, ChatStoreError> {
+    pub fn load_threads_impl(&self, conversation_id: &str) -> Result<Vec<Thread>, ChatStoreError> {
         let conn = self.acquire_lock()?;
         threads::load_threads(&conn, conversation_id)
     }
 
     /// Loads a single thread by ID.
-    pub fn load_thread(&self, id: &str) -> Result<Thread, ChatStoreError> {
+    pub fn load_thread_impl(&self, id: &str) -> Result<Thread, ChatStoreError> {
         let conn = self.acquire_lock()?;
         threads::load_thread(&conn, id)
     }
 
     /// Updates a thread's resolved status.
-    pub fn update_thread_resolved(&self, id: &str, resolved: bool) -> Result<(), ChatStoreError> {
+    pub fn update_thread_resolved_impl(&self, id: &str, resolved: bool) -> Result<(), ChatStoreError> {
         let conn = self.acquire_lock()?;
         threads::update_thread_resolved(&conn, id, resolved)
     }
 
     /// Sets the agent session ID for a thread.
-    pub fn set_thread_agent_session(
+    pub fn set_thread_agent_session_impl(
         &self,
         id: &str,
         agent_session_id: Option<String>,
@@ -215,19 +253,19 @@ impl ChatStore {
     }
 
     /// Deletes a thread and all its messages.
-    pub fn delete_thread(&self, id: &str) -> Result<(), ChatStoreError> {
+    pub fn delete_thread_impl(&self, id: &str) -> Result<(), ChatStoreError> {
         let conn = self.acquire_lock()?;
         threads::delete_thread(&conn, id)
     }
 
     /// Renames a thread.
-    pub fn rename_thread(&self, id: &str, title: &str) -> Result<Thread, ChatStoreError> {
+    pub fn rename_thread_impl(&self, id: &str, title: &str) -> Result<Thread, ChatStoreError> {
         let conn = self.acquire_lock()?;
         threads::rename_thread(&conn, id, title)
     }
 
     /// Creates a thread with its first message atomically.
-    pub fn create_thread_with_message(
+    pub fn create_thread_with_message_impl(
         &self,
         conversation_id: &str,
         thread_title: &str,
@@ -249,41 +287,41 @@ impl ChatStore {
     // ========================================================================
 
     /// Adds a message to a conversation (optionally to a thread).
-    pub fn add_message(&self, message: &ChatMessage) -> Result<(), ChatStoreError> {
+    pub fn add_message_impl(&self, message: &ChatMessage) -> Result<(), ChatStoreError> {
         let conn = self.acquire_lock()?;
         messages::add_message(&conn, message)
     }
 
     /// Loads messages for a conversation.
-    pub fn load_messages(&self, conversation_id: &str) -> Result<Vec<ChatMessage>, ChatStoreError> {
+    pub fn load_messages_impl(&self, conversation_id: &str) -> Result<Vec<ChatMessage>, ChatStoreError> {
         let conn = self.acquire_lock()?;
         messages::load_messages(&conn, conversation_id)
     }
 
     /// Loads messages for a specific thread.
-    pub fn load_thread_messages(&self, thread_id: &str) -> Result<Vec<ChatMessage>, ChatStoreError> {
+    pub fn load_thread_messages_impl(&self, thread_id: &str) -> Result<Vec<ChatMessage>, ChatStoreError> {
         let conn = self.acquire_lock()?;
         messages::load_thread_messages(&conn, thread_id)
     }
 
     /// Deletes a message.
-    pub fn delete_message(&self, id: &str) -> Result<(), ChatStoreError> {
+    pub fn delete_message_impl(&self, id: &str) -> Result<(), ChatStoreError> {
         let conn = self.acquire_lock()?;
         messages::delete_message(&conn, id)
     }
 
     /// Updates a message's status.
-    pub fn update_message_status(
+    pub fn update_message_status_impl(
         &self,
         id: &str,
-        status: crate::nlp::chat::MessageStatus,
+        status: MessageStatus,
     ) -> Result<(), ChatStoreError> {
         let conn = self.acquire_lock()?;
         messages::update_message_status(&conn, id, status)
     }
 
     /// Updates a message's feedback (like/dislike).
-    pub fn update_message_feedback(
+    pub fn update_message_feedback_impl(
         &self,
         id: &str,
         feedback: Option<MessageFeedback>,
@@ -293,7 +331,7 @@ impl ChatStore {
     }
 
     /// Loads messages with feedback for a specific thread.
-    pub fn load_thread_feedback(
+    pub fn load_thread_feedback_impl(
         &self,
         thread_id: &str,
         limit: usize,
@@ -311,14 +349,160 @@ impl ChatStore {
         let conn = self.acquire_lock()?;
         migrations::migrate_orphan_messages_to_threads(&conn)
     }
+}
 
-    /// Acquires the database lock, returning a formatted error on failure.
-    fn acquire_lock(&self) -> Result<std::sync::MutexGuard<'_, Connection>, ChatStoreError> {
-        self.conn
-            .lock()
-            .map_err(|_| ChatStoreError::LockError("Failed to acquire lock".to_string()))
+// ========================================================================
+// Trait Implementations
+// ========================================================================
+
+impl ChatRepository for SqliteChatStore {
+    fn create_conversation(&self, title: &str) -> RepositoryResult<Conversation> {
+        self.create_conversation_impl(title)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn load_conversation(&self, id: &str) -> RepositoryResult<Conversation> {
+        self.load_conversation_impl(id)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn load_all_conversations(&self) -> RepositoryResult<Vec<Conversation>> {
+        self.load_all_conversations_impl()
+            .map_err(ChatDomainError::from)
+    }
+
+    fn update_conversation_title(
+        &self,
+        id: &str,
+        title: &str,
+    ) -> RepositoryResult<Conversation> {
+        self.update_conversation_title_impl(id, title)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn delete_conversation(&self, id: &str) -> RepositoryResult<()> {
+        self.delete_conversation_impl(id)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn update_conversation_settings(
+        &self,
+        id: &str,
+        settings: &ConversationSettings,
+    ) -> RepositoryResult<Conversation> {
+        self.update_conversation_settings_impl(id, settings)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn update_conversation_workspace(
+        &self,
+        id: &str,
+        workspace_root: &str,
+    ) -> RepositoryResult<Conversation> {
+        self.update_conversation_workspace_impl(id, workspace_root)
+            .map_err(ChatDomainError::from)
     }
 }
+
+impl ThreadRepository for SqliteChatStore {
+    fn create_thread(
+        &self,
+        conversation_id: &str,
+        title: &str,
+    ) -> RepositoryResult<Thread> {
+        self.create_thread_impl(conversation_id, title)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn load_threads(&self, conversation_id: &str) -> RepositoryResult<Vec<Thread>> {
+        self.load_threads_impl(conversation_id)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn load_thread(&self, id: &str) -> RepositoryResult<Thread> {
+        self.load_thread_impl(id)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn update_thread_resolved(&self, id: &str, resolved: bool) -> RepositoryResult<()> {
+        self.update_thread_resolved_impl(id, resolved)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn set_thread_agent_session(
+        &self,
+        id: &str,
+        agent_session_id: Option<String>,
+    ) -> RepositoryResult<()> {
+        self.set_thread_agent_session_impl(id, agent_session_id)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn delete_thread(&self, id: &str) -> RepositoryResult<()> {
+        self.delete_thread_impl(id)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn rename_thread(&self, id: &str, title: &str) -> RepositoryResult<Thread> {
+        self.rename_thread_impl(id, title)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn create_thread_with_message(
+        &self,
+        conversation_id: &str,
+        thread_title: &str,
+        message_content: &str,
+        message_role: MessageRole,
+    ) -> RepositoryResult<(Thread, ChatMessage)> {
+        self.create_thread_with_message_impl(
+            conversation_id,
+            thread_title,
+            message_content,
+            message_role,
+        )
+        .map_err(ChatDomainError::from)
+    }
+}
+
+impl MessageRepository for SqliteChatStore {
+    fn add_message(&self, message: &ChatMessage) -> RepositoryResult<()> {
+        self.add_message_impl(message)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn load_messages(&self, conversation_id: &str) -> RepositoryResult<Vec<ChatMessage>> {
+        self.load_messages_impl(conversation_id)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn load_thread_messages(&self, thread_id: &str) -> RepositoryResult<Vec<ChatMessage>> {
+        self.load_thread_messages_impl(thread_id)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn delete_message(&self, id: &str) -> RepositoryResult<()> {
+        self.delete_message_impl(id)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn update_message_status(&self, id: &str, status: MessageStatus) -> RepositoryResult<()> {
+        self.update_message_status_impl(id, status)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn update_message_feedback(
+        &self,
+        id: &str,
+        feedback: Option<MessageFeedback>,
+    ) -> RepositoryResult<()> {
+        self.update_message_feedback_impl(id, feedback)
+            .map_err(ChatDomainError::from)
+    }
+}
+
+// The blanket impl in core/chat/repositories.rs will automatically implement
+// ChatStore for SqliteChatStore since it implements all three traits.
 
 #[cfg(test)]
 mod tests {
@@ -326,7 +510,7 @@ mod tests {
 
     #[test]
     fn test_create_and_load_conversation() {
-        let store = ChatStore::in_memory().expect("Failed to create store");
+        let store = SqliteChatStore::in_memory().expect("Failed to create store");
         let conv = store.create_conversation("Test Conversation").expect("Failed to create");
         assert_eq!(conv.title, "Test Conversation");
 
@@ -337,7 +521,7 @@ mod tests {
 
     #[test]
     fn test_create_and_load_thread() {
-        let store = ChatStore::in_memory().expect("Failed to create store");
+        let store = SqliteChatStore::in_memory().expect("Failed to create store");
         let conv = store.create_conversation("Test").expect("Failed to create");
         let thread = store.create_thread(&conv.id, "Test Thread").expect("Failed to create thread");
         assert_eq!(thread.conversation_id, conv.id);
@@ -348,7 +532,7 @@ mod tests {
 
     #[test]
     fn test_add_and_load_messages() {
-        let store = ChatStore::in_memory().expect("Failed to create store");
+        let store = SqliteChatStore::in_memory().expect("Failed to create store");
         let conv = store.create_conversation("Test").expect("Failed to create");
         let msg = ChatMessage::user(&conv.id, "Hello world");
         store.add_message(&msg).expect("Failed to add message");
@@ -367,7 +551,7 @@ mod tests {
 
     #[test]
     fn test_conversation_settings_persistence() {
-        let store = ChatStore::in_memory().expect("Failed to create store");
+        let store = SqliteChatStore::in_memory().expect("Failed to create store");
         let conv = store.create_conversation("Test").expect("Failed to create");
 
         let new_settings = ConversationSettings {

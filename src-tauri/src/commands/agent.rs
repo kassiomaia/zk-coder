@@ -1,31 +1,27 @@
 //! Agent Tauri IPC commands.
 //!
-//! This module provides Tauri commands for agent session management,
-//! approval handling, and state queries.
+//! Thin adapter that delegates to the AgentService in the application layer.
+//! Handles Tauri-specific concerns like event emission and async spawning.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
-use chrono::Utc;
 use log::{error, info};
 use tauri::Emitter;
 
-use crate::agents::approval::ApprovalQueue;
 use crate::agents::events::{AgentEvent, AGENT_EVENT_NAME};
-use crate::agents::registry::AgentRegistry;
-use crate::agents::runtime::AgentRuntime;
 use crate::agents::session::{AgentSession, PendingAction, SessionId, SessionState};
 use crate::agents::store::SessionStore;
-use crate::agents::task::AgentRequest;
-use crate::agents::types::AgentId;
-use crate::tools::ToolRegistry;
+use crate::agents::task::{AgentRequest, SubTask};
+use crate::agents::types::{Agent, AgentId};
+use crate::application::agent::AgentServiceImpl;
+use crate::core::agent::services::{
+    AgentService, CreateSessionRequest,
+};
 
 /// Application state for agent commands.
 pub struct AgentState {
-    pub registry: Arc<AgentRegistry>,
-    pub session_store: Arc<SessionStore>,
-    pub approval_queue: Arc<ApprovalQueue>,
-    pub runtime: Arc<AgentRuntime>,
+    /// Agent service for business logic
+    pub service: Arc<AgentServiceImpl>,
 }
 
 impl AgentState {
@@ -35,21 +31,26 @@ impl AgentState {
             SessionStore::new(db_path)
                 .map_err(|e| format!("Failed to init session store: {e}"))?,
         );
-        let approval_queue = Arc::new(ApprovalQueue::new());
+        let approval_queue = Arc::new(crate::agents::approval::ApprovalQueue::new());
         let tool_registry = Arc::new(
-            ToolRegistry::new().map_err(|e| format!("Failed to init tool registry: {e}"))?,
+            crate::tools::ToolRegistry::new()
+                .map_err(|e| format!("Failed to init tool registry: {e}"))?,
         );
-        let runtime = Arc::new(AgentRuntime::new(
+        let runtime = Arc::new(crate::agents::runtime::AgentRuntime::new(
             session_store.clone(),
             approval_queue.clone(),
             tool_registry,
         ));
-        Ok(Self {
-            registry: Arc::new(AgentRegistry::new()),
+        let registry = Arc::new(crate::agents::registry::AgentRegistry::new());
+
+        let service = Arc::new(AgentServiceImpl::new(
+            registry,
             session_store,
             approval_queue,
             runtime,
-        })
+        ));
+
+        Ok(Self { service })
     }
 }
 
@@ -67,33 +68,14 @@ pub async fn create_agent_session(
     state: tauri::State<'_, AgentState>,
     app_handle: tauri::AppHandle,
 ) -> Result<AgentSession, String> {
-    info!(
-        "[AgentCommand] create_agent_session called with workspace_root: {:?}",
-        workspace_root
-    );
-
-    let agent = state
-        .registry
-        .get(&AgentId(agent_id.clone()))
-        .await
-        .ok_or_else(|| format!("Agent not found: {agent_id}"))?;
-
-    let session = AgentSession::new(
-        agent.id.clone(),
-        agent.name.clone(),
+    let request = CreateSessionRequest {
+        agent_id,
         conversation_id,
         thread_id,
-        workspace_root.map(PathBuf::from),
-    );
+        workspace_root,
+    };
 
-    info!(
-        "[AgentCommand] Session created with workspace_root: {:?}",
-        session.workspace_root
-    );
-
-    state
-        .session_store
-        .create_session(&session)
+    let session = state.service.create_session(request)
         .map_err(|e| e.to_string())?;
 
     // Emit session created event
@@ -101,39 +83,13 @@ pub async fn create_agent_session(
         AGENT_EVENT_NAME,
         AgentEvent::SessionCreated {
             session_id: session.id.0.clone(),
-            agent_id: agent.id.0.clone(),
-            agent_name: agent.name.clone(),
+            agent_id: session.agent_id.0.clone(),
+            agent_name: session.agent_name.clone(),
         },
     );
 
-    // Transition to WaitForRequest state so the session is ready to accept requests
-    let new_state = SessionState::WaitForRequest {
-        last_action_at: Utc::now(),
-    };
-
-    // Update the session in the store with the new state
-    state
-        .session_store
-        .update_state(&session.id, &new_state)
-        .map_err(|e| e.to_string())?;
-
-    // Emit state change event
-    let _ = app_handle.emit(
-        AGENT_EVENT_NAME,
-        AgentEvent::SessionStateChanged {
-            session_id: session.id.0.clone(),
-            state: new_state.clone(),
-        },
-    );
-
-    // Return the updated session by fetching it from the store
-    let updated_session = state
-        .session_store
-        .get_session(&session.id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Session not found after creation: {}", session.id.0))?;
-
-    Ok(updated_session)
+    // Convert core session back to agents session for response
+    Ok(to_agents_session(session))
 }
 
 /// Get session state by ID.
@@ -142,11 +98,9 @@ pub async fn get_agent_session(
     session_id: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<AgentSession, String> {
-    state
-        .session_store
-        .get_session(&SessionId(session_id.clone()))
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Session not found: {session_id}"))
+    let core_session = state.service.get_session(&session_id)
+        .map_err(|e| e.to_string())?;
+    Ok(to_agents_session(core_session))
 }
 
 /// Get all sessions for a conversation.
@@ -155,10 +109,9 @@ pub async fn get_agent_sessions_for_conversation(
     conversation_id: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<Vec<AgentSession>, String> {
-    state
-        .session_store
-        .get_sessions_for_conversation(&conversation_id)
-        .map_err(|e| e.to_string())
+    let core_sessions = state.service.get_conversation_sessions(&conversation_id)
+        .map_err(|e| e.to_string())?;
+    Ok(core_sessions.into_iter().map(to_agents_session).collect())
 }
 
 /// Cancel an active agent session.
@@ -168,25 +121,20 @@ pub async fn cancel_agent_session(
     state: tauri::State<'_, AgentState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let sid = SessionId(session_id.clone());
-    let new_state = SessionState::Cancelled {
-        reason: "User cancelled".to_string(),
-    };
-
-    state
-        .session_store
-        .update_state(&sid, &new_state)
+    state.service.cancel_session(&session_id)
         .map_err(|e| e.to_string())?;
 
-    // Clear any pending approvals for this session
-    state.approval_queue.clear_session(&session_id).await;
+    // Clear pending approvals for this session
+    state.service.runtime().rollback_store().clear_session(&session_id);
 
     // Emit state change event
     let _ = app_handle.emit(
         AGENT_EVENT_NAME,
         AgentEvent::SessionStateChanged {
             session_id,
-            state: new_state,
+            state: SessionState::Cancelled {
+                reason: "User cancelled".to_string(),
+            },
         },
     );
 
@@ -199,15 +147,13 @@ pub async fn delete_agent_session(
     session_id: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<(), String> {
-    let sid = SessionId(session_id.clone());
+    state.service.delete_session(&session_id)
+        .map_err(|e| e.to_string())?;
 
     // Clear pending approvals
-    state.approval_queue.clear_session(&session_id).await;
+    state.service.runtime().rollback_store().clear_session(&session_id);
 
-    state
-        .session_store
-        .delete_session(&sid)
-        .map_err(|e| e.to_string())
+    Ok(())
 }
 
 /// Update the workspace root for a session.
@@ -217,22 +163,8 @@ pub async fn update_agent_session_workspace(
     workspace_root: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<(), String> {
-    let sid = SessionId(session_id.clone());
-    info!(
-        "[AgentCommand] Updating workspace for session {} to {}",
-        session_id, workspace_root
-    );
-
-    state
-        .session_store
-        .update_workspace(&sid, &workspace_root)
-        .map_err(|e| e.to_string())?;
-
-    info!(
-        "[AgentCommand] Workspace updated successfully for session {}",
-        session_id
-    );
-    Ok(())
+    state.service.update_session_workspace(&session_id, &workspace_root)
+        .map_err(|e| e.to_string())
 }
 
 // =========================================================================
@@ -240,9 +172,6 @@ pub async fn update_agent_session_workspace(
 // =========================================================================
 
 /// Send a request to an agent session for execution.
-///
-/// Spawns the agent runtime asynchronously. Results and progress
-/// are delivered via Tauri events (agent:event).
 #[tauri::command]
 pub async fn send_agent_request(
     session_id: String,
@@ -252,21 +181,11 @@ pub async fn send_agent_request(
 ) -> Result<String, String> {
     let sid = SessionId(session_id.clone());
 
-    let session = state
-        .session_store
-        .get_session(&sid)
+    let session = state.service.session_store().get_session(&sid)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Session not found: {session_id}"))?;
 
-    info!(
-        "[AgentCommand] Session {} loaded: workspace_root={:?}",
-        session_id, session.workspace_root
-    );
-
-    let agent = state
-        .registry
-        .get(&session.agent_id)
-        .await
+    let agent = state.service.registry().get(&session.agent_id).await
         .ok_or_else(|| format!("Agent not found: {}", session.agent_id.0))?;
 
     let request = AgentRequest {
@@ -275,7 +194,7 @@ pub async fn send_agent_request(
         context: None,
     };
 
-    let runtime = state.runtime.clone();
+    let runtime = state.service.runtime().clone();
     let system_prompt = agent.system_prompt.clone();
     let trust_mode = agent.trust_mode;
 
@@ -283,21 +202,17 @@ pub async fn send_agent_request(
 
     // Spawn async execution - results come back via events
     tokio::spawn(async move {
-        info!("[AgentCommand] Agent task started for session {}", session_id);
         let result = runtime
-            .execute(
-                &session,
-                request,
-                &system_prompt,
-                trust_mode,
-                &app_handle,
-            )
+            .execute(&session, request, &system_prompt, trust_mode, &app_handle)
             .await;
 
         match &result {
             Ok(execution_result) => {
-                info!("[AgentCommand] Agent execution completed for session {}, content length: {}",
-                    session_id, execution_result.content.len());
+                info!(
+                    "[AgentCommand] Agent execution completed for session {}, content length: {}",
+                    session_id,
+                    execution_result.content.len()
+                );
             }
             Err(e) => {
                 error!("[AgentRuntime] Execution failed for session {}: {}", session_id, e);
@@ -327,11 +242,8 @@ pub async fn approve_agent_action(
     state: tauri::State<'_, AgentState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    state
-        .approval_queue
-        .approve(&action_id)
-        .await
-        .ok_or_else(|| format!("Action not found: {action_id}"))?;
+    state.service.approve_action(&action_id)
+        .map_err(|e| e.to_string())?;
 
     let _ = app_handle.emit(
         AGENT_EVENT_NAME,
@@ -352,10 +264,8 @@ pub async fn deny_agent_action(
     state: tauri::State<'_, AgentState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let denied = state.approval_queue.deny(&action_id).await;
-    if !denied {
-        return Err(format!("Action not found: {action_id}"));
-    }
+    state.service.deny_action(&action_id)
+        .map_err(|e| e.to_string())?;
 
     let _ = app_handle.emit(
         AGENT_EVENT_NAME,
@@ -374,10 +284,8 @@ pub async fn get_pending_agent_actions(
     session_id: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<Vec<PendingAction>, String> {
-    Ok(state
-        .approval_queue
-        .get_pending_for_session(&session_id)
-        .await)
+    // Get from approval queue directly (not through service)
+    Ok(state.service.approval_queue().get_pending_for_session(&session_id).await)
 }
 
 // =========================================================================
@@ -388,8 +296,8 @@ pub async fn get_pending_agent_actions(
 #[tauri::command]
 pub async fn list_agents(
     state: tauri::State<'_, AgentState>,
-) -> Result<Vec<crate::agents::types::Agent>, String> {
-    Ok(state.registry.list().await)
+) -> Result<Vec<Agent>, String> {
+    Ok(state.service.registry().list().await)
 }
 
 /// Get a specific agent by ID.
@@ -397,11 +305,8 @@ pub async fn list_agents(
 pub async fn get_agent(
     agent_id: String,
     state: tauri::State<'_, AgentState>,
-) -> Result<crate::agents::types::Agent, String> {
-    state
-        .registry
-        .get(&AgentId(agent_id.clone()))
-        .await
+) -> Result<Agent, String> {
+    state.service.registry().get(&AgentId(agent_id.clone())).await
         .ok_or_else(|| format!("Agent not found: {agent_id}"))
 }
 
@@ -418,24 +323,8 @@ pub async fn create_subtask(
     order: i32,
     state: tauri::State<'_, AgentState>,
 ) -> Result<String, String> {
-    let subtask = crate::agents::task::SubTask::new(
-        task_id,
-        title,
-        crate::agents::task::SubTaskMode::FullAccess,
-        order,
-    );
-    let subtask = if let Some(desc) = description {
-        subtask.with_description(desc)
-    } else {
-        subtask
-    };
-
-    state
-        .session_store
-        .create_subtask(&subtask)
-        .map_err(|e| e.to_string())?;
-
-    Ok(subtask.id)
+    state.service.create_subtask(task_id, title, description, order)
+        .map_err(|e| e.to_string())
 }
 
 /// Update subtask status.
@@ -445,12 +334,12 @@ pub async fn update_subtask_status(
     status: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<(), String> {
-    let task_status: crate::agents::task::TaskStatus = serde_json::from_str(&status)
+    use crate::core::agent::entities::TaskStatus as CoreTaskStatus;
+
+    let task_status: CoreTaskStatus = serde_json::from_str(&status)
         .map_err(|e| format!("Invalid status: {e}"))?;
 
-    state
-        .session_store
-        .update_subtask_status(&subtask_id, &task_status)
+    state.service.update_subtask_status(subtask_id, task_status)
         .map_err(|e| e.to_string())
 }
 
@@ -459,10 +348,8 @@ pub async fn update_subtask_status(
 pub async fn get_subtasks(
     task_id: String,
     state: tauri::State<'_, AgentState>,
-) -> Result<Vec<crate::agents::task::SubTask>, String> {
-    state
-        .session_store
-        .get_subtasks(&task_id)
+) -> Result<Vec<SubTask>, String> {
+    state.service.session_store().get_subtasks(&task_id)
         .map_err(|e| e.to_string())
 }
 
@@ -476,25 +363,10 @@ pub async fn get_conversation_session_history(
     conversation_id: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<Vec<AgentSession>, String> {
-    let sessions = state
-        .session_store
-        .get_sessions_for_conversation(&conversation_id)
+    let core_sessions = state.service.get_conversation_history(&conversation_id)
         .map_err(|e| e.to_string())?;
 
-    // Filter to only completed sessions (plus those that failed/cancelled for review)
-    let history: Vec<AgentSession> = sessions
-        .into_iter()
-        .filter(|s| {
-            matches!(
-                s.state,
-                SessionState::Finished { .. }
-                    | SessionState::Error { .. }
-                    | SessionState::Cancelled { .. }
-            )
-        })
-        .collect();
-
-    Ok(history)
+    Ok(core_sessions.into_iter().map(to_agents_session).collect())
 }
 
 /// Session details response with runtime data.
@@ -516,90 +388,61 @@ pub struct SessionDetailsResponse {
     pub tool_calls: Option<Vec<crate::agents::store::ToolCallEntry>>,
 }
 
-/// Get full session details including runtime data (files, terminal, execution steps, status phrases).
+/// Get full session details including runtime data.
 #[tauri::command]
 pub async fn get_session_details(
     session_id: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<SessionDetailsResponse, String> {
-    let session = state
-        .session_store
-        .get_session(&SessionId(session_id.clone()))
+    let sid = SessionId(session_id.clone());
+
+    let session = state.service.session_store().get_session(&sid)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Session not found: {session_id}"))?;
 
     // Fetch runtime data
-    let files_touched = state
-        .session_store
-        .get_session_files(&session.id)
+    let files_touched = state.service.session_store().get_session_files(&sid)
         .ok()
         .map(|files| {
-            files
-                .into_iter()
-                .map(|f| {
-                    serde_json::json!({
-                        "path": f.file_path,
-                        "modified": f.action != "read",
-                        "action": match f.action.as_str() {
-                            "read" => "read",
-                            "write" => "write",
-                            "delete" => "delete",
-                            _ => "read",
-                        },
-                        "diff": f.diff,
-                    })
+            files.into_iter().map(|f| {
+                serde_json::json!({
+                    "path": f.file_path,
+                    "modified": f.action != "read",
+                    "action": match f.action.as_str() {
+                        "read" => "read",
+                        "write" => "write",
+                        "delete" => "delete",
+                        _ => "read",
+                    },
+                    "diff": f.diff,
                 })
-                .collect()
+            }).collect()
         });
 
-    let terminal_output = state
-        .session_store
-        .get_session_terminal_output(&session.id)
+    let terminal_output = state.service.session_store().get_session_terminal_output(&sid)
         .ok()
         .map(|lines| {
-            lines
-                .into_iter()
-                .map(|l| {
-                    serde_json::json!({
-                        "id": l.id,
-                        "type": l.line_type,
-                        "content": l.content,
-                        "timestamp": l.timestamp,
-                    })
+            lines.into_iter().map(|l| {
+                serde_json::json!({
+                    "id": l.id,
+                    "type": l.line_type,
+                    "content": l.content,
+                    "timestamp": l.timestamp,
                 })
-                .collect()
+            }).collect()
         });
 
-    // Fetch execution steps from the correct table (agent_execution_steps)
-    let execution_steps = state
-        .session_store
-        .get_session_execution_steps(&session.id)
+    let execution_steps = state.service.session_store().get_session_execution_steps(&sid)
         .ok()
         .map(|steps| {
-            steps
-                .into_iter()
-                .map(|step| serde_json::to_value(step).map_err(|e| e.to_string()))
+            steps.into_iter().map(|step| serde_json::to_value(step).map_err(|e| e.to_string()))
                 .collect::<Result<Vec<_>, String>>()
         })
         .transpose()?;
 
-    let status_phrases = state
-        .session_store
-        .get_session_status_phrases(&session.id)
-        .ok();
-
-    // Fetch tasks with subtasks for the Activity section
-    // (get_session_tasks now includes subtasks automatically)
-    let tasks = state
-        .session_store
-        .get_session_tasks(&session.id)
-        .ok();
-
-    // Fetch tool call history
-    let tool_calls = state
-        .session_store
-        .get_tool_calls_for_session(&session.id)
-        .ok();
+    let status_phrases = state.service.session_store().get_session_status_phrases(&sid).ok();
+    let tasks = state.service.session_store().get_session_tasks(&sid).ok();
+    let tool_calls = state.service.session_store().get_tool_calls_for_session(&sid).ok();
 
     Ok(SessionDetailsResponse {
         session,
@@ -622,7 +465,7 @@ pub async fn get_session_file_snapshots(
     session_id: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<Vec<crate::agents::rollback::FileSnapshot>, String> {
-    Ok(state.runtime.rollback_store().get_session_snapshots(&session_id))
+    Ok(state.service.runtime().rollback_store().get_session_snapshots(&session_id))
 }
 
 /// Roll back a single file to its pre-agent state.
@@ -632,9 +475,7 @@ pub async fn rollback_file(
     path: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<bool, String> {
-    state
-        .runtime
-        .rollback_store()
+    state.service.runtime().rollback_store()
         .rollback_file(&session_id, std::path::Path::new(&path))
         .map_err(|e| e.to_string())
 }
@@ -645,11 +486,56 @@ pub async fn rollback_session(
     session_id: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<Vec<String>, String> {
-    let reverted = state
-        .runtime
-        .rollback_store()
+    let reverted = state.service.runtime().rollback_store()
         .rollback_session(&session_id)
         .map_err(|e| e.to_string())?;
 
     Ok(reverted.into_iter().map(|p| p.display().to_string()).collect())
+}
+
+// =========================================================================
+// Helper Functions
+// =========================================================================
+
+/// Convert core session to agents session.
+fn to_agents_session(core: crate::core::agent::entities::AgentSession) -> AgentSession {
+    AgentSession {
+        id: SessionId(core.id.0),
+        agent_id: AgentId(core.agent_id.0),
+        agent_name: core.agent_name,
+        conversation_id: core.conversation_id,
+        thread_id: core.thread_id,
+        workspace_root: core.workspace_root,
+        parent_session_id: None,
+        state: match core.state {
+            crate::core::agent::entities::SessionState::WaitForRequest { last_action_at } => {
+                SessionState::WaitForRequest { last_action_at }
+            }
+            crate::core::agent::entities::SessionState::Processing { .. } => {
+                SessionState::Running {
+                    current_step: 0,
+                    context_usage: 0.0,
+                }
+            }
+            crate::core::agent::entities::SessionState::AwaitingApproval { .. } => {
+                SessionState::UserInputRequired {
+                    pending_action_ids: vec![],
+                }
+            }
+            crate::core::agent::entities::SessionState::Finished { completed_at, .. } => {
+                SessionState::Finished { completed_at }
+            }
+            crate::core::agent::entities::SessionState::Cancelled { reason, .. } => {
+                SessionState::Cancelled { reason }
+            }
+            crate::core::agent::entities::SessionState::Error { error, .. } => {
+                SessionState::Error {
+                    message: error,
+                    recoverable: false,
+                }
+            }
+        },
+        created_at: core.created_at,
+        updated_at: core.created_at,
+    }
 }

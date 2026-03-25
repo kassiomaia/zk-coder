@@ -34,7 +34,7 @@ pub use code_understanding::{
     ClassInfo, CodeStructure, CodeUnderstanding, ComplexityMetrics, FunctionInfo,
     ProgrammingLanguage,
 };
-pub use context::{ContextMessage, ContextWindow, ConversationContext, MessageRole};
+pub use context::{ContextMessage, ContextWindow, ConversationContext};
 pub use context_manager::{ContextError, ContextManager};
 pub use execution_planner::{ExecutionPlan, ExecutionPlanner};
 pub use intent::{Intent, IntentClassification, IntentParams};
@@ -44,10 +44,10 @@ pub use multi_intent::{DetectedIntent, IntentRelationship, MultiIntentResult, Te
 pub use nl_to_code::{CodeConcept, NLToCodeMapper};
 pub use patterns::IntentPatterns;
 
-// Chat types (MessageRole is defined in context module, re-exported here)
-pub use chat::{
-    ChatMessage, Conversation, ConversationSettings, MessageMetadata, MessageStatus, Thread,
-    ThreadMetadata, ThreadPriority,
+// Chat types (re-exported from core::chat::entities for backward compatibility)
+pub use crate::core::chat::entities::{
+    ChatMessage, Conversation, ConversationSettings, MessageFeedback, MessageMetadata,
+    MessageRole, MessageStatus, Thread, ThreadMetadata, ThreadPriority,
 };
 
 // Config types for LLM provider management

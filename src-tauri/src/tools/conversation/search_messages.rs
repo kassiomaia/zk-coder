@@ -1,6 +1,7 @@
 //! Search conversation messages tool.
 
 use crate::commands::chat::ChatState;
+use crate::core::chat::repositories::MessageRepository;
 use crate::tools::constants::{DEFAULT_MESSAGE_SEARCH_LIMIT, MAX_MESSAGE_SEARCH_LIMIT};
 use crate::tools::{
     context::ToolExecutionContext,

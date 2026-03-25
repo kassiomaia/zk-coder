@@ -10,7 +10,7 @@
 	import MentionMenu from './MentionMenu.svelte';
 	import ModelSelector from './ModelSelector.svelte';
 	import IconButton from '$lib/components/shared/IconButton.svelte';
-	import { ArrowUp, Square } from 'lucide-svelte';
+	import { FileIcon, CloseIcon, CodeIcon, SendIcon, PaperclipIcon } from '$lib/icons';
 	import type { Command } from '$lib/types/command';
 	import { BUILT_IN_COMMANDS, filterCommands } from '$lib/types/command';
 	import type { IntentClassification } from '$lib/types/nlp';
@@ -361,20 +361,7 @@
 					{#if file.preview}
 						<img src={file.preview} alt={file.name} class={styles.attachmentPreview} />
 					{:else}
-						<svg
-							class={styles.fileIcon}
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-							<polyline points="14 2 14 8 20 8" />
-						</svg>
+						<FileIcon class={styles.fileIcon} size={16} />
 					{/if}
 					<span class={styles.attachmentName}>{file.name}</span>
 					<span class={styles.attachmentSize}>{formatSize(file.size)}</span>
@@ -387,19 +374,7 @@
 						onclick={() => onremoveattachment?.(file.id)}
 					>
 						{#snippet icon()}
-							<svg
-								width="14"
-								height="14"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<line x1="18" y1="6" x2="6" y2="18" />
-								<line x1="6" y1="6" x2="18" y2="18" />
-							</svg>
+							<CloseIcon size={14} />
 						{/snippet}
 					</IconButton>
 				</div>
@@ -474,20 +449,7 @@
 					onclick={() => fileInputRef?.click()}
 				>
 					{#snippet icon()}
-						<svg
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path
-								d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"
-							/>
-						</svg>
+						<PaperclipIcon size={20} />
 					{/snippet}
 				</IconButton>
 				<input
@@ -511,20 +473,7 @@
 					onclick={togglePreview}
 				>
 					{#snippet icon()}
-						<svg
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M4 7V4h16v3" />
-							<path d="M9 20h6" />
-							<path d="M12 4v16" />
-						</svg>
+						<CodeIcon size={20} />
 					{/snippet}
 				</IconButton>
 			{/if}
@@ -555,9 +504,9 @@
 			>
 				{#snippet icon()}
 					{#if isAgentWorking}
-						<Square size={12} strokeWidth={3} fill="currentColor" />
+						<div class={styles.stopIcon}></div>
 					{:else}
-						<ArrowUp size={16} strokeWidth={2.5} />
+						<SendIcon size={16} strokeWidth={2.5} />
 					{/if}
 				{/snippet}
 			</IconButton>

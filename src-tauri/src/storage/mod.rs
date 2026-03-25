@@ -6,6 +6,6 @@ mod chat_store;
 mod config_store;
 mod context_store;
 
-pub use chat_store::{ChatStore, ChatStoreError};
+pub use chat_store::{SqliteChatStore, ChatStoreError};
 pub use config_store::{ConfigStore, ConfigStoreError};
 pub use context_store::{ContextStore, StoreError};

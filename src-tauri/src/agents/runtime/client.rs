@@ -6,6 +6,8 @@
 use tauri::{AppHandle, Manager};
 
 use crate::commands::{ChatState, LlmState};
+use crate::core::chat::entities::MessageRole;
+use crate::core::chat::repositories::MessageRepository;
 use crate::llm::{
     create_client, ChatRequest, ChatResponse, LlmClient, Message,
 };
@@ -142,9 +144,9 @@ pub async fn build_llm_context(
     let mut context: Vec<Message> = history
         .iter()
         .map(|msg| match msg.role {
-            crate::nlp::chat::MessageRole::User => Message::user(msg.content.clone()),
-            crate::nlp::chat::MessageRole::Assistant => Message::assistant(msg.content.clone()),
-            crate::nlp::chat::MessageRole::System => Message::system(msg.content.clone()),
+            MessageRole::User => Message::user(msg.content.clone()),
+            MessageRole::Assistant => Message::assistant(msg.content.clone()),
+            MessageRole::System => Message::system(msg.content.clone()),
         })
         .collect();
 

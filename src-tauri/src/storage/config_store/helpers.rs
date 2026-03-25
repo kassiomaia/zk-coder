@@ -1,6 +1,6 @@
 //! Helper functions for the config store.
 
-use chrono::{Datelike, Timelike, DateTime, Utc};
+use chrono::{Datelike, DateTime, Timelike, Utc};
 
 /// Parses a datetime string from the database.
 pub fn parse_datetime(s: &str) -> DateTime<Utc> {

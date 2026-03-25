@@ -1,27 +1,18 @@
 <script lang="ts">
 	/**
-	 * ChatArea Component (Enhanced)
+	 * ChatArea Component
 	 * Main chat interface with message display and input.
 	 */
-	import ChatInput from './input/ChatInput.svelte';
-	import AnsweringIndicator from './AnsweringIndicator.svelte';
-	import ThreadIndicator from './ThreadIndicator.svelte';
-	import MarkdownRenderer from '../markdown/MarkdownRenderer.svelte';
-	import MessageActions from './MessageActions.svelte';
-	import EmptyThreadState from './EmptyThreadState.svelte';
+	import ChatMessagesList from './ChatMessagesList.svelte';
+	import ChatInputContainer from './ChatInputContainer.svelte';
+	import ChatScrollButton from './ChatScrollButton.svelte';
 	import ClarificationBanner from './ClarificationBanner.svelte';
-	// Agent message components
-	import ThinkingMessage from './messages/ThinkingMessage.svelte';
-	import ToolCallMessage from './messages/ToolCallMessage.svelte';
-	import TerminalOutput from './messages/TerminalOutput.svelte';
 	import type { Message } from '$lib/types/message';
 	import type { Thread } from '$lib/types/thread';
 	import styles from './ChatArea.module.css';
 	import { isLlmStreaming, streamingContent, nlpState } from '$lib/stores/chat';
 	import { notifyAssistantComplete, initNotifications } from '$lib/utils/notifications';
 	import { configStore } from '$lib/stores/configStore';
-	import { activeSession, pendingActions } from '$lib/stores/agentStore';
-	import { getAgentStatus } from '$lib/utils/agentStatus';
 	import {
 		saveScrollPosition,
 		initializeThreadScroll,
@@ -40,10 +31,10 @@
 		isAutoScrollEnabled as controllerIsAutoScrollEnabled
 	} from '$lib/utils/scrollController';
 	import { onMount, tick } from 'svelte';
-	import { chatStore } from '$lib/stores';
 	import type { ResolutionType } from '$lib/types/nlp';
 	import { createLogger } from '$lib/utils/logger';
 	import { shouldForceInitialBottomScroll } from './chatAreaScroll';
+	import { chatStore } from '$lib/stores';
 
 	const log = createLogger('ChatArea');
 
@@ -160,12 +151,6 @@
 		}
 	});
 
-	// Animation state for input container
-	let inputAnimatingIn = $state(false);
-	let inputAnimatingOut = $state(false);
-	let showInput = $state(true);
-	let previousResolved = $state(false);
-
 	// Scroll state
 	let messagesWrapperRef: HTMLDivElement | undefined = $state();
 	let previousThreadId = $state<string | undefined>(undefined);
@@ -227,48 +212,6 @@
 		}
 
 		wasStreaming = streaming;
-	});
-
-	// Watch for threadResolved changes and animate transitions
-	$effect(() => {
-		const currentResolved = threadResolved;
-
-		// First run - initialize state without animation
-		if (previousResolved === false && !inputAnimatingIn && !inputAnimatingOut) {
-			showInput = !currentResolved;
-			previousResolved = currentResolved;
-			return;
-		}
-
-		// Only animate when the resolved state actually changes
-		if (currentResolved !== previousResolved) {
-			const wasResolved = previousResolved;
-			const nowResolved = currentResolved;
-
-			previousResolved = currentResolved;
-
-			if (wasResolved && !nowResolved) {
-				// Transition: locked -> unlocked
-				// Wait for banner to slide out (200ms), then slide input up
-				setTimeout(() => {
-					showInput = true;
-					inputAnimatingIn = true;
-					setTimeout(() => {
-						inputAnimatingIn = false;
-					}, 200);
-				}, 200);
-			} else if (!wasResolved && nowResolved) {
-				// Transition: unlocked -> locked
-				// Animate input out (slide down), then banner will slide in
-				inputAnimatingOut = true;
-				setTimeout(() => {
-					showInput = false;
-					inputAnimatingOut = false;
-				}, 150);
-			}
-			// If wasResolved and nowResolved: both locked - no animation (stay hidden)
-			// If !wasResolved && !nowResolved: both unlocked - no animation (stay visible)
-		}
 	});
 
 	// Handle thread switching - register/unregister with controller
@@ -456,101 +399,6 @@
 		}
 	}
 
-	function handleRetry() {
-		onRetry?.();
-	}
-
-	async function handleCopyMessage(content: string) {
-		try {
-			await navigator.clipboard.writeText(content);
-		} catch (err) {
-			log.error('Failed to copy message:', err);
-		}
-	}
-
-	function formatGroupTime(date: Date): string {
-		return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-	}
-
-	function getRoleClass(role: string): string {
-		return `role-${role}`;
-	}
-
-	function getMessageStatusClass(status: string | undefined): string {
-		if (status === 'error') return styles.messageError;
-		if (status === 'sending') return styles.messageSending;
-		return '';
-	}
-
-	/**
-	 * Get thread title by ID.
-	 */
-	function getThreadTitle(threadId: string | undefined): string | undefined {
-		if (!threadId) return undefined;
-		return threads.find((t) => t.id === threadId)?.title;
-	}
-
-	/**
-	 * Check if a message should use specialized rendering based on its kind.
-	 */
-	function getMessageKind(message: Message): 'thinking' | 'tool_call' | 'terminal' | null {
-		return message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal'
-			? message.kind
-			: null;
-	}
-
-	/**
-	 * Check if a message should show a group header.
-	 * Agent messages (thinking, tool_call, terminal) don't show group headers.
-	 */
-	function shouldShowGroupHeader(index: number): boolean {
-		if (index === 0) return true;
-
-		const currentMessage = messages[index];
-		const previousMessage = messages[index - 1];
-
-		// Skip group header for agent-specific messages
-		if (getMessageKind(currentMessage)) return false;
-
-		// Show header if role changed
-		if (currentMessage.role !== previousMessage.role) return true;
-
-		// Show header if time gap > 5 minutes
-		const timeDiff = currentMessage.timestamp.getTime() - previousMessage.timestamp.getTime();
-		if (timeDiff >= 5 * 60 * 1000) return true;
-
-		return false;
-	}
-
-	/**
-	 * Check if an agent message should show an ASSISTANT group header.
-	 * Shows header when starting a new agent message sequence or after a time gap.
-	 */
-	function shouldShowAgentHeader(index: number): boolean {
-		const currentMessage = messages[index];
-
-		// Only for agent-specific messages
-		if (!getMessageKind(currentMessage)) return false;
-
-		// First message always shows header
-		if (index === 0) return true;
-
-		const previousMessage = messages[index - 1];
-
-		// Show if previous message wasn't an agent message
-		const prevIsAgentMessage = getMessageKind(previousMessage) !== null;
-		if (!prevIsAgentMessage) {
-			// Only show if coming from a different role (not assistant) or first in sequence
-			return previousMessage.role !== 'assistant';
-		}
-
-		// Show if time gap > 5 minutes between agent messages
-		const timeDiff = currentMessage.timestamp.getTime() - previousMessage.timestamp.getTime();
-		if (timeDiff >= 5 * 60 * 1000) return true;
-
-		return false;
-	}
-
 	// Ambiguity resolution handlers
 	function handleResolveAmbiguity(ambiguityId: string, resolution: string, type: ResolutionType) {
 		chatStore.resolveAmbiguity(ambiguityId, resolution, type);
@@ -562,47 +410,6 @@
 
 	// Track messages presence for CSS transitions
 	let hasMessages = $derived(messages.length > 0);
-
-	// Check if current messages contain agent activity (thinking, tool_call, terminal)
-	// When present, we suppress the generic AnsweringIndicator to avoid duplicates
-	let hasAgentMessages = $derived(
-		messages.some((m) => m.kind === 'thinking' || m.kind === 'tool_call' || m.kind === 'terminal')
-	);
-
-	// Derive agent status from active session
-	let agentStatus = $derived(
-		(() => {
-			const session = $activeSession;
-			if (!session) return null;
-
-			const hasPendingApproval = $pendingActions.length > 0;
-
-			// Get latest execution step
-			const latestStep = session.executionSteps?.[session.executionSteps.length - 1] ?? null;
-
-			// Get current in-progress subtask
-			const currentSubtask =
-				session.tasks
-					?.flatMap((t) => t.subtasks ?? [])
-					.find((st) => st.status === 'in_progress') ?? null;
-
-			// Get context usage from session state
-			const contextUsage = session.state.type === 'running' ? session.state.contextUsage : 0;
-
-			// Get last activity timestamp for stall detection
-			const lastActivityAt = session.updatedAt ? new Date(session.updatedAt) : null;
-
-			return getAgentStatus(
-				session.state,
-				latestStep,
-				currentSubtask,
-				hasPendingApproval,
-				session.statusPhrases,
-				contextUsage,
-				lastActivityAt
-			);
-		})()
-	);
 </script>
 
 <div class={[styles.chatArea, hasMessages && styles.hasMessages].filter(Boolean).join(' ')}>
@@ -612,191 +419,25 @@
 		class={[styles.messagesWrapper, !hasMessages && styles.isEmptyState].filter(Boolean).join(' ')}
 		onscroll={handleScroll}
 	>
-		{#if messagesLoading === 'loading'}
-			<div class={styles.loading}>
-				<div class={styles.spinner}></div>
-				<span>Loading messages...</span>
-			</div>
-		{:else if messagesLoading === 'error' || error}
-			<div class={styles.error}>
-				<svg
-					class={styles.errorIcon}
-					width="48"
-					height="48"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<circle cx="12" cy="12" r="10" />
-					<line x1="12" y1="8" x2="12" y2="12" />
-					<line x1="12" y1="16" x2="12.01" y2="16" />
-				</svg>
-				<p class={styles.errorMessage}>{error || 'Failed to load messages'}</p>
-				{#if onRetry}
-					<button class={styles.retryButton} onclick={handleRetry} type="button"> Retry </button>
-				{/if}
-			</div>
-		{:else if messages.length === 0}
-			<div class={styles.emptyWrapper}>
-				<EmptyThreadState {hasInputActivity} context={emptyContext} {conversationTitle} />
-			</div>
-		{:else}
-			<!-- Messages - flat rendering to avoid Svelte 5 nested #each reconciliation issues -->
-			{#each messages as message, index (message.id)}
-				<!-- Agent-specific messages (thinking, tool_call, terminal) - rendered with assistant styling -->
-				{#if message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal'}
-					<!-- Show ASSISTANT group header for agent messages -->
-					{#if shouldShowAgentHeader(index)}
-						<div class={styles.messageGroup}>
-							<div class={styles.groupHeader}>
-								<span class={styles.groupRole}>ASSISTANT</span>
-								<span class={styles.groupTime}>{formatGroupTime(message.timestamp)}</span>
-							</div>
-						</div>
-					{/if}
-					<div
-						class={[styles.messageWrapper, styles.assistantWrapper, styles.agentMessageWrapper]
-							.filter(Boolean)
-							.join(' ')}
-					>
-						<div
-							class={[styles.message, styles.roleAssistant]
-								.filter(Boolean)
-								.join(' ')}
-						>
-							{#if message.kind === 'thinking'}
-								<ThinkingMessage {message} />
-							{:else if message.kind === 'tool_call'}
-								<ToolCallMessage {message} />
-							{:else if message.kind === 'terminal'}
-								<TerminalOutput {message} />
-							{/if}
-						</div>
-					</div>
-				{:else}
-					<!-- Normal messages (user, assistant, system) -->
-					{#if shouldShowGroupHeader(index)}
-						<div
-							class={[styles.messageGroup, index === 0 && styles.messageGroupFirst]
-								.filter(Boolean)
-								.join(' ')}
-						>
-							<div class={styles.groupHeader}>
-								<span class={styles.groupRole}>{message.role}</span>
-								<span class={styles.groupTime}>{formatGroupTime(message.timestamp)}</span>
-							</div>
-						</div>
-					{/if}
-					<div
-						class={[
-							styles.messageWrapper,
-							message.role === 'user' ? styles.userWrapper : styles.assistantWrapper
-						]
-							.filter(Boolean)
-							.join(' ')}
-					>
-						<div
-							class={[
-								styles.message,
-								styles[getRoleClass(message.role)],
-								getMessageStatusClass(message.status)
-							]
-								.filter(Boolean)
-								.join(' ')}
-						>
-							<!-- Thread indicator -->
-							{#if message.threadId && getThreadTitle(message.threadId)}
-								<ThreadIndicator
-									thread={{
-										id: message.threadId,
-										title: getThreadTitle(message.threadId)!
-									} as any}
-									onclick={() => onThreadClick?.(message.threadId!)}
-									compact
-								/>
-							{/if}
-							<div class={styles.messageContent}>
-								<MarkdownRenderer content={message.content} />
-							</div>
-							<!-- Message status indicator -->
-							{#if message.status === 'sending' && message.content.trim() === '' && !hasAgentMessages}
-								<AnsweringIndicator status={agentStatus} />
-							{:else if message.status === 'error'}
-								<div class={styles.statusIndicator} aria-label="Failed to send">
-									<button
-										class={styles.retryIconButton}
-										onclick={() => onRetryMessage?.(message.id)}
-										title="Retry sending"
-										type="button"
-									>
-										<svg
-											width="14"
-											height="14"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-										>
-											<path d="M1 4v6h6" />
-											<path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-										</svg>
-									</button>
-								</div>
-							{/if}
-						</div>
-						<!-- Message actions -->
-						{#if message.status !== 'sending'}
-							<div class={styles.actionsContainer}>
-								<MessageActions
-									showCopy={true}
-									showEdit={message.role === 'user'}
-									showDelete={true}
-									showRetry={message.status === 'error'}
-									showFeedback={message.role === 'assistant'}
-									feedback={message.metadata?.feedback}
-									onCopy={() => handleCopyMessage(message.content)}
-									onEdit={() => onEditMessage?.(message.id)}
-									onDelete={() => onDeleteMessage?.(message.id)}
-									onRetry={() => onRetryMessage?.(message.id)}
-									onFeedback={(feedback) => onMessageFeedback?.(message.id, feedback)}
-								/>
-							</div>
-						{/if}
-					</div>
-				{/if}
-			{/each}
-
-			<!-- Answering indicator (only show when no specialized agent messages are present) -->
-			{#if isTyping && !hasAgentMessages}
-				<AnsweringIndicator status={agentStatus} />
-			{/if}
-		{/if}
+		<ChatMessagesList
+			{messages}
+			{threads}
+			{messagesLoading}
+			{emptyContext}
+			{conversationTitle}
+			{isTyping}
+			{error}
+			{hasInputActivity}
+			onEditMessage={onEditMessage}
+			onDeleteMessage={onDeleteMessage}
+			onRetryMessage={onRetryMessage}
+			onMessageFeedback={onMessageFeedback}
+			onThreadClick={onThreadClick}
+			onRetry={onRetry}
+		/>
 
 		<!-- Scroll to bottom button -->
-		{#if showScrollButton}
-			<button
-				class={[styles.scrollToBottom, $isLlmStreaming && styles.pulsing, styles.secondaryElements]
-					.filter(Boolean)
-					.join(' ')}
-				onclick={handleScrollToBottom}
-				aria-label="Scroll to latest messages"
-				type="button"
-			>
-				<svg
-					width="20"
-					height="20"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<polyline points="6 9 12 15 18 9" />
-				</svg>
-			</button>
-		{/if}
+		<ChatScrollButton show={showScrollButton} onclick={handleScrollToBottom} />
 	</div>
 
 	<!-- Ambiguity resolution banner -->
@@ -811,25 +452,17 @@
 	{/if}
 
 	<!-- Input area -->
-	{#if showInput}
-		<div
-			class={[styles.inputContainer, inputAnimatingIn && styles.animateIn]
-				.filter(Boolean)
-				.join(' ')}
-		>
-			<ChatInput
-				value={inputValue}
-				onchange={handleInputChange}
-				onsubmit={handleSubmit}
-				onfocus={handleInputFocus}
-				onblur={handleInputBlur}
-				placeholder="Send a message..."
-				{loading}
-				showIntent={true}
-				modelId={selectedModelId}
-				onModelChange={handleModelChange}
-				{onOpenSettings}
-			/>
-		</div>
-	{/if}
+	<ChatInputContainer
+		bind:value={inputValue}
+		onchange={handleInputChange}
+		onsubmit={handleSubmit}
+		onfocus={handleInputFocus}
+		onblur={handleInputBlur}
+		placeholder="Send a message..."
+		{loading}
+		{threadResolved}
+		modelId={selectedModelId}
+		onModelChange={handleModelChange}
+		onOpenSettings={onOpenSettings}
+	/>
 </div>

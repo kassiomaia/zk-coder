@@ -7,6 +7,7 @@
 	import Popover from './Popover.svelte';
 	import type { PopoverItem } from './popover.types';
 	import type { ListItemActionsProps } from './list-item-actions.types';
+	import { MoreIcon } from '$lib/icons';
 	import styles from './ListItemActions.module.css';
 
 	let {
@@ -146,20 +147,7 @@
 		aria-haspopup="true"
 		type="button"
 	>
-		<svg
-			width={iconSize}
-			height={iconSize}
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-		>
-			<circle cx="12" cy="12" r="1" />
-			<circle cx="19" cy="12" r="1" />
-			<circle cx="5" cy="12" r="1" />
-		</svg>
+		<MoreIcon size={iconSize} />
 	</button>
 
 	<Popover

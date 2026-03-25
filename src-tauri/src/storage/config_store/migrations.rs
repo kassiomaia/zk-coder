@@ -1,6 +1,6 @@
 //! Database migrations for the config store.
 
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 
 use super::ConfigStoreError;
 

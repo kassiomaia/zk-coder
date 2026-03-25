@@ -6,6 +6,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+// Re-export MessageRole from core::chat::entities as the canonical type
+pub use crate::core::chat::entities::MessageRole;
+
 /// A conversation context window.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextWindow {
@@ -131,41 +134,6 @@ impl ContextMessage {
             content: content.to_string(),
             timestamp: Utc::now(),
             tokens: None,
-        }
-    }
-}
-
-/// Message role in a conversation.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum MessageRole {
-    /// User message
-    User,
-    /// Assistant response
-    Assistant,
-    /// System instruction
-    System,
-}
-
-impl MessageRole {
-    /// Returns the string representation for serialization.
-    #[must_use]
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            MessageRole::User => "user",
-            MessageRole::Assistant => "assistant",
-            MessageRole::System => "system",
-        }
-    }
-
-    /// Parses a role from a string.
-    #[must_use]
-    pub fn from_str(s: &str) -> Self {
-        match s {
-            "user" => MessageRole::User,
-            "assistant" => MessageRole::Assistant,
-            "system" => MessageRole::System,
-            _ => MessageRole::User,
         }
     }
 }

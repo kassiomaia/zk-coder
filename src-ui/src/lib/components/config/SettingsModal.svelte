@@ -11,6 +11,7 @@
 	import ModelCard from './ModelCard.svelte';
 	import ProviderIcon from './ProviderIcon.svelte';
 	import OperationIcon from './OperationIcon.svelte';
+	import { UserIcon, CheckIcon, AlertCircleIcon, BoxIcon } from '$lib/icons';
 	import { createLogger } from '$lib/utils/logger';
 
 	const log = createLogger('SettingsModal');
@@ -95,22 +96,7 @@
 			<section class="modal-section {styles.section}">
 				<header class={styles.sectionHeader}>
 					<div class={styles.sectionIconWrapper}>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="18"
-							height="18"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-							<circle cx="9" cy="7" r="4" />
-							<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-							<path d="M16 3.13a4 4 0 0 1 0 7.75" />
-						</svg>
+						<UserIcon size={18} />
 					</div>
 					<h3 class={styles.sectionTitle}>Providers</h3>
 					<Button variant="primary" size="sm" onclick={onaddcustom}>Add Provider</Button>
@@ -135,17 +121,7 @@
 							<div class={styles.providerActions}>
 								{#if provider.isConfigured}
 									<span class={styles.configuredBadge}>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="14"
-											height="14"
-											viewBox="0 0 24 24"
-											fill="none"
-											stroke="currentColor"
-											stroke-width="2"
-										>
-											<polyline points="20 6 9 17 4 12" />
-										</svg>
+										<CheckIcon size={14} />
 										Connected
 									</span>
 								{/if}
@@ -167,19 +143,7 @@
 
 					{#if $configStore.providers.length === 0}
 						<div class={styles.emptyState}>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="24"
-								height="24"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<circle cx="12" cy="12" r="10" />
-								<line x1="12" y1="8" x2="12" y2="12" />
-								<line x1="12" y1="16" x2="12.01" y2="16" />
-							</svg>
+							<AlertCircleIcon size={24} />
 							<span>No providers configured. Add a provider to get started.</span>
 						</div>
 					{/if}
@@ -190,23 +154,7 @@
 			<section class="modal-section {styles.section}">
 				<header class={styles.sectionHeader}>
 					<div class={styles.sectionIconWrapper}>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="18"
-							height="18"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path
-								d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
-							/>
-							<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-							<line x1="12" y1="22.08" x2="12" y2="12" />
-						</svg>
+						<BoxIcon size={18} />
 					</div>
 					<h3 class={styles.sectionTitle}>Default Models by Operation</h3>
 				</header>
