@@ -19,6 +19,11 @@ export interface AgentState {
 }
 
 /**
+ * Alias for AgentState for use in other modules.
+ */
+export type CoreAgentState = AgentState;
+
+/**
  * Create the initial state for a new agent store.
  */
 export function createInitialState(): AgentState {

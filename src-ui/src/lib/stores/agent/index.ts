@@ -5,7 +5,7 @@
 
 // Main store export
 export { agentStore } from './store';
-export type { AgentStore, AgentStoreInstance } from './store';
+export type { AgentStore } from './store';
 
 // State types
 export type { AgentState } from './state';

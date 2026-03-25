@@ -217,8 +217,7 @@
 					<div class={styles.operationGroup}>
 						<header class={styles.operationHeader}>
 							<div class={styles.operationIcon} style:color={op.color}>
-								<!-- @ts-expect-error: icon string matches OperationType -->
-								<OperationIcon type={op.icon} size={18} color={op.color} />
+								<OperationIcon type={op.id} size={18} color={op.color} />
 							</div>
 							<div class={styles.operationInfo}>
 								<span class={styles.operationName}>{op.name}</span>

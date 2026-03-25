@@ -10,6 +10,10 @@ const config = {
 			precompress: false,
 			strict: true
 		})
+	},
+	// Exclude test files from svelte-check
+	service: {
+		exclude: ['**/*.test.ts', '**/*.test.js', '**/*.spec.ts', '**/*.spec.js']
 	}
 };
 

@@ -422,13 +422,15 @@ mod tests {
         session.id
     }
 
-    fn make_test_task(conn: &Connection, _task_id: &str, session_id: &SessionId) {
+    fn make_test_task(conn: &Connection, session_id: &SessionId) -> String {
         let task = AgentTask::new(session_id.clone(), crate::agents::task::AgentRequest {
             content: "Test request".to_string(),
             attachments: vec![],
             context: None,
         });
+        let task_id = task.id.clone();
         create_task(conn, &task).unwrap();
+        task_id
     }
 
     #[test]
@@ -437,7 +439,7 @@ mod tests {
         super::super::schema::init_schema(&conn).unwrap();
 
         let session_id = make_test_session(&conn);
-        make_test_task(&conn, "task-1", &session_id);
+        make_test_task(&conn, &session_id);
 
         let tasks = get_session_tasks(&conn, &session_id).unwrap();
         assert_eq!(tasks.len(), 1);
@@ -452,6 +454,8 @@ mod tests {
         let session_id = make_test_session(&conn);
         let task = AgentTask::new(session_id.clone(), AgentRequest {
             content: "Test request".to_string(),
+            attachments: vec![],
+            context: None,
         });
         create_task(&conn, &task).unwrap();
 
@@ -468,12 +472,12 @@ mod tests {
         super::super::schema::init_schema(&conn).unwrap();
 
         let session_id = make_test_session(&conn);
-        make_test_task(&conn, "task-1", &session_id);
+        let task_id = make_test_task(&conn, &session_id);
 
-        let subtask = SubTask::new("task-1".to_string(), "Test Subtask".to_string(), SubTaskMode::Read, 0);
+        let subtask = SubTask::new(task_id.clone(), "Test Subtask".to_string(), SubTaskMode::Read, 0);
         create_subtask(&conn, &subtask).unwrap();
 
-        let subtasks = get_subtasks(&conn, "task-1").unwrap();
+        let subtasks = get_subtasks(&conn, &task_id).unwrap();
         assert_eq!(subtasks.len(), 1);
         assert_eq!(subtasks[0].title, "Test Subtask");
     }
@@ -484,14 +488,14 @@ mod tests {
         super::super::schema::init_schema(&conn).unwrap();
 
         let session_id = make_test_session(&conn);
-        make_test_task(&conn, "task-1", &session_id);
+        let task_id = make_test_task(&conn, &session_id);
 
-        let subtask = SubTask::new("task-1".to_string(), "Test Subtask".to_string(), SubTaskMode::Read, 0);
+        let subtask = SubTask::new(task_id.clone(), "Test Subtask".to_string(), SubTaskMode::Read, 0);
         create_subtask(&conn, &subtask).unwrap();
 
         update_subtask_status(&conn, &subtask.id, &TaskStatus::Completed).unwrap();
 
-        let subtasks = get_subtasks(&conn, "task-1").unwrap();
+        let subtasks = get_subtasks(&conn, &task_id).unwrap();
         assert!(matches!(subtasks[0].status, TaskStatus::Completed));
         assert!(subtasks[0].completed_at.is_some());
     }
@@ -502,14 +506,14 @@ mod tests {
         super::super::schema::init_schema(&conn).unwrap();
 
         let session_id = make_test_session(&conn);
-        make_test_task(&conn, "task-1", &session_id);
+        let task_id = make_test_task(&conn, &session_id);
 
-        let subtask = SubTask::new("task-1".to_string(), "Test Subtask".to_string(), SubTaskMode::Read, 0);
+        let subtask = SubTask::new(task_id.clone(), "Test Subtask".to_string(), SubTaskMode::Read, 0);
         create_subtask(&conn, &subtask).unwrap();
 
-        delete_subtasks(&conn, "task-1").unwrap();
+        delete_subtasks(&conn, &task_id).unwrap();
 
-        let subtasks = get_subtasks(&conn, "task-1").unwrap();
+        let subtasks = get_subtasks(&conn, &task_id).unwrap();
         assert_eq!(subtasks.len(), 0);
     }
 
@@ -519,14 +523,14 @@ mod tests {
         super::super::schema::init_schema(&conn).unwrap();
 
         let session_id = make_test_session(&conn);
-        make_test_task(&conn, "task-1", &session_id);
+        let task_id = make_test_task(&conn, &session_id);
 
-        let subtask1 = SubTask::new("task-1".to_string(), "First".to_string(), SubTaskMode::Read, 1);
-        let subtask2 = SubTask::new("task-1".to_string(), "Second".to_string(), SubTaskMode::Write, 0);
+        let subtask1 = SubTask::new(task_id.clone(), "First".to_string(), SubTaskMode::Read, 1);
+        let subtask2 = SubTask::new(task_id.clone(), "Second".to_string(), SubTaskMode::Write, 0);
         create_subtask(&conn, &subtask1).unwrap();
         create_subtask(&conn, &subtask2).unwrap();
 
-        let fetched = get_subtasks(&conn, "task-1").unwrap();
+        let fetched = get_subtasks(&conn, &task_id).unwrap();
         assert_eq!(fetched.len(), 2);
         assert_eq!(fetched[0].order, 0);
         assert_eq!(fetched[0].title, "Second");
@@ -540,20 +544,20 @@ mod tests {
         super::super::schema::init_schema(&conn).unwrap();
 
         let session_id = make_test_session(&conn);
-        make_test_task(&conn, "task-1", &session_id);
-        make_test_task(&conn, "task-2", &session_id);
+        let task1_id = make_test_task(&conn, &session_id);
+        let task2_id = make_test_task(&conn, &session_id);
 
-        let subtask1 = SubTask::new("task-1".to_string(), "Task 1 Subtask".to_string(), SubTaskMode::Read, 0);
-        let subtask2 = SubTask::new("task-2".to_string(), "Task 2 Subtask".to_string(), SubTaskMode::Write, 0);
+        let subtask1 = SubTask::new(task1_id.clone(), "Task 1 Subtask".to_string(), SubTaskMode::Read, 0);
+        let subtask2 = SubTask::new(task2_id.clone(), "Task 2 Subtask".to_string(), SubTaskMode::Write, 0);
         create_subtask(&conn, &subtask1).unwrap();
         create_subtask(&conn, &subtask2).unwrap();
 
-        let task1_subtasks = get_subtasks(&conn, "task-1").unwrap();
-        let task2_subtasks = get_subtasks(&conn, "task-2").unwrap();
+        let task1_subtasks = get_subtasks(&conn, &task1_id).unwrap();
+        let task2_subtasks = get_subtasks(&conn, &task2_id).unwrap();
 
         assert_eq!(task1_subtasks.len(), 1);
         assert_eq!(task2_subtasks.len(), 1);
-        assert_eq!(task1_subtasks[0].task_id, "task-1");
-        assert_eq!(task2_subtasks[0].task_id, "task-2");
+        assert_eq!(task1_subtasks[0].task_id, task1_id);
+        assert_eq!(task2_subtasks[0].task_id, task2_id);
     }
 }

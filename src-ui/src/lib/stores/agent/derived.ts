@@ -3,34 +3,36 @@
  * Derived Svelte stores for the agent store.
  */
 
-import { derived, readable } from 'svelte/store';
+import { derived } from 'svelte/store';
 import type { Readable } from 'svelte/store';
 import type { AgentStore } from './store';
-import type { AgentSession, PendingAction } from '$lib/types/agent';
+import type { AgentSession } from '$lib/types/agent';
+import type { CoreAgentState } from './state';
 
 /**
  * Create derived stores from the agent store.
+ * The agentStore parameter must have a subscribe method to be readable.
  */
-export function createDerivedStores(agentStore: AgentStore) {
+export function createDerivedStores(agentStore: AgentStore & Readable<CoreAgentState>) {
 	/** Currently active agent session */
-	const activeSession = createDerived(agentStore, ($state) =>
+	const activeSession = derived(agentStore, ($state) =>
 		$state.activeSessionId ? ($state.sessions.get($state.activeSessionId) ?? null) : null
 	);
 
 	/** All sessions as an array */
-	const allSessions = createDerived(agentStore, ($state) => Array.from($state.sessions.values()));
+	const allSessions = derived(agentStore, ($state) => Array.from($state.sessions.values()));
 
 	/** Pending actions for the active session */
-	const pendingActions = createDerived(agentStore, ($state) => $state.pendingActions);
+	const pendingActions = derived(agentStore, ($state) => $state.pendingActions);
 
 	/** Whether the agent panel is open */
-	const agentPanelOpen = createDerived(agentStore, ($state) => $state.panelOpen);
+	const agentPanelOpen = derived(agentStore, ($state) => $state.panelOpen);
 
 	/** Whether the agent store is loading */
-	const agentLoading = createDerived(agentStore, ($state) => $state.loading);
+	const agentLoading = derived(agentStore, ($state) => $state.loading);
 
 	/** Agent store error */
-	const agentError = createDerived(agentStore, ($state) => $state.error);
+	const agentError = derived(agentStore, ($state) => $state.error);
 
 	return {
 		activeSession,
@@ -40,14 +42,4 @@ export function createDerivedStores(agentStore: AgentStore) {
 		agentLoading,
 		agentError
 	};
-}
-
-/**
- * Helper to create a readable store that derives from a writable store's state.
- */
-function createDerived<T, U>(
-	store: Readable<T>,
-	deriveFn: (state: T) => U
-): Readable<U> {
-	return derived(store, deriveFn);
 }

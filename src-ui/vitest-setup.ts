@@ -1,8 +1,19 @@
-import { afterEach, vi } from 'vitest';
+import { afterEach, vi, expect, beforeEach } from 'vitest';
 import { cleanup } from '@testing-library/svelte';
+import * as matchers from '@testing-library/jest-dom/matchers';
+
+// Extend Vitest's expect with jest-dom matchers
+expect.extend(matchers);
 
 // Cleanup after each test
 afterEach(() => cleanup());
+
+// Force client-side mode before each test
+beforeEach(() => {
+	// Set global flags to indicate we're in a browser environment
+	global.window = global.window || {};
+	global.document = global.document || {};
+});
 
 // Mock window.matchMedia for responsive tests
 Object.defineProperty(window, 'matchMedia', {

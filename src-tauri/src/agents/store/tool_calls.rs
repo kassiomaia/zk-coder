@@ -121,7 +121,7 @@ mod tests {
         session.id
     }
 
-    fn make_test_task(conn: &Connection, _task_id: &str, session_id: &SessionId) {
+    fn make_test_task(conn: &Connection, session_id: &SessionId) -> String {
         let task = crate::agents::task::AgentTask::new(
             session_id.clone(),
             crate::agents::task::AgentRequest {
@@ -130,7 +130,9 @@ mod tests {
                 context: None,
             },
         );
+        let task_id = task.id.clone();
         super::super::tasks::create_task(conn, &task).unwrap();
+        task_id
     }
 
     #[test]
@@ -139,9 +141,9 @@ mod tests {
         super::super::schema::init_schema(&conn).unwrap();
 
         let session_id = make_test_session(&conn);
-        make_test_task(&conn, "task-1", &session_id);
+        let task_id = make_test_task(&conn, &session_id);
 
-        let subtask = SubTask::new("task-1".to_string(), "Test Subtask".to_string(), crate::agents::task::SubTaskMode::Read, 0);
+        let subtask = SubTask::new(task_id, "Test Subtask".to_string(), crate::agents::task::SubTaskMode::Read, 0);
         super::super::tasks::create_subtask(&conn, &subtask).unwrap();
 
         let tool_call_id = "tool-call-1";
@@ -204,7 +206,7 @@ mod tests {
         .unwrap();
 
         let result = serde_json::json!({"content": "file content"});
-        update_tool_call_result(tool_call_id, &result, false, Some(100)).unwrap();
+        update_tool_call_result(&conn, tool_call_id, &result, false, Some(100)).unwrap();
 
         let tool_calls = get_tool_calls_for_session(&conn, &session_id).unwrap();
         assert_eq!(tool_calls.len(), 1);

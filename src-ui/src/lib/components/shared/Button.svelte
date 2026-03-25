@@ -34,6 +34,10 @@
 		fullWidth?: boolean;
 		/** Additional CSS class */
 		class?: string;
+		/** ARIA label for accessibility */
+		'aria-label'?: string;
+		/** ARIA describedby */
+		'aria-describedby'?: string;
 	}
 
 	let {
@@ -49,7 +53,9 @@
 		tooltip,
 		animation = 'subtle',
 		fullWidth = false,
-		class: className = ''
+		class: className = '',
+		'aria-label': ariaLabel,
+		'aria-describedby': ariaDescribedby
 	}: Props = $props();
 
 	let isPressed = $state(false);
@@ -124,6 +130,8 @@
 		onmouseleave={handleMouseUp}
 		aria-disabled={disabled || loading}
 		aria-busy={loading}
+		aria-label={ariaLabel}
+		aria-describedby={ariaDescribedby}
 	>
 		{#if loading}
 			{@render renderSpinner()}
