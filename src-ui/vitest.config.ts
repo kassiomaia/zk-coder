@@ -10,7 +10,11 @@ export default defineConfig({
 	test: {
 		environment: 'happy-dom',
 		include: ['src/**/*.{test,spec}.{js,ts}'],
-		setupFiles: []
+		setupFiles: ['./vitest-setup.ts'],
+		coverage: {
+			provider: 'v8',
+			reporter: ['text', 'json', 'html']
+		}
 	},
 	resolve: {
 		alias: {
