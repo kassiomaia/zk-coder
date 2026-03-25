@@ -2,7 +2,7 @@
 
 use crate::agents::{AgentId, AgentSession, SessionId};
 use crate::agents::store::SessionStore;
-use crate::agents::task::{AgentRequest, TaskStatus, AgentTask, SubTask, SubTaskMode};
+use crate::agents::task::{AgentRequest, TaskStatus, AgentTask};
 
 /// Create a test session for tests.
 pub fn make_test_session(store: &SessionStore) -> SessionId {
@@ -32,6 +32,7 @@ pub fn make_test_task(store: &SessionStore, task_id: &str, session_id: &SessionI
         request,
         status: TaskStatus::Pending,
         steps: vec![],
+        subtasks: None,
         created_at: chrono::Utc::now(),
         completed_at: None,
     };

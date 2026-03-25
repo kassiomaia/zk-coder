@@ -1167,6 +1167,7 @@ mod tests {
             request,
             status: crate::agents::task::TaskStatus::Pending,
             steps: vec![],
+            subtasks: None,
             created_at: chrono::Utc::now(),
             completed_at: None,
         };
