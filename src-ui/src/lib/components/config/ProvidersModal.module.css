@@ -64,27 +64,27 @@
 }
 
 .providerIcon.anthropic {
-	background: linear-gradient(135deg, rgba(217, 119, 6, 0.15), rgba(146, 64, 14, 0.15));
-	color: rgba(217, 119, 6, 0.9);
-	border: 1px solid rgba(217, 119, 6, 0.2);
+	background: linear-gradient(135deg, var(--color-provider-anthropic-light), var(--color-provider-anthropic-dark));
+	color: var(--color-provider-anthropic-text);
+	border: 1px solid var(--color-provider-anthropic-border);
 }
 
 .providerIcon.openai {
-	background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.15));
-	color: rgba(16, 185, 129, 0.9);
-	border: 1px solid rgba(16, 185, 129, 0.2);
+	background: linear-gradient(135deg, var(--color-provider-openai-light), var(--color-provider-openai-dark));
+	color: var(--color-provider-openai-text);
+	border: 1px solid var(--color-provider-openai-border);
 }
 
 .providerIcon.google {
-	background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.15));
-	color: rgba(59, 130, 246, 0.9);
-	border: 1px solid rgba(59, 130, 246, 0.2);
+	background: linear-gradient(135deg, var(--color-provider-google-light), var(--color-provider-google-dark));
+	color: var(--color-provider-google-text);
+	border: 1px solid var(--color-provider-google-border);
 }
 
 .providerIcon.custom {
-	background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
-	color: rgba(99, 102, 241, 0.9);
-	border: 1px solid rgba(99, 102, 241, 0.2);
+	background: linear-gradient(135deg, var(--color-provider-custom-light), var(--color-provider-custom-dark));
+	color: var(--color-provider-custom-text);
+	border: 1px solid var(--color-provider-custom-border);
 }
 
 .providerName {
@@ -141,7 +141,7 @@
 }
 
 .card.configured {
-	border-color: rgba(16, 185, 129, 0.2);
+	border-color: var(--color-provider-openai-border);
 	background: rgba(16, 185, 129, 0.03);
 }
 

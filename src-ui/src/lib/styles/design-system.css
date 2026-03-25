@@ -28,17 +28,37 @@
 	--color-primary-800: #3730a3;
 	--color-primary-900: #312e81;
 
-	/* Provider Brand Colors - for provider icons */
-	--color-provider-anthropic: rgba(217, 119, 6, 0.85);
-	--color-provider-openai: rgba(16, 163, 127, 0.85);
-	--color-provider-google: rgba(59, 130, 246, 0.85);
-	--color-provider-default: rgba(99, 102, 241, 0.85);
+	/* Provider Brand Colors - for provider icons and badges */
+	/* Base colors (high opacity for icons/badges) */
+	--color-provider-anthropic: #d97706;
+	--color-provider-openai: #10a37f;
+	--color-provider-google: #3b82f6;
+	--color-provider-custom: #6366f1;
+	--color-provider-default: #6366f1;
 
-	/* Provider Brand Colors - Used for provider icons */
-	--color-provider-anthropic: rgba(217, 119, 6, 0.85);
-	--color-provider-openai: rgba(16, 163, 127, 0.85);
-	--color-provider-google: rgba(59, 130, 246, 0.85);
-	--color-provider-default: rgba(99, 102, 241, 0.85);
+	/* Light variants for backgrounds (15% opacity) */
+	--color-provider-anthropic-light: rgba(217, 119, 6, 0.15);
+	--color-provider-openai-light: rgba(16, 163, 127, 0.15);
+	--color-provider-google-light: rgba(59, 130, 246, 0.15);
+	--color-provider-custom-light: rgba(99, 102, 241, 0.15);
+
+	/* Border variants (20% opacity) */
+	--color-provider-anthropic-border: rgba(217, 119, 6, 0.2);
+	--color-provider-openai-border: rgba(16, 163, 127, 0.2);
+	--color-provider-google-border: rgba(59, 130, 246, 0.2);
+	--color-provider-custom-border: rgba(99, 102, 241, 0.2);
+
+	/* Text variants (90% opacity) */
+	--color-provider-anthropic-text: rgba(217, 119, 6, 0.9);
+	--color-provider-openai-text: rgba(16, 163, 127, 0.9);
+	--color-provider-google-text: rgba(59, 130, 246, 0.9);
+	--color-provider-custom-text: rgba(99, 102, 241, 0.9);
+
+	/* Darker gradients for two-stop gradients (darker end) */
+	--color-provider-anthropic-dark: rgba(146, 64, 14, 0.15);
+	--color-provider-openai-dark: rgba(5, 150, 105, 0.15);
+	--color-provider-google-dark: rgba(29, 78, 216, 0.15);
+	--color-provider-custom-dark: rgba(139, 92, 246, 0.15);
 
 	/* Neutral Colors - Text and backgrounds */
 	--color-neutral-0: #ffffff;

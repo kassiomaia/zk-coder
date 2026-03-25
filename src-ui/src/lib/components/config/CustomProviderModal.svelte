@@ -7,6 +7,7 @@
 	import Modal from '../shared/Modal.svelte';
 	import Button from '../shared/Button.svelte';
 	import Input from '../shared/Input.svelte';
+	import Spinner from '../shared/Spinner.svelte';
 	import { configStore } from '$lib/stores/configStore';
 	import type { ApiType } from '$lib/types/config';
 	import { get } from 'svelte/store';
@@ -45,11 +46,7 @@
 			.replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
 
 		// Use crypto.randomUUID() for guaranteed uniqueness
-		// Fallback to Math.random() if crypto API is not available
-		const randomSuffix =
-			typeof crypto !== 'undefined'
-				? crypto.randomUUID().substring(0, 8)
-				: Math.random().toString(36).substring(2, 10);
+		const randomSuffix = crypto.randomUUID().substring(0, 8);
 
 		return `${sanitized}-${randomSuffix}`;
 	}
@@ -270,25 +267,7 @@
 				disabled={isSubmitting || !providerName.trim() || !baseUrl.trim()}
 			>
 				{#if isSubmitting}
-					<svg
-						class={styles.spinner}
-						xmlns="http://www.w3.org/2000/svg"
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<line x1="12" y1="2" x2="12" y2="6" />
-						<line x1="12" y1="18" x2="12" y2="22" />
-						<line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-						<line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-						<line x1="2" y1="12" x2="6" y2="12" />
-						<line x1="18" y1="12" x2="22" y2="12" />
-						<line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-						<line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-					</svg>
+					<Spinner size={16} />
 				{/if}
 				Add Provider
 			</Button>

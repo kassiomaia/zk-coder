@@ -10,6 +10,7 @@
 	import { OPERATION_CONFIGS, type OperationType } from '$lib/types/config';
 	import ModelCard from './ModelCard.svelte';
 	import ProviderIcon from './ProviderIcon.svelte';
+	import OperationIcon from './OperationIcon.svelte';
 	import { createLogger } from '$lib/utils/logger';
 
 	const log = createLogger('SettingsModal');
@@ -216,90 +217,8 @@
 					<div class={styles.operationGroup}>
 						<header class={styles.operationHeader}>
 							<div class={styles.operationIcon} style:color={op.color}>
-								{#if op.icon === 'search'}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="18"
-										height="18"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<circle cx="11" cy="11" r="8" />
-										<line x1="21" y1="21" x2="16.65" y2="16.65" />
-									</svg>
-								{:else if op.icon === 'code'}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="18"
-										height="18"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<polyline points="16 18 22 12 16 6" />
-										<polyline points="8 6 2 12 8 18" />
-									</svg>
-								{:else if op.icon === 'eye'}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="18"
-										height="18"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-										<circle cx="12" cy="12" r="3" />
-									</svg>
-								{:else if op.icon === 'mic'}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="18"
-										height="18"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-										<path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-										<line x1="12" y1="19" x2="12" y2="23" />
-										<line x1="8" y1="23" x2="16" y2="23" />
-									</svg>
-								{:else if op.icon === 'lightbulb'}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="18"
-										height="18"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path d="M9 18h6" />
-										<path d="M10 22h4" />
-										<path
-											d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"
-										/>
-									</svg>
-								{:else if op.icon === 'check-circle'}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="18"
-										height="18"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-										<polyline points="22 4 12 14.01 9 11.01" />
-									</svg>
-								{/if}
+								<!-- @ts-expect-error: icon string matches OperationType -->
+								<OperationIcon type={op.icon} size={18} color={op.color} />
 							</div>
 							<div class={styles.operationInfo}>
 								<span class={styles.operationName}>{op.name}</span>

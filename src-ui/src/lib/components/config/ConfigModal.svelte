@@ -7,6 +7,7 @@
 	import Modal from '../shared/Modal.svelte';
 	import Button from '../shared/Button.svelte';
 	import Input from '../shared/Input.svelte';
+	import Spinner from '../shared/Spinner.svelte';
 	import { configStore, type ValidationState } from '$lib/stores/configStore';
 	import type { Provider, ApiType, ModelsSource } from '$lib/types/config';
 	import ProviderIcon from './ProviderIcon.svelte';
@@ -41,6 +42,15 @@
 		const state = $configStore;
 		return state.providers.find((p) => p.id === providerId) ?? null;
 	});
+
+	// Derived placeholder based on API type
+	let apiKeyPlaceholder = $derived(
+		provider?.apiType === 'anthropic'
+			? 'sk-ant-...'
+			: provider?.apiType === 'google'
+				? 'AIza...'
+				: 'sk-...'
+	);
 
 	async function handleValidate() {
 		if (!provider) return;
@@ -222,37 +232,15 @@
 			</div>
 
 			<div class={styles.form}>
-				{#if provider.apiType === 'anthropic'}
-					<Input
-						name="apiKey"
-						type="password"
-						value={apiKey}
-						onchange={(v) => (apiKey = v)}
-						label="API Key"
-						placeholder="sk-ant-..."
-						helper="Get your API key from the provider's dashboard"
-					/>
-				{:else if provider.apiType === 'google'}
-					<Input
-						name="apiKey"
-						type="password"
-						value={apiKey}
-						onchange={(v) => (apiKey = v)}
-						label="API Key"
-						placeholder="AIza..."
-						helper="Get your API key from the provider's dashboard"
-					/>
-				{:else}
-					<Input
-						name="apiKey"
-						type="password"
-						value={apiKey}
-						onchange={(v) => (apiKey = v)}
-						label="API Key"
-						placeholder="sk-..."
-						helper="Get your API key from the provider's dashboard"
-					/>
-				{/if}
+				<Input
+					name="apiKey"
+					type="password"
+					value={apiKey}
+					onchange={(v) => (apiKey = v)}
+					label="API Key"
+					placeholder={apiKeyPlaceholder}
+					helper="Get your API key from the provider's dashboard"
+				/>
 			</div>
 
 			<!-- Model Source Configuration -->
@@ -326,25 +314,7 @@
 			{#if validation.status !== 'idle'}
 				<div class={[styles.validation, styles[validation.status]].join(' ')}>
 					{#if validation.icon === 'loader-2'}
-						<svg
-							class={styles.spinner}
-							xmlns="http://www.w3.org/2000/svg"
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<line x1="12" y1="2" x2="12" y2="6" />
-							<line x1="12" y1="18" x2="12" y2="22" />
-							<line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-							<line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-							<line x1="2" y1="12" x2="6" y2="12" />
-							<line x1="18" y1="12" x2="22" y2="12" />
-							<line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-							<line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-						</svg>
+						<Spinner size={16} />
 					{:else if validation.icon === 'check-circle'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
