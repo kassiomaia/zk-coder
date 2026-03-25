@@ -9,6 +9,46 @@ import { toAgentTask } from '$lib/types/agent';
 import type { AgentState } from '../state';
 
 /**
+ * Runtime type guard to validate AgentSession structure.
+ * Prevents runtime crashes from malformed backend data.
+ */
+function isValidAgentSession(obj: unknown): obj is AgentSession {
+	if (typeof obj !== 'object' || obj === null) {
+		return false;
+	}
+
+	const session = obj as Record<string, unknown>;
+
+	// Check required string fields
+	const requiredStringFields = ['id', 'agentId', 'conversationId', 'threadId', 'createdAt', 'updatedAt'];
+	for (const field of requiredStringFields) {
+		if (typeof session[field] !== 'string') {
+			console.warn('[agentStore] Invalid session: missing or invalid string field:', field);
+			return false;
+		}
+	}
+
+	// Check state field
+	if (typeof session.state !== 'object' || session.state === null) {
+		console.warn('[agentStore] Invalid session: missing or invalid state field');
+		return false;
+	}
+
+	// Optional fields validation
+	if (session.tasks !== undefined && !Array.isArray(session.tasks)) {
+		console.warn('[agentStore] Invalid session: tasks must be an array');
+		return false;
+	}
+
+	if (session.toolCalls !== undefined && !Array.isArray(session.toolCalls)) {
+		console.warn('[agentStore] Invalid session: toolCalls must be an array');
+		return false;
+	}
+
+	return true;
+}
+
+/**
  * Create a new agent session.
  */
 export async function createSession(
@@ -29,36 +69,44 @@ export async function createSession(
 
 	try {
 		const { invoke } = await import('@tauri-apps/api/core');
-		const session = await invoke<AgentSession>('create_agent_session', {
+		const session = await invoke<Record<string, unknown>>('create_agent_session', {
 			agentId,
 			conversationId,
 			threadId,
 			workspaceRoot
 		});
 
+		// Validate session structure before using it
+		const validatedSession = session as unknown as AgentSession;
+		if (!isValidAgentSession(validatedSession)) {
+			console.error('[agentStore] Invalid session data received from backend:', session);
+			update((s) => ({ ...s, loading: false, error: 'Invalid session data received' }));
+			return null;
+		}
+
 		console.debug('[agentStore] Session created by backend:', {
-			sessionId: session.id,
-			workspaceRoot: session.workspaceRoot
+			sessionId: validatedSession.id,
+			workspaceRoot: validatedSession.workspaceRoot
 		});
 
 		update((state) => {
-			state.sessions.set(session.id, session);
+			state.sessions.set(validatedSession.id, validatedSession);
 			console.debug('[agentStore] Session stored:', {
-				sessionId: session.id,
+				sessionId: validatedSession.id,
 				totalSessions: state.sessions.size,
-				conversationId: session.conversationId,
-				threadId: session.threadId
+				conversationId: validatedSession.conversationId,
+				threadId: validatedSession.threadId
 			});
 			return {
 				...state,
 				sessions: new Map(state.sessions),
-				activeSessionId: session.id,
+				activeSessionId: validatedSession.id,
 				panelOpen: true,
 				loading: false
 			};
 		});
 
-		return session;
+		return validatedSession;
 	} catch (error) {
 		update((s) => ({ ...s, loading: false, error: String(error) }));
 		return null;
@@ -193,25 +241,55 @@ export async function getSessionDetails(sessionId: string): Promise<AgentSession
 		// Transform backend tool calls to frontend ToolCallRecord format
 		const backendToolCalls = raw.toolCalls as Record<string, unknown>[] | undefined;
 		if (backendToolCalls && Array.isArray(backendToolCalls)) {
-			(raw as Record<string, unknown>).toolCalls = backendToolCalls.map((tc) => ({
-				id: tc.id,
-				tool: tc.toolName,
-				arguments:
-					typeof tc.arguments === 'string'
-						? JSON.parse(tc.arguments as string)
-						: tc.arguments,
-				result: tc.result
-					? typeof tc.result === 'string'
-						? JSON.parse(tc.result as string)
-						: tc.result
-					: undefined,
-				isError: (tc.isError as boolean) ?? false,
-				durationMs: tc.durationMs,
-				timestamp: tc.timestamp
-			}));
+			(raw as Record<string, unknown>).toolCalls = backendToolCalls.map((tc) => {
+				// Safely parse arguments with error handling
+				let parsedArgs;
+				try {
+					parsedArgs =
+						typeof tc.arguments === 'string'
+							? JSON.parse(tc.arguments as string)
+							: tc.arguments;
+				} catch (e) {
+					console.error('[agentStore] Failed to parse tool call arguments:', e);
+					parsedArgs = tc.arguments;
+				}
+
+				// Safely parse result with error handling
+				let parsedResult;
+				if (tc.result) {
+					try {
+						parsedResult =
+							typeof tc.result === 'string'
+								? JSON.parse(tc.result as string)
+								: tc.result;
+					} catch (e) {
+						console.error('[agentStore] Failed to parse tool call result:', e);
+						parsedResult = tc.result;
+					}
+				} else {
+					parsedResult = undefined;
+				}
+
+				return {
+					id: tc.id,
+					tool: tc.toolName,
+					arguments: parsedArgs,
+					result: parsedResult,
+					isError: (tc.isError as boolean) ?? false,
+					durationMs: tc.durationMs,
+					timestamp: tc.timestamp
+				};
+			});
 		}
-		return raw as unknown as AgentSession;
+		// Validate the session structure before returning
+		const session = raw as unknown as AgentSession;
+		if (!isValidAgentSession(session)) {
+			console.error('[agentStore] Invalid session data received from backend:', session);
+			return null;
+		}
+		return session;
 	} catch (error) {
+		console.error('[agentStore] Failed to fetch session details:', error);
 		return null;
 	}
 }
@@ -240,7 +318,7 @@ export async function loadSession(
 		});
 		console.debug('[agentStore] Session loaded and added to store:', sessionId);
 	} else {
-		console.warn('[agentStore] Failed to load session:', sessionId);
+		console.warn('[agentStore] Failed to load session or invalid session data:', sessionId);
 	}
 	return session;
 }

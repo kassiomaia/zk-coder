@@ -1357,8 +1357,17 @@ impl AgentRuntime {
                 });
             }
 
-            // Handle retry
-            let err = last_error.unwrap();
+            // Handle retry - last_error must be Some here since we didn't return above
+            let err = match last_error {
+                Some(e) => e,
+                None => {
+                    // This should never happen, but defensive coding prevents panic
+                    error!("[AgentRuntime] Unexpected state: last_error is None but streaming didn't complete");
+                    return Err(AgentRuntimeError::Llm(
+                        "Streaming completed without error or success".to_string()
+                    ));
+                }
+            };
             let can_retry = err.is_retryable() && attempt < LLM_MAX_RETRIES;
             if !can_retry {
                 return Err(AgentRuntimeError::Llm(err.to_string()));

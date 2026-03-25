@@ -5,7 +5,7 @@
 
 import { writable, get } from 'svelte/store';
 import type { AgentEvent } from '$lib/types/agent';
-import type { AgentState, AgentStore } from './store';
+import type { AgentState as CoreAgentState } from './state';
 import { createInitialState } from './state';
 import * as Actions from './actions';
 import * as Events from './events';
@@ -15,17 +15,59 @@ import * as UiState from './uiState';
 import { createDerivedStores } from './derived';
 
 /**
- * Type for the agent store returned from createAgentStore.
+ * Agent store interface.
  */
-export interface AgentStoreInstance extends AgentStore {
-	subscribe: AgentState['subscribe'];
+export interface AgentStore {
+	subscribe: (fn: (value: CoreAgentState) => void) => () => void;
+	initialize(): Promise<void>;
+	destroy(): void;
+	createSession(
+		agentId: string,
+		conversationId: string,
+		threadId: string,
+		workspaceRoot?: string
+	): Promise<import('$lib/types/agent').AgentSession | null>;
+	loadSession(sessionId: string): Promise<import('$lib/types/agent').AgentSession | null>;
+	sendRequest(sessionId: string, content: string): Promise<void>;
+	approveAction(sessionId: string, actionId: string): Promise<void>;
+	denyAction(sessionId: string, actionId: string): Promise<void>;
+	cancelSession(sessionId: string): Promise<void>;
+	rollbackSession(sessionId: string): Promise<string[]>;
+	updateSessionWorkspace(sessionId: string, workspacePath: string): Promise<void>;
+	createSubtask(
+		taskId: string,
+		title: string,
+		description?: string,
+		order?: number
+	): Promise<string | null>;
+	updateSubtaskStatus(
+		subtaskId: string,
+		status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled'
+	): Promise<void>;
+	getSessionHistory(conversationId: string): Promise<import('$lib/types/agent').AgentSession[]>;
+	getSessionDetails(sessionId: string): Promise<import('$lib/types/agent').AgentSession | null>;
+	listAgents(): Promise<import('$lib/types/agent').Agent[]>;
+	getAgent(agentId: string): Promise<import('$lib/types/agent').Agent | null>;
+	togglePanel(): void;
+	setActiveSession(sessionId: string | null): void;
+	clearError(): void;
+	setExecutionCompleteCallback(
+		callback: (conversationId: string, threadId: string, content: string) => void
+	): void;
+	setSystemMessageCallback(callback: (conversationId: string, message: string) => void): void;
+	setAgentActivityCallback(
+		callback: (conversationId: string, threadId: string, message: Partial<any>) => void
+	): void;
+	setCleanupTransientCallback(
+		callback: (conversationId: string, threadId: string, sessionId: string) => void
+	): void;
 }
 
 /**
  * Create the agent store.
  */
-function createAgentStore(): AgentStoreInstance {
-	const { subscribe, set, update } = writable<AgentState>(createInitialState());
+function createAgentStore(): AgentStore {
+	const { subscribe, set, update } = writable<CoreAgentState>(createInitialState());
 
 	let eventUnsubscribe: (() => void) | null = null;
 
@@ -34,6 +76,12 @@ function createAgentStore(): AgentStoreInstance {
 	 */
 	async function initialize() {
 		try {
+			// Clean up existing listener before creating new one to prevent memory leaks
+			if (eventUnsubscribe) {
+				eventUnsubscribe();
+				eventUnsubscribe = null;
+			}
+
 			// Dynamic import to avoid SSR issues with Tauri APIs
 			const { listen } = await import('@tauri-apps/api/event');
 			const unlisten = await listen<AgentEvent>('agent:event', (event) => {
@@ -255,67 +303,6 @@ function createAgentStore(): AgentStoreInstance {
 		setAgentActivityCallback,
 		setCleanupTransientCallback
 	};
-}
-
-/**
- * Agent state interface with subscribe method.
- */
-export interface AgentState {
-	sessions: Map<string, import('$lib/types/agent').AgentSession>;
-	activeSessionId: string | null;
-	pendingActions: import('$lib/types/agent').PendingAction[];
-	panelOpen: boolean;
-	loading: boolean;
-	error: string | null;
-	subscribe: (fn: (value: AgentState) => void) => () => void;
-}
-
-/**
- * Agent store interface.
- */
-export interface AgentStore {
-	initialize(): Promise<void>;
-	destroy(): void;
-	createSession(
-		agentId: string,
-		conversationId: string,
-		threadId: string,
-		workspaceRoot?: string
-	): Promise<import('$lib/types/agent').AgentSession | null>;
-	loadSession(sessionId: string): Promise<import('$lib/types/agent').AgentSession | null>;
-	sendRequest(sessionId: string, content: string): Promise<void>;
-	approveAction(sessionId: string, actionId: string): Promise<void>;
-	denyAction(sessionId: string, actionId: string): Promise<void>;
-	cancelSession(sessionId: string): Promise<void>;
-	rollbackSession(sessionId: string): Promise<string[]>;
-	updateSessionWorkspace(sessionId: string, workspacePath: string): Promise<void>;
-	createSubtask(
-		taskId: string,
-		title: string,
-		description?: string,
-		order?: number
-	): Promise<string | null>;
-	updateSubtaskStatus(
-		subtaskId: string,
-		status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled'
-	): Promise<void>;
-	getSessionHistory(conversationId: string): Promise<import('$lib/types/agent').AgentSession[]>;
-	getSessionDetails(sessionId: string): Promise<import('$lib/types/agent').AgentSession | null>;
-	listAgents(): Promise<import('$lib/types/agent').Agent[]>;
-	getAgent(agentId: string): Promise<import('$lib/types/agent').Agent | null>;
-	togglePanel(): void;
-	setActiveSession(sessionId: string | null): void;
-	clearError(): void;
-	setExecutionCompleteCallback(
-		callback: (conversationId: string, threadId: string, content: string) => void
-	): void;
-	setSystemMessageCallback(callback: (conversationId: string, message: string) => void): void;
-	setAgentActivityCallback(
-		callback: (conversationId: string, threadId: string, message: Partial<any>) => void
-	): void;
-	setCleanupTransientCallback(
-		callback: (conversationId: string, threadId: string, sessionId: string) => void
-	): void;
 }
 
 export const agentStore = createAgentStore();
