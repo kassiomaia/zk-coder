@@ -82,6 +82,7 @@
 		role="listbox"
 		aria-label="Available commands"
 		aria-activedescendant={flatCommands.length > 0 ? `command-option-${selectedIndex}` : undefined}
+		tabindex="-1"
 	>
 		<div class={styles.header}>
 			<span class={styles.title}>Commands</span>

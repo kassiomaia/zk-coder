@@ -54,6 +54,13 @@
 					if (hasSubtasks) toggleTask(task.id);
 					ontaskclick?.(task);
 				}}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						if (hasSubtasks) toggleTask(task.id);
+						ontaskclick?.(task);
+					}
+				}}
 			>
 				<span class="status-icon {getStatusClass(task.status)}">
 					{#if task.status === 'in_progress'}

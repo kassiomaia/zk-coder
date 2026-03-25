@@ -155,12 +155,17 @@
 
 	// State
 	let visible = $state(false);
-	let actualPosition = $state<Position>(position);
+	let actualPosition = $state<Position>('top');
 	let triggerRef: HTMLElement | null = $state(null);
 	let tooltipRef: HTMLDivElement | null = $state(null);
 	let arrowOffset = $state(0); // Arrow horizontal offset from center
 	let showTimeout: ReturnType<typeof setTimeout> | null = null;
 	let hideTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	// Sync actualPosition with position prop changes
+	$effect(() => {
+		actualPosition = position;
+	});
 
 	// Use $effect to trigger calculation after DOM is updated and visible
 	$effect(() => {

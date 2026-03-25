@@ -25,6 +25,14 @@
 	// State for custom input
 	let customInput = $state('');
 	let showCustomInput = $state(false);
+	let customInputRef: HTMLInputElement | undefined = $state();
+
+	// Focus input when custom input is shown
+	$effect(() => {
+		if (showCustomInput && customInputRef) {
+			customInputRef.focus();
+		}
+	});
 
 	// Derived values
 	let severityClass = $derived(styles[ambiguity.severity]);
@@ -115,12 +123,12 @@
 		{#if showCustomInput}
 			<div class={styles.customInputWrapper}>
 				<input
+					bind:this={customInputRef}
 					type="text"
 					class={styles.customInput}
 					bind:value={customInput}
 					onkeydown={handleKeydown}
 					placeholder="Enter custom value..."
-					autofocus
 				/>
 				<div class={styles.customInputActions}>
 					<IconButton

@@ -26,8 +26,13 @@
 
 	let { value = '', placeholder = '', maxLength = 50, onSave, onCancel, icon }: Props = $props();
 
-	let inputValue = $state(value);
+	let inputValue = $state('');
 	let inputRef: HTMLInputElement | undefined = $state();
+
+	// Sync inputValue with value prop when not editing
+	$effect(() => {
+		inputValue = value;
+	});
 	let error = $state('');
 	let isValidating = $state(false);
 	let showSaveConfirmation = $state(false);

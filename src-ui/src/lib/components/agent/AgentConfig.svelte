@@ -58,17 +58,6 @@
 		fetchAgents();
 	});
 
-	function getTrustModeIcon(trustMode: TrustMode) {
-		switch (trustMode) {
-			case 'trusted':
-				return Check;
-			case 'restricted':
-				return Shield;
-			default:
-				return Shield;
-		}
-	}
-
 	function getTrustModeText(trustMode: TrustMode): string {
 		switch (trustMode) {
 			case 'trusted':
@@ -106,12 +95,12 @@
 </script>
 
 {#if open}
-	<div class="overlay" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()}>
-		<div class="panel" onclick={(e) => e.stopPropagation()}>
+	<div class="overlay" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) onClose(); }} onkeydown={(e) => e.key === 'Escape' && onClose()}>
+		<div class="panel" role="dialog" aria-modal="true" aria-labelledby="agent-config-title" tabindex="-1">
 			<div class="header">
 				<div class="header-title">
 					<Settings size={20} />
-					<h2>Agent Configuration</h2>
+					<h2 id="agent-config-title">Agent Configuration</h2>
 				</div>
 				<button class="close-btn" onclick={onClose} type="button" aria-label="Close"> × </button>
 			</div>
@@ -169,7 +158,11 @@
 										<!-- Trust Mode -->
 										<div class="detail-row">
 											<div class="detail-icon">
-												<svelte:component this={getTrustModeIcon(agent.trustMode)} size={14} />
+												{#if agent.trustMode === 'trusted'}
+													<Check size={14} />
+												{:else}
+													<Shield size={14} />
+												{/if}
 											</div>
 											<div class="detail-content">
 												<span class="detail-label">Trust Mode</span>

@@ -643,11 +643,6 @@
 		flex-shrink: 0;
 	}
 
-	.step-item.current .step-number {
-		background: var(--color-primary-500);
-		color: var(--color-bg-primary);
-	}
-
 	.step-action {
 		flex: 1;
 		min-width: 0;

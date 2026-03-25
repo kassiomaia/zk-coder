@@ -51,7 +51,7 @@
 
 	let container: HTMLElement;
 	let diff2HtmlUi: Diff2HtmlUI | null = null;
-	let currentView = $state<'unified' | 'side-by-side'>(view);
+	let currentView = $state<'unified' | 'side-by-side'>('unified');
 
 	// Update internal view when prop changes
 	$effect(() => {
@@ -465,12 +465,5 @@
 	.diff2html-container::-webkit-scrollbar-thumb {
 		background: var(--color-neutral-700);
 		border-radius: var(--radius-full);
-	}
-
-	/* Error state */
-	.diff-error {
-		padding: var(--space-4);
-		color: var(--color-error);
-		text-align: center;
 	}
 </style>

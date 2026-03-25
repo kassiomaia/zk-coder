@@ -115,10 +115,10 @@
 
 {#if open || inline}
 	{#if !inline}
-		<div class="overlay" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose?.()}>
-			<div class="panel modal-panel" onclick={(e) => e.stopPropagation()}>
+		<div class="overlay" role="presentation" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose?.()}>
+			<div class="panel modal-panel" role="dialog" aria-modal="true" aria-labelledby="session-history-title" tabindex="-1">
 				<div class="header">
-					<h2>Session History</h2>
+					<h2 id="session-history-title">Session History</h2>
 					<button class="close-btn" onclick={onClose} type="button" aria-label="Close">
 						<X size={20} />
 					</button>

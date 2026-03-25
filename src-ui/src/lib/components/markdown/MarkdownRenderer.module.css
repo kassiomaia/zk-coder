@@ -183,7 +183,7 @@
 .markdown :global(.code-block .hljs-built_in),
 .markdown :global(.code-block .hljs-name),
 .markdown :global(.code-block .hljs-tag) {
-	color: #c678dd;
+	color: var(--color-syntax-keyword);
 }
 
 .markdown :global(.code-block .hljs-string),
@@ -196,29 +196,29 @@
 .markdown :global(.code-block .hljs-template-tag),
 .markdown :global(.code-block .hljs-template-variable),
 .markdown :global(.code-block .hljs-type) {
-	color: #98c379;
+	color: var(--color-syntax-string);
 }
 
 .markdown :global(.code-block .hljs-comment),
 .markdown :global(.code-block .hljs-deletion) {
-	color: #5c6370;
+	color: var(--color-syntax-comment);
 	font-style: italic;
 }
 
 .markdown :global(.code-block .hljs-number),
 .markdown :global(.code-block .hljs-regexp),
 .markdown :global(.code-block .hljs-addition) {
-	color: #d19a66;
+	color: var(--color-syntax-number);
 }
 
 .markdown :global(.code-block .hljs-function),
 .markdown :global(.code-block .hljs-title.function_.call__) {
-	color: #61afef;
+	color: var(--color-syntax-function);
 }
 
 .markdown :global(.code-block .hljs-variable),
 .markdown :global(.code-block .hljs-params) {
-	color: #e06c75;
+	color: var(--color-syntax-variable);
 }
 
 .markdown :global(.code-block .hljs-symbol),
@@ -226,15 +226,15 @@
 .markdown :global(.code-block .hljs-link),
 .markdown :global(.code-block .hljs-meta),
 .markdown :global(.code-block .hljs-meta .hljs-keyword) {
-	color: #56b6c2;
+	color: var(--color-syntax-symbol);
 }
 
 .markdown :global(.code-block .hljs-addition) {
-	background-color: rgba(152, 195, 121, 0.1);
+	background-color: var(--color-syntax-addition-bg);
 }
 
 .markdown :global(.code-block .hljs-deletion) {
-	background-color: rgba(224, 108, 117, 0.1);
+	background-color: var(--color-syntax-deletion-bg);
 }
 
 /* =====================

@@ -94,6 +94,7 @@
 		role="listbox"
 		aria-label="Available mentions"
 		aria-activedescendant={items.length > 0 ? `mention-option-${selectedIndex}` : undefined}
+		tabindex="-1"
 	>
 		<div class={styles.header}>
 			<span class={styles.title}>Mention</span>
