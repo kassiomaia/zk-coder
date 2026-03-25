@@ -6,9 +6,16 @@ import path from 'path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-	plugins: [svelte({ hot: false })],
+	plugins: [
+		svelte({
+			hot: false,
+			experimental: {
+				generateClientSsrCode: true
+			}
+		})
+	],
 	test: {
-		environment: 'happy-dom',
+		environment: 'jsdom',
 		include: ['src/**/*.{test,spec}.{js,ts}'],
 		setupFiles: ['./vitest-setup.ts'],
 		coverage: {
