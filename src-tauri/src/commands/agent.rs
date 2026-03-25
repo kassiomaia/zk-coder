@@ -513,7 +513,7 @@ pub struct SessionDetailsResponse {
     #[serde(rename = "tasks", skip_serializing_if = "Option::is_none")]
     pub tasks: Option<Vec<crate::agents::task::AgentTask>>,
     #[serde(rename = "toolCalls", skip_serializing_if = "Option::is_none")]
-    pub tool_calls: Option<Vec<crate::agents::tool_call_store::ToolCallEntry>>,
+    pub tool_calls: Option<Vec<crate::agents::store::ToolCallEntry>>,
 }
 
 /// Get full session details including runtime data (files, terminal, execution steps, status phrases).
