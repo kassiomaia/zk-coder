@@ -149,6 +149,10 @@ pub type LlmResult<T> = Result<T, LlmError>;
 mod tests {
     use super::*;
 
+    // =========================================================================
+    // Error Creation Tests
+    // =========================================================================
+
     #[test]
     fn test_error_creation() {
         let err = LlmError::api(404, "Not found");
@@ -157,30 +161,219 @@ mod tests {
     }
 
     #[test]
+    fn test_all_error_variants_creation() {
+        // API error
+        let api_err = LlmError::api(500, "Server error");
+        assert!(matches!(api_err, LlmError::Api { status: 500, .. }));
+
+        // Parse error
+        let parse_err = LlmError::parse("Invalid JSON");
+        assert!(matches!(parse_err, LlmError::Parse(_)));
+
+        // API key error
+        let key_err = LlmError::api_key("Missing key");
+        assert!(matches!(key_err, LlmError::ApiKey(_)));
+
+        // Config error
+        let config_err = LlmError::config("Invalid model");
+        assert!(matches!(config_err, LlmError::Configuration(_)));
+
+        // Streaming error
+        let stream_err = LlmError::streaming("Connection lost");
+        assert!(matches!(stream_err, LlmError::Streaming(_)));
+
+        // Rate limit error
+        let rate_err = LlmError::rate_limit(Some(60));
+        assert!(matches!(rate_err, LlmError::RateLimit { retry_after: Some(60) }));
+
+        // Timeout error
+        let timeout_err = LlmError::timeout(30);
+        assert!(matches!(timeout_err, LlmError::Timeout { seconds: 30 }));
+    }
+
+    // =========================================================================
+    // Retry Logic Tests
+    // =========================================================================
+
+    #[test]
     fn test_retryable_errors() {
+        // Rate limit is always retryable
         let err = LlmError::rate_limit(Some(60));
         assert!(err.is_retryable());
         assert!(err.is_rate_limit());
 
-        let err = LlmError::api(500, "Internal server error");
+        let err = LlmError::rate_limit(None);
         assert!(err.is_retryable());
 
-        let err = LlmError::api(400, "Bad request");
+        // 5xx errors are retryable
+        for status in [500, 502, 503, 504] {
+            let err = LlmError::api(status, "Server error");
+            assert!(err.is_retryable(), "Status {status} should be retryable");
+        }
+
+        // Timeout is retryable
+        let err = LlmError::timeout(30);
+        assert!(err.is_retryable());
+
+        // 4xx errors (except 429) are not retryable
+        for status in [400, 401, 403, 404, 422] {
+            let err = LlmError::api(status, "Client error");
+            assert!(!err.is_retryable(), "Status {status} should not be retryable");
+        }
+
+        // Parse errors are not retryable
+        let err = LlmError::parse("Invalid JSON");
+        assert!(!err.is_retryable());
+
+        // Config errors are not retryable
+        let err = LlmError::config("Invalid model");
+        assert!(!err.is_retryable());
+
+        // API key errors are not retryable
+        let err = LlmError::api_key("Missing key");
+        assert!(!err.is_retryable());
+
+        // Streaming errors are not retryable
+        let err = LlmError::streaming("Connection lost");
         assert!(!err.is_retryable());
     }
 
     #[test]
+    fn test_rate_limit_detection() {
+        let err = LlmError::rate_limit(Some(60));
+        assert!(err.is_rate_limit());
+
+        let err = LlmError::rate_limit(None);
+        assert!(err.is_rate_limit());
+
+        let err = LlmError::api(429, "Too many requests");
+        assert!(!err.is_rate_limit()); // API errors don't count unless created via rate_limit()
+
+        let err = LlmError::api(500, "Server error");
+        assert!(!err.is_rate_limit());
+    }
+
+    // =========================================================================
+    // Authentication Error Tests
+    // =========================================================================
+
+    #[test]
     fn test_auth_errors() {
+        // API key errors are auth errors
         let err = LlmError::api_key("Invalid key");
         assert!(err.is_auth_error());
 
+        // 401 is an auth error
         let err = LlmError::api(401, "Unauthorized");
         assert!(err.is_auth_error());
 
+        // 403 is an auth error
         let err = LlmError::api(403, "Forbidden");
         assert!(err.is_auth_error());
 
+        // Other status codes are not auth errors
         let err = LlmError::api(404, "Not found");
         assert!(!err.is_auth_error());
+
+        let err = LlmError::api(500, "Server error");
+        assert!(!err.is_auth_error());
+
+        let err = LlmError::parse("Invalid JSON");
+        assert!(!err.is_auth_error());
+    }
+
+    // =========================================================================
+    // Error Display Tests
+    // =========================================================================
+
+    #[test]
+    fn test_error_display_messages() {
+        assert_eq!(
+            LlmError::api(404, "Not found").to_string(),
+            "API error (404): Not found"
+        );
+
+        assert_eq!(
+            LlmError::parse("Invalid JSON").to_string(),
+            "Failed to parse response: Invalid JSON"
+        );
+
+        assert_eq!(
+            LlmError::api_key("Missing key").to_string(),
+            "API key error: Missing key"
+        );
+
+        assert_eq!(
+            LlmError::ProviderNotFound("openai".to_string()).to_string(),
+            "Provider not found: openai"
+        );
+
+        assert_eq!(
+            LlmError::ModelNotFound("gpt-5".to_string()).to_string(),
+            "Model not found: gpt-5"
+        );
+
+        assert_eq!(
+            LlmError::Configuration("Invalid model".to_string()).to_string(),
+            "Configuration error: Invalid model"
+        );
+
+        assert_eq!(
+            LlmError::Streaming("Connection lost".to_string()).to_string(),
+            "Streaming error: Connection lost"
+        );
+
+        assert_eq!(
+            LlmError::ContextLimit("Token limit exceeded".to_string()).to_string(),
+            "Context limit exceeded: Token limit exceeded"
+        );
+
+        assert_eq!(
+            LlmError::Internal("Unknown error".to_string()).to_string(),
+            "Internal error: Unknown error"
+        );
+    }
+
+    #[test]
+    fn test_rate_limit_display_with_retry_after() {
+        let err = LlmError::rate_limit(Some(60));
+        assert_eq!(
+            err.to_string(),
+            "Rate limit exceeded. Retry after Some(60) seconds"
+        );
+
+        let err = LlmError::rate_limit(None);
+        assert_eq!(
+            err.to_string(),
+            "Rate limit exceeded. Retry after None seconds"
+        );
+    }
+
+    #[test]
+    fn test_timeout_display() {
+        let err = LlmError::timeout(30);
+        assert_eq!(err.to_string(), "Request timed out after 30 seconds");
+    }
+
+    // =========================================================================
+    // Result Type Tests
+    // =========================================================================
+
+    #[test]
+    fn test_llm_result_ok() {
+        type LlmResult<T> = Result<T, LlmError>;
+
+        let result: LlmResult<String> = Ok("Success".to_string());
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Success");
+    }
+
+    #[test]
+    fn test_llm_result_err() {
+        type LlmResult<T> = Result<T, LlmError>;
+
+        let result: LlmResult<String> = Err(LlmError::api(500, "Server error"));
+        assert!(result.is_err());
+        assert!(matches!(result, Err(LlmError::Api { .. })));
     }
 }

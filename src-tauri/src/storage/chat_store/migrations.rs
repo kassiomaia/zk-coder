@@ -215,4 +215,124 @@ mod tests {
         assert!(messages[0].thread_id.is_some());
         assert!(messages[1].thread_id.is_some());
     }
+
+    #[test]
+    fn test_migrate_orphan_messages_is_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        super::super::schema::init_schema(&conn).unwrap();
+
+        let conv = super::super::conversations::create_conversation(&conn, "Test").unwrap();
+
+        // Insert orphan message
+        let msg = ChatMessage {
+            id: uuid::Uuid::new_v4().to_string(),
+            conversation_id: conv.id.clone(),
+            thread_id: None,
+            ..ChatMessage::user(&conv.id, "Orphan")
+        };
+
+        conn.execute(
+            "INSERT INTO chat_messages (id, conversation_id, thread_id, role, content, timestamp, status, metadata)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                &msg.id,
+                &msg.conversation_id,
+                &msg.thread_id,
+                msg.role.as_str(),
+                &msg.content,
+                &msg.timestamp.to_rfc3339(),
+                "sent",
+                None::<String>,
+            ],
+        ).unwrap();
+
+        // Run migration twice
+        migrate_orphan_messages_to_threads(&conn).unwrap();
+        migrate_orphan_messages_to_threads(&conn).unwrap();
+
+        // Should still have exactly one thread
+        let threads = super::super::threads::load_threads(&conn, &conv.id).unwrap();
+        assert_eq!(threads.len(), 1);
+    }
+
+    #[test]
+    fn test_migrate_orphan_messages_multiple_conversations() {
+        let conn = Connection::open_in_memory().unwrap();
+        super::super::schema::init_schema(&conn).unwrap();
+
+        let conv1 = super::super::conversations::create_conversation(&conn, "Conv1").unwrap();
+        let conv2 = super::super::conversations::create_conversation(&conn, "Conv2").unwrap();
+
+        // Add orphans to both conversations
+        for conv in [&conv1, &conv2] {
+            let msg = ChatMessage {
+                id: uuid::Uuid::new_v4().to_string(),
+                conversation_id: conv.id.clone(),
+                thread_id: None,
+                ..ChatMessage::user(&conv.id, "Message")
+            };
+            conn.execute(
+                "INSERT INTO chat_messages (id, conversation_id, thread_id, role, content, timestamp, status, metadata)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![
+                    &msg.id,
+                    &msg.conversation_id,
+                    &msg.thread_id,
+                    msg.role.as_str(),
+                    &msg.content,
+                    &msg.timestamp.to_rfc3339(),
+                    "sent",
+                    None::<String>,
+                ],
+            ).unwrap();
+        }
+
+        migrate_orphan_messages_to_threads(&conn).unwrap();
+
+        // Each conversation should have its own thread
+        let threads1 = super::super::threads::load_threads(&conn, &conv1.id).unwrap();
+        let threads2 = super::super::threads::load_threads(&conn, &conv2.id).unwrap();
+
+        assert_eq!(threads1.len(), 1);
+        assert_eq!(threads2.len(), 1);
+        assert_ne!(threads1[0].id, threads2[0].id);
+    }
+
+    #[test]
+    fn test_migrate_orphan_empty_content() {
+        let conn = Connection::open_in_memory().unwrap();
+        super::super::schema::init_schema(&conn).unwrap();
+
+        let conv = super::super::conversations::create_conversation(&conn, "Test").unwrap();
+
+        // Insert message with empty content
+        let msg = ChatMessage {
+            id: uuid::Uuid::new_v4().to_string(),
+            conversation_id: conv.id.clone(),
+            thread_id: None,
+            ..ChatMessage::user(&conv.id, "")
+        };
+
+        conn.execute(
+            "INSERT INTO chat_messages (id, conversation_id, thread_id, role, content, timestamp, status, metadata)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                &msg.id,
+                &msg.conversation_id,
+                &msg.thread_id,
+                msg.role.as_str(),
+                &msg.content,
+                &msg.timestamp.to_rfc3339(),
+                "sent",
+                None::<String>,
+            ],
+        ).unwrap();
+
+        migrate_orphan_messages_to_threads(&conn).unwrap();
+
+        let threads = super::super::threads::load_threads(&conn, &conv.id).unwrap();
+        assert_eq!(threads.len(), 1);
+        // Should use default title
+        assert_eq!(threads[0].title, "New Thread");
+    }
 }

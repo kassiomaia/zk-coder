@@ -3,7 +3,7 @@
 use rusqlite::{params, Connection};
 
 use super::ConfigStoreError;
-use crate::nlp::config::{OperationDefault, OperationType};
+use crate::core::config::{OperationDefault, OperationType};
 
 /// Gets all operation defaults.
 pub fn get_operation_defaults(

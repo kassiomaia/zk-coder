@@ -8,7 +8,7 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 
 use crate::llm::{create_client, ChatRequest, Message};
-use crate::nlp::config::{Model, OperationType, Provider};
+use crate::core::config::{Model, OperationType, Provider};
 use crate::storage::ConfigStore;
 
 /// Minimal LLM completion interface required by NLP modules.
@@ -179,7 +179,7 @@ fn resolve_nlp_operation_model(store: &ConfigStore) -> Result<Model, NlpLlmError
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nlp::config::{ModelCapabilities, OperationType};
+    use crate::core::config::{ModelCapabilities, OperationType};
 
     async fn create_configured_gateway() -> ConfigBackedNlpLlmGateway {
         let gateway = ConfigBackedNlpLlmGateway::in_memory().expect("Should create gateway");

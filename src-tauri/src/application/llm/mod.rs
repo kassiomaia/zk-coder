@@ -6,4 +6,9 @@
 
 pub mod service;
 
+#[cfg(test)]
+mod service_tests {
+    include!("service_tests.rs");
+}
+
 pub use service::LlmServiceImpl;

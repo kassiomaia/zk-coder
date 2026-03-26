@@ -14,6 +14,7 @@
 		ChevronDown
 	} from 'lucide-svelte';
 	import type { TouchedFile } from '$lib/types/agent';
+	import styles from './FileTree.module.css';
 
 	interface FileTreeNode {
 		name: string;
@@ -21,6 +22,7 @@
 		type: 'file' | 'directory';
 		children: FileTreeNode[];
 		file?: TouchedFile;
+		depth: number;
 	}
 
 	interface Props {
@@ -38,7 +40,7 @@
 	let fileTree = $derived(buildFileTree(files));
 
 	function buildFileTree(flatFiles: TouchedFile[]): FileTreeNode {
-		const root: FileTreeNode = { name: '', path: '', type: 'directory', children: [] };
+		const root: FileTreeNode = { name: '', path: '', type: 'directory', children: [], depth: 0 };
 
 		for (const file of flatFiles) {
 			const parts = file.path.split('/');
@@ -55,7 +57,8 @@
 						path: parts.slice(0, i + 1).join('/'),
 						type: isFile ? 'file' : 'directory',
 						children: [],
-						file: isFile ? file : undefined
+						file: isFile ? file : undefined,
+						depth: i
 					};
 					current.children.push(child);
 				}
@@ -79,6 +82,30 @@
 		expandedPaths = next;
 	}
 
+	function getFileIconColor(filePath: string): string {
+		const ext = filePath.split('.').pop()?.toLowerCase();
+		switch (ext) {
+			case 'ts':
+			case 'js':
+			case 'tsx':
+			case 'jsx':
+				return 'var(--color-lang-typescript)';
+			case 'rs':
+				return 'var(--color-lang-rust)';
+			case 'py':
+				return 'var(--color-lang-python)';
+			case 'md':
+				return 'var(--color-lang-default)';
+			case 'toml':
+			case 'yaml':
+			case 'yml':
+			case 'json':
+				return 'var(--color-warning-dark)';
+			default:
+				return 'var(--color-lang-default)';
+		}
+	}
+
 	function getFileIcon(filePath: string) {
 		const ext = filePath.split('.').pop()?.toLowerCase();
 		switch (ext) {
@@ -86,20 +113,17 @@
 			case 'js':
 			case 'tsx':
 			case 'jsx':
-				return { icon: FileCode, color: 'var(--color-primary-400)' };
 			case 'rs':
-				return { icon: FileCode, color: '#f74c00' };
 			case 'py':
-				return { icon: FileCode, color: '#3776ab' };
+				return FileCode;
 			case 'md':
-				return { icon: FileText, color: 'var(--color-text-muted)' };
 			case 'toml':
 			case 'yaml':
 			case 'yml':
 			case 'json':
-				return { icon: FileText, color: 'var(--color-warning-dark)' };
+				return FileText;
 			default:
-				return { icon: File, color: 'var(--color-text-muted)' };
+				return File;
 		}
 	}
 
@@ -109,185 +133,75 @@
 		if (file.action === 'delete') return { label: 'D', cssClass: 'deleted', color: 'var(--color-error)' };
 		return null;
 	}
-
-	/** Base indentation for nested items */
-	const BASE_INDENT = 12;
-	const INDENT_PER_LEVEL = 16;
 </script>
 
-<div class="file-tree" aria-label="File tree">
+<div class={styles.fileTree} aria-label="File tree">
 	{#if fileTree.children.length > 0}
-		{@render TreeNode(fileTree.children, 0)}
+		{@render TreeNode(fileTree.children)}
 	{:else}
-		<div class="empty-state">
+		<div class={styles.emptyState}>
 			<p>No files changed in this session.</p>
 		</div>
 	{/if}
 </div>
 
-{#snippet TreeNode(nodes: FileTreeNode[], depth: number)}
+{#snippet TreeNode(nodes: FileTreeNode[])}
 	{#each nodes as node (node.path)}
 		{#if node.type === 'directory'}
 			{@const isExpanded = expandedPaths.has(node.path)}
+			{@const depthClass = node.depth > 5 ? 'depth-5' : `depth-${node.depth}`}
 			<button
-				class="tree-node directory"
-				style="padding-left: {BASE_INDENT + depth * INDENT_PER_LEVEL}px"
+				class={[styles.treeNode, styles.directory, styles[depthClass]].filter(Boolean).join(' ')}
 				onclick={() => toggleExpanded(node.path)}
 				type="button"
 				aria-expanded={isExpanded}
 			>
-				<span class="chevron-wrapper" class:is-expanded={isExpanded}>
+				<span class={[styles.chevronWrapper, isExpanded && styles.isExpanded].filter(Boolean).join(' ')}>
 					<ChevronRight size={12} strokeWidth={2.5} />
 				</span>
-				<span class="node-content">
+				<span class={styles.nodeContent}>
 					{#if isExpanded}
-						<FolderOpen size={14} strokeWidth={1.5} class="folder-icon" />
+						<FolderOpen size={14} strokeWidth={1.5} class={styles.folderIcon} />
 					{:else}
-						<Folder size={14} strokeWidth={1.5} class="folder-icon" />
+						<Folder size={14} strokeWidth={1.5} class={styles.folderIcon} />
 					{/if}
-					<span class="node-name">{node.name}</span>
+					<span class={styles.nodeName}>{node.name}</span>
 				</span>
 			</button>
 
 			{#if isExpanded}
 				{#if node.children.length > 0}
-					{@render TreeNode(node.children, depth + 1)}
+					{@render TreeNode(node.children)}
 				{/if}
 			{/if}
 
 		{:else if node.file}
 			{@const indicator = getChangeIndicator(node.file)}
-			{@const iconData = getFileIcon(node.path)}
-			{@const FileIcon = iconData.icon}
+			{@const FileIcon = getFileIcon(node.path)}
+			{@const iconColor = getFileIconColor(node.path)}
+			{@const depthClass = node.depth > 5 ? 'depth-5' : `depth-${node.depth}`}
 			<button
-				class="tree-node file"
-				class:is-active={activePath === node.path}
-				class:is-modified={node.file.action === 'write'}
-				class:is-deleted={node.file.action === 'delete'}
-				style="padding-left: {BASE_INDENT + depth * INDENT_PER_LEVEL + 16}px; --status-color: {indicator?.color ?? 'transparent'}"
+				class={[
+					styles.treeNode,
+					styles.file,
+					styles[depthClass],
+					activePath === node.path && styles.isActive,
+					node.file.action === 'delete' && styles.isDeleted
+				].filter(Boolean).join(' ')}
+				style="--status-color: {indicator?.color ?? 'transparent'}; --icon-color: {iconColor}"
 				onclick={() => onfileclick?.(node.path)}
 				type="button"
 			>
-				<span class="node-content">
-					<FileIcon size={14} strokeWidth={1.5} style="color: {iconData.color}" />
-					<span class="node-name">{node.name}</span>
+				<span class={styles.nodeContent}>
+					<FileIcon size={14} strokeWidth={1.5} class={styles.fileIcon} />
+					<span class={styles.nodeName}>{node.name}</span>
 				</span>
 				{#if indicator}
-					<span class="change-badge {indicator.cssClass}">{indicator.label}</span>
+					<span class={[styles.changeBadge, styles[indicator.cssClass]].filter(Boolean).join(' ')}>
+						{indicator.label}
+					</span>
 				{/if}
 			</button>
 		{/if}
 	{/each}
 {/snippet}
-
-<style>
-	.file-tree {
-		padding: var(--space-1) 0;
-	}
-
-	.tree-node {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		width: 100%;
-		padding: var(--space-1) var(--space-4);
-		font-size: 11px;
-		color: var(--color-text-secondary);
-		background: transparent;
-		border: none;
-		cursor: pointer;
-		transition: all var(--transition-fast);
-		position: relative;
-	}
-
-	.tree-node:hover {
-		background: var(--color-interactive-hover);
-		color: var(--color-text-primary);
-	}
-
-	.tree-node.file.is-active {
-		background: var(--color-interactive-active);
-		color: var(--color-text-primary);
-	}
-
-	.tree-node.file.is-active::after {
-		content: '';
-		position: absolute;
-		right: 0;
-		top: 0;
-		bottom: 0;
-		width: 2px;
-		background: var(--color-primary-500);
-	}
-
-	.tree-node.file::before {
-		content: '';
-		position: absolute;
-		left: 0;
-		top: 2px;
-		bottom: 2px;
-		width: 2px;
-		background: var(--status-color);
-		opacity: 0.6;
-	}
-
-	.node-content {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-		min-width: 0;
-		flex: 1;
-	}
-
-	.node-name {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.chevron-wrapper {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-right: var(--space-1);
-		transition: transform var(--transition-fast);
-		opacity: 0.5;
-	}
-
-	.chevron-wrapper.is-expanded {
-		transform: rotate(90deg);
-	}
-
-	.folder-icon {
-		color: var(--color-primary-400);
-		opacity: 0.8;
-	}
-
-	.change-badge {
-		font-size: 9px;
-		font-weight: 700;
-		width: 14px;
-		height: 14px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 2px;
-		margin-left: var(--space-2);
-	}
-
-	.change-badge.modified { color: var(--color-warning); background: var(--color-warning-light); }
-	.change-badge.added { color: var(--color-success); background: var(--color-success-light); }
-	.change-badge.deleted { color: var(--color-error); background: var(--color-error-light); }
-
-	.tree-node.is-deleted .node-name {
-		text-decoration: line-through;
-		opacity: 0.5;
-	}
-
-	.empty-state {
-		padding: var(--space-4) var(--space-4) var(--space-6);
-		color: var(--color-text-muted);
-		font-size: 11px;
-		font-style: italic;
-	}
-</style>

@@ -8,7 +8,7 @@ use std::sync::{Mutex, MutexGuard};
 use rusqlite::Connection;
 use thiserror::Error;
 
-use crate::nlp::config::{
+use crate::core::config::{
     ManualModelEntry, Model, ModelsSource, OperationDefault,
     OperationType, Provider,
 };
@@ -412,7 +412,7 @@ impl ConfigStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nlp::config::{ApiType, ModelCapabilities};
+    use crate::core::config::{ApiType, ModelCapabilities};
 
     #[test]
     fn test_store_creation() {

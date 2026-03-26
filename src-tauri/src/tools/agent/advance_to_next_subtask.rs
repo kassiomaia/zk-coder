@@ -59,6 +59,8 @@ impl Tool for AdvanceToNextSubtaskTool {
 mod tests {
     use super::*;
 
+    // === Tool metadata tests ===
+
     #[test]
     fn test_tool_metadata() {
         let tool = AdvanceToNextSubtaskTool;
@@ -70,6 +72,16 @@ mod tests {
     }
 
     #[test]
+    fn test_tool_id_format() {
+        let tool = AdvanceToNextSubtaskTool;
+        let meta = tool.meta();
+
+        assert_eq!(meta.id.category, "agent");
+        assert_eq!(meta.id.name, "advance_to_next_subtask");
+        assert_eq!(meta.id.full_name(), "agent_advance_to_next_subtask");
+    }
+
+    #[test]
     fn test_input_schema() {
         let tool = AdvanceToNextSubtaskTool;
         let meta = tool.meta();
@@ -78,6 +90,7 @@ mod tests {
         // Should accept empty object
         assert_eq!(schema["type"], "object");
         assert!(schema["properties"].as_object().unwrap().is_empty());
+        assert_eq!(schema["additionalProperties"], false);
     }
 
     #[test]
@@ -93,4 +106,15 @@ mod tests {
         let meta = tool.meta();
         assert!(!meta.experimental);
     }
+
+    #[test]
+    fn test_no_feature_flag() {
+        let tool = AdvanceToNextSubtaskTool;
+        let meta = tool.meta();
+        assert!(meta.feature_flag.is_none());
+    }
+
+    // === Execution tests ===
+    // Note: Tests requiring actual AppHandle are integration tests
+    // and should be run with tauri::test in a separate integration test suite
 }

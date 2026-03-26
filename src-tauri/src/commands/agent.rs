@@ -48,7 +48,7 @@ impl AgentState {
             session_store,
             approval_queue,
             runtime,
-        ));
+        ).map_err(|e| format!("Failed to create agent service: {e}"))?);
 
         Ok(Self { service })
     }

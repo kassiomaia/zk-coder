@@ -129,7 +129,7 @@
 									: undefined}
 								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
 								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
-								style="animation-delay: {index * 50}ms"
+								style="animation-delay: calc({index} * var(--stagger-normal))"
 							/>
 						{/each}
 					</ul>
@@ -155,7 +155,7 @@
 									: undefined}
 								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
 								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
-								style="animation-delay: {(openThreads.length + index) * 50}ms"
+								style="animation-delay: calc({openThreads.length + index} * var(--stagger-normal))"
 							/>
 						{/each}
 					</ul>

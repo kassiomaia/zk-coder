@@ -119,7 +119,10 @@ pub fn update_conversation_title(
 
 /// Deletes a conversation and all its threads and messages.
 pub fn delete_conversation(conn: &Connection, id: &str) -> Result<(), ChatStoreError> {
-    conn.execute("DELETE FROM conversations WHERE id = ?1", params![id])?;
+    let rows_affected = conn.execute("DELETE FROM conversations WHERE id = ?1", params![id])?;
+    if rows_affected == 0 {
+        return Err(ChatStoreError::NotFound("Conversation", id.to_string()));
+    }
     Ok(())
 }
 
@@ -270,5 +273,66 @@ mod tests {
         let conn = make_test_store();
         let result = update_conversation_title(&conn, "nonexistent", "Title");
         assert!(matches!(result, Err(ChatStoreError::NotFound(_, _))));
+    }
+
+    #[test]
+    fn test_update_workspace_preserves_other_settings() {
+        let conn = make_test_store();
+        let conv = create_conversation(&conn, "Test").unwrap();
+
+        // Set initial settings
+        let initial_settings = ConversationSettings {
+            model: "gpt-4".to_string(),
+            temperature: 0.7,
+            max_tokens: 4096,
+            system_prompt: Some("You are helpful".to_string()),
+            workspace_root: None,
+        };
+        update_conversation_settings(&conn, &conv.id, &initial_settings).unwrap();
+
+        // Update workspace only
+        let updated = update_conversation_workspace(&conn, &conv.id, "/new/path").unwrap();
+
+        // Other settings should be preserved
+        assert_eq!(updated.settings.model, "gpt-4");
+        assert_eq!(updated.settings.temperature, 0.7);
+        assert_eq!(updated.settings.max_tokens, 4096);
+        assert_eq!(updated.settings.system_prompt, Some("You are helpful".to_string()));
+        assert_eq!(updated.settings.workspace_root, Some("/new/path".to_string()));
+    }
+
+    #[test]
+    fn test_conversation_with_system_prompt() {
+        let conn = make_test_store();
+        let conv = create_conversation(&conn, "Test").unwrap();
+
+        let settings = ConversationSettings {
+            model: "gpt-4".to_string(),
+            temperature: 0.5,
+            max_tokens: 2048,
+            system_prompt: Some("Custom system prompt".to_string()),
+            workspace_root: None,
+        };
+        let updated = update_conversation_settings(&conn, &conv.id, &settings).unwrap();
+
+        assert_eq!(updated.settings.system_prompt, Some("Custom system prompt".to_string()));
+    }
+
+    #[test]
+    fn test_load_all_conversations_empty() {
+        let conn = make_test_store();
+        let conversations = load_all_conversations(&conn).unwrap();
+        assert_eq!(conversations.len(), 0);
+        assert!(conversations.is_empty());
+    }
+
+    #[test]
+    fn test_create_conversation_with_unicode_title() {
+        let conn = make_test_store();
+        let conv = create_conversation(&conn, "Test 日本語 🚀").unwrap();
+        assert_eq!(conv.title, "Test 日本語 🚀");
+
+        let loaded = load_conversation(&conn, &conv.id).unwrap();
+        assert_eq!(loaded.title, "Test 日本語 🚀");
     }
 }

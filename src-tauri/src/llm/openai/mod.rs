@@ -6,6 +6,9 @@
 mod types;
 mod client;
 
+#[cfg(test)]
+mod integration_tests;
+
 pub use client::{OpenAiClient, GOOGLE_BASE_URL, OPENAI_BASE_URL};
 pub use types::*;
 

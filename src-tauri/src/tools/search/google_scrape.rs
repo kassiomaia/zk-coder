@@ -11,7 +11,7 @@ use std::time::Duration;
 use tauri::AppHandle;
 
 /// Arguments for Google web search.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct GoogleSearchArgs {
     /// Search query string.
     pub query: String,
@@ -276,5 +276,562 @@ impl GoogleScrapeTool {
         }
 
         results
+    }
+}
+
+#[cfg(all(test, feature = "integration-test"))]
+mod tests {
+    use super::*;
+
+    // === Helper function tests ===
+
+    #[test]
+    fn test_decode_html_entities() {
+        let input = "Hello &quot;World&quot; &amp; &lt;tag&gt;";
+        let output = GoogleScrapeTool::decode_html_entities(input);
+        assert_eq!(output, "Hello \"World\" & <tag>");
+    }
+
+    #[test]
+    fn test_decode_html_entities_nbsp() {
+        let input = "Hello&nbsp;World";
+        let output = GoogleScrapeTool::decode_html_entities(input);
+        assert_eq!(output, "Hello World");
+    }
+
+    #[test]
+    fn test_decode_html_entities_apostrophe() {
+        let input = "Don&#39;t stop believin&#39;";
+        let output = GoogleScrapeTool::decode_html_entities(input);
+        assert_eq!(output, "Don't stop believin'");
+    }
+
+    #[test]
+    fn test_decode_html_entities_empty() {
+        let input = "";
+        let output = GoogleScrapeTool::decode_html_entities(input);
+        assert_eq!(output, "");
+    }
+
+    #[test]
+    fn test_decode_html_entities_no_entities() {
+        let input = "Plain text without entities";
+        let output = GoogleScrapeTool::decode_html_entities(input);
+        assert_eq!(output, "Plain text without entities");
+    }
+
+    #[test]
+    fn test_strip_html_tags() {
+        let input = "<p>Hello <strong>World</strong></p>";
+        let output = GoogleScrapeTool::strip_html_tags(input);
+        assert_eq!(output, "Hello World");
+    }
+
+    #[test]
+    fn test_strip_html_tags_nested() {
+        let input = "<div><span>nested</span> <em>tags</em></div>";
+        let output = GoogleScrapeTool::strip_html_tags(input);
+        assert_eq!(output, "nested tags");
+    }
+
+    #[test]
+    fn test_strip_html_tags_with_entities() {
+        let input = "<p>Hello &quot;World&quot;</p>";
+        let output = GoogleScrapeTool::strip_html_tags(input);
+        assert_eq!(output, "Hello \"World\"");
+    }
+
+    #[test]
+    fn test_strip_html_tags_empty() {
+        let input = "";
+        let output = GoogleScrapeTool::strip_html_tags(input);
+        assert_eq!(output, "");
+    }
+
+    #[test]
+    fn test_strip_html_tags_whitespace_normalization() {
+        let input = "<p>Word1</p>  <p>Word2</p>";
+        let output = GoogleScrapeTool::strip_html_tags(input);
+        assert_eq!(output, "Word1 Word2");
+    }
+
+    #[test]
+    fn test_strip_html_tags_self_closing() {
+        let input = "Text<br/>more<br />text";
+        let output = GoogleScrapeTool::strip_html_tags(input);
+        assert_eq!(output, "Text more text");
+    }
+
+    #[test]
+    fn test_extract_google_result_url_valid() {
+        let encoded = "https://example.com/path";
+        let result = GoogleScrapeTool::extract_google_result_url(encoded);
+        assert_eq!(result, Some("https://example.com/path".to_string()));
+    }
+
+    #[test]
+    fn test_extract_google_result_url_with_q_prefix() {
+        let encoded = "q=https://example.com/path";
+        let result = GoogleScrapeTool::extract_google_result_url(encoded);
+        assert_eq!(result, Some("https://example.com/path".to_string()));
+    }
+
+    #[test]
+    fn test_extract_google_result_url_with_entities() {
+        let encoded = "q=https://example.com/search?q=test&amp;lang=en";
+        let result = GoogleScrapeTool::extract_google_result_url(encoded);
+        assert_eq!(
+            result,
+            Some("https://example.com/search?q=test&lang=en".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_google_result_url_non_http() {
+        // Should filter out non-http URLs
+        let encoded = "q=javascript:void(0)";
+        let result = GoogleScrapeTool::extract_google_result_url(encoded);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_extract_google_result_url_empty() {
+        let encoded = "";
+        let result = GoogleScrapeTool::extract_google_result_url(encoded);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_extract_google_result_url_invalid() {
+        let encoded = "not-a-url";
+        let result = GoogleScrapeTool::extract_google_result_url(encoded);
+        assert_eq!(result, None);
+    }
+
+    // === HTML parsing tests ===
+
+    #[test]
+    fn test_parse_google_search_results_empty_html() {
+        let html = "";
+        let results = GoogleScrapeTool::parse_google_search_results(html, 5);
+        assert_eq!(results.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_google_search_results_no_results() {
+        let html = "<html><body>No results here</body></html>";
+        let results = GoogleScrapeTool::parse_google_search_results(html, 5);
+        assert_eq!(results.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_google_search_results_minimal() {
+        let html = r#"
+            <html>
+            <body>
+                <a href="/url?q=https://example.com&amp;usg=xxx">
+                    <h3>Example Title</h3>
+                </a>
+            </body>
+            </html>
+        "#;
+
+        let results = GoogleScrapeTool::parse_google_search_results(html, 5);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].url, "https://example.com");
+        assert_eq!(results[0].title, "Example Title");
+    }
+
+    #[test]
+    fn test_parse_google_search_results_with_snippet() {
+        let html = r#"
+            <a href="/url?q=https://example.com">
+                <h3>Example Title</h3>
+                <div class="VwiC3b">This is a snippet <em>highlighted</em> text</div>
+            </a>
+        "#;
+
+        let results = GoogleScrapeTool::parse_google_search_results(html, 5);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].snippet.contains("snippet"));
+        assert!(results[0].snippet.contains("highlighted"));
+    }
+
+    #[test]
+    fn test_parse_google_search_results_respects_limit() {
+        let html = r#"
+            <a href="/url?q=https://example1.com"><h3>Title 1</h3></a>
+            <a href="/url?q=https://example2.com"><h3>Title 2</h3></a>
+            <a href="/url?q=https://example3.com"><h3>Title 3</h3></a>
+            <a href="/url?q=https://example4.com"><h3>Title 4</h3></a>
+            <a href="/url?q=https://example5.com"><h3>Title 5</h3></a>
+            <a href="/url?q=https://example6.com"><h3>Title 6</h3></a>
+        "#;
+
+        let results = GoogleScrapeTool::parse_google_search_results(html, 3);
+        assert_eq!(results.len(), 3);
+    }
+
+    #[test]
+    fn test_parse_google_search_results_empty_title_skipped() {
+        let html = r#"
+            <a href="/url?q=https://example.com">
+                <h3></h3>
+            </a>
+            <a href="/url?q=https://example2.com">
+                <h3>Valid Title</h3>
+            </a>
+        "#;
+
+        let results = GoogleScrapeTool::parse_google_search_results(html, 5);
+        // Empty title should be skipped
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Valid Title");
+    }
+
+    #[test]
+    fn test_parse_google_search_results_with_html_in_title() {
+        let html = r#"
+            <a href="/url?q=https://example.com">
+                <h3>Title with <em>emphasis</em> and <strong>bold</strong></h3>
+            </a>
+        "#;
+
+        let results = GoogleScrapeTool::parse_google_search_results(html, 5);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Title with emphasis and bold");
+    }
+
+    #[test]
+    fn test_parse_google_search_results_malformed_anchor() {
+        let html = r#"
+            <a href="/url?q=https://example.com">
+                <h3>Valid Result</h3>
+            </a>
+            <a href="invalid-link">
+                <h3>Invalid Link</h3>
+            </a>
+        "#;
+
+        let results = GoogleScrapeTool::parse_google_search_results(html, 5);
+        // Should only get valid result
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Valid Result");
+    }
+
+    // === Arguments parsing tests ===
+
+    #[test]
+    fn test_parse_args_valid() {
+        let args = serde_json::json!({
+            "query": "test search",
+            "num_results": 3,
+            "language": "en"
+        });
+
+        let parsed: GoogleSearchArgs = serde_json::from_value(args).unwrap();
+        assert_eq!(parsed.query, "test search");
+        assert_eq!(parsed.num_results, 3);
+        assert_eq!(parsed.language, Some("en".to_string()));
+    }
+
+    #[test]
+    fn test_parse_args_defaults() {
+        let args = serde_json::json!({
+            "query": "test"
+        });
+
+        let parsed: GoogleSearchArgs = serde_json::from_value(args).unwrap();
+        assert_eq!(parsed.query, "test");
+        assert_eq!(parsed.num_results, 5);
+        assert_eq!(parsed.language, None);
+    }
+
+    #[test]
+    fn test_default_num_results() {
+        assert_eq!(default_num_results(), 5);
+    }
+
+    #[test]
+    fn test_parse_args_missing_query() {
+        let args = serde_json::json!({
+            "num_results": 5
+        });
+
+        let parsed: Result<GoogleSearchArgs, _> = serde_json::from_value(args);
+        assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn test_google_search_args_partial_eq() {
+        let args1 = GoogleSearchArgs {
+            query: "test".to_string(),
+            num_results: 5,
+            language: Some("en".to_string()),
+        };
+        let args2 = GoogleSearchArgs {
+            query: "test".to_string(),
+            num_results: 5,
+            language: Some("en".to_string()),
+        };
+        assert_eq!(args1, args2);
+    }
+
+    // === Tool metadata tests ===
+
+    #[test]
+    fn test_tool_metadata() {
+        let tool = GoogleScrapeTool;
+        let meta = tool.meta();
+
+        assert_eq!(meta.id.to_string(), "search_google_scrape");
+        assert!(meta.description.contains("dev"));
+        assert!(meta.description.contains("unstable"));
+        assert!(!meta.requires_workspace);
+        assert!(meta.experimental);
+        assert!(meta.feature_flag.is_some());
+    }
+
+    #[test]
+    fn test_tool_id_format() {
+        let tool = GoogleScrapeTool;
+        let meta = tool.meta();
+
+        assert_eq!(meta.id.category, "search");
+        assert_eq!(meta.id.name, "google_scrape");
+    }
+
+    #[test]
+    fn test_input_schema() {
+        let tool = GoogleScrapeTool;
+        let meta = tool.meta();
+        let schema = &meta.input_schema;
+
+        assert_eq!(schema["type"], "object");
+        assert!(schema["additionalProperties"] == false);
+
+        let required = schema["required"].as_array().unwrap();
+        assert!(required.contains(&serde_json::json!("query")));
+
+        // Check num_results constraints
+        let num_results_prop = &schema["properties"]["num_results"];
+        assert_eq!(num_results_prop["type"], "integer");
+        assert_eq!(num_results_prop["minimum"], 1);
+        assert_eq!(num_results_prop["maximum"], 10);
+    }
+
+    #[test]
+    fn test_feature_flag() {
+        let tool = GoogleScrapeTool;
+        let meta = tool.meta();
+        assert_eq!(meta.feature_flag, Some(ENV_GOOGLE_SCRAPE_ENABLED));
+    }
+
+    // === Execution tests ===
+
+    #[tokio::test]
+    async fn test_execute_missing_query() {
+        let tool = GoogleScrapeTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({});
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_empty_query() {
+        let tool = GoogleScrapeTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "query": "   "
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("empty"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_feature_flag_disabled() {
+        // Ensure env var is not set
+        std::env::remove_var(ENV_GOOGLE_SCRAPE_ENABLED);
+
+        let tool = GoogleScrapeTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "query": "test"
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("disabled") || err.to_string().contains("CODER_LLM_TOOL_GOOGLE_SCRAPE"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_feature_flag_enabled() {
+        // Set env var to enable the tool
+        std::env::set_var(ENV_GOOGLE_SCRAPE_ENABLED, "1");
+
+        let tool = GoogleScrapeTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "query": "test search"
+        });
+
+        // We can't fully test execution without a real HTTP server,
+        // but we can verify it doesn't fail on feature flag check
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        // Will fail on HTTP request, but not on feature flag
+        match result {
+            Ok(_) => {}
+            Err(e) => {
+                // Should not be a disabled error
+                assert!(!e.to_string().contains("disabled"));
+            }
+        }
+
+        std::env::remove_var(ENV_GOOGLE_SCRAPE_ENABLED);
+    }
+
+    #[tokio::test]
+    async fn test_execute_num_results_clamping() {
+        std::env::set_var(ENV_GOOGLE_SCRAPE_ENABLED, "1");
+
+        let tool = GoogleScrapeTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        // Test above max
+        let args = serde_json::json!({
+            "query": "test",
+            "num_results": 15
+        });
+
+        let _ = tool.execute(context, args, app_handle, None).await;
+
+        std::env::remove_var(ENV_GOOGLE_SCRAPE_ENABLED);
+    }
+
+    #[tokio::test]
+    async fn test_execute_num_results_below_min() {
+        std::env::set_var(ENV_GOOGLE_SCRAPE_ENABLED, "1");
+
+        let tool = GoogleScrapeTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "query": "test",
+            "num_results": 0
+        });
+
+        let _ = tool.execute(context, args, app_handle, None).await;
+
+        std::env::remove_var(ENV_GOOGLE_SCRAPE_ENABLED);
+    }
+
+    // === SearchResult and Output tests ===
+
+    #[test]
+    fn test_search_result_fields() {
+        let result = SearchResult {
+            title: "Test Title".to_string(),
+            url: "https://example.com".to_string(),
+            snippet: "Test snippet".to_string(),
+            source: "test".to_string(),
+        };
+
+        assert_eq!(result.title, "Test Title");
+        assert_eq!(result.url, "https://example.com");
+        assert_eq!(result.snippet, "Test snippet");
+        assert_eq!(result.source, "test");
+    }
+
+    #[test]
+    fn test_google_search_output_serialization() {
+        let output = GoogleSearchOutput {
+            query: "test query".to_string(),
+            count: 2,
+            results: vec![
+                SearchResult {
+                    title: "Title 1".to_string(),
+                    url: "https://example1.com".to_string(),
+                    snippet: "Snippet 1".to_string(),
+                    source: "google_scrape".to_string(),
+                },
+                SearchResult {
+                    title: "Title 2".to_string(),
+                    url: "https://example2.com".to_string(),
+                    snippet: "Snippet 2".to_string(),
+                    source: "google_scrape".to_string(),
+                },
+            ],
+            warning: "Test warning".to_string(),
+        };
+
+        let json = serde_json::to_value(&output).unwrap();
+        assert_eq!(json["query"], "test query");
+        assert_eq!(json["count"], 2);
+        assert_eq!(json["results"].as_array().unwrap().len(), 2);
+        assert!(json["warning"].as_str().unwrap().contains("warning"));
+    }
+
+    #[test]
+    fn test_google_search_output_empty_results() {
+        let output = GoogleSearchOutput {
+            query: "test".to_string(),
+            count: 0,
+            results: vec![],
+            warning: "warning".to_string(),
+        };
+
+        let json = serde_json::to_value(&output).unwrap();
+        assert_eq!(json["count"], 0);
+        assert!(json["results"].as_array().unwrap().is_empty());
+    }
+
+    // === Edge case tests ===
+
+    #[test]
+    fn test_parse_google_search_results_unicode() {
+        let html = r#"
+            <a href="/url?q=https://example.com">
+                <h3>世界テスト 🌍</h3>
+            </a>
+        "#;
+
+        let results = GoogleScrapeTool::parse_google_search_results(html, 5);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].title.contains("世界"));
+    }
+
+    #[test]
+    fn test_strip_html_tags_preserves_unicode() {
+        let input = "<p>Hello 世界 🌍</p>";
+        let output = GoogleScrapeTool::strip_html_tags(input);
+        assert_eq!(output, "Hello 世界 🌍");
+    }
+
+    #[test]
+    fn test_decode_html_entities_unicode() {
+        // Test that unicode is preserved through entity decoding
+        let input = "世界 🌍 &amp; more";
+        let output = GoogleScrapeTool::decode_html_entities(input);
+        assert_eq!(output, "世界 🌍 & more");
     }
 }

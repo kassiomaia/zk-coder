@@ -27,7 +27,9 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
-			$lib: path.resolve(__dirname, './src/lib')
+			$lib: path.resolve(__dirname, './src/lib'),
+			'$app': path.resolve(__dirname, './src/mocks/$app'),
+			$mocks: path.resolve(__dirname, './src/mocks')
 		},
 		// Force browser conditions for Svelte imports
 		conditions: ['browser', 'import', 'default']

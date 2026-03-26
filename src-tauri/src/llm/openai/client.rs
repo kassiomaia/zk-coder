@@ -12,7 +12,7 @@ use crate::llm::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, MessageContent,
     MessageRole, StreamChunk, StreamDelta, ToolCall, ToolDefinition, UsageStats,
 };
-use crate::nlp::config::ApiType;
+use crate::core::config::ApiType;
 
 /// Default base URL for OpenAI API.
 pub const OPENAI_BASE_URL: &str = "https://api.openai.com/v1";

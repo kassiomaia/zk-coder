@@ -9,6 +9,30 @@
 	import { CloseIcon } from '$lib/icons';
 	import type { Snippet } from 'svelte';
 
+	// Track number of open modals globally to properly manage body scroll
+	// Use a regular variable with manual tracking since we need module-level state
+	let openModalCount = 0;
+	const bodyScrollOriginalStyle = new WeakMap<Document, string>();
+
+	function updateBodyScroll(isOpen: boolean) {
+		if (isOpen) {
+			if (openModalCount === 0) {
+				// First modal opening - store original style and hide scroll
+				bodyScrollOriginalStyle.set(document, document.body.style.overflow);
+				document.body.style.overflow = 'hidden';
+			}
+			openModalCount++;
+		} else {
+			openModalCount = Math.max(0, openModalCount - 1);
+			if (openModalCount === 0) {
+				// Last modal closed - restore original style
+				const original = bodyScrollOriginalStyle.get(document);
+				document.body.style.overflow = original ?? '';
+				bodyScrollOriginalStyle.delete(document);
+			}
+		}
+	}
+
 	interface Props {
 		/** Modal title */
 		title?: string;
@@ -61,13 +85,15 @@
 
 	// Prevent body scroll when modal is open
 	$effect(() => {
+		updateBodyScroll(open);
+
 		if (open) {
 			document.addEventListener('keydown', handleKeydown);
-			document.body.style.overflow = 'hidden';
 		}
+
 		return () => {
 			document.removeEventListener('keydown', handleKeydown);
-			document.body.style.overflow = '';
+			updateBodyScroll(false);
 		};
 	});
 </script>

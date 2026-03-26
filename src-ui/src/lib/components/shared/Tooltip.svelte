@@ -387,18 +387,19 @@
 
 	// Track scrolling and resizing to keep tooltip attached
 	$effect(() => {
-		if (visible) {
-			const update = () => {
+		const update = () => {
+			if (visible && triggerRef && tooltipRef) {
 				requestAnimationFrame(calculatePosition);
-			};
-			window.addEventListener('scroll', update, { capture: true, passive: true });
-			window.addEventListener('resize', update, { passive: true });
+			}
+		};
 
-			return () => {
-				window.removeEventListener('scroll', update, { capture: true });
-				window.removeEventListener('resize', update);
-			};
-		}
+		window.addEventListener('scroll', update, { capture: true, passive: true });
+		window.addEventListener('resize', update, { passive: true });
+
+		return () => {
+			window.removeEventListener('scroll', update, { capture: true });
+			window.removeEventListener('resize', update);
+		};
 	});
 
 	// Reposition on scroll/resize
@@ -423,7 +424,11 @@
 		onfocusout={handleHide}
 		bind:this={triggerRef}
 	>
-		{@render children()}
+		{#if typeof children === 'string'}
+			{children}
+		{:else}
+			{@render children()}
+		{/if}
 	</div>
 {/if}
 

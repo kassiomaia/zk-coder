@@ -157,7 +157,20 @@ pub fn get_sessions_for_conversation(
 }
 
 /// Delete a session.
+///
+/// Also deletes all associated tasks and subtasks due to foreign key constraints.
 pub fn delete_session(conn: &Connection, id: &SessionId) -> Result<(), SessionStoreError> {
+    // Delete subtasks first (they reference tasks)
+    // Need to delete subtasks for all tasks that belong to this session
+    conn.execute(
+        "DELETE FROM agent_subtasks WHERE task_id IN (SELECT id FROM agent_tasks WHERE session_id = ?1)",
+        params![id.0],
+    )?;
+
+    // Delete tasks that belong to this session
+    conn.execute("DELETE FROM agent_tasks WHERE session_id = ?1", params![id.0])?;
+
+    // Finally delete the session
     conn.execute("DELETE FROM agent_sessions WHERE id = ?1", params![id.0])?;
     Ok(())
 }

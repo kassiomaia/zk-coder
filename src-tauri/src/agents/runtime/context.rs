@@ -94,6 +94,14 @@ pub fn maybe_compact_context(context: &mut Vec<Message>) -> Option<CompactionDet
 mod tests {
     use super::*;
     use crate::llm::{Message, MessageContent, MessageRole};
+    use serde_json::json;
+
+    #[test]
+    fn test_constants() {
+        assert_eq!(CONTEXT_WINDOW, 128_000);
+        assert_eq!(COMPRESSION_THRESHOLD, 0.60);
+        assert_eq!(KEEP_RECENT_MESSAGES, 15);
+    }
 
     #[test]
     fn test_estimate_context_tokens_empty() {
@@ -111,6 +119,44 @@ mod tests {
     }
 
     #[test]
+    fn test_estimate_context_tokens_multiple_messages() {
+        let context = vec![
+            Message::system("You are a helpful assistant."),
+            Message::user("Hello!"),
+            Message::assistant("Hi there!"),
+        ];
+        let estimate = estimate_context_tokens(&context);
+        assert!(estimate > 0);
+        // Should be roughly sum of all content / 4 + overhead
+        assert!(estimate < 100); // Should be reasonable for short messages
+    }
+
+    #[test]
+    fn test_estimate_context_tokens_with_long_content() {
+        let long_content = "A".repeat(1000);
+        let context = vec![Message::user(&long_content)];
+        let estimate = estimate_context_tokens(&context);
+        // ~1000 chars / 4 = ~250, +10 overhead = ~260
+        assert!(estimate > 200);
+        assert!(estimate < 300);
+    }
+
+    #[test]
+    fn test_estimate_context_tokens_with_tool_calls() {
+        let context = vec![Message::assistant_with_tool_calls(
+            "I'll read the file.".to_string(),
+            vec![crate::llm::ToolCall {
+                id: "call_1".to_string(),
+                name: "fs_read_file".to_string(),
+                arguments: json!({"path": "/test.txt"}),
+            }],
+        )];
+
+        let estimate = estimate_context_tokens(&context);
+        assert!(estimate > 0);
+    }
+
+    #[test]
     fn test_context_compaction_below_threshold() {
         let mut context = vec![
             Message::system("You are a helpful assistant."),
@@ -121,6 +167,27 @@ mod tests {
         let result = maybe_compact_context(&mut context);
         assert!(result.is_none());
         assert_eq!(context.len(), 3); // Unchanged
+    }
+
+    #[test]
+    fn test_context_compaction_exactly_at_threshold() {
+        // Create context just at threshold edge (60% of 128k = ~76800 tokens)
+        // At ~30 chars per message, need ~2560 messages
+        let mut context = vec![Message::system("System")];
+        for i in 0..1280 {
+            context.push(Message::user(&format!("User message {}", i)));
+            context.push(Message::assistant(&format!("Assistant response {}", i)));
+        }
+
+        let before_len = context.len();
+        let result = maybe_compact_context(&mut context);
+
+        // At exactly threshold, should still compact
+        // (the function checks usage_ratio < threshold for no compaction)
+        // So at >= threshold, it should compact
+        if result.is_some() {
+            assert!(context.len() < before_len);
+        }
     }
 
     #[test]
@@ -155,8 +222,14 @@ mod tests {
         let long_content = "A".repeat(100); // 100 chars per message
         let mut context = vec![Message::system("System")];
         for i in 0..2000 {
-            context.push(Message::user(format!("User {} message with long content: {}", i, long_content)));
-            context.push(Message::assistant(format!("Assistant {} response with long content: {}", i, long_content)));
+            context.push(Message::user(format!(
+                "User {} message with long content: {}",
+                i, long_content
+            )));
+            context.push(Message::assistant(format!(
+                "Assistant {} response with long content: {}",
+                i, long_content
+            )));
         }
 
         let before_len = context.len();
@@ -171,5 +244,157 @@ mod tests {
 
         // After compaction, we should have first message + recent messages
         assert!(context.len() <= KEEP_RECENT_MESSAGES + 1);
+    }
+
+    #[test]
+    fn test_context_compaction_details() {
+        let mut context = vec![Message::system("System")];
+        // Need enough messages to exceed 60% of CONTEXT_WINDOW
+        // Each message pair is ~22 tokens, so we need ~3500 pairs to reach ~77000 tokens
+        for i in 0..3500 {
+            context.push(Message::user(&format!("User {}", i)));
+            context.push(Message::assistant(&format!("Assistant {}", i)));
+        }
+
+        let result = maybe_compact_context(&mut context);
+        assert!(result.is_some());
+
+        let details = result.unwrap();
+        assert!(details.before_count > details.after_count);
+        assert!(details.before_tokens > details.after_tokens);
+        assert!(details.needs_reinjection);
+    }
+
+    #[test]
+    fn test_context_compaction_small_context() {
+        // Small context should not compact even if we try
+        let mut context = vec![
+            Message::system("System"),
+            Message::user("Hello"),
+            Message::assistant("Hi"),
+        ];
+
+        let result = maybe_compact_context(&mut context);
+        assert!(result.is_none(), "Small context should not compact");
+        assert_eq!(context.len(), 3);
+    }
+
+    #[test]
+    fn test_context_compaction_exactly_keep_recent_plus_one() {
+        // If context is exactly KEEP_RECENT_MESSAGES + 1, no compaction needed
+        let mut context = vec![Message::system("System")];
+        for i in 0..KEEP_RECENT_MESSAGES {
+            context.push(Message::user(&format!("Message {}", i)));
+        }
+
+        // This should be exactly KEEP_RECENT_MESSAGES + 1
+        assert_eq!(context.len(), KEEP_RECENT_MESSAGES + 1);
+
+        let result = maybe_compact_context(&mut context);
+        // With small messages, we're likely below token threshold
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_context_compaction_preserves_system_message() {
+        let mut context = vec![Message::system("Important system prompt")];
+        for i in 0..3000 {
+            context.push(Message::user(&format!("User {}", i)));
+            context.push(Message::assistant(&format!("Assistant {}", i)));
+        }
+
+        maybe_compact_context(&mut context);
+
+        // System message should always be first
+        assert_eq!(context[0].role, MessageRole::System);
+        assert_eq!(
+            context[0].as_text(),
+            Some("Important system prompt")
+        );
+    }
+
+    #[test]
+    fn test_context_compaction_with_mixed_message_types() {
+        let mut context = vec![Message::system("System")];
+        // Need enough messages to exceed 60% of CONTEXT_WINDOW (76800 tokens)
+        // Each message pair is ~24 tokens, so we need ~3200 pairs to reach ~77000 tokens
+        for i in 0..3200 {
+            context.push(Message::user(&format!("User {}", i)));
+            context.push(Message::assistant_with_tool_calls(
+                format!("Response {}", i),
+                vec![crate::llm::ToolCall {
+                    id: format!("call_{}", i),
+                    name: "test_tool".to_string(),
+                    arguments: json!({"index": i}),
+                }],
+            ));
+        }
+
+        let result = maybe_compact_context(&mut context);
+        assert!(result.is_some());
+
+        // Should still have system message
+        assert_eq!(context[0].role, MessageRole::System);
+        // Should be reduced to recent + system
+        assert!(context.len() <= KEEP_RECENT_MESSAGES + 1);
+    }
+
+    #[test]
+    fn test_compaction_details_needs_reinjection_flag() {
+        let mut context = vec![Message::system("System")];
+        // Need enough messages to exceed 60% of CONTEXT_WINDOW (128000 * 0.6 = 76800 tokens)
+        // Each message contributes ~11 tokens (content_len / 4 + 10)
+        // So we need about 7000 messages to trigger compaction
+        for i in 0..7000 {
+            context.push(Message::user(&format!("User {}", i)));
+        }
+
+        let result = maybe_compact_context(&mut context);
+        assert!(result.is_some());
+
+        let details = result.unwrap();
+        assert!(
+            details.needs_reinjection,
+            "Compaction should always signal re-injection needed"
+        );
+    }
+
+    #[test]
+    fn test_context_window_constant() {
+        // Verify the context window is set correctly
+        assert!(CONTEXT_WINDOW > 0);
+        assert_eq!(CONTEXT_WINDOW, 128_000);
+    }
+
+    #[test]
+    fn test_compression_threshold_constant() {
+        // Threshold should be between 0 and 1
+        assert!(COMPRESSION_THRESHOLD > 0.0);
+        assert!(COMPRESSION_THRESHOLD <= 1.0);
+        assert_eq!(COMPRESSION_THRESHOLD, 0.60);
+    }
+
+    #[test]
+    fn test_keep_recent_messages_constant() {
+        // Should keep a reasonable number of recent messages
+        assert!(KEEP_RECENT_MESSAGES > 0);
+        assert!(KEEP_RECENT_MESSAGES < 100);
+        assert_eq!(KEEP_RECENT_MESSAGES, 15);
+    }
+
+    #[test]
+    fn test_context_compaction_token_estimation_consistency() {
+        let mut context = vec![Message::system("System")];
+        for i in 0..1000 {
+            context.push(Message::user(&format!("Message {}", i)));
+        }
+
+        let before_tokens = estimate_context_tokens(&context);
+
+        let result = maybe_compact_context(&mut context);
+        if let Some(details) = result {
+            assert_eq!(details.before_tokens, before_tokens);
+            assert!(details.after_tokens < before_tokens);
+        }
     }
 }

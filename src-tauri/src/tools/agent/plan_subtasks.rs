@@ -90,3 +90,447 @@ impl Tool for PlanSubtasksTool {
 		})
 	}
 }
+
+#[cfg(all(test, feature = "integration-test"))]
+mod tests {
+	use super::*;
+
+	// === Tool metadata tests ===
+
+	#[test]
+	fn test_tool_metadata() {
+		let tool = PlanSubtasksTool;
+		let meta = tool.meta();
+
+		assert_eq!(meta.id.to_string(), "agent_plan_subtasks");
+		assert!(meta.description.contains("subtasks"));
+		assert!(meta.description.contains("Activity"));
+	}
+
+	#[test]
+	fn test_tool_id_format() {
+		let tool = PlanSubtasksTool;
+		let meta = tool.meta();
+
+		assert_eq!(meta.id.category, "agent");
+		assert_eq!(meta.id.name, "plan_subtasks");
+		assert_eq!(meta.id.full_name(), "agent_plan_subtasks");
+	}
+
+	#[test]
+	fn test_input_schema() {
+		let tool = PlanSubtasksTool;
+		let meta = tool.meta();
+		let schema = &meta.input_schema;
+
+		assert_eq!(schema["type"], "object");
+
+		let required = schema["required"].as_array().unwrap();
+		assert!(required.iter().any(|v| v.as_str() == Some("subtasks")));
+
+		// Check subtasks array schema
+		let subtasks_prop = &schema["properties"]["subtasks"];
+		assert_eq!(subtasks_prop["type"], "array");
+		assert_eq!(subtasks_prop["minItems"], 1);
+		assert_eq!(subtasks_prop["maxItems"], 10);
+	}
+
+	#[test]
+	fn test_subtask_item_schema() {
+		let tool = PlanSubtasksTool;
+		let meta = tool.meta();
+		let schema = &meta.input_schema;
+
+		let item_schema = &schema["properties"]["subtasks"]["items"];
+		assert_eq!(item_schema["type"], "object");
+
+		let required = item_schema["required"].as_array().unwrap();
+		assert!(required.contains(&serde_json::json!("title")));
+
+		assert!(item_schema["properties"]["title"].is_object());
+		assert!(item_schema["properties"]["description"].is_object());
+	}
+
+	#[test]
+	fn test_no_workspace_required() {
+		let tool = PlanSubtasksTool;
+		let meta = tool.meta();
+		assert!(!meta.requires_workspace);
+	}
+
+	#[test]
+	fn test_not_experimental() {
+		let tool = PlanSubtasksTool;
+		let meta = tool.meta();
+		assert!(!meta.experimental);
+	}
+
+	#[test]
+	fn test_no_feature_flag() {
+		let tool = PlanSubtasksTool;
+		let meta = tool.meta();
+		assert!(meta.feature_flag.is_none());
+	}
+
+	// === Execution tests ===
+
+	#[tokio::test]
+	async fn test_execute_with_valid_subtasks() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": "First task"},
+				{"title": "Second task", "description": "More details"}
+			]
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_ok());
+		let output = result.unwrap();
+		assert_eq!(output["success"], true);
+		assert_eq!(output["count"], 2);
+		assert!(output["message"].as_str().unwrap().contains("2"));
+	}
+
+	#[tokio::test]
+	async fn test_execute_with_single_subtask() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": "Only task"}
+			]
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_ok());
+		let output = result.unwrap();
+		assert_eq!(output["count"], 1);
+	}
+
+	#[tokio::test]
+	async fn test_execute_with_max_subtasks() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let mut subtasks = serde_json::json!([]);
+		for i in 0..10 {
+			subtasks.as_array_mut().unwrap().push(serde_json::json!({
+				"title": format!("Task {}", i)
+			}));
+		}
+
+		let args = serde_json::json!({
+			"subtasks": subtasks
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_ok());
+		let output = result.unwrap();
+		assert_eq!(output["count"], 10);
+	}
+
+	#[tokio::test]
+	async fn test_execute_with_subtasks_with_descriptions() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{
+					"title": "Analyze code",
+					"description": "Review the existing codebase structure"
+				},
+				{
+					"title": "Implement feature",
+					"description": "Add the new functionality"
+				}
+			]
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_ok());
+		assert_eq!(result.unwrap()["count"], 2);
+	}
+
+	// === Error handling tests ===
+
+	#[tokio::test]
+	async fn test_execute_missing_subtasks() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_err());
+		let err = result.unwrap_err();
+		assert!(err.to_string().contains("subtasks"));
+	}
+
+	#[tokio::test]
+	async fn test_execute_empty_subtasks_array() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": []
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_err());
+		let err = result.unwrap_err();
+		assert!(err.to_string().contains("empty"));
+	}
+
+	#[tokio::test]
+	async fn test_execute_subtasks_not_an_array() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": "not an array"
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_err());
+	}
+
+	#[tokio::test]
+	async fn test_execute_subtasks_with_missing_titles() {
+		// The tool doesn't validate individual subtask structure,
+		// only that the array exists and is not empty
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"description": "No title"}
+			]
+		});
+
+		// Should succeed - validation of subtask structure is up to the runtime
+		let result = tool.execute(context, args, app_handle, None).await;
+		assert!(result.is_ok());
+	}
+
+	// === Output validation tests ===
+
+	#[tokio::test]
+	async fn test_output_structure() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": "Task 1"}
+			]
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_ok());
+		let output = result.unwrap();
+
+		assert_eq!(output["success"], true);
+		assert!(output["message"].is_string());
+		assert!(output["count"].is_number());
+	}
+
+	#[tokio::test]
+	async fn test_output_message_format() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": "Task 1"},
+				{"title": "Task 2"},
+				{"title": "Task 3"}
+			]
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_ok());
+		let output = result.unwrap();
+
+		let message = output["message"].as_str().unwrap();
+		assert!(message.contains("Planned"));
+		assert!(message.contains("3"));
+		assert!(message.contains("subtasks"));
+	}
+
+	#[tokio::test]
+	async fn test_output_is_json_serializable() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": "Task 1"}
+			]
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_ok());
+		let output = result.unwrap();
+
+		// Verify we can serialize back to JSON string
+		let json_string = serde_json::to_string(&output);
+		assert!(json_string.is_ok());
+	}
+
+	// === Context tests ===
+
+	#[tokio::test]
+	async fn test_execute_with_thread_context() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation")
+			.with_thread("thread-123");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": "Task 1"}
+			]
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_ok());
+	}
+
+	#[tokio::test]
+	async fn test_execute_with_session_context() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation")
+			.with_session("session-456");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": "Task 1"}
+			]
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_ok());
+	}
+
+	#[tokio::test]
+	async fn test_execute_without_workspace() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": "Task 1"}
+			]
+		});
+
+		// Should work without workspace
+		let result = tool.execute(context, args, app_handle, None).await;
+		assert!(result.is_ok());
+	}
+
+	// === Edge case tests ===
+
+	#[tokio::test]
+	async fn test_execute_with_extra_fields_ignored() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": "Task 1"}
+			],
+			"unexpected": "field"
+		});
+
+		// Extra fields are ignored by the execute function
+		let result = tool.execute(context, args, app_handle, None).await;
+		assert!(result.is_ok());
+	}
+
+	#[tokio::test]
+	async fn test_execute_subtask_with_empty_title() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": ""}
+			]
+		});
+
+		// The tool doesn't validate title content, only array presence
+		let result = tool.execute(context, args, app_handle, None).await;
+		assert!(result.is_ok());
+		assert_eq!(result.unwrap()["count"], 1);
+	}
+
+	#[tokio::test]
+	async fn test_execute_with_unicode_titles() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": "Analyze code 分析"},
+				{"title": "Test tests 测试 🧪"}
+			]
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		assert!(result.is_ok());
+		assert_eq!(result.unwrap()["count"], 2);
+	}
+
+	#[tokio::test]
+	async fn test_execute_with_very_long_title() {
+		let tool = PlanSubtasksTool;
+		let context = ToolExecutionContext::new("test-conversation");
+		let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+		let long_title = "A".repeat(1000);
+		let args = serde_json::json!({
+			"subtasks": [
+				{"title": long_title}
+			]
+		});
+
+		let result = tool.execute(context, args, app_handle, None).await;
+
+		// Should still work - no length validation on titles
+		assert!(result.is_ok());
+	}
+}

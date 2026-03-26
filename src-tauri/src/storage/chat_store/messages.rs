@@ -1,6 +1,7 @@
 //! Message CRUD operations for the chat store.
 
 use chrono::Utc;
+use log::warn;
 use rusqlite::{params, Connection, OptionalExtension};
 
 use super::ChatStoreError;
@@ -63,7 +64,14 @@ pub fn load_messages(
     let messages = stmt
         .query_map(params![conversation_id], |row| {
             let metadata_json: Option<String> = row.get(7)?;
-            let metadata = metadata_json.and_then(|j| serde_json::from_str(&j).ok());
+            let metadata = metadata_json
+                .and_then(|j| {
+                    serde_json::from_str(&j)
+                        .inspect_err(|e| {
+                            warn!("Failed to parse message metadata for message in conversation {conversation_id}: {e}");
+                        })
+                        .ok()
+                });
 
             Ok(ChatMessage {
                 id: row.get(0)?,
@@ -94,7 +102,14 @@ pub fn load_thread_messages(
     let messages = stmt
         .query_map(params![thread_id], |row| {
             let metadata_json: Option<String> = row.get(7)?;
-            let metadata = metadata_json.and_then(|j| serde_json::from_str(&j).ok());
+            let metadata = metadata_json
+                .and_then(|j| {
+                    serde_json::from_str(&j)
+                        .inspect_err(|e| {
+                            warn!("Failed to parse message metadata for message in thread {thread_id}: {e}");
+                        })
+                        .ok()
+                });
 
             Ok(ChatMessage {
                 id: row.get(0)?,
@@ -114,7 +129,10 @@ pub fn load_thread_messages(
 
 /// Deletes a message.
 pub fn delete_message(conn: &Connection, id: &str) -> Result<(), ChatStoreError> {
-    conn.execute("DELETE FROM chat_messages WHERE id = ?1", params![id])?;
+    let rows_affected = conn.execute("DELETE FROM chat_messages WHERE id = ?1", params![id])?;
+    if rows_affected == 0 {
+        return Err(ChatStoreError::NotFound("Message", id.to_string()));
+    }
     Ok(())
 }
 
@@ -154,7 +172,13 @@ pub fn update_message_feedback(
 
     let mut metadata: MessageMetadata = metadata_json
         .as_deref()
-        .and_then(|j| serde_json::from_str(j).ok())
+        .and_then(|j| {
+            serde_json::from_str(j)
+                .inspect_err(|e| {
+                    warn!("Failed to parse message metadata for message {id}, using default: {e}");
+                })
+                .ok()
+        })
         .unwrap_or_default();
 
     metadata.feedback = feedback;
@@ -361,5 +385,144 @@ mod tests {
 
         let feedback = load_thread_feedback(&conn, &thread.id, 10).unwrap();
         assert_eq!(feedback.len(), 2);
+    }
+
+    #[test]
+    fn test_add_message_increments_thread_count() {
+        let conn = make_test_store();
+        let conv_id = make_test_conversation(&conn);
+
+        let thread = super::super::threads::create_thread(&conn, &conv_id, "Test Thread").unwrap();
+        assert_eq!(thread.message_count, 0);
+
+        let msg = ChatMessage {
+            thread_id: Some(thread.id.clone()),
+            ..ChatMessage::user(&conv_id, "Message 1")
+        };
+        add_message(&conn, &msg).unwrap();
+
+        let loaded_thread = super::super::threads::load_thread(&conn, &thread.id).unwrap();
+        assert_eq!(loaded_thread.message_count, 1);
+    }
+
+    #[test]
+    fn test_add_message_without_thread() {
+        let conn = make_test_store();
+        let conv_id = make_test_conversation(&conn);
+
+        let msg = ChatMessage {
+            thread_id: None,
+            ..ChatMessage::user(&conv_id, "Orphan message")
+        };
+        add_message(&conn, &msg).unwrap();
+
+        let messages = load_messages(&conn, &conv_id).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].thread_id.is_none());
+    }
+
+    #[test]
+    fn test_load_messages_ordered_by_timestamp() {
+        let conn = make_test_store();
+        let conv_id = make_test_conversation(&conn);
+
+        // Add messages with explicit timestamps
+        let mut msg1 = ChatMessage::user(&conv_id, "First");
+        msg1.timestamp = chrono::Utc::now() - chrono::Duration::seconds(10);
+
+        let mut msg2 = ChatMessage::user(&conv_id, "Second");
+        msg2.timestamp = chrono::Utc::now() - chrono::Duration::seconds(5);
+
+        let mut msg3 = ChatMessage::user(&conv_id, "Third");
+        msg3.timestamp = chrono::Utc::now();
+
+        add_message(&conn, &msg1).unwrap();
+        add_message(&conn, &msg2).unwrap();
+        add_message(&conn, &msg3).unwrap();
+
+        let messages = load_messages(&conn, &conv_id).unwrap();
+        assert_eq!(messages.len(), 3);
+        assert_eq!(messages[0].content, "First");
+        assert_eq!(messages[1].content, "Second");
+        assert_eq!(messages[2].content, "Third");
+    }
+
+    #[test]
+    fn test_update_message_feedback_preserves_metadata() {
+        let conn = make_test_store();
+        let conv_id = make_test_conversation(&conn);
+
+        let mut msg = ChatMessage::user(&conv_id, "Test");
+        msg.metadata = Some(MessageMetadata {
+            feedback: None,
+            tokens: Some(100),
+            intent: None,
+            confidence: None,
+            model: None,
+        });
+        add_message(&conn, &msg).unwrap();
+
+        // Update feedback
+        update_message_feedback(&conn, &msg.id, Some(MessageFeedback::Like)).unwrap();
+
+        let messages = load_messages(&conn, &conv_id).unwrap();
+        assert_eq!(messages[0].metadata.as_ref().unwrap().feedback, Some(MessageFeedback::Like));
+        assert_eq!(messages[0].metadata.as_ref().unwrap().tokens, Some(100));
+    }
+
+    #[test]
+    fn test_delete_message_updates_thread_count() {
+        let conn = make_test_store();
+        let conv_id = make_test_conversation(&conn);
+
+        let thread = super::super::threads::create_thread(&conn, &conv_id, "Test Thread").unwrap();
+
+        let msg = ChatMessage {
+            thread_id: Some(thread.id.clone()),
+            ..ChatMessage::user(&conv_id, "Message")
+        };
+        add_message(&conn, &msg).unwrap();
+
+        let thread_with_msg = super::super::threads::load_thread(&conn, &thread.id).unwrap();
+        assert_eq!(thread_with_msg.message_count, 1);
+
+        delete_message(&conn, &msg.id).unwrap();
+
+        // Note: Deleting a message doesn't decrement the thread count in current implementation
+        // This test documents current behavior
+        let messages = load_messages(&conn, &conv_id).unwrap();
+        assert_eq!(messages.len(), 0);
+    }
+
+    #[test]
+    fn test_add_message_updates_conversation_timestamp() {
+        let conn = make_test_store();
+        let conv = super::super::conversations::create_conversation(&conn, "Test").unwrap();
+        let original_updated_at = conv.updated_at;
+
+        // Small delay to ensure timestamp difference
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        let msg = ChatMessage::user(&conv.id, "Message");
+        add_message(&conn, &msg).unwrap();
+
+        let updated_conv = super::super::conversations::load_conversation(&conn, &conv.id).unwrap();
+        assert!(updated_conv.updated_at > original_updated_at);
+    }
+
+    #[test]
+    fn test_message_with_assistant_role() {
+        let conn = make_test_store();
+        let conv_id = make_test_conversation(&conn);
+
+        let msg = ChatMessage {
+            role: MessageRole::Assistant,
+            ..ChatMessage::user(&conv_id, "Assistant response")
+        };
+        add_message(&conn, &msg).unwrap();
+
+        let messages = load_messages(&conn, &conv_id).unwrap();
+        assert_eq!(messages[0].role, MessageRole::Assistant);
+        assert_eq!(messages[0].content, "Assistant response");
     }
 }

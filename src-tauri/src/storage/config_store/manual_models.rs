@@ -4,7 +4,7 @@ use chrono::Utc;
 use rusqlite::{params, Connection};
 
 use super::ConfigStoreError;
-use crate::nlp::config::{ManualModelEntry, ModelCapabilities};
+use crate::core::config::{ManualModelEntry, ModelCapabilities};
 
 /// Gets all manual models for a provider.
 pub fn get_manual_models(

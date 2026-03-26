@@ -9,7 +9,6 @@ pub mod chat;
 pub mod classifier;
 pub mod code_analyzer;
 pub mod code_understanding;
-pub mod config;
 pub mod context;
 pub mod context_manager;
 pub mod execution_planner;
@@ -51,7 +50,9 @@ pub use crate::core::chat::entities::{
 };
 
 // Config types for LLM provider management
-pub use config::{
-    ApiType, FetchModelsResult, Model, ModelCapabilities, OperationDefault, OperationType,
-    Provider, SaveProviderRequest, ValidationResult,
+// NOTE: These are re-exported from core::config for backward compatibility.
+// New code should import from crate::core::config instead.
+pub use crate::core::config::{
+    ApiType, FetchModelsResult, ManualModelEntry, ManualModelRequest, Model, ModelCapabilities,
+    ModelsSource, OperationDefault, OperationType, Provider, SaveProviderRequest, ValidationResult,
 };

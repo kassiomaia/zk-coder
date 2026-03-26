@@ -12,6 +12,9 @@ mod types;
 mod stream;
 mod client;
 
+#[cfg(test)]
+mod integration_tests;
+
 pub use client::{AnthropicClient, ANTHROPIC_BASE_URL, ANTHROPIC_VERSION, DEFAULT_MAX_TOKENS};
 pub use stream::*;
 pub use types::*;

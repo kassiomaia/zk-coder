@@ -13,7 +13,7 @@ use crate::llm::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, MessageContent,
     MessageRole, StreamChunk, ToolCall, ToolDefinition, UsageStats,
 };
-use crate::nlp::config::ApiType;
+use crate::core::config::ApiType;
 
 /// Default base URL for Anthropic API.
 pub const ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com/v1";

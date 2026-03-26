@@ -40,7 +40,7 @@ use std::pin::Pin;
 
 pub use error::{LlmError, LlmResult};
 
-use crate::nlp::config::ApiType;
+use crate::core::config::ApiType;
 
 // =============================================================================
 // Message Types
@@ -630,3 +630,7 @@ mod tests {
         assert!(json.contains("test-123"));
     }
 }
+
+// Include comprehensive orchestrator tests
+#[path = "orchestrator_tests.rs"]
+mod orchestrator_tests;

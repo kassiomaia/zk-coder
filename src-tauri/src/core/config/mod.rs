@@ -1,7 +1,8 @@
-//! LLM Provider configuration data types.
+//! LLM Provider and Model Configuration domain entities.
 //!
 //! This module provides data structures for managing LLM providers,
-//! models, and operation defaults.
+//! models, and operation defaults. These are core domain entities
+//! that define the configuration contract for the application.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -349,6 +350,12 @@ impl OperationType {
             Self::Tips,
             Self::Review,
         ]
+    }
+}
+
+impl std::fmt::Display for OperationType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 

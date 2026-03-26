@@ -4,7 +4,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use super::ConfigStoreError;
 use super::helpers::parse_datetime;
-use crate::nlp::config::{Model, ModelCapabilities};
+use crate::core::config::{Model, ModelCapabilities};
 
 /// Gets all models for a provider.
 pub fn get_models(conn: &Connection, provider_id: &str) -> Result<Vec<Model>, ConfigStoreError> {

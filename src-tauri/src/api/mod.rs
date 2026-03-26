@@ -6,7 +6,7 @@
 use reqwest::Client;
 use serde::Deserialize;
 
-use crate::nlp::config::{
+use crate::core::config::{
     ApiType, FetchModelsResult, ManualModelEntry, Model, ModelCapabilities, ModelsSource,
     ValidationResult,
 };

@@ -1,6 +1,7 @@
 //! Task and subtask operations for the agent store.
 
 use chrono::Utc;
+use log::warn;
 use rusqlite::{params, Connection};
 
 use super::SessionStoreError;
@@ -63,6 +64,7 @@ pub fn get_session_tasks(
     )?;
 
     let tasks = stmt.query_map(params![session_id.0], |row| {
+        let task_id: String = row.get(0)?;
         let request_str: String = row.get(2)?;
         let status_str: String = row.get(3)?;
         let steps_str: String = row.get(4)?;
@@ -79,21 +81,31 @@ pub fn get_session_tasks(
             rusqlite::Error::ToSqlConversionFailure(Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
         })?;
 
+        let created_at = chrono::DateTime::parse_from_rfc3339(&created)
+            .inspect_err(|e| {
+                warn!("Failed to parse created_at timestamp for task {task_id}: {e}");
+            })
+            .unwrap_or_default()
+            .with_timezone(&Utc);
+
+        let completed_at = completed.and_then(|s| {
+            chrono::DateTime::parse_from_rfc3339(&s)
+                .inspect_err(|e| {
+                    warn!("Failed to parse completed_at timestamp for task {task_id}: {e}");
+                })
+                .ok()
+                .map(|dt| dt.with_timezone(&Utc))
+        });
+
         Ok(crate::agents::task::AgentTask {
-            id: row.get(0)?,
+            id: task_id,
             session_id: crate::agents::session::SessionId(row.get(1)?),
             request,
             status,
             steps,
             subtasks: None, // Loaded separately via get_subtasks
-            created_at: chrono::DateTime::parse_from_rfc3339(&created)
-                .unwrap_or_default()
-                .with_timezone(&Utc),
-            completed_at: completed.and_then(|s| {
-                chrono::DateTime::parse_from_rfc3339(&s)
-                    .ok()
-                    .map(|dt| dt.with_timezone(&Utc))
-            }),
+            created_at,
+            completed_at,
         })
     })?
     .collect::<Result<Vec<_>, _>>()?;
@@ -134,12 +146,21 @@ pub fn update_subtask_status(
     // Get current status to check if we're transitioning to InProgress
     let current_status: Option<String> = conn
         .query_row("SELECT status FROM agent_subtasks WHERE id = ?1", params![subtask_id], |row| row.get(0))
+        .inspect_err(|e| {
+            warn!("Failed to query current status for subtask {subtask_id}: {e}");
+        })
         .ok();
 
     // Parse current status to enum for robust comparison
     let is_transitioning_to_in_progress = current_status
         .as_deref()
-        .and_then(|s| serde_json::from_str::<crate::agents::task::TaskStatus>(s).ok())
+        .and_then(|s| {
+            serde_json::from_str::<crate::agents::task::TaskStatus>(s)
+                .inspect_err(|e| {
+                    warn!("Failed to parse current status JSON for subtask {subtask_id}: {e}");
+                })
+                .ok()
+        })
         .map(|current| matches!(current, crate::agents::task::TaskStatus::Pending))
         .unwrap_or(false)
         && matches!(status, crate::agents::task::TaskStatus::InProgress);
@@ -180,10 +201,14 @@ pub fn get_subtasks(
     )?;
 
     let subtasks = stmt.query_map(params![task_id], |row| {
+        let subtask_id: String = row.get(0)?;
         // Parse mode (default to FullAccess for backward compatibility)
         let mode_str: Option<String> = row.get(4)?;
         let mode = match mode_str.as_deref() {
             Some(s) => serde_json::from_str::<crate::agents::task::SubTaskMode>(s)
+                .inspect_err(|e| {
+                    warn!("Failed to parse mode for subtask {subtask_id} in task {task_id}: {e}");
+                })
                 .unwrap_or(crate::agents::task::SubTaskMode::FullAccess),
             None => crate::agents::task::SubTaskMode::FullAccess,
         };
@@ -196,6 +221,9 @@ pub fn get_subtasks(
 
         // Parse created_at
         let created_at = chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(7)?)
+            .inspect_err(|e| {
+                warn!("Failed to parse created_at timestamp for subtask {subtask_id} in task {task_id}: {e}");
+            })
             .unwrap_or_default()
             .with_timezone(&Utc);
 
@@ -204,6 +232,9 @@ pub fn get_subtasks(
             .get::<_, Option<String>>(8)?
             .map(|s| {
                 chrono::DateTime::parse_from_rfc3339(&s)
+                    .inspect_err(|e| {
+                        warn!("Failed to parse started_at timestamp for subtask {subtask_id} in task {task_id}: {e}");
+                    })
                     .unwrap_or_default()
                     .with_timezone(&Utc)
             });
@@ -213,12 +244,15 @@ pub fn get_subtasks(
             .get::<_, Option<String>>(9)?
             .map(|s| {
                 chrono::DateTime::parse_from_rfc3339(&s)
+                    .inspect_err(|e| {
+                        warn!("Failed to parse completed_at timestamp for subtask {subtask_id} in task {task_id}: {e}");
+                    })
                     .unwrap_or_default()
                     .with_timezone(&Utc)
             });
 
         Ok(crate::agents::task::SubTask {
-            id: row.get(0)?,
+            id: subtask_id,
             task_id: row.get(1)?,
             title: row.get(2)?,
             description: row.get(3)?,

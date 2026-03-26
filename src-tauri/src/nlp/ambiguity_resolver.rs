@@ -123,7 +123,9 @@ impl AmbiguityResolver {
             "this code",
             "the code",
             "this function",
+            "the function",
             "this class",
+            "the class",
         ];
         let lower = input.to_lowercase();
         keywords.iter().any(|k| lower.contains(k))
@@ -204,6 +206,37 @@ mod tests {
         ]
     }
 
+    fn create_large_file_set() -> Vec<String> {
+        vec![
+            "src/main.rs".to_string(),
+            "src/lib.rs".to_string(),
+            "src/auth/service.rs".to_string(),
+            "src/auth/models.rs".to_string(),
+            "src/auth/utils.rs".to_string(),
+            "tests/integration/auth_test.rs".to_string(),
+            "tests/unit/auth_test.rs".to_string(),
+            "components/Auth.tsx".to_string(),
+            "components/auth/Button.tsx".to_string(),
+            "auth.config.ts".to_string(),
+        ]
+    }
+
+    // Test fixtures for context detection
+    const NEEDS_CONTEXT_FIXTURES: &[&str] = &[
+        "explain this file",
+        "refactor the code",
+        "check this function",
+        "optimize the class",
+        "document the file",
+    ];
+
+    const NO_CONTEXT_FIXTURES: &[&str] = &[
+        "create a new function",
+        "generate code for authentication",
+        "write tests for user model",
+        "build a REST API",
+    ];
+
     #[test]
     fn test_needs_file_context() {
         let resolver = create_test_resolver();
@@ -211,6 +244,41 @@ mod tests {
         assert!(resolver.needs_file_context("explain this file"));
         assert!(resolver.needs_file_context("refactor the code"));
         assert!(!resolver.needs_file_context("create a new function"));
+    }
+
+    #[test]
+    fn test_needs_file_context_comprehensive() {
+        let resolver = create_test_resolver();
+
+        for input in NEEDS_CONTEXT_FIXTURES {
+            assert!(
+                resolver.needs_file_context(input),
+                "Expected need for context: '{input}'"
+            );
+        }
+
+        for input in NO_CONTEXT_FIXTURES {
+            assert!(
+                !resolver.needs_file_context(input),
+                "Should not need context: '{input}'"
+            );
+        }
+    }
+
+    #[test]
+    fn test_needs_file_context_case_insensitive() {
+        let resolver = create_test_resolver();
+
+        assert!(resolver.needs_file_context("Explain This File"));
+        assert!(resolver.needs_file_context("REFACTOR THE CODE"));
+    }
+
+    #[test]
+    fn test_needs_file_context_with_punctuation() {
+        let resolver = create_test_resolver();
+
+        assert!(resolver.needs_file_context("explain this file!"));
+        assert!(resolver.needs_file_context("check the code, please."));
     }
 
     #[tokio::test]
@@ -277,5 +345,299 @@ mod tests {
         let resolved = resolver.resolve_with_context(&ambiguity, &context);
         assert!(resolved.is_some());
         assert_eq!(resolved.expect("Should resolve").value, "src/main.rs");
+    }
+
+    #[tokio::test]
+    async fn test_detect_ambiguity_with_no_files() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files: Vec<String> = vec![];
+
+        let result = resolver
+            .detect("check main.rs", &context, &files)
+            .await
+            .expect("Should detect");
+
+        assert!(!result.is_empty());
+        assert_eq!(result[0].ambiguity_type, AmbiguityType::MissingFile);
+    }
+
+    #[tokio::test]
+    async fn test_detect_multiple_ambiguities_in_single_input() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = create_large_file_set();
+
+        let result = resolver
+            .detect("check auth.rs and nonexistent.ts", &context, &files)
+            .await
+            .expect("Should detect");
+
+        // Should detect multiple ambiguities
+        assert!(result.len() >= 1);
+    }
+
+    #[tokio::test]
+    async fn test_detect_with_empty_input() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = create_test_files();
+
+        let result = resolver
+            .detect("", &context, &files)
+            .await
+            .expect("Should detect");
+
+        // No file references in empty input
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_detect_with_whitespace_input() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = create_test_files();
+
+        let result = resolver
+            .detect("   ", &context, &files)
+            .await
+            .expect("Should detect");
+
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_detect_suggestions_limit() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = create_large_file_set();
+
+        let result = resolver
+            .detect("check auth.rs", &context, &files)
+            .await
+            .expect("Should detect");
+
+        // Should limit suggestions to 5
+        if !result.is_empty() {
+            assert!(result[0].clarification.options.len() <= 5);
+            assert!(result[0].suggestions.len() <= 5);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_detect_unclear_scope_without_current_file() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new(); // No current file set
+        let files = create_test_files();
+
+        let result = resolver
+            .detect("explain this file", &context, &files)
+            .await
+            .expect("Should detect");
+
+        // Should detect unclear scope
+        assert!(!result.is_empty());
+        assert!(result
+            .iter()
+            .any(|a| a.ambiguity_type == AmbiguityType::UnclearScope));
+    }
+
+    #[tokio::test]
+    async fn test_detect_no_unclear_scope_with_current_file() {
+        let resolver = create_test_resolver();
+        let mut context = ConversationContext::new();
+        context.metadata.current_file =
+            Some(crate::nlp::context::FileInfo::new("src/main.rs", "rust"));
+        let files = create_test_files();
+
+        let result = resolver
+            .detect("explain this file", &context, &files)
+            .await
+            .expect("Should detect");
+
+        // Should not detect unclear scope when current file is set
+        assert!(!result
+            .iter()
+            .any(|a| a.ambiguity_type == AmbiguityType::UnclearScope));
+    }
+
+    #[tokio::test]
+    async fn test_fuzzy_match_files() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = create_test_files();
+
+        let result = resolver
+            .detect("explain mn.rs", &context, &files)
+            .await
+            .expect("Should detect");
+
+        // Should provide fuzzy match suggestions
+        if !result.is_empty() && result[0].ambiguity_type == AmbiguityType::MissingFile {
+            assert!(!result[0].suggestions.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_resolve_with_context_missing_file() {
+        let resolver = create_test_resolver();
+        let mut context = ConversationContext::new();
+        context.metadata.current_file =
+            Some(crate::nlp::context::FileInfo::new("src/main.rs", "rust"));
+
+        let ambiguity = Ambiguity::new(
+            AmbiguityType::MissingFile,
+            TextSpan::full("test.ts"),
+            AmbiguitySeverity::High,
+            ClarificationRequest::new("File not found"),
+        );
+
+        let resolved = resolver.resolve_with_context(&ambiguity, &context);
+        // Should provide current file as suggestion
+        assert!(resolved.is_some());
+    }
+
+    #[test]
+    fn test_resolve_with_context_no_current_file() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+
+        let ambiguity = Ambiguity::new(
+            AmbiguityType::UnclearScope,
+            TextSpan::full("test"),
+            AmbiguitySeverity::Medium,
+            ClarificationRequest::new("Which file?"),
+        );
+
+        let resolved = resolver.resolve_with_context(&ambiguity, &context);
+        // Should not resolve without current file
+        assert!(resolved.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_detect_with_long_file_path() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = vec!["src/very/deeply/nested/directory/structure/file.rs".to_string()];
+
+        let result = resolver
+            .detect("explain file.rs", &context, &files)
+            .await
+            .expect("Should detect");
+
+        // Should find the file
+        assert!(result.is_empty()); // Single match - no ambiguity
+    }
+
+    #[tokio::test]
+    async fn test_detect_with_special_characters_in_filename() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = vec!["src/auth-v2.rs".to_string(), "src/auth_v2.rs".to_string()];
+
+        let result = resolver
+            .detect("explain auth-v2.rs", &context, &files)
+            .await
+            .expect("Should detect");
+
+        // Should handle special characters
+        if !result.is_empty() {
+            assert_eq!(result[0].ambiguity_type, AmbiguityType::MultipleMatches);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_detect_with_case_sensitivity() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = vec!["src/AuthService.rs".to_string()];
+
+        let result = resolver
+            .detect("explain authservice.rs", &context, &files)
+            .await
+            .expect("Should detect");
+
+        // Fuzzy match should work with case insensitivity
+        // May return ambiguity if exact match not found
+    }
+
+    #[tokio::test]
+    async fn test_multiple_file_references() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = create_test_files();
+
+        let result = resolver
+            .detect("compare main.rs and lib.rs", &context, &files)
+            .await
+            .expect("Should detect");
+
+        // Both files should be found (single matches each)
+        // So no ambiguity should be reported for these
+    }
+
+    #[tokio::test]
+    async fn test_detect_with_file_extension_only() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = create_test_files();
+
+        let result = resolver
+            .detect("explain .rs", &context, &files)
+            .await
+            .expect("Should detect");
+
+        // Extension-only references might not match the pattern
+        // This is expected behavior
+    }
+
+    #[test]
+    fn test_default_trait_implementation() {
+        let resolver = AmbiguityResolver::default();
+        // Should work the same as new()
+        assert!(resolver.needs_file_context("explain this file"));
+    }
+
+    #[tokio::test]
+    async fn test_detect_preserves_span_information() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = create_test_files();
+
+        let input = "check auth.rs for bugs";
+        let result = resolver.detect(input, &context, &files).await.expect("Should detect");
+
+        if !result.is_empty() {
+            // Span should contain the referenced text
+            assert!(result[0].span.text.contains("auth.rs"));
+            assert!(result[0].span.start <= input.find("auth.rs").unwrap_or(0));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_severity_levels_for_different_ambiguities() {
+        let resolver = create_test_resolver();
+        let context = ConversationContext::new();
+        let files = create_test_files();
+
+        // Missing file should be high severity
+        let result = resolver
+            .detect("check missing.rs", &context, &files)
+            .await
+            .expect("Should detect");
+        if !result.is_empty() {
+            assert_eq!(result[0].severity, AmbiguitySeverity::High);
+        }
+
+        // Multiple matches should be medium severity
+        let result = resolver
+            .detect("check auth.rs", &context, &files)
+            .await
+            .expect("Should detect");
+        if !result.is_empty()
+            && result[0].ambiguity_type == AmbiguityType::MultipleMatches
+        {
+            assert_eq!(result[0].severity, AmbiguitySeverity::Medium);
+        }
     }
 }

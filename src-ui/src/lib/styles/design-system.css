@@ -60,6 +60,21 @@
 	--color-provider-google-dark: rgba(29, 78, 216, 0.15);
 	--color-provider-custom-dark: rgba(139, 92, 246, 0.15);
 
+	/* Programming Language Colors - for file type icons */
+	--color-lang-rust: #f74c00;
+	--color-lang-python: #3776ab;
+	--color-lang-javascript: #f7df1e;
+	--color-lang-typescript: #3178c6;
+	--color-lang-go: #00add8;
+	--color-lang-java: #007396;
+	--color-lang-cpp: #00599c;
+	--color-lang-csharp: #178600;
+	--color-lang-ruby: #cc342d;
+	--color-lang-php: #777bb4;
+	--color-lang-swift: #f05138;
+	--color-lang-kotlin: #7f52ff;
+	--color-lang-default: var(--color-text-muted);
+
 	/* Neutral Colors - Text and backgrounds */
 	--color-neutral-0: #ffffff;
 	--color-neutral-50: #fafafa;

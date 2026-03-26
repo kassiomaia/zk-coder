@@ -87,10 +87,11 @@ impl Tool for MarkSubtaskStatusTool {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "integration-test"))]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+
+    // === Tool metadata tests ===
 
     #[test]
     fn test_tool_metadata() {
@@ -103,12 +104,23 @@ mod tests {
     }
 
     #[test]
+    fn test_tool_id_format() {
+        let tool = MarkSubtaskStatusTool;
+        let meta = tool.meta();
+
+        assert_eq!(meta.id.category, "agent");
+        assert_eq!(meta.id.name, "mark_subtask_status");
+        assert_eq!(meta.id.full_name(), "agent_mark_subtask_status");
+    }
+
+    #[test]
     fn test_input_schema_requires_index() {
         let tool = MarkSubtaskStatusTool;
         let meta = tool.meta();
         let schema = &meta.input_schema;
 
         assert_eq!(schema["type"], "object");
+        assert_eq!(schema["additionalProperties"], false);
         let required = schema["required"].as_array().unwrap();
         assert!(required.iter().any(|v| v.as_str() == Some("index")));
         assert!(required.iter().any(|v| v.as_str() == Some("status")));
@@ -132,6 +144,7 @@ mod tests {
         assert!(valid_statuses.contains(&"in_progress"));
         assert!(valid_statuses.contains(&"completed"));
         assert!(valid_statuses.contains(&"failed"));
+        assert_eq!(valid_statuses.len(), 4);
     }
 
     #[test]
@@ -157,5 +170,267 @@ mod tests {
         let tool = MarkSubtaskStatusTool;
         let meta = tool.meta();
         assert!(!meta.experimental);
+    }
+
+    #[test]
+    fn test_no_feature_flag() {
+        let tool = MarkSubtaskStatusTool;
+        let meta = tool.meta();
+        assert!(meta.feature_flag.is_none());
+    }
+
+    // === Execution tests ===
+
+    #[tokio::test]
+    async fn test_execute_valid_status() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        for status in ["pending", "in_progress", "completed", "failed"] {
+            let args = serde_json::json!({
+                "index": 0,
+                "status": status
+            });
+
+            let result = tool.execute(context.clone(), args, app_handle.clone(), None).await;
+
+            assert!(result.is_ok(), "Status '{}' should be valid", status);
+            let output = result.unwrap();
+            assert_eq!(output["success"], true);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_zero_index() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "index": 0,
+            "status": "completed"
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_large_index() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "index": 999999,
+            "status": "pending"
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_ok());
+    }
+
+    // === Error handling tests ===
+
+    #[tokio::test]
+    async fn test_execute_missing_index() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "status": "completed"
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("index"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_missing_status() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "index": 0
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("status"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_invalid_status() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "index": 0,
+            "status": "invalid_status"
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Invalid status"));
+        assert!(err.to_string().contains("invalid_status"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_empty_status() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "index": 0,
+            "status": ""
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_mixed_case_status() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        // Status is case-sensitive
+        let args = serde_json::json!({
+            "index": 0,
+            "status": "COMPLETED"
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_wrong_type_for_index() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "index": "not_a_number",
+            "status": "completed"
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_wrong_type_for_status() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "index": 0,
+            "status": 123
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_err());
+    }
+
+    // === Output validation tests ===
+
+    #[tokio::test]
+    async fn test_output_structure() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "index": 2,
+            "status": "in_progress"
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+
+        assert_eq!(output["success"], true);
+        assert!(output["message"].is_string());
+        assert!(output["message"].as_str().unwrap().contains("2"));
+        assert!(output["message"].as_str().unwrap().contains("in_progress"));
+    }
+
+    #[tokio::test]
+    async fn test_output_is_json_serializable() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "index": 0,
+            "status": "completed"
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+
+        // Verify we can serialize back to JSON string
+        let json_string = serde_json::to_string(&output);
+        assert!(json_string.is_ok());
+    }
+
+    // === Context tests ===
+
+    #[tokio::test]
+    async fn test_execute_with_thread_context() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation")
+            .with_thread("thread-123");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "index": 0,
+            "status": "completed"
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_execute_with_session_context() {
+        let tool = MarkSubtaskStatusTool;
+        let context = ToolExecutionContext::new("test-conversation")
+            .with_session("session-456");
+        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+
+        let args = serde_json::json!({
+            "index": 0,
+            "status": "pending"
+        });
+
+        let result = tool.execute(context, args, app_handle, None).await;
+
+        assert!(result.is_ok());
     }
 }

@@ -96,7 +96,7 @@ pub trait ConversationRunner: Send + Sync {
 // =============================================================================
 
 /// Request to send a chat message to an LLM.
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SendChatRequest {
     /// Conversation ID

@@ -318,8 +318,13 @@ function normalizeLlmEvent(raw: RawLlmEvent): LlmEvent | null {
 export async function sendChatMessageStreaming(
 	options: StreamChatOptions
 ): Promise<StreamChatResult> {
+	let isCancelled = false;
+
 	// Set up event listener first
 	const unsubscribe = await listen<RawLlmEvent>('llm:event', (event) => {
+		// Ignore events if the request was cancelled or timed out
+		if (isCancelled) return;
+
 		const normalized = normalizeLlmEvent(event.payload);
 		if (!normalized) return;
 		options.onEvent(normalized);
@@ -342,6 +347,7 @@ export async function sendChatMessageStreaming(
 			}),
 			new Promise<string>((_, reject) => {
 				startTimeout = setTimeout(() => {
+					isCancelled = true;
 					reject(
 						new LlmApiError('Streaming request startup timed out', 'send_chat_message_streaming')
 					);
@@ -352,12 +358,14 @@ export async function sendChatMessageStreaming(
 		return {
 			requestId,
 			cancel: async () => {
+				isCancelled = true;
 				await safeInvoke<void>('cancel_chat_request', { requestId });
 			},
 			unsubscribe
 		};
 	} catch (error) {
 		// Clean up listener if request fails
+		isCancelled = true;
 		unsubscribe();
 		throw error;
 	} finally {

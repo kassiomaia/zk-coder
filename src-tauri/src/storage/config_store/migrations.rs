@@ -309,4 +309,114 @@ mod tests {
             .unwrap();
         assert_eq!(base_url, Some("https://api.example.com".to_string()));
     }
+
+    #[test]
+    fn test_migrate_api_type_constraint_is_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        super::super::schema::init_schema(&conn).unwrap();
+        super::super::providers::seed_builtin_providers(&conn).unwrap();
+
+        // Run migration twice - should not fail
+        migrate_api_type_constraint(&conn).unwrap();
+        migrate_api_type_constraint(&conn).unwrap();
+
+        // Verify built-in providers exist
+        let providers: Vec<String> = conn
+            .prepare("SELECT id FROM providers WHERE id IN ('anthropic', 'openai', 'google')")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        assert_eq!(providers.len(), 3);
+    }
+
+    #[test]
+    fn test_migrate_models_source_is_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        super::super::schema::init_schema(&conn).unwrap();
+
+        // Run migration twice
+        migrate_models_source(&conn).unwrap();
+        migrate_models_source(&conn).unwrap();
+
+        // Verify column exists
+        let has_column: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('providers') WHERE name = 'models_source'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_column, 1);
+    }
+
+    #[test]
+    fn test_normalize_base_urls_handles_builtin_providers() {
+        let conn = Connection::open_in_memory().unwrap();
+        super::super::schema::init_schema(&conn).unwrap();
+        super::super::providers::seed_builtin_providers(&conn).unwrap();
+
+        // Set base URL for built-in provider (should be cleared)
+        conn.execute(
+            "UPDATE providers SET base_url = 'https://api.openai.com/chat/completions' WHERE id = 'openai'",
+            [],
+        ).unwrap();
+
+        normalize_base_urls(&conn).unwrap();
+
+        // Built-in providers should have NULL base_url
+        let base_url: Option<String> = conn
+            .query_row("SELECT base_url FROM providers WHERE id = 'openai'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(base_url, None);
+    }
+
+    #[test]
+    fn test_migrate_models_source_creates_manual_models_table() {
+        let conn = Connection::open_in_memory().unwrap();
+
+        // Initialize schema without models_source column (simulating old database)
+        conn.execute_batch(
+            r#"
+            CREATE TABLE providers (
+                id             TEXT PRIMARY KEY,
+                name           TEXT NOT NULL,
+                icon           TEXT NOT NULL,
+                is_custom      BOOLEAN NOT NULL DEFAULT FALSE,
+                api_type       TEXT NOT NULL CHECK(api_type IN ('openai', 'anthropic', 'google')),
+                base_url       TEXT,
+                is_configured  BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at     TEXT NOT NULL,
+                updated_at     TEXT NOT NULL
+            );
+
+            -- Insert a test provider for the foreign key
+            INSERT INTO providers (id, name, icon, is_custom, api_type, is_configured, created_at, updated_at)
+            VALUES ('openai', 'OpenAI', 'O', FALSE, 'openai', FALSE, datetime('now'), datetime('now'));
+            "#,
+        ).unwrap();
+
+        // Run migration
+        migrate_models_source(&conn).unwrap();
+
+        // Verify manual_models table exists
+        let table_exists: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='manual_models'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(table_exists, 1);
+
+        // Verify we can insert into manual_models
+        conn.execute(
+            "INSERT INTO manual_models (provider_id, name, supports_analysis, supports_code,
+             supports_vision, supports_audio, supports_tips, supports_review, created_at)
+             VALUES ('openai', 'custom-model', TRUE, TRUE, FALSE, FALSE, TRUE, TRUE, datetime('now'))",
+            [],
+        ).unwrap();
+    }
 }

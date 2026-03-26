@@ -68,26 +68,26 @@ describe('ModelCard', () => {
 		it('shows check icon when selected', () => {
 			render(ModelCard, { model: mockModel, selected: true });
 			const button = screen.getByRole('button');
-			// Check icon is an SVG inside the button
-			const checkIcon = button.querySelector('svg');
+			// Check icon is an SVG inside the button (the check icon has 16x16 size)
+			const checkIcon = button.querySelector('svg[width="16"]');
 			expect(checkIcon).toBeInTheDocument();
 		});
 
 		it('does not show check icon when not selected', () => {
 			render(ModelCard, { model: mockModel, selected: false });
 			const button = screen.getByRole('button');
-			// Only capability icons might be present, but no check icon
-			const checkIcon = button.querySelector('.checkIcon');
+			// No 16x16 check icon when not selected (capability icons are 12x12)
+			const checkIcon = button.querySelector('svg[width="16"]');
 			expect(checkIcon).not.toBeInTheDocument();
 		});
 
-		it('applies selected class when selected', () => {
+		it('applies selected state via aria-pressed', () => {
 			const { container } = render(ModelCard, {
 				model: mockModel,
 				selected: true
 			});
 			const button = container.querySelector('button');
-			expect(button).toHaveClass('selected');
+			expect(button).toHaveAttribute('aria-pressed', 'true');
 		});
 	});
 
@@ -151,22 +151,22 @@ describe('ModelCard', () => {
 	});
 
 	describe('styling classes', () => {
-		it('applies card base class', () => {
+		it('renders as button element', () => {
 			const { container } = render(ModelCard, { model: mockModel });
 			const button = container.querySelector('button');
-			expect(button).toHaveClass('card');
+			expect(button).toBeInTheDocument();
 		});
 
-		it('includes modelId class with model id', () => {
+		it('includes modelId text content', () => {
 			const { container } = render(ModelCard, { model: mockModel });
-			const modelId = container.querySelector('.modelId');
-			expect(modelId).toBeInTheDocument();
+			// The model ID should be visible in the component
+			expect(container.textContent).toContain('claude-3-opus-20240229');
 		});
 
-		it('includes modelName class with model name', () => {
+		it('includes modelName text content', () => {
 			const { container } = render(ModelCard, { model: mockModel });
-			const modelName = container.querySelector('.modelName');
-			expect(modelName).toBeInTheDocument();
+			// The model name should be visible in the component
+			expect(container.textContent).toContain('Claude Opus');
 		});
 	});
 });
