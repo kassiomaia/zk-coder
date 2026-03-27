@@ -64,13 +64,13 @@
 			>
 				<span class="status-icon {getStatusClass(task.status)}">
 					{#if task.status === 'in_progress'}
-						<Loader2 size={14} class="spinning" />
+						<Loader2 size={14} strokeWidth={2} class="spinning" />
 					{:else if task.status === 'completed'}
-						<CheckCircle size={14} />
+						<CheckCircle size={14} strokeWidth={2} />
 					{:else if task.status === 'failed'}
-						<XCircle size={14} />
+						<XCircle size={14} strokeWidth={2} />
 					{:else}
-						<Circle size={14} />
+						<Circle size={14} strokeWidth={2} />
 					{/if}
 				</span>
 
@@ -83,10 +83,14 @@
 
 				{#if hasSubtasks}
 					<span class="expand-icon" class:is-expanded={isExpanded}>
-						<ChevronRight size={14} />
+						<ChevronRight size={14} strokeWidth={2} />
 					</span>
 				{/if}
 			</div>
+
+			{#if isRunning}
+				<div class="running-indicator"></div>
+			{/if}
 
 			<!-- Subtasks -->
 			{#if hasSubtasks && isExpanded}
@@ -99,13 +103,13 @@
 						>
 							<span class="status-icon {getStatusClass(subtask.status)}">
 								{#if subtask.status === 'in_progress'}
-									<Loader2 size={12} class="spinning" />
+									<Loader2 size={12} strokeWidth={2} class="spinning" />
 								{:else if subtask.status === 'completed'}
-									<CheckCircle size={12} />
+									<CheckCircle size={12} strokeWidth={2} />
 								{:else if subtask.status === 'failed'}
-									<XCircle size={12} />
+									<XCircle size={12} strokeWidth={2} />
 								{:else}
-									<Circle size={12} />
+									<Circle size={12} strokeWidth={2} />
 								{/if}
 							</span>
 							<span class="subtask-content">
@@ -118,7 +122,7 @@
 		</div>
 	{:else}
 		<div class="empty-state">
-			<p>No tasks yet</p>
+			<p>Awaiting session start</p>
 		</div>
 	{/each}
 </div>
@@ -127,7 +131,7 @@
 	.task-list {
 		display: flex;
 		flex-direction: column;
-		padding: var(--space-1) 0;
+		padding: var(--space-2) 0;
 	}
 
 	.task-wrapper {
@@ -135,22 +139,35 @@
 		flex-direction: column;
 		border-left: 2px solid transparent;
 		transition: all var(--transition-fast);
+		position: relative;
 	}
 
 	.task-wrapper.is-running {
-		background: var(--color-primary-subtle);
-		border-left-color: var(--color-primary-500);
+		background: var(--color-interactive-selected);
+	}
+
+	.task-wrapper.is-running::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		width: 2px;
+		background: var(--color-primary-400);
+		box-shadow: 0 0 8px var(--color-primary-glow);
 	}
 
 	.task-item {
 		display: flex;
 		align-items: flex-start;
-		gap: var(--space-2);
+		gap: var(--space-3);
 		padding: var(--space-2) var(--space-4);
 		text-align: left;
 		width: 100%;
 		background: transparent;
 		cursor: pointer;
+		border: none;
+		transition: background var(--transition-fast);
 	}
 
 	.task-item:hover {
@@ -167,7 +184,8 @@
 		align-items: center;
 		justify-content: center;
 		color: var(--color-text-muted);
-		margin-top: 2px;
+		margin-top: 3px;
+		transition: color var(--transition-fast);
 	}
 
 	.status-icon.completed { color: var(--color-success); }
@@ -175,7 +193,7 @@
 	.status-icon.failed { color: var(--color-error); }
 
 	.status-icon :global(.spinning) {
-		animation: spin 1s linear infinite;
+		animation: spin 1.5s linear infinite;
 	}
 
 	@keyframes spin {
@@ -188,81 +206,108 @@
 		flex-direction: column;
 		min-width: 0;
 		flex: 1;
+		gap: 2px;
 	}
 
 	.task-title {
-		font-size: var(--text-sm);
+		font-size: 11px;
 		font-weight: 500;
 		color: var(--color-text-primary);
 		line-height: 1.4;
 	}
 
 	.task-description {
-		font-size: var(--text-xs);
-		color: var(--color-text-muted);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+		font-size: 10px;
+		color: var(--color-text-tertiary);
+		white-space: normal;
+		line-height: 1.4;
 	}
 
 	.expand-icon {
 		margin-left: auto;
 		color: var(--color-text-muted);
-		transition: transform var(--transition-fast);
+		transition: transform var(--transition-smooth);
+		opacity: 0.5;
 	}
 
 	.expand-icon.is-expanded {
 		transform: rotate(90deg);
+		opacity: 0.8;
 	}
 
 	.subtasks {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
-		margin-left: var(--space-8);
-		padding-left: var(--space-2);
-		border-left: 1px solid var(--color-border-subtle);
+		gap: 1px;
+		margin-left: 28px;
+		padding: var(--space-1) 0 var(--space-2) var(--space-2);
+		border-left: 1px solid var(--color-border-primary);
 	}
 
 	.subtask-item {
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
-		padding: var(--space-1) var(--space-2);
+		padding: var(--space-1-5) var(--space-3);
 		border-radius: var(--radius-sm);
 		text-align: left;
 		width: 100%;
 		background: transparent;
 		border: none;
 		cursor: pointer;
+		transition: all var(--transition-fast);
 	}
 
 	.subtask-item:hover {
 		background: var(--color-interactive-hover);
+		padding-left: var(--space-4);
 	}
 
 	.subtask-title {
-		font-size: var(--text-xs);
+		font-size: 10px;
 		color: var(--color-text-secondary);
+		font-weight: 400;
 	}
 
 	.empty-state {
-		padding: var(--space-4);
+		padding: var(--space-10) var(--space-4);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
 		color: var(--color-text-muted);
-		font-size: 11px;
+		gap: var(--space-3);
 	}
 
 	.empty-state p {
 		margin: 0;
-		font-style: italic;
-		opacity: 0.7;
+		font-size: 11px;
+		font-weight: 500;
+		color: var(--color-text-secondary);
+		opacity: 0.9;
 	}
 
 	.empty-state::after {
-		content: 'Waiting for instructions to begin execution.';
+		content: 'The agent will list planned and completed activities here once a task begins.';
 		font-size: 10px;
-		opacity: 0.4;
-		display: block;
-		margin-top: var(--space-1);
+		opacity: 0.5;
+		max-width: 180px;
+		line-height: 1.4;
+	}
+
+	.running-indicator {
+		position: absolute;
+		left: 0;
+		bottom: 0;
+		height: 1px;
+		width: 100%;
+		background: linear-gradient(90deg, transparent, var(--color-primary-400), transparent);
+		animation: shimmer 2s infinite;
+	}
+
+	@keyframes shimmer {
+		0% { transform: translateX(-100%); }
+		100% { transform: translateX(100%); }
 	}
 </style>

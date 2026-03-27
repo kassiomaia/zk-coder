@@ -341,6 +341,8 @@
 					{initialModelId}
 					onModelChange={handleModelChange}
 					{onMessageFeedback}
+					onApproveAction={(sessionId, actionId) => onApproveAction?.(sessionId, actionId)}
+					onDenyAction={(sessionId, actionId) => onDenyAction?.(sessionId, actionId)}
 				/>
 			{:else if hasSelectedConversation}
 				<!-- Chat area for conversation (no thread selected) -->

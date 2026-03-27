@@ -132,7 +132,7 @@
 		{@render TreeNode(fileTree.children)}
 	{:else}
 		<div class={styles.emptyState}>
-			<p>No files changed in this session.</p>
+			<p>Filesystem static</p>
 		</div>
 	{/if}
 </div>

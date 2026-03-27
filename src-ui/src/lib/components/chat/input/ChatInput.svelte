@@ -9,9 +9,9 @@
     import IntentIndicator from './IntentIndicator.svelte';
     import MentionMenu from './MentionMenu.svelte';
     import ModelSelector from './ModelSelector.svelte';
-    import IconButton from '$lib/components/shared/IconButton.svelte';
-    import {CloseIcon, CodeIcon, FileIcon, PaperclipIcon, SendIcon} from '$lib/icons';
-    import type {Command} from '$lib/types/command';
+	import IconButton from '$lib/components/shared/IconButton.svelte';
+	import {ArrowUpIcon, CloseIcon, CodeIcon, FileIcon, PaperclipIcon} from '$lib/icons';
+	import type {Command} from '$lib/types/command';
     import {BUILT_IN_COMMANDS, filterCommands} from '$lib/types/command';
     import type {IntentClassification} from '$lib/types/nlp';
     import {agentStore, chatStore, isLlmStreaming, nlpState} from '$lib/stores';
@@ -164,11 +164,11 @@
 		}
 	});
 
-	// Auto-resize textarea (max 3 lines = ~72px)
+	// Auto-resize textarea (max 120px height)
 	$effect(() => {
 		if (textareaRef && !isPreviewMode) {
 			textareaRef.style.height = 'auto';
-			textareaRef.style.height = `${Math.min(textareaRef.scrollHeight, 72)}px`;
+			textareaRef.style.height = `${Math.min(textareaRef.scrollHeight, 120)}px`;
 		}
 	});
 
@@ -400,39 +400,38 @@
 		</div>
 	{/if}
 
-	<!-- Input area with palette/menu -->
-	<div class={styles.inputWrapper}>
-		<textarea
-			bind:this={textareaRef}
-			class={[styles.textarea, isSending && styles.sending].filter(Boolean).join(' ')}
-			{placeholder}
-			{value}
-			{disabled}
-			oninput={handleInput}
-			onkeydown={handleKeydown}
-			{onfocus}
-			{onblur}
-			rows={1}
-			aria-label="Message input"
-			aria-describedby={showCommandPalette || showMentionMenu ? 'input-menu' : undefined}
-		></textarea>
+		<div class={styles.inputWrapper}>
+			<textarea
+				bind:this={textareaRef}
+				class={[styles.textarea, isSending && styles.sending].filter(Boolean).join(' ')}
+				placeholder={isWorking ? 'Generating...' : placeholder}
+				{value}
+				disabled={disabled || isWorking}
+				oninput={handleInput}
+				onkeydown={handleKeydown}
+				{onfocus}
+				{onblur}
+				rows={1}
+				aria-label="Message input"
+				aria-describedby={showCommandPalette || showMentionMenu ? 'input-menu' : undefined}
+			></textarea>
 
-		<!-- Command palette -->
-		{#if showCommandPalette}
-			<CommandPalette
-				query={commandQuery}
-				commands={filteredCommands}
-				onSelect={handleCommandSelect}
-				onClose={() => (showCommandPalette = false)}
-			/>
-		{/if}
+			<!-- Command palette -->
+			{#if showCommandPalette}
+				<CommandPalette
+					query={commandQuery}
+					commands={filteredCommands}
+					onSelect={handleCommandSelect}
+					onClose={() => (showCommandPalette = false)}
+				/>
+			{/if}
 
-		<!-- Mention menu -->
-		{#if showMentionMenu}
-			<MentionMenu
-				query={mentionQuery}
-				items={filteredMentions}
-				onSelect={handleMentionSelect}
+			<!-- Mention menu -->
+			{#if showMentionMenu}
+				<MentionMenu
+					query={mentionQuery}
+					items={filteredMentions}
+					onSelect={handleMentionSelect}
 				onClose={() => (showMentionMenu = false)}
 			/>
 		{/if}
@@ -450,11 +449,11 @@
 					tooltip="Attach file"
 					variant="ghost"
 					size="sm"
-					{disabled}
+					disabled={disabled || isWorking}
 					onclick={() => fileInputRef?.click()}
 				>
 					{#snippet icon()}
-						<PaperclipIcon size={20} />
+						<PaperclipIcon size={18} />
 					{/snippet}
 				</IconButton>
 				<input
@@ -473,19 +472,23 @@
 					tooltip={isPreviewMode ? 'Edit mode' : 'Preview markdown'}
 					variant="ghost"
 					size="sm"
-					{disabled}
+					disabled={disabled || isWorking}
 					active={isPreviewMode}
 					onclick={togglePreview}
 				>
 					{#snippet icon()}
-						<CodeIcon size={20} />
+						<CodeIcon size={18} />
 					{/snippet}
 				</IconButton>
 			{/if}
 		</div>
 
 		<div class={styles.rightActions}>
-			{#if maxLength}
+			{#if isWorking}
+				<span class={styles.statusText}>Generating...</span>
+			{/if}
+
+			{#if maxLength && !isWorking}
 				<span
 					class={[styles.characterCount, isOverLimit && styles.overLimit].filter(Boolean).join(' ')}
 				>
@@ -493,28 +496,23 @@
 				</span>
 			{/if}
 
-			<IconButton
-				label={isWorking ? 'Stop generation' : 'Send message'}
-				tooltip={isWorking ? 'Stop' : 'Send'}
-				variant="subtle"
-				intent={isWorking ? 'danger' : canSubmit ? 'success' : 'default'}
-				size="sm"
-				disabled={!canSubmit && !isWorking}
-				onclick={handleSendMessage}
+			<button
 				class={[
-					styles.sendButton,
-					canSubmit && !isWorking && styles.canSubmit,
-					isWorking && styles.isRunning
+					isWorking ? styles.stopButton : styles.sendButton,
+					!isWorking && canSubmit && styles.canSubmit
 				].filter(Boolean).join(' ')}
+				disabled={!isWorking && !canSubmit}
+				onclick={handleSendMessage}
+				aria-label={isWorking ? 'Stop generation' : 'Send message'}
+				title={isWorking ? 'Stop' : 'Send'}
+				type="button"
 			>
-				{#snippet icon()}
-					{#if isWorking}
-						<div class={styles.stopIcon}></div>
-					{:else}
-						<SendIcon size={16} strokeWidth={2.5} />
-					{/if}
-				{/snippet}
-			</IconButton>
+				{#if isWorking}
+					<div class={styles.stopIcon}></div>
+				{:else}
+					<ArrowUpIcon size={16} strokeWidth={3} />
+				{/if}
+			</button>
 		</div>
 	</div>
 </div>

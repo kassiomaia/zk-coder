@@ -39,6 +39,10 @@
 		onModelChange?: (modelId: string) => void;
 		/** Handler for message feedback (like/dislike) */
 		onMessageFeedback?: (messageId: string, feedback: 'like' | 'dislike' | null) => void;
+		/** Handler to approve an agent action */
+		onApproveAction?: (sessionId: string, actionId: string) => void;
+		/** Handler to deny an agent action */
+		onDenyAction?: (sessionId: string, actionId: string) => void;
 		/** Loading state */
 		loading?: boolean;
 		/** Error state */
@@ -64,6 +68,8 @@
 		initialModelId = null,
 		onModelChange,
 		onMessageFeedback,
+		onApproveAction,
+		onDenyAction,
 		loading = false,
 		error,
 		isTyping = false,
@@ -311,6 +317,8 @@
 			{initialModelId}
 			{onModelChange}
 			{onMessageFeedback}
+			{onApproveAction}
+			{onDenyAction}
 			onScroll={(scrollTop, scrollHeight, clientHeight) =>
 				handleChatScroll(scrollTop, scrollHeight, clientHeight)}
 		/>

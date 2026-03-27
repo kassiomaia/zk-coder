@@ -69,16 +69,16 @@
 		}
 	}
 
-	function getSessionStatusText(session: AgentSession): string {
+	function getSessionStatusLabel(session: AgentSession): string {
 		switch (session.state.type) {
 			case 'finished':
-				return 'Completed';
+				return 'Successful';
 			case 'error':
 				return 'Failed';
 			case 'cancelled':
-				return 'Cancelled';
+				return 'Interrupted';
 			default:
-				return 'Unknown';
+				return 'Historical';
 		}
 	}
 
@@ -149,12 +149,8 @@
 			{#each sessions as session, i (session.id)}
 				{@const completedAt = getCompletedAt(session)}
 				{@const isExpanded = expandedSessionId === session.id}
+				{@const StatusIcon = getSessionStatusIcon(session)}
 				<div class="timeline-item" class:is-expanded={isExpanded}>
-					<!-- The Connector Line -->
-					{#if i < sessions.length - 1}
-						<div class="timeline-connector"></div>
-					{/if}
-
 					<div class="timeline-header-row">
 						<button 
 							class="session-card" 
@@ -165,23 +161,26 @@
 								<span class="session-title">{formatSessionTitle(session)}</span>
 							</div>
 							{#if completedAt && session.createdAt}
-								<span class="session-duration">
+								<span class="session-duration-badge">
 									{formatDuration(session.createdAt, completedAt)}
 								</span>
 							{/if}
 							<div class="chevron" class:is-expanded={isExpanded}>
-								<ChevronRight size={14} />
+								<ChevronRight size={14} strokeWidth={2.5} />
 							</div>
 						</button>
 					</div>
 
 					{#if isExpanded}
-						<div class="expanded-details" transition:slide={{ duration: 200, easing: cubicOut }}>
+						<div class="expanded-details" transition:slide={{ duration: 240, easing: cubicOut }}>
 							<div class="details-inner">
 								<div class="session-summary">
 									<div class="summary-item">
 										<span class="label">Status</span>
-										<span class="value {session.state.type}">{getSessionStatusText(session)}</span>
+										<span class="value {session.state.type}">
+											<StatusIcon size={12} strokeWidth={2.5} class="status-icon" />
+											{getSessionStatusLabel(session)}
+										</span>
 									</div>
 									{#if session.createdAt}
 										<div class="summary-item">
@@ -199,14 +198,7 @@
 
 								{#if onSelectSession}
 									<div class="action-footer">
-										<button
-											class="restore-btn-inline disabled"
-											disabled
-											type="button"
-										>
-											Restore Session (Soon)
-										</button>
-										<p class="helper-text">Full state restoration is coming in a future update.</p>
+										<p class="helper-text-visible">Full session restoration is currently in development and will be available in a future update.</p>
 									</div>
 								{/if}
 							</div>
@@ -220,7 +212,7 @@
 
 <style>
 	.history-container {
-		padding: var(--space-3) var(--space-4);
+		padding: var(--space-2) var(--space-3);
 		flex: 1;
 		display: flex;
 		flex-direction: column;
@@ -232,74 +224,37 @@
 	.timeline-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1);
+		gap: 1px;
 		position: relative;
 	}
 
 	.timeline-item {
 		position: relative;
-		padding-bottom: var(--space-1);
+		border-radius: var(--radius-sm);
+		transition: all var(--transition-fast);
 	}
 
-	.timeline-connector {
-		position: absolute;
-		left: 10px;
-		top: 24px;
-		bottom: -4px;
-		width: 1px;
-		background: var(--color-border-primary);
-		opacity: 0.3;
-		z-index: 0;
+	.timeline-item.is-expanded {
+		background: var(--color-interactive-selected);
+		margin: var(--space-1) 0;
 	}
 
 	.timeline-header-row {
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
 		position: relative;
 		z-index: 1;
-	}
-
-	.status-indicator {
-		flex-shrink: 0;
-		width: 20px;
-		display: flex;
-		justify-content: center;
-	}
-
-	.status-dot {
-		width: 18px;
-		height: 18px;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: var(--color-bg-tertiary);
-		border: 1px solid var(--color-border-subtle);
-		color: var(--color-text-muted);
-	}
-
-	.status-dot.finished {
-		background: rgba(34, 197, 94, 0.1);
-		border-color: var(--color-success);
-		color: var(--color-success);
-	}
-
-	.status-dot.error {
-		background: rgba(239, 68, 68, 0.1);
-		border-color: var(--color-error);
-		color: var(--color-error);
 	}
 
 	.session-card {
 		flex: 1;
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
-		padding: var(--space-2) var(--space-3);
+		gap: var(--space-3);
+		padding: var(--space-1-5) var(--space-3);
 		background: transparent;
 		border: 1px solid transparent;
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-sm);
 		cursor: pointer;
 		text-align: left;
 		transition: all var(--transition-fast);
@@ -310,8 +265,7 @@
 	}
 
 	.is-expanded .session-card {
-		background: var(--color-interactive-selected);
-		border-color: var(--color-primary-500);
+		background: transparent;
 	}
 
 	.session-main-info {
@@ -322,176 +276,130 @@
 	}
 
 	.session-title {
-		font-size: 13px;
-		font-weight: 400;
+		font-size: 11px;
+		font-weight: 500;
 		color: var(--color-text-primary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		letter-spacing: -0.01em;
+		font-family: var(--font-mono);
 	}
 
-	.session-meta {
-		font-size: 10px;
-		color: var(--color-text-muted);
-		opacity: 0.8;
-	}
-
-	.session-duration {
+	.session-duration-badge {
 		font-size: 10px;
 		font-weight: 600;
-		color: var(--color-text-secondary);
+		color: var(--color-text-tertiary);
 		padding: 1px 6px;
-		background: var(--color-bg-tertiary);
-		border: 1px solid var(--color-border-subtle);
+		background: var(--color-neutral-850);
+		border: 1px solid var(--color-border-primary);
 		border-radius: 4px;
+		font-family: var(--font-mono);
 	}
 
 	.chevron {
 		color: var(--color-text-muted);
-		transition: transform var(--transition-fast);
-		opacity: 0.5;
+		transition: transform var(--transition-smooth);
+		opacity: 0.4;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.chevron.is-expanded {
 		transform: rotate(90deg);
-		opacity: 1;
+		opacity: 0.8;
 	}
 
 	/* Expanded Details */
 	.expanded-details {
-		margin-left: 0;
-		margin-top: 2px;
-		margin-bottom: var(--space-3);
+		padding: 0 var(--space-3) var(--space-3) var(--space-3);
 	}
 
 	.details-inner {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-4);
-		padding: var(--space-4);
-		background: var(--color-bg-tertiary);
-		border-radius: var(--radius-md);
-		border: 1px solid var(--color-border-subtle);
+		gap: var(--space-3);
+		padding: var(--space-3);
+		background: var(--color-bg-secondary);
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--color-border-primary);
 	}
 
 	.session-summary {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-2);
+		gap: var(--space-1-5);
 	}
 
 	.summary-item {
 		display: flex;
 		justify-content: space-between;
-		align-items: center;
+		align-items: baseline;
 		font-size: 11px;
 	}
 
 	.summary-item .label {
 		color: var(--color-text-muted);
-		font-weight: 500;
+		font-weight: 400;
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 	}
 
 	.summary-item .value {
 		color: var(--color-text-secondary);
-		font-weight: 600;
+		font-weight: 500;
+		display: flex;
+		align-items: center;
+		gap: var(--space-1-5);
 	}
 
 	.summary-item .value.finished {
-		color: #10b981;
+		color: var(--color-success);
 	}
 
 	.summary-item .value.error {
-		color: #ef4444;
+		color: var(--color-error);
+	}
+
+	.summary-item .value.cancelled {
+		color: var(--color-warning);
+	}
+
+	.status-icon {
+		opacity: 0.8;
 	}
 
 	.action-footer {
-		margin-top: var(--space-2);
 		padding-top: var(--space-3);
-		border-top: 1px solid var(--color-border-subtle);
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
+		border-top: 1px solid var(--color-border-primary);
 	}
 
-	.restore-btn-inline {
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-primary-600);
-		color: #fff;
-		border: none;
-		border-radius: var(--radius-md);
-		font-size: 12px;
-		font-weight: 600;
-		cursor: pointer;
-		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-		width: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--space-2);
-	}
-
-	.restore-btn-inline.disabled {
-		background: var(--color-bg-secondary);
-		border: 1px solid var(--color-border-subtle);
-		color: var(--color-text-muted);
-		cursor: not-allowed;
-		opacity: 0.6;
-	}
-
-	.soon-badge {
+	.helper-text-visible {
 		font-size: 10px;
-		opacity: 0.7;
-		font-weight: 400;
-	}
-
-	.helper-text {
-		display: none;
-	}
-
-	.loading-details {
-		font-size: var(--text-xs);
 		color: var(--color-text-muted);
+		line-height: 1.4;
+		margin: 0;
+		opacity: 0.7;
 		font-style: italic;
-		text-align: center;
-		padding: var(--space-2);
-	}
-
-	/* Modal specific overrides (to maintain backward compatibility if needed) */
-	.modal-panel {
-		background: var(--color-bg-primary);
-		border-radius: var(--radius-lg);
-		width: 90%;
-		max-width: 800px;
-		max-height: 80vh;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.modal-content {
-		padding: var(--space-4);
-		overflow-y: auto;
-	}
-
-	.overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.7);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
 	}
 
 	.loading-state,
 	.empty-state {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: var(--space-8);
+		padding: var(--space-12) var(--space-4);
 		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		grid-column: 1 / -1;
+		font-size: 11px;
+		text-align: center;
+		gap: var(--space-3);
+	}
+
+	.empty-state p {
+		margin: 0;
+		font-weight: 500;
+		opacity: 0.8;
 	}
 </style>

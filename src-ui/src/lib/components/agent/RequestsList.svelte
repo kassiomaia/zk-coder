@@ -24,16 +24,20 @@
 
 	function getStepActionLabel(step: ExecutionStep): string {
 		if (step.action.type === 'llm_request') {
-			return `LLM: ${step.action.model}`;
+			return step.action.model;
 		}
 		if (step.action.type === 'tool_call') {
-			return `Tool: ${step.action.tool}`;
+			return step.action.tool;
 		}
 		return 'Step';
 	}
 
+	function getActionType(step: ExecutionStep): string {
+		return step.action.type === 'llm_request' ? 'LLM' : 'Tool';
+	}
+
 	function formatDuration(ms: number): string {
-		if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
+		if (ms >= 1000) return `${(ms / 1000).toFixed(2)}s`;
 		return `${ms}ms`;
 	}
 </script>
@@ -41,15 +45,9 @@
 <section class="requests-list">
 	{#each recentSteps as step, index (getStepKey(step, index))}
 		<div class="request-item" class:is-current={step.stepNumber === currentStep}>
-			{#if step.action.type === 'llm_request'}
-				<span class="icon llm">
-					<Cpu size={12} />
-				</span>
-			{:else}
-				<span class="icon tool">
-					<Activity size={12} />
-				</span>
-			{/if}
+			<span class="request-type" class:llm={step.action.type === 'llm_request'}>
+				{getActionType(step)}
+			</span>
 			<span class="request-label">{getStepActionLabel(step)}</span>
 			{#if step.result}
 				<span class="request-duration">{formatDuration(step.result.durationMs)}</span>
@@ -58,7 +56,7 @@
 	{/each}
 	{#if recentSteps.length === 0}
 		<div class="empty-state">
-			<p>No requests yet</p>
+			<p>No requests recorded</p>
 		</div>
 	{/if}
 </section>
@@ -67,39 +65,45 @@
 	.requests-list {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
-		padding: var(--space-1) 0 var(--space-2) var(--space-2);
+		gap: 1px;
+		padding: var(--space-2) 0;
 	}
 
 	.request-item {
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
-		padding: var(--space-0-5) var(--space-2);
-		font-size: 10px;
-		color: var(--color-text-muted);
-		border-radius: var(--radius-sm);
-		transition: background var(--transition-fast);
+		gap: var(--space-3);
+		padding: var(--space-1-5) var(--space-4);
+		font-size: 11px;
+		color: var(--color-text-secondary);
+		transition: all var(--transition-fast);
+		border-left: 2px solid transparent;
 	}
 
 	.request-item:hover {
-		background: var(--color-interactive-hover);
+		background: var(--interactive-hover);
+		color: var(--color-text-primary);
 	}
 
 	.request-item.is-current {
 		color: var(--color-primary-400);
-		background: var(--color-primary-subtle);
+		background: var(--color-interactive-selected);
+		border-left-color: var(--color-primary-400);
 	}
 
-	.icon {
-		display: flex;
+	.request-type {
+		font-size: 9px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-tertiary);
+		width: 32px;
 		flex-shrink: 0;
-		opacity: 0.6;
 	}
 
-	.icon.llm {
-		color: var(--color-primary-400);
-		opacity: 1;
+	.request-type.llm {
+		color: var(--color-primary-500);
+		opacity: 0.8;
 	}
 
 	.request-label {
@@ -107,20 +111,29 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		font-family: var(--font-mono);
+		font-size: 10px;
+		opacity: 0.9;
 	}
 
 	.request-duration {
-		font-size: 9px;
-		opacity: 0.6;
+		font-size: 10px;
+		color: var(--color-text-muted);
 		font-family: var(--font-mono);
+		opacity: 0.6;
+		margin-left: auto;
 	}
 
 	.empty-state {
-		padding: var(--space-4);
+		padding: var(--space-6) var(--space-4);
 		color: var(--color-text-muted);
 		font-size: 11px;
 		text-align: center;
+		opacity: 0.5;
+	}
+
+	.empty-state p {
+		margin: 0;
 		font-style: italic;
-		opacity: 0.7;
 	}
 </style>

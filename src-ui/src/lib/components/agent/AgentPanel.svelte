@@ -73,21 +73,21 @@
 	function getStatusLabel(session: AgentSession): string {
 		switch (session.state.type) {
 			case 'launching':
-				return 'Launching...';
+				return 'Preparing session';
 			case 'running':
-				return `Step ${session.state.currentStep}`;
+				return `Executing step ${session.state.currentStep}`;
 			case 'wait_for_request':
-				return 'Idle';
+				return 'Ready for instructions';
 			case 'user_input_required':
-				return 'Waiting for approval';
+				return 'Awaiting your approval';
 			case 'finished':
-				return 'Completed';
+				return 'Task completed successfully';
 			case 'cancelled':
-				return 'Cancelled';
+				return 'Operation cancelled';
 			case 'error':
-				return 'Error';
+				return 'Execution interrupted';
 			default:
-				return 'Unknown';
+				return 'System idle';
 		}
 	}
 
@@ -256,7 +256,7 @@
 				>
 					<span class="header-main">
 						<span class="chevron-icon" class:is-expanded={tasksExpanded}>
-							<ChevronRight size={14} strokeWidth={2.5} />
+							<ChevronRight size={14} strokeWidth={2} />
 						</span>
 						<span class="header-label">Activity</span>
 					</span>
@@ -272,7 +272,7 @@
 					</div>
 				</button>
 				{#if tasksExpanded}
-					<div id="activity-section">
+					<div id="activity-section" class="section-content-wrapper">
 						<TaskList
 							tasks={session.tasks ?? []}
 						/>
@@ -281,7 +281,7 @@
 			</section>
 
 			<!-- Requests section -->
-			<section class="panel-section requests-section">
+			<section class="panel-section requests-section" style="animation-delay: 0.1s">
 				<button
 					class="section-header"
 					onclick={() => (requestsExpanded = !requestsExpanded)}
@@ -291,7 +291,7 @@
 				>
 					<span class="header-main">
 						<span class="chevron-icon" class:is-expanded={requestsExpanded}>
-							<ChevronRight size={14} strokeWidth={2.5} />
+							<ChevronRight size={14} strokeWidth={2} />
 						</span>
 						<span class="header-label">Requests</span>
 					</span>
@@ -304,7 +304,7 @@
 					</div>
 				</button>
 				{#if requestsExpanded}
-					<div id="requests-section">
+					<div id="requests-section" class="section-content-wrapper">
 						<RequestsList
 							steps={session.executionSteps ?? []}
 							currentStep={session.state.type === 'running' ? session.state.currentStep : undefined}
@@ -314,7 +314,7 @@
 			</section>
 
 			<!-- Files section -->
-			<section class="panel-section">
+			<section class="panel-section" style="animation-delay: 0.2s">
 				<button
 					class="section-header"
 					onclick={() => (filesExpanded = !filesExpanded)}
@@ -324,7 +324,7 @@
 				>
 					<span class="header-main">
 						<span class="chevron-icon" class:is-expanded={filesExpanded}>
-							<ChevronRight size={14} strokeWidth={2.5} />
+							<ChevronRight size={14} strokeWidth={2} />
 						</span>
 						<span class="header-label">Files</span>
 					</span>
@@ -337,7 +337,7 @@
 					</div>
 				</button>
 				{#if filesExpanded}
-					<div id="files-section">
+					<div id="files-section" class="section-content-wrapper">
 						<FileTree 
 							files={session.filesTouched ?? []} 
 							onfileclick={handleFileClick} 
@@ -348,7 +348,7 @@
 			</section>
 
 			<!-- Tool Calls section -->
-			<section class="panel-section tool-calls-section">
+			<section class="panel-section tool-calls-section" style="animation-delay: 0.3s">
 				<button
 					class="section-header"
 					onclick={() => (toolCallsExpanded = !toolCallsExpanded)}
@@ -358,7 +358,7 @@
 				>
 					<span class="header-main">
 						<span class="chevron-icon" class:is-expanded={toolCallsExpanded}>
-							<ChevronRight size={14} strokeWidth={2.5} />
+							<ChevronRight size={14} strokeWidth={2} />
 						</span>
 						<span class="header-label">Tool Calls</span>
 					</span>
@@ -368,7 +368,7 @@
 					</div>
 				</button>
 				{#if toolCallsExpanded}
-					<div id="tool-calls-section" class="tool-calls-content">
+					<div id="tool-calls-section" class="tool-calls-content section-content-wrapper">
 						<ToolCallsView toolCalls={session.toolCalls ?? []} />
 					</div>
 				{/if}
@@ -439,39 +439,40 @@
 
 	.panel-title {
 		font-size: 11px;
-		font-weight: 700;
-		color: var(--color-text-primary);
+		font-weight: 600;
+		color: var(--color-text-secondary);
 		margin: 0;
-		letter-spacing: -0.01em;
+		letter-spacing: 0.02em;
 		line-height: 1.2;
 		text-transform: uppercase;
-		opacity: 0.8;
+		opacity: 0.9;
 	}
 
 	.header-actions {
 		display: flex;
 		align-items: center;
-		gap: 2px;
-		margin-top: -4px;
+		gap: 4px;
 	}
 
 	.header-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 4px;
+		width: 24px;
+		height: 24px;
 		border-radius: var(--radius-sm);
 		color: var(--color-text-muted);
 		background: transparent;
 		border: none;
 		cursor: pointer;
-		opacity: 0.5;
+		opacity: 0.6;
 		transition: all var(--transition-fast);
 	}
 
 	.header-btn:hover {
 		opacity: 1;
 		background: var(--color-interactive-hover);
+		color: var(--color-text-primary);
 	}
 
 	.header-btn.active {
@@ -482,9 +483,9 @@
 
 	.header-divider {
 		width: 1px;
-		height: 12px;
-		background: var(--color-border-subtle);
-		margin: 0 4px;
+		height: 14px;
+		background: var(--color-border-primary);
+		margin: 0 2px;
 	}
 
 	.header-btn.close:hover {
@@ -497,41 +498,74 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
-		padding: var(--space-1) var(--space-3);
+		padding: var(--space-2) var(--space-3);
 		background: var(--color-bg-secondary);
-		border-bottom: 1px solid var(--color-border-subtle);
-		font-size: 10px;
-		font-weight: var(--font-medium);
+		border-bottom: 1px solid var(--color-border-primary);
+		font-size: 11px;
+		font-weight: 500;
 		color: var(--color-text-secondary);
 		flex-shrink: 0;
 	}
 
 	.status-label {
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		text-transform: none;
+		letter-spacing: normal;
+		color: var(--color-text-primary);
 	}
+
+	.status-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--color-text-muted);
+		position: relative;
+	}
+
+	.status-dot.running {
+		background: var(--color-primary-400);
+		box-shadow: 0 0 0 2px var(--color-primary-subtle);
+	}
+
+	.status-dot.running::after {
+		content: '';
+		position: absolute;
+		inset: -2px;
+		border-radius: 50%;
+		border: 1px solid var(--color-primary-400);
+		animation: status-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+	}
+
+	@keyframes status-pulse {
+		0% { transform: scale(1); opacity: 0.8; }
+		100% { transform: scale(2.5); opacity: 0; }
+	}
+
+	.status-dot.complete { background: var(--color-success); }
+	.status-dot.error { background: var(--color-error); }
+	.status-dot.waiting { background: var(--color-warning); }
 
 	.retry-btn {
 		margin-left: auto;
 		padding: 2px 8px;
-		border: 1px solid var(--color-warning);
+		border: 1px solid var(--color-warning-border);
 		border-radius: var(--radius-sm);
-		background: var(--color-warning-light);
+		background: var(--color-warning-subtle);
 		color: var(--color-warning);
 		font-size: 10px;
-		font-weight: 600;
+		font-weight: 500;
 		cursor: pointer;
-		transition: background var(--transition-fast);
+		transition: all var(--transition-fast);
 	}
 
 	.retry-btn:hover {
 		background: var(--color-warning-light);
-		filter: brightness(0.95);
+		border-color: var(--color-warning);
 	}
 
 	/* Sections */
 	.panel-section {
-		border-bottom: 1px solid var(--color-border-subtle);
+		border-bottom: 1px solid var(--color-border-primary);
+		transition: background var(--transition-fast);
 	}
 
 	.section-header {
@@ -539,7 +573,7 @@
 		justify-content: space-between;
 		align-items: center;
 		width: 100%;
-		padding: var(--space-1) var(--space-3);
+		padding: var(--space-2) var(--space-3);
 		background: transparent;
 		border: none;
 		cursor: pointer;
@@ -549,7 +583,7 @@
 	.header-main {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 8px;
 		color: var(--color-text-primary);
 	}
 
@@ -557,9 +591,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: transform var(--transition-fast);
+		transition: transform var(--transition-smooth);
 		color: var(--color-text-muted);
-		opacity: 0.5;
 	}
 
 	.chevron-icon.is-expanded {
@@ -567,54 +600,53 @@
 	}
 
 	.header-label {
-		font-size: 11px;
-		font-weight: 600;
-		letter-spacing: -0.01em;
-		color: var(--color-text-secondary);
+		font-size: 10px;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		color: var(--color-text-tertiary);
 		text-transform: uppercase;
 	}
 
 	.badge {
-		margin-left: auto;
-		padding: 2px 6px;
+		padding: 1px 6px;
 		background: var(--color-neutral-800);
-		border: 1px solid var(--color-border-subtle);
+		border: 1px solid var(--color-border-primary);
 		border-radius: 4px;
 		font-size: 9px;
-		font-weight: 600;
+		font-weight: 500;
 		color: var(--color-text-secondary);
-		line-height: 1;
+		line-height: 1.2;
 		white-space: nowrap;
 	}
 
 	.badge.running {
 		background: var(--color-primary-subtle);
 		border-color: var(--color-primary-border);
-		color: var(--color-primary-300);
+		color: var(--color-primary-400);
 	}
 
 	.badge.tokens {
 		background: var(--color-neutral-900);
-		border-color: var(--color-border-subtle);
+		border-color: var(--color-border-primary);
 		color: var(--color-text-muted);
 		font-family: var(--font-mono);
 	}
 
-
 	.header-meta {
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
+		gap: 6px;
 		color: var(--color-text-muted);
 	}
 
 	:global(.section-icon) {
-		opacity: 0.3;
-		transition: opacity var(--transition-fast);
+		opacity: 0.4;
+		transition: all var(--transition-fast);
 	}
 
 	.section-header:hover :global(.section-icon) {
-		opacity: 0.7;
+		opacity: 0.8;
+		color: var(--color-text-primary);
 	}
 
 	.section-header:hover {
@@ -717,6 +749,22 @@
 		min-height: 0;
 		overflow-y: auto;
 		scrollbar-gutter: stable;
+		scroll-behavior: smooth;
+	}
+
+	.panel-section {
+		border-bottom: 1px solid var(--color-border-primary);
+		transition: background var(--transition-fast);
+		animation: section-fade-in 0.4s var(--ease-out) backwards;
+	}
+
+	@keyframes section-fade-in {
+		from { opacity: 0; transform: translateY(4px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+
+	.section-content-wrapper {
+		overflow: hidden;
 	}
 
 	.history-view-placeholder {

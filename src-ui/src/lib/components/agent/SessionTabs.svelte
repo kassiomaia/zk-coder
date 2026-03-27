@@ -96,20 +96,19 @@
 	.tab {
 		display: flex;
 		align-items: center;
-		gap: var(--space-1-5);
-		padding: var(--space-2) var(--space-3);
-		font-size: var(--text-2xs);
-		font-weight: var(--font-medium);
-		color: var(--color-text-muted);
+		gap: var(--space-2);
+		padding: var(--space-1-5) var(--space-3);
+		font-size: 10px;
+		font-weight: 500;
+		color: var(--color-text-tertiary);
 		background: transparent;
 		border: none;
 		border-bottom: 2px solid transparent;
 		cursor: pointer;
 		white-space: nowrap;
-		transition:
-			color var(--transition-fast),
-			border-color var(--transition-fast),
-			background var(--transition-fast);
+		transition: all var(--transition-fast);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 	}
 
 	.tab:hover {
@@ -118,8 +117,9 @@
 	}
 
 	.tab.active {
-		color: var(--color-text-primary);
+		color: var(--color-primary-400);
 		border-bottom-color: var(--color-primary-400);
+		background: var(--color-primary-subtle);
 	}
 
 	.tab:focus-visible {
@@ -128,24 +128,21 @@
 	}
 
 	.tab-dot {
-		width: 6px;
-		height: 6px;
+		width: 5px;
+		height: 5px;
 		border-radius: 50%;
 		flex-shrink: 0;
+		opacity: 0.8;
 	}
 
 	.tab-dot.pulse {
-		animation: pulse 1.5s ease-in-out infinite;
+		animation: tab-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+		box-shadow: 0 0 0 2px var(--color-primary-subtle);
 	}
 
-	@keyframes pulse {
-		0%,
-		100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.5;
-		}
+	@keyframes tab-pulse {
+		0%, 100% { transform: scale(1); opacity: 0.8; }
+		50% { transform: scale(1.4); opacity: 1; }
 	}
 
 	.tab-label {
@@ -156,9 +153,11 @@
 	.add-tab {
 		color: var(--color-text-muted);
 		padding: var(--space-2);
+		opacity: 0.6;
 	}
 
 	.add-tab:hover {
 		color: var(--color-primary-400);
+		opacity: 1;
 	}
 </style>

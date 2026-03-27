@@ -3,6 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import ApprovalMessage from './ApprovalMessage.svelte';
 import type { Message } from '$lib/types/message';
 
+if (!Element.prototype.animate) {
+	Element.prototype.animate = vi.fn(() => ({
+		finished: Promise.resolve(),
+		cancel: vi.fn(),
+		play: vi.fn()
+	})) as typeof Element.prototype.animate;
+}
+
 vi.mock('$lib/components/agent/DiffViewer.svelte', () => ({
 	default: vi.fn().mockImplementation(() => ({
 		$$render: () => '<div data-testid="diff-viewer">diff</div>'

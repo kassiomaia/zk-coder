@@ -29,9 +29,10 @@
 		{:else}
 			<div class="empty-state">
 				<div class="empty-icon-wrapper">
-					<span class="empty-char">_</span>
+					<span class="empty-char">&gt;_</span>
 				</div>
-				<span class="empty-text">No tool calls recorded</span>
+				<span class="empty-title">Console clear</span>
+				<span class="empty-subtitle">Tools called will appear here in sequence</span>
 			</div>
 		{/each}
 	</div>
@@ -42,9 +43,9 @@
 		flex: 1;
 		min-height: 120px;
 		overflow-y: auto;
-		background: var(--color-neutral-950);
+		background: var(--color-bg-secondary);
 		margin: 0;
-		border-top: 1px solid var(--color-border-subtle);
+		border-top: 1px solid var(--color-border-primary);
 		scroll-behavior: smooth;
 	}
 
@@ -52,6 +53,7 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100%;
+		padding: var(--space-2) 0;
 	}
 
 	.empty-state {
@@ -60,27 +62,45 @@
 		align-items: center;
 		justify-content: center;
 		flex: 1;
-		gap: var(--space-3);
+		gap: var(--space-2);
 		color: var(--color-text-muted);
-		opacity: 0.3;
-		padding: var(--space-8) 0;
+		padding: var(--space-12) 0;
+		opacity: 0.6;
 	}
 
 	.empty-icon-wrapper {
-		font-size: 24px;
-		font-weight: bold;
-		animation: blink 1.2s infinite;
+		font-family: var(--font-mono);
+		font-size: 16px;
+		font-weight: 600;
+		color: var(--color-text-tertiary);
+		margin-bottom: var(--space-2);
 	}
 
-	@keyframes blink {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0; }
+	.empty-char {
+		display: inline-block;
+		animation: cursor-blink 1s step-end infinite;
+		border-right: 2px solid currentColor;
+		padding-right: 2px;
 	}
 
-	.empty-text {
+	@keyframes cursor-blink {
+		0%, 100% { border-color: transparent; }
+		50% { border-color: var(--color-primary-400); }
+	}
+
+	.empty-title {
+		font-size: 11px;
+		font-weight: 500;
+		color: var(--color-text-secondary);
+		letter-spacing: 0.02em;
+	}
+
+	.empty-subtitle {
 		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.1em;
+		opacity: 0.5;
+		max-width: 160px;
+		text-align: center;
+		line-height: 1.4;
 	}
 
 	/* Scrollbar styling */

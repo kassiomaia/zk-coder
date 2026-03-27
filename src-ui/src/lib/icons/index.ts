@@ -42,6 +42,7 @@ export { default as ThumbsDownIcon } from './ThumbsDownIcon.svelte';
 
 export { default as ChevronDownIcon } from './ChevronDownIcon.svelte';
 export { default as ArrowDownIcon } from './ArrowDownIcon.svelte';
+export { default as ArrowUpIcon } from './ArrowUpIcon.svelte';
 
 // ============================================================================
 // Action Icons (additional)
