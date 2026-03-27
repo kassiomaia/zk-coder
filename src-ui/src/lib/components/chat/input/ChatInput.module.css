@@ -26,7 +26,7 @@
 
 .container:focus-within {
 	background: var(--color-surface);
-	border-color: var(--color-primary-400);
+	border-color: var(--color-border-secondary);
 }
 
 .container.shake {
