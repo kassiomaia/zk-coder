@@ -48,7 +48,10 @@ impl Tool for PdfStartTool {
     fn meta(&self) -> ToolMeta {
         ToolMeta {
             id: ToolId::new("pdf", "start"),
-            description: "Start a new PDF document. Returns a pdf_id that must be used for all subsequent operations on this document. PDFs are built incrementally: start → add_page × N → finalize.",
+            description: "GENERATE a PDF document (.pdf). Use this to create PDFs from scratch. \
+              Workflow: call this tool first, then add pages with pdf_add_page, \
+              then finalize with pdf_finalize. The PDF will be saved to the artifact store \
+              and a download link will appear in the chat. DO NOT write scripts to generate PDFs.",
             input_schema: serde_json::json!({
                 "type": "object",
                 "additionalProperties": false,
