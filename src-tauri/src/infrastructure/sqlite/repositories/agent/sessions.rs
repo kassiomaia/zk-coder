@@ -187,6 +187,74 @@ pub fn get_sessions_for_conversation(
         .collect::<Result<Vec<_>, _>>()
 }
 
+/// Get all sessions.
+pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepositoryError> {
+    let mut stmt = conn.prepare(
+        "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, created_at, updated_at
+         FROM agent_sessions
+         ORDER BY created_at DESC",
+    )?;
+
+    let sessions = stmt
+        .query_map([], |row| {
+            let state_str: String = row.get(5)?;
+            let workspace: Option<String> = row.get(6)?;
+            let parent: Option<String> = row.get(7)?;
+            let created: String = row.get(8)?;
+            let updated: String = row.get(9)?;
+
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                state_str,
+                workspace,
+                parent,
+                created,
+                updated,
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    sessions
+        .into_iter()
+        .map(
+            |(
+                id,
+                agent_id,
+                agent_name,
+                conv_id,
+                thread_id,
+                state_str,
+                workspace,
+                parent,
+                created,
+                updated,
+            )| {
+                let state: SessionState = serde_json::from_str(&state_str)?;
+                Ok(AgentSession {
+                    id: SessionId(id),
+                    agent_id: AgentId(agent_id),
+                    agent_name,
+                    conversation_id: conv_id,
+                    thread_id,
+                    state,
+                    workspace_root: workspace.map(std::path::PathBuf::from),
+                    parent_session_id: parent.map(SessionId),
+                    created_at: chrono::DateTime::parse_from_rfc3339(&created)
+                        .unwrap_or_default()
+                        .with_timezone(&chrono::Utc),
+                    updated_at: chrono::DateTime::parse_from_rfc3339(&updated)
+                        .unwrap_or_default()
+                        .with_timezone(&chrono::Utc),
+                })
+            },
+        )
+        .collect::<Result<Vec<_>, _>>()
+}
+
 /// Delete a session.
 ///
 /// Also deletes all associated tasks and subtasks due to foreign key constraints.
@@ -218,6 +286,27 @@ pub fn update_workspace(
     conn.execute(
         "UPDATE agent_sessions SET workspace_root = ?1, updated_at = ?2 WHERE id = ?3",
         params![workspace_root, chrono::Utc::now().to_rfc3339(), id.0],
+    )?;
+    Ok(())
+}
+
+/// Persist a recovery event for a session.
+pub fn record_recovery_event(
+    conn: &Connection,
+    session_id: &SessionId,
+    reason: &str,
+    recovered_at: chrono::DateTime<chrono::Utc>,
+) -> Result<(), SessionRepositoryError> {
+    conn.execute(
+        "INSERT INTO agent_recovery_events (id, session_id, reason, recovered_at, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            uuid::Uuid::new_v4().to_string(),
+            session_id.0,
+            reason,
+            recovered_at.to_rfc3339(),
+            chrono::Utc::now().to_rfc3339(),
+        ],
     )?;
     Ok(())
 }

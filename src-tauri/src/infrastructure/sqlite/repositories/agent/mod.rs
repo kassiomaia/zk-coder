@@ -5,6 +5,7 @@
 
 use std::sync::Mutex;
 
+use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 
 use crate::core::agent::entities as core_entities;
@@ -79,8 +80,13 @@ fn session_state_to_agents(
             completed_at: *completed_at,
         },
         core_entities::SessionState::Error { error, .. } => AgentSessionState::Error {
-            message: error.clone(),
-            recoverable: false,
+            recoverable:
+                crate::application::agent::service::AgentServiceImpl::is_recoverable_error_message(
+                    error,
+                ),
+            message: crate::application::agent::service::AgentServiceImpl::strip_recoverable_prefix(
+                error,
+            ),
         },
         core_entities::SessionState::Cancelled { reason, .. } => AgentSessionState::Cancelled {
             reason: reason.clone(),
@@ -309,6 +315,17 @@ impl SqliteSessionRepository {
         sessions::get_sessions_for_conversation(&conn, conversation_id)
     }
 
+    /// List all sessions.
+    pub fn list_sessions(
+        &self,
+    ) -> Result<Vec<crate::core::agent::session::AgentSession>, SessionRepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
+        sessions::list_sessions(&conn)
+    }
+
     /// Delete a session.
     pub fn delete_session(
         &self,
@@ -332,6 +349,20 @@ impl SqliteSessionRepository {
             .lock()
             .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
         sessions::update_workspace(&conn, id, workspace_root)
+    }
+
+    /// Record a startup crash-recovery event.
+    pub fn record_recovery_event(
+        &self,
+        session_id: &crate::core::agent::session::SessionId,
+        reason: &str,
+        recovered_at: DateTime<Utc>,
+    ) -> Result<(), SessionRepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
+        sessions::record_recovery_event(&conn, session_id, reason, recovered_at)
     }
 
     // ========================================================================
@@ -639,6 +670,12 @@ impl SessionRepository for SqliteSessionRepository {
         Ok(sessions.into_iter().map(session_to_core).collect())
     }
 
+    fn list_sessions(&self) -> RepositoryResult<Vec<core_entities::AgentSession>> {
+        let sessions = SqliteSessionRepository::list_sessions(self)
+            .map_err(core_entities::AgentDomainError::from)?;
+        Ok(sessions.into_iter().map(session_to_core).collect())
+    }
+
     fn update_state(
         &self,
         id: &core_entities::SessionId,
@@ -663,6 +700,17 @@ impl SessionRepository for SqliteSessionRepository {
     fn delete_session(&self, id: &core_entities::SessionId) -> RepositoryResult<()> {
         let internal_id = crate::core::agent::session::SessionId(id.0.clone());
         SqliteSessionRepository::delete_session(self, &internal_id)
+            .map_err(core_entities::AgentDomainError::from)
+    }
+
+    fn record_recovery_event(
+        &self,
+        session_id: &core_entities::SessionId,
+        reason: &str,
+        recovered_at: DateTime<Utc>,
+    ) -> RepositoryResult<()> {
+        let internal_id = crate::core::agent::session::SessionId(session_id.0.clone());
+        SqliteSessionRepository::record_recovery_event(self, &internal_id, reason, recovered_at)
             .map_err(core_entities::AgentDomainError::from)
     }
 }

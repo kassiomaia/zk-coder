@@ -6,7 +6,9 @@
 
 mod approvals;
 mod history;
+mod recovery;
 mod registry;
+mod retry;
 mod rollback;
 mod runtime_queries;
 mod sessions;

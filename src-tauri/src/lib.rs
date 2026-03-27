@@ -168,6 +168,7 @@ pub fn run() {
             // Agent commands
             commands::agent::sessions::create_agent_session,
             commands::agent::sessions::send_agent_request,
+            commands::agent::sessions::retry_last_agent_request,
             commands::agent::sessions::get_agent_session,
             commands::agent::sessions::get_agent_sessions_for_conversation,
             commands::agent::sessions::cancel_agent_session,

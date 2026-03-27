@@ -5,6 +5,7 @@
 use super::entities::{
     Agent, AgentDomainError, AgentSession, AgentTask, PendingAction, SessionId, TaskStatus,
 };
+use chrono::{DateTime, Utc};
 
 /// Result type for repository operations.
 pub type RepositoryResult<T> = Result<T, AgentDomainError>;
@@ -23,6 +24,9 @@ pub trait SessionRepository: Send + Sync {
         conversation_id: &str,
     ) -> RepositoryResult<Vec<AgentSession>>;
 
+    /// Lists all sessions.
+    fn list_sessions(&self) -> RepositoryResult<Vec<AgentSession>>;
+
     /// Updates the session state.
     fn update_state(
         &self,
@@ -35,6 +39,14 @@ pub trait SessionRepository: Send + Sync {
 
     /// Deletes a session.
     fn delete_session(&self, id: &SessionId) -> RepositoryResult<()>;
+
+    /// Records a crash-recovery event for diagnostics.
+    fn record_recovery_event(
+        &self,
+        session_id: &SessionId,
+        reason: &str,
+        recovered_at: DateTime<Utc>,
+    ) -> RepositoryResult<()>;
 }
 
 /// Repository for agent registry operations.

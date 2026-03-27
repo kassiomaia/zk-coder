@@ -49,6 +49,10 @@ impl AgentState {
             .map_err(|e| format!("Failed to create agent service: {e}"))?,
         );
 
+        service
+            .recover_unterminated_executions()
+            .map_err(|e| format!("Failed to recover unterminated agent executions: {e}"))?;
+
         Ok(Self { service })
     }
 }

@@ -128,6 +128,18 @@ pub fn init_schema(conn: &Connection) -> Result<(), SessionRepositoryError> {
             ON agent_execution_steps(task_id);
         CREATE INDEX IF NOT EXISTS idx_execution_steps_subtask
             ON agent_execution_steps(subtask_id);
+
+        CREATE TABLE IF NOT EXISTS agent_recovery_events (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            recovered_at TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_recovery_session_created
+            ON agent_recovery_events(session_id, created_at DESC);
         ",
     )?;
 
@@ -183,6 +195,7 @@ mod tests {
         assert!(tables.contains(&"agent_status_phrases".to_string()));
         assert!(tables.contains(&"agent_tool_calls".to_string()));
         assert!(tables.contains(&"agent_execution_steps".to_string()));
+        assert!(tables.contains(&"agent_recovery_events".to_string()));
     }
 
     #[test]

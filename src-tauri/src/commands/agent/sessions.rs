@@ -133,3 +133,17 @@ pub async fn send_agent_request(
         .await
         .map_err(|e| e.to_string())
 }
+
+/// Retry execution with the latest persisted request for a session.
+#[tauri::command]
+pub async fn retry_last_agent_request(
+    session_id: String,
+    state: tauri::State<'_, AgentState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    state
+        .service
+        .retry_last_request(session_id, app_handle)
+        .await
+        .map_err(|e| e.to_string())
+}

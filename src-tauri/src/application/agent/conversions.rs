@@ -222,8 +222,8 @@ pub fn core_session_to_agent_session(session: CoreAgentSession) -> AgentSession 
             }
             CoreSessionState::Cancelled { reason, .. } => SessionState::Cancelled { reason },
             CoreSessionState::Error { error, .. } => SessionState::Error {
-                message: error,
-                recoverable: false,
+                recoverable: crate::application::agent::service::AgentServiceImpl::is_recoverable_error_message(&error),
+                message: crate::application::agent::service::AgentServiceImpl::strip_recoverable_prefix(&error),
             },
         },
         created_at: session.created_at,
