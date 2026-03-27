@@ -53,7 +53,13 @@ export interface AgentStore {
 	setActiveSession(sessionId: string | null): void;
 	clearError(): void;
 	setExecutionCompleteCallback(
-		callback: (sessionId: string, conversationId: string, threadId: string, content: string) => void
+		callback: (
+			sessionId: string,
+			conversationId: string,
+			threadId: string,
+			content: string,
+			artifacts: import('$lib/types/agent').ArtifactReference[]
+		) => void
 	): void;
 	setSystemMessageCallback(
 		callback: (
@@ -261,7 +267,13 @@ function createAgentStore(): AgentStore {
 	 * Set a callback for execution completion.
 	 */
 	function setExecutionCompleteCallback(
-		callback: (sessionId: string, conversationId: string, threadId: string, content: string) => void
+		callback: (
+			sessionId: string,
+			conversationId: string,
+			threadId: string,
+			content: string,
+			artifacts: import('$lib/types/agent').ArtifactReference[]
+		) => void
 	) {
 		Callbacks.setExecutionCompleteCallback(callback);
 	}

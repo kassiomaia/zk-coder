@@ -83,4 +83,19 @@ describe('getThreadAgentState', () => {
 		expect(waitingState.isWorking).toBe(true);
 		expect(waitingState.status?.text).toMatch(/waiting/i);
 	});
+
+	it('ignores stale execution history when the session is idle', () => {
+		const idleState = getThreadAgentState(thread, [
+			{
+				...session,
+				state: {
+					type: 'wait_for_request',
+					lastActionAt: '2024-01-01T12:02:00Z'
+				}
+			}
+		]);
+
+		expect(idleState.isWorking).toBe(false);
+		expect(idleState.status?.text).toBe('Ready');
+	});
 });

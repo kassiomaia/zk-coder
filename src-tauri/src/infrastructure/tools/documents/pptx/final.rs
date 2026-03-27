@@ -1,5 +1,6 @@
 //! Finalize a PPTX presentation.
 
+use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
     documents::shared::{
@@ -11,7 +12,7 @@ use crate::infrastructure::tools::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::path::PathBuf;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
 // PPTX generation library
 use pptx::Presentation;
@@ -97,7 +98,7 @@ impl Tool for PptxFinalizeTool {
         &self,
         _context: ToolExecutionContext,
         arguments: JsonValue,
-        _app_handle: AppHandle,
+        app_handle: AppHandle,
         _workspace_root: Option<PathBuf>,
     ) -> ToolFuture {
         Box::pin(async move {
@@ -138,13 +139,28 @@ impl Tool for PptxFinalizeTool {
             let output = PptxFinalizeOutput {
                 deck_id: args.deck_id,
                 filename,
-                artifact_id,
+                artifact_id: artifact_id.clone(),
                 path: path.to_str().unwrap().to_string(),
                 validation,
                 slide_count,
                 estimated_duration_minutes,
                 size_bytes,
             };
+
+            // Emit ArtifactCreated event for frontend display
+            if let Some(ref artifact_id) = output.artifact_id {
+                let _ = app_handle.emit(
+                    AGENT_EVENT_NAME,
+                    AgentEvent::ArtifactCreated {
+                        session_id: "current".to_string(), // TODO: Get actual session_id
+                        artifact_id: artifact_id.clone(),
+                        artifact_type: "Pptx".to_string(),
+                        filename: output.filename.clone(),
+                        size_bytes: output.size_bytes,
+                        path: output.path.clone(),
+                    },
+                );
+            }
 
             Ok(serde_json::to_value(output)?)
         })

@@ -79,6 +79,9 @@ export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentSta
 		case 'context_compacted':
 			StreamingEvents.handleContextCompacted(state, event);
 			break;
+		case 'artifact_created':
+			SessionEvents.handleArtifactCreated(state, event);
+			break;
 	}
 
 	// Update the session's updatedAt timestamp for stall detection

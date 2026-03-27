@@ -119,6 +119,32 @@ export interface MessageMetadata {
 
 	/** Structured system notice rendering metadata */
 	systemNotice?: ContextUpdateNotice;
+
+	/** Artifacts created from document generation tools */
+	artifacts?: ArtifactReference[];
+}
+
+/**
+ * Reference to a document artifact created by an agent.
+ */
+export interface ArtifactReference {
+	/** Unique artifact ID */
+	id: string;
+
+	/** Session ID that created this artifact */
+	sessionId: string;
+
+	/** Type of artifact */
+	artifactType: 'Docx' | 'Pptx' | 'Pdf';
+
+	/** Filename */
+	filename: string;
+
+	/** When the artifact was created */
+	createdAt: string;
+
+	/** File size in bytes */
+	sizeBytes: number;
 }
 
 /**

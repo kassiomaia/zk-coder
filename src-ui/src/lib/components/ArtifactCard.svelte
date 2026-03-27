@@ -85,10 +85,11 @@
 				const { invoke } = await import('@tauri-apps/api/core');
 				const [filename, content] = await invoke('documents_download_artifact', {
 					artifactId: artifact.id
-				}) as [string, Uint8Array];
+				}) as [string, number[]];
 
 				// Create blob and trigger download
-				const blob = new Blob([content], { type: mimeTypes[artifact.artifactType] });
+				const uint8Array = new Uint8Array(content);
+				const blob = new Blob([uint8Array], { type: mimeTypes[artifact.artifactType] });
 				const url = URL.createObjectURL(blob);
 				const link = document.createElement('a');
 				link.href = url;

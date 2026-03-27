@@ -32,6 +32,16 @@ export interface Agent {
 	trustMode: TrustMode;
 }
 
+/** Reference to a document artifact created by an agent. */
+export interface ArtifactReference {
+	id: string;
+	sessionId: string;
+	artifactType: 'Docx' | 'Pptx' | 'Pdf';
+	filename: string;
+	sizeBytes: number;
+	createdAt: string;
+}
+
 /**
  * Agent session (runtime instance)
  */
@@ -50,6 +60,7 @@ export interface AgentSession {
 	executionSteps?: ExecutionStep[]; // Track execution steps for UI progress display
 	statusPhrases?: string[]; // Accumulated status phrases for rotation
 	streamingAssistantContent?: string; // Accumulated content for streaming assistant message
+	artifacts?: ArtifactReference[]; // Artifacts created during this session
 	createdAt: string;
 	updatedAt: string;
 }
@@ -261,6 +272,15 @@ export type AgentEvent =
 		beforeTokens: number;
 		afterTokens: number;
 		timestamp: string;
+	}
+	| {
+		type: 'artifact_created';
+		sessionId: string;
+		artifactId: string;
+		artifactType: string; // 'Docx' | 'Pptx' | 'Pdf'
+		filename: string;
+		sizeBytes: number;
+		path: string;
 	};
 
 /** Action performed on a file */

@@ -7,7 +7,8 @@
     import ThreadIndicator from './chat/ThreadIndicator.svelte';
     import MarkdownRenderer from './markdown/MarkdownRenderer.svelte';
     import AnsweringIndicator from './chat/AnsweringIndicator.svelte';
-    import type {MessageStatus} from '$lib/types/message';
+    import ArtifactCard from './ArtifactCard.svelte';
+    import type { MessageStatus, ArtifactReference, MessageMetadata } from '$lib/types/message';
 
     interface Props {
 		/** Unique identifier for the message */
@@ -42,6 +43,9 @@
 
 		/** Retry handler for failed messages */
 		onRetry?: () => void;
+
+		/** Message metadata including artifacts */
+		metadata?: MessageMetadata;
 	}
 
 	let {
@@ -55,8 +59,11 @@
 		onThreadClick,
 		onEdit,
 		onDelete,
-		onRetry
+		onRetry,
+		metadata
 	}: Props = $props();
+
+	let artifacts = $derived<ArtifactReference[]>(metadata?.artifacts ?? []);
 
 	let isHovered = $state(false);
 
@@ -93,6 +100,14 @@
 			<MarkdownRenderer {content} class={role === 'user' ? styles.userMarkdown : ''} />
 		{/if}
 	</div>
+
+	{#if artifacts.length > 0}
+		<div class={styles.artifacts}>
+			{#each artifacts as artifact (artifact.id)}
+				<ArtifactCard {artifact} />
+			{/each}
+		</div>
+	{/if}
 
 	<footer class={styles.footer}>
 		{#if threadId && threadTitle}

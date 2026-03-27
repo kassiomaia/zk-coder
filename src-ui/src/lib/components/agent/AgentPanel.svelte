@@ -399,10 +399,12 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		width: var(--agent-panel-width);
+		width: 100%;
+		min-height: 0;
+		min-width: 0;
 		background: var(--color-bg-secondary);
 		font-size: var(--text-sm);
-		overflow-y: auto;
+		overflow: hidden;
 	}
 
 	.panel-header {
@@ -702,6 +704,7 @@
 		flex-direction: column;
 		min-height: 0;
 		overflow-y: auto;
+		scrollbar-gutter: stable;
 	}
 
 	.history-view-placeholder {
@@ -714,15 +717,15 @@
 	}
 
 	/* Scrollbar styling */
-	.agent-panel::-webkit-scrollbar {
+	.panel-content::-webkit-scrollbar {
 		width: 6px;
 	}
 
-	.agent-panel::-webkit-scrollbar-track {
+	.panel-content::-webkit-scrollbar-track {
 		background: transparent;
 	}
 
-	.agent-panel::-webkit-scrollbar-thumb {
+	.panel-content::-webkit-scrollbar-thumb {
 		background: var(--color-neutral-700);
 		border-radius: var(--radius-full);
 	}

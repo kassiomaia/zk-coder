@@ -33,7 +33,8 @@ export function handleExecutionStarted(state: AgentState, event: Extract<AgentEv
 			toolCalls: [],
 			terminalOutput: [],
 			statusPhrases: [],
-			streamingAssistantContent: undefined
+			streamingAssistantContent: undefined,
+			artifacts: undefined // Clear any artifacts from previous execution
 		});
 
 		// Create thinking message in chat with consistent ID for updates
@@ -80,7 +81,18 @@ export function handleExecutionComplete(state: AgentState, event: Extract<AgentE
 	// Call the callback with conversation/thread IDs from the event
 	const onExecutionComplete = getOnExecutionComplete();
 	if (onExecutionComplete) {
-		onExecutionComplete(event.sessionId, event.conversationId, event.threadId, event.result.content);
+		const session = state.sessions.get(event.sessionId);
+		const artifacts = session?.artifacts ?? [];
+		onExecutionComplete(event.sessionId, event.conversationId, event.threadId, event.result.content, artifacts);
+
+		// Clear artifacts from session state after attaching to message
+		// (prevents accumulation across multiple executions in the same session)
+		if (session && artifacts.length > 0) {
+			state.sessions.set(event.sessionId, {
+				...session,
+				artifacts: undefined
+			});
+		}
 	}
 
 	// Update session state to finished if session exists
@@ -126,4 +138,29 @@ export function handleApprovalApproved(state: AgentState, event: Extract<AgentEv
 
 export function handleApprovalDenied(state: AgentState, event: Extract<AgentEvent, { type: 'approval_denied' }>) {
 	state.pendingActions = state.pendingActions.filter((a) => a.id !== event.actionId);
+}
+
+/**
+ * Handle artifact_created event.
+ * Stores the artifact reference in the session for later attachment to the final message.
+ */
+export function handleArtifactCreated(state: AgentState, event: Extract<AgentEvent, { type: 'artifact_created' }>) {
+	const session = state.sessions.get(event.sessionId);
+	if (session) {
+		const existingArtifacts = session.artifacts ?? [];
+		state.sessions.set(event.sessionId, {
+			...session,
+			artifacts: [
+				...existingArtifacts,
+				{
+					id: event.artifactId,
+					sessionId: event.sessionId,
+					artifactType: event.artifactType as 'Docx' | 'Pptx' | 'Pdf',
+					filename: event.filename,
+					sizeBytes: event.sizeBytes,
+					createdAt: new Date().toISOString()
+				}
+			]
+		});
+	}
 }

@@ -324,17 +324,31 @@
 
 		// Set callback to add assistant message when agent completes execution
 		// Import the API function to persist messages to backend
-		agentStore.setExecutionCompleteCallback(async (sessionId, conversationId, threadId, content) => {
+		agentStore.setExecutionCompleteCallback(async (sessionId, conversationId, threadId, content, artifacts) => {
 			console.debug('[+page] Execution complete callback invoked:', {
 				sessionId,
 				conversationId,
 				threadId,
 				contentLength: content?.length ?? 0,
-				content
+				content,
+				artifactCount: artifacts.length
 			});
 
 			try {
 				const streamingMessageId = `streaming-assistant-${sessionId}`;
+				const artifactMetadata =
+					artifacts.length > 0
+						? {
+								artifacts: artifacts.map((artifact) => ({
+									id: artifact.id,
+									sessionId: artifact.sessionId,
+									artifactType: artifact.artifactType,
+									filename: artifact.filename,
+									sizeBytes: artifact.sizeBytes,
+									createdAt: artifact.createdAt
+								}))
+							}
+						: {};
 
 				// Persist the assistant message to the backend
 				const { sendMessage } = await import('$lib/api/chat');
@@ -353,20 +367,39 @@
 					);
 
 					if (hasStreamingMessage) {
+						const streamingMessage = chatState.messages.find(
+							(m) => m.id === streamingMessageId
+						);
 						// Replace streaming message with persisted one
 						chatStore.updateMessage(streamingMessageId, {
 							id: savedMessage.id,
 							content: savedMessage.content,
 							status: 'sent',
-							metadata: savedMessage.metadata
+							metadata: {
+								...streamingMessage?.metadata,
+								...savedMessage.metadata,
+								...artifactMetadata
+							}
 						});
 					} else {
 						// No streaming message found, just add the saved one
-						chatStore.addMessage(savedMessage);
+						chatStore.addMessage({
+							...savedMessage,
+							metadata: {
+								...savedMessage.metadata,
+								...artifactMetadata
+							}
+						});
 					}
 				} else {
 					// No streaming message ID, just add the saved message
-					chatStore.addMessage(savedMessage);
+					chatStore.addMessage({
+						...savedMessage,
+						metadata: {
+							...savedMessage.metadata,
+							...artifactMetadata
+						}
+					});
 				}
 
 				console.debug('[+page] Agent message persisted and added to chatStore:', savedMessage.id);
@@ -380,7 +413,20 @@
 					role: 'assistant',
 					content,
 					timestamp: new Date(),
-					status: 'error'
+					status: 'error',
+					metadata:
+						artifacts.length > 0
+							? {
+									artifacts: artifacts.map((artifact) => ({
+										id: artifact.id,
+										sessionId: artifact.sessionId,
+										artifactType: artifact.artifactType,
+										filename: artifact.filename,
+										sizeBytes: artifact.sizeBytes,
+										createdAt: artifact.createdAt
+									}))
+								}
+							: undefined
 				});
 			}
 		});

@@ -216,6 +216,20 @@ pub enum AgentEvent {
         /// Timestamp when compacted
         timestamp: DateTime<Utc>,
     },
+
+    /// A document artifact was created.
+    ArtifactCreated {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "artifactId")]
+        artifact_id: String,
+        #[serde(rename = "artifactType")]
+        artifact_type: String,  // "Docx" | "Pptx" | "Pdf"
+        filename: String,
+        #[serde(rename = "sizeBytes")]
+        size_bytes: u64,
+        path: String,
+    },
 }
 
 /// Action performed on a file.

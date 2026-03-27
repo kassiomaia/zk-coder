@@ -203,6 +203,20 @@ export function getAgentStatus(
 		return WAITING_STATUS;
 	}
 
+	// Once the session is no longer actively running, ignore stale execution steps and phrases.
+	// Otherwise old thread sessions can look "in progress" forever based on historical telemetry.
+	if (state && state.type !== 'running') {
+		const status = stateToStatus(state);
+		if (usage > 50) {
+			return addStallInfo({
+				...status,
+				text: `${status.text} (${Math.round(usage)}%)`,
+				contextUsage: usage
+			});
+		}
+		return addStallInfo(status);
+	}
+
 	// LLM-generated status phrases take priority when available and agent is running
 	if (state?.type === 'running' && statusPhrases && statusPhrases.length > 0) {
 		let text = statusPhrases[statusPhrases.length - 1];

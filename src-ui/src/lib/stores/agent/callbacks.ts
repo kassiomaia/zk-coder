@@ -4,6 +4,7 @@
  */
 
 import type {Message} from '$lib/types/message';
+import type {ArtifactReference} from '$lib/types/agent';
 
 export interface SystemMessagePayload {
 	role: 'system';
@@ -11,9 +12,9 @@ export interface SystemMessagePayload {
 	metadata?: Message['metadata'];
 }
 
-/** Callback for when agent completes execution - returns (conversationId, threadId, content) */
+/** Callback for when agent completes execution - returns (conversationId, threadId, content, artifacts) */
 let onExecutionComplete:
-	| ((sessionId: string, conversationId: string, threadId: string, content: string) => void)
+	| ((sessionId: string, conversationId: string, threadId: string, content: string, artifacts: ArtifactReference[]) => void)
 	| null = null;
 
 /** Callback for agent system messages (e.g., context compaction) - returns (conversationId, message) */
@@ -35,7 +36,7 @@ let onCleanupTransients:
  * Set the execution complete callback.
  */
 export function setExecutionCompleteCallback(
-	callback: (sessionId: string, conversationId: string, threadId: string, content: string) => void
+	callback: (sessionId: string, conversationId: string, threadId: string, content: string, artifacts: ArtifactReference[]) => void
 ) {
 	onExecutionComplete = callback;
 }
