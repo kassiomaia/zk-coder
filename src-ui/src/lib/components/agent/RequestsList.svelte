@@ -88,7 +88,7 @@
 
 	.request-item.is-current {
 		color: var(--color-primary-400);
-		background: var(--color-primary-500/10);
+		background: var(--color-primary-subtle);
 	}
 
 	.icon {

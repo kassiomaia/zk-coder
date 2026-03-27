@@ -138,7 +138,7 @@
 	}
 
 	.task-wrapper.is-running {
-		background: var(--color-primary-500/5);
+		background: var(--color-primary-subtle);
 		border-left-color: var(--color-primary-500);
 	}
 

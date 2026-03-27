@@ -12,6 +12,7 @@ use tauri::Manager;
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
+use tokio::sync::mpsc;
 
 use crate::core::agent::entities::SessionState as CoreSessionState;
 use crate::core::agent::services::AgentService;
@@ -28,6 +29,11 @@ const MAX_OUTPUT_BYTES: usize = 512 * 1024;
 /// Maximum command execution time (60 seconds).
 const COMMAND_TIMEOUT_SECS: u64 = 60;
 const COMMAND_CANCELLATION_POLL_MS: u64 = 250;
+
+enum CommandStreamEvent {
+    Line { stream: &'static str, content: String },
+    StreamClosed { stream: &'static str },
+}
 
 /// Arguments for command execution.
 #[derive(Debug, Deserialize)]
@@ -134,95 +140,128 @@ impl Tool for ExecuteCommandTool {
 
             let stdout = child.stdout.take();
             let stderr = child.stderr.take();
+            let (stream_tx, mut stream_rx) = mpsc::unbounded_channel::<CommandStreamEvent>();
 
-            // Stream stdout and stderr concurrently
             let stdout_handle = {
-                let app = app_handle.clone();
-                let sid = session_id.clone();
-                let agent_service_clone = agent_service.clone();
+                let tx = stream_tx.clone();
                 tokio::spawn(async move {
-                    let mut output = String::new();
                     if let Some(stdout) = stdout {
                         let mut reader = BufReader::new(stdout).lines();
                         while let Ok(Some(line)) = reader.next_line().await {
-                            let _ = app.emit(
-                                AGENT_EVENT_NAME,
-                                AgentEvent::CommandOutput {
-                                    session_id: sid.clone(),
-                                    stream: "stdout".to_string(),
-                                    content: line.clone(),
-                                },
-                            );
-                            // Persist to database if we have a session store
-                            if let Some(ref service) = agent_service_clone {
-                                let _ = service.append_terminal_line(&sid, "stdout", &line);
+                            if tx
+                                .send(CommandStreamEvent::Line {
+                                    stream: "stdout",
+                                    content: line,
+                                })
+                                .is_err()
+                            {
+                                return;
                             }
-                            output.push_str(&line);
-                            output.push('\n');
                         }
                     }
-                    output
+                    let _ = tx.send(CommandStreamEvent::StreamClosed { stream: "stdout" });
                 })
             };
 
             let stderr_handle = {
-                let app = app_handle.clone();
-                let sid = session_id.clone();
-                let agent_service_clone = agent_service.clone();
+                let tx = stream_tx.clone();
                 tokio::spawn(async move {
-                    let mut output = String::new();
                     if let Some(stderr) = stderr {
                         let mut reader = BufReader::new(stderr).lines();
                         while let Ok(Some(line)) = reader.next_line().await {
-                            let _ = app.emit(
-                                AGENT_EVENT_NAME,
-                                AgentEvent::CommandOutput {
-                                    session_id: sid.clone(),
-                                    stream: "stderr".to_string(),
-                                    content: line.clone(),
-                                },
-                            );
-                            // Persist to database if we have a session store
-                            if let Some(ref service) = agent_service_clone {
-                                let _ = service.append_terminal_line(&sid, "stderr", &line);
+                            if tx
+                                .send(CommandStreamEvent::Line {
+                                    stream: "stderr",
+                                    content: line,
+                                })
+                                .is_err()
+                            {
+                                return;
                             }
-                            output.push_str(&line);
-                            output.push('\n');
                         }
                     }
-                    output
+                    let _ = tx.send(CommandStreamEvent::StreamClosed { stream: "stderr" });
                 })
             };
+            drop(stream_tx);
 
-            // Wait for completion with timeout
-            let result = tokio::time::timeout(std::time::Duration::from_secs(COMMAND_TIMEOUT_SECS), async {
-                let exit_status = loop {
-                    tokio::select! {
-                        status = child.wait() => {
-                            break status.map_err(|e| {
-                                ToolError::failed(format!("Failed to wait for command: {}", e))
-                            })?;
+            // Wait for completion with timeout while serializing emitted output.
+            let result = tokio::time::timeout(
+                std::time::Duration::from_secs(COMMAND_TIMEOUT_SECS),
+                async {
+                    let mut stdout_out = String::new();
+                    let mut stderr_out = String::new();
+                    let mut stdout_closed = false;
+                    let mut stderr_closed = false;
+                    let mut exit_status = None;
+
+                    loop {
+                        if exit_status.is_some() && stdout_closed && stderr_closed {
+                            break;
                         }
-                        _ = tokio::time::sleep(std::time::Duration::from_millis(COMMAND_CANCELLATION_POLL_MS)) => {
-                            if let Some(ref service) = agent_service {
-                                let cancelled = service
-                                    .get_session(&session_id)
-                                    .map(|session| matches!(session.state, CoreSessionState::Cancelled { .. }))
-                                    .unwrap_or(false);
-                                if cancelled {
-                                    let _ = child.kill().await;
-                                    return Err(ToolError::failed("Command cancelled"));
+
+                        tokio::select! {
+                            maybe_event = stream_rx.recv(), if !(stdout_closed && stderr_closed) => {
+                                match maybe_event {
+                                    Some(CommandStreamEvent::Line { stream, content }) => {
+                                        let _ = app_handle.emit(
+                                            AGENT_EVENT_NAME,
+                                            AgentEvent::CommandOutput {
+                                                session_id: session_id.clone(),
+                                                stream: stream.to_string(),
+                                                content: content.clone(),
+                                            },
+                                        );
+                                        if let Some(ref service) = agent_service {
+                                            let _ = service.append_terminal_line(&session_id, stream, &content);
+                                        }
+                                        let target = if stream == "stdout" {
+                                            &mut stdout_out
+                                        } else {
+                                            &mut stderr_out
+                                        };
+                                        target.push_str(&content);
+                                        target.push('\n');
+                                    }
+                                    Some(CommandStreamEvent::StreamClosed { stream }) => {
+                                        if stream == "stdout" {
+                                            stdout_closed = true;
+                                        } else {
+                                            stderr_closed = true;
+                                        }
+                                    }
+                                    None => {
+                                        stdout_closed = true;
+                                        stderr_closed = true;
+                                    }
+                                }
+                            }
+                            _ = tokio::time::sleep(std::time::Duration::from_millis(COMMAND_CANCELLATION_POLL_MS)) => {
+                                if exit_status.is_none() {
+                                    exit_status = child.try_wait().map_err(|e| {
+                                        ToolError::failed(format!("Failed to wait for command: {}", e))
+                                    })?;
+                                }
+                                if let Some(ref service) = agent_service {
+                                    let cancelled = service
+                                        .get_session(&session_id)
+                                        .map(|session| matches!(session.state, CoreSessionState::Cancelled { .. }))
+                                        .unwrap_or(false);
+                                    if cancelled {
+                                        let _ = child.kill().await;
+                                        return Err(ToolError::failed("Command cancelled"));
+                                    }
                                 }
                             }
                         }
                     }
-                };
 
-                let (stdout_result, stderr_result) = tokio::join!(stdout_handle, stderr_handle);
-                let stdout_out = stdout_result.unwrap_or_default();
-                let stderr_out = stderr_result.unwrap_or_default();
-                Ok::<_, ToolError>((stdout_out, stderr_out, exit_status))
-            }).await;
+                    let _ = stdout_handle.await;
+                    let _ = stderr_handle.await;
+                    Ok::<_, ToolError>((stdout_out, stderr_out, exit_status.expect("exit status set before loop exits")))
+                },
+            )
+            .await;
 
             match result {
                 Ok(Ok((mut stdout_out, mut stderr_out, exit_status))) => {

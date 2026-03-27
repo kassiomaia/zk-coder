@@ -477,7 +477,7 @@
 	.header-btn.active {
 		color: var(--color-primary-400);
 		opacity: 1;
-		background: var(--color-primary-500/10);
+		background: var(--color-primary-subtle);
 	}
 
 	.header-divider {
@@ -588,8 +588,8 @@
 	}
 
 	.badge.running {
-		background: var(--color-primary-900/30);
-		border-color: var(--color-primary-500/30);
+		background: var(--color-primary-subtle);
+		border-color: var(--color-primary-border);
 		color: var(--color-primary-300);
 	}
 
@@ -662,7 +662,7 @@
 	}
 
 	.step-item.current {
-		background: var(--color-primary-500/10);
+		background: var(--color-primary-subtle);
 		color: var(--color-primary-400);
 	}
 

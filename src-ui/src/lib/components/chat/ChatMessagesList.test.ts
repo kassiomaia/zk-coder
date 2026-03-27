@@ -84,6 +84,41 @@ describe('ChatMessagesList', () => {
 		expect(screen.getByText('Thinking...')).toBeInTheDocument();
 	});
 
+	it('calls onApproveAction from an inline approval card', async () => {
+		const onApproveAction = vi.fn().mockResolvedValue(undefined);
+		const approvalMessage: Message = {
+			id: 'approval-1',
+			conversationId: 'conv-1',
+			threadId: 'thread-1',
+			role: 'assistant',
+			content: 'Approval required',
+			timestamp: new Date('2024-01-01T12:00:00Z'),
+			kind: 'approval',
+			agentData: {
+				sessionId: 'session-1',
+				pendingAction: {
+					id: 'action-1',
+					toolName: 'system_execute',
+					actionType: { type: 'execute_command', command: 'ls -la' },
+					description: 'Run a command',
+					arguments: {},
+					createdAt: '2024-01-01T12:00:00Z'
+				},
+				approvalResolved: false
+			}
+		};
+
+		render(ChatMessagesList, {
+			...defaultProps,
+			messages: [approvalMessage],
+			onApproveAction
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Allow' }));
+
+		expect(onApproveAction).toHaveBeenCalledWith('session-1', 'action-1');
+	});
+
 	it('keeps the answering indicator visible when agent messages are present', () => {
 		const agentMessages: Message[] = [
 			{

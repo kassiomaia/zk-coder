@@ -5,12 +5,13 @@
  * Displays an inline approval card in the chat for agent actions requiring user permission.
  * Shows action details, optional preview, and Allow/Deny buttons.
  */
-import Button from '$lib/components/shared/Button.svelte';
+import styles from './ApprovalMessage.module.css';
 import DiffViewer from '$lib/components/agent/DiffViewer.svelte';
 import type {Message} from '$lib/types/message';
 import type {ActionType} from '$lib/types/agent';
-import styles from './ApprovalMessage.module.css';
-import {AlertTriangle, CheckCircle2, FileEdit, Globe, Terminal, Trash2, XCircle} from 'lucide-svelte';
+import {AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, FileEdit, Globe, ShieldCheck, Terminal, Trash2, XCircle} from 'lucide-svelte';
+import { slide, fade } from 'svelte/transition';
+import { cubicOut } from 'svelte/easing';
 
 interface Props {
 	message: Message;
@@ -21,6 +22,7 @@ interface Props {
 let {message, onApprove, onDeny}: Props = $props();
 
 let isLoading = $state(false);
+let isExpanded = $state(false);
 
 const agentData = $derived(message.agentData);
 const pendingAction = $derived(agentData?.pendingAction);
@@ -49,104 +51,148 @@ async function handleDeny() {
 	}
 }
 
-function getActionIcon(actionType: ActionType | undefined) {
-	if (!actionType) return AlertTriangle;
-	switch (actionType.type) {
-		case 'write_file':
-			return FileEdit;
-		case 'delete_file':
-			return Trash2;
-		case 'execute_command':
-			return Terminal;
-		case 'web_request':
-			return Globe;
-		default:
-			return AlertTriangle;
-	}
-}
-
 function getActionLabel(actionType: ActionType | undefined): string {
-	if (!actionType) return 'Action';
+	if (!actionType) return 'action';
 	switch (actionType.type) {
 		case 'write_file':
-			return 'Write File';
+			return 'modifying a file';
 		case 'delete_file':
-			return 'Delete File';
+			return 'removing a file';
 		case 'execute_command':
-			return 'Execute Command';
+			return 'running a command';
 		case 'web_request':
-			return 'Web Request';
+			return 'accessing the internet';
 		case 'read_file':
-			return 'Read File';
+			return 'reading a file';
 		default:
-			return 'Action';
+			return 'performing an action';
 	}
 }
 
-function getIconClass(actionType: ActionType | undefined): string {
-	if (!actionType) return 'warning';
+function getActionImpact(actionType: ActionType | undefined): string {
+	if (!actionType) return 'This action requires your confirmation to proceed safely.';
 	switch (actionType.type) {
+		case 'write_file':
+			return 'The system will update the contents of a local file.';
 		case 'delete_file':
-			return 'danger';
+			return 'This will permanently remove the specified file from your system.';
 		case 'execute_command':
-			return 'info';
+			return 'A terminal command will be executed in your current environment.';
+		case 'web_request':
+			return 'The system will send or receive data from an external web service.';
+		case 'read_file':
+			return 'The system will access and read the contents of a local file.';
 		default:
-			return 'warning';
+			return 'This action requires your confirmation to proceed safely.';
 	}
 }
 
-let ActionIcon = $derived(getActionIcon(pendingAction?.actionType));
 let actionLabel = $derived(getActionLabel(pendingAction?.actionType));
-let iconClass = $derived(getIconClass(pendingAction?.actionType));
+let actionImpact = $derived(getActionImpact(pendingAction?.actionType));
 let isResolved = $derived(approvalResolved);
 let isApproved = $derived(approvalDecision === 'approved');
 let isDenied = $derived(approvalDecision === 'denied');
+
+function toggleExpand() {
+	isExpanded = !isExpanded;
+}
 </script>
 
-<div class={[styles.approvalCard, iconClass].filter(Boolean).join(' ')}>
-	<div class={styles.header}>
-		<div class={styles.iconWrapper}>
-			<ActionIcon size={16} />
+<div 
+	class={styles.approvalContainer} 
+	in:fade={{ duration: 200, easing: cubicOut }}
+>
+	<div class={styles.contentRow}>
+		<!-- Zone 1: Intent & Context -->
+		<div class={styles.intentZone}>
+			<div class={styles.iconWrapper}>
+				<ShieldCheck size={16} strokeWidth={2.5} />
+			</div>
+			<div class={styles.textWrapper}>
+				<div class={styles.primaryText}>
+					Assistant wants permission for <span class={styles.actionHighlight}>{actionLabel}</span>
+				</div>
+				<div class={styles.secondaryText}>
+					{pendingAction?.description || actionImpact}
+				</div>
+			</div>
 		</div>
-		<div class={styles.headerText}>
-			<span class={styles.title}>Allow {actionLabel}?</span>
+
+		<!-- Zone 2: Actions -->
+		<div class={styles.actionZone}>
+			{#if !isResolved}
+				<div class={styles.buttonGroup}>
+					<button
+						type="button"
+						class={[styles.btn, styles.btnSecondary].join(' ')}
+						onclick={handleDeny}
+						disabled={isLoading}
+					>
+						Deny
+					</button>
+					<button
+						type="button"
+						class={[styles.btn, styles.btnPrimary].join(' ')}
+						onclick={handleApprove}
+						disabled={isLoading}
+						aria-busy={isLoading}
+					>
+						{#if isLoading}
+							<div class={styles.spinner}></div>
+						{/if}
+						{isLoading ? 'Allowing...' : 'Allow'}
+					</button>
+				</div>
+			{:else}
+				<div class={styles.resolvedStatus} in:fade>
+					{#if isApproved}
+						<CheckCircle2 size={14} class={styles.successIcon} />
+						<span>Permission Granted</span>
+					{:else if isDenied}
+						<XCircle size={14} class={styles.errorIcon} />
+						<span>Action Denied</span>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
 
-	{#if pendingAction?.description}
-		<p class={styles.description}>{pendingAction.description}</p>
-	{/if}
-
 	{#if pendingAction?.preview && !isResolved}
-		<div class={styles.previewSection}>
-			<div class={styles.previewHeader}>
-				<span>{pendingAction.preview.contentType === 'diff' ? 'Changes' : 'Preview'}</span>
-				{#if pendingAction.preview.language}
-					<span class={styles.previewLang}>{pendingAction.preview.language}</span>
+		<div class={styles.disclosureZone}>
+			<button 
+				type="button"
+				class={styles.disclosureTrigger}
+				onclick={toggleExpand}
+				aria-expanded={isExpanded}
+			>
+				<span>{isExpanded ? 'Hide' : 'Inspect'} technical details</span>
+				{#if isExpanded}
+					<ChevronUp size={12} />
+				{:else}
+					<ChevronDown size={12} />
 				{/if}
-			</div>
-			{#if pendingAction.preview.contentType === 'diff'}
-				<DiffViewer diff={pendingAction.preview.content} maxHeight={200} />
-			{:else}
-				<pre class={styles.previewContent}><code>{pendingAction.preview.content}</code></pre>
+			</button>
+
+			{#if isExpanded}
+				<div 
+					class={styles.previewWrapper}
+					transition:slide={{ duration: 200, easing: cubicOut }}
+				>
+					<div class={styles.previewHeader}>
+						<span>{pendingAction.preview.contentType === 'diff' ? 'Proposed Changes' : 'Action Details'}</span>
+						{#if pendingAction.preview.language}
+							<code>{pendingAction.preview.language}</code>
+						{/if}
+					</div>
+					<div class={styles.previewScroll}>
+						{#if pendingAction.preview.contentType === 'diff'}
+							<DiffViewer diff={pendingAction.preview.content} maxHeight={200} />
+						{:else}
+							<pre class={styles.previewContent}><code>{pendingAction.preview.content}</code></pre>
+						{/if}
+					</div>
+				</div>
 			{/if}
 		</div>
 	{/if}
-
-	<div class={styles.actions}>
-		{#if !isResolved}
-			<Button variant="ghost" onclick={handleDeny} disabled={isLoading} size="sm">Deny</Button>
-			<Button variant="primary" onclick={handleApprove} loading={isLoading} size="sm">Allow</Button>
-		{:else if isApproved}
-			<span class={styles.resolvedBadge} class:approved={true}>
-				<CheckCircle2 size={14} />
-				Approved
-			</span>
-		{:else if isDenied}
-			<span class={styles.resolvedBadge} class:denied={true}>
-				<XCircle size={14} />
-				Denied
-			</span>
-		{/if}
-	</div>
 </div>
