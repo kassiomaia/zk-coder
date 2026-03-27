@@ -347,8 +347,7 @@ pub async fn execute(
         // If no tool calls, we're done - agent has completed its task
         if response.tool_calls.is_empty() {
             return finalize_execution(
-                client.as_ref(),
-                &chat_request,
+                response.content,
                 &session_id,
                 &session.conversation_id,
                 &session.thread_id,
@@ -438,81 +437,32 @@ pub async fn execute(
 
 /// Finalizes the agent execution and returns the result.
 async fn finalize_execution(
-    client: &dyn LlmClient,
-    request: &ChatRequest,
+    content: String,
     session_id: &str,
     conversation_id: &str,
     thread_id: &str,
     task_id: &str,
     steps: Vec<ExecutionStep>,
-    mut total_input_tokens: u32,
-    mut total_output_tokens: u32,
+    total_input_tokens: u32,
+    total_output_tokens: u32,
     app_handle: &AppHandle,
     session_repo: &dyn SessionRepository,
     _telemetry_repo: &dyn AgentTelemetryRepository,
     task_repo: &dyn TaskRepository,
 ) -> Result<AgentExecutionResult, AgentRuntimeError> {
-    use futures::StreamExt;
-
-    // Use streaming for the final response to show real-time progress
-    let mut stream_request = request.clone();
-    stream_request.stream = true;
-
-    let mut full_content = String::new();
-    let mut final_usage = None;
-
-    let mut stream = client.chat_stream(stream_request);
-
-    while let Some(chunk_result) = StreamExt::next(&mut stream).await {
-        match chunk_result {
-            Ok(chunk) => {
-                if let Some(ref delta) = chunk.delta {
-                    if let Some(ref content) = delta.content {
-                        // Emit streaming content events
-                        tokio::spawn({
-                            let session_id = session_id.to_string();
-                            let conversation_id = conversation_id.to_string();
-                            let thread_id = thread_id.to_string();
-                            let chunk_content = content.clone();
-                            let app_handle = app_handle.clone();
-
-                            async move {
-                                let _ = app_handle.emit(
-                                    AGENT_EVENT_NAME,
-                                    AgentEvent::StreamingContent {
-                                        session_id,
-                                        conversation_id,
-                                        thread_id,
-                                        chunk: chunk_content,
-                                        is_final: false,
-                                    },
-                                );
-                            }
-                        });
-
-                        full_content.push_str(content);
-                    }
-                }
-
-                if let Some(usage) = chunk.usage {
-                    final_usage = Some(usage);
-                }
-            }
-            Err(e) => {
-                warn!("[AgentRuntime] Stream error: {}", e);
-                // Continue to try to get what we have
-            }
-        }
-    }
-
-    // Update usage with streaming response
-    if let Some(usage) = &final_usage {
-        total_input_tokens += usage.input_tokens;
-        total_output_tokens += usage.output_tokens;
-    }
+    let _ = app_handle.emit(
+        AGENT_EVENT_NAME,
+        AgentEvent::StreamingContent {
+            session_id: session_id.to_string(),
+            conversation_id: conversation_id.to_string(),
+            thread_id: thread_id.to_string(),
+            chunk: content.clone(),
+            is_final: true,
+        },
+    );
 
     let result = AgentExecutionResult {
-        content: full_content.clone(),
+        content: content.clone(),
         steps,
         usage: Some(UsageStats {
             input_tokens: total_input_tokens,
