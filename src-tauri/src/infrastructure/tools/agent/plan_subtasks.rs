@@ -26,7 +26,10 @@ impl Tool for PlanSubtasksTool {
 				"These appear in the Activity section so the user can track your progress. ",
 				"Call this once early in execution after understanding what needs to be done. ",
 				"Each subtask should be a short description of a logical step. ",
-				"Example: ['Analyze current code structure', 'Implement new function', 'Write tests']"
+				"Example: ['Analyze current code structure', 'Implement new function', 'Write tests']. ",
+				"CALL ONLY for multi-step implementation/debugging/refactoring tasks. ",
+				"DO NOT CALL for greetings, acknowledgements, small talk, or single-step requests. ",
+				"If the user input is conversational (e.g., 'Hi', 'Thanks'), respond without planning."
 			),
             input_schema: serde_json::json!({
                 "type": "object",

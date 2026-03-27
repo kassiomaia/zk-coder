@@ -1,11 +1,15 @@
 //! Permission handling and tool execution for agent runtime.
 
+use std::collections::{HashMap, HashSet};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use chrono::Utc;
 use log::{info, warn};
 use tauri::{AppHandle, Emitter};
 
+use super::types::AgentRuntimeError;
+use super::{generate_diff_from_content, infer_action_type};
 use crate::core::agent::repositories::{SessionRepository, TaskRepository};
 use crate::core::agent::session::{AgentSession, PendingAction};
 use crate::core::agent::types::{ActionPreview, ActionType};
@@ -18,8 +22,10 @@ use crate::infrastructure::tools::context::ToolExecutionContext;
 use crate::infrastructure::tools::OrchestratorToolResult;
 use crate::infrastructure::tools::ToolRegistry;
 
-use super::types::AgentRuntimeError;
-use super::{generate_diff_from_content, infer_action_type};
+static PLAN_RETRY_TRACKER: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+static SUBTASK_RATIONALES: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+static SUBTASK_FAILURE_COUNTS: OnceLock<Mutex<HashMap<String, u32>>> = OnceLock::new();
+static DECOMPOSED_SUBTASKS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 
 /// Timeout for waiting on user approval (seconds).
 const APPROVAL_TIMEOUT_SECS: u64 = 300;
@@ -94,6 +100,7 @@ pub async fn process_tool_calls_with_permissions(
                 execute_tool(
                     call,
                     session,
+                    task_id,
                     app_handle,
                     tool_registry,
                     file_snapshot_registry,
@@ -158,12 +165,24 @@ pub async fn process_tool_calls_with_permissions(
 async fn execute_tool(
     call: &ToolCall,
     session: &AgentSession,
+    task_id: &str,
     app_handle: &AppHandle,
     tool_registry: &ToolRegistry,
     file_snapshot_registry: &FileSnapshotRegistry,
     telemetry_repo: &dyn AgentTelemetryRepository,
     task_repo: &dyn TaskRepository,
 ) -> OrchestratorToolResult {
+    if let Some(result) = handle_agent_tool_call(
+        call,
+        session,
+        task_id,
+        app_handle,
+        task_repo,
+        telemetry_repo,
+    ) {
+        return result;
+    }
+
     if call.name == "system_execute_command" {
         if let Some(ref workspace) = session.workspace_root {
             let stats =
@@ -177,6 +196,7 @@ async fn execute_tool(
             );
         }
     }
+
     // Capture file state before write operations for rollback
     if call.name == "fs_write_file" {
         if let Some(path) = call.arguments.get("path").and_then(|v| v.as_str()) {
@@ -233,7 +253,7 @@ async fn execute_tool(
 async fn execute_with_approval(
     call: &ToolCall,
     session: &AgentSession,
-    _task_id: &str,
+    task_id: &str,
     app_handle: &AppHandle,
     approval_queue: &ApprovalQueue,
     tool_registry: &ToolRegistry,
@@ -316,7 +336,17 @@ async fn execute_with_approval(
                         if approved_id == action_id =>
                     {
                         info!("[AgentRuntime] Action {} approved", action_id);
-                        return Ok(execute_tool(call, session, app_handle, tool_registry, file_snapshot_registry, telemetry_repo, task_repo).await);
+                        return Ok(execute_tool(
+                            call,
+                            session,
+                            task_id,
+                            app_handle,
+                            tool_registry,
+                            file_snapshot_registry,
+                            telemetry_repo,
+                            task_repo,
+                        )
+                        .await);
                     }
                     Ok(ApprovalEvent::ActionDenied { action_id: denied_id })
                         if denied_id == action_id =>
@@ -357,6 +387,813 @@ async fn execute_with_approval(
                 return Err(AgentRuntimeError::ApprovalTimeout);
             }
         }
+    }
+}
+
+fn handle_agent_tool_call(
+    call: &ToolCall,
+    session: &AgentSession,
+    task_id: &str,
+    app_handle: &AppHandle,
+    task_repo: &dyn TaskRepository,
+    telemetry_repo: &dyn AgentTelemetryRepository,
+) -> Option<OrchestratorToolResult> {
+    match call.name.as_str() {
+        "agent_plan_subtasks" => Some(handle_plan_subtasks(
+            call,
+            session,
+            task_id,
+            app_handle,
+            task_repo,
+            telemetry_repo,
+        )),
+        "agent_advance_to_next_subtask" => Some(handle_advance_subtask(
+            call,
+            session,
+            task_id,
+            app_handle,
+            task_repo,
+            telemetry_repo,
+        )),
+        "agent_mark_subtask_status" => Some(handle_mark_subtask_status(
+            call,
+            session,
+            task_id,
+            app_handle,
+            task_repo,
+            telemetry_repo,
+        )),
+        _ => None,
+    }
+}
+
+fn handle_plan_subtasks(
+    call: &ToolCall,
+    session: &AgentSession,
+    task_id: &str,
+    app_handle: &AppHandle,
+    task_repo: &dyn TaskRepository,
+    telemetry_repo: &dyn AgentTelemetryRepository,
+) -> OrchestratorToolResult {
+    let subtasks = match call.arguments.get("subtasks").and_then(|v| v.as_array()) {
+        Some(subtasks) if !subtasks.is_empty() => subtasks,
+        _ => {
+            return OrchestratorToolResult {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                output: serde_json::json!({
+                    "error": "Missing or empty 'subtasks' array parameter"
+                }),
+                is_error: true,
+            };
+        }
+    };
+
+    let existing = task_repo.get_subtasks(task_id).ok().unwrap_or_default();
+    if !existing.is_empty() {
+        return OrchestratorToolResult {
+            call_id: call.id.clone(),
+            name: call.name.clone(),
+            output: serde_json::json!({
+                "error": "Subtasks already exist for this task"
+            }),
+            is_error: true,
+        };
+    }
+
+    let requires_verification =
+        detect_code_change_intent(session, task_id, task_repo, telemetry_repo);
+    if let Err(feedback) = validate_plan_subtasks(subtasks, requires_verification) {
+        let retry_map = PLAN_RETRY_TRACKER.get_or_init(|| Mutex::new(HashSet::new()));
+        let mut retries = retry_map.lock().unwrap_or_else(|e| e.into_inner());
+        let retry_key = format!("{}:{}", session.id.0, task_id);
+        let already_retried = retries.contains(&retry_key);
+        if !already_retried {
+            retries.insert(retry_key);
+            return OrchestratorToolResult {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                output: serde_json::json!({
+                    "error": "Plan validation failed",
+                    "requires_replan": true,
+                    "feedback": feedback
+                }),
+                is_error: true,
+            };
+        }
+        return OrchestratorToolResult {
+            call_id: call.id.clone(),
+            name: call.name.clone(),
+            output: serde_json::json!({
+                "error": "Plan validation failed twice",
+                "requires_replan": false,
+                "feedback": feedback
+            }),
+            is_error: true,
+        };
+    }
+
+    let mut created = 0usize;
+
+    for (idx, item) in subtasks.iter().enumerate() {
+        let title = match item.get("title").and_then(|v| v.as_str()) {
+            Some(title) if !title.trim().is_empty() => title.trim().to_string(),
+            _ => {
+                return OrchestratorToolResult {
+                    call_id: call.id.clone(),
+                    name: call.name.clone(),
+                    output: serde_json::json!({
+                        "error": "Each subtask must include a non-empty 'title'"
+                    }),
+                    is_error: true,
+                };
+            }
+        };
+        let description = item
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let core_subtask = crate::core::agent::entities::AgentTask {
+            id: uuid::Uuid::new_v4().to_string(),
+            session_id: session.id.0.clone(),
+            parent_task_id: Some(task_id.to_string()),
+            title: title.clone(),
+            description: description.clone(),
+            status: crate::core::agent::entities::TaskStatus::Pending,
+            order: idx as i32,
+            mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
+        };
+
+        if let Err(e) = task_repo.create_subtask(task_id, &core_subtask) {
+            warn!("[AgentRuntime] Failed to create subtask: {e}");
+            return OrchestratorToolResult {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                output: serde_json::json!({
+                    "error": "Failed to persist subtask"
+                }),
+                is_error: true,
+            };
+        }
+
+        let mut event_subtask = crate::core::agent::task::SubTask::new(
+            task_id.to_string(),
+            title,
+            crate::core::agent::task::SubTaskMode::FullAccess,
+            idx as i32,
+        );
+        event_subtask.id = core_subtask.id.clone();
+        if let Some(desc) = description {
+            event_subtask.description = Some(desc);
+        }
+
+        let _ = app_handle.emit(
+            AGENT_EVENT_NAME,
+            AgentEvent::SubtaskCreated {
+                session_id: session.id.0.clone(),
+                subtask: event_subtask,
+            },
+        );
+
+        created += 1;
+    }
+
+    if created > 0 {
+        let created_subtasks = task_repo.get_subtasks(task_id).ok().unwrap_or_default();
+        if let Some(first) = created_subtasks.iter().find(|st| st.order == 0).cloned() {
+            let _ = task_repo.update_subtask_status(
+                &first.id,
+                crate::core::agent::entities::TaskStatus::InProgress,
+            );
+
+            let mut updated = core_task_to_event_subtask(first, task_id);
+            updated.status = crate::core::agent::task::TaskStatus::InProgress;
+            updated.started_at = Some(Utc::now());
+
+            let _ = app_handle.emit(
+                AGENT_EVENT_NAME,
+                AgentEvent::SubtaskUpdated {
+                    session_id: session.id.0.clone(),
+                    subtask: updated,
+                },
+            );
+        }
+    }
+
+    OrchestratorToolResult {
+        call_id: call.id.clone(),
+        name: call.name.clone(),
+        output: serde_json::json!({
+            "success": true,
+            "message": format!("Planned {created} subtasks"),
+            "count": created
+        }),
+        is_error: false,
+    }
+}
+
+fn handle_advance_subtask(
+    call: &ToolCall,
+    session: &AgentSession,
+    task_id: &str,
+    app_handle: &AppHandle,
+    task_repo: &dyn TaskRepository,
+    telemetry_repo: &dyn AgentTelemetryRepository,
+) -> OrchestratorToolResult {
+    let mut subtasks = match task_repo.get_subtasks(task_id) {
+        Ok(subtasks) if !subtasks.is_empty() => subtasks,
+        _ => {
+            return OrchestratorToolResult {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                output: serde_json::json!({
+                    "error": "No subtasks found for this task"
+                }),
+                is_error: true,
+            };
+        }
+    };
+
+    subtasks.sort_by_key(|st| st.order);
+
+    let current_index = subtasks
+        .iter()
+        .position(|st| st.status == crate::core::agent::entities::TaskStatus::InProgress);
+
+    let Some(current_pos) = current_index else {
+        return OrchestratorToolResult {
+            call_id: call.id.clone(),
+            name: call.name.clone(),
+            output: serde_json::json!({
+                "error": "No subtask is currently in progress"
+            }),
+            is_error: true,
+        };
+    };
+
+    let current = subtasks[current_pos].clone();
+    let has_evidence = has_subtask_evidence(session, &current.id, telemetry_repo)
+        || has_subtask_rationale(&current.id);
+    if !has_evidence {
+        return OrchestratorToolResult {
+            call_id: call.id.clone(),
+            name: call.name.clone(),
+            output: serde_json::json!({
+                "error": "Cannot advance subtask: no evidence found (file change, command execution, or explicit rationale)"
+            }),
+            is_error: true,
+        };
+    }
+
+    if let Err(e) = task_repo.update_subtask_status(
+        &current.id,
+        crate::core::agent::entities::TaskStatus::Completed,
+    ) {
+        warn!("[AgentRuntime] Failed to complete subtask: {e}");
+        return OrchestratorToolResult {
+            call_id: call.id.clone(),
+            name: call.name.clone(),
+            output: serde_json::json!({
+                "error": "Failed to update subtask status"
+            }),
+            is_error: true,
+        };
+    }
+
+    let mut completed_event = core_task_to_event_subtask(current, task_id);
+    completed_event.status = crate::core::agent::task::TaskStatus::Completed;
+    completed_event.completed_at = Some(Utc::now());
+    let _ = app_handle.emit(
+        AGENT_EVENT_NAME,
+        AgentEvent::SubtaskUpdated {
+            session_id: session.id.0.clone(),
+            subtask: completed_event,
+        },
+    );
+
+    let next = subtasks
+        .iter()
+        .skip(current_pos + 1)
+        .find(|st| st.status == crate::core::agent::entities::TaskStatus::Pending)
+        .cloned();
+
+    if let Some(next) = next {
+        if let Err(e) = task_repo.update_subtask_status(
+            &next.id,
+            crate::core::agent::entities::TaskStatus::InProgress,
+        ) {
+            warn!("[AgentRuntime] Failed to start subtask: {e}");
+            return OrchestratorToolResult {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                output: serde_json::json!({
+                    "error": "Failed to update next subtask status"
+                }),
+                is_error: true,
+            };
+        }
+
+        let mut in_progress_event = core_task_to_event_subtask(next, task_id);
+        in_progress_event.status = crate::core::agent::task::TaskStatus::InProgress;
+        in_progress_event.started_at = Some(Utc::now());
+        let _ = app_handle.emit(
+            AGENT_EVENT_NAME,
+            AgentEvent::SubtaskUpdated {
+                session_id: session.id.0.clone(),
+                subtask: in_progress_event,
+            },
+        );
+
+        return OrchestratorToolResult {
+            call_id: call.id.clone(),
+            name: call.name.clone(),
+            output: serde_json::json!({
+                "success": true,
+                "message": "Advanced to next subtask"
+            }),
+            is_error: false,
+        };
+    }
+
+    let _ =
+        task_repo.update_task_status(task_id, crate::core::agent::entities::TaskStatus::Completed);
+    let _ = app_handle.emit(
+        AGENT_EVENT_NAME,
+        AgentEvent::TaskUpdated {
+            session_id: session.id.0.clone(),
+            task_id: task_id.to_string(),
+            status: crate::core::agent::task::TaskStatus::Completed,
+        },
+    );
+
+    OrchestratorToolResult {
+        call_id: call.id.clone(),
+        name: call.name.clone(),
+        output: serde_json::json!({
+            "success": true,
+            "message": "Advanced to next subtask (no remaining subtasks)"
+        }),
+        is_error: false,
+    }
+}
+
+fn handle_mark_subtask_status(
+    call: &ToolCall,
+    session: &AgentSession,
+    task_id: &str,
+    app_handle: &AppHandle,
+    task_repo: &dyn TaskRepository,
+    _telemetry_repo: &dyn AgentTelemetryRepository,
+) -> OrchestratorToolResult {
+    let index = match call.arguments.get("index").and_then(|v| v.as_i64()) {
+        Some(index) if index >= 0 => index as usize,
+        _ => {
+            return OrchestratorToolResult {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                output: serde_json::json!({
+                    "error": "Missing or invalid 'index' parameter"
+                }),
+                is_error: true,
+            };
+        }
+    };
+
+    let status_str = match call.arguments.get("status").and_then(|v| v.as_str()) {
+        Some(status) => status,
+        _ => {
+            return OrchestratorToolResult {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                output: serde_json::json!({
+                    "error": "Missing 'status' parameter"
+                }),
+                is_error: true,
+            };
+        }
+    };
+    let rationale = call
+        .arguments
+        .get("rationale")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let (core_status, event_status) = match parse_status(status_str) {
+        Some(status) => status,
+        None => {
+            return OrchestratorToolResult {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                output: serde_json::json!({
+                    "error": format!("Invalid status '{}'", status_str)
+                }),
+                is_error: true,
+            };
+        }
+    };
+
+    let mut subtasks = match task_repo.get_subtasks(task_id) {
+        Ok(subtasks) if index < subtasks.len() => subtasks,
+        _ => {
+            return OrchestratorToolResult {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                output: serde_json::json!({
+                    "error": "Subtask index out of range"
+                }),
+                is_error: true,
+            };
+        }
+    };
+
+    subtasks.sort_by_key(|st| st.order);
+    let current = subtasks[index].clone();
+    let current_for_decompose = current.clone();
+
+    if let Err(e) = task_repo.update_subtask_status(&current.id, core_status) {
+        warn!("[AgentRuntime] Failed to update subtask status: {e}");
+        return OrchestratorToolResult {
+            call_id: call.id.clone(),
+            name: call.name.clone(),
+            output: serde_json::json!({
+                "error": "Failed to update subtask status"
+            }),
+            is_error: true,
+        };
+    }
+
+    let mut updated = core_task_to_event_subtask(current, task_id);
+    updated.status = event_status.clone();
+    if matches!(
+        event_status,
+        crate::core::agent::task::TaskStatus::InProgress
+    ) {
+        updated.started_at = Some(Utc::now());
+    }
+    if matches!(
+        event_status,
+        crate::core::agent::task::TaskStatus::Completed
+            | crate::core::agent::task::TaskStatus::Failed
+    ) {
+        updated.completed_at = Some(Utc::now());
+    }
+
+    let updated_id = updated.id.clone();
+    let _ = app_handle.emit(
+        AGENT_EVENT_NAME,
+        AgentEvent::SubtaskUpdated {
+            session_id: session.id.0.clone(),
+            subtask: updated,
+        },
+    );
+
+    if let Some(reason) = rationale {
+        remember_subtask_rationale(&updated_id, &reason);
+    }
+
+    if matches!(event_status, crate::core::agent::task::TaskStatus::Failed) {
+        let fail_count = increment_subtask_failure_count(&updated_id);
+        if fail_count >= 2 && mark_subtask_decomposed_once(&updated_id) {
+            auto_decompose_failed_subtask(
+                session,
+                task_id,
+                &core_task_to_event_subtask(current_for_decompose, task_id),
+                app_handle,
+                task_repo,
+            );
+        }
+    }
+
+    OrchestratorToolResult {
+        call_id: call.id.clone(),
+        name: call.name.clone(),
+        output: serde_json::json!({
+            "success": true,
+            "message": format!("Marked subtask {} as {}", index, status_str)
+        }),
+        is_error: false,
+    }
+}
+
+fn parse_status(
+    status: &str,
+) -> Option<(
+    crate::core::agent::entities::TaskStatus,
+    crate::core::agent::task::TaskStatus,
+)> {
+    match status {
+        "pending" => Some((
+            crate::core::agent::entities::TaskStatus::Pending,
+            crate::core::agent::task::TaskStatus::Pending,
+        )),
+        "in_progress" => Some((
+            crate::core::agent::entities::TaskStatus::InProgress,
+            crate::core::agent::task::TaskStatus::InProgress,
+        )),
+        "completed" => Some((
+            crate::core::agent::entities::TaskStatus::Completed,
+            crate::core::agent::task::TaskStatus::Completed,
+        )),
+        "failed" => Some((
+            crate::core::agent::entities::TaskStatus::Failed,
+            crate::core::agent::task::TaskStatus::Failed,
+        )),
+        _ => None,
+    }
+}
+
+fn validate_plan_subtasks(
+    subtasks: &[serde_json::Value],
+    requires_verification: bool,
+) -> Result<(), String> {
+    if subtasks.is_empty() {
+        return Err("Plan must contain at least one subtask".to_string());
+    }
+
+    let actionable_verbs = [
+        "analyze",
+        "inspect",
+        "read",
+        "search",
+        "implement",
+        "update",
+        "refactor",
+        "fix",
+        "write",
+        "create",
+        "add",
+        "remove",
+        "rename",
+        "run",
+        "test",
+        "verify",
+        "build",
+        "check",
+        "debug",
+        "review",
+    ];
+    let verification_terms = [
+        "test",
+        "verify",
+        "validation",
+        "regression",
+        "check",
+        "build",
+        "compile",
+        "lint",
+    ];
+    let mut seen = HashSet::new();
+    let mut has_verification_step = false;
+
+    for item in subtasks {
+        let title = item
+            .get("title")
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| "Each subtask must have a non-empty title".to_string())?;
+        let normalized = title.to_lowercase();
+        if !seen.insert(normalized.clone()) {
+            return Err(format!("Duplicate subtask title found: '{}'", title));
+        }
+
+        let first_word = normalized
+            .split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .to_string();
+        if !actionable_verbs.contains(&first_word.as_str()) {
+            return Err(format!(
+                "Subtask '{}' is not actionable; start titles with an action verb",
+                title
+            ));
+        }
+
+        if verification_terms
+            .iter()
+            .any(|term| normalized.contains(term))
+        {
+            has_verification_step = true;
+        }
+    }
+
+    if requires_verification && !has_verification_step {
+        return Err(
+            "Code-change intent detected. Add a verification subtask (test/verify/build/check)."
+                .to_string(),
+        );
+    }
+
+    Ok(())
+}
+
+fn detect_code_change_intent(
+    session: &AgentSession,
+    task_id: &str,
+    task_repo: &dyn TaskRepository,
+    telemetry_repo: &dyn AgentTelemetryRepository,
+) -> bool {
+    let task_text = task_repo
+        .get_session_tasks(&session.id.0)
+        .ok()
+        .and_then(|tasks| tasks.into_iter().find(|t| t.id == task_id))
+        .map(|t| t.title.to_lowercase())
+        .unwrap_or_default();
+
+    let keywords = [
+        "fix",
+        "bug",
+        "implement",
+        "update",
+        "write",
+        "refactor",
+        "create",
+        "add",
+        "remove",
+        "rename",
+        "build",
+        "compile",
+        "test",
+    ];
+    let heuristic_hit = keywords.iter().any(|k| task_text.contains(k));
+    if heuristic_hit {
+        return true;
+    }
+
+    telemetry_repo
+        .get_tool_calls_for_session(&session.id)
+        .ok()
+        .map(|calls| {
+            calls.into_iter().any(|c| {
+                matches!(
+                    c.tool_name.as_str(),
+                    "fs_write_file" | "fs_delete_file" | "system_execute_command"
+                ) && !c.is_error
+            })
+        })
+        .unwrap_or(false)
+}
+
+fn has_subtask_evidence(
+    session: &AgentSession,
+    subtask_id: &str,
+    telemetry_repo: &dyn AgentTelemetryRepository,
+) -> bool {
+    telemetry_repo
+        .get_tool_calls_for_session(&session.id)
+        .ok()
+        .map(|calls| {
+            calls.into_iter().any(|c| {
+                c.subtask_id.as_deref() == Some(subtask_id)
+                    && !c.is_error
+                    && matches!(
+                        c.tool_name.as_str(),
+                        "fs_write_file" | "fs_delete_file" | "system_execute_command"
+                    )
+            })
+        })
+        .unwrap_or(false)
+}
+
+fn remember_subtask_rationale(subtask_id: &str, rationale: &str) {
+    let map = SUBTASK_RATIONALES.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut lock = map.lock().unwrap_or_else(|e| e.into_inner());
+    lock.insert(subtask_id.to_string(), rationale.to_string());
+}
+
+fn has_subtask_rationale(subtask_id: &str) -> bool {
+    let map = SUBTASK_RATIONALES.get_or_init(|| Mutex::new(HashMap::new()));
+    let lock = map.lock().unwrap_or_else(|e| e.into_inner());
+    lock.contains_key(subtask_id)
+}
+
+fn increment_subtask_failure_count(subtask_id: &str) -> u32 {
+    let map = SUBTASK_FAILURE_COUNTS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut lock = map.lock().unwrap_or_else(|e| e.into_inner());
+    let entry = lock.entry(subtask_id.to_string()).or_insert(0);
+    *entry += 1;
+    *entry
+}
+
+fn mark_subtask_decomposed_once(subtask_id: &str) -> bool {
+    let set = DECOMPOSED_SUBTASKS.get_or_init(|| Mutex::new(HashSet::new()));
+    let mut lock = set.lock().unwrap_or_else(|e| e.into_inner());
+    if lock.contains(subtask_id) {
+        return false;
+    }
+    lock.insert(subtask_id.to_string());
+    true
+}
+
+fn auto_decompose_failed_subtask(
+    session: &AgentSession,
+    task_id: &str,
+    failed_subtask: &crate::core::agent::task::SubTask,
+    app_handle: &AppHandle,
+    task_repo: &dyn TaskRepository,
+) {
+    let existing = task_repo.get_subtasks(task_id).ok().unwrap_or_default();
+    let max_order = existing.iter().map(|s| s.order).max().unwrap_or(0);
+    let base_order = max_order + 1;
+    let titles = [
+        format!("Analyze failure cause: {}", failed_subtask.title),
+        format!("Implement focused fix: {}", failed_subtask.title),
+        format!("Verify outcome: {}", failed_subtask.title),
+    ];
+
+    let mut created_ids: Vec<String> = Vec::new();
+    for (idx, title) in titles.iter().enumerate() {
+        let core_subtask = crate::core::agent::entities::AgentTask {
+            id: uuid::Uuid::new_v4().to_string(),
+            session_id: session.id.0.clone(),
+            parent_task_id: Some(task_id.to_string()),
+            title: title.clone(),
+            description: Some(format!(
+                "Auto-decomposed from failed subtask '{}' ({})",
+                failed_subtask.title, failed_subtask.id
+            )),
+            status: crate::core::agent::entities::TaskStatus::Pending,
+            order: base_order + idx as i32,
+            mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
+        };
+        if let Err(e) = task_repo.create_subtask(task_id, &core_subtask) {
+            warn!("[AgentRuntime] Failed to auto-create decomposed subtask: {e}");
+            continue;
+        }
+
+        let mut event_subtask = crate::core::agent::task::SubTask::new(
+            task_id.to_string(),
+            core_subtask.title.clone(),
+            crate::core::agent::task::SubTaskMode::FullAccess,
+            core_subtask.order,
+        );
+        event_subtask.id = core_subtask.id.clone();
+        event_subtask.description = core_subtask.description.clone();
+
+        let _ = app_handle.emit(
+            AGENT_EVENT_NAME,
+            AgentEvent::SubtaskCreated {
+                session_id: session.id.0.clone(),
+                subtask: event_subtask,
+            },
+        );
+        created_ids.push(core_subtask.id.clone());
+    }
+
+    if let Some(first_id) = created_ids.first() {
+        let _ = task_repo.update_subtask_status(
+            first_id,
+            crate::core::agent::entities::TaskStatus::InProgress,
+        );
+        let refreshed = task_repo.get_subtasks(task_id).ok().unwrap_or_default();
+        if let Some(first) = refreshed.iter().find(|s| &s.id == first_id).cloned() {
+            let mut event = core_task_to_event_subtask(first, task_id);
+            event.status = crate::core::agent::task::TaskStatus::InProgress;
+            event.started_at = Some(Utc::now());
+            let _ = app_handle.emit(
+                AGENT_EVENT_NAME,
+                AgentEvent::SubtaskUpdated {
+                    session_id: session.id.0.clone(),
+                    subtask: event,
+                },
+            );
+        }
+    }
+}
+
+fn core_task_to_event_subtask(
+    task: crate::core::agent::entities::AgentTask,
+    task_id: &str,
+) -> crate::core::agent::task::SubTask {
+    let mode = match task
+        .mode
+        .unwrap_or(crate::core::agent::entities::TaskMode::FullAccess)
+    {
+        crate::core::agent::entities::TaskMode::Read => crate::core::agent::task::SubTaskMode::Read,
+        crate::core::agent::entities::TaskMode::Write => {
+            crate::core::agent::task::SubTaskMode::Write
+        }
+        crate::core::agent::entities::TaskMode::Execute => {
+            crate::core::agent::task::SubTaskMode::Execute
+        }
+        crate::core::agent::entities::TaskMode::FullAccess => {
+            crate::core::agent::task::SubTaskMode::FullAccess
+        }
+    };
+
+    crate::core::agent::task::SubTask {
+        id: task.id,
+        task_id: task.parent_task_id.unwrap_or_else(|| task_id.to_string()),
+        title: task.title,
+        description: task.description,
+        mode,
+        status: crate::core::agent::task::TaskStatus::Pending,
+        order: task.order,
+        created_at: Utc::now(),
+        started_at: None,
+        completed_at: None,
     }
 }
 

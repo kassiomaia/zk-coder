@@ -39,6 +39,10 @@ impl Tool for MarkSubtaskStatusTool {
                         "type": "string",
                         "enum": ["pending", "in_progress", "completed", "failed"],
                         "description": "The new status for the subtask"
+                    },
+                    "rationale": {
+                        "type": "string",
+                        "description": "Optional explicit rationale used as progress evidence when no file/command evidence exists"
                     }
                 },
                 "required": ["index", "status"],
