@@ -1,13 +1,15 @@
 //! Runtime tracing helpers for agent execution.
 
 use chrono::Utc;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::core::agent::execution::{
     ExecutionPhase, ExecutionSnapshot, ExecutionTransition, RuntimeTrace, RuntimeTraceType,
 };
 use crate::core::agent::repositories::{ExecutionRepository, RepositoryResult, RuntimeTraceRepository};
 use crate::infrastructure::agent::events::{AgentTraceEvent, AGENT_TRACE_EVENT_NAME};
+
+const TRACE_WINDOW_LABEL: &str = "agent-trace-dev";
 
 /// Coordinates trace persistence and live event emission for execution internals.
 pub struct RuntimeTraceService<'a> {
@@ -31,12 +33,9 @@ impl<'a> RuntimeTraceService<'a> {
 
     pub fn save_snapshot(&self, snapshot: &ExecutionSnapshot) -> RepositoryResult<()> {
         self.execution_repo.save_execution_snapshot(snapshot)?;
-        let _ = self.app_handle.emit(
-            AGENT_TRACE_EVENT_NAME,
-            AgentTraceEvent::SnapshotUpdated {
-                snapshot: snapshot.clone(),
-            },
-        );
+        self.emit_trace_event(AgentTraceEvent::SnapshotUpdated {
+            snapshot: snapshot.clone(),
+        });
         Ok(())
     }
 
@@ -64,13 +63,14 @@ impl<'a> RuntimeTraceService<'a> {
             created_at: Utc::now(),
         };
         self.trace_repo.append_runtime_trace(&trace)?;
-        let _ = self.app_handle.emit(
-            AGENT_TRACE_EVENT_NAME,
-            AgentTraceEvent::RuntimeTrace {
-                trace: trace.clone(),
-            },
-        );
+        self.emit_trace_event(AgentTraceEvent::RuntimeTrace { trace: trace.clone() });
         Ok(trace)
+    }
+
+    fn emit_trace_event(&self, event: AgentTraceEvent) {
+        if let Some(window) = self.app_handle.get_webview_window(TRACE_WINDOW_LABEL) {
+            let _ = window.emit(AGENT_TRACE_EVENT_NAME, event);
+        }
     }
 
     pub fn emit_transition(

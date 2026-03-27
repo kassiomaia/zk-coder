@@ -3,50 +3,39 @@
 	import { onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import { listen } from '@tauri-apps/api/event';
-	import { 
-		Activity, 
-		Clock, 
-		Database, 
-		Cpu, 
-		Zap, 
-		Filter, 
-		ArrowDown, 
-		Search,
-		ChevronRight,
-		Info,
+	import {
+		Activity,
 		AlertCircle,
-		CheckCircle2
+		ArrowDown,
+		Filter,
+		Info,
+		Radio,
+		RefreshCw,
+		Search,
+		Zap
 	} from 'lucide-svelte';
-	import type { AgentTraceEvent, ExecutionSnapshot, RuntimeTrace } from '$lib/types/agent';
 	import MonacoEditor from '$lib/components/shared/MonacoEditor.svelte';
-	import styles from './AgentTracePage.module.css';
+	import type { AgentTraceEvent, ExecutionSnapshot, RuntimeTrace } from '$lib/types/agent';
+	import {
+		defaultWidths,
+		formatRelativeAge,
+		mergeTrace,
+		buildRow
+	} from './traceTable';
+	import TracePlanTable from './TracePlanTable.svelte';
+	import shell from './AgentTraceShell.module.css';
 
 	type DebugResponse = {
 		snapshot: ExecutionSnapshot | null;
 		traces: RuntimeTrace[];
 	};
 
-	type TableRow = {
-		id: string;
-		time: string;
-		rawTime: number;
-		deltaMs: number | null;
-		session: string;
-		task: string;
-		step: number;
-		phase: string;
-		transition: string;
-		action: string;
-		actor: 'LLM' | 'Tools' | 'Runtime';
-		status: 'active' | 'completed' | 'failed' | 'cancelled';
-		duration: string;
-		tokens: string;
-		tool: string;
-		model: string;
-		summary: string;
-	};
+	type LiveState = 'connecting' | 'listening' | 'reconnecting';
 
-	// State
+	const isDev = import.meta.env.DEV;
+	const focusEventName = 'agent:trace-focus';
+	const traceEventName = 'agent:trace';
+
 	let snapshot = $state<ExecutionSnapshot | null>(null);
 	let traces = $state<RuntimeTrace[]>([]);
 	let selectedTraceId = $state<string | null>(null);
@@ -57,163 +46,172 @@
 	let autoScroll = $state(true);
 	let error = $state<string | null>(null);
 	let traceContainer = $state<HTMLDivElement | undefined>(undefined);
-	
-	// Layout State
-	let detailWidth = $state(browser ? Number(localStorage.getItem('agent-trace-detail-width')) || 450 : 450);
+	let detailWidth = $state(browser ? Number(localStorage.getItem('agent-trace-detail-width')) || 460 : 460);
 	let isResizing = $state(false);
-
-	// Column Widths
-	const defaultWidths: Record<string, number> = {
-		time: 100,
-		delta: 80,
-		step: 60,
-		phase: 100,
-		action: 140,
-		actor: 80,
-		status: 100,
-		duration: 90,
-		tokens: 100,
-		tool: 120,
-		summary: 400
-	};
 	let columnWidths = $state<Record<string, number>>(
-		browser ? JSON.parse(localStorage.getItem('agent-trace-column-widths') || '{}') : defaultWidths
+		browser
+			? {
+					...defaultWidths,
+					...JSON.parse(localStorage.getItem('agent-trace-column-widths') || '{}')
+				}
+			: { ...defaultWidths }
 	);
 
-	// Ensure all defaults are present
-	for (const key in defaultWidths) {
-		if (!columnWidths[key]) columnWidths[key] = defaultWidths[key];
-	}
+	let liveState = $state<LiveState>('connecting');
+	let isListening = $state(false);
+	let lastEventAt = $state<string | null>(null);
+	let liveEventsCount = $state(0);
+	let now = $state(Date.now());
 
-	const isDev = import.meta.env.DEV;
+	let activeResizeCol = $state<string | null>(null);
+	let startX = 0;
+	let startWidth = 0;
 
-	// Persistence
+	const uniqueTypes = $derived([...new Set(traces.map((trace) => trace.traceType))].sort());
+	const uniqueSteps = $derived(
+		[...new Set(traces.map((trace) => trace.stepNumber))].sort((left, right) => left - right)
+	);
+	const uniquePhases = $derived(
+		[
+			...new Set(
+				traces
+					.map((trace) => {
+						const payload = trace.payloadJson as Record<string, unknown> | null;
+						return typeof payload === 'object' && payload
+							? String(payload.to ?? payload.phase ?? '')
+							: '';
+					})
+					.filter(Boolean)
+			)
+		].sort()
+	);
+
+	const rows = $derived(
+		traces
+			.map((trace, index, allTraces) => buildRow(trace, index, allTraces, snapshot))
+			.filter((row) => !filterType || row.action === filterType)
+			.filter((row) => !filterStep || String(row.step) === filterStep)
+			.filter((row) => !filterPhase || row.phase === filterPhase)
+	);
+
+	const selectedTrace = $derived(traces.find((trace) => trace.id === selectedTraceId) ?? null);
+	const listeningLabel = $derived(
+		liveState === 'connecting'
+			? 'Connecting trace stream'
+			: liveState === 'reconnecting'
+				? 'Resyncing execution stream'
+				: 'Listening in background'
+	);
+	const lastEventLabel = $derived(formatRelativeAge(lastEventAt, now));
+	const headerTone = $derived(snapshot?.phase ?? 'idle');
+
 	$effect(() => {
-		if (browser) {
-			localStorage.setItem('agent-trace-detail-width', String(detailWidth));
-			localStorage.setItem('agent-trace-column-widths', JSON.stringify(columnWidths));
-		}
+		if (!browser) return;
+		localStorage.setItem('agent-trace-detail-width', String(detailWidth));
+		localStorage.setItem('agent-trace-column-widths', JSON.stringify(columnWidths));
 	});
 
-	// Derived unique values for filters
-	let uniqueTypes = $derived([...new Set(traces.map(t => t.traceType))].sort());
-	let uniqueSteps = $derived([...new Set(traces.map(t => t.stepNumber))].sort((a, b) => a - b));
-	let uniquePhases = $derived([...new Set(traces.map(t => {
-		const p = t.payloadJson as any;
-		return (p?.to) || (p?.phase) || '';
-	}).filter(Boolean))].sort());
+	$effect(() => {
+		rows;
+		queueMicrotask(() => {
+			if (autoScroll && traceContainer) {
+				traceContainer.scrollTop = traceContainer.scrollHeight;
+			}
+		});
+	});
 
 	function getInitialSessionId(): string {
 		if (!browser) return '';
 		return new URL(window.location.href).searchParams.get('sessionId') ?? '';
 	}
 
-	async function loadDebugData(targetSessionId: string) {
+	function rememberLiveEvent() {
+		lastEventAt = new Date().toISOString();
+		liveEventsCount += 1;
+	}
+
+	function replaceDebugData(response: DebugResponse, targetSessionId: string) {
+		sessionId = targetSessionId;
+		snapshot = response.snapshot;
+		traces = [...response.traces].sort(
+			(left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+		);
+		selectedTraceId = traces.length > 0 ? traces[traces.length - 1].id : null;
+	}
+
+	async function loadDebugData(targetSessionId: string, mode: LiveState = 'reconnecting') {
 		if (!targetSessionId) return;
+		liveState = mode;
+		error = null;
+
 		try {
 			const response = await invoke<DebugResponse>('get_agent_execution_debug', {
 				sessionId: targetSessionId
 			});
-			sessionId = targetSessionId;
-			snapshot = response.snapshot;
-			traces = response.traces;
-			if (!selectedTraceId && response.traces.length > 0) {
-				selectedTraceId = response.traces[response.traces.length - 1].id;
-			}
+			replaceDebugData(response, targetSessionId);
+			liveState = 'listening';
 		} catch (loadError) {
 			error = String(loadError);
 		}
 	}
 
-	function formatTime(value: string): string {
-		return new Date(value).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+	function handleSnapshotUpdate(nextSnapshot: ExecutionSnapshot) {
+		if (sessionId && nextSnapshot.sessionId !== sessionId) return;
+
+		if (!sessionId) {
+			sessionId = nextSnapshot.sessionId;
+		}
+
+		snapshot = nextSnapshot;
+		rememberLiveEvent();
+		liveState = 'listening';
 	}
 
-	function summarize(trace: RuntimeTrace): string {
-		const payload = trace.payloadJson;
-		if (typeof payload === 'string') return payload;
-		if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return trace.traceType;
-		const p = payload as Record<string, unknown>;
-		if (typeof p.error === 'string') return p.error;
-		if (typeof p.reason === 'string') return p.reason;
-		if (typeof p.message === 'string') return p.message;
-		if (Array.isArray(p.toolNames)) return p.toolNames.join(', ');
-		if (typeof p.model === 'string') return p.model;
-		return trace.traceType;
+	function handleTraceUpdate(nextTrace: RuntimeTrace) {
+		if (sessionId && nextTrace.sessionId !== sessionId) return;
+
+		if (!sessionId) {
+			sessionId = nextTrace.sessionId;
+		}
+
+		traces = mergeTrace(traces, nextTrace);
+		selectedTraceId = selectedTraceId ?? nextTrace.id;
+		rememberLiveEvent();
+		liveState = 'listening';
 	}
-
-	function toRow(trace: RuntimeTrace, index: number, allTraces: RuntimeTrace[]): TableRow {
-		const payload = trace.payloadJson as Record<string, any>;
-		const prevTrace = allTraces[index - 1];
-		const deltaMs = prevTrace ? new Date(trace.createdAt).getTime() - new Date(prevTrace.createdAt).getTime() : null;
-
-		return {
-			id: trace.id,
-			time: formatTime(trace.createdAt),
-			rawTime: new Date(trace.createdAt).getTime(),
-			deltaMs,
-			session: trace.sessionId,
-			task: trace.taskId,
-			step: trace.stepNumber,
-			phase: payload?.to || payload?.phase || '-',
-			transition: (payload?.from || payload?.to) ? `${payload?.from || '-'} → ${payload?.to || '-'}` : '-',
-			action: trace.traceType,
-			actor: trace.traceType.includes('llm') ? 'LLM' : trace.traceType.includes('tool') ? 'Tools' : 'Runtime',
-			status: trace.traceType.includes('failed') ? 'failed' : 
-					trace.traceType.includes('cancelled') ? 'cancelled' : 
-					trace.traceType.includes('completed') ? 'completed' : 'active',
-			duration: payload?.durationMs ? `${payload.durationMs}ms` : '-',
-			tokens: payload?.totalTokens ? String(payload.totalTokens) : 
-					payload?.inputTokens ? `${payload.inputTokens}/${payload.outputTokens || 0}` : '-',
-			tool: Array.isArray(payload?.toolNames) ? String(payload.toolNames[0] || '-') : (payload?.tool || '-'),
-			model: payload?.model || snapshot?.lastModel || '-',
-			summary: summarize(trace)
-		};
-	}
-
-	let rows = $derived(
-		traces
-			.map((t, i) => toRow(t, i, traces))
-			.filter(r => !filterType || r.action === filterType)
-			.filter(r => !filterStep || String(r.step) === filterStep)
-			.filter(r => !filterPhase || r.phase === filterPhase)
-	);
-
-	let selectedTrace = $derived(traces.find((trace) => trace.id === selectedTraceId) ?? null);
 
 	function selectTrace(id: string) {
 		selectedTraceId = id;
 	}
 
-	function scrollToBottom() {
-		if (autoScroll && traceContainer) {
-			traceContainer.scrollTop = traceContainer.scrollHeight;
-		}
+	function jumpToLatest() {
+		selectedTraceId = traces[traces.length - 1]?.id ?? null;
 	}
 
-	$effect(() => {
-		rows;
-		queueMicrotask(scrollToBottom);
-	});
+	function resetLiveCounters() {
+		liveEventsCount = 0;
+		lastEventAt = null;
+	}
 
-	// Column Resizer Logic
-	let activeResizeCol = $state<string | null>(null);
-	let startX = 0;
-	let startWidth = 0;
+	async function reconnect() {
+		if (!sessionId) return;
+		resetLiveCounters();
+		await loadDebugData(sessionId, 'reconnecting');
+	}
 
-	function onColResizeStart(e: MouseEvent, col: string) {
-		e.stopPropagation();
-		activeResizeCol = col;
-		startX = e.clientX;
-		startWidth = columnWidths[col];
+	function onColResizeStart(event: MouseEvent, column: string) {
+		event.stopPropagation();
+		activeResizeCol = column;
+		startX = event.clientX;
+		startWidth = columnWidths[column];
 		document.addEventListener('mousemove', onColResizeMove);
 		document.addEventListener('mouseup', onColResizeEnd);
 	}
 
-	function onColResizeMove(e: MouseEvent) {
+	function onColResizeMove(event: MouseEvent) {
 		if (!activeResizeCol) return;
-		const diff = e.clientX - startX;
-		columnWidths[activeResizeCol] = Math.max(50, startWidth + diff);
+		const difference = event.clientX - startX;
+		columnWidths[activeResizeCol] = Math.max(50, startWidth + difference);
 	}
 
 	function onColResizeEnd() {
@@ -222,7 +220,6 @@
 		document.removeEventListener('mouseup', onColResizeEnd);
 	}
 
-	// Main resizer
 	function handleMouseDown() {
 		isResizing = true;
 		document.body.style.cursor = 'col-resize';
@@ -230,9 +227,9 @@
 		document.addEventListener('mouseup', handleMouseUp);
 	}
 
-	function handleMouseMove(e: MouseEvent) {
+	function handleMouseMove(event: MouseEvent) {
 		if (!isResizing) return;
-		detailWidth = Math.max(250, window.innerWidth - e.clientX);
+		detailWidth = Math.max(280, window.innerWidth - event.clientX);
 	}
 
 	function handleMouseUp() {
@@ -250,36 +247,54 @@
 
 		let unlistenTrace: (() => void) | undefined;
 		let unlistenFocus: (() => void) | undefined;
+		let tickHandle: ReturnType<typeof window.setInterval> | undefined;
+
+		const handleWindowFocus = () => {
+			if (sessionId) {
+				void loadDebugData(sessionId, 'reconnecting');
+			}
+		};
 
 		void (async () => {
-			await loadDebugData(getInitialSessionId());
+			const initialSessionId = getInitialSessionId();
+			if (initialSessionId) {
+				await loadDebugData(initialSessionId, 'connecting');
+			} else {
+				liveState = 'listening';
+			}
 
-			unlistenTrace = await listen<AgentTraceEvent>('agent:trace', (event) => {
+			unlistenTrace = await listen<AgentTraceEvent>(traceEventName, (event) => {
 				if (event.payload.type === 'snapshot_updated') {
-					if (!sessionId || event.payload.snapshot.sessionId === sessionId) {
-						snapshot = event.payload.snapshot;
-					}
+					handleSnapshotUpdate(event.payload.snapshot);
 					return;
 				}
 
-				if (!sessionId || event.payload.trace.sessionId === sessionId) {
-					traces = [...traces, event.payload.trace];
-					if (!selectedTraceId) {
-						selectedTraceId = event.payload.trace.id;
-					}
-				}
+				handleTraceUpdate(event.payload.trace);
 			});
 
-			unlistenFocus = await listen<string | null>('agent:trace-focus', async (event) => {
+			unlistenFocus = await listen<string | null>(focusEventName, async (event) => {
 				const nextSessionId = event.payload ?? '';
 				if (!nextSessionId) return;
-				await loadDebugData(nextSessionId);
+				resetLiveCounters();
+				await loadDebugData(nextSessionId, 'reconnecting');
 			});
+
+			isListening = true;
+			liveState = 'listening';
+			tickHandle = window.setInterval(() => {
+				now = Date.now();
+			}, 1000);
+			window.addEventListener('focus', handleWindowFocus);
 		})();
 
 		return () => {
+			isListening = false;
 			unlistenTrace?.();
 			unlistenFocus?.();
+			if (tickHandle) {
+				window.clearInterval(tickHandle);
+			}
+			window.removeEventListener('focus', handleWindowFocus);
 		};
 	});
 </script>
@@ -289,194 +304,158 @@
 </svelte:head>
 
 {#if !isDev}
-	<div class={styles.warningSurface}>Agent trace is available only in development mode.</div>
+	<div class={shell.warningSurface}>Agent trace is available only in development mode.</div>
 {:else}
-	<div class={styles.page}>
-		<header class={`${styles.surface} ${styles.header}`}>
-			<div class={styles.title}>
-				<h1><Activity size={24} /> Agent Trace</h1>
-				<p>Live execution insights for <code>{sessionId || 'unknown'}</code></p>
+	<div class={shell.page} data-tone={headerTone}>
+		<header class={`${shell.surface} ${shell.header}`}>
+			<div class={shell.headerMain}>
+				<div class={shell.titleBlock}>
+					<div class={shell.eyebrow}>Development diagnostics</div>
+					<h1 class={shell.title}>
+						<Activity size={22} />
+						Agent Trace
+					</h1>
+					<p class={shell.subtitle}>
+						Live execution plan for <code>{sessionId || 'waiting for session'}</code>
+					</p>
+				</div>
+
+				<div class={shell.liveBanner} data-state={liveState}>
+					<div class={shell.liveBadge}>
+						<Radio size={14} />
+						<span>{listeningLabel}</span>
+					</div>
+					<div class={shell.liveMeta}>
+						<span>{isListening ? 'stream active' : 'stream offline'}</span>
+						<span>last event {lastEventLabel}</span>
+						<span>{liveEventsCount} live updates</span>
+					</div>
+				</div>
 			</div>
-			
-			<div class={styles.snapshotGrid}>
-				<div class={styles.snapshotCell}>
-					<span class={styles.snapshotLabel}>Current Phase</span>
-					<strong class={styles.snapshotValue}>{snapshot?.phase ?? '-'}</strong>
+
+			<div class={shell.snapshotGrid}>
+				<div class={shell.snapshotCell}>
+					<span class={shell.snapshotLabel}>Current phase</span>
+					<strong class={shell.snapshotValue}>{snapshot?.phase ?? '-'}</strong>
 				</div>
-				<div class={styles.snapshotCell}>
-					<span class={styles.snapshotLabel}>Step</span>
-					<strong class={styles.snapshotValue}>{snapshot?.stepNumber ?? 0}</strong>
+				<div class={shell.snapshotCell}>
+					<span class={shell.snapshotLabel}>Step</span>
+					<strong class={shell.snapshotValue}>{snapshot?.stepNumber ?? 0}</strong>
 				</div>
-				<div class={styles.snapshotCell}>
-					<span class={styles.snapshotLabel}>Total Tokens</span>
-					<strong class={styles.snapshotValue}>
+				<div class={shell.snapshotCell}>
+					<span class={shell.snapshotLabel}>Total tokens</span>
+					<strong class={shell.snapshotValue}>
 						{snapshot ? `${snapshot.totalInputTokens}/${snapshot.totalOutputTokens}` : '-'}
 					</strong>
 				</div>
-				<div class={styles.snapshotCell}>
-					<span class={styles.snapshotLabel}>Active Model</span>
-					<strong class={styles.snapshotValue}>{snapshot?.lastModel ?? '-'}</strong>
+				<div class={shell.snapshotCell}>
+					<span class={shell.snapshotLabel}>Active model</span>
+					<strong class={shell.snapshotValue}>{snapshot?.lastModel ?? '-'}</strong>
 				</div>
 			</div>
 		</header>
 
 		{#if error}
-			<div class={styles.warningSurface}><AlertCircle size={16} /> {error}</div>
+			<div class={shell.warningSurface}>
+				<AlertCircle size={16} />
+				{error}
+			</div>
 		{/if}
 
-		<section class={`${styles.surface} ${styles.filters}`}>
-			<div class={styles.iconWrapper}><Search size={14} /></div>
-			<input class={styles.field} bind:value={sessionId} placeholder="Session ID" />
-			
-			<div class={styles.iconWrapper}><Filter size={14} /></div>
-			
-			<select class={styles.select} bind:value={filterType}>
-				<option value="">All Types</option>
-				{#each uniqueTypes as type}
-					<option value={type}>{type}</option>
-				{/each}
-			</select>
-
-			<select class={styles.select} bind:value={filterPhase}>
-				<option value="">All Phases</option>
-				{#each uniquePhases as phase}
-					<option value={phase}>{phase}</option>
-				{/each}
-			</select>
-
-			<select class={`${styles.select} ${styles.fieldCompact}`} bind:value={filterStep}>
-				<option value="">All Steps</option>
-				{#each uniqueSteps as step}
-					<option value={String(step)}>Step {step}</option>
-				{/each}
-			</select>
-
-			<label class={styles.toggle}>
-				<input bind:checked={autoScroll} type="checkbox" />
-				<span>Auto-scroll</span>
-			</label>
-			
-			<button
-				class={styles.button}
-				type="button"
-				onclick={() => (selectedTraceId = traces[traces.length - 1]?.id ?? null)}
-			>
-				<Zap size={14} /> Jump to latest
-			</button>
-		</section>
-
-		<div class={styles.layout}>
-			<div class={`${styles.surface} ${styles.tableShell}`} bind:this={traceContainer}>
-				<table class={styles.table}>
-					<thead>
-						<tr>
-							<th style:width="{columnWidths.time}px">
-								<div class={styles.iconWrapper}><Clock size={12} /> Time</div>
-								<div class={styles.colResizer} onmousedown={(e) => onColResizeStart(e, 'time')}></div>
-							</th>
-							<th style:width="{columnWidths.delta}px">
-								<div class={styles.iconWrapper}><Zap size={12} /> Δ</div>
-								<div class={styles.colResizer} onmousedown={(e) => onColResizeStart(e, 'delta')}></div>
-							</th>
-							<th style:width="{columnWidths.step}px">
-								<div class={styles.iconWrapper}><ChevronRight size={12} /> Step</div>
-								<div class={styles.colResizer} onmousedown={(e) => onColResizeStart(e, 'step')}></div>
-							</th>
-							<th style:width="{columnWidths.phase}px">
-								<div class={styles.iconWrapper}><Activity size={12} /> Phase</div>
-								<div class={styles.colResizer} onmousedown={(e) => onColResizeStart(e, 'phase')}></div>
-							</th>
-							<th style:width="{columnWidths.action}px">
-								<div class={styles.iconWrapper}><Zap size={12} /> Action</div>
-								<div class={styles.colResizer} onmousedown={(e) => onColResizeStart(e, 'action')}></div>
-							</th>
-							<th style:width="{columnWidths.actor}px">
-								<div class={styles.iconWrapper}><Cpu size={12} /> Actor</div>
-								<div class={styles.colResizer} onmousedown={(e) => onColResizeStart(e, 'actor')}></div>
-							</th>
-							<th style:width="{columnWidths.status}px">
-								<div class={styles.iconWrapper}><CheckCircle2 size={12} /> Status</div>
-								<div class={styles.colResizer} onmousedown={(e) => onColResizeStart(e, 'status')}></div>
-							</th>
-							<th style:width="{columnWidths.duration}px">
-								<div class={styles.iconWrapper}><Clock size={12} /> Dur.</div>
-								<div class={styles.colResizer} onmousedown={(e) => onColResizeStart(e, 'duration')}></div>
-							</th>
-							<th style:width="{columnWidths.tokens}px">
-								<div class={styles.iconWrapper}><Database size={12} /> Tokens</div>
-								<div class={styles.colResizer} onmousedown={(e) => onColResizeStart(e, 'tokens')}></div>
-							</th>
-							<th style:width="{columnWidths.tool}px">
-								<div class={styles.iconWrapper}><Cpu size={12} /> Tool</div>
-								<div class={styles.colResizer} onmousedown={(e) => onColResizeStart(e, 'tool')}></div>
-							</th>
-							<th style:width="{columnWidths.summary}px">
-								Summary
-								<div class={styles.colResizer} onmousedown={(e) => onColResizeStart(e, 'summary')}></div>
-							</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each rows as row (row.id)}
-							<tr
-								class={`${styles.row} ${row.id === selectedTraceId ? styles.rowSelected : ''} ${row.status === 'failed' ? styles.rowFailed : ''} ${row.status === 'completed' ? styles.rowCompleted : ''}`}
-								onclick={() => selectTrace(row.id)}
-							>
-								<td class={styles.rowCode}>{row.time}</td>
-								<td class={`${styles.deltaCell} ${row.deltaMs && row.deltaMs > 1000 ? styles.deltaPositive : ''}`}>
-									{row.deltaMs ? `+${row.deltaMs}ms` : '-'}
-								</td>
-								<td style="text-align: center;">{row.step}</td>
-								<td>
-									<span class={`${styles.pill} ${styles.pillNeutral}`}>{row.phase}</span>
-								</td>
-								<td title={row.action}>{row.action}</td>
-								<td>
-									<span class={`${styles.pill} ${row.actor === 'LLM' ? styles.pillPrimary : row.actor === 'Tools' ? styles.pillSuccess : styles.pillNeutral}`}>
-										{row.actor}
-									</span>
-								</td>
-								<td>
-									<span class={`${styles.pill} ${
-										row.status === 'completed' ? styles.pillSuccess : 
-										row.status === 'failed' ? styles.pillError : 
-										row.status === 'cancelled' ? styles.pillWarning : styles.pillPrimary
-									}`}>
-										{row.status}
-									</span>
-								</td>
-								<td>{row.duration}</td>
-								<td>{row.tokens}</td>
-								<td title={row.tool}>{row.tool}</td>
-								<td class={styles.summaryCell} title={row.summary}>{row.summary}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
+		<section class={`${shell.surface} ${shell.toolbar}`}>
+			<div class={shell.toolbarSearch}>
+				<div class={shell.iconWrapper}><Search size={14} /></div>
+				<input class={shell.field} bind:value={sessionId} placeholder="Session ID" />
 			</div>
 
-			<div 
-				class={`${styles.resizer} ${isResizing ? styles.resizerActive : ''}`} 
-				onmousedown={handleMouseDown}
-			></div>
+			<div class={shell.toolbarFilters}>
+				<div class={shell.filterGroup}>
+					<div class={shell.iconWrapper}><Filter size={14} /></div>
+					<select class={shell.select} bind:value={filterType}>
+						<option value="">All types</option>
+						{#each uniqueTypes as type}
+							<option value={type}>{type}</option>
+						{/each}
+					</select>
+				</div>
 
-			<aside class={`${styles.surface} ${styles.detail}`} style:width="{detailWidth}px">
-				<h2><Info size={18} /> Trace Payload</h2>
-				<div class={styles.payloadContainer}>
+				<select class={shell.select} bind:value={filterPhase}>
+					<option value="">All phases</option>
+					{#each uniquePhases as phase}
+						<option value={phase}>{phase}</option>
+					{/each}
+				</select>
+
+				<select class={`${shell.select} ${shell.selectCompact}`} bind:value={filterStep}>
+					<option value="">All steps</option>
+					{#each uniqueSteps as step}
+						<option value={String(step)}>Step {step}</option>
+					{/each}
+				</select>
+			</div>
+
+			<div class={shell.toolbarActions}>
+				<label class={shell.toggle}>
+					<input bind:checked={autoScroll} type="checkbox" />
+					<span>Auto-follow</span>
+				</label>
+
+				<button class={shell.buttonGhost} type="button" onclick={reconnect} disabled={!sessionId}>
+					<RefreshCw size={14} />
+					Resync
+				</button>
+
+				<button class={shell.buttonPrimary} type="button" onclick={jumpToLatest}>
+					<ArrowDown size={14} />
+					Latest event
+				</button>
+			</div>
+		</section>
+
+		<div class={shell.layout}>
+			<div class={`${shell.surface} ${shell.tableShell}`} bind:this={traceContainer}>
+				<TracePlanTable
+					{rows}
+					{columnWidths}
+					{selectedTraceId}
+					onSelect={selectTrace}
+					onResizeStart={onColResizeStart}
+				/>
+			</div>
+
+			<button
+				class={`${shell.resizer} ${isResizing ? shell.resizerActive : ''}`}
+				type="button"
+				aria-label="Resize payload panel"
+				onmousedown={handleMouseDown}
+			></button>
+
+			<aside class={`${shell.surface} ${shell.detail}`} style:width="{detailWidth}px">
+				<div class={shell.detailHeader}>
+					<h2 class={shell.detailTitle}>
+						<Info size={18} />
+						Trace payload
+					</h2>
+					<div class={shell.detailMeta}>
+						<span>{selectedTrace?.traceType ?? 'No trace selected'}</span>
+						<span>{selectedTrace ? buildRow(selectedTrace, 0, [], snapshot).model : ''}</span>
+					</div>
+				</div>
+
+				<div class={shell.payloadContainer}>
 					{#if selectedTrace}
-						<div class={styles.payload}>
-							<MonacoEditor 
-								value={JSON.stringify(selectedTrace, null, 2)} 
-								language="json" 
-								readOnly={true}
-								theme="tokyo-night"
-								minimap={true}
-							/>
-						</div>
+						<MonacoEditor
+							value={JSON.stringify(selectedTrace, null, 2)}
+							language="json"
+							readOnly={true}
+							theme="tokyo-night"
+							minimap={true}
+							class="flex-1"
+						/>
 					{:else}
-						<div class={styles.placeholder}>
-							<Search size={48} style="opacity: 0.2" />
-							<span>Select a row to inspect payload</span>
+						<div class={shell.placeholder}>
+							<Search size={44} />
+							<span>Select a row to inspect the live payload</span>
 						</div>
 					{/if}
 				</div>
@@ -488,6 +467,15 @@
 <style>
 	:global(body) {
 		background: var(--color-bg-primary);
+		overflow: hidden;
+		height: 100vh;
+	}
+
+	.layout {
+		display: flex;
+		flex: 1;
+		min-height: 0;
+		height: 100%;
 		overflow: hidden;
 	}
 </style>

@@ -103,8 +103,7 @@
 				vertical: 'auto',
 				horizontal: 'auto'
 			},
-			mouseWheelZoom: false,
-			alwaysConsumeMouseWheel: false
+			mouseWheelZoom: false
 		});
 
 		// Listen on window to catch wheel events even if they occur over Monaco's overlays
@@ -136,5 +135,14 @@
 		height: 100%;
 		min-height: 200px;
 		overflow: hidden;
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.monaco-container :global(.monaco-editor) {
+		flex: 1;
+		width: 100% !important;
+		height: 100% !important;
 	}
 </style>
