@@ -940,7 +940,7 @@ mod tests {
                 arguments: json!({"path": "/out.txt", "content": "hello world"}),
             },
             StepAction::ToolCall {
-                tool: "system_execute".to_string(),
+                tool: "system_execute_command".to_string(),
                 arguments: json!({"command": "cargo test", "cwd": "/project"}),
             },
         ];

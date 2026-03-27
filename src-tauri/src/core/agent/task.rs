@@ -180,9 +180,9 @@ impl SubTaskMode {
             ],
             SubTaskMode::Execute => vec![
                 "fs_read_file",
-                "search_grep",
+                "search_google_scrape",
                 "fs_list_files",
-                "system_execute",
+                "system_execute_command",
                 "agent_emit_status",
                 "agent_advance_to_next_subtask",
             ],
@@ -191,7 +191,8 @@ impl SubTaskMode {
                 "fs_write_file",
                 "fs_list_files",
                 "search_grep",
-                "system_execute",
+                "search_google_scrape",
+                "system_execute_command",
                 "agent_emit_status",
                 "agent_plan_subtasks",
                 "agent_advance_to_next_subtask",
@@ -389,8 +390,8 @@ mod tests {
             "Read mode should not allow fs_write_file"
         );
         assert!(
-            !tools.contains(&"system_execute"),
-            "Read mode should not allow system_execute"
+            !tools.contains(&"system_execute_command"),
+            "Read mode should not allow system_execute_command"
         );
         assert!(
             tools.contains(&"fs_read_file"),
@@ -414,8 +415,8 @@ mod tests {
             "Write mode should allow fs_write_file"
         );
         assert!(
-            !tools.contains(&"system_execute"),
-            "Write mode should not allow system_execute"
+            !tools.contains(&"system_execute_command"),
+            "Write mode should not allow system_execute_command"
         );
     }
 
@@ -427,8 +428,8 @@ mod tests {
             "Execute mode should allow fs_read_file"
         );
         assert!(
-            tools.contains(&"system_execute"),
-            "Execute mode should allow system_execute"
+            tools.contains(&"system_execute_command"),
+            "Execute mode should allow system_execute_command"
         );
         assert!(
             !tools.contains(&"fs_write_file"),
@@ -448,8 +449,8 @@ mod tests {
             "FullAccess should allow fs_write_file"
         );
         assert!(
-            tools.contains(&"system_execute"),
-            "FullAccess should allow system_execute"
+            tools.contains(&"system_execute_command"),
+            "FullAccess should allow system_execute_command"
         );
         assert!(
             tools.contains(&"agent_plan_subtasks"),

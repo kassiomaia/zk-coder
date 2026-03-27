@@ -201,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_infer_action_type_execute_variations() {
-        let tools = vec!["execute_command", "system_execute", "shell_command"];
+        let tools = vec!["execute_command", "system_execute_command", "shell_command"];
 
         for tool in tools {
             let action = infer_action_type(tool, &serde_json::json!({"command": "test"}));

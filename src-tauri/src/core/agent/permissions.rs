@@ -171,7 +171,7 @@ mod tests {
             command: "rm -rf /".to_string(),
         };
         assert_eq!(
-            resolver.check("system_execute", &action),
+            resolver.check("system_execute_command", &action),
             PermissionLevel::ApprovalRequired
         );
     }

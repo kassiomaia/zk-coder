@@ -47,8 +47,8 @@ fn user_story_read_mode_subtask_filters_tools() {
         "Read mode should not allow fs_write_file"
     );
     assert!(
-        !allowed_tools.contains(&"system_execute"),
-        "Read mode should not allow system_execute"
+        !allowed_tools.contains(&"system_execute_command"),
+        "Read mode should not allow system_execute_command"
     );
     assert!(
         allowed_tools.contains(&"fs_read_file"),
@@ -268,13 +268,13 @@ fn user_story_mixed_mode_subtasks() {
     assert_eq!(subtasks[0].mode, SubTaskMode::Read);
     let explore_tools = subtasks[0].mode.allowed_tools();
     assert!(!explore_tools.contains(&"fs_write_file"));
-    assert!(!explore_tools.contains(&"system_execute"));
+    assert!(!explore_tools.contains(&"system_execute_command"));
 
     // Fix subtask (Write mode)
     assert_eq!(subtasks[1].mode, SubTaskMode::Write);
     let fix_tools = subtasks[1].mode.allowed_tools();
     assert!(fix_tools.contains(&"fs_write_file"));
-    assert!(!fix_tools.contains(&"system_execute"));
+    assert!(!fix_tools.contains(&"system_execute_command"));
 }
 
 // ------------------------------------------------------------------------
