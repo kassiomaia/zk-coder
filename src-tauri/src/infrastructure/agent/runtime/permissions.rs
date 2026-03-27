@@ -43,6 +43,45 @@ impl PendingActionExt for PendingAction {
     }
 }
 
+fn runtime_session_state_from_core(
+    state: &crate::core::agent::entities::SessionState,
+) -> crate::core::agent::session::SessionState {
+    match state {
+        crate::core::agent::entities::SessionState::WaitForRequest { last_action_at } => {
+            crate::core::agent::session::SessionState::WaitForRequest {
+                last_action_at: *last_action_at,
+            }
+        }
+        crate::core::agent::entities::SessionState::Processing { .. } => {
+            crate::core::agent::session::SessionState::Running {
+                current_step: 0,
+                context_usage: 0.0,
+            }
+        }
+        crate::core::agent::entities::SessionState::AwaitingApproval { action_id, .. } => {
+            crate::core::agent::session::SessionState::UserInputRequired {
+                pending_action_ids: vec![action_id.clone()],
+            }
+        }
+        crate::core::agent::entities::SessionState::Finished { completed_at, .. } => {
+            crate::core::agent::session::SessionState::Finished {
+                completed_at: *completed_at,
+            }
+        }
+        crate::core::agent::entities::SessionState::Error { error, .. } => {
+            crate::core::agent::session::SessionState::Error {
+                message: error.clone(),
+                recoverable: false,
+            }
+        }
+        crate::core::agent::entities::SessionState::Cancelled { reason, .. } => {
+            crate::core::agent::session::SessionState::Cancelled {
+                reason: reason.clone(),
+            }
+        }
+    }
+}
+
 /// Process tool calls with permission checks, requesting approval as needed.
 pub async fn process_tool_calls_with_permissions(
     tool_calls: &[ToolCall],
@@ -264,6 +303,10 @@ async fn execute_with_approval(
     task_repo: &dyn TaskRepository,
 ) -> Result<OrchestratorToolResult, AgentRuntimeError> {
     let action_type = infer_action_type(&call.name, &call.arguments);
+    let resume_core_state = session_repo
+        .get_session(&crate::core::agent::entities::SessionId(session.id.0.clone()))
+        .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?
+        .state;
     let mut pending = PendingAction::new(
         session.id.clone(),
         call.name.clone(),
@@ -350,6 +393,19 @@ async fn execute_with_approval(
                         if approved_id == action_id =>
                     {
                         info!("[AgentRuntime] Action {} approved", action_id);
+                        session_repo
+                            .update_state(
+                                &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                                &resume_core_state,
+                            )
+                            .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
+                        let _ = app_handle.emit(
+                            AGENT_EVENT_NAME,
+                            AgentEvent::SessionStateChanged {
+                                session_id: session.id.0.clone(),
+                                state: runtime_session_state_from_core(&resume_core_state),
+                            },
+                        );
                         return Ok(execute_tool(
                             call,
                             session,
@@ -366,6 +422,19 @@ async fn execute_with_approval(
                         if denied_id == action_id =>
                     {
                         info!("[AgentRuntime] Action {} denied", action_id);
+                        session_repo
+                            .update_state(
+                                &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                                &resume_core_state,
+                            )
+                            .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
+                        let _ = app_handle.emit(
+                            AGENT_EVENT_NAME,
+                            AgentEvent::SessionStateChanged {
+                                session_id: session.id.0.clone(),
+                                state: runtime_session_state_from_core(&resume_core_state),
+                            },
+                        );
                         return Ok(OrchestratorToolResult {
                             call_id: call.id.clone(),
                             name: call.name.clone(),
@@ -379,6 +448,19 @@ async fn execute_with_approval(
                         if timeout_id == action_id =>
                     {
                         warn!("[AgentRuntime] Action {} timed out", action_id);
+                        session_repo
+                            .update_state(
+                                &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                                &resume_core_state,
+                            )
+                            .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
+                        let _ = app_handle.emit(
+                            AGENT_EVENT_NAME,
+                            AgentEvent::SessionStateChanged {
+                                session_id: session.id.0.clone(),
+                                state: runtime_session_state_from_core(&resume_core_state),
+                            },
+                        );
                         return Ok(OrchestratorToolResult {
                             call_id: call.id.clone(),
                             name: call.name.clone(),
@@ -398,6 +480,17 @@ async fn execute_with_approval(
             _ = &mut timeout => {
                 // Clean up the pending action
                 approval_queue.deny(&action_id).await;
+                let _ = session_repo.update_state(
+                    &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                    &resume_core_state,
+                );
+                let _ = app_handle.emit(
+                    AGENT_EVENT_NAME,
+                    AgentEvent::SessionStateChanged {
+                        session_id: session.id.0.clone(),
+                        state: runtime_session_state_from_core(&resume_core_state),
+                    },
+                );
                 return Err(AgentRuntimeError::ApprovalTimeout);
             }
         }
@@ -437,6 +530,7 @@ fn handle_agent_tool_call(
             task_repo,
             telemetry_repo,
         )),
+        "agent_narrate" => Some(handle_narrate(call, session, app_handle, telemetry_repo)),
         _ => None,
     }
 }
@@ -887,6 +981,42 @@ fn handle_mark_subtask_status(
         output: serde_json::json!({
             "success": true,
             "message": format!("Marked subtask {} as {}", index, status_str)
+        }),
+        is_error: false,
+    }
+}
+
+fn handle_narrate(
+    call: &ToolCall,
+    session: &AgentSession,
+    app_handle: &AppHandle,
+    telemetry_repo: &dyn AgentTelemetryRepository,
+) -> OrchestratorToolResult {
+    let message = call
+        .arguments
+        .get("message")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Working...");
+
+    let _ = app_handle.emit(
+        AGENT_EVENT_NAME,
+        AgentEvent::AgentNarration {
+            session_id: session.id.0.clone(),
+            conversation_id: session.conversation_id.clone(),
+            thread_id: session.thread_id.clone(),
+            content: message.to_string(),
+            timestamp: Utc::now(),
+        },
+    );
+
+    let _ = telemetry_repo.add_status_phrase(&session.id, message);
+
+    OrchestratorToolResult {
+        call_id: call.id.clone(),
+        name: call.name.clone(),
+        output: serde_json::json!({
+            "success": true,
+            "message": "Update sent"
         }),
         is_error: false,
     }
@@ -1772,6 +1902,19 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_runtime_session_state_from_core_processing_maps_to_running() {
+        let runtime = runtime_session_state_from_core(
+            &crate::core::agent::entities::SessionState::Processing {
+                started_at: Utc::now(),
+            },
+        );
+
+        match runtime {
+            crate::core::agent::session::SessionState::Running { .. } => {}
+            other => panic!("Expected Running state, got {:?}", other),
+        }
+    }
     // === ActionPreview Tests ===
 
     #[test]

@@ -97,16 +97,12 @@
 		agentStore.togglePanel();
 	}
 
-	async function handleApproveAction(actionId: string) {
-		if (agentSession) {
-			await agentStore.approveAction(agentSession.id, actionId);
-		}
+	async function handleApproveAction(sessionId: string, actionId: string) {
+		await agentStore.approveAction(sessionId, actionId);
 	}
 
-	async function handleDenyAction(actionId: string) {
-		if (agentSession) {
-			await agentStore.denyAction(agentSession.id, actionId);
-		}
+	async function handleDenyAction(sessionId: string, actionId: string) {
+		await agentStore.denyAction(sessionId, actionId);
 	}
 
 	function handleWorkspaceChange(path: string) {
@@ -544,6 +540,13 @@
 				threadId,
 				timestamp: messageData.timestamp ?? new Date()
 			} as Message);
+		});
+
+		// Set callback to clean up transient messages (thinking, tool_call) after execution completes
+		// This prevents "thinking" bubbles from persisting after the agent has responded
+		agentStore.setCleanupTransientCallback((conversationId, threadId, sessionId) => {
+			console.debug('[+page] Cleaning up transient messages for session:', sessionId);
+			chatStore.removeTransientMessages(sessionId);
 		});
 
 		// Initialize config store and show providers modal if no providers configured

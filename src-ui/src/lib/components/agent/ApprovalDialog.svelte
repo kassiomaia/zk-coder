@@ -33,6 +33,19 @@
 		switch (actionType.type) {
 			case 'write_file':
 				return FileEdit;
+			case 'create_docx':
+			case 'mutate_docx_draft':
+			case 'inspect_docx_draft':
+			case 'finalize_docx':
+			case 'create_pptx':
+			case 'mutate_pptx_draft':
+			case 'inspect_pptx_draft':
+			case 'finalize_pptx':
+			case 'create_pdf':
+			case 'mutate_pdf_draft':
+			case 'inspect_pdf_draft':
+			case 'finalize_pdf':
+				return FileEdit;
 			case 'delete_file':
 				return Trash2;
 			case 'execute_command':
@@ -48,6 +61,30 @@
 		switch (actionType.type) {
 			case 'write_file':
 				return 'Write File';
+			case 'create_docx':
+				return 'Create DOCX';
+			case 'mutate_docx_draft':
+				return 'Update DOCX Draft';
+			case 'inspect_docx_draft':
+				return 'Inspect DOCX Draft';
+			case 'finalize_docx':
+				return 'Finalize DOCX';
+			case 'create_pptx':
+				return 'Create PPTX';
+			case 'mutate_pptx_draft':
+				return 'Update PPTX Draft';
+			case 'inspect_pptx_draft':
+				return 'Inspect PPTX Draft';
+			case 'finalize_pptx':
+				return 'Finalize PPTX';
+			case 'create_pdf':
+				return 'Create PDF';
+			case 'mutate_pdf_draft':
+				return 'Update PDF Draft';
+			case 'inspect_pdf_draft':
+				return 'Inspect PDF Draft';
+			case 'finalize_pdf':
+				return 'Finalize PDF';
 			case 'delete_file':
 				return 'Delete File';
 			case 'execute_command':

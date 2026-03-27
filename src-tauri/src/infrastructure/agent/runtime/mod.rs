@@ -166,7 +166,8 @@ mod tests {
         // - agent_advance_to_next_subtask: once per subtask advancement
         // - agent_emit_status: for progress updates (can be many)
         // - agent_mark_subtask_status: for manual status updates
+        // - agent_narrate: for persistent chat updates
         // - agent_plan_subtasks: idempotent once subtasks already exist
-        assert_eq!(LOOP_SKIP_TOOLS.len(), 4);
+        assert_eq!(LOOP_SKIP_TOOLS.len(), 5);
     }
 }

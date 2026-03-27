@@ -121,3 +121,26 @@ export function handleContextCompacted(state: AgentState, event: Extract<AgentEv
 		});
 	}
 }
+
+/**
+ * Handle agent_narration event.
+ * Narrations are persistent natural-language updates that appear in the chat.
+ */
+export function handleAgentNarration(state: AgentState, event: Extract<AgentEvent, { type: 'agent_narration' }>) {
+	const session = state.sessions.get(event.sessionId);
+	if (!session) return;
+
+	const onAgentActivity = getOnAgentActivity();
+	if (onAgentActivity) {
+		onAgentActivity(event.conversationId, event.threadId, {
+			id: `narration-${event.sessionId}-${Date.now()}`,
+			conversationId: event.conversationId,
+			threadId: event.threadId,
+			role: 'assistant',
+			kind: 'narration',
+			content: event.content,
+			timestamp: new Date(event.timestamp),
+			agentData: { sessionId: event.sessionId }
+		});
+	}
+}

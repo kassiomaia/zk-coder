@@ -178,6 +178,21 @@ pub enum AgentEvent {
         timestamp: DateTime<Utc>,
     },
 
+    /// Agent narration for persistent display in the chat thread.
+    /// Unlike StatusPhrase (transient spinner text), narrations survive execution cleanup.
+    AgentNarration {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "conversationId")]
+        conversation_id: String,
+        #[serde(rename = "threadId")]
+        thread_id: String,
+        /// Natural-language update (1-2 sentences)
+        content: String,
+        /// Timestamp when emitted
+        timestamp: DateTime<Utc>,
+    },
+
     /// Content streaming chunk for the final response.
     StreamingContent {
         #[serde(rename = "sessionId")]

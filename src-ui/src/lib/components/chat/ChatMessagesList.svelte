@@ -13,6 +13,8 @@
     import SystemNoticeMessage from './messages/SystemNoticeMessage.svelte';
     import ToolCallMessage from './messages/ToolCallMessage.svelte';
     import TerminalOutput from './messages/TerminalOutput.svelte';
+    import NarrationMessage from './messages/NarrationMessage.svelte';
+    import ApprovalMessage from './messages/ApprovalMessage.svelte';
     import type {Message} from '$lib/types/message';
     import type {Thread} from '$lib/types/thread';
     import type {AgentStatus} from '$lib/utils/agentStatus';
@@ -67,6 +69,12 @@
 
 		/** Copy message handler */
 		onCopyMessage?: (content: string) => Promise<void>;
+
+		/** Approve action handler */
+		onApproveAction?: (sessionId: string, actionId: string) => void;
+
+		/** Deny action handler */
+		onDenyAction?: (sessionId: string, actionId: string) => void;
 	}
 
 	let {
@@ -85,7 +93,9 @@
 		onMessageFeedback,
 		onThreadClick,
 		onRetry,
-		onCopyMessage
+		onCopyMessage,
+		onApproveAction,
+		onDenyAction
 	}: Props = $props();
 
 	/**
@@ -122,10 +132,11 @@
 	/**
 	 * Check if a message should use specialized rendering based on its kind.
 	 */
-	function getMessageKind(message: Message): 'thinking' | 'tool_call' | 'terminal' | null {
-		return message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal'
-			? message.kind
-			: null;
+	function getMessageKind(message: Message): 'thinking' | 'tool_call' | 'terminal' | 'narration' | 'approval' | null {
+		if (message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal' || message.kind === 'narration' || message.kind === 'approval') {
+			return message.kind;
+		}
+		return null;
 	}
 
 	function isSystemNotice(message: Message): boolean {
@@ -258,6 +269,14 @@
 						<ToolCallMessage {message} />
 					{:else if message.kind === 'terminal'}
 						<TerminalOutput {message} />
+					{:else if message.kind === 'narration'}
+						<NarrationMessage {message} />
+					{:else if message.kind === 'approval'}
+						<ApprovalMessage
+							{message}
+							onApprove={onApproveAction}
+							onDeny={onDenyAction}
+						/>
 					{/if}
 				</div>
 			</div>

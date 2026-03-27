@@ -73,6 +73,9 @@ export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentSta
 		case 'status_phrase':
 			StreamingEvents.handleStatusPhrase(state, event);
 			break;
+		case 'agent_narration':
+			StreamingEvents.handleAgentNarration(state, event);
+			break;
 		case 'streaming_content':
 			StreamingEvents.handleStreamingContent(state, event);
 			break;

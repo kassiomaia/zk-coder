@@ -5,12 +5,14 @@
 mod advance_to_next_subtask;
 mod emit_status;
 mod mark_subtask_status;
+mod narrate;
 mod plan_subtasks;
 
 use crate::infrastructure::tools::{Tool, ToolCategory};
 pub use advance_to_next_subtask::AdvanceToNextSubtaskTool;
 pub use emit_status::EmitStatusTool;
 pub use mark_subtask_status::MarkSubtaskStatusTool;
+pub use narrate::NarrateTool;
 pub use plan_subtasks::PlanSubtasksTool;
 
 /// Agent tools category for status communication.
@@ -28,6 +30,7 @@ impl ToolCategory for AgentCategory {
     fn tools(&self) -> Vec<Box<dyn Tool>> {
         vec![
             Box::new(EmitStatusTool),
+            Box::new(NarrateTool),
             Box::new(PlanSubtasksTool),
             Box::new(AdvanceToNextSubtaskTool),
             Box::new(MarkSubtaskStatusTool),
@@ -40,15 +43,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_agent_category_has_four_tools() {
+    fn test_agent_category_has_five_tools() {
         let category = AgentCategory;
         let tools = category.tools();
 
-        assert_eq!(tools.len(), 4, "Should have 4 agent tools");
+        assert_eq!(tools.len(), 5, "Should have 5 agent tools");
 
         let tool_names: Vec<String> = tools.iter().map(|t| t.meta().id.to_string()).collect();
 
         assert!(tool_names.contains(&"agent_emit_status".to_string()));
+        assert!(tool_names.contains(&"agent_narrate".to_string()));
         assert!(tool_names.contains(&"agent_plan_subtasks".to_string()));
         assert!(tool_names.contains(&"agent_advance_to_next_subtask".to_string()));
         assert!(tool_names.contains(&"agent_mark_subtask_status".to_string()));
@@ -70,6 +74,7 @@ mod tests {
 
         // These should match the allowed_tools in registry.rs
         assert!(tool_names.contains(&"agent_emit_status".to_string()));
+        assert!(tool_names.contains(&"agent_narrate".to_string()));
         assert!(tool_names.contains(&"agent_plan_subtasks".to_string()));
         assert!(tool_names.contains(&"agent_advance_to_next_subtask".to_string()));
         assert!(tool_names.contains(&"agent_mark_subtask_status".to_string()));

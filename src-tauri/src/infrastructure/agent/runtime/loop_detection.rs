@@ -17,6 +17,7 @@ pub const LOOP_SKIP_TOOLS: &[&str] = &[
     "agent_advance_to_next_subtask",
     "agent_emit_status",
     "agent_mark_subtask_status",
+    "agent_narrate",
     "agent_plan_subtasks",
 ];
 
@@ -456,6 +457,6 @@ mod tests {
         assert!(LOOP_SKIP_TOOLS.contains(&"agent_plan_subtasks"));
 
         // Verify length is as expected
-        assert_eq!(LOOP_SKIP_TOOLS.len(), 4);
+        assert_eq!(LOOP_SKIP_TOOLS.len(), 5);
     }
 }

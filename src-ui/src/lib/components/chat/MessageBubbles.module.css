@@ -45,7 +45,10 @@
 	align-items: center;
 	gap: var(--space-2);
 	margin-bottom: var(--space-3);
-	padding: 0 var(--space-5);
+	padding: var(--space-1) var(--space-3);
+	background-color: var(--color-surface-secondary);
+	border-radius: var(--radius-md);
+	border: 1px solid var(--color-border-subtle);
 }
 
 .groupRole {
@@ -128,16 +131,18 @@
 
 /* Assistant message styling */
 .assistantWrapper .message {
-	background-color: transparent;
+	background-color: var(--color-role-assistant-bg);
 	color: var(--color-text-primary);
 	border-bottom-left-radius: var(--radius-md);
-	padding-left: 0;
-	padding-right: 0;
-	padding-top: 0;
-	padding-bottom: 0;
+	border: 1px solid var(--color-border-subtle);
+	padding: var(--space-3) var(--space-4);
 	margin-right: var(--space-2);
 	max-width: 100%;
 	width: 100%;
+}
+
+.assistantWrapper .message:hover {
+	background-color: var(--color-role-assistant-bg-hover);
 }
 
 .systemNoticeMessage {

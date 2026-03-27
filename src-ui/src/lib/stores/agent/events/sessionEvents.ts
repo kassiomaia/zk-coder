@@ -123,6 +123,12 @@ export function handleExecutionError(state: AgentState, event: Extract<AgentEven
 			state: { type: 'error', message: event.error, recoverable: false }
 		});
 	}
+
+	// Clean up transient messages (tool_call, thinking) on error too
+	const onCleanupTransients = getOnCleanupTransients();
+	if (onCleanupTransients && session) {
+		onCleanupTransients(session.conversationId, session.threadId, event.sessionId);
+	}
 }
 
 /**
@@ -130,14 +136,62 @@ export function handleExecutionError(state: AgentState, event: Extract<AgentEven
  */
 export function handleApprovalRequired(state: AgentState, event: Extract<AgentEvent, { type: 'approval_required' }>) {
 	state.pendingActions = [...state.pendingActions, event.action];
+
+	// Inject approval card into chat
+	const session = state.sessions.get(event.sessionId);
+	const onAgentActivity = getOnAgentActivity();
+	if (onAgentActivity && session) {
+		onAgentActivity(session.conversationId, session.threadId, {
+			id: `approval-${event.action.id}`,
+			conversationId: session.conversationId,
+			threadId: session.threadId,
+			role: 'assistant',
+			kind: 'approval',
+			content: event.action.description,
+			timestamp: new Date(),
+			agentData: {
+				sessionId: event.sessionId,
+				pendingAction: event.action,
+				approvalResolved: false
+			}
+		});
+	}
 }
 
 export function handleApprovalApproved(state: AgentState, event: Extract<AgentEvent, { type: 'approval_approved' }>) {
 	state.pendingActions = state.pendingActions.filter((a) => a.id !== event.actionId);
+
+	// Update approval card to show approved state
+	const onAgentActivity = getOnAgentActivity();
+	const session = state.sessions.get(event.sessionId);
+	if (onAgentActivity && session) {
+		onAgentActivity(session.conversationId, session.threadId, {
+			id: `approval-${event.actionId}`,
+			agentData: {
+				sessionId: event.sessionId,
+				approvalResolved: true,
+				approvalDecision: 'approved'
+			}
+		});
+	}
 }
 
 export function handleApprovalDenied(state: AgentState, event: Extract<AgentEvent, { type: 'approval_denied' }>) {
 	state.pendingActions = state.pendingActions.filter((a) => a.id !== event.actionId);
+
+	// Update approval card to show denied state
+	const onAgentActivity = getOnAgentActivity();
+	const session = state.sessions.get(event.sessionId);
+	if (onAgentActivity && session) {
+		onAgentActivity(session.conversationId, session.threadId, {
+			id: `approval-${event.actionId}`,
+			agentData: {
+				sessionId: event.sessionId,
+				approvalResolved: true,
+				approvalDecision: 'denied'
+			}
+		});
+	}
 }
 
 /**

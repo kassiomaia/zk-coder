@@ -13,7 +13,7 @@ export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'error';
 export type MessageFeedback = 'like' | 'dislike';
 
 /** Kind of message for specialized rendering */
-export type MessageKind = 'normal' | 'thinking' | 'tool_call' | 'terminal';
+export type MessageKind = 'normal' | 'thinking' | 'tool_call' | 'terminal' | 'narration' | 'approval';
 export type SystemNoticeReason = 'token_limit' | 'subtask_transition';
 
 export interface ContextUpdateNotice {
@@ -49,6 +49,12 @@ export interface AgentMessageData {
 	exitCode?: number | null;
 	/** Tool call status: 'pending' | 'success' | 'error' */
 	toolCallStatus?: 'pending' | 'success' | 'error';
+	/** Pending action data (for approval kind) */
+	pendingAction?: import('./agent.js').PendingAction;
+	/** Whether the approval has been resolved */
+	approvalResolved?: boolean;
+	/** The decision made ('approved' | 'denied') */
+	approvalDecision?: 'approved' | 'denied';
 }
 
 /**

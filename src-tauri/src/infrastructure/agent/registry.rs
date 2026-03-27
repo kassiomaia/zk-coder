@@ -70,9 +70,28 @@ impl Agent {
                 "search_grep".to_string(),
                 "system_execute_command".to_string(),
                 "agent_emit_status".to_string(),
+                "agent_narrate".to_string(),
                 "agent_plan_subtasks".to_string(),
                 "agent_mark_subtask_status".to_string(),
                 "agent_advance_to_next_subtask".to_string(),
+                "docx_start".to_string(),
+                "docx_add_section".to_string(),
+                "docx_list_sections".to_string(),
+                "docx_finalize".to_string(),
+                "pptx_start".to_string(),
+                "pptx_add_slide".to_string(),
+                "pptx_update_slide".to_string(),
+                "pptx_delete_slide".to_string(),
+                "pptx_list_slides".to_string(),
+                "pptx_get_slide".to_string(),
+                "pptx_search_slides".to_string(),
+                "pptx_finalize".to_string(),
+                "pdf_start".to_string(),
+                "pdf_add_page".to_string(),
+                "pdf_delete_page".to_string(),
+                "pdf_list_pages".to_string(),
+                "pdf_get_page".to_string(),
+                "pdf_finalize".to_string(),
             ],
             default_model_id: "code".to_string(),
             trust_mode: TrustMode::Untrusted,
@@ -129,12 +148,25 @@ impl Agent {
 
          Alternatively, you can use 'agent_mark_subtask_status' with specific index and status.
 
-         ## PROGRESS UPDATES
+         ## COMMUNICATION
 
-         Use 'agent_emit_status' every 10-30 seconds with brief updates (2-6 words) \
-         about what you're currently doing. Examples: 'Scanning dependencies...', \
-         'Reading main.rs...', 'Planning refactoring...', 'Running tests...', \
-         'Analyzing code structure...', 'Processing results...'.
+         You have two communication tools:
+
+         **agent_emit_status** — Short spinner phrases (2-6 words). Use every 10-30 seconds during active work.
+         Examples: 'Scanning dependencies...', 'Reading main.rs...', 'Running tests...'
+
+         **agent_narrate** — Natural-language updates (1-2 sentences) that persist in chat history.
+         Use at meaningful moments: starting a phase, making a discovery, completing significant work, explaining a decision.
+         Examples:
+         - 'I'm scanning the repository structure first to understand how the codebase is organized.'
+         - 'I found the main entry point in src/main.rs and the routing logic in src/router.rs. Now tracing the data flow.'
+         - 'The refactoring is done — I updated 5 files and kept the existing tests passing.'
+         - 'That command failed because the sandbox blocks network access. I'll use a different approach.'
+
+         Rules:
+         - Do NOT narrate every file read or small action. Focus on decisions, findings, and completions.
+         - The user should be able to follow your work by reading the chat alone.
+         - Always narrate: plan creation, phase transitions, important discoveries, errors and recovery, completion summary.
 
          ## PLAN REUSE AND REPLANNING
 

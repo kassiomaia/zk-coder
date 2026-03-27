@@ -79,11 +79,17 @@ pub enum ActionType {
     WebRequest { url: String },
     // Document generation actions
     CreateDocx { filename: String },
+    MutateDocxDraft { document_id: String },
+    InspectDocxDraft { document_id: String },
     CreatePptx { filename: String },
+    MutatePptxDraft { deck_id: String },
+    InspectPptxDraft { deck_id: String },
     CreatePdf { filename: String },
-    FinalizeDocx { filename: String },
-    FinalizePptx { filename: String },
-    FinalizePdf { filename: String },
+    MutatePdfDraft { pdf_id: String },
+    InspectPdfDraft { pdf_id: String },
+    FinalizeDocx { document_id: String },
+    FinalizePptx { deck_id: String },
+    FinalizePdf { pdf_id: String },
 }
 
 /// Preview content for an action awaiting approval.

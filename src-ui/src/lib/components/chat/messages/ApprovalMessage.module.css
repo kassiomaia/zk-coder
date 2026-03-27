@@ -1,0 +1,147 @@
+.approvalCard {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding: var(--space-3);
+	margin: var(--space-2) 0;
+	border: 1px solid var(--color-border-primary);
+	border-radius: var(--radius-md);
+	background: var(--color-surface);
+	animation: slideIn 0.2s ease-out;
+	max-width: 600px;
+}
+
+.approvalCard.warning {
+	border-left: 3px solid var(--color-warning);
+}
+
+.approvalCard.danger {
+	border-left: 3px solid var(--color-error);
+}
+
+.approvalCard.info {
+	border-left: 3px solid var(--color-info);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.iconWrapper {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: var(--radius-md);
+	flex-shrink: 0;
+}
+
+.approvalCard.warning .iconWrapper {
+	background: var(--color-warning-light);
+	color: var(--color-warning);
+}
+
+.approvalCard.danger .iconWrapper {
+	background: var(--color-error-light);
+	color: var(--color-error);
+}
+
+.approvalCard.info .iconWrapper {
+	background: var(--color-info-light);
+	color: var(--color-info);
+}
+
+.headerText {
+	display: flex;
+	flex-direction: column;
+}
+
+.title {
+	font-size: var(--text-sm);
+	font-weight: var(--font-semibold);
+	color: var(--color-text-primary);
+}
+
+.description {
+	font-size: var(--text-sm);
+	color: var(--color-text-secondary);
+	line-height: var(--leading-relaxed);
+	margin: 0;
+}
+
+.previewSection {
+	margin-top: var(--space-1);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+}
+
+.previewHeader {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: var(--space-1) var(--space-2);
+	background: var(--color-surface-elevated);
+	font-size: var(--text-xs);
+	font-weight: var(--font-medium);
+	color: var(--color-text-secondary);
+	border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.previewLang {
+	font-family: var(--font-mono);
+	color: var(--color-text-muted);
+}
+
+.previewContent {
+	padding: var(--space-2);
+	margin: 0;
+	max-height: 150px;
+	overflow: auto;
+	background: var(--color-neutral-950);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	color: var(--color-text-primary);
+	line-height: var(--leading-relaxed);
+}
+
+.actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--space-2);
+	margin-top: var(--space-1);
+}
+
+.resolvedBadge {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-2);
+	font-size: var(--text-xs);
+	font-weight: var(--font-medium);
+	border-radius: var(--radius-sm);
+}
+
+.resolvedBadge.approved {
+	background: var(--color-success-light);
+	color: var(--color-success);
+}
+
+.resolvedBadge.denied {
+	background: var(--color-error-light);
+	color: var(--color-error);
+}
+
+@keyframes slideIn {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}

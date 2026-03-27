@@ -78,13 +78,19 @@ impl PermissionResolver {
             ActionType::DeleteFile { .. } => PermissionLevel::ApprovalRequired,
             ActionType::ExecuteCommand { .. } => PermissionLevel::ApprovalRequired,
             ActionType::WebRequest { .. } => PermissionLevel::AutoRun,
-            // Document operations require approval
-            ActionType::CreateDocx { .. } => PermissionLevel::ApprovalRequired,
-            ActionType::CreatePptx { .. } => PermissionLevel::ApprovalRequired,
-            ActionType::CreatePdf { .. } => PermissionLevel::ApprovalRequired,
-            ActionType::FinalizeDocx { .. } => PermissionLevel::ApprovalRequired,
-            ActionType::FinalizePptx { .. } => PermissionLevel::ApprovalRequired,
-            ActionType::FinalizePdf { .. } => PermissionLevel::ApprovalRequired,
+            // Document tools operate on internal drafts/artifacts, not workspace files.
+            ActionType::CreateDocx { .. } => PermissionLevel::AutoRun,
+            ActionType::MutateDocxDraft { .. } => PermissionLevel::AutoRun,
+            ActionType::InspectDocxDraft { .. } => PermissionLevel::AutoRun,
+            ActionType::CreatePptx { .. } => PermissionLevel::AutoRun,
+            ActionType::MutatePptxDraft { .. } => PermissionLevel::AutoRun,
+            ActionType::InspectPptxDraft { .. } => PermissionLevel::AutoRun,
+            ActionType::CreatePdf { .. } => PermissionLevel::AutoRun,
+            ActionType::MutatePdfDraft { .. } => PermissionLevel::AutoRun,
+            ActionType::InspectPdfDraft { .. } => PermissionLevel::AutoRun,
+            ActionType::FinalizeDocx { .. } => PermissionLevel::AutoRun,
+            ActionType::FinalizePptx { .. } => PermissionLevel::AutoRun,
+            ActionType::FinalizePdf { .. } => PermissionLevel::AutoRun,
         }
     }
 }
@@ -182,5 +188,55 @@ mod tests {
             resolver.check("system_execute_command", &action),
             PermissionLevel::ApprovalRequired
         );
+    }
+
+    #[test]
+    fn test_untrusted_mode_auto_runs_document_draft_actions() {
+        let resolver = PermissionResolver::new(TrustMode::Untrusted);
+        let actions = vec![
+            ActionType::CreateDocx {
+                filename: "report.docx".to_string(),
+            },
+            ActionType::MutateDocxDraft {
+                document_id: "docx_1".to_string(),
+            },
+            ActionType::InspectDocxDraft {
+                document_id: "docx_1".to_string(),
+            },
+            ActionType::CreatePptx {
+                filename: "slides.pptx".to_string(),
+            },
+            ActionType::MutatePptxDraft {
+                deck_id: "pptx_1".to_string(),
+            },
+            ActionType::InspectPptxDraft {
+                deck_id: "pptx_1".to_string(),
+            },
+            ActionType::CreatePdf {
+                filename: "report.pdf".to_string(),
+            },
+            ActionType::MutatePdfDraft {
+                pdf_id: "pdf_1".to_string(),
+            },
+            ActionType::InspectPdfDraft {
+                pdf_id: "pdf_1".to_string(),
+            },
+            ActionType::FinalizeDocx {
+                document_id: "docx_1".to_string(),
+            },
+            ActionType::FinalizePptx {
+                deck_id: "pptx_1".to_string(),
+            },
+            ActionType::FinalizePdf {
+                pdf_id: "pdf_1".to_string(),
+            },
+        ];
+
+        for action in actions {
+            assert_eq!(
+                resolver.check("document_tool", &action),
+                PermissionLevel::AutoRun
+            );
+        }
     }
 }

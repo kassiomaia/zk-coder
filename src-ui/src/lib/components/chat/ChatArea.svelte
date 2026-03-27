@@ -108,6 +108,12 @@
 
 		/** Scroll handler */
 		onScroll?: (scrollTop: number, scrollHeight: number, clientHeight: number) => void;
+
+		/** Approve action handler */
+		onApproveAction?: (sessionId: string, actionId: string) => void;
+
+		/** Deny action handler */
+		onDenyAction?: (sessionId: string, actionId: string) => void;
 	}
 
 	let {
@@ -133,7 +139,9 @@
 		onRetryMessage,
 		onMessageFeedback,
 		onThreadClick,
-		onScroll
+		onScroll,
+		onApproveAction,
+		onDenyAction
 	}: Props = $props();
 
 	// Input state
@@ -440,6 +448,8 @@
 			onMessageFeedback={onMessageFeedback}
 			onThreadClick={onThreadClick}
 			onRetry={onRetry}
+			onApproveAction={onApproveAction}
+			onDenyAction={onDenyAction}
 		/>
 
 		<!-- Scroll to bottom button -->

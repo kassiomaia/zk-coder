@@ -365,15 +365,6 @@
 	</div>
 </nav>
 
-<!-- Approval Dialog (modal overlay) -->
-{#if showApprovalDialog && currentApproval}
-	<ApprovalDialog
-		action={currentApproval}
-		onapprove={() => onApprove(currentApproval.id)}
-		ondeny={() => onDeny(currentApproval.id)}
-	/>
-{/if}
-
 	<!-- Agent Config (modal overlay) -->
 <AgentConfig
 	open={showAgentConfig}

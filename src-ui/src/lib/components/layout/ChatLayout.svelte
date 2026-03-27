@@ -81,9 +81,9 @@
 		/** Handler to toggle agent panel */
 		onToggleAgentPanel?: () => void;
 		/** Handler to approve an agent action */
-		onApproveAction?: (actionId: string) => void;
+		onApproveAction?: (sessionId: string, actionId: string) => void;
 		/** Handler to deny an agent action */
-		onDenyAction?: (actionId: string) => void;
+		onDenyAction?: (sessionId: string, actionId: string) => void;
 		/** Handler for workspace path change */
 		onWorkspaceChange?: (path: string) => void;
 		/** All agent sessions for this conversation */
@@ -360,6 +360,8 @@
 					{initialModelId}
 					onModelChange={handleModelChange}
 					{onMessageFeedback}
+					onApproveAction={(sessionId, actionId) => onApproveAction?.(sessionId, actionId)}
+					onDenyAction={(sessionId, actionId) => onDenyAction?.(sessionId, actionId)}
 				/>
 			{:else}
 				<!-- Empty state -->
@@ -373,6 +375,8 @@
 					agentSessionId={currentThreadAgentState.sessionId}
 					onSendMessage={handleSendMessage}
 					onOpenSettings={onSettings}
+					onApproveAction={(sessionId, actionId) => onApproveAction?.(sessionId, actionId)}
+					onDenyAction={(sessionId, actionId) => onDenyAction?.(sessionId, actionId)}
 				/>
 			{/if}
 		</div>
@@ -386,8 +390,8 @@
 						allSessions={agentSessions}
 						sessionTitles={agentSessionTitles}
 						pendingActions={agentPendingActions}
-						onApprove={(id) => onApproveAction?.(id)}
-						onDeny={(id) => onDenyAction?.(id)}
+						onApprove={(id) => onApproveAction?.(agentSession.id, id)}
+						onDeny={(id) => onDenyAction?.(agentSession.id, id)}
 						onWorkspaceChange={(path) => onWorkspaceChange?.(path)}
 						onSelectSession={(id) => onSelectSession?.(id)}
 						onCreateSession={() => onCreateSession?.()}

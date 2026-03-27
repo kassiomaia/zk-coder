@@ -47,28 +47,39 @@ pub fn infer_action_type(tool_name: &str, arguments: &serde_json::Value) -> Acti
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
+    let document_id = arguments
+        .get("document_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let deck_id = arguments
+        .get("deck_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let pdf_id = arguments
+        .get("pdf_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
     match tool_name {
-        // Document creation tools
-        name if name.contains("docx") && name.contains("start") => {
-            ActionType::CreateDocx { filename }
+        "docx_start" => ActionType::CreateDocx { filename },
+        "docx_add_section" => ActionType::MutateDocxDraft { document_id },
+        "docx_list_sections" => ActionType::InspectDocxDraft { document_id },
+        "docx_finalize" => ActionType::FinalizeDocx { document_id },
+        "pptx_start" => ActionType::CreatePptx { filename },
+        "pptx_add_slide" | "pptx_update_slide" | "pptx_delete_slide" => {
+            ActionType::MutatePptxDraft { deck_id }
         }
-        name if name.contains("pptx") && name.contains("start") => {
-            ActionType::CreatePptx { filename }
+        "pptx_list_slides" | "pptx_get_slide" | "pptx_search_slides" => {
+            ActionType::InspectPptxDraft { deck_id }
         }
-        name if name.contains("pdf") && name.contains("start") => {
-            ActionType::CreatePdf { filename }
-        }
-        // Document finalization tools
-        name if name.contains("docx") && (name.contains("finalize") || name.contains("final")) => {
-            ActionType::FinalizeDocx { filename }
-        }
-        name if name.contains("pptx") && (name.contains("finalize") || name.contains("final")) => {
-            ActionType::FinalizePptx { filename }
-        }
-        name if name.contains("pdf") && (name.contains("finalize") || name.contains("final")) => {
-            ActionType::FinalizePdf { filename }
-        }
+        "pptx_finalize" => ActionType::FinalizePptx { deck_id },
+        "pdf_start" => ActionType::CreatePdf { filename },
+        "pdf_add_page" | "pdf_delete_page" => ActionType::MutatePdfDraft { pdf_id },
+        "pdf_list_pages" | "pdf_get_page" => ActionType::InspectPdfDraft { pdf_id },
+        "pdf_finalize" => ActionType::FinalizePdf { pdf_id },
         // Standard file operations
         name if name.contains("read") => ActionType::ReadFile { path },
         name if name.contains("write") || name.contains("create") => {
@@ -433,20 +444,38 @@ mod tests {
             ActionType::CreateDocx {
                 filename: "test.docx".to_string(),
             },
+            ActionType::MutateDocxDraft {
+                document_id: "docx_123".to_string(),
+            },
+            ActionType::InspectDocxDraft {
+                document_id: "docx_123".to_string(),
+            },
             ActionType::CreatePptx {
                 filename: "test.pptx".to_string(),
+            },
+            ActionType::MutatePptxDraft {
+                deck_id: "pptx_123".to_string(),
+            },
+            ActionType::InspectPptxDraft {
+                deck_id: "pptx_123".to_string(),
             },
             ActionType::CreatePdf {
                 filename: "test.pdf".to_string(),
             },
+            ActionType::MutatePdfDraft {
+                pdf_id: "pdf_123".to_string(),
+            },
+            ActionType::InspectPdfDraft {
+                pdf_id: "pdf_123".to_string(),
+            },
             ActionType::FinalizeDocx {
-                filename: "test.docx".to_string(),
+                document_id: "docx_123".to_string(),
             },
             ActionType::FinalizePptx {
-                filename: "test.pptx".to_string(),
+                deck_id: "pptx_123".to_string(),
             },
             ActionType::FinalizePdf {
-                filename: "test.pdf".to_string(),
+                pdf_id: "pdf_123".to_string(),
             },
         ];
 
@@ -476,27 +505,51 @@ mod tests {
                 (ActionType::CreateDocx { filename: a }, ActionType::CreateDocx { filename: b }) => {
                     assert_eq!(a, b);
                 }
+                (
+                    ActionType::MutateDocxDraft { document_id: a },
+                    ActionType::MutateDocxDraft { document_id: b },
+                ) => assert_eq!(a, b),
+                (
+                    ActionType::InspectDocxDraft { document_id: a },
+                    ActionType::InspectDocxDraft { document_id: b },
+                ) => assert_eq!(a, b),
                 (ActionType::CreatePptx { filename: a }, ActionType::CreatePptx { filename: b }) => {
                     assert_eq!(a, b);
                 }
+                (
+                    ActionType::MutatePptxDraft { deck_id: a },
+                    ActionType::MutatePptxDraft { deck_id: b },
+                ) => assert_eq!(a, b),
+                (
+                    ActionType::InspectPptxDraft { deck_id: a },
+                    ActionType::InspectPptxDraft { deck_id: b },
+                ) => assert_eq!(a, b),
                 (ActionType::CreatePdf { filename: a }, ActionType::CreatePdf { filename: b }) => {
                     assert_eq!(a, b);
                 }
                 (
-                    ActionType::FinalizeDocx { filename: a },
-                    ActionType::FinalizeDocx { filename: b },
+                    ActionType::MutatePdfDraft { pdf_id: a },
+                    ActionType::MutatePdfDraft { pdf_id: b },
+                ) => assert_eq!(a, b),
+                (
+                    ActionType::InspectPdfDraft { pdf_id: a },
+                    ActionType::InspectPdfDraft { pdf_id: b },
+                ) => assert_eq!(a, b),
+                (
+                    ActionType::FinalizeDocx { document_id: a },
+                    ActionType::FinalizeDocx { document_id: b },
                 ) => {
                     assert_eq!(a, b);
                 }
                 (
-                    ActionType::FinalizePptx { filename: a },
-                    ActionType::FinalizePptx { filename: b },
+                    ActionType::FinalizePptx { deck_id: a },
+                    ActionType::FinalizePptx { deck_id: b },
                 ) => {
                     assert_eq!(a, b);
                 }
                 (
-                    ActionType::FinalizePdf { filename: a },
-                    ActionType::FinalizePdf { filename: b },
+                    ActionType::FinalizePdf { pdf_id: a },
+                    ActionType::FinalizePdf { pdf_id: b },
                 ) => {
                     assert_eq!(a, b);
                 }
@@ -521,10 +574,10 @@ mod tests {
     fn test_infer_action_type_docx_finalize() {
         let action = infer_action_type(
             "docx_finalize",
-            &serde_json::json!({"filename": "report.docx"}),
+            &serde_json::json!({"document_id": "docx_123"}),
         );
         match action {
-            ActionType::FinalizeDocx { filename } => assert_eq!(filename, "report.docx"),
+            ActionType::FinalizeDocx { document_id } => assert_eq!(document_id, "docx_123"),
             _ => panic!("Expected FinalizeDocx"),
         }
     }
@@ -545,24 +598,47 @@ mod tests {
     fn test_infer_action_type_pdf_finalize() {
         let action = infer_action_type(
             "pdf_finalize",
-            &serde_json::json!({"filename": "doc.pdf"}),
+            &serde_json::json!({"pdf_id": "pdf_123"}),
         );
         match action {
-            ActionType::FinalizePdf { filename } => assert_eq!(filename, "doc.pdf"),
+            ActionType::FinalizePdf { pdf_id } => assert_eq!(pdf_id, "pdf_123"),
             _ => panic!("Expected FinalizePdf"),
         }
     }
 
     #[test]
-    fn test_infer_action_type_docx_add_section_defaults_to_read() {
-        // docx_add_section doesn't match any document pattern, defaults to ReadFile
+    fn test_infer_action_type_docx_add_section_is_docx_mutation() {
         let action = infer_action_type(
             "docx_add_section",
             &serde_json::json!({"document_id": "abc", "content": {}}),
         );
         match action {
-            ActionType::ReadFile { .. } => {}
-            _ => panic!("Expected ReadFile as default for non-matching docx tool"),
+            ActionType::MutateDocxDraft { document_id } => assert_eq!(document_id, "abc"),
+            _ => panic!("Expected MutateDocxDraft"),
+        }
+    }
+
+    #[test]
+    fn test_infer_action_type_pptx_list_slides_is_inspect() {
+        let action = infer_action_type(
+            "pptx_list_slides",
+            &serde_json::json!({"deck_id": "pptx_123"}),
+        );
+        match action {
+            ActionType::InspectPptxDraft { deck_id } => assert_eq!(deck_id, "pptx_123"),
+            _ => panic!("Expected InspectPptxDraft"),
+        }
+    }
+
+    #[test]
+    fn test_infer_action_type_pdf_add_page_is_mutation() {
+        let action = infer_action_type(
+            "pdf_add_page",
+            &serde_json::json!({"pdf_id": "pdf_123"}),
+        );
+        match action {
+            ActionType::MutatePdfDraft { pdf_id } => assert_eq!(pdf_id, "pdf_123"),
+            _ => panic!("Expected MutatePdfDraft"),
         }
     }
 }

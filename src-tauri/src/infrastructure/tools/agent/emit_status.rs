@@ -21,9 +21,9 @@ impl Tool for EmitStatusTool {
         ToolMeta {
             id: ToolId::new("agent", "emit_status"),
             description: concat!(
-				"Emit a status update message to the user about what you're currently working on. ",
-				"Use this periodically (every 10-30 seconds) to keep the user informed of your progress. ",
-				"Keep messages brief (2-6 words). ",
+				"Emit a brief status phrase (2-6 words) for the spinner UI. ",
+				"Use every 10-30 seconds during active work. ",
+				"For longer, user-facing updates that persist in chat history, use agent_narrate instead. ",
 				"Examples: 'Scanning codebase...', 'Analyzing file structure...', ",
 				"'Planning next steps...', 'Running tests...', 'Reading config files...'"
 			),

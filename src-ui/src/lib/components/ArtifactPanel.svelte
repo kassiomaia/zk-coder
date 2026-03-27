@@ -6,7 +6,10 @@
 	 */
 	import styles from './ArtifactPanel.module.css';
 	import ArtifactCard from './ArtifactCard.svelte';
-	import type { Artifact, ArtifactType } from './ArtifactCard.svelte';
+	import type { ArtifactRef, ArtifactType } from './ArtifactCard.svelte';
+
+	/** Local type alias for consistency */
+	type Artifact = ArtifactRef;
 
 	/** Filter options for artifacts */
 	export type FilterType = 'all' | ArtifactType;
@@ -42,13 +45,11 @@
 		onDelete
 	}: Props = $props();
 
-	// Current filter state (local state that can be controlled by parent)
-	let currentFilter = $state<FilterType>(filter);
+	// Available filter types
+	const filterTypes: FilterType[] = ['all', 'Docx', 'Pptx', 'Pdf'];
 
-	// Sync with prop changes
-	$effect(() => {
-		currentFilter = filter;
-	});
+	// Current filter state - controlled by parent prop, uses 'all' as fallback
+	let currentFilter = $derived.by(() => filter ?? 'all');
 
 	// Filter artifacts by type (derived from currentFilter and artifacts)
 	let filteredArtifacts = $derived.by(() => {
@@ -67,7 +68,10 @@
 		};
 
 		for (const artifact of filteredArtifacts) {
-			groups[artifact.artifactType].push(artifact);
+			const type = artifact.artifactType;
+			if (type in groups) {
+				groups[type].push(artifact);
+			}
 		}
 
 		return groups;
@@ -83,7 +87,6 @@
 
 	// Handle filter button click
 	function handleFilterClick(newFilter: FilterType) {
-		currentFilter = newFilter;
 		onFilterChange?.(newFilter);
 	}
 
@@ -167,7 +170,7 @@
 
 	<!-- Filter buttons -->
 	<nav class={styles.filters} aria-label="Filter documents">
-		{#each ['all', 'Docx', 'Pptx', 'Pdf'] as filterType}
+		{#each filterTypes as filterType}
 			{@const count = getCount(filterType)}
 			<button
 				class={`${styles.filterButton} ${currentFilter === filterType ? styles.active : ''}`}
@@ -212,7 +215,7 @@
 										onkeydown={(e) => e.key === 'Enter' && handleSelect(artifact)}
 										role="button"
 										tabindex="0"
-										aria-selected={isSelected}
+										aria-pressed={isSelected}
 									>
 										<div class={styles.artifactHeader}>
 											<span class={styles.artifactIcon}>{getArtifactIcon(artifact.artifactType)}</span>
@@ -237,7 +240,7 @@
 							onkeydown={(e) => e.key === 'Enter' && handleSelect(artifact)}
 							role="button"
 							tabindex="0"
-							aria-selected={isSelected}
+							aria-pressed={isSelected}
 						>
 							<div class={styles.artifactHeader}>
 								<span class={styles.artifactIcon}>{getArtifactIcon(artifact.artifactType)}</span>

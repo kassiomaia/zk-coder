@@ -194,7 +194,19 @@ export type ActionType =
 	| { type: 'write_file'; path: string; sizeBytes: number }
 	| { type: 'delete_file'; path: string }
 	| { type: 'execute_command'; command: string }
-	| { type: 'web_request'; url: string };
+	| { type: 'web_request'; url: string }
+	| { type: 'create_docx'; filename: string }
+	| { type: 'mutate_docx_draft'; document_id: string }
+	| { type: 'inspect_docx_draft'; document_id: string }
+	| { type: 'finalize_docx'; document_id: string }
+	| { type: 'create_pptx'; filename: string }
+	| { type: 'mutate_pptx_draft'; deck_id: string }
+	| { type: 'inspect_pptx_draft'; deck_id: string }
+	| { type: 'finalize_pptx'; deck_id: string }
+	| { type: 'create_pdf'; filename: string }
+	| { type: 'mutate_pdf_draft'; pdf_id: string }
+	| { type: 'inspect_pdf_draft'; pdf_id: string }
+	| { type: 'finalize_pdf'; pdf_id: string };
 
 /**
  * Preview of action content (for approval dialog)
@@ -254,6 +266,14 @@ export type AgentEvent =
 			diff?: string;
 	  }
 	| { type: 'status_phrase'; sessionId: string; message: string; timestamp: string }
+	| {
+			type: 'agent_narration';
+			sessionId: string;
+			conversationId: string;
+			threadId: string;
+			content: string;
+			timestamp: string;
+	  }
 	| {
 		type: 'streaming_content';
 		sessionId: string;
