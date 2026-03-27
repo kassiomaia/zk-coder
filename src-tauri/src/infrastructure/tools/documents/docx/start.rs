@@ -42,7 +42,10 @@ impl Tool for DocxStartTool {
     fn meta(&self) -> ToolMeta {
         ToolMeta {
             id: ToolId::new("docx", "start"),
-            description: "Start a new Word document for incremental building. Returns a document_id to use with subsequent docx_add_section calls.",
+            description: "GENERATE a Word document (.docx). Use this to create documents from scratch. \
+              Workflow: call this tool first, then add content with docx_add_section, \
+              then finalize with docx_finalize. The document will be saved to the artifact store \
+              and a download link will appear in the chat. DO NOT write scripts to generate documents.",
             input_schema: serde_json::json!({
                 "type": "object",
                 "additionalProperties": false,

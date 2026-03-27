@@ -49,7 +49,10 @@ impl Tool for PptxStartTool {
     fn meta(&self) -> ToolMeta {
         ToolMeta {
             id: ToolId::new("pptx", "start"),
-            description: "Start a new PowerPoint presentation. Returns a deck_id that must be used for all subsequent operations on this presentation. Presentations are built incrementally: start → add_slide × N → finalize.",
+            description: "GENERATE a PowerPoint presentation (.pptx). Use this to create presentations from scratch. \
+              Workflow: call this tool first, then add slides with pptx_add_slide, \
+              then finalize with pptx_finalize. The presentation will be saved to the artifact store \
+              and a download link will appear in the chat. DO NOT write scripts to generate presentations.",
             input_schema: serde_json::json!({
                 "type": "object",
                 "additionalProperties": false,
