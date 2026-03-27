@@ -35,8 +35,8 @@ use crate::infrastructure::tools::ToolRegistry;
 // Re-export submodule types
 pub use client::{chat_with_retry, create_llm_client, LlmRetryConfig};
 pub use context::{
-    estimate_context_tokens, maybe_compact_context, CompactionDetails, COMPRESSION_THRESHOLD,
-    CONTEXT_WINDOW, KEEP_RECENT_MESSAGES,
+    apply_context_policy_v2, estimate_context_tokens, maybe_compact_context, CompactionDetails,
+    ContextPolicyInput, COMPRESSION_THRESHOLD, CONTEXT_WINDOW, KEEP_RECENT_MESSAGES,
 };
 pub use execution::execute;
 pub use helpers::{derive_system_prompt, generate_diff_from_content, infer_action_type};

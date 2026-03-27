@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use chrono::Utc;
 use log::{info, warn};
+use serde_json::json;
 use tauri::{AppHandle, Emitter};
 
 use crate::core::agent::permissions::PermissionResolver;
@@ -21,10 +22,14 @@ use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
 use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
 use crate::infrastructure::llm::LlmClient;
+use crate::infrastructure::tools::context::ToolExecutionContext;
 use crate::infrastructure::tools::ToolRegistry;
 
 use super::client::{build_llm_context, chat_with_retry, create_llm_client, LlmRetryConfig};
-use super::context::{estimate_context_tokens, maybe_compact_context, CONTEXT_WINDOW};
+use super::context::{
+    apply_context_policy_v2, estimate_context_tokens, maybe_compact_context, ContextPolicyInput,
+    COMPRESSION_THRESHOLD, CONTEXT_WINDOW,
+};
 use super::process_tool_calls_with_permissions;
 use super::{add_to_recent_calls, detect_repetitive_loop, MAX_REPETITIONS};
 use super::{derive_system_prompt, AgentRuntimeError, SubtaskSummary};
@@ -34,6 +39,20 @@ const LLM_MAX_RETRIES: usize = 2;
 
 /// Base delay in ms for LLM retry backoff.
 const LLM_RETRY_BASE_MS: u64 = 1000;
+
+/// Default temperature for agent execution (coding-safe).
+const DEFAULT_AGENT_TEMPERATURE: f32 = 0.0;
+
+/// Environment override for agent temperature.
+const ENV_AGENT_TEMPERATURE: &str = "CODER_AGENT_TEMPERATURE";
+
+fn agent_temperature() -> f32 {
+    let value = std::env::var(ENV_AGENT_TEMPERATURE)
+        .ok()
+        .and_then(|v| v.parse::<f32>().ok())
+        .unwrap_or(DEFAULT_AGENT_TEMPERATURE);
+    value.clamp(0.0, 2.0)
+}
 
 /// Executes an agent request within a session.
 ///
@@ -86,8 +105,9 @@ pub async fn execute(
         id: task.id.clone(),
         session_id: task.session_id.0.clone(),
         parent_task_id: None,
-        title: task.request.content.clone(),
-        description: None,
+        title: derive_task_title(&task.request.content),
+        // Persist the full latest request content for crash recovery / retry flows.
+        description: Some(task.request.content.clone()),
         status: crate::core::agent::entities::TaskStatus::Pending,
         order: 0,
         mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
@@ -142,42 +162,6 @@ pub async fn execute(
         let estimated_tokens = estimate_context_tokens(&llm_context);
         let context_usage = (estimated_tokens as f64 / CONTEXT_WINDOW as f64 * 100.0).min(100.0);
 
-        // Auto-compact context if it's getting too large
-        if let Some(compaction) = maybe_compact_context(&mut llm_context) {
-            info!(
-                "[AgentRuntime] Context compacted: {} messages → {}, {} tokens → {}",
-                compaction.before_count,
-                compaction.after_count,
-                compaction.before_tokens,
-                compaction.after_tokens
-            );
-
-            // Emit compaction event for frontend to show as chat message
-            let _ = app_handle.emit(
-                AGENT_EVENT_NAME,
-                AgentEvent::ContextCompacted {
-                    session_id: session_id.clone(),
-                    conversation_id: session.conversation_id.clone(),
-                    before_count: compaction.before_count,
-                    after_count: compaction.after_count,
-                    before_tokens: compaction.before_tokens,
-                    after_tokens: compaction.after_tokens,
-                    timestamp: Utc::now(),
-                },
-            );
-
-            // If subtask context was removed, reset tracking to force re-injection
-            if compaction.needs_reinjection {
-                if let Some(current) = last_injected_subtask_order {
-                    info!(
-                        "[AgentRuntime] Re-injecting subtask context for subtask {}",
-                        current
-                    );
-                    last_injected_subtask_order = None;
-                }
-            }
-        }
-
         // Update session state with current context usage
         update_session_state(
             session_repo,
@@ -229,8 +213,9 @@ pub async fn execute(
         let current_order = current_subtask_summary
             .as_ref()
             .map(|(summary, _)| summary.order);
+        let subtask_changed = last_injected_subtask_order != current_order;
 
-        if last_injected_subtask_order != current_order {
+        if subtask_changed {
             match (last_injected_subtask_order, current_order) {
                 (None, Some(order)) => {
                     info!("[AgentRuntime] Subtask changed: None → Some({})", order);
@@ -249,8 +234,72 @@ pub async fn execute(
                 }
                 (None, None) => {}
             }
-            last_injected_subtask_order = current_order;
         }
+
+        let usage_ratio = estimate_context_tokens(&llm_context) as f64 / CONTEXT_WINDOW as f64;
+        let should_retrieve = usage_ratio >= COMPRESSION_THRESHOLD || subtask_changed;
+        let retrieval_snippets = if should_retrieve {
+            run_retrieval_pass(
+                tool_registry,
+                app_handle,
+                session,
+                &request.content,
+                current_subtask_summary
+                    .as_ref()
+                    .map(|(summary, _)| summary.title.as_str()),
+            )
+            .await
+        } else {
+            Vec::new()
+        };
+
+        let policy_input = ContextPolicyInput {
+            force_pack: subtask_changed,
+            task_goal: Some(request.content.clone()),
+            active_subtask: current_subtask_summary
+                .as_ref()
+                .map(|(summary, _)| summary.title.clone()),
+            retrieval_snippets,
+        };
+        if let Some(compaction) = apply_context_policy_v2(&mut llm_context, &policy_input) {
+            info!(
+                "[AgentRuntime] ContextPolicyV2 packed: {} messages → {}, {} tokens → {}",
+                compaction.before_count,
+                compaction.after_count,
+                compaction.before_tokens,
+                compaction.after_tokens
+            );
+            let _ = app_handle.emit(
+                AGENT_EVENT_NAME,
+                AgentEvent::ContextCompacted {
+                    session_id: session_id.clone(),
+                    conversation_id: session.conversation_id.clone(),
+                    before_count: compaction.before_count,
+                    after_count: compaction.after_count,
+                    before_tokens: compaction.before_tokens,
+                    after_tokens: compaction.after_tokens,
+                    timestamp: Utc::now(),
+                },
+            );
+            let _ = compaction.needs_reinjection;
+        } else if usage_ratio >= COMPRESSION_THRESHOLD {
+            // Fallback to legacy compaction if v2 didn't apply for any reason.
+            if let Some(compaction) = maybe_compact_context(&mut llm_context) {
+                let _ = app_handle.emit(
+                    AGENT_EVENT_NAME,
+                    AgentEvent::ContextCompacted {
+                        session_id: session_id.clone(),
+                        conversation_id: session.conversation_id.clone(),
+                        before_count: compaction.before_count,
+                        after_count: compaction.after_count,
+                        before_tokens: compaction.before_tokens,
+                        after_tokens: compaction.after_tokens,
+                        timestamp: Utc::now(),
+                    },
+                );
+            }
+        }
+        last_injected_subtask_order = current_order;
 
         // Derive system prompt with subtask context
         let system_prompt = derive_system_prompt(agent_system_prompt, &current_subtask_summary);
@@ -274,7 +323,7 @@ pub async fn execute(
         // Build chat request
         let mut chat_request = ChatRequest::new(&model_name, llm_context.clone())
             .with_system(&system_prompt)
-            .with_temperature(0.7)
+            .with_temperature(agent_temperature())
             .with_max_tokens(4096);
         if !tool_definitions.is_empty() {
             chat_request = chat_request.with_tools(tool_definitions.clone());
@@ -433,6 +482,117 @@ pub async fn execute(
             ));
         }
     }
+}
+
+async fn run_retrieval_pass(
+    tool_registry: &ToolRegistry,
+    app_handle: &AppHandle,
+    session: &AgentSession,
+    request_content: &str,
+    active_subtask_title: Option<&str>,
+) -> Vec<String> {
+    let query = build_retrieval_query(request_content, active_subtask_title);
+    if query.is_empty() {
+        return Vec::new();
+    }
+
+    let call = ToolCall {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: "search_grep".to_string(),
+        arguments: json!({
+            "query": query,
+            "max_results": 12,
+            "case_sensitive": false
+        }),
+    };
+    let context = ToolExecutionContext::new(&session.conversation_id)
+        .with_thread(session.thread_id.clone())
+        .with_session(session.id.0.clone());
+    let context = if let Some(workspace) = &session.workspace_root {
+        context.with_workspace(workspace.clone())
+    } else {
+        context
+    };
+
+    let result = tool_registry
+        .execute(call, context, app_handle.clone())
+        .await;
+    if result.is_error {
+        return Vec::new();
+    }
+
+    result
+        .output
+        .get("matches")
+        .and_then(|v| v.as_array())
+        .map(|matches| {
+            matches
+                .iter()
+                .take(8)
+                .filter_map(|m| {
+                    let path = m.get("path").and_then(|v| v.as_str())?;
+                    let line = m.get("line").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let text = m.get("text").and_then(|v| v.as_str()).unwrap_or("");
+                    Some(format!("{}:{} {}", path, line, text.trim()))
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn build_retrieval_query(request_content: &str, active_subtask_title: Option<&str>) -> String {
+    let mut raw = String::new();
+    raw.push_str(request_content);
+    raw.push(' ');
+    if let Some(title) = active_subtask_title {
+        raw.push_str(title);
+    }
+
+    let stop_words = [
+        "the", "and", "for", "with", "this", "that", "from", "into", "about", "please", "would",
+        "should", "could", "must", "task",
+    ];
+    let mut keywords: Vec<String> = Vec::new();
+    for token in raw.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '-') {
+        let t = token.trim().to_lowercase();
+        if t.len() < 4 {
+            continue;
+        }
+        if stop_words.contains(&t.as_str()) {
+            continue;
+        }
+        if keywords.iter().any(|k| k == &t) {
+            continue;
+        }
+        keywords.push(t);
+        if keywords.len() >= 5 {
+            break;
+        }
+    }
+    keywords.join("|")
+}
+
+fn derive_task_title(content: &str) -> String {
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return "General request".to_string();
+    }
+    let lower = trimmed.to_lowercase();
+    let is_greeting = matches!(
+        lower.as_str(),
+        "hi" | "hello" | "hey" | "yo" | "hiya" | "sup" | "hello!" | "hi!" | "hey!"
+    );
+    if is_greeting || trimmed.len() < 16 {
+        return "General request".to_string();
+    }
+
+    const MAX_LEN: usize = 80;
+    if trimmed.len() <= MAX_LEN {
+        return trimmed.to_string();
+    }
+    let mut out = trimmed[..MAX_LEN].to_string();
+    out.push_str("...");
+    out
 }
 
 /// Finalizes the agent execution and returns the result.

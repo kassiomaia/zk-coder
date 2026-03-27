@@ -4,6 +4,7 @@
 //! LLM context window during agent execution.
 
 use crate::core::llm::entities::{ChatMessage as Message, MessageContent, MessageRole, ToolCall};
+use serde_json::Value as JsonValue;
 
 /// Approximate context window size for token budgeting (conservative 128k).
 pub const CONTEXT_WINDOW: usize = 128_000;
@@ -13,6 +14,15 @@ pub const COMPRESSION_THRESHOLD: f64 = 0.60;
 
 /// Number of recent messages to preserve during compaction.
 pub const KEEP_RECENT_MESSAGES: usize = 15;
+/// Number of recent dialogue messages to preserve in ContextPolicyV2 tail block.
+pub const KEEP_RECENT_TAIL_MESSAGES: usize = 12;
+
+/// Hard token budgets for ContextPolicyV2 blocks.
+pub const BUDGET_TASK_SUMMARY_TOKENS: usize = 180;
+pub const BUDGET_ACTIVE_SUBTASK_TOKENS: usize = 120;
+pub const BUDGET_FILE_RELEVANCE_TOKENS: usize = 800;
+pub const BUDGET_FAILURE_MEMORY_TOKENS: usize = 140;
+pub const BUDGET_RECENT_DIALOGUE_TOKENS: usize = 1600;
 
 /// Details about context compaction.
 #[derive(Debug, Clone)]
@@ -22,6 +32,15 @@ pub struct CompactionDetails {
     pub before_tokens: usize,
     pub after_tokens: usize,
     pub needs_reinjection: bool,
+}
+
+/// Inputs for ContextPolicyV2 deterministic packing.
+#[derive(Debug, Clone, Default)]
+pub struct ContextPolicyInput {
+    pub force_pack: bool,
+    pub task_goal: Option<String>,
+    pub active_subtask: Option<String>,
+    pub retrieval_snippets: Vec<String>,
 }
 
 /// Estimates the token count for a message context.
@@ -70,6 +89,10 @@ pub fn maybe_compact_context(context: &mut Vec<Message>) -> Option<CompactionDet
         new_context.push(first.clone());
     }
 
+    if let Some(summary) = build_compaction_summary(context) {
+        new_context.push(summary);
+    }
+
     // Keep the most recent messages
     let recent_start = before_count.saturating_sub(KEEP_RECENT_MESSAGES);
     for msg in context.iter().skip(recent_start) {
@@ -88,6 +111,387 @@ pub fn maybe_compact_context(context: &mut Vec<Message>) -> Option<CompactionDet
         after_tokens,
         needs_reinjection: true, // Always signal for re-injection after compaction
     })
+}
+
+/// Applies ContextPolicyV2 deterministic packing when context is large or explicitly forced.
+///
+/// Packing order:
+/// 1) first system prompt
+/// 2) task summary block
+/// 3) active subtask block
+/// 4) file relevance block
+/// 5) failure memory block
+/// 6) recent dialogue tail
+pub fn apply_context_policy_v2(
+    context: &mut Vec<Message>,
+    input: &ContextPolicyInput,
+) -> Option<CompactionDetails> {
+    let before_count = context.len();
+    let before_tokens = estimate_context_tokens(context);
+    let usage_ratio = before_tokens as f64 / CONTEXT_WINDOW as f64;
+    if usage_ratio < COMPRESSION_THRESHOLD && !input.force_pack {
+        return None;
+    }
+
+    let mut packed: Vec<Message> = Vec::new();
+    if let Some(first) = context.first() {
+        packed.push(first.clone());
+    }
+
+    let derived_task_goal = input
+        .task_goal
+        .clone()
+        .or_else(|| extract_task_goal(context));
+    if let Some(task_goal) = derived_task_goal {
+        let text = truncate_to_token_budget(&task_goal, BUDGET_TASK_SUMMARY_TOKENS);
+        if !text.is_empty() {
+            packed.push(Message::system(format!(
+                "ContextPolicyV2 task summary:\n{}",
+                text
+            )));
+        }
+    }
+
+    let derived_active_subtask = input.active_subtask.clone().or_else(|| {
+        let (subs, active) = extract_plan_subtasks(context);
+        match (subs, active) {
+            (Some(list), Some(i)) => list.get(i).cloned(),
+            _ => None,
+        }
+    });
+    if let Some(active_subtask) = derived_active_subtask {
+        let text = truncate_to_token_budget(&active_subtask, BUDGET_ACTIVE_SUBTASK_TOKENS);
+        if !text.is_empty() {
+            packed.push(Message::system(format!(
+                "ContextPolicyV2 active subtask:\n{}",
+                text
+            )));
+        }
+    }
+
+    let ranked_snippets = rank_retrieval_snippets(&input.retrieval_snippets);
+    if !ranked_snippets.is_empty() {
+        let mut lines: Vec<String> = Vec::new();
+        let mut used_tokens = 0usize;
+        for snippet in ranked_snippets {
+            let tokens = estimate_text_tokens(&snippet);
+            if used_tokens + tokens > BUDGET_FILE_RELEVANCE_TOKENS {
+                break;
+            }
+            used_tokens += tokens;
+            lines.push(snippet);
+        }
+        if !lines.is_empty() {
+            packed.push(Message::system(format!(
+                "ContextPolicyV2 file relevance:\n{}",
+                lines.join("\n")
+            )));
+        }
+    }
+
+    if let Some(failure_memory) = build_failure_memory(context) {
+        let text = truncate_to_token_budget(&failure_memory, BUDGET_FAILURE_MEMORY_TOKENS);
+        if !text.is_empty() {
+            packed.push(Message::system(format!(
+                "ContextPolicyV2 failure memory:\n{}",
+                text
+            )));
+        }
+    }
+
+    let tail = collect_recent_dialogue_tail(context, BUDGET_RECENT_DIALOGUE_TOKENS);
+    packed.extend(tail);
+
+    let after_count = packed.len();
+    let after_tokens = estimate_context_tokens(&packed);
+    *context = packed;
+
+    Some(CompactionDetails {
+        before_count,
+        after_count,
+        before_tokens,
+        after_tokens,
+        needs_reinjection: true,
+    })
+}
+
+fn build_compaction_summary(context: &[Message]) -> Option<Message> {
+    let task_goal = extract_task_goal(context);
+    let (subtasks, active_index) = extract_plan_subtasks(context);
+    let file_actions = extract_recent_file_actions(context, 3);
+    let last_error = extract_last_tool_error(context);
+
+    if task_goal.is_none() && subtasks.is_none() && file_actions.is_empty() && last_error.is_none()
+    {
+        return None;
+    }
+
+    let mut lines = Vec::new();
+    lines.push("Context summary (auto-generated):".to_string());
+
+    if let Some(goal) = task_goal {
+        lines.push(format!("Task goal: {}", goal));
+    }
+
+    if let Some(subtasks) = &subtasks {
+        if let Some(active) = active_index {
+            let active_title = subtasks
+                .get(active)
+                .map(|s| s.as_str())
+                .unwrap_or("Unknown");
+            lines.push(format!(
+                "Active subtask: {} (step {}/{})",
+                active_title,
+                active + 1,
+                subtasks.len()
+            ));
+        } else {
+            lines.push(format!("Subtasks planned: {}", subtasks.join("; ")));
+        }
+    }
+
+    if !file_actions.is_empty() {
+        let joined = file_actions.join("; ");
+        lines.push(format!("Recent file actions: {}", joined));
+    }
+
+    if let Some(error) = last_error {
+        lines.push(format!("Last error: {}", error));
+    }
+
+    Some(Message::system(lines.join("\n")))
+}
+
+fn extract_task_goal(context: &[Message]) -> Option<String> {
+    for msg in context {
+        if msg.role == MessageRole::User {
+            if let Some(text) = msg.as_text() {
+                let trimmed = text.trim();
+                if !trimmed.is_empty() {
+                    return Some(truncate_text(trimmed, 240));
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_plan_subtasks(context: &[Message]) -> (Option<Vec<String>>, Option<usize>) {
+    let mut plan_subtasks: Option<Vec<String>> = None;
+    let mut plan_index: Option<usize> = None;
+
+    for (idx, msg) in context.iter().enumerate() {
+        for call in &msg.tool_calls {
+            if call.name == "agent_plan_subtasks" {
+                if let Some(subtasks) = parse_subtask_titles(&call.arguments) {
+                    plan_subtasks = Some(subtasks);
+                    plan_index = Some(idx);
+                }
+            }
+        }
+    }
+
+    let Some(subtasks) = &plan_subtasks else {
+        return (None, None);
+    };
+
+    let mut advances = 0usize;
+    if let Some(plan_idx) = plan_index {
+        for msg in context.iter().skip(plan_idx + 1) {
+            for call in &msg.tool_calls {
+                if call.name == "agent_advance_to_next_subtask" {
+                    advances += 1;
+                }
+            }
+        }
+    }
+
+    let active_index = if advances < subtasks.len() {
+        Some(advances)
+    } else {
+        None
+    };
+
+    (plan_subtasks, active_index)
+}
+
+fn parse_subtask_titles(arguments: &JsonValue) -> Option<Vec<String>> {
+    let subtasks = arguments.get("subtasks")?.as_array()?;
+    let mut titles = Vec::new();
+    for item in subtasks {
+        let title = item.get("title")?.as_str()?.trim();
+        if title.is_empty() {
+            continue;
+        }
+        titles.push(truncate_text(title, 80));
+    }
+    if titles.is_empty() {
+        None
+    } else {
+        Some(titles)
+    }
+}
+
+fn extract_recent_file_actions(context: &[Message], limit: usize) -> Vec<String> {
+    let mut actions = Vec::new();
+    for msg in context.iter().rev() {
+        for call in &msg.tool_calls {
+            let action = match call.name.as_str() {
+                "fs_write_file" => "write",
+                "fs_delete_file" => "delete",
+                _ => continue,
+            };
+            let path = call
+                .arguments
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            actions.push(format!("{} {}", action, path));
+            if actions.len() >= limit {
+                return actions;
+            }
+        }
+    }
+    actions.reverse();
+    actions
+}
+
+fn extract_last_tool_error(context: &[Message]) -> Option<String> {
+    let mut call_map = std::collections::HashMap::new();
+    for msg in context {
+        for call in &msg.tool_calls {
+            call_map.insert(call.id.clone(), (call.name.clone(), call.arguments.clone()));
+        }
+    }
+
+    for msg in context.iter().rev() {
+        if let Some(result) = &msg.tool_result {
+            if result.is_error {
+                let tool_name = call_map
+                    .get(&result.call_id)
+                    .map(|(name, _)| name.as_str())
+                    .unwrap_or("tool");
+                let error_text = result
+                    .output
+                    .get("error")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| truncate_text(&result.output.to_string(), 160));
+                return Some(format!("{}: {}", tool_name, error_text));
+            }
+        }
+    }
+    None
+}
+
+fn build_failure_memory(context: &[Message]) -> Option<String> {
+    let last_error = extract_last_tool_error(context)?;
+    let mut attempts: Vec<String> = Vec::new();
+
+    let mut seen_error = false;
+    for msg in context.iter().rev() {
+        if let Some(result) = &msg.tool_result {
+            if result.is_error {
+                seen_error = true;
+                continue;
+            }
+        }
+        if !seen_error {
+            continue;
+        }
+        for call in &msg.tool_calls {
+            attempts.push(call.name.clone());
+            if attempts.len() >= 3 {
+                break;
+            }
+        }
+        if attempts.len() >= 3 {
+            break;
+        }
+    }
+    attempts.reverse();
+
+    if attempts.is_empty() {
+        Some(format!("Last actionable error: {}", last_error))
+    } else {
+        Some(format!(
+            "Last actionable error: {}. Attempted fixes: {}",
+            last_error,
+            attempts.join(", ")
+        ))
+    }
+}
+
+fn rank_retrieval_snippets(snippets: &[String]) -> Vec<String> {
+    let mut scored: Vec<(i32, String)> = snippets
+        .iter()
+        .filter_map(|s| {
+            let trimmed = s.trim();
+            if trimmed.is_empty() {
+                return None;
+            }
+            let path_boost = if trimmed.contains(".rs:")
+                || trimmed.contains(".ts:")
+                || trimmed.contains(".tsx:")
+                || trimmed.contains(".js:")
+                || trimmed.contains(".svelte:")
+            {
+                10
+            } else {
+                0
+            };
+            let len_penalty = (trimmed.len() / 80) as i32;
+            Some((path_boost - len_penalty, trimmed.to_string()))
+        })
+        .collect();
+    scored.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    scored.into_iter().map(|(_, s)| s).collect()
+}
+
+fn collect_recent_dialogue_tail(context: &[Message], max_tokens: usize) -> Vec<Message> {
+    let mut tail: Vec<Message> = Vec::new();
+    let mut used = 0usize;
+    let mut kept = 0usize;
+
+    for msg in context.iter().rev() {
+        if kept >= KEEP_RECENT_TAIL_MESSAGES {
+            break;
+        }
+        if msg.role == MessageRole::System
+            && msg
+                .as_text()
+                .is_some_and(|s| s.starts_with("ContextPolicyV2 "))
+        {
+            continue;
+        }
+        let tokens = estimate_context_tokens(std::slice::from_ref(msg));
+        if used + tokens > max_tokens {
+            break;
+        }
+        used += tokens;
+        tail.push(msg.clone());
+        kept += 1;
+    }
+    tail.reverse();
+    tail
+}
+
+fn truncate_text(text: &str, max_len: usize) -> String {
+    if text.len() <= max_len {
+        return text.to_string();
+    }
+    let mut out = text[..max_len].to_string();
+    out.push_str("...");
+    out
+}
+
+fn estimate_text_tokens(text: &str) -> usize {
+    text.len() / 4 + 4
+}
+
+fn truncate_to_token_budget(text: &str, max_tokens: usize) -> String {
+    let max_chars = max_tokens.saturating_mul(4);
+    truncate_text(text.trim(), max_chars)
 }
 
 #[cfg(test)]
@@ -213,8 +617,8 @@ mod tests {
         // First message preserved
         assert_eq!(context[0].role, MessageRole::System);
 
-        // Recent messages preserved
-        assert!(context.len() <= KEEP_RECENT_MESSAGES + 1);
+        // Recent messages preserved (+1 for summary)
+        assert!(context.len() <= KEEP_RECENT_MESSAGES + 2);
     }
 
     #[test]
@@ -250,8 +654,8 @@ mod tests {
         // First message should be preserved
         assert_eq!(context[0].as_text(), Some("System"));
 
-        // After compaction, we should have first message + recent messages
-        assert!(context.len() <= KEEP_RECENT_MESSAGES + 1);
+        // After compaction, we should have first message + summary + recent messages
+        assert!(context.len() <= KEEP_RECENT_MESSAGES + 2);
     }
 
     #[test]
@@ -340,8 +744,8 @@ mod tests {
 
         // Should still have system message
         assert_eq!(context[0].role, MessageRole::System);
-        // Should be reduced to recent + system
-        assert!(context.len() <= KEEP_RECENT_MESSAGES + 1);
+        // Should be reduced to system + summary + recent
+        assert!(context.len() <= KEEP_RECENT_MESSAGES + 2);
     }
 
     #[test]
