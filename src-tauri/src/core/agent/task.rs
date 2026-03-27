@@ -165,7 +165,7 @@ impl SubTaskMode {
         match self {
             SubTaskMode::Read => vec![
                 "fs_read_file",
-                "search_grep",
+                "search_google_scrape",
                 "fs_list_files",
                 "agent_emit_status",
                 "agent_advance_to_next_subtask",
@@ -173,7 +173,7 @@ impl SubTaskMode {
             SubTaskMode::Write => vec![
                 "fs_read_file",
                 "fs_write_file",
-                "search_grep",
+                "search_google_scrape",
                 "fs_list_files",
                 "agent_emit_status",
                 "agent_advance_to_next_subtask",
@@ -190,7 +190,6 @@ impl SubTaskMode {
                 "fs_read_file",
                 "fs_write_file",
                 "fs_list_files",
-                "search_grep",
                 "search_google_scrape",
                 "system_execute_command",
                 "agent_emit_status",
@@ -398,8 +397,8 @@ mod tests {
             "Read mode should allow fs_read_file"
         );
         assert!(
-            tools.contains(&"search_grep"),
-            "Read mode should allow search_grep"
+            tools.contains(&"search_google_scrape"),
+            "Read mode should allow search_google_scrape"
         );
     }
 

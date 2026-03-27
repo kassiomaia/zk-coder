@@ -67,7 +67,6 @@ impl Agent {
                 "fs_read_file".to_string(),
                 "fs_write_file".to_string(),
                 "fs_list_files".to_string(),
-                "search_grep".to_string(),
                 "search_google_scrape".to_string(),
                 "system_execute_command".to_string(),
                 "agent_emit_status".to_string(),

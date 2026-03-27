@@ -514,7 +514,7 @@ fn test_multiple_pending_actions() {
     // Queue multiple actions
     create_test_pending_action(&service, &session_id, "fs_read_file");
     create_test_pending_action(&service, &session_id, "fs_write_file");
-    create_test_pending_action(&service, &session_id, "search_grep");
+    create_test_pending_action(&service, &session_id, "search_google_scrape");
 
     let pending = service.get_pending_actions(&session_id).unwrap();
     assert_eq!(pending.len(), 3);
