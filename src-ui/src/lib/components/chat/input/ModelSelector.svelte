@@ -1,14 +1,14 @@
 <script lang="ts">
-	/**
-	 * ModelSelector Component
-	 * Dropdown menu for selecting AI models for code generation.
-	 */
-	import styles from './ModelSelector.module.css';
-	import { availableModelsByOperation, configStore } from '$lib/stores/configStore';
-	import { ChevronDownIcon, CheckIcon, SettingsIcon } from '$lib/icons';
-	import type { Model } from '$lib/types/config';
+    /**
+     * ModelSelector Component
+     * Dropdown menu for selecting AI models for code generation.
+     */
+    import styles from './ModelSelector.module.css';
+    import {availableModelsByOperation} from '$lib/stores/configStore';
+    import {CheckIcon, ChevronDownIcon, SettingsIcon} from '$lib/icons';
+    import type {Model} from '$lib/types/config';
 
-	interface Props {
+    interface Props {
 		selectedModelId: string | null;
 		onModelChange: (modelId: string) => void;
 		onOpenSettings?: () => void;

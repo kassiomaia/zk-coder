@@ -1,22 +1,14 @@
 <script lang="ts">
-	/**
-	 * MessageActions Component
-	 * Hover action toolbar for message actions like copy, edit, delete, and feedback.
-	 */
-	import styles from './MessageActions.module.css';
-	import IconButton from '$lib/components/shared/IconButton.svelte';
-	import {
-		CopyIcon,
-		EditIcon,
-		DeleteIcon,
-		RefreshIcon,
-		ThumbsUpIcon,
-		ThumbsDownIcon,
-		CheckIcon
-	} from '$lib/icons';
-	import type { MessageFeedback } from '$lib/types/message';
+    /**
+     * MessageActions Component
+     * Hover action toolbar for message actions like copy, edit, delete, and feedback.
+     */
+    import styles from './MessageActions.module.css';
+    import IconButton from '$lib/components/shared/IconButton.svelte';
+    import {CheckIcon, CopyIcon, DeleteIcon, EditIcon, RefreshIcon, ThumbsDownIcon, ThumbsUpIcon} from '$lib/icons';
+    import type {MessageFeedback} from '$lib/types/message';
 
-	interface Props {
+    interface Props {
 		/** Whether to show copy action */
 		showCopy?: boolean;
 		/** Whether to show edit action */

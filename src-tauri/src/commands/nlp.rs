@@ -5,14 +5,19 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::core::chat::entities::MessageRole;
-use crate::nlp::llm_gateway::ConfigBackedNlpLlmGateway;
-use crate::nlp::{
-    Ambiguity, AmbiguityResolver, CodeAnalyzer, CodeUnderstanding, ContextManager, ContextMessage,
-    ConversationContext, IntentClassification, IntentClassifier, MultiIntentDetector,
-    MultiIntentResult, NlpLlmGateway, ProgrammingLanguage, ResolutionType, ResolvedAmbiguity,
+use crate::application::nlp::{
+    AmbiguityResolver, CodeAnalyzer, ContextManager, IntentClassifier, MultiIntentDetector,
+    NlpLlmGateway,
 };
-use crate::storage::ContextStore;
+use crate::core::chat::entities::MessageRole;
+use crate::core::nlp::ambiguity::{Ambiguity, ResolutionType, ResolvedAmbiguity};
+use crate::core::nlp::code_understanding::{CodeUnderstanding, ProgrammingLanguage};
+use crate::core::nlp::entities::{ContextMessage, ConversationContext};
+use crate::core::nlp::intent::IntentClassification;
+use crate::core::nlp::multi_intent::MultiIntentResult;
+use crate::core::nlp::repositories::ContextWindowRepository;
+use crate::infrastructure::nlp::llm_gateway::ConfigBackedNlpLlmGateway;
+use crate::infrastructure::sqlite::repositories::nlp_context::SqliteContextWindowRepository;
 
 /// Application state for NLP commands.
 pub struct NlpState {
@@ -39,7 +44,9 @@ impl NlpState {
     pub fn new(config_db_path: &str, context_db_path: &str) -> Result<Self, String> {
         let gateway: Arc<dyn NlpLlmGateway + Send + Sync> =
             Arc::new(ConfigBackedNlpLlmGateway::new(config_db_path).map_err(|e| e.to_string())?);
-        let store = ContextStore::new(context_db_path).map_err(|e| e.to_string())?;
+        let store = Arc::new(
+            SqliteContextWindowRepository::new(context_db_path).map_err(|e| e.to_string())?,
+        ) as Arc<dyn ContextWindowRepository>;
         let code_analyzer = CodeAnalyzer::new().map_err(|e| e.to_string())?;
 
         Ok(Self {
@@ -60,7 +67,8 @@ impl NlpState {
     pub fn in_memory() -> Result<Self, String> {
         let gateway: Arc<dyn NlpLlmGateway + Send + Sync> =
             Arc::new(ConfigBackedNlpLlmGateway::in_memory().map_err(|e| e.to_string())?);
-        let store = ContextStore::in_memory().map_err(|e| e.to_string())?;
+        let store = Arc::new(SqliteContextWindowRepository::in_memory().map_err(|e| e.to_string())?)
+            as Arc<dyn ContextWindowRepository>;
         let code_analyzer = CodeAnalyzer::new().map_err(|e| e.to_string())?;
 
         Ok(Self {

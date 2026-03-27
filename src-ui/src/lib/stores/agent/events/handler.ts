@@ -3,8 +3,8 @@
  * Central event dispatcher for agent events.
  */
 
-import type { AgentEvent } from '$lib/types/agent';
-import type { AgentState } from '../state';
+import type {AgentEvent} from '$lib/types/agent';
+import type {AgentState} from '../state';
 import * as SessionEvents from './sessionEvents';
 import * as ToolEvents from './toolEvents';
 import * as TerminalEvents from './terminalEvents';

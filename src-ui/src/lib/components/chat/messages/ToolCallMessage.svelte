@@ -6,21 +6,19 @@
  * Shows tool name, status indicator, and expandable arguments/output.
  */
 
-import type { Message } from '$lib/types/message';
+import type {Message} from '$lib/types/message';
 import styles from './ToolCallMessage.module.css';
 import {
-	Activity,
-	ChevronDown,
-	ChevronUp,
-	CheckCircle2,
-	AlertCircle,
-	Clock,
-	FileText,
-	FilePenLine,
-	FileSearch,
-	Terminal,
-	Globe,
-	Code
+    Activity,
+    AlertCircle,
+    CheckCircle2,
+    ChevronDown,
+    Code,
+    FilePenLine,
+    FileSearch,
+    FileText,
+    Globe,
+    Terminal
 } from 'lucide-svelte';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';

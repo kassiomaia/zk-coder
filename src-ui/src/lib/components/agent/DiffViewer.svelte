@@ -1,26 +1,26 @@
 <script lang="ts">
-	/**
-	 * DiffViewer Component
-	 * Renders unified or side-by-side diffs using Diff2Html.
-	 * Features syntax highlighting, word-level diffing, and custom dark theme.
-	 */
-	import { onMount, onDestroy } from 'svelte';
-	import { Diff2HtmlUI } from 'diff2html/lib/ui/js/diff2html-ui';
-	import 'diff2html/bundles/css/diff2html.min.css';
-	import hljs from 'highlight.js/lib/core';
-	import typescript from 'highlight.js/lib/languages/typescript';
-	import javascript from 'highlight.js/lib/languages/javascript';
-	import rust from 'highlight.js/lib/languages/rust';
-	import python from 'highlight.js/lib/languages/python';
-	import css from 'highlight.js/lib/languages/css';
-	import scss from 'highlight.js/lib/languages/scss';
-	import json from 'highlight.js/lib/languages/json';
-	import yaml from 'highlight.js/lib/languages/yaml';
-	import markdown from 'highlight.js/lib/languages/markdown';
-	import html from 'highlight.js/lib/languages/xml';
-	import svelte from 'highlight.js/lib/languages/xml'; // Reuse XML for Svelte
+    /**
+     * DiffViewer Component
+     * Renders unified or side-by-side diffs using Diff2Html.
+     * Features syntax highlighting, word-level diffing, and custom dark theme.
+     */
+    import {onDestroy} from 'svelte';
+    import {Diff2HtmlUI} from 'diff2html/lib/ui/js/diff2html-ui';
+    import 'diff2html/bundles/css/diff2html.min.css';
+    import hljs from 'highlight.js/lib/core';
+    import typescript from 'highlight.js/lib/languages/typescript';
+    import javascript from 'highlight.js/lib/languages/javascript';
+    import rust from 'highlight.js/lib/languages/rust';
+    import python from 'highlight.js/lib/languages/python';
+    import css from 'highlight.js/lib/languages/css';
+    import scss from 'highlight.js/lib/languages/scss';
+    import json from 'highlight.js/lib/languages/json';
+    import yaml from 'highlight.js/lib/languages/yaml';
+    import markdown from 'highlight.js/lib/languages/markdown';
+    import html from 'highlight.js/lib/languages/xml';
+    import svelte from 'highlight.js/lib/languages/xml'; // Reuse XML for Svelte
 
-	// Register common languages for syntax highlighting
+    // Register common languages for syntax highlighting
 	hljs.registerLanguage('typescript', typescript);
 	hljs.registerLanguage('javascript', javascript);
 	hljs.registerLanguage('rust', rust);

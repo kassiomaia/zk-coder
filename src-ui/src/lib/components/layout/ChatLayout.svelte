@@ -1,22 +1,22 @@
 <script lang="ts">
-	/**
-	 * ChatLayout Component
-	 * Main responsive layout for the chat application.
-	 * Single unified sidebar with hierarchical navigation (conversations + inline threads).
-	 */
-	import { onMount, onDestroy } from 'svelte';
-	import styles from './ChatLayout.module.css';
-	import ConversationSidebar from '../chat/sidebar/ConversationSidebar.svelte';
-	import ThreadPanel from '../chat/thread/ThreadPanel.svelte';
-	import ChatArea from '../chat/ChatArea.svelte';
-	import AgentPanel from '../agent/AgentPanel.svelte';
-	import WorkspaceSelector from '../agent/WorkspaceSelector.svelte';
-	import type { Conversation, Thread } from '$lib/types/thread';
-	import type { Message } from '$lib/types/message';
-	import type { AgentSession, PendingAction } from '$lib/types/agent';
-	import { createAppShortcuts, unregisterShortcuts } from '$lib/utils/keyboardShortcuts';
+    /**
+     * ChatLayout Component
+     * Main responsive layout for the chat application.
+     * Single unified sidebar with hierarchical navigation (conversations + inline threads).
+     */
+    import {onDestroy, onMount} from 'svelte';
+    import styles from './ChatLayout.module.css';
+    import ConversationSidebar from '../chat/sidebar/ConversationSidebar.svelte';
+    import ThreadPanel from '../chat/thread/ThreadPanel.svelte';
+    import ChatArea from '../chat/ChatArea.svelte';
+    import AgentPanel from '../agent/AgentPanel.svelte';
+    import WorkspaceSelector from '../agent/WorkspaceSelector.svelte';
+    import type {Conversation, Thread} from '$lib/types/thread';
+    import type {Message} from '$lib/types/message';
+    import type {AgentSession, PendingAction} from '$lib/types/agent';
+    import {createAppShortcuts, unregisterShortcuts} from '$lib/utils/keyboardShortcuts';
 
-	interface Props {
+    interface Props {
 		/** Conversations for the sidebar */
 		conversations: Conversation[];
 		/** Threads for the current conversation */

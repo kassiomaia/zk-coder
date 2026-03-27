@@ -4,10 +4,11 @@
 //! repository interfaces, and service interfaces. The core layer has
 //! no dependencies on infrastructure or application logic.
 
-pub mod chat;
 pub mod agent;
-pub mod llm;
+pub mod chat;
 pub mod config;
+pub mod llm;
+pub mod nlp;
 
 // Re-export commonly used types
 pub use chat::entities::*;

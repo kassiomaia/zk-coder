@@ -1,16 +1,16 @@
 <script lang="ts">
-	/**
-	 * ListItemActions Component
-	 * Unified context menu actions for list items (conversations and threads).
-	 * Displays a "..." button that opens a menu on click.
-	 */
-	import Popover from './Popover.svelte';
-	import type { PopoverItem } from './popover.types';
-	import type { ListItemActionsProps } from './list-item-actions.types';
-	import { MoreIcon } from '$lib/icons';
-	import styles from './ListItemActions.module.css';
+    /**
+     * ListItemActions Component
+     * Unified context menu actions for list items (conversations and threads).
+     * Displays a "..." button that opens a menu on click.
+     */
+    import Popover from './Popover.svelte';
+    import type {PopoverItem} from './popover.types';
+    import type {ListItemActionsProps} from './list-item-actions.types';
+    import {MoreIcon} from '$lib/icons';
+    import styles from './ListItemActions.module.css';
 
-	let {
+    let {
 		ondelete,
 		onrename,
 		onarchive,

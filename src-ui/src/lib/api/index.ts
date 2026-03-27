@@ -13,7 +13,6 @@ export {
 	detectMultiIntent,
 	detectAmbiguities,
 	analyzeCode,
-	updateProjectFiles,
 	createDebouncedClassifier,
 	isBackendAvailable
 } from './nlp.js';

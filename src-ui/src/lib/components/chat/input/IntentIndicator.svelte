@@ -1,14 +1,14 @@
 <script lang="ts">
-	/**
-	 * IntentIndicator Component
-	 * Badge showing the detected intent from user input.
-	 * Supports both frontend-only mode (simple patterns) and backend NLP mode.
-	 */
-	import styles from './IntentIndicator.module.css';
-	import type { Intent, IntentClassification } from '$lib/types/nlp';
-	import { getIntentLabel, INTENT_LABELS } from '$lib/types/nlp';
+    /**
+     * IntentIndicator Component
+     * Badge showing the detected intent from user input.
+     * Supports both frontend-only mode (simple patterns) and backend NLP mode.
+     */
+    import styles from './IntentIndicator.module.css';
+    import type {Intent, IntentClassification} from '$lib/types/nlp';
+    import {getIntentLabel, INTENT_LABELS} from '$lib/types/nlp';
 
-	interface Props {
+    interface Props {
 		/** The detected intent (can be Intent type or simple string for frontend mode) */
 		intent: Intent | string;
 		/** Confidence level (0-1) */

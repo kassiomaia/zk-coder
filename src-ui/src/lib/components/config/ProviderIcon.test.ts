@@ -1,7 +1,7 @@
-import { render } from '@testing-library/svelte';
-import { describe, it, expect } from 'vitest';
+import {render} from '@testing-library/svelte';
+import {describe, expect, it} from 'vitest';
 import ProviderIcon from './ProviderIcon.svelte';
-import type { Provider } from '$lib/types/config';
+import type {Provider} from '$lib/types/config';
 
 describe('ProviderIcon', () => {
 	const mockProviders: Record<string, Provider> = {

@@ -3,6 +3,8 @@
  * Attention-capture entrance with progressive disclosure and composed motion.
  */
 
+@import '../../styles/animations.css';
+
 /* ============================================================================
    OVERLAY WRAPPER - Depth separation with blur
    ============================================================================ */
@@ -78,37 +80,6 @@
    Phase 2: Deceleration settle with damped easing (160-440ms)
    ============================================================================ */
 
-@keyframes modalCapture {
-	0% {
-		opacity: 0;
-		transform: scale(var(--modal-scale-capture)) translateY(6px);
-	}
-	100% {
-		opacity: 1;
-		transform: scale(0.995) translateY(1px);
-	}
-}
-
-@keyframes modalSettle {
-	0% {
-		transform: scale(0.995) translateY(1px);
-	}
-	100% {
-		transform: scale(1) translateY(0);
-	}
-}
-
-@keyframes overlayCapture {
-	0% {
-		opacity: 0;
-		backdrop-filter: blur(0px);
-	}
-	100% {
-		opacity: 1;
-		backdrop-filter: blur(10px);
-	}
-}
-
 .overlay.open {
 	animation: overlayCapture var(--modal-duration-capture) var(--modal-ease-capture);
 }
@@ -119,6 +90,8 @@
 		modalSettle var(--modal-duration-settle) var(--modal-ease-settle) var(--modal-duration-capture)
 			forwards;
 }
+
+/* @keyframes modalCapture, modalSettle, overlayCapture now in shared animations.css */
 
 /* ============================================================================
    HEADER - Fixed position, no animation for stability
@@ -240,17 +213,6 @@
 	animation-delay: var(--modal-stagger-section-3);
 }
 
-@keyframes contentReveal {
-	0% {
-		opacity: 0;
-		transform: translateY(8px);
-	}
-	100% {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
 /* Custom scrollbar for modal body */
 .body::-webkit-scrollbar {
 	width: 6px;
@@ -312,25 +274,7 @@
    EXIT ANIMATION
    ============================================================================ */
 
-@keyframes modalExit {
-	0% {
-		opacity: 1;
-		transform: scale(1) translateY(0);
-	}
-	100% {
-		opacity: 0;
-		transform: scale(0.98) translateY(-4px);
-	}
-}
-
-@keyframes overlayExit {
-	0% {
-		opacity: 1;
-	}
-	100% {
-		opacity: 0;
-	}
-}
+/* @keyframes modalExit, overlayExit now in shared animations.css */
 
 /* ============================================================================
    REDUCED MOTION

@@ -1,15 +1,14 @@
 /**
  * Tests for File API Client
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getFileContent, type FileContentResponse } from '../file';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {type FileContentResponse, getFileContent} from '../file';
+import {invoke} from '@tauri-apps/api/core';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
 	invoke: vi.fn()
 }));
-
-import { invoke } from '@tauri-apps/api/core';
 
 const mockInvoke = vi.mocked(invoke);
 

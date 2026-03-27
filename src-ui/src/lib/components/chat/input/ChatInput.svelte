@@ -1,25 +1,24 @@
 <script lang="ts">
-	/**
-	 * ChatInput Component
-	 * Enhanced multi-line text input with command palette, mentions, and intent detection.
-	 * Supports both frontend-only mode (simple patterns) and backend NLP mode.
-	 */
-	import styles from './ChatInput.module.css';
-	import CommandPalette from './CommandPalette.svelte';
-	import IntentIndicator from './IntentIndicator.svelte';
-	import MentionMenu from './MentionMenu.svelte';
-	import ModelSelector from './ModelSelector.svelte';
-	import IconButton from '$lib/components/shared/IconButton.svelte';
-	import { FileIcon, CloseIcon, CodeIcon, SendIcon, PaperclipIcon } from '$lib/icons';
-	import type { Command } from '$lib/types/command';
-	import { BUILT_IN_COMMANDS, filterCommands } from '$lib/types/command';
-	import type { IntentClassification } from '$lib/types/nlp';
-	import { chatStore, nlpState, isLlmStreaming, agentStore } from '$lib/stores';
-	import { isBackendAvailable } from '$lib/api/nlp';
-	import { get } from 'svelte/store';
-	import { isValidModelId, sanitizeModelId } from '$lib/utils/validation';
+    /**
+     * ChatInput Component
+     * Enhanced multi-line text input with command palette, mentions, and intent detection.
+     * Supports both frontend-only mode (simple patterns) and backend NLP mode.
+     */
+    import styles from './ChatInput.module.css';
+    import CommandPalette from './CommandPalette.svelte';
+    import IntentIndicator from './IntentIndicator.svelte';
+    import MentionMenu from './MentionMenu.svelte';
+    import ModelSelector from './ModelSelector.svelte';
+    import IconButton from '$lib/components/shared/IconButton.svelte';
+    import {CloseIcon, CodeIcon, FileIcon, PaperclipIcon, SendIcon} from '$lib/icons';
+    import type {Command} from '$lib/types/command';
+    import {BUILT_IN_COMMANDS, filterCommands} from '$lib/types/command';
+    import type {IntentClassification} from '$lib/types/nlp';
+    import {agentStore, chatStore, isLlmStreaming, nlpState} from '$lib/stores';
+    import {get} from 'svelte/store';
+    import {isValidModelId, sanitizeModelId} from '$lib/utils/validation';
 
-	interface FileAttachment {
+    interface FileAttachment {
 		id: string;
 		name: string;
 		type: string;

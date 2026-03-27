@@ -1,15 +1,15 @@
 <script lang="ts">
-	/**
-	 * SessionHistory Component
-	 * Displays completed agent sessions for a conversation.
-	 */
-	import { slide } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
-	import { X, Clock, CheckCircle, XCircle, AlertCircle, ChevronRight, Terminal, ListChecks } from 'lucide-svelte';
-	import type { AgentSession } from '$lib/types/agent';
-	import { agentStore } from '$lib/stores';
+    /**
+     * SessionHistory Component
+     * Displays completed agent sessions for a conversation.
+     */
+    import {slide} from 'svelte/transition';
+    import {cubicOut} from 'svelte/easing';
+    import {AlertCircle, CheckCircle, ChevronRight, Clock, X, XCircle} from 'lucide-svelte';
+    import type {AgentSession} from '$lib/types/agent';
+    import {agentStore} from '$lib/stores';
 
-	interface Props {
+    interface Props {
 		/** Whether the history panel is open (if using modal) */
 		open?: boolean;
 		/** Conversation ID to fetch history for */

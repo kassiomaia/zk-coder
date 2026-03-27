@@ -1,16 +1,16 @@
 <script lang="ts">
-	/**
-	 * Icon Component - Base wrapper for SVG icons
-	 *
-	 * Provides consistent sizing, styling, and accessibility for all icons.
-	 * Icons should be 24x24 viewbox by default (Feather Icons standard).
-	 *
-	 * Note: This is a base component for creating new icons.
-	 * For individual icons, use the specific icon components like CopyIcon, EditIcon, etc.
-	 */
-	import type { SVGAttributes } from 'svelte/elements';
+    /**
+     * Icon Component - Base wrapper for SVG icons
+     *
+     * Provides consistent sizing, styling, and accessibility for all icons.
+     * Icons should be 24x24 viewbox by default (Feather Icons standard).
+     *
+     * Note: This is a base component for creating new icons.
+     * For individual icons, use the specific icon components like CopyIcon, EditIcon, etc.
+     */
+    import type {SVGAttributes} from 'svelte/elements';
 
-	interface Props {
+    interface Props {
 		/** Icon width in pixels */
 		size?: number;
 		/** Additional CSS classes */

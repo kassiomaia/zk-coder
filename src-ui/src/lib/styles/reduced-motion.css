@@ -1,0 +1,179 @@
+/**
+ * Shared Reduced Motion Styles
+ *
+ * Centralized reduced motion support following WCAG 2.1.2.3 guidelines.
+ * Import this file in component CSS modules that need reduced motion support.
+ *
+ * Usage:
+ * 1. Add @import '../../styles/reduced-motion.css' to your component
+ * 2. Apply the .reduce-motion class to elements that should respect reduced motion
+ * 3. Or use the media query mixins below
+ */
+
+/* =====================
+   REDUCED MOTION MEDIA QUERY
+   Global reduced motion support
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	/* Disable all animations and reduce transitions */
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+
+	/* Specific animation disabling for common patterns */
+	.spinner,
+	[class*='spin'],
+	[class*='pulse'],
+	[class*='bounce'],
+	[class*='shake'],
+	[class*='fade'],
+	[class*='slide'],
+	[class*='scale'] {
+		animation: none !important;
+	}
+
+	/* Maintain opacity for visibility */
+	[style*='opacity: 0'] {
+		opacity: 1 !important;
+	}
+
+	/* Remove transforms that might cause motion sickness */
+	[style*='transform:'] {
+		transform: none !important;
+	}
+}
+
+/* =====================
+   REDUCED MOTION CLASS
+   Apply this class when user prefers reduced motion
+   ===================== */
+
+.reduce-motion {
+	animation-duration: 0.01ms !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0.01ms !important;
+	scroll-behavior: auto !important;
+}
+
+/* Disable all animations when reduced motion is active */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+	animation: none !important;
+	transition: opacity 0.15s ease !important;
+	transform: none !important;
+}
+
+/* Preserve hover states for accessibility */
+.reduce-motion *:hover {
+	opacity: 1 !important;
+}
+
+/* =====================
+   COMPONENT-SPECIFIC MIXINS
+   Use these patterns in component CSS
+   ===================== */
+
+/* Button reduced motion pattern */
+@media (prefers-reduced-motion: reduce) {
+	:global(.btn),
+	:global(.button),
+	button,
+	[role='button'] {
+		transition: none !important;
+		transform: none !important;
+	}
+
+	:global(.btn):hover,
+	:global(.button):hover,
+	button:hover,
+	[role='button']:hover {
+		transform: none !important;
+	}
+}
+
+/* Modal reduced motion pattern */
+@media (prefers-reduced-motion: reduce) {
+	:global(.modal),
+	:global(.overlay),
+	[role='dialog'] {
+		animation: none !important;
+		opacity: 1 !important;
+		transform: none !important;
+	}
+}
+
+/* Tooltip reduced motion pattern */
+@media (prefers-reduced-motion: reduce) {
+	:global(.tooltip),
+	[data-tooltip] {
+		animation: none !important;
+		opacity: 1 !important;
+	}
+}
+
+/* Loading spinner reduced motion - show static indicator */
+@media (prefers-reduced-motion: reduce) {
+	.spinner,
+	[class*='spinner'] {
+		animation: none !important;
+		border-top-color: var(--color-text-muted) !important;
+		opacity: 0.7 !important;
+	}
+
+	/* Replace spinning loaders with static dots */
+	.spinner::after {
+		content: '...';
+		position: absolute;
+	}
+}
+
+/* Scroll-to-top button reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	:global(.scrollToTop),
+	:global(.scrollToBottom),
+	[aria-label*='scroll'] {
+		animation: none !important;
+		opacity: 1 !important;
+		transform: none !important;
+	}
+}
+
+/* =====================
+   RESPECT USER PREFERENCES
+   High contrast mode compatibility
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) and (prefers-contrast: high) {
+	/* Ensure focus rings remain visible */
+	:focus-visible {
+		outline-width: 3px !important;
+		outline-offset: 2px !important;
+	}
+
+	/* Maintain hover states */
+	:hover {
+		opacity: 1 !important;
+	}
+}
+
+/* =====================
+   PRINT STYLES
+   Disable animations when printing
+   ===================== */
+
+@media print {
+	*,
+	*::before,
+	*::after {
+		animation: none !important;
+		transition: none !important;
+		transform: none !important;
+	}
+}

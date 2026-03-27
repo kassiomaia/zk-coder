@@ -18,13 +18,13 @@ use crate::core::llm::entities::{
 };
 use crate::core::llm::repositories::LlmProvider;
 use crate::core::llm::services::LlmService;
-use crate::llm::{
+use crate::infrastructure::llm::{
     ChatResponse, ContentBlock as LlmContentBlock, ImageSource as LlmImageSource,
     MessageContent as LlmMessageContent, MessageRole as LlmMessageRole, ToolCall as LlmToolCall,
     UsageStats as LlmUsageStats,
 };
 use crate::core::config::{ApiType, Provider as NlpProvider};
-use crate::storage::ConfigStore;
+use crate::infrastructure::sqlite::repositories::config::SqliteConfigRepository;
 
 // =========================================================================
 // Test Fixtures
@@ -32,12 +32,13 @@ use crate::storage::ConfigStore;
 
 /// Creates a test service with an in-memory config store.
 fn create_test_service() -> LlmServiceImpl {
-    let config_store = ConfigStore::in_memory().expect("Failed to create config store");
+    let config_store = SqliteConfigRepository::in_memory()
+        .expect("Failed to create config repository");
     LlmServiceImpl::new(Arc::new(config_store))
 }
 
 /// Creates a test provider in the config store.
-fn setup_test_provider(store: &ConfigStore, id: &str, api_type: ApiType) {
+fn setup_test_provider(store: &SqliteConfigRepository, id: &str, api_type: ApiType) {
     let provider = NlpProvider {
         id: id.to_string(),
         name: format!("Test {}", id),
@@ -68,6 +69,8 @@ fn create_test_request(model: &str, content: &str) -> ChatRequest {
         system: None,
         temperature: None,
         max_tokens: None,
+        top_p: None,
+        stop: None,
         stream: false,
         tools: vec![],
     }
@@ -440,6 +443,8 @@ fn test_convert_request_basic() {
         system: None,
         temperature: Some(0.7),
         max_tokens: Some(1000),
+        top_p: None,
+        stop: None,
         stream: false,
         tools: vec![],
     };
@@ -461,6 +466,8 @@ fn test_convert_request_with_system() {
         system: Some("You are a helpful assistant".to_string()),
         temperature: None,
         max_tokens: None,
+        top_p: None,
+        stop: None,
         stream: false,
         tools: vec![],
     };
@@ -483,6 +490,8 @@ fn test_convert_request_with_tools() {
         system: None,
         temperature: None,
         max_tokens: None,
+        top_p: None,
+        stop: None,
         stream: false,
         tools: vec![ToolDefinition {
             name: "fs_read_file".to_string(),
@@ -506,6 +515,8 @@ fn test_convert_request_streaming() {
         system: None,
         temperature: None,
         max_tokens: None,
+        top_p: None,
+        stop: None,
         stream: true,
         tools: vec![],
     };
@@ -536,6 +547,8 @@ fn test_request_conversion_preserves_all_fields() {
         system: Some("Override system".to_string()),
         temperature: Some(0.5),
         max_tokens: Some(500),
+        top_p: None,
+        stop: None,
         stream: true,
         tools: vec![],
     };
@@ -661,7 +674,7 @@ fn test_convert_custom_provider() {
 
 #[test]
 fn test_create_client_openai() {
-    let store = ConfigStore::in_memory().expect("Failed to create store");
+    let store = SqliteConfigRepository::in_memory().expect("Failed to create store");
     setup_test_provider(&store, "openai-test", ApiType::OpenAI);
 
     let service = LlmServiceImpl::new(Arc::new(store));
@@ -674,7 +687,7 @@ fn test_create_client_openai() {
 
 #[test]
 fn test_create_client_anthropic() {
-    let store = ConfigStore::in_memory().expect("Failed to create store");
+    let store = SqliteConfigRepository::in_memory().expect("Failed to create store");
     setup_test_provider(&store, "anthropic-test", ApiType::Anthropic);
 
     let service = LlmServiceImpl::new(Arc::new(store));
@@ -686,7 +699,7 @@ fn test_create_client_anthropic() {
 
 #[test]
 fn test_create_client_google() {
-    let store = ConfigStore::in_memory().expect("Failed to create store");
+    let store = SqliteConfigRepository::in_memory().expect("Failed to create store");
     setup_test_provider(&store, "google-test", ApiType::Google);
 
     let service = LlmServiceImpl::new(Arc::new(store));
@@ -718,7 +731,7 @@ fn test_get_provider_config_not_found() {
 
 #[test]
 fn test_create_client_without_api_key() {
-    let store = ConfigStore::in_memory().expect("Failed to create store");
+    let store = SqliteConfigRepository::in_memory().expect("Failed to create store");
 
     // Insert provider without API key
     let provider = NlpProvider {
@@ -815,6 +828,8 @@ fn test_empty_request_messages() {
         system: None,
         temperature: None,
         max_tokens: None,
+        top_p: None,
+        stop: None,
         stream: false,
         tools: vec![],
     };
@@ -832,6 +847,8 @@ fn test_request_with_all_optional_fields() {
         system: Some("system".to_string()),
         temperature: Some(1.0),
         max_tokens: Some(100),
+        top_p: None,
+        stop: None,
         stream: true,
         tools: vec![],
     };
@@ -852,6 +869,8 @@ fn test_request_with_all_optional_fields_none() {
         system: None,
         temperature: None,
         max_tokens: None,
+        top_p: None,
+        stop: None,
         stream: false,
         tools: vec![],
     };
@@ -962,6 +981,8 @@ fn test_request_response_conversion_consistency() {
         system: Some("Test system".to_string()),
         temperature: Some(0.8),
         max_tokens: Some(2000),
+        top_p: None,
+        stop: None,
         stream: true,
         tools: vec![],
     };

@@ -1,18 +1,18 @@
 <script lang="ts">
-	/**
-	 * CustomProviderModal Component
-	 * Modal for adding a custom LLM provider.
-	 */
-	import styles from './CustomProviderModal.module.css';
-	import Modal from '../shared/Modal.svelte';
-	import Button from '../shared/Button.svelte';
-	import Input from '../shared/Input.svelte';
-	import Spinner from '../shared/Spinner.svelte';
-	import { configStore } from '$lib/stores/configStore';
-	import type { ApiType } from '$lib/types/config';
-	import { get } from 'svelte/store';
+    /**
+     * CustomProviderModal Component
+     * Modal for adding a custom LLM provider.
+     */
+    import styles from './CustomProviderModal.module.css';
+    import Modal from '../shared/Modal.svelte';
+    import Button from '../shared/Button.svelte';
+    import Input from '../shared/Input.svelte';
+    import Spinner from '../shared/Spinner.svelte';
+    import {configStore} from '$lib/stores/configStore';
+    import type {ApiType} from '$lib/types/config';
+    import {get} from 'svelte/store';
 
-	interface Props {
+    interface Props {
 		open: boolean;
 		onclose: () => void;
 		onsaved?: (providerId: string) => void;

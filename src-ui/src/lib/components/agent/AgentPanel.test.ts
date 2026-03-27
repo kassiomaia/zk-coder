@@ -1,7 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 import AgentPanel from './AgentPanel.svelte';
-import type { AgentSession, PendingAction } from '$lib/types/agent';
+import type {AgentSession, PendingAction} from '$lib/types/agent';
 
 // Mock child components to simplify testing
 vi.mock('./TaskList.svelte', () => ({

@@ -3,7 +3,7 @@
  * UI state management functions for the agent store.
  */
 
-import type { AgentState } from './state';
+import type {AgentState} from './state';
 
 /**
  * Toggle the agent panel visibility.

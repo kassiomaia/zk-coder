@@ -1,7 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import ChatInput from './ChatInput.svelte';
-import type { Command } from '$lib/types/command';
+import type {Command} from '$lib/types/command';
 
 // Mock the stores
 const mockChatStore = {

@@ -1,7 +1,6 @@
-import { render, screen, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect, vi } from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {describe, expect, it, vi} from 'vitest';
 import IconButton from './IconButton.svelte';
-import { Search } from 'lucide-svelte';
 
 describe('IconButton', () => {
 	// Create a simple icon snippet

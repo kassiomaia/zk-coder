@@ -3,9 +3,9 @@
  * Handles session-related agent events.
  */
 
-import type { AgentEvent, AgentSession } from '$lib/types/agent';
-import type { AgentState } from '../state';
-import { getOnExecutionComplete, getOnCleanupTransients, getOnAgentActivity } from '../callbacks';
+import type {AgentEvent} from '$lib/types/agent';
+import type {AgentState} from '../state';
+import {getOnAgentActivity, getOnCleanupTransients, getOnExecutionComplete} from '../callbacks';
 
 /**
  * Handle session_state_changed event.

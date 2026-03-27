@@ -1,21 +1,21 @@
 <script lang="ts">
-	import { 
-		ChevronRight, 
-		FileSearch, 
-		FileText, 
-		FilePenLine, 
-		Terminal, 
-		Globe, 
-		Code, 
-		CheckCircle2, 
-		AlertCircle,
-		Clock
-	} from 'lucide-svelte';
-	import type { ToolCallRecord } from '$lib/types/agent';
-	import hljs from 'highlight.js';
-	import 'highlight.js/styles/github-dark.css';
+    import {
+        AlertCircle,
+        CheckCircle2,
+        ChevronRight,
+        Clock,
+        Code,
+        FilePenLine,
+        FileSearch,
+        FileText,
+        Globe,
+        Terminal
+    } from 'lucide-svelte';
+    import type {ToolCallRecord} from '$lib/types/agent';
+    import hljs from 'highlight.js';
+    import 'highlight.js/styles/github-dark.css';
 
-	interface Props {
+    interface Props {
 		record: ToolCallRecord;
 	}
 

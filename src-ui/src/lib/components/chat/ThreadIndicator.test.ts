@@ -1,7 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import ThreadIndicator from './ThreadIndicator.svelte';
-import type { Thread } from '$lib/types/thread';
+import type {Thread} from '$lib/types/thread';
 
 describe('ThreadIndicator', () => {
 	let mockThread: Thread;

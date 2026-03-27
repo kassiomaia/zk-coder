@@ -4,8 +4,15 @@
 //! models, and operation defaults. These are core domain entities
 //! that define the configuration contract for the application.
 
+pub mod repositories;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+pub use repositories::{
+    ApiKeyRepository, ConfigDomainError, ConfigRepository, ManualModelRepository, ModelRepository,
+    OperationDefaultsRepository, ProviderRepository, RepositoryResult as ConfigRepositoryResult,
+};
 
 /// API provider type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

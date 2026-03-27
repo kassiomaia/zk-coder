@@ -1,7 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import ToolCallMessage from './ToolCallMessage.svelte';
-import type { Message } from '$lib/types/message';
+import type {Message} from '$lib/types/message';
 
 describe('ToolCallMessage', () => {
 	let mockMessage: Message;
@@ -150,7 +150,7 @@ describe('ToolCallMessage', () => {
 			const { container } = render(ToolCallMessage, {
 				message: errorMessage
 			});
-			const containerEl = container.querySelector('.hasError');
+			const containerEl = container.querySelector('[class*="toolCall"] [class*="error"]');
 			expect(containerEl).toBeInTheDocument();
 		});
 	});
@@ -174,8 +174,9 @@ describe('ToolCallMessage', () => {
 				await fireEvent.click(button);
 			}
 
+			// With CSS modules, the expanded class is scoped (e.g., ToolCallMessage_expanded_xyz)
 			const containerEl = container.querySelector('[class*="toolCall"]');
-			expect(containerEl?.classList.contains('expanded')).toBe(true);
+			expect(containerEl?.className).toContain('expanded');
 		});
 
 		it('toggles collapse on second click', async () => {
@@ -348,7 +349,7 @@ describe('ToolCallMessage', () => {
 			const { container } = render(ToolCallMessage, {
 				message: mockMessage
 			});
-			const chevron = container.querySelector('.chevron');
+			const chevron = container.querySelector('[class*="chevron"]');
 			expect(chevron).toBeInTheDocument();
 		});
 

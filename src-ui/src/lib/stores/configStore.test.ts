@@ -3,10 +3,29 @@
  * Comprehensive test coverage for all configuration store functionality.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { get } from 'svelte/store';
-import type { Provider, Model, OperationDefault } from '$lib/types/config';
-import type { ApiType, OperationType } from '$lib/types/config';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {get} from 'svelte/store';
+import type {Model, OperationDefault, OperationType, Provider} from '$lib/types/config';
+import {
+    addManualModel,
+    deleteApiKey,
+    fetchModels,
+    getManualModels,
+    getModels,
+    getOperationDefaults,
+    getProviders,
+    removeManualModel,
+    removeProvider,
+    retrieveApiKey,
+    saveProvider,
+    setOperationDefault,
+    setProviderModelsSource,
+    storeApiKey,
+    validateApiKey
+} from '$lib/api/config';
+
+// Now import after mocking
+import {configStore} from './configStore';
 
 // Create mock functions that will be used in vi.mock
 const mockInvoke = vi.fn();
@@ -34,27 +53,6 @@ vi.mock('$lib/api/config', () => ({
 	removeManualModel: vi.fn(),
 	setProviderModelsSource: vi.fn()
 }));
-
-import {
-	getProviders,
-	saveProvider,
-	removeProvider,
-	getModels,
-	validateApiKey,
-	fetchModels,
-	storeApiKey,
-	retrieveApiKey,
-	deleteApiKey,
-	getOperationDefaults,
-	setOperationDefault,
-	getManualModels,
-	addManualModel,
-	removeManualModel,
-	setProviderModelsSource
-} from '$lib/api/config';
-
-// Now import after mocking
-import { configStore } from './configStore';
 
 // Helper function to create mock provider
 const createMockProvider = (id: string, name: string, isConfigured = false): Provider => ({

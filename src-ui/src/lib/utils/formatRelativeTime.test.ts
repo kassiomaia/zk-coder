@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { formatRelativeTime } from './formatRelativeTime';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {formatRelativeTime} from './formatRelativeTime';
 
 describe('formatRelativeTime', () => {
 	let realNow: number;

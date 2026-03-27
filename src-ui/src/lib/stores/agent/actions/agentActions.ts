@@ -3,8 +3,8 @@
  * Agent listing and query functions for the agent store.
  */
 
-import type { AgentState } from '../state';
-import type { Agent } from '$lib/types/agent';
+import type {AgentState} from '../state';
+import type {Agent} from '$lib/types/agent';
 
 /**
  * List all available agents.

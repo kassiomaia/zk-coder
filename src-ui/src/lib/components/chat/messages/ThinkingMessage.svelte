@@ -6,9 +6,9 @@
  * Shows status phrases like "Analyzing...", "Reading files..." during agent execution.
  */
 
-import type { Message } from '$lib/types/message';
+import type {Message} from '$lib/types/message';
 import styles from './ThinkingMessage.module.css';
-import { Cpu, ChevronDown, ChevronUp, CheckCircle } from 'lucide-svelte';
+import {CheckCircle, ChevronDown, ChevronUp} from 'lucide-svelte';
 
 interface Props {
 	message: Message;

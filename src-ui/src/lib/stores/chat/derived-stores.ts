@@ -5,11 +5,11 @@
  * Uses factory pattern to avoid circular dependency issues.
  */
 
-import { derived, type Readable } from 'svelte/store';
-import type { ConversationGroup, Conversation, Thread } from '$lib/types/thread';
-import type { MessageGroup, Message } from '$lib/types/message';
-import type { ChatState } from './types';
-import { sortThreadsByRecent } from './utils';
+import {derived, type Readable} from 'svelte/store';
+import type {Conversation, ConversationGroup, Thread} from '$lib/types/thread';
+import type {Message, MessageGroup} from '$lib/types/message';
+import type {ChatState} from './types';
+import {sortThreadsByRecent} from './utils';
 
 // ============================================================================
 // Factory Function Types

@@ -1,12 +1,12 @@
 <script lang="ts">
-	/**
-	 * ModelCard Component
-	 * Clickable card for selecting a model as default for an operation.
-	 */
-	import styles from './ModelCard.module.css';
-	import type { Model } from '$lib/types/config';
+    /**
+     * ModelCard Component
+     * Clickable card for selecting a model as default for an operation.
+     */
+    import styles from './ModelCard.module.css';
+    import type {Model} from '$lib/types/config';
 
-	interface Props {
+    interface Props {
 		model: Model;
 		selected?: boolean;
 		onclick?: () => void;

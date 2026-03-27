@@ -1,7 +1,7 @@
 <script lang="ts">
-        import type { IconProps } from './icons.d';
+    import type {IconProps} from './icons.d';
 
-        let {
+    let {
                 size = 24,
                 class: className = '',
                 strokeWidth = 2,

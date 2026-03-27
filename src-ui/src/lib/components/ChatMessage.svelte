@@ -1,15 +1,15 @@
 <script lang="ts">
-	/**
-	 * ChatMessage Component
-	 * Displays individual messages in a conversation with support for user, assistant, and system roles.
-	 */
-	import styles from './ChatMessage.module.css';
-	import ThreadIndicator from './chat/ThreadIndicator.svelte';
-	import MarkdownRenderer from './markdown/MarkdownRenderer.svelte';
-	import AnsweringIndicator from './chat/AnsweringIndicator.svelte';
-	import type { MessageStatus } from '$lib/types/message';
+    /**
+     * ChatMessage Component
+     * Displays individual messages in a conversation with support for user, assistant, and system roles.
+     */
+    import styles from './ChatMessage.module.css';
+    import ThreadIndicator from './chat/ThreadIndicator.svelte';
+    import MarkdownRenderer from './markdown/MarkdownRenderer.svelte';
+    import AnsweringIndicator from './chat/AnsweringIndicator.svelte';
+    import type {MessageStatus} from '$lib/types/message';
 
-	interface Props {
+    interface Props {
 		/** Unique identifier for the message */
 		id: string;
 

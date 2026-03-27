@@ -89,13 +89,9 @@ pub enum AgentTrustMode {
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum SessionState {
     /// Session created, waiting for first request
-    WaitForRequest {
-        last_action_at: DateTime<Utc>,
-    },
+    WaitForRequest { last_action_at: DateTime<Utc> },
     /// Processing a request
-    Processing {
-        started_at: DateTime<Utc>,
-    },
+    Processing { started_at: DateTime<Utc> },
     /// Waiting for user approval on an action
     AwaitingApproval {
         action_id: String,
@@ -244,6 +240,8 @@ pub struct AgentTask {
     pub id: String,
     /// Session this task belongs to
     pub session_id: String,
+    /// Parent task when this record represents a subtask.
+    pub parent_task_id: Option<String>,
     /// Task title
     pub title: String,
     /// Detailed description
@@ -252,6 +250,8 @@ pub struct AgentTask {
     pub status: TaskStatus,
     /// Display order
     pub order: i32,
+    /// Optional execution mode for the task/subtask.
+    pub mode: Option<TaskMode>,
 }
 
 /// Status of a task.
@@ -268,6 +268,76 @@ pub enum TaskStatus {
     Failed,
     /// Task was cancelled
     Cancelled,
+}
+
+/// Execution mode for a task.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskMode {
+    Read,
+    Write,
+    Execute,
+    FullAccess,
+}
+
+impl TaskMode {
+    pub fn allowed_tools(&self) -> Vec<&'static str> {
+        match self {
+            TaskMode::Read => vec![
+                "fs_read_file",
+                "search_grep",
+                "fs_list_files",
+                "agent_emit_status",
+                "agent_advance_to_next_subtask",
+            ],
+            TaskMode::Write => vec![
+                "fs_read_file",
+                "fs_write_file",
+                "search_grep",
+                "fs_list_files",
+                "agent_emit_status",
+                "agent_advance_to_next_subtask",
+            ],
+            TaskMode::Execute => vec![
+                "fs_read_file",
+                "search_grep",
+                "fs_list_files",
+                "system_execute",
+                "agent_emit_status",
+                "agent_advance_to_next_subtask",
+            ],
+            TaskMode::FullAccess => vec![
+                "fs_read_file",
+                "fs_write_file",
+                "fs_list_files",
+                "search_grep",
+                "system_execute",
+                "agent_emit_status",
+                "agent_plan_subtasks",
+                "agent_advance_to_next_subtask",
+            ],
+        }
+    }
+
+    pub fn instruction_text(&self) -> &'static str {
+        match self {
+            TaskMode::Read => {
+                "READ-ONLY: You may only read files and search code. \
+                DO NOT create new plans, write files, delete files, or execute commands."
+            }
+            TaskMode::Write => {
+                "WRITE: You may read and write files. \
+                DO NOT create new plans or execute commands."
+            }
+            TaskMode::Execute => {
+                "EXECUTE: You may read files and execute commands. \
+                DO NOT create new plans or write files."
+            }
+            TaskMode::FullAccess => {
+                "FULL ACCESS: You may read files, write files, and execute commands."
+            }
+        }
+    }
 }
 
 /// Result of agent execution.

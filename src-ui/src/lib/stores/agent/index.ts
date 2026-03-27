@@ -11,8 +11,8 @@ export type { AgentStore } from './store';
 export type { AgentState } from './state';
 
 // Derived stores
-import { derived } from 'svelte/store';
-import { agentStore } from './store';
+import {derived} from 'svelte/store';
+import {agentStore} from './store';
 
 /** Currently active agent session */
 export const activeSession = derived(agentStore, ($state) =>

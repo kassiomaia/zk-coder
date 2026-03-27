@@ -1,15 +1,15 @@
 <script lang="ts">
-	/**
-	 * AnsweringIndicator Component
-	 * Shows agent execution status with elegant letter-shuffle animation.
-	 * Displays real-time status from agent events or fallback phases.
-	 */
-	import { onMount, onDestroy } from 'svelte';
-	import { Scan, Terminal, File, Edit, Clock, CheckCircle, Sparkles } from 'lucide-svelte';
-	import styles from './AnsweringIndicator.module.css';
-	import type { AgentStatus } from '$lib/utils/agentStatus';
+    /**
+     * AnsweringIndicator Component
+     * Shows agent execution status with elegant letter-shuffle animation.
+     * Displays real-time status from agent events or fallback phases.
+     */
+    import {onMount} from 'svelte';
+    import {CheckCircle, Clock, Edit, File, Scan, Sparkles, Terminal} from 'lucide-svelte';
+    import styles from './AnsweringIndicator.module.css';
+    import type {AgentStatus} from '$lib/utils/agentStatus';
 
-	const SCRAMBLE_DURATION = 800; // Duration for the letter scramble animation in milliseconds
+    const SCRAMBLE_DURATION = 800; // Duration for the letter scramble animation in milliseconds
 
 	const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
 

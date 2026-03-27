@@ -3,6 +3,8 @@
  * Muted, collapsible section for agent thinking
  */
 
+@import '../../../styles/animations.css';
+
 .thinkingMessage {
 	border-radius: var(--radius-sm);
 	background: transparent;
@@ -76,18 +78,7 @@
 
 .content {
 	padding: 4px 12px 8px 30px;
-	animation: slideDown var(--transition-fast) ease-out;
-}
-
-@keyframes slideDown {
-	from {
-		opacity: 0;
-		transform: translateY(-2px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
+	animation: slideInFromBottom var(--transition-fast) ease-out;
 }
 
 .collapsed .content {
@@ -110,10 +101,5 @@
 	border-bottom-color: transparent;
 	border-radius: 50%;
 	display: inline-block;
-	animation: rotation 1s linear infinite;
-}
-
-@keyframes rotation {
-	0% { transform: rotate(0deg); }
-	100% { transform: rotate(360deg); }
+	animation: spin 1s linear infinite;
 }

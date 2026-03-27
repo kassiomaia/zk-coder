@@ -1,21 +1,21 @@
 <script lang="ts">
-	/**
-	 * InlineThreadList Component
-	 * Renders threads inline under the selected conversation in the sidebar.
-	 *
-	 * Design Features:
-	 * - Continuous cluster without section dividers
-	 * - Resolved threads differentiated by tonal reduction (opacity)
-	 * - Open threads appear first, resolved threads follow
-	 * - Controlled reveal animation with max-height and opacity
-	 * - Stagger animation on thread items using design system tokens
-	 * - Scroll stability with overflow-anchor: none
-	 */
-	import styles from './InlineThreadList.module.css';
-	import ThreadItem from '../thread/ThreadItem.svelte';
-	import type { Thread } from '$lib/types/thread';
+    /**
+     * InlineThreadList Component
+     * Renders threads inline under the selected conversation in the sidebar.
+     *
+     * Design Features:
+     * - Continuous cluster without section dividers
+     * - Resolved threads differentiated by tonal reduction (opacity)
+     * - Open threads appear first, resolved threads follow
+     * - Controlled reveal animation with max-height and opacity
+     * - Stagger animation on thread items using design system tokens
+     * - Scroll stability with overflow-anchor: none
+     */
+    import styles from './InlineThreadList.module.css';
+    import ThreadItem from '../thread/ThreadItem.svelte';
+    import type {Thread} from '$lib/types/thread';
 
-	interface Props {
+    interface Props {
 		/** List of threads to display */
 		threads: Thread[];
 		/** Thread IDs currently receiving streamed responses */

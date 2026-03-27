@@ -1,7 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import ConversationItem from './ConversationItem.svelte';
-import type { Conversation } from '$lib/types/thread';
+import type {Conversation} from '$lib/types/thread';
 
 describe('ConversationItem', () => {
 	let mockConversation: Conversation;
@@ -104,7 +104,18 @@ describe('ConversationItem', () => {
 			const ondoubleclick = vi.fn();
 			const conversationWithThreads: Conversation = {
 				...mockConversation,
-				threads: []
+				threads: [
+					{
+						id: 'thread-1',
+						conversationId: 'conv-1',
+						parentId: null,
+						title: 'Test Thread',
+						createdAt: new Date('2024-01-15T10:00:00'),
+						updatedAt: new Date('2024-01-15T10:30:00'),
+						messageCount: 5,
+						metadata: { resolved: false }
+					}
+				]
 			};
 
 			const { container } = render(ConversationItem, {
@@ -116,7 +127,7 @@ describe('ConversationItem', () => {
 			const button = container.querySelector('button');
 			if (button) {
 				await fireEvent.dblClick(button);
-				expect(ondblclick).toHaveBeenCalledTimes(1);
+				expect(ondoubleclick).toHaveBeenCalledTimes(1);
 			}
 		});
 
@@ -131,7 +142,7 @@ describe('ConversationItem', () => {
 			const button = container.querySelector('button');
 			if (button) {
 				await fireEvent.dblClick(button);
-				expect(ondblclick).not.toHaveBeenCalled();
+				expect(ondoubleclick).not.toHaveBeenCalled();
 			}
 		});
 	});

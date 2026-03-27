@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { generateUniqueId, generatePopoverId } from './idGenerator';
+import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+import {generatePopoverId, generateUniqueId} from './idGenerator';
 
 describe('idGenerator', () => {
 	describe('generateUniqueId', () => {

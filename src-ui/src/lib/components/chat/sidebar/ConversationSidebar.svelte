@@ -1,23 +1,23 @@
 <script lang="ts">
-	/**
-	 * ConversationSidebar Component
-	 * Main sidebar showing conversation history with inline thread navigation.
-	 *
-	 * Design Features:
-	 * - Unified header that adapts contextually (New Conversation vs New Thread)
-	 * - Inline thread rendering under selected conversation
-	 * - Hierarchical navigation with indentation
-	 * - Controlled reveal animation for thread expansion
-	 */
-	import styles from './ConversationSidebar.module.css';
-	import SearchBar from './SearchBar.svelte';
-	import ConversationItem from './ConversationItem.svelte';
-	import InlineThreadList from './InlineThreadList.svelte';
-	import Popover from '$lib/components/shared/Popover.svelte';
-	import type { PopoverItem } from '$lib/components/shared/popover.types';
-	import type { Conversation, ConversationGroup, Thread } from '$lib/types/thread';
+    /**
+     * ConversationSidebar Component
+     * Main sidebar showing conversation history with inline thread navigation.
+     *
+     * Design Features:
+     * - Unified header that adapts contextually (New Conversation vs New Thread)
+     * - Inline thread rendering under selected conversation
+     * - Hierarchical navigation with indentation
+     * - Controlled reveal animation for thread expansion
+     */
+    import styles from './ConversationSidebar.module.css';
+    import SearchBar from './SearchBar.svelte';
+    import ConversationItem from './ConversationItem.svelte';
+    import InlineThreadList from './InlineThreadList.svelte';
+    import Popover from '$lib/components/shared/Popover.svelte';
+    import type {PopoverItem} from '$lib/components/shared/popover.types';
+    import type {Conversation, ConversationGroup, Thread} from '$lib/types/thread';
 
-	interface Props {
+    interface Props {
 		/** List of conversations to display */
 		conversations: Conversation[];
 		/** Currently selected conversation ID */

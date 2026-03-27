@@ -3,10 +3,10 @@
  * Handles streaming content, status phrase, and context compaction events.
  */
 
-import type { AgentEvent } from '$lib/types/agent';
-import type { AgentState } from '../state';
-import { scheduleStreamingUpdate, clearStreamingUpdates } from '../streaming';
-import { getOnSystemMessage, getOnAgentActivity } from '../callbacks';
+import type {AgentEvent} from '$lib/types/agent';
+import type {AgentState} from '../state';
+import {clearStreamingUpdates, scheduleStreamingUpdate} from '../streaming';
+import {getOnAgentActivity, getOnSystemMessage} from '../callbacks';
 
 /**
  * Handle streaming_content event.

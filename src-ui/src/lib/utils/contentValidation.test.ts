@@ -1,12 +1,11 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {
-	validateContent,
-	sanitizeLinks,
-	sanitizeUrl,
-	mightNeedSanitization,
-	defaultValidationConfig,
-	type ValidationResult,
-	type ContentValidationConfig
+    type ContentValidationConfig,
+    defaultValidationConfig,
+    mightNeedSanitization,
+    sanitizeLinks,
+    sanitizeUrl,
+    validateContent
 } from './contentValidation';
 
 describe('contentValidation', () => {

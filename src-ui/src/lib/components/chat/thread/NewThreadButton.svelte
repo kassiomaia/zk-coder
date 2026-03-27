@@ -1,12 +1,12 @@
 <script lang="ts">
-	/**
-	 * NewThreadButton Component
-	 * Button to create a new thread.
-	 */
-	import styles from './NewThreadButton.module.css';
-	import { PlusIcon } from '$lib/icons';
+    /**
+     * NewThreadButton Component
+     * Button to create a new thread.
+     */
+    import styles from './NewThreadButton.module.css';
+    import {PlusIcon} from '$lib/icons';
 
-	interface Props {
+    interface Props {
 		/** Click handler */
 		onclick?: () => void;
 		/** Disabled state */

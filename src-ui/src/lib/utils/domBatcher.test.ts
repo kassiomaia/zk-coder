@@ -2,21 +2,20 @@
  * Tests for domBatcher
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {
-	scheduleRead,
-	scheduleWrite,
-	scheduleReadThenWrite,
-	measureScrollState,
-	measureScrollStateSync,
-	applyScrollPosition,
-	cancelOperation,
-	cancelThreadOperations,
-	clearAll,
-	hasPendingOperations,
-	getPendingCount,
-	executeImmediate,
-	type ScrollState
+    applyScrollPosition,
+    cancelOperation,
+    cancelThreadOperations,
+    clearAll,
+    executeImmediate,
+    getPendingCount,
+    hasPendingOperations,
+    measureScrollState,
+    measureScrollStateSync,
+    scheduleRead,
+    scheduleReadThenWrite,
+    scheduleWrite
 } from './domBatcher';
 
 describe('domBatcher', () => {

@@ -1,12 +1,12 @@
 <script lang="ts">
-	/**
-	 * ManualModelList Component
-	 * Displays and manages manually configured models for a provider.
-	 */
-	import styles from './ManualModelList.module.css';
-	import { invoke } from '@tauri-apps/api/core';
+    /**
+     * ManualModelList Component
+     * Displays and manages manually configured models for a provider.
+     */
+    import styles from './ManualModelList.module.css';
+    import {invoke} from '@tauri-apps/api/core';
 
-	interface ModelCapabilities {
+    interface ModelCapabilities {
 		analysis: boolean;
 		code: boolean;
 		vision: boolean;

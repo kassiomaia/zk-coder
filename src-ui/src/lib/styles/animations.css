@@ -1,0 +1,511 @@
+/**
+ * Shared Animations
+ *
+ * Centralized @keyframes definitions used across components.
+ * Import this file in component CSS modules that need animations.
+ *
+ * Animation naming convention:
+ * - {action}{direction}In - Entrance animations
+ * - {action} - Continuous/one-shot actions
+ * - {effect} - Visual effects
+ */
+
+/* =====================
+   ROTATION / SPIN
+   ===================== */
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* =====================
+   ENTRANCE ANIMATIONS
+   ===================== */
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes slideIn {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes slideInFromBottom {
+	from {
+		opacity: 0;
+		transform: translateY(16px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes slideOutToBottom {
+	from {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(16px) scale(0.98);
+	}
+}
+
+@keyframes scaleIn {
+	from {
+		opacity: 0;
+		transform: scale(0.95);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+/* =====================
+   MICRO-INTERACTIONS
+   ===================== */
+
+@keyframes dangerShake {
+	0%,
+	100% {
+		transform: translateX(0);
+	}
+	20% {
+		transform: translateX(-2px);
+	}
+	40% {
+		transform: translateX(2px);
+	}
+	60% {
+		transform: translateX(-1px);
+	}
+	80% {
+		transform: translateX(1px);
+	}
+}
+
+@keyframes dangerPulse {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	25% {
+		transform: scale(1.02);
+	}
+	50% {
+		transform: scale(0.99);
+	}
+	75% {
+		transform: scale(1.01);
+	}
+}
+
+@keyframes pressScale {
+	0% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(0.96);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+@keyframes copySuccess {
+	0% {
+		transform: scale(1);
+	}
+	25% {
+		transform: scale(0.9);
+	}
+	50% {
+		transform: scale(1.1);
+	}
+	75% {
+		transform: scale(0.95);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+/* =====================
+   SHAKES / ERROR FEEDBACK
+   ===================== */
+
+@keyframes shake {
+	10%,
+	90% {
+		transform: translate3d(-1px, 0, 0);
+	}
+	20%,
+	80% {
+		transform: translate3d(2px, 0, 0);
+	}
+	30%,
+	50%,
+	70% {
+		transform: translate3d(-4px, 0, 0);
+	}
+	40%,
+	60% {
+		transform: translate3d(4px, 0, 0);
+	}
+}
+
+/* =====================
+   PULSE / GLOW EFFECTS
+   ===================== */
+
+@keyframes pulse {
+	0%,
+	100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+	50% {
+		transform: scale(1.05);
+		opacity: 0.9;
+	}
+}
+
+@keyframes sendPulse {
+	0%,
+	100% {
+		opacity: 0.7;
+	}
+	50% {
+		opacity: 0.85;
+	}
+}
+
+@keyframes scrollPulse {
+	0%,
+	100% {
+		box-shadow: var(--shadow-md);
+		border-color: var(--color-border-primary);
+	}
+	50% {
+		box-shadow:
+			0 0 0 4px rgba(99, 102, 241, 0.15),
+			var(--shadow-lg);
+		border-color: var(--color-primary-500);
+	}
+}
+
+@keyframes skeletonPulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+/* =====================
+   MORPH / SWEEP EFFECTS
+   ===================== */
+
+@keyframes checkMorph {
+	0% {
+		opacity: 0;
+		transform: scale(0.5) rotate(-45deg);
+	}
+	50% {
+		opacity: 0.8;
+		transform: scale(1.1) rotate(0deg);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1) rotate(0deg);
+	}
+}
+
+@keyframes iconScale {
+	0% {
+		opacity: 0;
+		transform: scale(0);
+	}
+	60% {
+		opacity: 1;
+		transform: scale(1.2);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@keyframes sweep {
+	0% {
+		transform: translateX(-100%);
+		opacity: 0;
+	}
+	50% {
+		opacity: 1;
+	}
+	100% {
+		transform: translateX(100%);
+		opacity: 0;
+	}
+}
+
+@keyframes highlightSweep {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(100%);
+	}
+}
+
+/* =====================
+   EMPTY STATE ANIMATIONS
+   ===================== */
+
+@keyframes emptyStateMount {
+	from {
+		opacity: 0;
+		transform: translateY(16px) scale(0.97);
+		filter: blur(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+		filter: blur(0);
+	}
+}
+
+@keyframes emptyFadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+/* =====================
+   CONTENT REVEAL ANIMATIONS
+   ===================== */
+
+@keyframes contentReflow {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes groupEnter {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes messageReflow {
+	from {
+		opacity: 0;
+		transform: translateY(8px) scale(0.995);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+/* =====================
+   POPOVER / DROPDOWN ANIMATIONS
+   ===================== */
+
+@keyframes popoverEnter {
+	from {
+		opacity: 0;
+		transform: translateY(-2px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes popoverItemFade {
+	from {
+		opacity: 0;
+		transform: translateY(-2px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* =====================
+   TOOLTIP ANIMATIONS
+   ===================== */
+
+@keyframes tooltipFadeInTop {
+	0% {
+		opacity: 0;
+		transform: translateX(-50%) translateY(-100%) scale(0.96);
+	}
+	100% {
+		opacity: 1;
+		transform: translateX(-50%) translateY(-100%) scale(1);
+	}
+}
+
+@keyframes tooltipFadeInBottom {
+	0% {
+		opacity: 0;
+		transform: translateX(-50%) scale(0.96);
+	}
+	100% {
+		opacity: 1;
+		transform: translateX(-50%) scale(1);
+	}
+}
+
+@keyframes tooltipFadeInLeft {
+	0% {
+		opacity: 0;
+		transform: translateX(-100%) translateY(-50%) scale(0.96);
+	}
+	100% {
+		opacity: 1;
+		transform: translateX(-100%) translateY(-50%) scale(1);
+	}
+}
+
+@keyframes tooltipFadeInRight {
+	0% {
+		opacity: 0;
+		transform: translateY(-50%) scale(0.96);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(-50%) scale(1);
+	}
+}
+
+@keyframes tooltipGlow {
+	0%,
+	100% {
+		box-shadow:
+			0 2px 4px rgba(0, 0, 0, 0.1),
+			0 4px 12px rgba(0, 0, 0, 0.15),
+			0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+	}
+	50% {
+		box-shadow:
+			0 2px 4px rgba(0, 0, 0, 0.1),
+			0 4px 16px rgba(0, 0, 0, 0.18),
+			0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+	}
+}
+
+/* =====================
+   MODAL ANIMATIONS
+   ===================== */
+
+@keyframes modalCapture {
+	0% {
+		opacity: 0;
+		transform: scale(var(--modal-scale-capture)) translateY(6px);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(0.995) translateY(1px);
+	}
+}
+
+@keyframes modalSettle {
+	0% {
+		transform: scale(0.995) translateY(1px);
+	}
+	100% {
+		transform: scale(1) translateY(0);
+	}
+}
+
+@keyframes overlayCapture {
+	0% {
+		opacity: 0;
+		backdrop-filter: blur(0px);
+	}
+	100% {
+		opacity: 1;
+		backdrop-filter: blur(10px);
+	}
+}
+
+@keyframes modalExit {
+	0% {
+		opacity: 1;
+		transform: scale(1) translateY(0);
+	}
+	100% {
+		opacity: 0;
+		transform: scale(0.98) translateY(-4px);
+	}
+}
+
+@keyframes overlayExit {
+	0% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+@keyframes contentReveal {
+	0% {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}

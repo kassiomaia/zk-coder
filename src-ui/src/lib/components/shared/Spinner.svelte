@@ -1,11 +1,11 @@
 <script lang="ts">
-	/**
-	 * Spinner Component
-	 * A loading spinner animation for indicating pending operations.
-	 */
-	import { SpinnerIcon } from '$lib/icons';
+    /**
+     * Spinner Component
+     * A loading spinner animation for indicating pending operations.
+     */
+    import {SpinnerIcon} from '$lib/icons';
 
-	interface Props {
+    interface Props {
 		size?: number;
 		class?: string;
 	}

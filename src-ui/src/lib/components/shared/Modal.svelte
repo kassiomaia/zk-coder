@@ -1,15 +1,15 @@
 <script lang="ts">
-	/**
-	 * Modal Component
-	 * Reusable modal with overlay wrapper, header, body, and footer slots.
-	 * Matches the prototype pattern: .modal-overlay wraps .modal
-	 */
-	import styles from './Modal.module.css';
-	import IconButton from './IconButton.svelte';
-	import { CloseIcon } from '$lib/icons';
-	import type { Snippet } from 'svelte';
+    /**
+     * Modal Component
+     * Reusable modal with overlay wrapper, header, body, and footer slots.
+     * Matches the prototype pattern: .modal-overlay wraps .modal
+     */
+    import styles from './Modal.module.css';
+    import IconButton from './IconButton.svelte';
+    import {CloseIcon} from '$lib/icons';
+    import type {Snippet} from 'svelte';
 
-	// Track number of open modals globally to properly manage body scroll
+    // Track number of open modals globally to properly manage body scroll
 	// Use a regular variable with manual tracking since we need module-level state
 	let openModalCount = 0;
 	const bodyScrollOriginalStyle = new WeakMap<Document, string>();

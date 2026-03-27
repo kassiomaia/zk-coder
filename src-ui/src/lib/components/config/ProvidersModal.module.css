@@ -142,7 +142,7 @@
 
 .card.configured {
 	border-color: var(--color-provider-openai-border);
-	background: rgba(16, 185, 129, 0.03);
+	background: var(--color-success-subtle);
 }
 
 .card.configured .statusDot {

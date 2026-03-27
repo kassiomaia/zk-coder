@@ -13,8 +13,8 @@
 .actions {
 	display: flex;
 	align-items: center;
-	padding: 2px 4px;
-	gap: 2px;
+	padding: var(--space-px) var(--space-1);
+	gap: var(--space-px);
 	background-color: var(--color-surface);
 	border: 1px solid var(--color-border-subtle);
 	border-radius: var(--radius-full);
@@ -42,13 +42,13 @@
 /* Weight shift on hover */
 .actionBtn:hover {
 	color: var(--color-text-primary);
-	transform: translateY(-1px);
+	transform: translateY(var(--btn-hover-lift));
 }
 
 /* Micro-bounce tap response */
 .actionBtn:active {
 	transform: scale(0.92) !important;
-	transition-duration: 80ms !important;
+	transition-duration: var(--duration-micro) !important;
 }
 
 /* Ripple effect overlay */
@@ -67,8 +67,8 @@
 }
 
 .actionBtn:active::after {
-	opacity: 0.12;
-	transform: scale(1.5);
+	opacity: var(--ripple-opacity);
+	transform: scale(var(--ripple-scale-max));
 }
 
 /* Copied state with success feedback */
@@ -88,7 +88,7 @@
 }
 
 [data-theme='dark'] .active {
-	background: rgba(99, 102, 241, 0.15);
+	background: var(--color-primary-light);
 }
 
 /* Feedback group with visual separator */
@@ -96,9 +96,9 @@
 	display: flex;
 	align-items: center;
 	border-left: 1px solid var(--color-border-subtle);
-	padding-left: 4px;
-	margin-left: 2px;
-	height: 16px;
+	padding-left: var(--space-1);
+	margin-left: var(--space-px);
+	height: var(--space-4);
 	transition: border-color var(--transition-fast);
 }
 
@@ -109,21 +109,21 @@
 /* Feedback icons with symmetrical interactions */
 .feedbackIcon {
 	width: 16px;
-	height: 16px;
+	height: var(--space-4);
 	transition: transform var(--transition-fast) var(--ease-bounce);
 }
 
 .actionBtn:hover .feedbackIcon {
-	transform: scale(1.1);
+	transform: scale(var(--icon-scale-hover));
 }
 
 .actionBtn.active .feedbackIcon {
-	transform: scale(1.15);
+	transform: scale(var(--icon-scale-active));
 }
 
 /* Check icon animation - pop effect */
 .checkIcon {
-	animation: checkPop 200ms var(--ease-bounce);
+	animation: checkPop var(--duration-reveal) var(--ease-bounce);
 }
 
 @keyframes checkPop {
@@ -142,7 +142,7 @@
 
 /* Copy icon transition out */
 .copyIcon {
-	animation: copyFade 150ms var(--ease-out);
+	animation: copyFade var(--duration-fast) var(--ease-out);
 }
 
 @keyframes copyFade {
@@ -190,15 +190,15 @@
 
 @media (max-width: 600px) {
 	.actions {
-		gap: 2px;
+		gap: var(--space-px);
 		background: var(--color-bg-elevated);
 		border: 1px solid var(--color-border-primary);
-		padding: 2px 4px;
+		padding: var(--space-px) var(--space-1);
 		box-shadow: var(--shadow-md);
 	}
 
 	.feedbackGroup {
-		padding-left: 4px;
-		margin-left: 2px;
+		padding-left: var(--space-1);
+		margin-left: var(--space-px);
 	}
 }

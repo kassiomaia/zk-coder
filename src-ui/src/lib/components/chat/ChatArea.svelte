@@ -1,42 +1,38 @@
 <script lang="ts">
-	/**
-	 * ChatArea Component
-	 * Main chat interface with message display and input.
-	 */
-	import ChatMessagesList from './ChatMessagesList.svelte';
-	import ChatInputContainer from './ChatInputContainer.svelte';
-	import ChatScrollButton from './ChatScrollButton.svelte';
-	import ClarificationBanner from './ClarificationBanner.svelte';
-	import type { Message } from '$lib/types/message';
-	import type { Thread } from '$lib/types/thread';
-	import styles from './ChatArea.module.css';
-	import { isLlmStreaming, streamingContent, nlpState } from '$lib/stores/chat';
-	import { notifyAssistantComplete, initNotifications } from '$lib/utils/notifications';
-	import { configStore } from '$lib/stores/configStore';
-	import {
-		saveScrollPosition,
-		initializeThreadScroll,
-		cleanupThreadScroll
-	} from '$lib/utils/scrollManager';
-	import {
-		registerThreadElement,
-		unregisterThread,
-		handleStreamingStart,
-		handleStreamingEnd,
-		handleContentUpdate,
-		handleUserScroll as controllerHandleUserScroll,
-		handleUserClickScrollDown as controllerHandleUserClickScrollDown,
-		handleUserSendMessage as controllerHandleUserSendMessage,
-		scrollToBottom as controllerScrollToBottom,
-		isAutoScrollEnabled as controllerIsAutoScrollEnabled
-	} from '$lib/utils/scrollController';
-	import { onMount, tick } from 'svelte';
-	import type { ResolutionType } from '$lib/types/nlp';
-	import { createLogger } from '$lib/utils/logger';
-	import { shouldForceInitialBottomScroll } from './chatAreaScroll';
-	import { chatStore } from '$lib/stores';
+    /**
+     * ChatArea Component
+     * Main chat interface with message display and input.
+     */
+    import ChatMessagesList from './ChatMessagesList.svelte';
+    import ChatInputContainer from './ChatInputContainer.svelte';
+    import ChatScrollButton from './ChatScrollButton.svelte';
+    import ClarificationBanner from './ClarificationBanner.svelte';
+    import type {Message} from '$lib/types/message';
+    import type {Thread} from '$lib/types/thread';
+    import styles from './ChatArea.module.css';
+    import {isLlmStreaming, nlpState, streamingContent} from '$lib/stores/chat';
+    import {initNotifications, notifyAssistantComplete} from '$lib/utils/notifications';
+    import {configStore} from '$lib/stores/configStore';
+    import {cleanupThreadScroll, initializeThreadScroll, saveScrollPosition} from '$lib/utils/scrollManager';
+    import {
+        handleContentUpdate,
+        handleStreamingEnd,
+        handleStreamingStart,
+        handleUserClickScrollDown as controllerHandleUserClickScrollDown,
+        handleUserScroll as controllerHandleUserScroll,
+        handleUserSendMessage as controllerHandleUserSendMessage,
+        isAutoScrollEnabled as controllerIsAutoScrollEnabled,
+        registerThreadElement,
+        scrollToBottom as controllerScrollToBottom,
+        unregisterThread
+    } from '$lib/utils/scrollController';
+    import {onMount, tick} from 'svelte';
+    import type {ResolutionType} from '$lib/types/nlp';
+    import {createLogger} from '$lib/utils/logger';
+    import {shouldForceInitialBottomScroll} from './chatAreaScroll';
+    import {chatStore} from '$lib/stores';
 
-	const log = createLogger('ChatArea');
+    const log = createLogger('ChatArea');
 
 	onMount(() => {
 		initNotifications();

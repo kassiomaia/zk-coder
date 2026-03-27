@@ -79,7 +79,7 @@ export function isValidModelId(modelId: unknown): modelId is string {
  *
  * @example
  * ```typescript
- * const safeModelId = sanitizeModelId(userInput);
+ * const safeModelId = safeModelId(userInput);
  * if (safeModelId) {
  *   // Safe to use
  *   selectModel(safeModelId);

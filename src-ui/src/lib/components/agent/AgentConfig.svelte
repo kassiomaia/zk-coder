@@ -1,13 +1,12 @@
 <script lang="ts">
-	/**
-	 * AgentConfig Component
-	 * Displays available agents and allows viewing their configuration.
-	 */
-	import { Settings, Shield, Wrench, Cpu, Check, ChevronDown, ChevronRight } from 'lucide-svelte';
-	import type { Agent, TrustMode } from '$lib/types/agent';
-	import { agentStore } from '$lib/stores';
+    /**
+     * AgentConfig Component
+     * Displays available agents and allows viewing their configuration.
+     */
+    import {Check, ChevronDown, ChevronRight, Cpu, Settings, Shield, Wrench} from 'lucide-svelte';
+    import type {Agent, TrustMode} from '$lib/types/agent';
 
-	interface Props {
+    interface Props {
 		open: boolean;
 		onClose: () => void;
 		onSelectAgent?: (agentId: string) => void;

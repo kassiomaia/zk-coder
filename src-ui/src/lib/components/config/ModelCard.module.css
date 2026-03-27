@@ -1,109 +1,30 @@
 /**
  * ModelCard Component Styles
  * Refined density, state logic, and morph transitions for selection.
+ *
+ * Uses shared card styles from card-styles.css as base.
  */
 
-.card {
-	/* Fixed height for consistency */
-	height: 88px;
-
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-2);
-	padding: var(--space-4);
-	background: var(--color-surface);
-	border: 1px solid var(--color-border-primary);
-	border-radius: var(--radius-lg);
-	cursor: pointer;
-	text-align: left;
-	position: relative;
-	overflow: hidden;
-
-	/* Unified motion system - deliberately slower for composure */
-	transition:
-		border-color var(--card-duration-hover) var(--card-ease-hover),
-		background var(--card-duration-hover) var(--card-ease-hover),
-		transform var(--card-duration-hover) var(--card-ease-hover),
-		box-shadow var(--card-duration-hover) var(--card-ease-hover);
-}
-
-/* Soft highlight sweep effect */
-.card::before {
-	content: '';
-	position: absolute;
-	inset: 0;
-	background: linear-gradient(
-		135deg,
-		transparent 0%,
-		rgba(255, 255, 255, 0.04) 40%,
-		rgba(255, 255, 255, 0.06) 50%,
-		rgba(255, 255, 255, 0.04) 60%,
-		transparent 100%
-	);
-	transform: translateX(-100%);
-	transition: transform var(--card-sweep-duration) var(--card-sweep-ease);
-	pointer-events: none;
-}
-
-.card:hover::before {
-	transform: translateX(100%);
-}
-
-.card:hover {
-	border-color: var(--color-border-secondary);
-	background: var(--color-surface-hover);
-	/* Micro-scale elevation - very subtle */
-	transform: scale(var(--card-scale-hover));
-	box-shadow:
-		0 2px 6px -2px rgba(0, 0, 0, 0.1),
-		0 4px 12px -4px rgba(0, 0, 0, 0.06);
-}
-
-/* Active/pressed state - micro-bounce tap response */
-.card:active {
-	transform: scale(var(--card-scale-tap));
-	/* Faster response for tap - asserts responsiveness */
-	transition-duration: var(--card-duration-tap);
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-}
-
-.card:focus-visible {
-	outline: 2px solid var(--color-primary-500);
-	outline-offset: 2px;
-}
+@import '../../styles/card-styles.css';
+@import '../../styles/animations.css';
 
 /* ============================================================================
-   SELECTED STATE - Accent border stabilization with subtle glow normalization
+   MODEL CARD EXTENSIONS
+   Extends shared .card base styles
    ============================================================================ */
 
-.card.selected {
-	border-color: var(--color-primary-500);
-	background: var(--color-interactive-selected);
-	/* Subtle glow normalization - not strong contrast jump */
-	box-shadow:
-		0 0 0 1px var(--color-accent-primary-glow),
-		0 0 12px -2px var(--color-accent-primary-glow-light);
-	/* Damped stabilization - no transform on hover */
-	transform: scale(1);
+/* Fixed height for consistency */
+.card {
+	height: 88px;
 }
 
-/* Disable sweep on selected state for stability */
-.card.selected::before {
-	opacity: 0;
-}
-
-.card.selected:hover {
-	border-color: var(--color-primary-400);
-	background: var(--color-interactive-selected-hover);
-	/* Maintain stable transform */
-	transform: scale(1);
-	box-shadow:
-		0 0 0 1px var(--color-accent-primary-glow-light),
-		0 0 16px -2px var(--color-accent-primary-glow);
+/* Override border from shared styles for consistency */
+.card {
+	border-color: var(--color-border-primary);
 }
 
 /* ============================================================================
-   MODEL INFO
+   MODEL INFO - Extends shared .cardContent
    ============================================================================ */
 
 .modelInfo {
@@ -144,7 +65,7 @@
 }
 
 /* ============================================================================
-   CHECK ICON - Morph + opacity transition
+   CHECK ICON - Morph + opacity transition (component-specific)
    ============================================================================ */
 
 .checkIcon {
@@ -166,21 +87,6 @@
 	animation: checkMorph var(--state-duration-morph) var(--card-ease-tap) forwards;
 }
 
-@keyframes checkMorph {
-	0% {
-		opacity: 0;
-		transform: scale(0.5) rotate(-45deg);
-	}
-	50% {
-		opacity: 0.8;
-		transform: scale(1.1) rotate(0deg);
-	}
-	100% {
-		opacity: 1;
-		transform: scale(1) rotate(0deg);
-	}
-}
-
 .checkIcon svg {
 	/* Icon morph within container */
 	animation: iconScale var(--state-duration-morph) var(--card-ease-tap) forwards;
@@ -189,23 +95,8 @@
 	transform: scale(0);
 }
 
-@keyframes iconScale {
-	0% {
-		opacity: 0;
-		transform: scale(0);
-	}
-	60% {
-		opacity: 1;
-		transform: scale(1.2);
-	}
-	100% {
-		opacity: 1;
-		transform: scale(1);
-	}
-}
-
 /* ============================================================================
-   CAPABILITIES
+   CAPABILITIES (component-specific)
    ============================================================================ */
 
 .capabilities {
@@ -236,26 +127,4 @@
 	color: var(--color-primary-300);
 }
 
-/* ============================================================================
-   REDUCED MOTION
-   ============================================================================ */
-
-@media (prefers-reduced-motion: reduce) {
-	.card {
-		transition:
-			border-color 150ms ease,
-			background 150ms ease;
-	}
-
-	.card:hover,
-	.card:active {
-		transform: none;
-	}
-
-	.checkIcon,
-	.checkIcon svg {
-		animation: none;
-		opacity: 1;
-		transform: none;
-	}
-}
+/* Note: Base card styles, hover, focus, selected states now in shared card-styles.css */

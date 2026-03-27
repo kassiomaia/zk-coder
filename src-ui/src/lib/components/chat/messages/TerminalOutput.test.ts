@@ -1,8 +1,8 @@
-import { render, screen, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { tick } from 'svelte';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {tick} from 'svelte';
 import TerminalOutput from './TerminalOutput.svelte';
-import type { Message } from '$lib/types/message';
+import type {Message} from '$lib/types/message';
 
 describe('TerminalOutput', () => {
 	let mockMessage: Message;
@@ -174,11 +174,13 @@ describe('TerminalOutput', () => {
 				...mockMessage,
 				content: 'Line 1\nLine 2\nLine 3'
 			};
-			render(TerminalOutput, {
+			const { container } = render(TerminalOutput, {
 				message: multilineMessage
 			});
-			expect(screen.getByText('Line 1')).toBeInTheDocument();
-			// Note: newlines may be rendered as <br> elements
+			const output = container.querySelector('[class*="content"]');
+			expect(output).toHaveTextContent('Line 1');
+			expect(output).toHaveTextContent('Line 2');
+			expect(output).toHaveTextContent('Line 3');
 		});
 
 		it('handles special characters in output', () => {

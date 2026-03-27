@@ -1,34 +1,23 @@
 <script lang="ts">
-	/**
-	 * AgentPanel Component
-	 * Right-side panel showing agent session state, tasks, files, and terminal output.
-	 * Contains collapsible sections and approval dialog trigger.
-	 */
-	import {
-		ChevronDown,
-		ChevronRight,
-		Terminal,
-		FileText,
-		ListChecks,
-		X,
-		History,
-		Settings,
-		Activity,
-		Cpu
-	} from 'lucide-svelte';
-	import TaskList from './TaskList.svelte';
-	import RequestsList from './RequestsList.svelte';
-	import FileTree from './FileTree.svelte';
-	import ToolCallsView from './ToolCallsView.svelte';
-	import ApprovalDialog from './ApprovalDialog.svelte';
-	import WorkspaceSelector from './WorkspaceSelector.svelte';
-	import SessionTabs from './SessionTabs.svelte';
-	import SessionHistory from './SessionHistory.svelte';
-	import AgentConfig from './AgentConfig.svelte';
-	import FileDiffModal from './FileDiffModal.svelte';
-	import type { AgentSession, PendingAction } from '$lib/types/agent';
+    /**
+     * AgentPanel Component
+     * Right-side panel showing agent session state, tasks, files, and terminal output.
+     * Contains collapsible sections and approval dialog trigger.
+     */
+    import {Activity, ChevronRight, Cpu, FileText, History, Settings, X} from 'lucide-svelte';
+    import TaskList from './TaskList.svelte';
+    import RequestsList from './RequestsList.svelte';
+    import FileTree from './FileTree.svelte';
+    import ToolCallsView from './ToolCallsView.svelte';
+    import ApprovalDialog from './ApprovalDialog.svelte';
+    import WorkspaceSelector from './WorkspaceSelector.svelte';
+    import SessionTabs from './SessionTabs.svelte';
+    import SessionHistory from './SessionHistory.svelte';
+    import AgentConfig from './AgentConfig.svelte';
+    import FileDiffModal from './FileDiffModal.svelte';
+    import type {AgentSession, PendingAction} from '$lib/types/agent';
 
-	interface Props {
+    interface Props {
 		session: AgentSession;
 		allSessions?: AgentSession[];
 		sessionTitles?: Map<string, string>;

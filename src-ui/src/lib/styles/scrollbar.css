@@ -1,0 +1,138 @@
+/**
+ * Shared Scrollbar Styles
+ *
+ * Consistent scrollbar styling across the application.
+ * Import this file in component CSS modules that need custom scrollbars.
+ */
+
+/* =====================
+   STANDARD SCROLLBAR
+   ===================== */
+
+.standard-scrollbar::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+.standard-scrollbar::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.standard-scrollbar::-webkit-scrollbar-thumb {
+	background: var(--color-neutral-700);
+	border-radius: var(--radius-full);
+	border: 2px solid transparent;
+	background-clip: padding-box;
+}
+
+.standard-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: var(--color-neutral-600);
+	border: 2px solid transparent;
+	background-clip: padding-box;
+}
+
+.standard-scrollbar::-webkit-scrollbar-corner {
+	background: transparent;
+}
+
+/* =====================
+   THIN SCROLLBAR
+   For compact spaces
+   ===================== */
+
+.thin-scrollbar::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+	background: var(--color-border-subtle);
+	border-radius: var(--radius-full);
+	transition: background var(--card-duration-hover) var(--card-ease-hover);
+}
+
+.thin-scrollbar:hover::-webkit-scrollbar-thumb {
+	background: var(--color-border-primary);
+}
+
+/* =====================
+   SUBTLE SCROLLBAR
+   For minimal visual impact
+   ===================== */
+
+.subtle-scrollbar::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+.subtle-scrollbar::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.subtle-scrollbar::-webkit-scrollbar-thumb {
+	background: var(--color-border-subtle);
+	border-radius: var(--radius-full);
+	border: 2px solid transparent;
+	background-clip: padding-box;
+}
+
+.subtle-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: var(--color-border-primary);
+}
+
+/* =====================
+   AUTO-HIDE SCROLLBAR
+   Scrollbar only visible on hover/scroll
+   ===================== */
+
+.autohide-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-border-subtle) transparent;
+}
+
+.autohide-scrollbar::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+.autohide-scrollbar::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.autohide-scrollbar::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: var(--radius-full);
+	transition: background 200ms ease;
+}
+
+.autohide-scrollbar:hover::-webkit-scrollbar-thumb,
+.autohide-scrollbar:active::-webkit-scrollbar-thumb {
+	background: var(--color-border-subtle);
+}
+
+.autohide-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: var(--color-border-primary);
+}
+
+/* =====================
+   FIREFOX SUPPORT
+   ===================== */
+
+.standard-scrollbar {
+	scrollbar-width: auto;
+	scrollbar-color: var(--color-neutral-700) transparent;
+}
+
+.thin-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-border-subtle) transparent;
+}
+
+.subtle-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-border-subtle) transparent;
+}

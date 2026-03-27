@@ -1,7 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import Popover from './Popover.svelte';
-import type { PopoverItem, PopoverOrigin } from './popover.types';
+import type {PopoverItem, PopoverOrigin} from './popover.types';
 
 describe('Popover', () => {
 	let anchorEl: HTMLElement;

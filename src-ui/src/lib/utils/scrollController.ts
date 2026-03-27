@@ -13,24 +13,24 @@
  * @module scrollController
  */
 
-import { measureScrollState } from './domBatcher';
-import { cancelThread, hasPending, type ScrollPriority } from './scrollPriorityQueue';
+import {measureScrollState} from './domBatcher';
+import {cancelThread, hasPending, type ScrollPriority} from './scrollPriorityQueue';
 import {
-	startLiveAnimation,
-	stop as stopAnimation,
-	scrollToBottomInstant,
-	updateLiveTarget,
-	isRunning as isAnimationRunning
+    isRunning as isAnimationRunning,
+    scrollToBottomInstant,
+    startLiveAnimation,
+    stop as stopAnimation,
+    updateLiveTarget
 } from './liveScrollAnimation';
 import {
-	sendEvent,
-	getState,
-	shouldAutoScroll,
-	isStreamingActive,
-	onStateChange,
-	resetThread as resetStateMachine,
-	type ScrollState,
-	type ScrollEvent
+    getState,
+    isStreamingActive,
+    onStateChange,
+    resetThread as resetStateMachine,
+    type ScrollEvent,
+    type ScrollState,
+    sendEvent,
+    shouldAutoScroll
 } from './scrollStateMachine';
 
 // ============================================================================

@@ -1,24 +1,26 @@
 <script lang="ts">
-	/**
-	 * ChatMessagesList Component
-	 * Renders the list of chat messages with grouping and specialized rendering.
-	 */
-	import ThreadIndicator from './ThreadIndicator.svelte';
-	import MarkdownRenderer from '../markdown/MarkdownRenderer.svelte';
-	import MessageActions from './MessageActions.svelte';
-	import EmptyThreadState from './EmptyThreadState.svelte';
-	import AnsweringIndicator from './AnsweringIndicator.svelte';
-	// Agent message components
-	import ThinkingMessage from './messages/ThinkingMessage.svelte';
-	import ToolCallMessage from './messages/ToolCallMessage.svelte';
-	import TerminalOutput from './messages/TerminalOutput.svelte';
-	import type { Message } from '$lib/types/message';
-	import type { Thread } from '$lib/types/thread';
-	import styles from './ChatArea.module.css';
-	import { activeSession, pendingActions } from '$lib/stores/agentStore';
-	import { getAgentStatus } from '$lib/utils/agentStatus';
+    /**
+     * ChatMessagesList Component
+     * Renders the list of chat messages with grouping and specialized rendering.
+     */
+    import ThreadIndicator from './ThreadIndicator.svelte';
+    import MarkdownRenderer from '../markdown/MarkdownRenderer.svelte';
+    import MessageActions from './MessageActions.svelte';
+    import EmptyThreadState from './EmptyThreadState.svelte';
+    import AnsweringIndicator from './AnsweringIndicator.svelte';
+    // Agent message components
+    import ThinkingMessage from './messages/ThinkingMessage.svelte';
+    import ToolCallMessage from './messages/ToolCallMessage.svelte';
+    import TerminalOutput from './messages/TerminalOutput.svelte';
+    import type {Message} from '$lib/types/message';
+    import type {Thread} from '$lib/types/thread';
+    import layoutStyles from './ChatArea.module.css';
+    import messageStyles from './MessageBubbles.module.css';
+    import inputStyles from './ChatInputContainer.module.css';
+    import {activeSession, pendingActions} from '$lib/stores/agentStore';
+    import {getAgentStatus} from '$lib/utils/agentStatus';
 
-	interface Props {
+    interface Props {
 		/** Array of messages to display */
 		messages: Message[];
 
@@ -101,8 +103,8 @@
 	 * Get CSS class for message status.
 	 */
 	function getMessageStatusClass(status: string | undefined): string {
-		if (status === 'error') return styles.messageError;
-		if (status === 'sending') return styles.messageSending;
+		if (status === 'error') return messageStyles.messageError;
+		if (status === 'sending') return messageStyles.messageSending;
 		return '';
 	}
 
@@ -231,14 +233,14 @@
 </script>
 
 {#if messagesLoading === 'loading'}
-	<div class={styles.loading}>
-		<div class={styles.spinner}></div>
+	<div class={inputStyles.loading}>
+		<div class={inputStyles.spinner}></div>
 		<span>Loading messages...</span>
 	</div>
 {:else if messagesLoading === 'error' || error}
-	<div class={styles.error}>
+	<div class={inputStyles.error}>
 		<svg
-			class={styles.errorIcon}
+			class={inputStyles.errorIcon}
 			width="48"
 			height="48"
 			viewBox="0 0 24 24"
@@ -250,13 +252,13 @@
 			<line x1="12" y1="8" x2="12" y2="12" />
 			<line x1="12" y1="16" x2="12.01" y2="16" />
 		</svg>
-		<p class={styles.errorMessage}>{error || 'Failed to load messages'}</p>
+		<p class={inputStyles.errorMessage}>{error || 'Failed to load messages'}</p>
 		{#if onRetry}
-			<button class={styles.retryButton} onclick={onRetry} type="button"> Retry </button>
+			<button class={inputStyles.retryButton} onclick={onRetry} type="button"> Retry </button>
 		{/if}
 	</div>
 {:else if messages.length === 0}
-	<div class={styles.emptyWrapper}>
+	<div class={inputStyles.emptyWrapper}>
 		<EmptyThreadState {hasInputActivity} context={emptyContext} {conversationTitle} />
 	</div>
 {:else}
@@ -266,20 +268,20 @@
 		{#if message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal'}
 			<!-- Show ASSISTANT group header for agent messages -->
 			{#if shouldShowAgentHeader(index)}
-				<div class={styles.messageGroup}>
-					<div class={styles.groupHeader}>
-						<span class={styles.groupRole}>ASSISTANT</span>
-						<span class={styles.groupTime}>{formatGroupTime(message.timestamp)}</span>
+				<div class={messageStyles.messageGroup}>
+					<div class={messageStyles.groupHeader}>
+						<span class={messageStyles.groupRole}>ASSISTANT</span>
+						<span class={messageStyles.groupTime}>{formatGroupTime(message.timestamp)}</span>
 					</div>
 				</div>
 			{/if}
 			<div
-				class={[styles.messageWrapper, styles.assistantWrapper, styles.agentMessageWrapper]
+				class={[messageStyles.messageWrapper, messageStyles.assistantWrapper, messageStyles.agentMessageWrapper]
 					.filter(Boolean)
 					.join(' ')}
 			>
 				<div
-					class={[styles.message, styles.roleAssistant]
+					class={[messageStyles.message, messageStyles.roleAssistant]
 						.filter(Boolean)
 						.join(' ')}
 				>
@@ -296,28 +298,28 @@
 			<!-- Normal messages (user, assistant, system) -->
 			{#if shouldShowGroupHeader(index)}
 				<div
-					class={[styles.messageGroup, index === 0 && styles.messageGroupFirst]
+					class={[messageStyles.messageGroup, index === 0 && messageStyles.messageGroupFirst]
 						.filter(Boolean)
 						.join(' ')}
 				>
-					<div class={styles.groupHeader}>
-						<span class={styles.groupRole}>{message.role}</span>
-						<span class={styles.groupTime}>{formatGroupTime(message.timestamp)}</span>
+					<div class={messageStyles.groupHeader}>
+						<span class={messageStyles.groupRole}>{message.role}</span>
+						<span class={messageStyles.groupTime}>{formatGroupTime(message.timestamp)}</span>
 					</div>
 				</div>
 			{/if}
 			<div
 				class={[
-					styles.messageWrapper,
-					message.role === 'user' ? styles.userWrapper : styles.assistantWrapper
+					messageStyles.messageWrapper,
+					message.role === 'user' ? messageStyles.userWrapper : messageStyles.assistantWrapper
 				]
 					.filter(Boolean)
 					.join(' ')}
 			>
 				<div
 					class={[
-						styles.message,
-						styles[getRoleClass(message.role)],
+						messageStyles.message,
+						messageStyles[getRoleClass(message.role)],
 						getMessageStatusClass(message.status)
 					]
 						.filter(Boolean)
@@ -334,16 +336,16 @@
 							compact
 						/>
 					{/if}
-					<div class={styles.messageContent}>
+					<div class={messageStyles.messageContent}>
 						<MarkdownRenderer content={message.content} />
 					</div>
 					<!-- Message status indicator -->
 					{#if message.status === 'sending' && message.content.trim() === '' && !hasAgentMessages}
 						<AnsweringIndicator status={agentStatus} />
 					{:else if message.status === 'error'}
-						<div class={styles.statusIndicator} aria-label="Failed to send">
+						<div class={messageStyles.statusIndicator} aria-label="Failed to send">
 							<button
-								class={styles.retryIconButton}
+								class={messageStyles.retryIconButton}
 								onclick={() => onRetryMessage?.(message.id)}
 								title="Retry sending"
 								type="button"
@@ -365,7 +367,7 @@
 				</div>
 				<!-- Message actions -->
 				{#if message.status !== 'sending'}
-					<div class={styles.actionsContainer}>
+					<div class={messageStyles.actionsContainer}>
 						<MessageActions
 							showCopy={true}
 							showEdit={message.role === 'user'}

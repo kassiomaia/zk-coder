@@ -1,13 +1,13 @@
 <script lang="ts">
-	/**
-	 * ToolCallsView Component
-	 * Displays structured tool calls from agent execution.
-	 * Auto-scrolls to bottom on new calls.
-	 */
-	import type { ToolCallRecord } from '$lib/types/agent';
-	import ToolCallItem from './ToolCallItem.svelte';
+    /**
+     * ToolCallsView Component
+     * Displays structured tool calls from agent execution.
+     * Auto-scrolls to bottom on new calls.
+     */
+    import type {ToolCallRecord} from '$lib/types/agent';
+    import ToolCallItem from './ToolCallItem.svelte';
 
-	interface Props {
+    interface Props {
 		toolCalls: ToolCallRecord[];
 	}
 

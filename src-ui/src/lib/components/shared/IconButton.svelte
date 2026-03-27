@@ -1,13 +1,13 @@
 <script lang="ts">
-	/**
-	 * IconButton Component
-	 * Unified icon button with variants, intents, micro-interactions, and tooltip support.
-	 */
-	import styles from './IconButton.module.css';
-	import Tooltip from './Tooltip.svelte';
-	import type { Snippet } from 'svelte';
+    /**
+     * IconButton Component
+     * Unified icon button with variants, intents, micro-interactions, and tooltip support.
+     */
+    import styles from './IconButton.module.css';
+    import Tooltip from './Tooltip.svelte';
+    import type {Snippet} from 'svelte';
 
-	type TooltipPosition = 'top' | 'bottom' | 'left' | 'right';
+    type TooltipPosition = 'top' | 'bottom' | 'left' | 'right';
 
 	interface Props {
 		/** Icon snippet (required) */

@@ -12,19 +12,19 @@
 
 use std::sync::Arc;
 
-use crate::agents::approval::ApprovalQueue;
-use crate::agents::registry::AgentRegistry;
-use crate::agents::rollback::RollbackStore;
-use crate::agents::runtime::AgentRuntime;
-use crate::agents::session::{AgentSession, PendingAction, SessionId};
-use crate::agents::store::SessionStore;
-use crate::agents::task::SubTask;
-use crate::agents::types::{ActionType, AgentId, TrustMode};
+use crate::core::agent::session::{AgentSession, PendingAction, SessionId};
+use crate::core::agent::task::SubTask;
+use crate::core::agent::types::{ActionType, AgentId, TrustMode};
 use crate::application::agent::AgentServiceImpl;
+use crate::core::agent::entities::TaskStatus as CoreTaskStatus;
 use crate::core::agent::entities::{AgentTrustMode, SessionState as CoreSessionState};
 use crate::core::agent::services::{AgentService, CreateSessionRequest, SendAgentRequestRequest};
-use crate::core::agent::entities::{TaskStatus as CoreTaskStatus, AgentTask};
-use crate::tools::ToolRegistry;
+use crate::infrastructure::agent::approval::ApprovalQueue;
+use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
+use crate::infrastructure::agent::registry::AgentRegistry;
+use crate::infrastructure::agent::runtime::AgentRuntime;
+use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
+use crate::infrastructure::tools::ToolRegistry;
 
 // =========================================================================
 // Test Fixtures
@@ -33,17 +33,27 @@ use crate::tools::ToolRegistry;
 /// Creates a test service with all dependencies initialized.
 fn create_test_service() -> AgentServiceImpl {
     let registry = Arc::new(AgentRegistry::new());
-    let session_store = Arc::new(SessionStore::new(":memory:").expect("Failed to create store"));
+    let session_store =
+        Arc::new(SqliteSessionRepository::new(":memory:").expect("Failed to create store"));
     let approval_queue = Arc::new(ApprovalQueue::new());
     let tool_registry = Arc::new(ToolRegistry::new().expect("Failed to create tool registry"));
     let runtime = Arc::new(AgentRuntime::new(
+        session_store.clone(),
+        session_store.clone(),
         session_store.clone(),
         approval_queue.clone(),
         tool_registry,
     ));
 
-    AgentServiceImpl::new(registry, session_store, approval_queue, runtime)
-        .expect("Failed to create test service")
+    AgentServiceImpl::new(
+        registry,
+        session_store.clone(),
+        session_store.clone(),
+        session_store,
+        approval_queue,
+        runtime,
+    )
+    .expect("Failed to create test service")
 }
 
 /// Creates a test agent session.
@@ -87,7 +97,7 @@ fn create_test_pending_action(
     session_id: &str,
     action_name: &str,
 ) -> String {
-    use crate::agents::session::SessionId;
+    use crate::core::agent::session::SessionId;
 
     let queue = service.approval_queue();
 
@@ -243,10 +253,7 @@ fn test_cancel_session_success() {
 
     // Verify session is in cancelled state
     let fetched = service.get_session(&session_id).unwrap();
-    assert!(matches!(
-        fetched.state,
-        CoreSessionState::Cancelled { .. }
-    ));
+    assert!(matches!(fetched.state, CoreSessionState::Cancelled { .. }));
 }
 
 #[test]
@@ -256,7 +263,9 @@ fn test_cancel_session_persists_reason() {
     let session = create_test_session(&service, "conv-reason", "thread-reason");
     let session_id = session.id.0.clone();
 
-    service.cancel_session(&session_id).expect("Failed to cancel");
+    service
+        .cancel_session(&session_id)
+        .expect("Failed to cancel");
 
     let fetched = service.get_session(&session_id).unwrap();
 
@@ -309,7 +318,7 @@ fn test_update_session_workspace_success() {
     assert!(result.is_ok());
 
     // Verify the workspace was updated
-    let store = service.session_store();
+    let store = service.telemetry_repo();
     let agents_session_id = SessionId(session_id.to_string());
     let updated = store.get_session(&agents_session_id).unwrap().unwrap();
     assert_eq!(
@@ -330,12 +339,14 @@ fn test_update_session_workspace_to_none() {
 
     assert!(result.is_ok());
 
-    let store = service.session_store();
+    let store = service.telemetry_repo();
     let agents_session_id = SessionId(session_id.to_string());
     let updated = store.get_session(&agents_session_id).unwrap().unwrap();
     // Empty string might be treated as None or stored as is
-    assert!(updated.workspace_root.is_none()
-        || updated.workspace_root == Some(std::path::PathBuf::from("")));
+    assert!(
+        updated.workspace_root.is_none()
+            || updated.workspace_root == Some(std::path::PathBuf::from(""))
+    );
 }
 
 // =========================================================================
@@ -558,7 +569,7 @@ fn test_get_agent_not_found() {
 fn test_to_core_agent_converts_trust_mode_trusted() {
     let service = create_test_service();
 
-    let agent = crate::agents::types::Agent {
+    let agent = crate::core::agent::types::Agent {
         id: AgentId::new("test"),
         name: "Test".to_string(),
         description: "Test agent".to_string(),
@@ -578,7 +589,7 @@ fn test_to_core_agent_converts_trust_mode_trusted() {
 fn test_to_core_agent_converts_trust_mode_restricted() {
     let service = create_test_service();
 
-    let agent = crate::agents::types::Agent {
+    let agent = crate::core::agent::types::Agent {
         id: AgentId::new("test-restricted"),
         name: "Restricted".to_string(),
         description: "Test".to_string(),
@@ -598,7 +609,7 @@ fn test_to_core_agent_converts_trust_mode_restricted() {
 fn test_to_core_agent_converts_trust_mode_untrusted() {
     let service = create_test_service();
 
-    let agent = crate::agents::types::Agent {
+    let agent = crate::core::agent::types::Agent {
         id: AgentId::new("test-untrusted"),
         name: "Untrusted".to_string(),
         description: "Test".to_string(),
@@ -683,8 +694,7 @@ fn test_update_subtask_status() {
     let task_id = "task-update";
     let subtask_id = create_test_subtask(&service, task_id, "Update Me", 0);
 
-    let result = service
-        .update_subtask_status(subtask_id.clone(), CoreTaskStatus::InProgress);
+    let result = service.update_subtask_status(subtask_id.clone(), CoreTaskStatus::InProgress);
 
     assert!(result.is_ok());
 
@@ -875,7 +885,7 @@ fn test_session_state_conversion_wait_for_request() {
         "thread-1".to_string(),
         None,
     );
-    agents_session.set_state(crate::agents::session::SessionState::WaitForRequest {
+    agents_session.set_state(crate::core::agent::session::SessionState::WaitForRequest {
         last_action_at: chrono::Utc::now(),
     });
 
@@ -897,7 +907,7 @@ fn test_session_state_conversion_finished() {
         "thread-1".to_string(),
         None,
     );
-    agents_session.set_state(crate::agents::session::SessionState::Finished {
+    agents_session.set_state(crate::core::agent::session::SessionState::Finished {
         completed_at: chrono::Utc::now(),
         result: "Done".to_string(),
     });
@@ -934,7 +944,7 @@ fn test_subtask_to_core_task_conversion() {
     let subtask = SubTask::new(
         "task-1",
         "Test Task",
-        crate::agents::task::SubTaskMode::FullAccess,
+        crate::core::agent::task::SubTaskMode::FullAccess,
         1,
     )
     .with_description("Test description".to_string());
@@ -955,19 +965,27 @@ fn test_subtask_to_core_task_conversion() {
 fn test_service_handles_runtime_creation_failure() {
     // This test verifies the service can be created with valid dependencies
     let registry = Arc::new(AgentRegistry::new());
-    let session_store = Arc::new(
-        SessionStore::new(":memory:").expect("Failed to create session store"),
-    );
+    let session_store =
+        Arc::new(SqliteSessionRepository::new(":memory:").expect("Failed to create session store"));
     let approval_queue = Arc::new(ApprovalQueue::new());
     let tool_registry = Arc::new(ToolRegistry::new().expect("Failed to create tool registry"));
     let runtime = Arc::new(AgentRuntime::new(
+        session_store.clone(),
+        session_store.clone(),
         session_store.clone(),
         approval_queue.clone(),
         tool_registry,
     ));
 
-    let service = AgentServiceImpl::new(registry, session_store, approval_queue, runtime)
-        .expect("Failed to create test service");
+    let service = AgentServiceImpl::new(
+        registry,
+        session_store.clone(),
+        session_store.clone(),
+        session_store,
+        approval_queue,
+        runtime,
+    )
+    .expect("Failed to create test service");
 
     // Verify the service was created and can list agents
     let agents = service.list_agents();
@@ -976,10 +994,10 @@ fn test_service_handles_runtime_creation_failure() {
 }
 
 #[test]
-fn test_store_error_to_domain_error_conversion() {
+fn test_repository_error_to_domain_error_conversion() {
     let service = create_test_service();
 
-    let domain_err = service.store_error_to_domain("test error message");
+    let domain_err = service.repository_error_to_domain("test error message");
 
     assert!(matches!(
         domain_err,
@@ -1067,8 +1085,12 @@ fn test_multiple_conversations_isolated() {
         .expect("Failed to create subtask for conv 2");
 
     // Verify isolation
-    let conv1_sessions = service.get_conversation_sessions("conv-isolated-1").unwrap();
-    let conv2_sessions = service.get_conversation_sessions("conv-isolated-2").unwrap();
+    let conv1_sessions = service
+        .get_conversation_sessions("conv-isolated-1")
+        .unwrap();
+    let conv2_sessions = service
+        .get_conversation_sessions("conv-isolated-2")
+        .unwrap();
 
     assert_eq!(conv1_sessions.len(), 1);
     assert_eq!(conv2_sessions.len(), 1);
@@ -1095,7 +1117,9 @@ fn test_approval_workflow_end_to_end() {
     assert_eq!(pending.len(), 1);
 
     // Approve it
-    service.approve_action(&action_id).expect("Failed to approve");
+    service
+        .approve_action(&action_id)
+        .expect("Failed to approve");
 
     // Verify it's gone
     let pending = service.get_pending_actions(&session_id).unwrap();

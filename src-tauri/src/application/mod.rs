@@ -7,6 +7,7 @@
 pub mod agent;
 pub mod chat;
 pub mod llm;
+pub mod nlp;
 
 pub use agent::AgentServiceImpl;
 pub use chat::ChatServiceImpl;

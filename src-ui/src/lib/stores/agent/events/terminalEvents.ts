@@ -3,9 +3,9 @@
  * Handles terminal output events.
  */
 
-import type { AgentEvent } from '$lib/types/agent';
-import type { AgentState } from '../state';
-import { scheduleTerminalOutput, flushPendingTerminalOutput } from '../streaming';
+import type {AgentEvent} from '$lib/types/agent';
+import type {AgentState} from '../state';
+import {flushPendingTerminalOutput, scheduleTerminalOutput} from '../streaming';
 
 /**
  * Handle command_output event.

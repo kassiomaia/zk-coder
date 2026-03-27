@@ -3,7 +3,7 @@
  * Convert agent events and state into user-friendly status messages.
  */
 
-import type { AgentEvent, SessionState, ExecutionStep, SubTask } from '$lib/types/agent';
+import type {AgentEvent, ExecutionStep, SessionState, SubTask} from '$lib/types/agent';
 
 /** Current agent status with icon hint */
 export interface AgentStatus {

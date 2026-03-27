@@ -1,17 +1,16 @@
 <script lang="ts">
-	/**
-	 * ProvidersModal Component
-	 * Main modal for configuring AI providers.
-	 */
-	import styles from './ProvidersModal.module.css';
-	import Modal from '../shared/Modal.svelte';
-	import Button from '../shared/Button.svelte';
-	import ProviderCard from './ProviderCard.svelte';
-	import { configStore } from '$lib/stores/configStore';
-	import { createLogger } from '$lib/utils/logger';
-	import type { Provider } from '$lib/types/config';
+    /**
+     * ProvidersModal Component
+     * Main modal for configuring AI providers.
+     */
+    import styles from './ProvidersModal.module.css';
+    import Modal from '../shared/Modal.svelte';
+    import Button from '../shared/Button.svelte';
+    import ProviderCard from './ProviderCard.svelte';
+    import {configStore} from '$lib/stores/configStore';
+    import {createLogger} from '$lib/utils/logger';
 
-	const log = createLogger('ProvidersModal');
+    const log = createLogger('ProvidersModal');
 
 	interface Props {
 		open: boolean;

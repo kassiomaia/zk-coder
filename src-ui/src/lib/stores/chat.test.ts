@@ -3,11 +3,45 @@
  * Comprehensive test coverage for all chat store functionality.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { get } from 'svelte/store';
-import type { Conversation, Thread } from '$lib/types/thread';
-import type { Message } from '$lib/types/message';
-import type { IntentClassification, Ambiguity, ResolvedAmbiguity } from '$lib/types/nlp';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {get} from 'svelte/store';
+import type {Conversation, Thread} from '$lib/types/thread';
+import type {Message} from '$lib/types/message';
+import type {Ambiguity, IntentClassification, ResolvedAmbiguity} from '$lib/types/nlp';
+import {
+    createConversation,
+    createThread,
+    createThreadWithMessage,
+    deleteConversation,
+    deleteMessage,
+    deleteThread,
+    loadConversations,
+    loadThreadMessages,
+    loadThreads,
+    renameConversation,
+    renameThread,
+    resolveThread,
+    sendMessage,
+    setConversationWorkspace,
+    setThreadAgentSession,
+    updateConversationSettings,
+    updateMessageFeedback,
+    updateMessageStatus
+} from '$lib/api/chat';
+
+import {
+    addContextMessage,
+    applyResolutions,
+    createDebouncedClassifier,
+    detectAmbiguities,
+    isBackendAvailable,
+    resolveAmbiguity
+} from '$lib/api/nlp';
+
+import {agentStore} from './agentStore';
+
+// Now import after mocking
+import {chatStore} from './chat';
 
 // Create mock functions that will be used in vi.mock
 const mockListen = vi.fn();
@@ -71,41 +105,6 @@ vi.mock('./agentStore', () => ({
 		sendRequest: vi.fn()
 	}
 }));
-
-import {
-	loadConversations,
-	createConversation,
-	renameConversation,
-	deleteConversation,
-	updateConversationSettings,
-	setConversationWorkspace,
-	loadThreads,
-	createThread,
-	resolveThread,
-	deleteThread,
-	renameThread,
-	setThreadAgentSession,
-	loadThreadMessages,
-	sendMessage,
-	createThreadWithMessage,
-	deleteMessage,
-	updateMessageStatus,
-	updateMessageFeedback
-} from '$lib/api/chat';
-
-import {
-	isBackendAvailable,
-	addContextMessage,
-	detectAmbiguities,
-	resolveAmbiguity,
-	applyResolutions,
-	createDebouncedClassifier
-} from '$lib/api/nlp';
-
-import { agentStore } from './agentStore';
-
-// Now import after mocking
-import { chatStore } from './chat';
 
 // Helper function to create mock conversation
 const createMockConversation = (id: string, title: string): Conversation => ({

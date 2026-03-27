@@ -1,7 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import ConversationSidebar from './ConversationSidebar.svelte';
-import type { Conversation, Thread } from '$lib/types/thread';
+import type {Conversation, Thread} from '$lib/types/thread';
 
 describe('ConversationSidebar', () => {
 	const mockConversations: Conversation[] = [
@@ -103,7 +103,7 @@ describe('ConversationSidebar', () => {
 				...defaultProps,
 				onSearch: vi.fn()
 			});
-			const searchBar = container.querySelector('input[type="text"]');
+			const searchBar = container.querySelector('input[type="search"]');
 			expect(searchBar).toBeInTheDocument();
 		});
 
@@ -111,7 +111,7 @@ describe('ConversationSidebar', () => {
 			const { container } = render(ConversationSidebar, {
 				...defaultProps
 			});
-			const searchBar = container.querySelector('input[type="text"]');
+			const searchBar = container.querySelector('input[type="search"]');
 			expect(searchBar).not.toBeInTheDocument();
 		});
 
@@ -191,7 +191,7 @@ describe('ConversationSidebar', () => {
 				onSearch
 			});
 
-			const searchBar = container.querySelector('input[type="text"]');
+			const searchBar = container.querySelector('input[type="search"]');
 			if (searchBar) {
 				await fireEvent.input(searchBar, { target: { value: 'test' } });
 				// Handler should be called

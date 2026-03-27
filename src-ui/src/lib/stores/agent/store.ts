@@ -3,16 +3,15 @@
  * Main store module that ties together all agent functionality.
  */
 
-import { writable, get } from 'svelte/store';
-import type { AgentEvent } from '$lib/types/agent';
-import type { AgentState as CoreAgentState } from './state';
-import { createInitialState } from './state';
+import {get, writable} from 'svelte/store';
+import type {AgentEvent} from '$lib/types/agent';
+import type {AgentState as CoreAgentState} from './state';
+import {createInitialState} from './state';
 import * as Actions from './actions';
 import * as Events from './events';
 import * as Streaming from './streaming';
 import * as Callbacks from './callbacks';
 import * as UiState from './uiState';
-import { createDerivedStores } from './derived';
 
 /**
  * Agent store interface.

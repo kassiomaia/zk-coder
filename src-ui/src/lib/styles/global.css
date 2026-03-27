@@ -9,6 +9,10 @@
  */
 
 @import './design-system.css';
+@import './animations.css';
+@import './scrollbar.css';
+@import './reduced-motion.css';
+@import './focus-styles.css';
 
 /* Font imports - Using Inter for clean, modern look */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -133,6 +137,7 @@ pre code {
 }
 
 /* Focus styles - prominent and accessible */
+/* See focus-styles.css for comprehensive focus styling */
 :focus {
 	outline: none;
 }
@@ -143,7 +148,8 @@ pre code {
 	border-radius: var(--radius-sm);
 }
 
-/* Scrollbar styling - refined for dark theme */
+/* Scrollbar styling - see scrollbar.css for shared scrollbar classes */
+/* Global scrollbar using standard styles */
 ::-webkit-scrollbar {
 	width: 10px;
 	height: 10px;
@@ -284,63 +290,22 @@ select:disabled {
 	border-radius: var(--radius-md);
 }
 
-/* Fade in animation */
-@keyframes fadeIn {
-	from {
-		opacity: 0;
-	}
-	to {
-		opacity: 1;
-	}
-}
-
+/* Utility animation classes - using shared animations */
 .fade-in {
 	animation: fadeIn var(--transition-normal) var(--ease-out);
 }
 
-/* Slide up animation */
-@keyframes slideUp {
-	from {
-		opacity: 0;
-		transform: translateY(10px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
 .slide-up {
-	animation: slideUp var(--transition-normal) var(--ease-out);
-}
-
-/* Scale in animation */
-@keyframes scaleIn {
-	from {
-		opacity: 0;
-		transform: scale(0.95);
-	}
-	to {
-		opacity: 1;
-		transform: scale(1);
-	}
+	animation: slideIn var(--transition-normal) var(--ease-out);
 }
 
 .scale-in {
 	animation: scaleIn var(--transition-fast) var(--ease-out);
 }
 
-/* Reduced motion */
+/* Reduced motion - see reduced-motion.css for comprehensive reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-	*,
-	*::before,
-	*::after {
-		animation-duration: 0.01ms !important;
-		animation-iteration-count: 1 !important;
-		transition-duration: 0.01ms !important;
-		scroll-behavior: auto !important;
-	}
-
+	/* Skeleton loader specific handling */
 	.skeleton {
 		animation: none;
 	}

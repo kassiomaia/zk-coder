@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { IconProps } from './icons.d';
+    import type {IconProps} from './icons.d';
 
-	interface ThumbsUpProps extends IconProps {
+    interface ThumbsUpProps extends IconProps {
 		/** Whether the icon should be filled */
 		filled?: boolean;
 	}

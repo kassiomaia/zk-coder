@@ -1,13 +1,13 @@
 <script lang="ts">
-	/**
-	 * Button Component
-	 * Primary, secondary, ghost, and danger variants with enhanced micro-interactions.
-	 */
-	import styles from './Button.module.css';
-	import Tooltip from './Tooltip.svelte';
-	import type { Snippet } from 'svelte';
+    /**
+     * Button Component
+     * Primary, secondary, ghost, and danger variants with enhanced micro-interactions.
+     */
+    import styles from './Button.module.css';
+    import Tooltip from './Tooltip.svelte';
+    import type {Snippet} from 'svelte';
 
-	interface Props {
+    interface Props {
 		/** Button variant - use 'accent' for main CTAs only */
 		variant?: 'primary' | 'accent' | 'secondary' | 'ghost' | 'danger';
 		/** Button size */

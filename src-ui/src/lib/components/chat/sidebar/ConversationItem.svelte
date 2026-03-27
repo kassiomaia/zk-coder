@@ -1,15 +1,15 @@
 <script lang="ts">
-	/**
-	 * ConversationItem Component
-	 * Individual conversation item in the sidebar list.
-	 */
-	import styles from './ConversationItem.module.css';
-	import ListItemActions from '$lib/components/shared/ListItemActions.svelte';
-	import InlineRenameInput from '$lib/components/shared/InlineRenameInput.svelte';
-	import { formatRelativeTime } from '$lib/utils/formatRelativeTime';
-	import type { Conversation } from '$lib/types/thread';
+    /**
+     * ConversationItem Component
+     * Individual conversation item in the sidebar list.
+     */
+    import styles from './ConversationItem.module.css';
+    import ListItemActions from '$lib/components/shared/ListItemActions.svelte';
+    import InlineRenameInput from '$lib/components/shared/InlineRenameInput.svelte';
+    import {formatRelativeTime} from '$lib/utils/formatRelativeTime';
+    import type {Conversation} from '$lib/types/thread';
 
-	interface Props {
+    interface Props {
 		/** Conversation data */
 		conversation: Conversation;
 		/** Whether this conversation is selected */

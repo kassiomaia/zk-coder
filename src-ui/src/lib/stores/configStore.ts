@@ -3,40 +3,40 @@
  * Svelte store for managing LLM providers, models, and operation defaults.
  */
 
-import { writable, derived, get } from 'svelte/store';
+import {derived, get, writable} from 'svelte/store';
 import type {
-	Provider,
-	Model,
-	ModelsSource,
-	ManualModelEntry,
-	OperationDefault,
-	ApiType,
-	OperationType,
-	SaveProviderRequest
+    ApiType,
+    ManualModelEntry,
+    Model,
+    ModelsSource,
+    OperationDefault,
+    OperationType,
+    Provider,
+    SaveProviderRequest
 } from '$lib/types/config';
 import {
-	getProviders,
-	saveProvider as apiSaveProvider,
-	removeProvider as apiRemoveProvider,
-	getModels as apiGetModels,
-	validateApiKey as apiValidateApiKey,
-	fetchModels as apiFetchModels,
-	storeApiKey as apiStoreApiKey,
-	retrieveApiKey as apiRetrieveApiKey,
-	deleteApiKey as apiDeleteApiKey,
-	getOperationDefaults,
-	setOperationDefault as apiSetOperationDefault,
-	getManualModels as apiGetManualModels,
-	addManualModel as apiAddManualModel,
-	removeManualModel as apiRemoveManualModel,
-	setProviderModelsSource as apiSetProviderModelsSource
+    addManualModel as apiAddManualModel,
+    deleteApiKey as apiDeleteApiKey,
+    fetchModels as apiFetchModels,
+    getManualModels as apiGetManualModels,
+    getModels as apiGetModels,
+    getOperationDefaults,
+    getProviders,
+    removeManualModel as apiRemoveManualModel,
+    removeProvider as apiRemoveProvider,
+    retrieveApiKey as apiRetrieveApiKey,
+    saveProvider as apiSaveProvider,
+    setOperationDefault as apiSetOperationDefault,
+    setProviderModelsSource as apiSetProviderModelsSource,
+    storeApiKey as apiStoreApiKey,
+    validateApiKey as apiValidateApiKey
 } from '$lib/api/config';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
+type LoadingState = 'idle' | 'loading' | 'success' | 'error';
 
 export interface ValidationState {
 	status: 'idle' | 'loading' | 'success' | 'error';

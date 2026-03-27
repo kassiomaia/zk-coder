@@ -1,8 +1,8 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {fireEvent, render, screen, waitFor} from '@testing-library/svelte';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 import ChatMessagesList from './ChatMessagesList.svelte';
-import type { Message, MessageKind } from '$lib/types/message';
-import type { Thread } from '$lib/types/thread';
+import type {Message, MessageKind} from '$lib/types/message';
+import type {Thread} from '$lib/types/thread';
 
 // Mock the agent stores
 const mockActiveSession = {

@@ -1,0 +1,262 @@
+/**
+ * Shared Focus Styles
+ *
+ * Consistent, accessible focus indicators for all interactive elements.
+ * Follows WCAG 2.4.7 Focus Visible requirements.
+ *
+ * Usage:
+ * 1. Add @import '../../styles/focus-styles.css' to your component
+ * 2. Elements automatically get proper focus styles via :focus-visible
+ * 3. Use utility classes like .focus-ring for custom focus indicators
+ */
+
+/* =====================
+   GLOBAL FOCUS STYLES
+   Applied to all interactive elements
+   ===================== */
+
+/* Reset default outline (browsers provide their own) */
+:focus {
+	outline: none;
+}
+
+/* Focus visible - only show when navigating with keyboard */
+:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+/* Hide focus for mouse/touch users */
+:focus:not(:focus-visible) {
+	outline: none;
+}
+
+/* =====================
+   FOCUS UTILITY CLASSES
+   Apply to elements that need custom focus styles
+   ===================== */
+
+/* Standard focus ring */
+.focus-ring:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+/* Subtle focus ring - less prominent */
+.focus-ring-subtle:focus-visible {
+	outline: 1px solid var(--color-primary-500);
+	outline-offset: 1px;
+	border-radius: var(--radius-sm);
+}
+
+/* Strong focus ring - more prominent */
+.focus-ring-strong:focus-visible {
+	outline: 3px solid var(--color-primary-500);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+/* Inner glow focus - modern look */
+.focus-glow:focus-visible {
+	outline: none;
+	box-shadow:
+	0 0 0 2px var(--color-primary-500),
+	0 0 0 4px var(--color-primary-300);
+}
+
+/* Error focus - for destructive actions */
+.focus-error:focus-visible {
+	outline: 2px solid var(--color-error);
+	outline-offset: 2px;
+}
+
+/* Success focus - for confirmations */
+.focus-success:focus-visible {
+	outline: 2px solid var(--color-success);
+	outline-offset: 2px;
+}
+
+/* =====================
+   COMPONENT-SPECIFIC FOCUS
+   ===================== */
+
+/* Button focus - applies to all button-like elements */
+button:focus-visible,
+[role='button']:focus-visible,
+.inputButton:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+/* Icon button focus - smaller offset */
+.iconButton:focus-visible,
+[aria-label*='icon']:focus-visible {
+	outline-offset: 1px;
+}
+
+/* Input focus - already styled in global.css, this reinforces it */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+	outline: none;
+	border-color: var(--color-primary-500);
+	box-shadow: 0 0 0 3px var(--color-accent-primary-muted);
+}
+
+/* Link focus - underline indicator */
+a:focus-visible {
+	text-decoration: underline;
+	outline: 1px solid var(--color-primary-500);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+/* Menu item focus */
+[role='menuitem']:focus-visible,
+[role='option']:focus-visible {
+	background: var(--color-interactive-hover);
+	outline: none;
+}
+
+/* =====================
+   FOCUS TRANSITIONS
+   Smooth focus state changes
+   ===================== */
+
+.focus-transition {
+	transition:
+		box-shadow var(--transition-fast),
+		outline var(--transition-fast),
+		outline-offset var(--transition-fast);
+}
+
+/* Remove transition for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.focus-transition {
+		transition: none;
+	}
+}
+
+/* =====================
+   HIGH CONTRAST MODE
+   Enhanced focus visibility for high contrast users
+   ===================== */
+
+@media (prefers-contrast: high) {
+	:focus-visible {
+		outline-width: 3px;
+		outline-offset: 3px;
+	}
+
+	.focus-ring-subtle:focus-visible {
+		outline-width: 2px;
+	}
+
+	.focus-ring-strong:focus-visible {
+		outline-width: 4px;
+	}
+}
+
+/* =====================
+   SKIP LINKS
+   Accessibility skip links for keyboard navigation
+   ===================== */
+
+.skip-link {
+	position: absolute;
+	top: -40px;
+	left: 0;
+	background: var(--color-primary-500);
+	color: var(--color-neutral-0);
+	padding: var(--space-2) var(--space-3);
+	text-decoration: none;
+	z-index: var(--z-tooltip);
+	border-radius: 0 var(--radius-md) var(--radius-md) 0;
+	transition: top var(--transition-normal);
+}
+
+.skip-link:focus {
+	top: 0;
+}
+
+/* =====================
+   FOCUS TRAP INDICATORS
+   For modals and dialogs
+   ===================== */
+
+.focus-trap-boundary {
+	position: relative;
+}
+
+.focus-trap-boundary::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border: 2px solid var(--color-primary-500);
+	border-radius: inherit;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity var(--transition-fast);
+}
+
+.focus-trap-boundary.focus-within::after {
+	opacity: 1;
+}
+
+/* =====================
+   KEYBOARD NAVIGATION HINTS
+   Visual indicators for keyboard accessibility
+   ===================== */
+
+/* Show focus ring on any keyboard interaction */
+.keyboard-mode *:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+}
+
+/* Add keyboard-mode class via JS when keyboard navigation detected */
+.keyboard-mode {
+	--focus-ring-opacity: 1;
+}
+
+/* =====================
+   COMPONENT OVERRIDES
+   For specific components that need different focus styles
+   ===================== */
+
+/* Remove focus from clickable elements inside disabled elements */
+:disabled,
+.disabled {
+	pointer-events: none;
+}
+
+:disabled:focus-visible,
+.disabled:focus-visible {
+	outline: none;
+	box-shadow: none;
+}
+
+/* Focus within clickable areas (like cards with actions) */
+.focus-container:focus-visible {
+	outline: none;
+}
+
+.focus-container:focus-visible .focus-target {
+	box-shadow: 0 0 0 2px var(--color-primary-500);
+}
+
+/* =====================
+   REDUCED MOTION
+   Disable focus transitions for users who prefer reduced motion
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		transition-property: none !important;
+	}
+}

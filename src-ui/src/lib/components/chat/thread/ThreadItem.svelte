@@ -1,16 +1,16 @@
 <script lang="ts">
-	/**
-	 * ThreadItem Component
-	 * Individual thread item in the thread list.
-	 */
-	import styles from './ThreadItem.module.css';
-	import ListItemActions from '$lib/components/shared/ListItemActions.svelte';
-	import InlineRenameInput from '$lib/components/shared/InlineRenameInput.svelte';
-	import { CheckCircleIcon, MessageSquareIcon } from '$lib/icons';
-	import { formatRelativeTime } from '$lib/utils/formatRelativeTime';
-	import type { Thread } from '$lib/types/thread';
+    /**
+     * ThreadItem Component
+     * Individual thread item in the thread list.
+     */
+    import styles from './ThreadItem.module.css';
+    import ListItemActions from '$lib/components/shared/ListItemActions.svelte';
+    import InlineRenameInput from '$lib/components/shared/InlineRenameInput.svelte';
+    import {CheckCircleIcon, MessageSquareIcon} from '$lib/icons';
+    import {formatRelativeTime} from '$lib/utils/formatRelativeTime';
+    import type {Thread} from '$lib/types/thread';
 
-	interface Props {
+    interface Props {
 		/** Thread data */
 		thread: Thread;
 		/** Whether this thread is selected */

@@ -1,13 +1,13 @@
 <script lang="ts">
-	/**
-	 * ChatScrollButton Component
-	 * Scroll-to-bottom button for chat area.
-	 */
-	import styles from './ChatArea.module.css';
-	import { isLlmStreaming } from '$lib/stores/chat';
-	import { ArrowDownIcon } from '$lib/icons';
+    /**
+     * ChatScrollButton Component
+     * Scroll-to-bottom button for chat area.
+     */
+    import styles from './ChatArea.module.css';
+    import {isLlmStreaming} from '$lib/stores/chat';
+    import {ArrowDownIcon} from '$lib/icons';
 
-	interface Props {
+    interface Props {
 		/** Whether to show the button */
 		show: boolean;
 

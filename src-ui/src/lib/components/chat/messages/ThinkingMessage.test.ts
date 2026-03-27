@@ -1,7 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import ThinkingMessage from './ThinkingMessage.svelte';
-import type { Message } from '$lib/types/message';
+import type {Message} from '$lib/types/message';
 
 describe('ThinkingMessage', () => {
 	let mockMessage: Message;
@@ -101,8 +101,8 @@ describe('ThinkingMessage', () => {
 			const { container } = render(ThinkingMessage, {
 				message: mockMessage
 			});
-			const containerEl = container.querySelector('[class*="thinkingMessage"]');
-			expect(containerEl?.classList.contains('collapsed')).toBe(false);
+			const button = screen.getByRole('button');
+			expect(button).toHaveAttribute('aria-expanded', 'true');
 		});
 
 		it('toggles collapsed state on click', async () => {
@@ -110,13 +110,12 @@ describe('ThinkingMessage', () => {
 				message: mockMessage
 			});
 
-			const button = container.querySelector('button');
-			if (button) {
-				await fireEvent.click(button);
+			const button = screen.getByRole('button');
+			expect(button).toHaveAttribute('aria-expanded', 'true');
 
-				const containerEl = container.querySelector('[class*="thinkingMessage"]');
-				expect(containerEl?.classList.contains('collapsed')).toBe(true);
-			}
+			await fireEvent.click(button);
+
+			expect(button).toHaveAttribute('aria-expanded', 'false');
 		});
 
 		it('shows chevron up when expanded', () => {
@@ -140,23 +139,21 @@ describe('ThinkingMessage', () => {
 			expect(screen.getByText('I need to analyze the code structure first...')).toBeInTheDocument();
 		});
 
-		it('hides reasoning when collapsed', () => {
+		it('hides reasoning when collapsed', async () => {
 			const messageWithReasoning: Message = {
 				...mockMessage,
 				reasoning: 'I need to analyze the code structure first...'
 			};
-			const { container } = render(ThinkingMessage, {
+			render(ThinkingMessage, {
 				message: messageWithReasoning
 			});
 
-			const button = container.querySelector('button');
-			if (button) {
-				fireEvent.click(button);
-			}
+			const button = screen.getByRole('button');
+			await fireEvent.click(button);
 
 			// After collapse, reasoning should be hidden
-			const reasoning = container.querySelector('[class*="reasoning"]');
-			expect(reasoning?.parentElement?.classList.contains('collapsed')).toBe(true);
+			const reasoning = screen.queryByText('I need to analyze the code structure first...');
+			expect(reasoning).not.toBeInTheDocument();
 		});
 
 		it('does not display reasoning section when not provided', () => {
@@ -191,33 +188,31 @@ describe('ThinkingMessage', () => {
 
 	describe('accessibility', () => {
 		it('has proper aria-label for collapse button', () => {
-			const { container } = render(ThinkingMessage, {
+			render(ThinkingMessage, {
 				message: mockMessage
 			});
-			const button = container.querySelector('[aria-label="Collapse thinking"]');
+			const button = screen.getByRole('button', {name: 'Collapse thinking'});
 			expect(button).toBeInTheDocument();
 		});
 
 		it('has aria-expanded="true" when expanded', () => {
-			const { container } = render(ThinkingMessage, {
+			render(ThinkingMessage, {
 				message: mockMessage
 			});
-			const button = container.querySelector('[aria-expanded="true"]');
-			expect(button).toBeInTheDocument();
+			const button = screen.getByRole('button');
+			expect(button).toHaveAttribute('aria-expanded', 'true');
 		});
 
 		it('toggles aria-expanded on collapse', async () => {
-			const { container } = render(ThinkingMessage, {
+			render(ThinkingMessage, {
 				message: mockMessage
 			});
 
-			const button = container.querySelector('button');
-			if (button) {
-				await fireEvent.click(button);
-			}
+			const button = screen.getByRole('button');
+			await fireEvent.click(button);
 
-			const collapsedButton = container.querySelector('[aria-expanded="false"]');
-			expect(collapsedButton).toBeInTheDocument();
+			const collapsedButton = screen.getByRole('button', {name: 'Expand thinking'});
+			expect(collapsedButton).toHaveAttribute('aria-expanded', 'false');
 		});
 	});
 
@@ -230,18 +225,17 @@ describe('ThinkingMessage', () => {
 			expect(containerEl).toBeInTheDocument();
 		});
 
-		it('applies collapsed class when collapsed', async () => {
+		it('reflects collapsed state via aria-expanded', async () => {
 			const { container } = render(ThinkingMessage, {
 				message: mockMessage
 			});
 
-			const button = container.querySelector('button');
-			if (button) {
-				await fireEvent.click(button);
-			}
+			const button = screen.getByRole('button');
+			expect(button).toHaveAttribute('aria-expanded', 'true');
 
-			const containerEl = container.querySelector('.collapsed');
-			expect(containerEl).toBeInTheDocument();
+			await fireEvent.click(button);
+
+			expect(button).toHaveAttribute('aria-expanded', 'false');
 		});
 	});
 
@@ -285,6 +279,8 @@ describe('ThinkingMessage', () => {
 			const container = document.body;
 			expect(container).toBeInTheDocument();
 		});
+
+
 
 		it('handles undefined metadata', () => {
 			const { container } = render(ThinkingMessage, {

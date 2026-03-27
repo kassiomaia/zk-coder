@@ -1,14 +1,14 @@
 <script lang="ts">
-	/**
-	 * ProviderCard Component
-	 * Clickable card displaying provider info and status.
-	 */
-	import styles from './ProviderCard.module.css';
-	import ProviderIcon from './ProviderIcon.svelte';
-	import type { Provider } from '$lib/types/config';
-	import { getProviderDefaultModels } from '$lib/types/config';
+    /**
+     * ProviderCard Component
+     * Clickable card displaying provider info and status.
+     */
+    import styles from './ProviderCard.module.css';
+    import ProviderIcon from './ProviderIcon.svelte';
+    import type {Provider} from '$lib/types/config';
+    import {getProviderDefaultModels} from '$lib/types/config';
 
-	interface Props {
+    interface Props {
 		provider: Provider;
 		onclick: () => void;
 	}

@@ -8,15 +8,8 @@ pub mod core;
 // Application layer - service implementations
 pub mod application;
 
-// Infrastructure modules
-pub mod agents;
-pub mod api;
 pub mod commands;
-pub mod llm;
-pub mod nlp;
-pub mod storage;
-pub mod tools;
-pub mod utils;
+pub mod infrastructure;
 
 use commands::{AgentState, ChatState, ConfigState, LlmState, NlpState};
 use std::path::PathBuf;
@@ -25,7 +18,7 @@ use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
 
 use application::llm::LlmServiceImpl;
-use storage::ConfigStore;
+use infrastructure::sqlite::repositories::config::SqliteConfigRepository;
 
 /// Get the app data directory for storing databases.
 fn get_app_data_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -66,11 +59,11 @@ pub fn run() {
                 .expect("Failed to initialize Config state");
 
             // Initialize LLM service (uses same database as config)
-            let config_store = Arc::new(
-                ConfigStore::new(&config_db.to_string_lossy())
-                    .expect("Failed to initialize ConfigStore")
+            let config_repository = Arc::new(
+                SqliteConfigRepository::new(&config_db.to_string_lossy())
+                    .expect("Failed to initialize SqliteConfigRepository"),
             );
-            let llm_service = Arc::new(LlmServiceImpl::new(config_store.clone()))
+            let llm_service = Arc::new(LlmServiceImpl::new(config_repository.clone()))
                 as Arc<dyn crate::core::llm::services::LlmService>;
 
             // Initialize LLM state
@@ -130,74 +123,74 @@ pub fn run() {
             commands::nlp::resolve_ambiguity,
             commands::nlp::apply_resolutions,
             // Chat commands
-            commands::chat::load_conversations,
-            commands::chat::create_conversation,
-            commands::chat::load_conversation,
-            commands::chat::rename_conversation,
-            commands::chat::delete_conversation,
-            commands::chat::update_conversation_settings,
-            commands::chat::set_conversation_workspace,
-            commands::chat::load_threads,
-            commands::chat::create_thread,
-            commands::chat::resolve_thread,
-            commands::chat::delete_thread,
-            commands::chat::rename_thread,
-            commands::chat::set_thread_agent_session,
-            commands::chat::load_messages,
-            commands::chat::load_thread_messages,
-            commands::chat::send_message,
-            commands::chat::delete_message,
-            commands::chat::update_message_status,
-            commands::chat::update_message_feedback,
-            commands::chat::create_thread_with_message,
+            commands::chat::conversations::load_conversations,
+            commands::chat::conversations::create_conversation,
+            commands::chat::conversations::load_conversation,
+            commands::chat::conversations::rename_conversation,
+            commands::chat::conversations::delete_conversation,
+            commands::chat::conversations::update_conversation_settings,
+            commands::chat::conversations::set_conversation_workspace,
+            commands::chat::threads::load_threads,
+            commands::chat::threads::create_thread,
+            commands::chat::threads::resolve_thread,
+            commands::chat::threads::delete_thread,
+            commands::chat::threads::rename_thread,
+            commands::chat::threads::set_thread_agent_session,
+            commands::chat::messages::load_messages,
+            commands::chat::messages::load_thread_messages,
+            commands::chat::messages::send_message,
+            commands::chat::messages::delete_message,
+            commands::chat::messages::update_message_status,
+            commands::chat::messages::update_message_feedback,
+            commands::chat::threads::create_thread_with_message,
             // Config commands
-            commands::config::get_providers,
-            commands::config::save_provider,
-            commands::config::remove_provider,
-            commands::config::validate_api_key,
-            commands::config::test_connection,
-            commands::config::fetch_models,
-            commands::config::store_api_key,
-            commands::config::retrieve_api_key,
-            commands::config::delete_api_key,
-            commands::config::has_api_key,
-            commands::config::get_operation_defaults,
-            commands::config::set_operation_default,
-            commands::config::get_models,
-            commands::config::get_manual_models,
-            commands::config::add_manual_model,
-            commands::config::remove_manual_model,
-            commands::config::set_provider_models_source,
+            commands::config::providers::get_providers,
+            commands::config::providers::save_provider,
+            commands::config::providers::remove_provider,
+            commands::config::api_keys::validate_api_key,
+            commands::config::api_keys::test_connection,
+            commands::config::api_keys::fetch_models,
+            commands::config::api_keys::store_api_key,
+            commands::config::api_keys::retrieve_api_key,
+            commands::config::api_keys::delete_api_key,
+            commands::config::api_keys::has_api_key,
+            commands::config::defaults::get_operation_defaults,
+            commands::config::defaults::set_operation_default,
+            commands::config::models::get_models,
+            commands::config::models::get_manual_models,
+            commands::config::models::add_manual_model,
+            commands::config::models::remove_manual_model,
+            commands::config::models::set_provider_models_source,
             // LLM commands
-            commands::llm::send_chat_message,
-            commands::llm::send_chat_message_streaming,
-            commands::llm::cancel_chat_request,
+            commands::llm::commands::send_chat_message,
+            commands::llm::commands::send_chat_message_streaming,
+            commands::llm::commands::cancel_chat_request,
             // Agent commands
-            commands::agent::create_agent_session,
-            commands::agent::send_agent_request,
-            commands::agent::get_agent_session,
-            commands::agent::get_agent_sessions_for_conversation,
-            commands::agent::cancel_agent_session,
-            commands::agent::delete_agent_session,
-            commands::agent::update_agent_session_workspace,
-            commands::agent::approve_agent_action,
-            commands::agent::deny_agent_action,
-            commands::agent::get_pending_agent_actions,
-            commands::agent::list_agents,
-            commands::agent::get_agent,
+            commands::agent::sessions::create_agent_session,
+            commands::agent::sessions::send_agent_request,
+            commands::agent::sessions::get_agent_session,
+            commands::agent::sessions::get_agent_sessions_for_conversation,
+            commands::agent::sessions::cancel_agent_session,
+            commands::agent::sessions::delete_agent_session,
+            commands::agent::sessions::update_agent_session_workspace,
+            commands::agent::approvals::approve_agent_action,
+            commands::agent::approvals::deny_agent_action,
+            commands::agent::approvals::get_pending_agent_actions,
+            commands::agent::registry::list_agents,
+            commands::agent::registry::get_agent,
             // Agent rollback commands
-            commands::agent::get_session_file_snapshots,
-            commands::agent::rollback_file,
-            commands::agent::rollback_session,
+            commands::agent::rollback::get_session_file_snapshots,
+            commands::agent::rollback::rollback_file,
+            commands::agent::rollback::rollback_session,
             // Agent subtask commands
-            commands::agent::create_subtask,
-            commands::agent::update_subtask_status,
-            commands::agent::get_subtasks,
+            commands::agent::subtasks::create_subtask,
+            commands::agent::subtasks::update_subtask_status,
+            commands::agent::subtasks::get_subtasks,
             // File viewing commands (UI-only, no LLM consumption)
             commands::file::get_file_content,
             // Session history commands
-            commands::agent::get_conversation_session_history,
-            commands::agent::get_session_details,
+            commands::agent::history::get_conversation_session_history,
+            commands::agent::history::get_session_details,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,21 +1,22 @@
 <script lang="ts">
-	/**
-	 * Popover Component
-	 * Unified popover/dropdown menu for all context menus and action dropdowns.
-	 *
-	 * Design Features:
-	 * - Portal rendering for proper z-index stacking
-	 * - Click-outside and keyboard handling
-	 * - Synchronized item stagger animation
-	 * - Position anchoring to trigger element
-	 * - Destructive/success/warning variants
-	 */
-	import { onMount } from 'svelte';
-	import styles from './Popover.module.css';
-	import type { PopoverOrigin, PopoverItem } from './popover.types';
-	import { generatePopoverId } from '$lib/utils/idGenerator';
+    /**
+     * Popover Component
+     * Unified popover/dropdown menu for all context menus and action dropdowns.
+     *
+     * Design Features:
+     * - Portal rendering for proper z-index stacking
+     * - Click-outside and keyboard handling
+     * - Synchronized item stagger animation
+     * - Position anchoring to trigger element
+     * - Destructive/success/warning variants
+     */
+    import {onMount} from 'svelte';
+    import styles from './Popover.module.css';
+    import type {PopoverItem, PopoverOrigin} from './popover.types';
+    import {generatePopoverId} from '$lib/utils/idGenerator';
+    import { requestPopoverOpen, onPopoverCloseAll } from '$lib/stores/popoverStore';
 
-	interface Props {
+    interface Props {
 		open: boolean;
 		onClose: () => void;
 		items: PopoverItem[];
@@ -101,13 +102,28 @@
 	$effect(() => {
 		if (open) {
 			updatePosition();
+			// Notify other popovers to close
+			requestPopoverOpen(id);
 		}
 	});
 
+	// Listen for close-all events from other popovers
+	let unregisterCloseListener: (() => void) | null = null;
+
 	onMount(() => {
 		window.addEventListener('keydown', handleKeyDown);
+
+		// Register listener for close-all events from other popovers
+		unregisterCloseListener = onPopoverCloseAll((requestingId: string) => {
+			// If another popover is requesting to open (not this one), close this one
+			if (requestingId !== id && open) {
+				onClose();
+			}
+		});
+
 		return () => {
 			window.removeEventListener('keydown', handleKeyDown);
+			unregisterCloseListener?.();
 		};
 	});
 </script>

@@ -1,11 +1,11 @@
 <script lang="ts">
-	/**
-	 * MentionMenu Component
-	 * Menu for selecting files, agents, or context to mention, triggered by "@".
-	 */
-	import styles from './MentionMenu.module.css';
+    /**
+     * MentionMenu Component
+     * Menu for selecting files, agents, or context to mention, triggered by "@".
+     */
+    import styles from './MentionMenu.module.css';
 
-	interface MentionItem {
+    interface MentionItem {
 		id: string;
 		name: string;
 		type: 'file' | 'agent' | 'context';

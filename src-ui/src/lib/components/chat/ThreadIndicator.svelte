@@ -1,13 +1,13 @@
 <script lang="ts">
-	/**
-	 * ThreadIndicator Component
-	 * Shows a badge indicating which thread a message belongs to.
-	 * Clickable to navigate to the thread.
-	 */
-	import styles from './ThreadIndicator.module.css';
-	import type { Thread } from '$lib/types/thread';
+    /**
+     * ThreadIndicator Component
+     * Shows a badge indicating which thread a message belongs to.
+     * Clickable to navigate to the thread.
+     */
+    import styles from './ThreadIndicator.module.css';
+    import type {Thread} from '$lib/types/thread';
 
-	interface Props {
+    interface Props {
 		/** The thread the message belongs to */
 		thread: Thread;
 		/** Handler to navigate to the thread */

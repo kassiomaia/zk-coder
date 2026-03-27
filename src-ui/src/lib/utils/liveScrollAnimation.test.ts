@@ -2,20 +2,18 @@
  * Tests for liveScrollAnimation
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {
-	startLiveAnimation,
-	updateLiveTarget,
-	stopById,
-	stop,
-	stopAll,
-	isRunning,
-	getAnimationId,
-	getAnimationPriority,
-	scrollToBottomInstant,
-	scrollToBottomLive,
-	getDebugInfo,
-	type LiveAnimationOptions
+    getAnimationId,
+    getAnimationPriority,
+    getDebugInfo,
+    scrollToBottomInstant,
+    scrollToBottomLive,
+    startLiveAnimation,
+    stop,
+    stopAll,
+    stopById,
+    updateLiveTarget
 } from './liveScrollAnimation';
 
 describe('liveScrollAnimation', () => {

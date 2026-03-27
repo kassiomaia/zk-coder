@@ -1,19 +1,19 @@
 <script lang="ts">
-	/**
-	 * ThreadPanel Component
-	 * Content panel showing messages within a thread.
-	 */
-	import styles from './ThreadPanel.module.css';
-	import ChatArea from '../ChatArea.svelte';
-	import Button from '../../shared/Button.svelte';
-	import Tooltip from '../../shared/Tooltip.svelte';
-	import { chatStore, unreadThreadIds } from '$lib/stores';
-	import type { Thread } from '$lib/types/thread';
-	import type { Message } from '$lib/types/message';
-	import { fade, slide } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+    /**
+     * ThreadPanel Component
+     * Content panel showing messages within a thread.
+     */
+    import styles from './ThreadPanel.module.css';
+    import ChatArea from '../ChatArea.svelte';
+    import Button from '../../shared/Button.svelte';
+    import Tooltip from '../../shared/Tooltip.svelte';
+    import {chatStore, unreadThreadIds} from '$lib/stores';
+    import type {Thread} from '$lib/types/thread';
+    import type {Message} from '$lib/types/message';
+    import {slide} from 'svelte/transition';
+    import {cubicOut} from 'svelte/easing';
 
-	interface Props {
+    interface Props {
 		/** Current thread being displayed */
 		thread: Thread;
 		/** Messages in the thread */

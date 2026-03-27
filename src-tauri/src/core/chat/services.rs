@@ -62,7 +62,11 @@ pub trait ChatService: Send + Sync {
     ) -> RepositoryResult<Conversation>;
 
     /// Updates a conversation's workspace root.
-    fn set_conversation_workspace(&self, id: &str, workspace_root: &str) -> RepositoryResult<Conversation>;
+    fn set_conversation_workspace(
+        &self,
+        id: &str,
+        workspace_root: &str,
+    ) -> RepositoryResult<Conversation>;
 
     // ========================================================================
     // Thread Operations
@@ -96,7 +100,11 @@ pub trait ChatService: Send + Sync {
     ) -> RepositoryResult<(Thread, ChatMessage)>;
 
     /// Sets or clears the agent session for a thread.
-    fn set_thread_agent_session(&self, id: &str, agent_session_id: Option<String>) -> RepositoryResult<()>;
+    fn set_thread_agent_session(
+        &self,
+        id: &str,
+        agent_session_id: Option<String>,
+    ) -> RepositoryResult<()>;
 
     // ========================================================================
     // Message Operations
@@ -115,6 +123,9 @@ pub trait ChatService: Send + Sync {
     /// Loads messages for a thread.
     fn load_thread_messages(&self, thread_id: &str) -> RepositoryResult<Vec<ChatMessage>>;
 
+    /// Persists a message through the chat service boundary.
+    fn add_message(&self, message: &ChatMessage) -> RepositoryResult<()>;
+
     /// Deletes a message.
     fn delete_message(&self, id: &str) -> RepositoryResult<()>;
 
@@ -122,5 +133,9 @@ pub trait ChatService: Send + Sync {
     fn update_message_status(&self, id: &str, status: MessageStatus) -> RepositoryResult<()>;
 
     /// Updates a message's feedback.
-    fn update_message_feedback(&self, id: &str, feedback: Option<MessageFeedback>) -> RepositoryResult<()>;
+    fn update_message_feedback(
+        &self,
+        id: &str,
+        feedback: Option<MessageFeedback>,
+    ) -> RepositoryResult<()>;
 }

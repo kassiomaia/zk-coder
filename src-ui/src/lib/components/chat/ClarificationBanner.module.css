@@ -5,6 +5,8 @@
  * Severity levels control the visual emphasis.
  */
 
+@import '../../styles/animations.css';
+
 .banner {
 	display: flex;
 	flex-direction: column;
@@ -15,17 +17,6 @@
 	border-radius: var(--radius-lg);
 	animation: slideIn var(--duration-normal) var(--ease-out);
 	margin-bottom: var(--space-3);
-}
-
-@keyframes slideIn {
-	from {
-		opacity: 0;
-		transform: translateY(-8px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
 }
 
 /* Severity variants */
@@ -58,7 +49,7 @@
 	justify-content: center;
 	width: 24px;
 	height: 24px;
-	margin-top: 2px;
+	margin-top: var(--space-px);
 }
 
 .high .iconWrapper {

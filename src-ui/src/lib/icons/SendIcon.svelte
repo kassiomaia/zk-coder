@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { IconProps } from './icons.d';
+    import type {IconProps} from './icons.d';
 
-	interface SendIconProps extends IconProps {
+    interface SendIconProps extends IconProps {
 		/** Whether the icon should be filled */
 		filled?: boolean;
 	}

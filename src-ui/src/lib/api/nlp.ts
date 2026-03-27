@@ -3,16 +3,16 @@
  * TypeScript wrappers for Tauri IPC commands to the NLP backend.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import {invoke} from '@tauri-apps/api/core';
 import type {
-	IntentClassification,
-	ConversationContext,
-	MultiIntentResult,
-	Ambiguity,
-	ResolvedAmbiguity,
-	ResolutionType,
-	CodeUnderstanding,
-	ProgrammingLanguage
+    Ambiguity,
+    CodeUnderstanding,
+    ConversationContext,
+    IntentClassification,
+    MultiIntentResult,
+    ProgrammingLanguage,
+    ResolutionType,
+    ResolvedAmbiguity
 } from '$lib/types/nlp';
 
 // ============================================================================
@@ -268,19 +268,6 @@ export async function analyzeCode(options: AnalyzeCodeOptions): Promise<CodeUnde
 		code: options.code,
 		language: options.language
 	});
-}
-
-// ============================================================================
-// Project Files
-// ============================================================================
-
-/**
- * Updates project files for ambiguity resolution.
- *
- * @param files - Array of file paths
- */
-export async function updateProjectFiles(files: string[]): Promise<void> {
-	return safeInvoke<void>('update_project_files', { files });
 }
 
 // ============================================================================

@@ -3,6 +3,8 @@
  * Premium tooltip with pixel-perfect positioning and refined micro-interactions.
  */
 
+@import '../../styles/animations.css';
+
 .trigger {
 	display: contents;
 }
@@ -123,69 +125,11 @@
 	animation: none;
 }
 
-@keyframes tooltipFadeInTop {
-	0% {
-		opacity: 0;
-		transform: translateX(-50%) translateY(-100%) scale(0.96);
-	}
-	100% {
-		opacity: 1;
-		transform: translateX(-50%) translateY(-100%) scale(1);
-	}
-}
-
-@keyframes tooltipFadeInBottom {
-	0% {
-		opacity: 0;
-		transform: translateX(-50%) scale(0.96);
-	}
-	100% {
-		opacity: 1;
-		transform: translateX(-50%) scale(1);
-	}
-}
-
-@keyframes tooltipFadeInLeft {
-	0% {
-		opacity: 0;
-		transform: translateX(-100%) translateY(-50%) scale(0.96);
-	}
-	100% {
-		opacity: 1;
-		transform: translateX(-100%) translateY(-50%) scale(1);
-	}
-}
-
-@keyframes tooltipFadeInRight {
-	0% {
-		opacity: 0;
-		transform: translateY(-50%) scale(0.96);
-	}
-	100% {
-		opacity: 1;
-		transform: translateY(-50%) scale(1);
-	}
-}
+/* @keyframes tooltipFadeInTop, tooltipFadeInBottom, tooltipFadeInLeft, tooltipFadeInRight, tooltipGlow now in shared animations.css */
 
 /* Subtle hover glow for premium feel */
 .tooltip.visible .content {
 	animation: tooltipGlow 2s var(--ease-in-out) infinite;
-}
-
-@keyframes tooltipGlow {
-	0%,
-	100% {
-		box-shadow:
-			0 2px 4px rgba(0, 0, 0, 0.1),
-			0 4px 12px rgba(0, 0, 0, 0.15),
-			0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-	}
-	50% {
-		box-shadow:
-			0 2px 4px rgba(0, 0, 0, 0.1),
-			0 4px 16px rgba(0, 0, 0, 0.18),
-			0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-	}
 }
 
 /* Disable glow animation for reduced motion */

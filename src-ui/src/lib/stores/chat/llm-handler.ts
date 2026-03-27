@@ -5,19 +5,19 @@
  * Extracted from chat.ts for maintainability.
  */
 
-import { type Updater } from 'svelte/store';
-import type { Message } from '$lib/types/message';
+import {type Updater} from 'svelte/store';
+import type {Message} from '$lib/types/message';
 import {
-	sendChatMessageStreaming,
-	isStartedEvent,
-	isChunkEvent,
-	isCompleteEvent,
-	isErrorEvent,
-	type LlmEvent,
-	type StreamChatResult
+    isChunkEvent,
+    isCompleteEvent,
+    isErrorEvent,
+    isStartedEvent,
+    type LlmEvent,
+    sendChatMessageStreaming,
+    type StreamChatResult
 } from '$lib/api/llm';
-import { configStore } from '../configStore';
-import type { ChatState, LlmRequestOptions, StreamingContext, ThreadStreamingState } from './types';
+import {configStore} from '../configStore';
+import type {ChatState, LlmRequestOptions, StreamingContext, ThreadStreamingState} from './types';
 
 // ============================================================================
 // Types

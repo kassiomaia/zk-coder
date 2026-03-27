@@ -17,6 +17,9 @@
  * - Interaction: ripple, micro-bounce, weight shifts
  */
 
+@import './animations.css';
+
+
 /* =====================
    Message Container System
    ===================== */
@@ -49,6 +52,8 @@
 	animation-delay: 120ms;
 }
 
+/* @keyframes messageEnter is similar to slideIn in shared animations.css
+   Custom implementation for 6px offset specific to message containers */
 @keyframes messageEnter {
 	from {
 		opacity: 0;

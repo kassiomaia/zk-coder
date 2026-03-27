@@ -1,14 +1,14 @@
 <script lang="ts">
-	/**
-	 * ConfirmDialog Component
-	 * A simple confirmation dialog with confirm and cancel buttons.
-	 * Used for destructive or important actions like archive, delete, etc.
-	 */
-	import Modal from './Modal.svelte';
-	import Button from './Button.svelte';
-	import styles from './ConfirmDialog.module.css';
+    /**
+     * ConfirmDialog Component
+     * A simple confirmation dialog with confirm and cancel buttons.
+     * Used for destructive or important actions like archive, delete, etc.
+     */
+    import Modal from './Modal.svelte';
+    import Button from './Button.svelte';
+    import styles from './ConfirmDialog.module.css';
 
-	interface Props {
+    interface Props {
 		/** Open state */
 		open: boolean;
 		/** Dialog title */

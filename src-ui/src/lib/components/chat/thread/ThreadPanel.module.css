@@ -7,6 +7,8 @@
  * - Consistent styling with rest of app
  */
 
+@import '../../../styles/animations.css';
+
 .panel {
 	display: flex;
 	flex-direction: column;
@@ -250,15 +252,6 @@
 /* Spinning animation for loading state */
 .spinning {
 	animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-	from {
-		transform: rotate(0deg);
-	}
-	to {
-		transform: rotate(360deg);
-	}
 }
 
 .resolvedContent {

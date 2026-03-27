@@ -2,27 +2,25 @@
  * Tests for scrollStateMachine
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {
-	sendEvent,
-	getState,
-	isInState,
-	isStreamingActive,
-	shouldAutoScroll,
-	isUserPaused,
-	resetThread,
-	resetAll,
-	onStateChange,
-	getValidTransitions,
-	getHistory,
-	getDebugInfo,
-	getEventCount,
-	describeState,
-	describeEvent,
-	getAllStates,
-	getAllEvents,
-	type ScrollState,
-	type ScrollEvent
+    describeEvent,
+    describeState,
+    getAllEvents,
+    getAllStates,
+    getDebugInfo,
+    getEventCount,
+    getHistory,
+    getState,
+    getValidTransitions,
+    isInState,
+    isStreamingActive,
+    isUserPaused,
+    onStateChange,
+    resetAll,
+    resetThread,
+    sendEvent,
+    shouldAutoScroll
 } from './scrollStateMachine';
 
 describe('scrollStateMachine', () => {

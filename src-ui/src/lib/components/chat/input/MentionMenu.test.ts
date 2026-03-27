@@ -1,5 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {fireEvent, render, screen, within} from '@testing-library/svelte';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import MentionMenu from './MentionMenu.svelte';
 
 interface MentionItem {
@@ -79,7 +79,7 @@ describe('MentionMenu', () => {
 
 		it('renders item types', () => {
 			render(MentionMenu, { ...defaultProps });
-			expect(screen.getByText('File')).toBeInTheDocument();
+			expect(screen.getAllByText('File')[0]).toBeInTheDocument();
 			expect(screen.getByText('Agent')).toBeInTheDocument();
 			expect(screen.getByText('Context')).toBeInTheDocument();
 		});
@@ -103,9 +103,19 @@ describe('MentionMenu', () => {
 
 		it('renders keyboard hints in footer', () => {
 			render(MentionMenu, { ...defaultProps });
-			expect(screen.getByText(/↑.*to navigate/i)).toBeInTheDocument();
-			expect(screen.getByText(/Enter.*to select/i)).toBeInTheDocument();
-			expect(screen.getByText(/Esc.*to close/i)).toBeInTheDocument();
+			const listbox = screen.getByRole('listbox');
+			// Find the hint span specifically
+			const hintSpan = within(listbox).getByText((content, element) => {
+				return element.tagName.toLowerCase() === 'span' && 
+				element.textContent.includes('to navigate') &&
+				element.textContent.includes('to select') &&
+				element.textContent.includes('to close');
+			});
+			expect(hintSpan).toBeInTheDocument();
+			// Assert individual kbd elements are present within the found span
+			expect(within(hintSpan).getByText('↑↓')).toBeInTheDocument();
+			expect(within(hintSpan).getByText('Enter')).toBeInTheDocument();
+			expect(within(hintSpan).getByText('Esc')).toBeInTheDocument();
 		});
 	});
 
@@ -254,8 +264,7 @@ describe('MentionMenu', () => {
 				query: 'xyz123',
 				items: []
 			});
-			expect(screen.getByText(/no items found/i)).toBeInTheDocument();
-			expect(screen.getByText('"xyz123"')).toBeInTheDocument();
+			expect(screen.getByText(/no items found for "xyz123"/i)).toBeInTheDocument();
 		});
 
 		it('resets selection when filtered items change', () => {

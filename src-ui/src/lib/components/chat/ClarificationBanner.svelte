@@ -1,16 +1,16 @@
 <script lang="ts">
-	/**
-	 * ClarificationBanner Component
-	 * Displays ambiguity resolution UI for user clarification.
-	 * Shows options from ClarificationRequest and allows freeform input if enabled.
-	 */
-	import styles from './ClarificationBanner.module.css';
-	import IconButton from '$lib/components/shared/IconButton.svelte';
-	import { AlertCircleIcon, SendIcon, CloseIcon, EditIcon } from '$lib/icons';
-	import type { Ambiguity, ClarificationOption, ResolutionType } from '$lib/types/nlp';
-	import { AMBIGUITY_TYPE_LABELS } from '$lib/types/nlp';
+    /**
+     * ClarificationBanner Component
+     * Displays ambiguity resolution UI for user clarification.
+     * Shows options from ClarificationRequest and allows freeform input if enabled.
+     */
+    import styles from './ClarificationBanner.module.css';
+    import IconButton from '$lib/components/shared/IconButton.svelte';
+    import {AlertCircleIcon, CloseIcon, EditIcon, SendIcon} from '$lib/icons';
+    import type {Ambiguity, ClarificationOption, ResolutionType} from '$lib/types/nlp';
+    import {AMBIGUITY_TYPE_LABELS} from '$lib/types/nlp';
 
-	interface Props {
+    interface Props {
 		/** The ambiguity to display */
 		ambiguity: Ambiguity;
 		/** Handler when user resolves the ambiguity */

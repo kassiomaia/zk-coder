@@ -3,11 +3,7 @@
  * Handles OS-level notifications using Tauri's notification plugin.
  */
 
-import {
-	isPermissionGranted,
-	requestPermission,
-	sendNotification
-} from '@tauri-apps/plugin-notification';
+import {isPermissionGranted, requestPermission, sendNotification} from '@tauri-apps/plugin-notification';
 
 /** Track if we've already requested permission */
 let permissionRequested = false;

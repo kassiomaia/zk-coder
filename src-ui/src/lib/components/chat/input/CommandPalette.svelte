@@ -1,13 +1,13 @@
 <script lang="ts">
-	/**
-	 * CommandPalette Component
-	 * Dropdown menu for selecting commands, triggered by "/" in the input.
-	 */
-	import styles from './CommandPalette.module.css';
-	import type { Command, CommandCategory } from '$lib/types/command';
-	import { getCategoryLabel, groupCommandsByCategory } from '$lib/types/command';
+    /**
+     * CommandPalette Component
+     * Dropdown menu for selecting commands, triggered by "/" in the input.
+     */
+    import styles from './CommandPalette.module.css';
+    import type {Command} from '$lib/types/command';
+    import {getCategoryLabel, groupCommandsByCategory} from '$lib/types/command';
 
-	interface Props {
+    interface Props {
 		/** Current search query */
 		query: string;
 		/** Available commands to display */

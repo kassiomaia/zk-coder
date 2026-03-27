@@ -4,8 +4,8 @@
 //! Implementations are provided by the infrastructure layer.
 
 use super::entities::{
-    ChatMessage, Conversation, ConversationSettings, ChatDomainError, MessageFeedback,
-    MessageRole, MessageStatus, Thread,
+    ChatDomainError, ChatMessage, Conversation, ConversationSettings, MessageFeedback, MessageRole,
+    MessageStatus, Thread,
 };
 
 /// Result type for repository operations.
@@ -23,11 +23,7 @@ pub trait ChatRepository: Send + Sync {
     fn load_all_conversations(&self) -> RepositoryResult<Vec<Conversation>>;
 
     /// Updates a conversation's title.
-    fn update_conversation_title(
-        &self,
-        id: &str,
-        title: &str,
-    ) -> RepositoryResult<Conversation>;
+    fn update_conversation_title(&self, id: &str, title: &str) -> RepositoryResult<Conversation>;
 
     /// Deletes a conversation and all its threads and messages.
     fn delete_conversation(&self, id: &str) -> RepositoryResult<()>;
@@ -50,11 +46,7 @@ pub trait ChatRepository: Send + Sync {
 /// Repository for thread operations.
 pub trait ThreadRepository: Send + Sync {
     /// Creates a new thread in a conversation.
-    fn create_thread(
-        &self,
-        conversation_id: &str,
-        title: &str,
-    ) -> RepositoryResult<Thread>;
+    fn create_thread(&self, conversation_id: &str, title: &str) -> RepositoryResult<Thread>;
 
     /// Loads all threads for a conversation.
     fn load_threads(&self, conversation_id: &str) -> RepositoryResult<Vec<Thread>>;
@@ -106,13 +98,18 @@ pub trait MessageRepository: Send + Sync {
     fn update_message_status(&self, id: &str, status: MessageStatus) -> RepositoryResult<()>;
 
     /// Updates a message's feedback (like/dislike).
-    fn update_message_feedback(&self, id: &str, feedback: Option<MessageFeedback>) -> RepositoryResult<()>;
+    fn update_message_feedback(
+        &self,
+        id: &str,
+        feedback: Option<MessageFeedback>,
+    ) -> RepositoryResult<()>;
 }
 
-/// Combined chat repository for all operations.
+/// Combined chat repository contract.
 ///
-/// This is a convenience trait that combines all chat repositories.
-pub trait ChatStore: ChatRepository + ThreadRepository + MessageRepository {}
+/// This is a convenience trait for adapters that implement all chat persistence
+/// operations behind a single dependency.
+pub trait ChatRepositorySet: ChatRepository + ThreadRepository + MessageRepository {}
 
 // Blanket implementation for types that implement all traits
-impl<T> ChatStore for T where T: ChatRepository + ThreadRepository + MessageRepository {}
+impl<T> ChatRepositorySet for T where T: ChatRepository + ThreadRepository + MessageRepository {}

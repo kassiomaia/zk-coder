@@ -1,8 +1,8 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {fireEvent, render, screen, within} from '@testing-library/svelte';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import CommandPalette from './CommandPalette.svelte';
-import type { Command } from '$lib/types/command';
-import { CommandCategory } from '$lib/types/command';
+import type {Command} from '$lib/types/command';
+import {CommandCategory} from '$lib/types/command';
 
 describe('CommandPalette', () => {
 	const mockCommands: Command[] = [
@@ -98,9 +98,10 @@ describe('CommandPalette', () => {
 
 		it('renders keyboard hints in footer', () => {
 			render(CommandPalette, { ...defaultProps });
-			expect(screen.getByText(/↑.*to navigate/i)).toBeInTheDocument();
-			expect(screen.getByText(/Enter.*to select/i)).toBeInTheDocument();
-			expect(screen.getByText(/Esc.*to close/i)).toBeInTheDocument();
+			const listbox = screen.getByRole('listbox');
+			expect(listbox.textContent).toContain('↑↓ to navigate');
+			expect(listbox.textContent).toContain('Enter to select');
+			expect(listbox.textContent).toContain('Esc to close');
 		});
 	});
 
@@ -250,8 +251,7 @@ describe('CommandPalette', () => {
 				query: 'xyz123',
 				commands: []
 			});
-			expect(screen.getByText(/no commands found/i)).toBeInTheDocument();
-			expect(screen.getByText('"xyz123"')).toBeInTheDocument();
+			expect(screen.getByText(/no commands found for "xyz123"/i)).toBeInTheDocument();
 		});
 
 		it('resets selection when filtered commands change', () => {

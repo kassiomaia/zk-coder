@@ -1,11 +1,11 @@
 <script lang="ts">
-	/**
-	 * Input Component
-	 * Form input with label, helper text, and validation states.
-	 */
-	import styles from './Input.module.css';
+    /**
+     * Input Component
+     * Form input with label, helper text, and validation states.
+     */
+    import styles from './Input.module.css';
 
-	interface Props {
+    interface Props {
 		/** Input type */
 		type?: 'text' | 'password' | 'email' | 'url';
 		/** Input name */

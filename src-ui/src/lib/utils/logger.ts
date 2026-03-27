@@ -10,7 +10,7 @@
  * - Console clutter in production
  */
 
-import { dev } from '$app/environment';
+import {dev} from '$app/environment';
 
 /**
  * Whether debug logging is enabled.

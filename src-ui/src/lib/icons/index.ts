@@ -32,9 +32,7 @@ export { default as EditIcon } from './EditIcon.svelte';
 export { default as DeleteIcon } from './DeleteIcon.svelte';
 export { default as CheckIcon } from './CheckIcon.svelte';
 export { default as RefreshIcon } from './RefreshIcon.svelte';
-export { default as RefreshCcwIcon } from './RefreshCcwIcon.svelte';
 export { default as RenameIcon } from './RenameIcon.svelte';
-export { default as ArchiveIcon } from './ArchiveIcon.svelte';
 export { default as ThumbsUpIcon } from './ThumbsUpIcon.svelte';
 export { default as ThumbsDownIcon } from './ThumbsDownIcon.svelte';
 
@@ -44,7 +42,6 @@ export { default as ThumbsDownIcon } from './ThumbsDownIcon.svelte';
 
 export { default as ChevronDownIcon } from './ChevronDownIcon.svelte';
 export { default as ArrowDownIcon } from './ArrowDownIcon.svelte';
-export { default as ArrowUpIcon } from './ArrowUpIcon.svelte';
 
 // ============================================================================
 // Action Icons (additional)
@@ -67,7 +64,6 @@ export { default as SettingsIcon } from './SettingsIcon.svelte';
 // Communication Icons
 // ============================================================================
 
-export { default as MessageIcon } from './MessageIcon.svelte';
 export { default as MessageSquareIcon } from './MessageSquareIcon.svelte';
 
 // ============================================================================

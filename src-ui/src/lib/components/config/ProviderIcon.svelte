@@ -1,11 +1,11 @@
 <script lang="ts">
-	/**
-	 * ProviderIcon Component
-	 * Displays generic icons for AI providers using Lucide icons.
-	 */
-	import type { Provider } from '$lib/types/config';
+    /**
+     * ProviderIcon Component
+     * Displays generic icons for AI providers using Lucide icons.
+     */
+    import type {Provider} from '$lib/types/config';
 
-	interface Props {
+    interface Props {
 		provider: Provider;
 		size?: number;
 	}

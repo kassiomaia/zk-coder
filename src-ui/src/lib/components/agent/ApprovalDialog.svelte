@@ -1,16 +1,16 @@
 <script lang="ts">
-	/**
-	 * ApprovalDialog Component
-	 * Modal dialog for approving or denying agent actions.
-	 * Shows action details with optional diff/text preview.
-	 */
-	import Modal from '$lib/components/shared/Modal.svelte';
-	import Button from '$lib/components/shared/Button.svelte';
-	import DiffViewer from './DiffViewer.svelte';
-	import { AlertTriangle, FileEdit, Trash2, Terminal, Globe } from 'lucide-svelte';
-	import type { PendingAction, ActionType } from '$lib/types/agent';
+    /**
+     * ApprovalDialog Component
+     * Modal dialog for approving or denying agent actions.
+     * Shows action details with optional diff/text preview.
+     */
+    import Modal from '$lib/components/shared/Modal.svelte';
+    import Button from '$lib/components/shared/Button.svelte';
+    import DiffViewer from './DiffViewer.svelte';
+    import {AlertTriangle, FileEdit, Globe, Terminal, Trash2} from 'lucide-svelte';
+    import type {ActionType, PendingAction} from '$lib/types/agent';
 
-	interface Props {
+    interface Props {
 		action: PendingAction;
 		onapprove: () => void;
 		ondeny: () => void;

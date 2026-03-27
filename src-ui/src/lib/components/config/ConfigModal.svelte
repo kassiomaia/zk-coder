@@ -1,20 +1,20 @@
 <script lang="ts">
-	/**
-	 * ConfigModal Component
-	 * Modal for configuring an AI provider with API key.
-	 */
-	import styles from './ConfigModal.module.css';
-	import Modal from '../shared/Modal.svelte';
-	import Button from '../shared/Button.svelte';
-	import Input from '../shared/Input.svelte';
-	import Spinner from '../shared/Spinner.svelte';
-	import { configStore, type ValidationState } from '$lib/stores/configStore';
-	import type { Provider, ApiType, ModelsSource } from '$lib/types/config';
-	import ProviderIcon from './ProviderIcon.svelte';
-	import ManualModelList from '../ManualModelList.svelte';
-	import { createLogger } from '$lib/utils/logger';
+    /**
+     * ConfigModal Component
+     * Modal for configuring an AI provider with API key.
+     */
+    import styles from './ConfigModal.module.css';
+    import Modal from '../shared/Modal.svelte';
+    import Button from '../shared/Button.svelte';
+    import Input from '../shared/Input.svelte';
+    import Spinner from '../shared/Spinner.svelte';
+    import {configStore, type ValidationState} from '$lib/stores/configStore';
+    import type {ModelsSource} from '$lib/types/config';
+    import ProviderIcon from './ProviderIcon.svelte';
+    import ManualModelList from '../ManualModelList.svelte';
+    import {createLogger} from '$lib/utils/logger';
 
-	// Create a secure logger for this component that redacts sensitive data
+    // Create a secure logger for this component that redacts sensitive data
 	const log = createLogger('ConfigModal');
 
 	interface Props {

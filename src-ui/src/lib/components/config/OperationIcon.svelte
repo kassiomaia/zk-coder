@@ -1,11 +1,11 @@
 <script lang="ts">
-	/**
-	 * OperationIcon Component
-	 * Displays icons for different operation types (search, code, eye, mic, lightbulb, check-circle).
-	 */
-	import type { OperationType } from '$lib/types/config';
+    /**
+     * OperationIcon Component
+     * Displays icons for different operation types (search, code, eye, mic, lightbulb, check-circle).
+     */
+    import type {OperationType} from '$lib/types/config';
 
-	interface Props {
+    interface Props {
 		type: OperationType;
 		size?: number;
 		color?: string;

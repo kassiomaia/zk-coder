@@ -2,7 +2,9 @@
 //!
 //! Defines business operations for agent functionality.
 
-use super::entities::{Agent, AgentExecutionResult, AgentSession, AgentTask, PendingAction, SessionId, TaskStatus};
+use super::entities::{
+    Agent, AgentExecutionResult, AgentSession, AgentTask, PendingAction, SessionId, TaskStatus,
+};
 use super::repositories::RepositoryResult;
 
 /// Request to create a new agent session.
@@ -103,7 +105,10 @@ pub trait AgentService: Send + Sync {
     fn get_session(&self, session_id: &str) -> RepositoryResult<AgentSession>;
 
     /// Gets sessions for a conversation.
-    fn get_conversation_sessions(&self, conversation_id: &str) -> RepositoryResult<Vec<AgentSession>>;
+    fn get_conversation_sessions(
+        &self,
+        conversation_id: &str,
+    ) -> RepositoryResult<Vec<AgentSession>>;
 
     /// Cancels an active session.
     fn cancel_session(&self, session_id: &str) -> RepositoryResult<()>;
@@ -112,7 +117,11 @@ pub trait AgentService: Send + Sync {
     fn delete_session(&self, session_id: &str) -> RepositoryResult<()>;
 
     /// Updates session workspace.
-    fn update_session_workspace(&self, session_id: &str, workspace_root: &str) -> RepositoryResult<()>;
+    fn update_session_workspace(
+        &self,
+        session_id: &str,
+        workspace_root: &str,
+    ) -> RepositoryResult<()>;
 
     // ========================================================================
     // Execution Operations
@@ -158,7 +167,8 @@ pub trait AgentService: Send + Sync {
     ) -> RepositoryResult<String>;
 
     /// Updates subtask status.
-    fn update_subtask_status(&self, subtask_id: String, status: TaskStatus) -> RepositoryResult<()>;
+    fn update_subtask_status(&self, subtask_id: String, status: TaskStatus)
+        -> RepositoryResult<()>;
 
     /// Gets subtasks for a task.
     fn get_subtasks(&self, task_id: &str) -> RepositoryResult<Vec<AgentTask>>;
@@ -168,7 +178,10 @@ pub trait AgentService: Send + Sync {
     // ========================================================================
 
     /// Gets session history for a conversation.
-    fn get_conversation_history(&self, conversation_id: &str) -> RepositoryResult<Vec<AgentSession>>;
+    fn get_conversation_history(
+        &self,
+        conversation_id: &str,
+    ) -> RepositoryResult<Vec<AgentSession>>;
 
     /// Gets detailed session information.
     fn get_session_details(&self, session_id: &str) -> RepositoryResult<SessionDetails>;

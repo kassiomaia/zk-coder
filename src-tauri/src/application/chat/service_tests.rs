@@ -16,7 +16,7 @@ use crate::core::chat::entities::{
 };
 use crate::core::chat::repositories::RepositoryResult;
 use crate::core::chat::services::{ChatService, CreateThreadRequest, SendMessageRequest};
-use crate::storage::SqliteChatStore;
+use crate::infrastructure::sqlite::repositories::chat::SqliteChatRepository;
 
 // =========================================================================
 // Test Fixtures
@@ -25,7 +25,7 @@ use crate::storage::SqliteChatStore;
 /// Creates a test service with an in-memory store.
 fn create_test_service() -> ChatServiceImpl {
     let store = Arc::new(
-        SqliteChatStore::in_memory().expect("Failed to create in-memory store"),
+        SqliteChatRepository::in_memory().expect("Failed to create in-memory repository"),
     );
     ChatServiceImpl::new(store)
 }

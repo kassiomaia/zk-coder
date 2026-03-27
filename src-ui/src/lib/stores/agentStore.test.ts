@@ -3,9 +3,11 @@
  * Comprehensive test coverage for all agent store functionality.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { get } from 'svelte/store';
-import type { AgentEvent, AgentSession, SessionState, PendingAction } from '$lib/types/agent';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {get} from 'svelte/store';
+import type {AgentSession, PendingAction} from '$lib/types/agent';
+// Now import after mocking
+import {agentStore} from './agentStore';
 
 // Create mock functions that will be used in vi.mock
 const mockListen = vi.fn();
@@ -24,9 +26,6 @@ vi.mock('@tauri-apps/api/core', () => ({
 vi.stubGlobal('crypto', {
 	randomUUID: vi.fn(() => 'mock-uuid-1234')
 });
-
-// Now import after mocking
-import { agentStore } from './agentStore';
 
 describe('agentStore', () => {
 	beforeEach(() => {

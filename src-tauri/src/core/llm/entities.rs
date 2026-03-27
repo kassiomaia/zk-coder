@@ -40,7 +40,9 @@ impl std::fmt::Display for LlmError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::AuthenticationFailed => write!(f, "Authentication failed"),
-            Self::RateLimited { retry_after_seconds } => {
+            Self::RateLimited {
+                retry_after_seconds,
+            } => {
                 write!(f, "Rate limited")?;
                 if let Some(seconds) = retry_after_seconds {
                     write!(f, " (retry after {seconds}s)")?;
@@ -105,6 +107,28 @@ impl ContentBlock {
     pub fn text(content: impl Into<String>) -> Self {
         Self::Text {
             text: content.into(),
+        }
+    }
+
+    /// Creates an image content block from base64 data.
+    pub fn image_base64(media_type: impl Into<String>, data: impl Into<String>) -> Self {
+        Self::Image {
+            source: ImageSource {
+                source_type: "base64".to_string(),
+                media_type: Some(media_type.into()),
+                data: data.into(),
+            },
+        }
+    }
+
+    /// Creates an image content block from a URL.
+    pub fn image_url(url: impl Into<String>) -> Self {
+        Self::Image {
+            source: ImageSource {
+                source_type: "url".to_string(),
+                media_type: None,
+                data: url.into(),
+            },
         }
     }
 }
@@ -178,6 +202,47 @@ impl ChatMessage {
         }
     }
 
+    /// Creates a message with multi-modal content.
+    pub fn multimodal(role: MessageRole, blocks: Vec<ContentBlock>) -> Self {
+        Self {
+            role,
+            content: MessageContent::Blocks(blocks),
+            tool_calls: Vec::new(),
+            tool_result: None,
+        }
+    }
+
+    /// Creates an assistant message that carries structured tool calls.
+    pub fn assistant_with_tool_calls(
+        content: impl Into<String>,
+        tool_calls: Vec<ToolCall>,
+    ) -> Self {
+        Self {
+            role: MessageRole::Assistant,
+            content: MessageContent::Text(content.into()),
+            tool_calls,
+            tool_result: None,
+        }
+    }
+
+    /// Creates a tool result message for a given tool call ID.
+    pub fn tool_result(
+        call_id: impl Into<String>,
+        output: serde_json::Value,
+        is_error: bool,
+    ) -> Self {
+        Self {
+            role: MessageRole::Tool,
+            content: MessageContent::Text(String::new()),
+            tool_calls: Vec::new(),
+            tool_result: Some(ToolResult {
+                call_id: call_id.into(),
+                output,
+                is_error,
+            }),
+        }
+    }
+
     /// Gets the text content if this is a simple text message.
     pub fn as_text(&self) -> Option<&str> {
         match &self.content {
@@ -215,6 +280,12 @@ pub struct ChatRequest {
     /// Maximum tokens to generate
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
+    /// Top-p sampling
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f32>,
+    /// Stop sequences
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop: Option<Vec<String>>,
     /// Whether to stream the response
     #[serde(default)]
     pub stream: bool,
@@ -232,9 +303,41 @@ impl ChatRequest {
             system: None,
             temperature: None,
             max_tokens: None,
+            top_p: None,
+            stop: None,
             stream: false,
             tools: Vec::new(),
         }
+    }
+
+    /// Sets the system prompt.
+    pub fn with_system(mut self, system: impl Into<String>) -> Self {
+        self.system = Some(system.into());
+        self
+    }
+
+    /// Sets the temperature.
+    pub fn with_temperature(mut self, temperature: f32) -> Self {
+        self.temperature = Some(temperature);
+        self
+    }
+
+    /// Sets the maximum tokens.
+    pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+        self.max_tokens = Some(max_tokens);
+        self
+    }
+
+    /// Enables streaming mode.
+    pub fn with_stream(mut self) -> Self {
+        self.stream = true;
+        self
+    }
+
+    /// Sets available tool definitions.
+    pub fn with_tools(mut self, tools: Vec<ToolDefinition>) -> Self {
+        self.tools = tools;
+        self
     }
 }
 
@@ -338,7 +441,10 @@ mod tests {
 
     #[test]
     fn test_llm_error_retryable() {
-        assert!(LlmError::RateLimited { retry_after_seconds: None }.is_retryable());
+        assert!(LlmError::RateLimited {
+            retry_after_seconds: None
+        }
+        .is_retryable());
         assert!(LlmError::Network("timeout".to_string()).is_retryable());
         assert!(!LlmError::AuthenticationFailed.is_retryable());
     }

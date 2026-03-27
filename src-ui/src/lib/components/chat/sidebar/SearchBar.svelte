@@ -1,12 +1,12 @@
 <script lang="ts">
-	/**
-	 * SearchBar Component
-	 * Search input for filtering conversations.
-	 */
-	import styles from './SearchBar.module.css';
-	import { SearchIcon, CloseIcon } from '$lib/icons';
+    /**
+     * SearchBar Component
+     * Search input for filtering conversations.
+     */
+    import styles from './SearchBar.module.css';
+    import {CloseIcon, SearchIcon} from '$lib/icons';
 
-	interface Props {
+    interface Props {
 		/** Current search value */
 		value?: string;
 		/** Input handler */

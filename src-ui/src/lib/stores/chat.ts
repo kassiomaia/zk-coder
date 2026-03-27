@@ -5,42 +5,43 @@
  * LLM streaming logic extracted to ./chat/llm-handler.ts
  */
 
-import { writable, get } from 'svelte/store';
-import type { Conversation, Thread, ConversationSettings } from '$lib/types/thread';
-import type { Message } from '$lib/types/message';
+import {get, writable} from 'svelte/store';
+import type {Conversation, ConversationSettings, Thread} from '$lib/types/thread';
+import type {Message} from '$lib/types/message';
 import {
-	addContextMessage,
-	detectAmbiguities,
-	resolveAmbiguity,
-	applyResolutions,
-	createDebouncedClassifier,
-	isBackendAvailable
+    addContextMessage,
+    applyResolutions,
+    createDebouncedClassifier,
+    detectAmbiguities,
+    isBackendAvailable,
+    resolveAmbiguity
 } from '$lib/api/nlp';
-import type { ResolutionType } from '$lib/types/nlp';
+import type {ResolutionType} from '$lib/types/nlp';
 import {
-	loadConversations,
-	createConversation as apiCreateConversation,
-	renameConversation as apiRenameConversation,
-	deleteConversation as apiDeleteConversation,
-	updateConversationSettings as apiUpdateConversationSettings,
-	setConversationWorkspace as apiSetConversationWorkspace,
-	loadThreads,
-	createThread as apiCreateThread,
-	resolveThread as apiResolveThread,
-	deleteThread as apiDeleteThread,
-	renameThread as apiRenameThread,
-	loadThreadMessages,
-	sendMessage as apiSendMessage,
-	deleteMessage as apiDeleteMessage,
-	updateMessageStatus as apiUpdateMessageStatus,
-	updateMessageFeedback as apiUpdateMessageFeedback,
-	createThreadWithMessage as apiCreateThreadWithMessage,
-	setThreadAgentSession
+    createConversation as apiCreateConversation,
+    createThread as apiCreateThread,
+    createThreadWithMessage as apiCreateThreadWithMessage,
+    deleteConversation as apiDeleteConversation,
+    deleteMessage as apiDeleteMessage,
+    deleteThread as apiDeleteThread,
+    loadConversations,
+    loadThreadMessages,
+    loadThreads,
+    renameConversation as apiRenameConversation,
+    renameThread as apiRenameThread,
+    resolveThread as apiResolveThread,
+    sendMessage as apiSendMessage,
+    setConversationWorkspace as apiSetConversationWorkspace,
+    setThreadAgentSession,
+    updateConversationSettings as apiUpdateConversationSettings,
+    updateMessageFeedback as apiUpdateMessageFeedback,
+    updateMessageStatus as apiUpdateMessageStatus
 } from '$lib/api/chat';
-import { LlmHandler } from './chat/llm-handler';
-import type { ChatState, LlmRequestOptions } from './chat/types';
-import { deriveThreadTitle, sortThreadsByRecent } from './chat/utils';
-import { agentStore } from './agentStore';
+import {LlmHandler} from './chat/llm-handler';
+import type {ChatState, LlmRequestOptions} from './chat/types';
+import {deriveThreadTitle, sortThreadsByRecent} from './chat/utils';
+import {agentStore} from './agentStore';
+import {createDerivedStores} from './chat/derived-stores';
 
 // ============================================================================
 // Initial State
@@ -1214,8 +1215,6 @@ export const chatStore = createChatStore();
 // Derived Stores (created via factory to avoid circular dependency)
 // ============================================================================
 
-import { createDerivedStores } from './chat/derived-stores';
-
 const derivedStores = createDerivedStores(chatStore);
 
 export const selectedConversation = derivedStores.selectedConversation;
@@ -1226,7 +1225,6 @@ export const unreadThreadIds = derivedStores.unreadThreadIds;
 export const messageGroups = derivedStores.messageGroups;
 export const conversationGroups = derivedStores.conversationGroups;
 export const nlpState = derivedStores.nlpState;
-export const llmState = derivedStores.llmState;
 export const isLlmStreaming = derivedStores.isLlmStreaming;
 export const streamingContent = derivedStores.streamingContent;
 export const conversationsLoading = derivedStores.conversationsLoading;

@@ -3,9 +3,9 @@
  * Exports all streaming functionality.
  */
 
-import type { Message } from '$lib/types/message';
-import { setOnAgentActivity as setStreamingCallback } from './streamingThrottle';
-import { setOnAgentActivity as setTerminalCallback } from './terminalBatch';
+import type {Message} from '$lib/types/message';
+import {setOnAgentActivity as setStreamingCallback} from './streamingThrottle';
+import {setOnAgentActivity as setTerminalCallback} from './terminalBatch';
 
 export {
 	setOnAgentActivity,

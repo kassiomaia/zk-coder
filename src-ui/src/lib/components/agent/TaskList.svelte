@@ -1,13 +1,13 @@
 <script lang="ts">
-	/**
-	 * TaskList Component
-	 * Displays agent tasks with status indicators and subtasks.
-	 */
-	import { CheckCircle, Circle, Loader2, XCircle, ChevronRight } from 'lucide-svelte';
-	import type { AgentTask, TaskStatus, SubTask } from '$lib/types/agent';
-	import { SvelteSet } from 'svelte/reactivity';
+    /**
+     * TaskList Component
+     * Displays agent tasks with status indicators and subtasks.
+     */
+    import {CheckCircle, ChevronRight, Circle, Loader2, XCircle} from 'lucide-svelte';
+    import type {AgentTask, SubTask, TaskStatus} from '$lib/types/agent';
+    import {SvelteSet} from 'svelte/reactivity';
 
-	interface Props {
+    interface Props {
 		tasks: AgentTask[];
 		ontaskclick?: (task: AgentTask) => void;
 		onsubtaskclick?: (subtask: SubTask) => void;

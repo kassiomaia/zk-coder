@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { isValidModelId, sanitizeModelId } from './validation';
+import {describe, expect, it} from 'vitest';
+import {isValidModelId, sanitizeModelId} from './validation';
 
 describe('validation', () => {
 	describe('isValidModelId', () => {

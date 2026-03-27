@@ -1,16 +1,16 @@
 <script lang="ts">
-	/**
-	 * FileDiffModal Component
-	 * Modal for viewing file diffs after agent completion.
-	 * Shows the file path, diff content, or current file content with syntax highlighting.
-	 */
-	import Modal from '$lib/components/shared/Modal.svelte';
-	import Button from '$lib/components/shared/Button.svelte';
-	import DiffViewer from './DiffViewer.svelte';
-	import { FileText, FilePlus, FileX, X } from 'lucide-svelte';
-	import { getFileContent, type FileContentResponse } from '$lib/api/file';
+    /**
+     * FileDiffModal Component
+     * Modal for viewing file diffs after agent completion.
+     * Shows the file path, diff content, or current file content with syntax highlighting.
+     */
+    import Modal from '$lib/components/shared/Modal.svelte';
+    import Button from '$lib/components/shared/Button.svelte';
+    import DiffViewer from './DiffViewer.svelte';
+    import {FilePlus, FileText, FileX, X} from 'lucide-svelte';
+    import {type FileContentResponse, getFileContent} from '$lib/api/file';
 
-	interface Props {
+    interface Props {
 		/** Whether the modal is open */
 		open: boolean;
 		/** Close handler */

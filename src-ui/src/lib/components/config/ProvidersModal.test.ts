@@ -1,7 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {describe, expect, it, vi} from 'vitest';
 import ProvidersModal from './ProvidersModal.svelte';
-import { configStore } from '$lib/stores/configStore';
+import {configStore} from '$lib/stores/configStore';
 
 // Mock the configStore
 vi.mock('$lib/stores/configStore', () => ({

@@ -4,16 +4,8 @@
 	 * Displays files touched by the agent in a hierarchical tree.
 	 * Supports recursive rendering of nested directories.
 	 */
-	import {
-		File,
-		FileCode,
-		FileText,
-		Folder,
-		FolderOpen,
-		ChevronRight,
-		ChevronDown
-	} from 'lucide-svelte';
-	import type { TouchedFile } from '$lib/types/agent';
+	import {ChevronRight, File, FileCode, FileText, Folder, FolderOpen} from 'lucide-svelte';
+	import type {TouchedFile} from '$lib/types/agent';
 	import styles from './FileTree.module.css';
 
 	interface FileTreeNode {

@@ -115,9 +115,9 @@
 	background: linear-gradient(
 		135deg,
 		transparent 0%,
-		rgba(255, 255, 255, 0.04) 40%,
-		rgba(255, 255, 255, 0.06) 50%,
-		rgba(255, 255, 255, 0.04) 60%,
+		var(--card-sweep-opacity-low) 40%,
+		var(--card-sweep-opacity-medium) 50%,
+		var(--card-sweep-opacity-low) 60%,
 		transparent 100%
 	);
 	transform: translateX(-100%);
@@ -139,11 +139,11 @@
 }
 
 .providerItem.configured {
-	border-color: rgba(16, 185, 129, 0.12);
+	border-color: var(--color-success-subtle);
 }
 
 .providerItem.configured:hover {
-	border-color: rgba(16, 185, 129, 0.2);
+	border-color: var(--color-success-border);
 }
 
 .providerInfo {
@@ -288,7 +288,7 @@
 	background: linear-gradient(
 		135deg,
 		transparent 0%,
-		rgba(255, 255, 255, 0.02) 50%,
+		var(--card-sweep-opacity-minimal) 50%,
 		transparent 100%
 	);
 	transform: translateX(-100%);

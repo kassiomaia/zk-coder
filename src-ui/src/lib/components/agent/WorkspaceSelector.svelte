@@ -1,13 +1,13 @@
 <script lang="ts">
-	/**
-	 * WorkspaceSelector Component
-	 * Displays the current workspace path and allows selecting a new one
-	 * via the native OS folder picker dialog.
-	 */
-	import { FolderOpen, FolderClosed } from 'lucide-svelte';
-	import { open } from '@tauri-apps/plugin-dialog';
+    /**
+     * WorkspaceSelector Component
+     * Displays the current workspace path and allows selecting a new one
+     * via the native OS folder picker dialog.
+     */
+    import {FolderClosed, FolderOpen} from 'lucide-svelte';
+    import {open} from '@tauri-apps/plugin-dialog';
 
-	interface Props {
+    interface Props {
 		workspacePath?: string;
 		onSelect: (path: string) => void;
 		disabled?: boolean;

@@ -1,13 +1,13 @@
 <script lang="ts">
-	/**
-	 * MarkdownPreview Component
-	 * Renders a preview of markdown content with syntax highlighting.
-	 * Includes HTML sanitization to prevent XSS attacks.
-	 */
-	import DOMPurify from 'dompurify';
-	import styles from './MarkdownPreview.module.css';
+    /**
+     * MarkdownPreview Component
+     * Renders a preview of markdown content with syntax highlighting.
+     * Includes HTML sanitization to prevent XSS attacks.
+     */
+    import DOMPurify from 'dompurify';
+    import styles from './MarkdownPreview.module.css';
 
-	interface Props {
+    interface Props {
 		/** Markdown content to render */
 		content: string;
 		/** Additional CSS class */

@@ -434,6 +434,41 @@
 	--shadow-glow-success: 0 0 8px rgba(16, 185, 129, 0.15);
 	--shadow-glow-warning: 0 0 8px rgba(245, 158, 11, 0.15);
 	--shadow-glow-danger: 0 0 8px rgba(239, 68, 68, 0.2);
+
+	/* =====================
+	     Card Sweep Highlight Effects
+	     ===================== */
+	--card-sweep-opacity-minimal: 0.02;
+	--card-sweep-opacity-low: 0.04;
+	--card-sweep-opacity-medium: 0.06;
+
+	/* =====================
+	     Empty State Layout Tokens
+	     ===================== */
+	--empty-state-min-height: 240px;
+	--empty-state-max-width: 420px;
+	--empty-state-min-height-mobile: 200px;
+	--empty-state-y-offset: var(--space-2);
+	--empty-state-stagger-offset-y: var(--space-1-5);
+	--empty-state-text-y-offset: var(--space-1);
+
+	/* =====================
+	     Answering Indicator Tokens
+	     ===================== */
+	--answering-indicator-height: var(--space-9);
+	--answering-indicator-panel-height: var(--space-7);
+	--answering-indicator-min-width: 180px;
+	--answering-indicator-duration: var(--duration-slower);
+
+	/* =====================
+	     Button Micro-interaction Tokens
+	     ===================== */
+	--ripple-scale-max: 1.5;
+	--ripple-opacity: 0.12;
+	--icon-scale-hover: 1.05;
+	--icon-scale-active: 1.1;
+	--icon-rotate-active: 5deg;
+	--shadow-btn-ripple: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Dark Mode Theme - Subtle, low-contrast design */

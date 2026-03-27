@@ -2,24 +2,22 @@
  * Tests for scrollPriorityQueue
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {
-	enqueue,
-	cancel,
-	cancelThread,
-	getNext,
-	complete,
-	hasPending,
-	isExecuting,
-	getExecuting,
-	getPendingCount,
-	getHighestPriority,
-	wouldPreempt,
-	onPriorityChange,
-	clearAll,
-	getDebugInfo,
-	type ScrollOperation,
-	type ScrollPriority
+    cancel,
+    cancelThread,
+    clearAll,
+    complete,
+    enqueue,
+    getDebugInfo,
+    getExecuting,
+    getHighestPriority,
+    getNext,
+    getPendingCount,
+    hasPending,
+    isExecuting,
+    onPriorityChange,
+    wouldPreempt
 } from './scrollPriorityQueue';
 
 describe('scrollPriorityQueue', () => {

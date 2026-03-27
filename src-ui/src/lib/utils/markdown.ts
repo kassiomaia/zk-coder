@@ -2,7 +2,7 @@
  * Markdown rendering utility using marked with highlight.js
  * Supports: syntax highlighting, tables, task lists, and base64 images
  */
-import { marked } from 'marked';
+import {marked} from 'marked';
 import hljs from 'highlight.js';
 
 /**

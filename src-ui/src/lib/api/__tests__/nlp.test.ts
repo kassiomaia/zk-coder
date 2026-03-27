@@ -1,29 +1,28 @@
 /**
  * Tests for NLP API Client
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {
-	classifyIntent,
-	getConversationContext,
-	addContextMessage,
-	clearConversationContext,
-	detectMultiIntent,
-	detectAmbiguities,
-	resolveAmbiguity,
-	applyResolutions,
-	analyzeCode,
-	updateProjectFiles,
-	createDebouncedClassifier,
-	isBackendAvailable,
-	NlpApiError
+    addContextMessage,
+    analyzeCode,
+    applyResolutions,
+    classifyIntent,
+    clearConversationContext,
+    createDebouncedClassifier,
+    detectAmbiguities,
+    detectMultiIntent,
+    getConversationContext,
+    isBackendAvailable,
+    NlpApiError,
+    resolveAmbiguity,
+    updateProjectFiles
 } from '../nlp';
+import {invoke} from '@tauri-apps/api/core';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
 	invoke: vi.fn()
 }));
-
-import { invoke } from '@tauri-apps/api/core';
 
 const mockInvoke = vi.mocked(invoke);
 

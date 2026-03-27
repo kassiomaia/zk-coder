@@ -5,14 +5,16 @@
 
 use chrono::Utc;
 
-use crate::agents::session::{AgentSession, PendingAction, SessionId, SessionState};
-use crate::agents::task::{SubTask, TaskStatus};
-use crate::agents::types::{Agent, AgentId, ActionType, TrustMode};
 use crate::core::agent::entities::{
     Agent as CoreAgent, AgentDomainError, AgentSession as CoreAgentSession,
     AgentTask as CoreAgentTask, AgentTrustMode, PendingAction as CorePendingAction,
     SessionId as CoreSessionId, SessionState as CoreSessionState, TaskStatus as CoreTaskStatus,
 };
+use crate::core::agent::session::{AgentSession, PendingAction, SessionId, SessionState};
+use crate::core::agent::task::{
+    AgentRequest, AgentTask, RequestContext, SubTask, SubTaskMode, TaskStatus,
+};
+use crate::core::agent::types::{ActionType, Agent, AgentId, TrustMode};
 
 // =========================================================================
 // Session ID Conversions
@@ -112,6 +114,17 @@ impl From<AgentTrustMode> for TrustMode {
     }
 }
 
+impl From<SubTaskMode> for crate::core::agent::entities::TaskMode {
+    fn from(mode: SubTaskMode) -> Self {
+        match mode {
+            SubTaskMode::Read => crate::core::agent::entities::TaskMode::Read,
+            SubTaskMode::Write => crate::core::agent::entities::TaskMode::Write,
+            SubTaskMode::Execute => crate::core::agent::entities::TaskMode::Execute,
+            SubTaskMode::FullAccess => crate::core::agent::entities::TaskMode::FullAccess,
+        }
+    }
+}
+
 // =========================================================================
 // Agent Entity Conversions
 // =========================================================================
@@ -183,6 +196,41 @@ impl From<AgentSession> for CoreAgentSession {
     }
 }
 
+/// Convert a core session into the runtime/UI session shape.
+pub fn core_session_to_agent_session(session: CoreAgentSession) -> AgentSession {
+    AgentSession {
+        id: SessionId(session.id.0),
+        agent_id: AgentId(session.agent_id.0),
+        agent_name: session.agent_name,
+        conversation_id: session.conversation_id,
+        thread_id: session.thread_id,
+        workspace_root: session.workspace_root,
+        parent_session_id: None,
+        state: match session.state {
+            CoreSessionState::WaitForRequest { last_action_at } => {
+                SessionState::WaitForRequest { last_action_at }
+            }
+            CoreSessionState::Processing { .. } => SessionState::Running {
+                current_step: 0,
+                context_usage: 0.0,
+            },
+            CoreSessionState::AwaitingApproval { .. } => SessionState::UserInputRequired {
+                pending_action_ids: vec![],
+            },
+            CoreSessionState::Finished { completed_at, .. } => {
+                SessionState::Finished { completed_at }
+            }
+            CoreSessionState::Cancelled { reason, .. } => SessionState::Cancelled { reason },
+            CoreSessionState::Error { error, .. } => SessionState::Error {
+                message: error,
+                recoverable: false,
+            },
+        },
+        created_at: session.created_at,
+        updated_at: session.created_at,
+    }
+}
+
 // =========================================================================
 // Pending Action Conversions
 // =========================================================================
@@ -206,6 +254,27 @@ impl From<PendingAction> for CorePendingAction {
             requested_at: action.created_at,
             status: ApprovalStatus::Pending,
         }
+    }
+}
+
+/// Convert a core task into the runtime task representation used by the UI.
+pub fn core_task_to_runtime_task(task: CoreAgentTask) -> AgentTask {
+    AgentTask {
+        id: task.id,
+        session_id: SessionId(task.session_id),
+        request: AgentRequest {
+            content: task.title,
+            attachments: vec![],
+            context: task.description.map(|description| RequestContext {
+                file_path: None,
+                selection: Some(description),
+            }),
+        },
+        status: task.status.into(),
+        steps: vec![],
+        subtasks: None,
+        created_at: Utc::now(),
+        completed_at: None,
     }
 }
 
@@ -246,12 +315,46 @@ impl From<SubTask> for CoreAgentTask {
     fn from(subtask: SubTask) -> Self {
         CoreAgentTask {
             id: subtask.id,
-            session_id: String::new(), // Subtasks don't have session_id directly
+            session_id: String::new(),
+            parent_task_id: Some(subtask.task_id),
             title: subtask.title,
             description: subtask.description,
             status: subtask.status.into(),
             order: subtask.order,
+            mode: Some(subtask.mode.into()),
         }
+    }
+}
+
+/// Convert a core task into the public subtask shape used by IPC commands.
+pub fn core_task_to_subtask(task: CoreAgentTask) -> SubTask {
+    SubTask {
+        id: task.id,
+        task_id: task.parent_task_id.unwrap_or_default(),
+        title: task.title,
+        description: task.description,
+        mode: match task
+            .mode
+            .unwrap_or(crate::core::agent::entities::TaskMode::FullAccess)
+        {
+            crate::core::agent::entities::TaskMode::Read => {
+                crate::core::agent::task::SubTaskMode::Read
+            }
+            crate::core::agent::entities::TaskMode::Write => {
+                crate::core::agent::task::SubTaskMode::Write
+            }
+            crate::core::agent::entities::TaskMode::Execute => {
+                crate::core::agent::task::SubTaskMode::Execute
+            }
+            crate::core::agent::entities::TaskMode::FullAccess => {
+                crate::core::agent::task::SubTaskMode::FullAccess
+            }
+        },
+        status: task.status.into(),
+        order: task.order,
+        created_at: Utc::now(),
+        started_at: None,
+        completed_at: None,
     }
 }
 
@@ -290,7 +393,10 @@ mod tests {
 
     #[test]
     fn test_trust_mode_conversion() {
-        assert_eq!(AgentTrustMode::from(TrustMode::Trusted), AgentTrustMode::Never);
+        assert_eq!(
+            AgentTrustMode::from(TrustMode::Trusted),
+            AgentTrustMode::Never
+        );
         assert_eq!(
             AgentTrustMode::from(TrustMode::Untrusted),
             AgentTrustMode::RiskyOnly
@@ -303,7 +409,10 @@ mod tests {
 
     #[test]
     fn test_task_status_conversion() {
-        assert_eq!(CoreTaskStatus::from(TaskStatus::Pending), CoreTaskStatus::Pending);
+        assert_eq!(
+            CoreTaskStatus::from(TaskStatus::Pending),
+            CoreTaskStatus::Pending
+        );
         assert_eq!(
             CoreTaskStatus::from(TaskStatus::WaitingApproval),
             CoreTaskStatus::Pending

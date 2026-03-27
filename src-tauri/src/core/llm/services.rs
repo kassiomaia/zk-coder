@@ -10,15 +10,9 @@ use super::repositories::LlmProvider;
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum LlmEvent {
     /// Streaming started
-    Started {
-        request_id: String,
-        model: String,
-    },
+    Started { request_id: String, model: String },
     /// Content chunk received
-    Chunk {
-        request_id: String,
-        delta: String,
-    },
+    Chunk { request_id: String, delta: String },
     /// Streaming completed
     Complete {
         request_id: String,

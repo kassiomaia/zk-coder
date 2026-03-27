@@ -1,8 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { tick } from 'svelte';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import ClarificationBanner from './ClarificationBanner.svelte';
-import type { Ambiguity } from '$lib/types/nlp';
+import type {Ambiguity} from '$lib/types/nlp';
 
 describe('ClarificationBanner', () => {
 	let mockAmbiguity: Ambiguity;

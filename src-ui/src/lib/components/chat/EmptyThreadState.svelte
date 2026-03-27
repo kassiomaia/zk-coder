@@ -1,18 +1,18 @@
 <script lang="ts">
-	/**
-	 * EmptyThreadState Component
-	 *
-	 * A sophisticated empty state that transitions smoothly to active state.
-	 * Features anticipatory animations, progressive disclosure, and layout reservation.
-	 *
-	 * Contexts:
-	 * - 'none': No conversation selected (main chat area)
-	 * - 'conversation': Conversation selected but no thread
-	 * - 'thread': Thread selected but no messages
-	 */
-	import styles from './EmptyThreadState.module.css';
+    /**
+     * EmptyThreadState Component
+     *
+     * A sophisticated empty state that transitions smoothly to active state.
+     * Features anticipatory animations, progressive disclosure, and layout reservation.
+     *
+     * Contexts:
+     * - 'none': No conversation selected (main chat area)
+     * - 'conversation': Conversation selected but no thread
+     * - 'thread': Thread selected but no messages
+     */
+    import styles from './EmptyThreadState.module.css';
 
-	type EmptyContext = 'none' | 'conversation' | 'thread';
+    type EmptyContext = 'none' | 'conversation' | 'thread';
 
 	interface Props {
 		/** Whether the input has focus or content */

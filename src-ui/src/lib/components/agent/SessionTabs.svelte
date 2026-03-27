@@ -1,13 +1,13 @@
 <script lang="ts">
-	/**
-	 * SessionTabs Component
-	 * Horizontal tab bar for switching between multiple agent sessions.
-	 * Shows session status indicators and supports creating new sessions.
-	 */
-	import { Plus } from 'lucide-svelte';
-	import type { AgentSession } from '$lib/types/agent';
+    /**
+     * SessionTabs Component
+     * Horizontal tab bar for switching between multiple agent sessions.
+     * Shows session status indicators and supports creating new sessions.
+     */
+    import {Plus} from 'lucide-svelte';
+    import type {AgentSession} from '$lib/types/agent';
 
-	interface Props {
+    interface Props {
 		sessions: AgentSession[];
 		activeSessionId: string | null;
 		threadTitles?: Map<string, string>;

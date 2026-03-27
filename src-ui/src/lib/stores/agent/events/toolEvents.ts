@@ -3,9 +3,9 @@
  * Handles tool call and tool result events.
  */
 
-import type { AgentEvent } from '$lib/types/agent';
-import type { AgentState } from '../state';
-import { getOnAgentActivity } from '../callbacks';
+import type {AgentEvent} from '$lib/types/agent';
+import type {AgentState} from '../state';
+import {getOnAgentActivity} from '../callbacks';
 
 /**
  * Handle tool_call event.

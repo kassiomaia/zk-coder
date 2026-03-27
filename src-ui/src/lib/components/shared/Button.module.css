@@ -3,6 +3,8 @@
  * Enhanced with cross-fade transitions, hover lift, and expressive animations.
  */
 
+@import '../../styles/animations.css';
+
 .btn {
 	position: relative;
 	display: inline-flex;
@@ -236,25 +238,6 @@
 	animation: dangerShake 400ms var(--ease-in-out);
 }
 
-@keyframes dangerShake {
-	0%,
-	100% {
-		transform: translateX(0);
-	}
-	20% {
-		transform: translateX(-2px);
-	}
-	40% {
-		transform: translateX(2px);
-	}
-	60% {
-		transform: translateX(-1px);
-	}
-	80% {
-		transform: translateX(1px);
-	}
-}
-
 /* No animation */
 .none {
 	transition: none;
@@ -274,15 +257,6 @@
 
 .spinner {
 	animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-	from {
-		transform: rotate(0deg);
-	}
-	to {
-		transform: rotate(360deg);
-	}
 }
 
 /* =====================

@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {render, screen} from '@testing-library/svelte';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 import MarkdownRenderer from './MarkdownRenderer.svelte';
 
 // Mock the markdown utilities

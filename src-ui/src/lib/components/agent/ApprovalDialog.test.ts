@@ -1,7 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/svelte';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 import ApprovalDialog from './ApprovalDialog.svelte';
-import type { PendingAction } from '$lib/types/agent';
+import type {PendingAction} from '$lib/types/agent';
 
 // Mock child components
 vi.mock('../shared/Modal.svelte', () => ({

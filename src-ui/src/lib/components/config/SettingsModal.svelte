@@ -1,20 +1,20 @@
 <script lang="ts">
-	/**
-	 * SettingsModal Component
-	 * Full settings modal with providers and model configuration.
-	 */
-	import styles from './SettingsModal.module.css';
-	import Modal from '../shared/Modal.svelte';
-	import Button from '../shared/Button.svelte';
-	import { configStore, availableModelsByOperation } from '$lib/stores/configStore';
-	import { OPERATION_CONFIGS, type OperationType } from '$lib/types/config';
-	import ModelCard from './ModelCard.svelte';
-	import ProviderIcon from './ProviderIcon.svelte';
-	import OperationIcon from './OperationIcon.svelte';
-	import { UserIcon, CheckIcon, AlertCircleIcon, BoxIcon } from '$lib/icons';
-	import { createLogger } from '$lib/utils/logger';
+    /**
+     * SettingsModal Component
+     * Full settings modal with providers and model configuration.
+     */
+    import styles from './SettingsModal.module.css';
+    import Modal from '../shared/Modal.svelte';
+    import Button from '../shared/Button.svelte';
+    import {availableModelsByOperation, configStore} from '$lib/stores/configStore';
+    import {OPERATION_CONFIGS, type OperationType} from '$lib/types/config';
+    import ModelCard from './ModelCard.svelte';
+    import ProviderIcon from './ProviderIcon.svelte';
+    import OperationIcon from './OperationIcon.svelte';
+    import {AlertCircleIcon, BoxIcon, CheckIcon, UserIcon} from '$lib/icons';
+    import {createLogger} from '$lib/utils/logger';
 
-	const log = createLogger('SettingsModal');
+    const log = createLogger('SettingsModal');
 
 	interface Props {
 		open: boolean;

@@ -11,7 +11,7 @@
 	 * - Scroll/resize aware positioning
 	 */
 	import styles from './Tooltip.module.css';
-	import type { Snippet } from 'svelte';
+	import type {Snippet} from 'svelte';
 
 	type Position = 'top' | 'bottom' | 'left' | 'right';
 

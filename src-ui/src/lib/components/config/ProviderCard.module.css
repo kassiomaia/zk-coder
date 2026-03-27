@@ -1,6 +1,72 @@
 /**
  * ProviderCard Component Styles
+ *
+ * Uses shared card styles from card-styles.css as base.
  */
+
+@import '../../styles/card-styles.css';
+
+/* ============================================================================
+   PROVIDER CARD EXTENSIONS
+   Extends shared .card base styles
+   ============================================================================ */
+
+/* Card uses base shared styles - component-specific additions below */
+
+/* Icon wrapper - matches shared .cardIcon */
+.iconWrapper {
+	width: 48px;
+	height: 48px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: var(--space-2);
+}
+
+/* Text content - matches shared patterns */
+.name {
+	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
+	color: var(--color-text-primary);
+	margin-bottom: var(--space-1);
+}
+
+.models {
+	font-size: var(--text-xs);
+	color: var(--color-text-tertiary);
+	margin-bottom: var(--space-2);
+}
+
+/* Status row */
+.status {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	font-size: var(--text-xs);
+	color: var(--color-text-tertiary);
+}
+
+.dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--color-text-muted);
+	opacity: 0.6;
+}
+
+.dot.configured {
+	background: var(--color-success);
+	opacity: 1;
+}
+
+.configuredText {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	color: var(--color-success);
+}
+
+/* Note: Base card styles, hover, focus, configured states now use shared card-styles.css */
 
 .card {
 	display: flex;

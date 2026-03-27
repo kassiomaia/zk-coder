@@ -3,9 +3,9 @@
  * Handles task and subtask events.
  */
 
-import type { AgentEvent } from '$lib/types/agent';
-import type { AgentState } from '../state';
-import { toAgentTask } from '$lib/types/agent';
+import type {AgentEvent} from '$lib/types/agent';
+import {toAgentTask} from '$lib/types/agent';
+import type {AgentState} from '../state';
 
 /**
  * Handle task_created event.

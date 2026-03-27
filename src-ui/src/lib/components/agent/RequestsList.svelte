@@ -1,12 +1,12 @@
 <script lang="ts">
-	/**
-	 * RequestsList Component
-	 * Displays recent execution steps (LLM requests and tool calls).
-	 */
-	import type { ExecutionStep } from '$lib/types/agent';
-	import { Cpu, Activity } from 'lucide-svelte';
+    /**
+     * RequestsList Component
+     * Displays recent execution steps (LLM requests and tool calls).
+     */
+    import type {ExecutionStep} from '$lib/types/agent';
+    import {Activity, Cpu} from 'lucide-svelte';
 
-	interface Props {
+    interface Props {
 		steps: ExecutionStep[];
 		currentStep?: number;
 		maxRecent?: number;

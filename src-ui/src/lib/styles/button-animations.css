@@ -1,8 +1,12 @@
 /**
  * Button Micro-interaction Animations
  *
+ * NOTE: Most animations are now in shared/animations.css.
+ * This file is kept for backward compatibility and for any button-specific
+ * animation utilities that may be added in the future.
+ *
  * Named animations for reusable button effects.
- * Import this file where custom button animations are needed.
+ * Import shared/animations.css for the full animation library.
  */
 
 /* =====================

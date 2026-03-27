@@ -1,20 +1,20 @@
 <script lang="ts">
-	/**
-	 * MarkdownRenderer Component
-	 * Renders markdown content with syntax highlighting, tables, task lists, and image support.
-	 * Includes content validation and sanitization for security.
-	 */
-	import { browser } from '$app/environment';
-	import { renderMarkdown, escapeHtml } from '$lib/utils/markdown';
-	import {
-		validateContent,
-		mightNeedSanitization,
-		type ContentValidationConfig,
-		defaultValidationConfig
-	} from '$lib/utils/contentValidation';
-	import styles from './MarkdownRenderer.module.css';
+    /**
+     * MarkdownRenderer Component
+     * Renders markdown content with syntax highlighting, tables, task lists, and image support.
+     * Includes content validation and sanitization for security.
+     */
+    import {browser} from '$app/environment';
+    import {escapeHtml, renderMarkdown} from '$lib/utils/markdown';
+    import {
+        type ContentValidationConfig,
+        defaultValidationConfig,
+        mightNeedSanitization,
+        validateContent
+    } from '$lib/utils/contentValidation';
+    import styles from './MarkdownRenderer.module.css';
 
-	interface Props {
+    interface Props {
 		/** Raw markdown content */
 		content: string;
 		/** Additional CSS class */

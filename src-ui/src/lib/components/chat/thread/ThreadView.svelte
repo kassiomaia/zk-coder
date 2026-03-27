@@ -1,14 +1,14 @@
 <script lang="ts">
-	/**
-	 * ThreadView Component
-	 * Sidebar panel showing thread list with open/resolved grouping.
-	 */
-	import styles from './ThreadView.module.css';
-	import ThreadItem from './ThreadItem.svelte';
-	import NewThreadButton from './NewThreadButton.svelte';
-	import type { Thread } from '$lib/types/thread';
+    /**
+     * ThreadView Component
+     * Sidebar panel showing thread list with open/resolved grouping.
+     */
+    import styles from './ThreadView.module.css';
+    import ThreadItem from './ThreadItem.svelte';
+    import NewThreadButton from './NewThreadButton.svelte';
+    import type {Thread} from '$lib/types/thread';
 
-	interface Props {
+    interface Props {
 		/** List of threads to display */
 		threads: Thread[];
 		/** Currently selected thread ID */

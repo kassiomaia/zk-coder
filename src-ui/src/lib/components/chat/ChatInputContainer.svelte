@@ -1,12 +1,12 @@
 <script lang="ts">
-	/**
-	 * ChatInputContainer Component
-	 * Wraps ChatInput with state management and animations.
-	 */
-	import ChatInput from './input/ChatInput.svelte';
-	import styles from './ChatArea.module.css';
+    /**
+     * ChatInputContainer Component
+     * Wraps ChatInput with state management and animations.
+     */
+    import ChatInput from './input/ChatInput.svelte';
+    import styles from './ChatArea.module.css';
 
-	interface Props {
+    interface Props {
 		/** Current input value (bindable) */
 		value: string;
 

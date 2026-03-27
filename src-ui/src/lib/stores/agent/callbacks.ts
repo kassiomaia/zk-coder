@@ -3,7 +3,7 @@
  * Manages callbacks for cross-store communication.
  */
 
-import type { Message } from '$lib/types/message';
+import type {Message} from '$lib/types/message';
 
 /** Callback for when agent completes execution - returns (conversationId, threadId, content) */
 let onExecutionComplete:

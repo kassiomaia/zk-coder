@@ -1,16 +1,16 @@
 <script lang="ts">
-	/**
-	 * InlineRenameInput Component
-	 * Refined inline editing with morph transitions, subtle validation,
-	 * and optimistic update feedback.
-	 */
-	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
-	import { AlertCircleIcon } from '$lib/icons';
-	import styles from './InlineRenameInput.module.css';
+    /**
+     * InlineRenameInput Component
+     * Refined inline editing with morph transitions, subtle validation,
+     * and optimistic update feedback.
+     */
+    import {onMount} from 'svelte';
+    import {fade} from 'svelte/transition';
+    import {cubicOut} from 'svelte/easing';
+    import {AlertCircleIcon} from '$lib/icons';
+    import styles from './InlineRenameInput.module.css';
 
-	interface Props {
+    interface Props {
 		/** Current value of the input */
 		value: string;
 		/** Placeholder text */

@@ -6,7 +6,7 @@
  * Monospace font with dark terminal styling.
  */
 
-import type { Message } from '$lib/types/message';
+import type {Message} from '$lib/types/message';
 import styles from './TerminalOutput.module.css';
 
 interface Props {

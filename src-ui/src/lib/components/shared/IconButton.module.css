@@ -3,6 +3,8 @@
  * Features cross-fade color transitions, press animations, and intent-based styling.
  */
 
+@import '../../styles/animations.css';
+
 .btn {
 	position: relative;
 	display: inline-flex;
@@ -275,22 +277,6 @@
 	animation: dangerPulse 400ms var(--ease-in-out);
 }
 
-@keyframes dangerPulse {
-	0%,
-	100% {
-		transform: scale(1);
-	}
-	25% {
-		transform: scale(1.02);
-	}
-	50% {
-		transform: scale(0.99);
-	}
-	75% {
-		transform: scale(1.01);
-	}
-}
-
 /* =====================
    State Classes
    ===================== */
@@ -314,15 +300,6 @@
 
 .spinner {
 	animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-	from {
-		transform: rotate(0deg);
-	}
-	to {
-		transform: rotate(360deg);
-	}
 }
 
 /* =====================

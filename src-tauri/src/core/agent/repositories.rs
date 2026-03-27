@@ -18,7 +18,10 @@ pub trait SessionRepository: Send + Sync {
     fn get_session(&self, id: &SessionId) -> RepositoryResult<AgentSession>;
 
     /// Gets all sessions for a conversation.
-    fn get_sessions_for_conversation(&self, conversation_id: &str) -> RepositoryResult<Vec<AgentSession>>;
+    fn get_sessions_for_conversation(
+        &self,
+        conversation_id: &str,
+    ) -> RepositoryResult<Vec<AgentSession>>;
 
     /// Updates the session state.
     fn update_state(
@@ -69,6 +72,9 @@ pub trait TaskRepository: Send + Sync {
     /// Creates a new task.
     fn create_task(&self, task: &AgentTask) -> RepositoryResult<()>;
 
+    /// Creates a subtask for a parent task.
+    fn create_subtask(&self, parent_task_id: &str, task: &AgentTask) -> RepositoryResult<()>;
+
     /// Gets tasks for a session.
     fn get_session_tasks(&self, session_id: &str) -> RepositoryResult<Vec<AgentTask>>;
 
@@ -77,4 +83,7 @@ pub trait TaskRepository: Send + Sync {
 
     /// Updates task status.
     fn update_task_status(&self, task_id: &str, status: TaskStatus) -> RepositoryResult<()>;
+
+    /// Updates subtask status.
+    fn update_subtask_status(&self, subtask_id: &str, status: TaskStatus) -> RepositoryResult<()>;
 }

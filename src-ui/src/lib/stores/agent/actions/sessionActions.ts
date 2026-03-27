@@ -3,10 +3,9 @@
  * Session management functions for the agent store.
  */
 
-import type { AgentSession } from '$lib/types/agent';
-import type { BackendAgentTask } from '$lib/types/agent';
-import { toAgentTask } from '$lib/types/agent';
-import type { AgentState } from '../state';
+import type {AgentSession, BackendAgentTask} from '$lib/types/agent';
+import {toAgentTask} from '$lib/types/agent';
+import type {AgentState} from '../state';
 
 /**
  * Runtime type guard to validate AgentSession structure.

@@ -1,7 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {fireEvent, render, screen, waitFor} from '@testing-library/svelte';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 import TaskList from './TaskList.svelte';
-import type { AgentTask } from '$lib/types/agent';
+import type {AgentTask} from '$lib/types/agent';
 
 describe('TaskList', () => {
 	const mockTasks: AgentTask[] = [
