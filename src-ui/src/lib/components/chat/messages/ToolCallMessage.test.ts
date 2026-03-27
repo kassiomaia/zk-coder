@@ -53,6 +53,7 @@ describe('ToolCallMessage', () => {
 			const button = container.querySelector('button');
 			expect(button).toBeInTheDocument();
 		});
+
 	});
 
 	describe('tool icons', () => {

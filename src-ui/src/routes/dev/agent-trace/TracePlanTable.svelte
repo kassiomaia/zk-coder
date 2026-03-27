@@ -149,7 +149,7 @@
 	<tbody>
 		{#each rows as row (row.id)}
 			<tr
-				class={`${table.row} ${row.id === selectedTraceId ? table.rowSelected : ''} ${row.status === 'failed' ? table.rowFailed : ''} ${row.status === 'completed' ? table.rowCompleted : ''}`}
+				class={`${table.row} ${row.id === selectedTraceId ? table.rowSelected : ''} ${row.status === 'failed' ? table.rowFailed : ''} ${row.status === 'completed' ? table.rowCompleted : ''} ${row.action === 'llm_request_prepared' || row.actor === 'LLM' ? table.rowLlmAction : ''}`}
 				onclick={() => onSelect(row.id)}
 			>
 				<td class={table.rowCode}>{row.time}</td>

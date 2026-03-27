@@ -589,10 +589,6 @@ impl SqliteSessionRepository {
         runtime_data::clear_session_runtime_data(&conn, session_id)?;
         tasks::clear_session_execution_steps(&conn, session_id)?;
         execution_debug::clear_execution_snapshot(&conn, &session_id.0)?;
-        conn.execute(
-            "DELETE FROM agent_runtime_traces WHERE session_id = ?1",
-            rusqlite::params![session_id.0],
-        )?;
         Ok(())
     }
 
@@ -1034,5 +1030,45 @@ mod tests {
         let tool_calls = repository.get_tool_calls_for_session(&session.id).unwrap();
         assert_eq!(tool_calls.len(), 1);
         assert_eq!(tool_calls[0].tool_name, "fs_read_file");
+    }
+
+    #[test]
+    fn test_clear_session_runtime_data_preserves_runtime_traces() {
+        let repository = SqliteSessionRepository::new(":memory:").unwrap();
+        let session = make_session();
+        repository.create_session(&session).unwrap();
+        let task = crate::core::agent::task::AgentTask::new(
+            session.id.clone(),
+            crate::core::agent::task::AgentRequest {
+                content: "Test request".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+        repository.create_task(&task).unwrap();
+
+        let trace = crate::core::agent::execution::RuntimeTrace {
+            id: "trace-1".to_string(),
+            session_id: session.id.0.clone(),
+            task_id: task.id.clone(),
+            subtask_id: None,
+            step_number: 1,
+            trace_type: crate::core::agent::execution::RuntimeTraceType::ExecutionStarted,
+            payload_json: serde_json::json!({"requestContent": "hello"}),
+            created_at: chrono::Utc::now(),
+        };
+        repository.append_runtime_trace(&trace).unwrap();
+        repository
+            .add_terminal_line(&session.id, "stdout", "temporary output")
+            .unwrap();
+
+        repository.clear_session_runtime_data(&session.id).unwrap();
+
+        let traces = repository.get_runtime_traces(&session.id.0, None).unwrap();
+        let terminal = repository.get_session_terminal_output(&session.id).unwrap();
+
+        assert_eq!(traces.len(), 1);
+        assert_eq!(traces[0].id, "trace-1");
+        assert!(terminal.is_empty());
     }
 }

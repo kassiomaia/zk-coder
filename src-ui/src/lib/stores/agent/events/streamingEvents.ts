@@ -6,7 +6,11 @@
 import type {AgentEvent} from '$lib/types/agent';
 import type {AgentState} from '../state';
 import {clearStreamingUpdates, scheduleStreamingUpdate} from '../streaming';
-import {getOnAgentActivity, getOnSystemMessage} from '../callbacks';
+import {
+	getOnAgentActivity,
+	getOnPersistAssistantMessage,
+	getOnSystemMessage
+} from '../callbacks';
 import {buildContextNoticeContent} from '$lib/utils/systemNotices';
 
 /**
@@ -15,23 +19,23 @@ import {buildContextNoticeContent} from '$lib/utils/systemNotices';
 export function handleStreamingContent(state: AgentState, event: Extract<AgentEvent, { type: 'streaming_content' }>) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
-		// For streaming content, we use a special message ID for the assistant response
-		const assistantMessageId = `streaming-assistant-${event.sessionId}`;
-
-		// Track accumulated content in session state
-		const existingContent = session.streamingAssistantContent ?? '';
+		const assistantMessageId = event.messageId ?? `streaming-assistant-${event.sessionId}`;
+		const streamingKey = `${event.sessionId}:${assistantMessageId}`;
+		const existingMessages = session.streamingMessages ?? {};
+		const existingContent = existingMessages[assistantMessageId] ?? '';
 		const newContent = existingContent + event.chunk;
 
 		if (!event.isFinal) {
-			// Update streaming state
 			state.sessions.set(event.sessionId, {
 				...session,
-				streamingAssistantContent: newContent
+				streamingMessages: {
+					...existingMessages,
+					[assistantMessageId]: newContent
+				}
 			});
 
-			// Schedule throttled UI update (non-blocking)
 			scheduleStreamingUpdate(
-				event.sessionId,
+				streamingKey,
 				session.conversationId,
 				session.threadId,
 				assistantMessageId,
@@ -39,28 +43,38 @@ export function handleStreamingContent(state: AgentState, event: Extract<AgentEv
 				'sending'
 			);
 		}
-		// is_final: flush immediately with 'sent' status and clear streaming state
 		else {
-			// Clear any pending throttled update
-			clearStreamingUpdates(event.sessionId);
-
-			// Clear streaming state
+			clearStreamingUpdates(streamingKey);
+			const {[assistantMessageId]: _removed, ...remainingMessages} = existingMessages;
 			state.sessions.set(event.sessionId, {
 				...session,
-				streamingAssistantContent: undefined
+				streamingMessages:
+					Object.keys(remainingMessages).length > 0 ? remainingMessages : undefined
 			});
 
-			// If we have accumulated content, flush immediately
 			if (newContent.length > 0) {
 				scheduleStreamingUpdate(
-					event.sessionId,
+					streamingKey,
 					session.conversationId,
 					session.threadId,
 					assistantMessageId,
 					newContent,
 					'sent',
-					true // immediate flush
+					true
 				);
+			}
+
+			if (event.persistMessage && newContent.trim().length > 0) {
+				const onPersistAssistantMessage = getOnPersistAssistantMessage();
+				if (onPersistAssistantMessage) {
+					onPersistAssistantMessage(
+						event.sessionId,
+						session.conversationId,
+						session.threadId,
+						assistantMessageId,
+						newContent
+					);
+				}
 			}
 		}
 	}
@@ -92,7 +106,10 @@ export function handleStatusPhrase(state: AgentState, event: Extract<AgentEvent,
 				kind: 'thinking',
 				content: event.message,
 				reasoning: event.message, // Map to reasoning for better visibility
-				timestamp: new Date()
+				timestamp: new Date(),
+				agentData: {
+					sessionId: event.sessionId
+				}
 			});
 		}
 	}

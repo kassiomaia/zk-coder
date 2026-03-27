@@ -59,7 +59,7 @@ export interface AgentSession {
 	toolCalls?: ToolCallRecord[];
 	executionSteps?: ExecutionStep[]; // Track execution steps for UI progress display
 	statusPhrases?: string[]; // Accumulated status phrases for rotation
-	streamingAssistantContent?: string; // Accumulated content for streaming assistant message
+	streamingMessages?: Record<string, string>; // Accumulated content for active streaming assistant messages
 	artifacts?: ArtifactReference[]; // Artifacts created during this session
 	createdAt: string;
 	updatedAt: string;
@@ -305,6 +305,7 @@ export type AgentEvent =
 			toolCallId: string;
 			tool: string;
 			arguments: Record<string, unknown>;
+			content?: string;
 	  }
 	| {
 			type: 'tool_result';
@@ -313,6 +314,7 @@ export type AgentEvent =
 			tool: string;
 			result: Record<string, unknown>;
 			isError: boolean;
+			content?: string;
 	  }
 	| { type: 'task_created'; sessionId: string; task: BackendAgentTask }
 	| { type: 'task_updated'; sessionId: string; taskId: string; status: TaskStatus }
@@ -342,6 +344,8 @@ export type AgentEvent =
 		threadId: string;
 		chunk: string;
 		isFinal: boolean;
+		messageId?: string;
+		persistMessage?: boolean;
 	  }
 	| {
 		type: 'context_compacted';

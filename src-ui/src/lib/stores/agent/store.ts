@@ -75,6 +75,15 @@ export interface AgentStore {
 	setCleanupTransientCallback(
 		callback: (conversationId: string, threadId: string, sessionId: string) => void
 	): void;
+	setPersistAssistantMessageCallback(
+		callback: (
+			sessionId: string,
+			conversationId: string,
+			threadId: string,
+			messageId: string,
+			content: string
+		) => void
+	): void;
 }
 
 /**
@@ -312,6 +321,21 @@ function createAgentStore(): AgentStore {
 		Callbacks.setCleanupTransientCallback(callback);
 	}
 
+	/**
+	 * Set a callback to persist streamed assistant messages.
+	 */
+	function setPersistAssistantMessageCallback(
+		callback: (
+			sessionId: string,
+			conversationId: string,
+			threadId: string,
+			messageId: string,
+			content: string
+		) => void
+	) {
+		Callbacks.setPersistAssistantMessageCallback(callback);
+	}
+
 	return {
 		subscribe,
 		initialize,
@@ -337,7 +361,8 @@ function createAgentStore(): AgentStore {
 		setExecutionCompleteCallback,
 		setSystemMessageCallback,
 		setAgentActivityCallback,
-		setCleanupTransientCallback
+		setCleanupTransientCallback,
+		setPersistAssistantMessageCallback
 	};
 }
 

@@ -254,7 +254,7 @@ impl AgentServiceImpl {
     ) -> RepositoryResult<AgentExecutionDebugDetails> {
         Ok(AgentExecutionDebugDetails {
             snapshot: self.execution_repo.get_execution_snapshot(session_id)?,
-            traces: self.trace_repo.get_runtime_traces(session_id, Some(500))?,
+            traces: self.trace_repo.get_runtime_traces(session_id, None)?,
         })
     }
 

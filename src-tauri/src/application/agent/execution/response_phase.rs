@@ -4,7 +4,7 @@ use tauri::Emitter;
 
 use super::deps::ExecutionDeps;
 use super::state::{ExecutionContext, LlmCallResult};
-use super::termination::{complete_execution, fail_execution};
+use super::termination::{complete_execution, emit_streaming_message, fail_execution};
 use crate::core::agent::execution::RuntimeTraceType;
 use crate::core::agent::task::{AgentExecutionResult, ExecutionStep, StepAction, StepResult};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
@@ -17,7 +17,7 @@ pub enum ResponseDecision {
     ExecuteTools(crate::core::llm::entities::ChatResponse),
 }
 
-pub fn handle_response(
+pub async fn handle_response(
     deps: &ExecutionDeps<'_>,
     ctx: &mut ExecutionContext,
     session: &crate::core::agent::session::AgentSession,
@@ -77,7 +77,8 @@ pub fn handle_response(
             &session.conversation_id,
             &session.thread_id,
             response.content,
-        )?;
+        )
+        .await?;
         return Ok(ResponseDecision::Finished(result));
     }
 
@@ -106,6 +107,23 @@ pub fn handle_response(
             fail_execution(deps, ctx, &msg, "loop_detected", Some(response.model.clone()))?;
             return Err(AgentRuntimeError::LoopDetected);
         }
+    }
+
+    if !response.content.trim().is_empty() {
+        emit_streaming_message(
+            deps,
+            &ctx.session_id,
+            &session.conversation_id,
+            &session.thread_id,
+            &response.content,
+            true,
+            Some(format!(
+                "streaming-tool-preamble-{}-{}",
+                ctx.session_id, ctx.step_number
+            )),
+            true,
+        )
+        .await;
     }
 
     Ok(ResponseDecision::ExecuteTools(response))

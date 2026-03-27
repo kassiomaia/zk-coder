@@ -31,6 +31,37 @@ pub struct OrchestratedLoopOutput {
     pub usage: Option<UsageStats>,
 }
 
+pub(crate) fn build_core_messages(
+    history: &[ChatMessage],
+    request_content: &str,
+    history_includes_request: bool,
+) -> Vec<crate::core::llm::entities::ChatMessage> {
+    let mut core_messages: Vec<crate::core::llm::entities::ChatMessage> = history
+        .iter()
+        .map(|msg| crate::core::llm::entities::ChatMessage {
+            role: match msg.role {
+                MessageRole::User => CoreMessageRole::User,
+                MessageRole::Assistant => CoreMessageRole::Assistant,
+                MessageRole::System => CoreMessageRole::System,
+            },
+            content: MessageContent::Text(msg.content.clone()),
+            tool_calls: Vec::new(),
+            tool_result: None,
+        })
+        .collect();
+
+    if !history_includes_request {
+        core_messages.push(crate::core::llm::entities::ChatMessage {
+            role: CoreMessageRole::User,
+            content: MessageContent::Text(request_content.to_string()),
+            tool_calls: Vec::new(),
+            tool_result: None,
+        });
+    }
+
+    core_messages
+}
+
 /// Runs the bounded orchestrated conversation loop and returns the final model response.
 pub async fn run_orchestrated_loop(
     request: &SendChatRequest,
@@ -82,6 +113,7 @@ pub async fn run_orchestrated_loop(
             .map_err(|e| e.to_string())?
     };
 
+    let history_includes_request = include_thread_history;
     let user_message = ChatMessage::user(&request.conversation_id, &request.content);
     if persist_user_message {
         chat_state
@@ -90,26 +122,7 @@ pub async fn run_orchestrated_loop(
             .map_err(|e| e.to_string())?;
     }
 
-    let mut core_messages: Vec<crate::core::llm::entities::ChatMessage> = history
-        .iter()
-        .map(|msg| crate::core::llm::entities::ChatMessage {
-            role: match msg.role {
-                MessageRole::User => CoreMessageRole::User,
-                MessageRole::Assistant => CoreMessageRole::Assistant,
-                MessageRole::System => CoreMessageRole::System,
-            },
-            content: MessageContent::Text(msg.content.clone()),
-            tool_calls: Vec::new(),
-            tool_result: None,
-        })
-        .collect();
-
-    core_messages.push(crate::core::llm::entities::ChatMessage {
-        role: CoreMessageRole::User,
-        content: MessageContent::Text(request.content.clone()),
-        tool_calls: Vec::new(),
-        tool_result: None,
-    });
+    let mut core_messages = build_core_messages(&history, &request.content, history_includes_request);
 
     let system_prompt = request.system_prompt.clone().unwrap_or_default();
     let temperature = request.temperature;

@@ -243,7 +243,7 @@
 	<!-- Messages - flat rendering to avoid Svelte 5 nested #each reconciliation issues -->
 	{#each messages as message, index (message.id)}
 		<!-- Agent-specific messages (thinking, tool_call, terminal) - rendered with assistant styling -->
-		{#if message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal'}
+		{#if message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal' || message.kind === 'narration' || message.kind === 'approval'}
 			<!-- Show ASSISTANT group header for agent messages -->
 			{#if shouldShowAgentHeader(index)}
 				<div class={messageStyles.messageGroup}>

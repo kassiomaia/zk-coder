@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
-	import { listen } from '@tauri-apps/api/event';
+	import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 	import {
 		Activity,
 		AlertCircle,
@@ -30,7 +30,15 @@
 		traces: RuntimeTrace[];
 	};
 
-	type LiveState = 'connecting' | 'listening' | 'reconnecting';
+	type TransportState =
+		| 'connecting'
+		| 'live'
+		| 'polling_fallback'
+		| 'subscription_failed'
+		| 'reconnecting';
+
+	const LISTENER_GRACE_MS = 2000;
+	const POLLING_INTERVAL_MS = 1000;
 
 	const isDev = import.meta.env.DEV;
 	const focusEventName = 'agent:trace-focus';
@@ -57,9 +65,12 @@
 			: { ...defaultWidths }
 	);
 
-	let liveState = $state<LiveState>('connecting');
+	let transportState = $state<TransportState>('connecting');
 	let isListening = $state(false);
+	let listenerRegistered = $state(false);
+	let windowLabel = $state('unknown');
 	let lastEventAt = $state<string | null>(null);
+	let lastPollAt = $state<string | null>(null);
 	let liveEventsCount = $state(0);
 	let now = $state(Date.now());
 
@@ -96,13 +107,18 @@
 
 	const selectedTrace = $derived(traces.find((trace) => trace.id === selectedTraceId) ?? null);
 	const listeningLabel = $derived(
-		liveState === 'connecting'
+		transportState === 'connecting'
 			? 'Connecting trace stream'
-			: liveState === 'reconnecting'
+			: transportState === 'reconnecting'
 				? 'Resyncing execution stream'
-				: 'Listening in background'
+				: transportState === 'polling_fallback'
+					? 'Polling fallback active'
+					: transportState === 'subscription_failed'
+						? 'Live subscription failed'
+						: 'Listening in background'
 	);
 	const lastEventLabel = $derived(formatRelativeAge(lastEventAt, now));
+	const lastPollLabel = $derived(formatRelativeAge(lastPollAt, now));
 	const headerTone = $derived(snapshot?.phase ?? 'idle');
 
 	$effect(() => {
@@ -139,19 +155,55 @@
 		selectedTraceId = traces.length > 0 ? traces[traces.length - 1].id : null;
 	}
 
-	async function loadDebugData(targetSessionId: string, mode: LiveState = 'reconnecting') {
+	function logTraceDebug(message: string, payload?: unknown) {
+		if (!isDev) return;
+		console.debug(`[AgentTrace] ${message}`, payload ?? '');
+	}
+
+	function mergeDebugData(response: DebugResponse, targetSessionId: string) {
+		sessionId = targetSessionId;
+		if (
+			!snapshot ||
+			(response.snapshot &&
+				new Date(response.snapshot.updatedAt).getTime() >= new Date(snapshot.updatedAt).getTime())
+		) {
+			snapshot = response.snapshot;
+		}
+
+		let merged = traces;
+		for (const trace of response.traces) {
+			merged = mergeTrace(merged, trace);
+		}
+		traces = merged;
+
+		if (!selectedTraceId && merged.length > 0) {
+			selectedTraceId = merged[merged.length - 1].id;
+		}
+	}
+
+	async function loadDebugData(targetSessionId: string, mode: TransportState = 'reconnecting') {
 		if (!targetSessionId) return;
-		liveState = mode;
+		transportState = mode;
 		error = null;
 
 		try {
 			const response = await invoke<DebugResponse>('get_agent_execution_debug', {
 				sessionId: targetSessionId
 			});
-			replaceDebugData(response, targetSessionId);
-			liveState = 'listening';
+			if (mode === 'polling_fallback') {
+				lastPollAt = new Date().toISOString();
+				mergeDebugData(response, targetSessionId);
+			} else {
+				replaceDebugData(response, targetSessionId);
+			}
+			if (mode !== 'polling_fallback' && listenerRegistered) {
+				transportState = liveEventsCount > 0 ? 'live' : 'connecting';
+			}
 		} catch (loadError) {
 			error = String(loadError);
+			if (mode === 'polling_fallback') {
+				transportState = 'subscription_failed';
+			}
 		}
 	}
 
@@ -164,7 +216,12 @@
 
 		snapshot = nextSnapshot;
 		rememberLiveEvent();
-		liveState = 'listening';
+		transportState = 'live';
+		logTraceDebug('snapshot event received', {
+			sessionId: nextSnapshot.sessionId,
+			phase: nextSnapshot.phase,
+			step: nextSnapshot.stepNumber
+		});
 	}
 
 	function handleTraceUpdate(nextTrace: RuntimeTrace) {
@@ -177,7 +234,12 @@
 		traces = mergeTrace(traces, nextTrace);
 		selectedTraceId = selectedTraceId ?? nextTrace.id;
 		rememberLiveEvent();
-		liveState = 'listening';
+		transportState = 'live';
+		logTraceDebug('trace event received', {
+			sessionId: nextTrace.sessionId,
+			traceId: nextTrace.id,
+			traceType: nextTrace.traceType
+		});
 	}
 
 	function selectTrace(id: string) {
@@ -248,10 +310,45 @@
 		let unlistenTrace: (() => void) | undefined;
 		let unlistenFocus: (() => void) | undefined;
 		let tickHandle: ReturnType<typeof window.setInterval> | undefined;
+		let pollingHandle: ReturnType<typeof window.setInterval> | undefined;
+		let graceHandle: ReturnType<typeof window.setTimeout> | undefined;
+
+		const currentWindow = getCurrentWebviewWindow();
+		windowLabel = currentWindow.label;
+
+		const stopPolling = () => {
+			if (pollingHandle) {
+				window.clearInterval(pollingHandle);
+				pollingHandle = undefined;
+			}
+		};
+
+		const startPollingFallback = () => {
+			if (!sessionId || pollingHandle || transportState === 'live') return;
+			transportState = 'polling_fallback';
+			logTraceDebug('starting polling fallback', { sessionId, windowLabel });
+			pollingHandle = window.setInterval(() => {
+				if (!sessionId) return;
+				void loadDebugData(sessionId, 'polling_fallback');
+			}, POLLING_INTERVAL_MS);
+		};
+
+		const resetGracePeriod = () => {
+			if (graceHandle) {
+				window.clearTimeout(graceHandle);
+			}
+			if (!sessionId) return;
+			graceHandle = window.setTimeout(() => {
+				if (liveEventsCount === 0 && transportState !== 'live') {
+					startPollingFallback();
+				}
+			}, LISTENER_GRACE_MS);
+		};
 
 		const handleWindowFocus = () => {
 			if (sessionId) {
 				void loadDebugData(sessionId, 'reconnecting');
+				resetGracePeriod();
 			}
 		};
 
@@ -260,27 +357,45 @@
 			if (initialSessionId) {
 				await loadDebugData(initialSessionId, 'connecting');
 			} else {
-				liveState = 'listening';
+				transportState = 'connecting';
 			}
 
-			unlistenTrace = await listen<AgentTraceEvent>(traceEventName, (event) => {
-				if (event.payload.type === 'snapshot_updated') {
-					handleSnapshotUpdate(event.payload.snapshot);
-					return;
-				}
+			try {
+				unlistenTrace = await currentWindow.listen<AgentTraceEvent>(traceEventName, (event) => {
+					if (transportState === 'polling_fallback') {
+						stopPolling();
+					}
 
-				handleTraceUpdate(event.payload.trace);
-			});
+					if (event.payload.type === 'snapshot_updated') {
+						handleSnapshotUpdate(event.payload.snapshot);
+						return;
+					}
 
-			unlistenFocus = await listen<string | null>(focusEventName, async (event) => {
-				const nextSessionId = event.payload ?? '';
-				if (!nextSessionId) return;
-				resetLiveCounters();
-				await loadDebugData(nextSessionId, 'reconnecting');
-			});
+					handleTraceUpdate(event.payload.trace);
+				});
 
-			isListening = true;
-			liveState = 'listening';
+				unlistenFocus = await currentWindow.listen<string | null>(focusEventName, async (event) => {
+					const nextSessionId = event.payload ?? '';
+					logTraceDebug('focus event received', { nextSessionId, windowLabel });
+					if (!nextSessionId) return;
+					resetLiveCounters();
+					await loadDebugData(nextSessionId, 'reconnecting');
+					resetGracePeriod();
+				});
+
+				listenerRegistered = true;
+				isListening = true;
+				logTraceDebug('window listeners registered', { windowLabel });
+				resetGracePeriod();
+			} catch (listenerError) {
+				listenerRegistered = false;
+				isListening = false;
+				transportState = 'subscription_failed';
+				error = String(listenerError);
+				logTraceDebug('window listener registration failed', listenerError);
+				startPollingFallback();
+			}
+
 			tickHandle = window.setInterval(() => {
 				now = Date.now();
 			}, 1000);
@@ -289,8 +404,13 @@
 
 		return () => {
 			isListening = false;
+			listenerRegistered = false;
+			stopPolling();
 			unlistenTrace?.();
 			unlistenFocus?.();
+			if (graceHandle) {
+				window.clearTimeout(graceHandle);
+			}
 			if (tickHandle) {
 				window.clearInterval(tickHandle);
 			}
@@ -320,14 +440,16 @@
 					</p>
 				</div>
 
-				<div class={shell.liveBanner} data-state={liveState}>
+				<div class={shell.liveBanner} data-state={transportState}>
 					<div class={shell.liveBadge}>
 						<Radio size={14} />
 						<span>{listeningLabel}</span>
 					</div>
 					<div class={shell.liveMeta}>
-						<span>{isListening ? 'stream active' : 'stream offline'}</span>
+						<span>{listenerRegistered ? 'subscription ready' : 'subscription offline'}</span>
+						<span>window {windowLabel}</span>
 						<span>last event {lastEventLabel}</span>
+						<span>last poll {lastPollLabel}</span>
 						<span>{liveEventsCount} live updates</span>
 					</div>
 				</div>

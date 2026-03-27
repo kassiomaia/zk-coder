@@ -69,7 +69,7 @@ pub async fn execute(
         let resolved = resolve_context(&deps, &mut ctx, session, &request, agent_system_prompt).await?;
         let llm_result = call_llm(&deps, &mut ctx, &resolved, client.as_ref()).await?;
 
-        match handle_response(&deps, &mut ctx, session, llm_result)? {
+        match handle_response(&deps, &mut ctx, session, llm_result).await? {
             ResponseDecision::Finished(result) => return Ok(result),
             ResponseDecision::ExecuteTools(response) => {
                 match run_tools(&deps, &mut ctx, session, response, &permission_resolver).await? {

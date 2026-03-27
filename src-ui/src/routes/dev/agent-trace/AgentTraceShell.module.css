@@ -91,6 +91,14 @@
 		var(--color-surface);
 }
 
+.liveBanner[data-state='polling_fallback'],
+.liveBanner[data-state='subscription_failed'] {
+	border-color: var(--color-info-border);
+	background:
+		linear-gradient(135deg, var(--color-info-light), color-mix(in srgb, var(--color-surface) 88%, transparent)),
+		var(--color-surface);
+}
+
 .liveBadge {
 	display: inline-flex;
 	align-items: center;
@@ -108,6 +116,11 @@
 .liveBanner[data-state='reconnecting'] .liveBadge :global(svg),
 .liveBanner[data-state='connecting'] .liveBadge :global(svg) {
 	color: var(--color-warning);
+}
+
+.liveBanner[data-state='polling_fallback'] .liveBadge :global(svg),
+.liveBanner[data-state='subscription_failed'] .liveBadge :global(svg) {
+	color: var(--color-info);
 }
 
 .liveMeta {

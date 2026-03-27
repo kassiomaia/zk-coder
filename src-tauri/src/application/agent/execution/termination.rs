@@ -10,6 +10,9 @@ use crate::core::agent::task::{AgentExecutionResult, TaskStatus, UsageStats};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::AgentRuntimeError;
 
+const STREAMING_CHUNK_BYTES: usize = 96;
+const STREAMING_CHUNK_DELAY_MS: u64 = 24;
+
 pub fn update_session_state(
     deps: &ExecutionDeps<'_>,
     session_id: &SessionId,
@@ -115,7 +118,100 @@ pub fn fail_execution(
     Ok(())
 }
 
-pub fn complete_execution(
+fn chunk_response(content: &str) -> Vec<String> {
+    let mut chunks = Vec::new();
+    let mut current = String::new();
+
+    for ch in content.chars() {
+        current.push(ch);
+        if current.len() >= STREAMING_CHUNK_BYTES && ch.is_whitespace() {
+            chunks.push(std::mem::take(&mut current));
+        }
+    }
+
+    if !current.is_empty() {
+        chunks.push(current);
+    }
+
+    if chunks.is_empty() {
+        chunks.push(String::new());
+    }
+
+    chunks
+}
+
+fn build_streaming_events(content: &str, finalize_stream: bool) -> Vec<(String, bool)> {
+    let chunks = chunk_response(content);
+    let last_index = chunks.len().saturating_sub(1);
+
+    chunks
+        .into_iter()
+        .enumerate()
+        .map(|(index, chunk)| {
+            let is_final = finalize_stream && index == last_index;
+            (chunk, is_final)
+        })
+        .collect()
+}
+
+pub(super) async fn emit_streaming_content(
+	deps: &ExecutionDeps<'_>,
+	session_id: &str,
+	conversation_id: &str,
+	thread_id: &str,
+	content: &str,
+	finalize_stream: bool,
+) {
+	emit_streaming_message(
+		deps,
+		session_id,
+		conversation_id,
+		thread_id,
+		content,
+		finalize_stream,
+		None,
+		false,
+	)
+	.await;
+}
+
+pub(super) async fn emit_streaming_message(
+	deps: &ExecutionDeps<'_>,
+	session_id: &str,
+	conversation_id: &str,
+	thread_id: &str,
+	content: &str,
+	finalize_stream: bool,
+	message_id: Option<String>,
+	persist_message: bool,
+) {
+	let events = build_streaming_events(content, finalize_stream);
+	let last_index = events.len().saturating_sub(1);
+
+	for (index, (chunk, is_final)) in events.into_iter().enumerate() {
+		let _ = deps.app_handle.emit(
+            AGENT_EVENT_NAME,
+            AgentEvent::StreamingContent {
+                session_id: session_id.to_string(),
+				conversation_id: conversation_id.to_string(),
+				thread_id: thread_id.to_string(),
+				chunk,
+				is_final,
+				message_id: message_id.clone(),
+				persist_message: persist_message.then_some(true),
+			},
+		);
+
+        if index != last_index {
+            tokio::time::sleep(std::time::Duration::from_millis(
+                STREAMING_CHUNK_DELAY_MS,
+            ))
+            .await;
+        }
+    }
+}
+
+pub async fn complete_execution(
     deps: &ExecutionDeps<'_>,
     ctx: &ExecutionContext,
     conversation_id: &str,
@@ -168,6 +264,15 @@ pub fn complete_execution(
             status: TaskStatus::Completed,
         },
     );
+    emit_streaming_content(
+        deps,
+        &ctx.session_id,
+        conversation_id,
+        thread_id,
+        &result.content,
+        true,
+    )
+    .await;
     let _ = deps.app_handle.emit(
         AGENT_EVENT_NAME,
         AgentEvent::ExecutionComplete {
@@ -179,4 +284,26 @@ pub fn complete_execution(
     );
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_streaming_events;
+
+    #[test]
+    fn test_build_streaming_events_marks_last_chunk_final_when_requested() {
+        let events = build_streaming_events("hello world", true);
+
+        assert!(!events.is_empty());
+        assert!(events.iter().take(events.len().saturating_sub(1)).all(|(_, is_final)| !is_final));
+        assert_eq!(events.last().map(|(_, is_final)| *is_final), Some(true));
+    }
+
+    #[test]
+    fn test_build_streaming_events_keeps_tool_call_content_non_final() {
+        let events = build_streaming_events("Let me inspect the project.", false);
+
+        assert!(!events.is_empty());
+        assert!(events.iter().all(|(_, is_final)| !is_final));
+    }
 }

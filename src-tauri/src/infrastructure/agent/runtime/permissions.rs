@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter};
 
 use super::types::AgentRuntimeError;
 use super::{generate_diff_from_content, infer_action_type};
+use super::tool_feedback::{build_tool_call_feedback, build_tool_result_feedback};
 use crate::core::agent::repositories::{SessionRepository, TaskRepository};
 use crate::core::agent::session::{AgentSession, PendingAction};
 use crate::core::agent::types::{ActionPreview, ActionType};
@@ -82,6 +83,26 @@ fn runtime_session_state_from_core(
     }
 }
 
+fn emit_persisted_streaming_message(
+    app_handle: &AppHandle,
+    session: &AgentSession,
+    message_id: String,
+    content: String,
+) {
+    let _ = app_handle.emit(
+        AGENT_EVENT_NAME,
+        AgentEvent::StreamingContent {
+            session_id: session.id.0.clone(),
+            conversation_id: session.conversation_id.clone(),
+            thread_id: session.thread_id.clone(),
+            chunk: content,
+            is_final: true,
+            message_id: Some(message_id),
+            persist_message: Some(true),
+        },
+    );
+}
+
 /// Process tool calls with permission checks, requesting approval as needed.
 pub async fn process_tool_calls_with_permissions(
     tool_calls: &[ToolCall],
@@ -125,6 +146,15 @@ pub async fn process_tool_calls_with_permissions(
             warn!("[AgentRuntime] Failed to persist tool call: {e}");
         }
 
+        if let Some(content) = build_tool_call_feedback(&call.name, &call.arguments) {
+            emit_persisted_streaming_message(
+                app_handle,
+                session,
+                format!("streaming-tool-call-{}", tool_call_id),
+                content.clone(),
+            );
+        }
+
         let _ = app_handle.emit(
             AGENT_EVENT_NAME,
             AgentEvent::ToolCall {
@@ -132,6 +162,7 @@ pub async fn process_tool_calls_with_permissions(
                 tool_call_id: tool_call_id.clone(),
                 tool: call.name.clone(),
                 arguments: call.arguments.clone(),
+                content: build_tool_call_feedback(&call.name, &call.arguments),
             },
         );
 
@@ -184,6 +215,16 @@ pub async fn process_tool_calls_with_permissions(
             warn!("[AgentRuntime] Failed to persist tool result: {e}");
         }
 
+        if let Some(content) = build_tool_result_feedback(&call.name, &result.output, result.is_error)
+        {
+            emit_persisted_streaming_message(
+                app_handle,
+                session,
+                format!("streaming-tool-result-{}", tool_call_id),
+                content.clone(),
+            );
+        }
+
         let _ = app_handle.emit(
             AGENT_EVENT_NAME,
             AgentEvent::ToolResult {
@@ -192,6 +233,7 @@ pub async fn process_tool_calls_with_permissions(
                 tool: call.name.clone(),
                 result: result.output.clone(),
                 is_error: result.is_error,
+                content: build_tool_result_feedback(&call.name, &result.output, result.is_error),
             },
         );
 

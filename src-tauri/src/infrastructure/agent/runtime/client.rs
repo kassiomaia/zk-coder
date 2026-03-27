@@ -134,7 +134,7 @@ pub async fn chat_with_retry(
 /// Returns an error if the chat store cannot be accessed.
 pub async fn build_llm_context(
     session: &crate::core::agent::session::AgentSession,
-    request: &crate::core::agent::task::AgentRequest,
+    _request: &crate::core::agent::task::AgentRequest,
     app_handle: &AppHandle,
 ) -> Result<Vec<Message>, AgentRuntimeError> {
     let chat_state = app_handle.state::<ChatState>();
@@ -143,7 +143,7 @@ pub async fn build_llm_context(
         .load_thread_messages(&session.thread_id)
         .unwrap_or_default();
 
-    let mut context: Vec<Message> = history
+    let context: Vec<Message> = history
         .iter()
         .map(|msg| match msg.role {
             MessageRole::User => Message::user(msg.content.clone()),
@@ -151,9 +151,6 @@ pub async fn build_llm_context(
             MessageRole::System => Message::system(msg.content.clone()),
         })
         .collect();
-
-    // Add the current request
-    context.push(Message::user(request.content.clone()));
 
     Ok(context)
 }

@@ -83,6 +83,15 @@
 	background: color-mix(in srgb, var(--color-success-subtle) 84%, transparent);
 }
 
+.rowLlmAction td {
+	background: color-mix(in srgb, var(--color-primary-subtle) 40%, transparent);
+	border-bottom-color: var(--color-primary-border);
+}
+
+.rowLlmAction:hover td {
+	background: color-mix(in srgb, var(--color-primary-light) 40%, transparent);
+}
+
 .rowCode,
 .deltaCell {
 	font-family: var(--font-mono);

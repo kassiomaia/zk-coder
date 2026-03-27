@@ -4,7 +4,12 @@
  */
 
 import type {AgentEvent} from '$lib/types/agent';
+import {getOnAgentActivity} from '../callbacks';
 import type {AgentState} from '../state';
+
+function getToolMessageId(sessionId: string, toolCallId: string): string {
+	return `tool-call-${sessionId}-${toolCallId}`;
+}
 
 /**
  * Handle tool_call event.
@@ -23,6 +28,26 @@ export function handleToolCall(state: AgentState, event: Extract<AgentEvent, { t
 			...session,
 			toolCalls: [...(session.toolCalls ?? []), record]
 		});
+
+		const onAgentActivity = getOnAgentActivity();
+		if (onAgentActivity) {
+			onAgentActivity(session.conversationId, session.threadId, {
+				id: getToolMessageId(event.sessionId, event.toolCallId),
+				conversationId: session.conversationId,
+				threadId: session.threadId,
+				role: 'assistant',
+				kind: 'tool_call',
+				content: '',
+				timestamp: new Date(),
+				status: 'sending',
+				agentData: {
+					sessionId: event.sessionId,
+					toolName: event.tool,
+					toolArgs: event.arguments,
+					toolCallStatus: 'pending'
+				}
+			});
+		}
 	}
 }
 
@@ -48,5 +73,20 @@ export function handleToolResult(state: AgentState, event: Extract<AgentEvent, {
 			...session,
 			toolCalls
 		});
+
+		const onAgentActivity = getOnAgentActivity();
+		if (onAgentActivity) {
+			onAgentActivity(session.conversationId, session.threadId, {
+				id: getToolMessageId(event.sessionId, event.toolCallId),
+				status: event.isError ? 'error' : 'sent',
+				agentData: {
+					sessionId: event.sessionId,
+					toolName: event.tool,
+					toolResult: event.result,
+					toolError: event.isError,
+					toolCallStatus: event.isError ? 'error' : 'success'
+				}
+			});
+		}
 	}
 }

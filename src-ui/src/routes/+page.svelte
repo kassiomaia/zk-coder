@@ -27,6 +27,7 @@
 	import type { Conversation, Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
 	import type { AgentSession, PendingAction } from '$lib/types/agent';
+	import { resolvePersistedAgentContent } from '$lib/utils/agentStreaming';
 	import {
 		agentStore,
 		activeSession,
@@ -156,6 +157,23 @@
 		if (session?.threadId) {
 			chatStore.selectThread(session.threadId);
 		}
+	}
+
+	function createArtifactMetadata(artifacts: import('$lib/types/agent').ArtifactReference[]) {
+		if (artifacts.length === 0) {
+			return undefined;
+		}
+
+		return {
+			artifacts: artifacts.map((artifact) => ({
+				id: artifact.id,
+				sessionId: artifact.sessionId,
+				artifactType: artifact.artifactType,
+				filename: artifact.filename,
+				sizeBytes: artifact.sizeBytes,
+				createdAt: artifact.createdAt
+			}))
+		};
 	}
 
 	async function handleCreateSession() {
@@ -318,6 +336,66 @@
 		// Initialize agent store (listens for backend events)
 		await agentStore.initialize();
 
+		const pendingPersistedAssistantMessages = new Set<string>();
+
+		async function persistAssistantMessage(
+			streamingMessageId: string,
+			conversationId: string,
+			threadId: string,
+			content: string,
+			metadata?: Message['metadata']
+		) {
+			if (pendingPersistedAssistantMessages.has(streamingMessageId)) {
+				return;
+			}
+
+			pendingPersistedAssistantMessages.add(streamingMessageId);
+
+			try {
+				const chatState = get(chatStore);
+				const streamingMessage = chatState.messages.find((m) => m.id === streamingMessageId);
+				const persistedContent = resolvePersistedAgentContent(streamingMessage?.content, content);
+				const { sendMessage } = await import('$lib/api/chat');
+				const savedMessage = await sendMessage({
+					conversationId,
+					threadId,
+					role: 'assistant',
+					content: persistedContent
+				});
+				const latestState = get(chatStore);
+				const hasStreamingMessage = latestState.messages.some((m) => m.id === streamingMessageId);
+
+				if (hasStreamingMessage) {
+					chatStore.updateMessage(streamingMessageId, {
+						id: savedMessage.id,
+						content: savedMessage.content,
+						status: 'sent',
+						metadata: {
+							...streamingMessage?.metadata,
+							...savedMessage.metadata,
+							...(metadata ?? {})
+						}
+					});
+				} else {
+					chatStore.addMessage({
+						...savedMessage,
+						metadata: {
+							...savedMessage.metadata,
+							...(metadata ?? {})
+						}
+					});
+				}
+			} catch (error) {
+				console.error('[+page] Failed to persist assistant message:', error);
+				chatStore.updateMessage(streamingMessageId, {
+					status: 'error',
+					metadata
+				});
+			} finally {
+				pendingPersistedAssistantMessages.delete(streamingMessageId);
+			}
+		}
+
 		// Set callback to add assistant message when agent completes execution
 		// Import the API function to persist messages to backend
 		agentStore.setExecutionCompleteCallback(async (sessionId, conversationId, threadId, content, artifacts) => {
@@ -332,73 +410,15 @@
 
 			try {
 				const streamingMessageId = `streaming-assistant-${sessionId}`;
-				const artifactMetadata =
-					artifacts.length > 0
-						? {
-								artifacts: artifacts.map((artifact) => ({
-									id: artifact.id,
-									sessionId: artifact.sessionId,
-									artifactType: artifact.artifactType,
-									filename: artifact.filename,
-									sizeBytes: artifact.sizeBytes,
-									createdAt: artifact.createdAt
-								}))
-							}
-						: {};
-
-				// Persist the assistant message to the backend
-				const { sendMessage } = await import('$lib/api/chat');
-				const savedMessage = await sendMessage({
+				const artifactMetadata = createArtifactMetadata(artifacts);
+				await persistAssistantMessage(
+					streamingMessageId,
 					conversationId,
 					threadId,
-					role: 'assistant',
-					content
-				});
-
-				// Remove the temporary streaming message if it exists
-				if (streamingMessageId) {
-					const chatState = get(chatStore);
-					const hasStreamingMessage = chatState.messages.some(
-						(m) => m.id === streamingMessageId
-					);
-
-					if (hasStreamingMessage) {
-						const streamingMessage = chatState.messages.find(
-							(m) => m.id === streamingMessageId
-						);
-						// Replace streaming message with persisted one
-						chatStore.updateMessage(streamingMessageId, {
-							id: savedMessage.id,
-							content: savedMessage.content,
-							status: 'sent',
-							metadata: {
-								...streamingMessage?.metadata,
-								...savedMessage.metadata,
-								...artifactMetadata
-							}
-						});
-					} else {
-						// No streaming message found, just add the saved one
-						chatStore.addMessage({
-							...savedMessage,
-							metadata: {
-								...savedMessage.metadata,
-								...artifactMetadata
-							}
-						});
-					}
-				} else {
-					// No streaming message ID, just add the saved message
-					chatStore.addMessage({
-						...savedMessage,
-						metadata: {
-							...savedMessage.metadata,
-							...artifactMetadata
-						}
-					});
-				}
-
-				console.debug('[+page] Agent message persisted and added to chatStore:', savedMessage.id);
+					content,
+					artifactMetadata
+				);
+				console.debug('[+page] Agent message persisted and added to chatStore:', streamingMessageId);
 			} catch (error) {
 				console.error('[+page] Failed to persist agent message:', error);
 				// Still add locally even if backend save fails
@@ -410,23 +430,25 @@
 					content,
 					timestamp: new Date(),
 					status: 'error',
-					metadata:
-						artifacts.length > 0
-							? {
-									artifacts: artifacts.map((artifact) => ({
-										id: artifact.id,
-										sessionId: artifact.sessionId,
-										artifactType: artifact.artifactType,
-										filename: artifact.filename,
-										sizeBytes: artifact.sizeBytes,
-										createdAt: artifact.createdAt
-									}))
-								}
-							: undefined
+					metadata: createArtifactMetadata(artifacts)
 				});
 			}
 		});
 		console.debug('[+page] Execution complete callback registered');
+
+		agentStore.setPersistAssistantMessageCallback(
+			async (sessionId, conversationId, threadId, messageId, content) => {
+				console.debug('[+page] Persist assistant streaming message callback invoked:', {
+					sessionId,
+					conversationId,
+					threadId,
+					messageId,
+					contentLength: content.length
+				});
+
+				await persistAssistantMessage(messageId, conversationId, threadId, content);
+			}
+		);
 
 		// Set callback to add system messages from agent (e.g., context compaction)
 		agentStore.setSystemMessageCallback(async (sessionId, conversationId, threadId, message) => {
@@ -471,12 +493,6 @@
 			}
 		});
 		console.debug('[+page] System message callback registered');
-
-		// Set callback to clean up transient messages (tool_call, thinking) from chat after execution.
-		// The Code Agent panel preserves tool call history — chat stays clean.
-		agentStore.setCleanupTransientCallback((_convId, _threadId, sessionId) => {
-			chatStore.removeTransientMessages(sessionId);
-		});
 
 		// Set callback to add agent activity messages (thinking, tool_call, terminal, streaming) to chat
 		// These messages show agent progress and the final response
@@ -542,9 +558,8 @@
 			} as Message);
 		});
 
-		// Set callback to clean up transient messages (thinking, tool_call) after execution completes
-		// This prevents "thinking" bubbles from persisting after the agent has responded
-		agentStore.setCleanupTransientCallback((conversationId, threadId, sessionId) => {
+		// Remove transient tool/thinking bubbles after the persistent assistant message lands.
+		agentStore.setCleanupTransientCallback((_conversationId, _threadId, sessionId) => {
 			console.debug('[+page] Cleaning up transient messages for session:', sessionId);
 			chatStore.removeTransientMessages(sessionId);
 		});

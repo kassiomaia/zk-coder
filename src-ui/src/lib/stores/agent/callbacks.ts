@@ -32,6 +32,11 @@ let onCleanupTransients:
 	| ((conversationId: string, threadId: string, sessionId: string) => void)
 	| null = null;
 
+/** Callback to persist a streamed assistant message into chat history */
+let onPersistAssistantMessage:
+	| ((sessionId: string, conversationId: string, threadId: string, messageId: string, content: string) => void)
+	| null = null;
+
 /**
  * Set the execution complete callback.
  */
@@ -74,6 +79,21 @@ export function setCleanupTransientCallback(
 }
 
 /**
+ * Set the assistant message persistence callback.
+ */
+export function setPersistAssistantMessageCallback(
+	callback: (
+		sessionId: string,
+		conversationId: string,
+		threadId: string,
+		messageId: string,
+		content: string
+	) => void
+) {
+	onPersistAssistantMessage = callback;
+}
+
+/**
  * Get the execution complete callback.
  */
 export function getOnExecutionComplete() {
@@ -99,4 +119,11 @@ export function getOnAgentActivity() {
  */
 export function getOnCleanupTransients() {
 	return onCleanupTransients;
+}
+
+/**
+ * Get the assistant message persistence callback.
+ */
+export function getOnPersistAssistantMessage() {
+	return onPersistAssistantMessage;
 }

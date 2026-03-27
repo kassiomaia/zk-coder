@@ -96,6 +96,8 @@ pub enum AgentEvent {
         tool_call_id: String,
         tool: String,
         arguments: serde_json::Value,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        content: Option<String>,
     },
 
     /// A tool returned a result.
@@ -107,6 +109,8 @@ pub enum AgentEvent {
         tool: String,
         result: serde_json::Value,
         is_error: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        content: Option<String>,
     },
 
     /// Command output chunk (streamed during execution).
@@ -194,7 +198,9 @@ pub enum AgentEvent {
         timestamp: DateTime<Utc>,
     },
 
-    /// Content streaming chunk for the final response.
+    /// Content streaming chunk for assistant-visible text.
+    /// This includes intermediate narration returned alongside tool calls
+    /// as well as the final assistant response.
     StreamingContent {
         #[serde(rename = "sessionId")]
         session_id: String,
@@ -207,6 +213,12 @@ pub enum AgentEvent {
         /// Whether this is the final chunk
         #[serde(rename = "isFinal")]
         is_final: bool,
+        /// Stable chat message id for this streamed content
+        #[serde(rename = "messageId", skip_serializing_if = "Option::is_none")]
+        message_id: Option<String>,
+        /// Whether the final streamed content should be persisted into chat history
+        #[serde(rename = "persistMessage", skip_serializing_if = "Option::is_none")]
+        persist_message: Option<bool>,
     },
 
     /// Context was compacted or repacked for the next model step.

@@ -33,7 +33,7 @@ export function handleExecutionStarted(state: AgentState, event: Extract<AgentEv
 			toolCalls: [],
 			terminalOutput: [],
 			statusPhrases: [],
-			streamingAssistantContent: undefined,
+			streamingMessages: undefined,
 			artifacts: undefined // Clear any artifacts from previous execution
 		});
 
@@ -47,7 +47,10 @@ export function handleExecutionStarted(state: AgentState, event: Extract<AgentEv
 				role: 'assistant',
 				kind: 'thinking',
 				content: 'Thinking...',
-				timestamp: new Date()
+				timestamp: new Date(),
+				agentData: {
+					sessionId: event.sessionId
+				}
 			});
 		}
 	}

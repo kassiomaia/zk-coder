@@ -16,6 +16,7 @@ pub mod execution;
 pub mod helpers;
 pub mod loop_detection;
 pub mod permissions;
+mod tool_feedback;
 pub mod types;
 
 use std::sync::Arc;

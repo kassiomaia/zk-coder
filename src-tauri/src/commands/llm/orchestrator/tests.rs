@@ -1,4 +1,5 @@
 use super::*;
+use crate::commands::llm::orchestrator::loop_runner::build_core_messages;
 use crate::core::llm::entities::{
     ChatRequest, ChatResponse, ContentBlock, LlmError, LlmResult, MessageContent,
     MessageRole as CoreMessageRole, UsageStats,
@@ -148,6 +149,46 @@ fn test_orchestrated_conversation_runner_creation() {
             stream: false,
         })
         .is_ok());
+}
+
+#[test]
+fn test_build_core_messages_does_not_duplicate_current_request_when_history_includes_it() {
+    let history = vec![
+        crate::core::chat::entities::ChatMessage::user("conv-1", "Earlier"),
+        crate::core::chat::entities::ChatMessage::assistant("conv-1", "Reply"),
+        crate::core::chat::entities::ChatMessage::user("conv-1", "Latest request"),
+    ];
+
+    let messages = build_core_messages(&history, "Latest request", true);
+
+    assert_eq!(messages.len(), 3);
+    let user_messages: Vec<_> = messages
+        .iter()
+        .filter_map(|message| match message.role {
+            CoreMessageRole::User => message.as_text(),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(user_messages, vec!["Earlier", "Latest request"]);
+}
+
+#[test]
+fn test_build_core_messages_appends_current_request_when_not_in_history() {
+    let history = vec![
+        crate::core::chat::entities::ChatMessage::user("conv-1", "Earlier"),
+        crate::core::chat::entities::ChatMessage::assistant("conv-1", "Reply"),
+    ];
+
+    let messages = build_core_messages(&history, "Latest request", false);
+
+    assert_eq!(messages.len(), 3);
+    assert_eq!(
+        messages
+            .last()
+            .and_then(|message: &crate::core::llm::entities::ChatMessage| message.as_text()),
+        Some("Latest request")
+    );
+    assert!(matches!(messages.last().map(|message| message.role), Some(CoreMessageRole::User)));
 }
 
 // =========================================================================
