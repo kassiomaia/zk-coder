@@ -9,6 +9,7 @@ use crate::core::agent::session::{PendingAction, SessionState};
 use crate::core::agent::task::{
     AgentExecutionResult, AgentTask, ExecutionStep, SubTask, TaskStatus,
 };
+use crate::core::agent::{ExecutionSnapshot, RuntimeTrace};
 use chrono::{DateTime, Utc};
 
 /// Events emitted by the agent system to the frontend.
@@ -247,6 +248,18 @@ pub enum AgentEvent {
     },
 }
 
+/// Development-only trace events emitted on a separate channel.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AgentTraceEvent {
+    RuntimeTrace {
+        trace: RuntimeTrace,
+    },
+    SnapshotUpdated {
+        snapshot: ExecutionSnapshot,
+    },
+}
+
 /// Action performed on a file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -268,3 +281,4 @@ pub enum ContextCompactionReason {
 
 /// Tauri event name for agent events.
 pub const AGENT_EVENT_NAME: &str = "agent:event";
+pub const AGENT_TRACE_EVENT_NAME: &str = "agent:trace";

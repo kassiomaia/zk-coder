@@ -6,6 +6,7 @@
 
 use serde::Serialize;
 
+use crate::core::agent::execution::{ExecutionSnapshot, RuntimeTrace};
 use crate::core::agent::session::{AgentSession, PendingAction};
 use crate::core::agent::task::AgentTask;
 use crate::core::agent::types::Agent;
@@ -20,6 +21,13 @@ pub struct AgentSessionRuntimeDetails {
     pub status_phrases: Vec<String>,
     pub tasks: Vec<AgentTask>,
     pub tool_calls: Vec<ToolCallView>,
+}
+
+/// Deep execution debug data used by the development trace window.
+#[derive(Debug, Clone)]
+pub struct AgentExecutionDebugDetails {
+    pub snapshot: Option<ExecutionSnapshot>,
+    pub traces: Vec<RuntimeTrace>,
 }
 
 /// Prepared execution context for an agent request.

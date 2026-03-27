@@ -22,7 +22,9 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter};
 
-use crate::core::agent::repositories::{SessionRepository, TaskRepository};
+use crate::core::agent::repositories::{
+    ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
+};
 use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::{AgentExecutionResult, AgentRequest};
 use crate::core::agent::types::TrustMode;
@@ -52,6 +54,8 @@ pub struct AgentRuntime {
     session_repo: Arc<dyn SessionRepository>,
     task_repo: Arc<dyn TaskRepository>,
     telemetry_repo: Arc<dyn AgentTelemetryRepository>,
+    execution_repo: Arc<dyn ExecutionRepository>,
+    trace_repo: Arc<dyn RuntimeTraceRepository>,
     approval_queue: Arc<ApprovalQueue>,
     tool_registry: Arc<ToolRegistry>,
     file_snapshot_registry: Arc<FileSnapshotRegistry>,
@@ -63,6 +67,8 @@ impl AgentRuntime {
         session_repo: Arc<dyn SessionRepository>,
         task_repo: Arc<dyn TaskRepository>,
         telemetry_repo: Arc<dyn AgentTelemetryRepository>,
+        execution_repo: Arc<dyn ExecutionRepository>,
+        trace_repo: Arc<dyn RuntimeTraceRepository>,
         approval_queue: Arc<ApprovalQueue>,
         tool_registry: Arc<ToolRegistry>,
     ) -> Self {
@@ -70,6 +76,8 @@ impl AgentRuntime {
             session_repo,
             task_repo,
             telemetry_repo,
+            execution_repo,
+            trace_repo,
             approval_queue,
             tool_registry,
             file_snapshot_registry: Arc::new(FileSnapshotRegistry::new()),
@@ -108,6 +116,8 @@ impl AgentRuntime {
             self.session_repo.as_ref(),
             self.task_repo.as_ref(),
             self.telemetry_repo.as_ref(),
+            self.execution_repo.as_ref(),
+            self.trace_repo.as_ref(),
             &self.approval_queue,
             &self.tool_registry,
             &self.file_snapshot_registry,

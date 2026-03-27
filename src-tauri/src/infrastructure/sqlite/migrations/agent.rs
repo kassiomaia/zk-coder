@@ -129,6 +129,44 @@ pub fn init_schema(conn: &Connection) -> Result<(), SessionRepositoryError> {
         CREATE INDEX IF NOT EXISTS idx_execution_steps_subtask
             ON agent_execution_steps(subtask_id);
 
+        CREATE TABLE IF NOT EXISTS agent_execution_snapshots (
+            session_id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            step_number INTEGER NOT NULL,
+            phase TEXT NOT NULL,
+            current_subtask_id TEXT,
+            context_usage_percent REAL NOT NULL DEFAULT 0,
+            total_input_tokens INTEGER NOT NULL DEFAULT 0,
+            total_output_tokens INTEGER NOT NULL DEFAULT 0,
+            last_model TEXT,
+            last_error TEXT,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE,
+            FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY (current_subtask_id) REFERENCES agent_subtasks(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS agent_runtime_traces (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            task_id TEXT NOT NULL,
+            subtask_id TEXT,
+            step_number INTEGER NOT NULL,
+            trace_type TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE,
+            FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY (subtask_id) REFERENCES agent_subtasks(id) ON DELETE SET NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_execution_snapshots_updated
+            ON agent_execution_snapshots(updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_runtime_traces_session_created
+            ON agent_runtime_traces(session_id, created_at ASC);
+        CREATE INDEX IF NOT EXISTS idx_runtime_traces_type
+            ON agent_runtime_traces(trace_type);
+
         CREATE TABLE IF NOT EXISTS agent_recovery_events (
             id TEXT PRIMARY KEY,
             session_id TEXT NOT NULL,
@@ -195,6 +233,8 @@ mod tests {
         assert!(tables.contains(&"agent_status_phrases".to_string()));
         assert!(tables.contains(&"agent_tool_calls".to_string()));
         assert!(tables.contains(&"agent_execution_steps".to_string()));
+        assert!(tables.contains(&"agent_execution_snapshots".to_string()));
+        assert!(tables.contains(&"agent_runtime_traces".to_string()));
         assert!(tables.contains(&"agent_recovery_events".to_string()));
     }
 

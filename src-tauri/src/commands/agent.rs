@@ -4,6 +4,7 @@
 //! depend on application-level queries instead of runtime internals.
 
 pub mod approvals;
+pub mod debug;
 pub mod history;
 pub mod registry;
 pub mod rollback;
@@ -12,6 +13,7 @@ mod state;
 pub mod subtasks;
 
 pub use approvals::{approve_agent_action, deny_agent_action, get_pending_agent_actions};
+pub use debug::{get_agent_execution_debug, open_agent_trace_window};
 pub use history::{get_conversation_session_history, get_session_details, SessionDetailsResponse};
 pub use registry::{get_agent, list_agents};
 pub use rollback::{get_session_file_snapshots, rollback_file, rollback_session};

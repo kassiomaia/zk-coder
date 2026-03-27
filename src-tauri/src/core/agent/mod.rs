@@ -3,6 +3,7 @@
 //! Contains agent entities, repository interfaces, and service interfaces.
 
 pub mod entities;
+pub mod execution;
 pub mod permissions;
 pub mod repositories;
 pub mod services;
@@ -16,6 +17,10 @@ pub mod types;
 pub use entities::{
     Agent, AgentExecutionResult, AgentId, AgentRequest, AgentSession, AgentTask, ApprovalAction,
     ApprovalStatus, PendingAction, SessionId, SessionState,
+};
+pub use execution::{
+    ExecutionPhase, ExecutionSnapshot, ExecutionTransition, LlmTracePayload, RuntimeTrace,
+    RuntimeTraceType,
 };
 pub use repositories::{AgentRepository, ApprovalRepository, SessionRepository};
 pub use services::AgentService;

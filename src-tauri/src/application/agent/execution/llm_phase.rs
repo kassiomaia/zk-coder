@@ -1,0 +1,181 @@
+use std::time::Instant;
+
+use serde_json::json;
+
+use super::deps::ExecutionDeps;
+use super::state::{ExecutionContext, LlmCallResult, ResolvedContext};
+use super::utils::{agent_temperature, truncate_text, LLM_MAX_RETRIES, LLM_RETRY_BASE_MS};
+use crate::core::agent::execution::{ExecutionPhase, LlmTracePayload, RuntimeTraceType};
+use crate::core::llm::entities::ChatRequest;
+use crate::infrastructure::agent::runtime::client::LlmRetryConfig;
+use crate::infrastructure::agent::runtime::context::estimate_context_tokens;
+use crate::infrastructure::agent::runtime::{chat_with_retry, AgentRuntimeError};
+
+pub async fn call_llm(
+    deps: &ExecutionDeps<'_>,
+    ctx: &mut ExecutionContext,
+    resolved: &ResolvedContext,
+    client: &dyn crate::infrastructure::llm::LlmClient,
+) -> Result<LlmCallResult, AgentRuntimeError> {
+    let tracer = deps.tracer();
+    ctx.current_phase = ExecutionPhase::CallingLlm;
+    ctx.current_subtask_id = resolved.current_subtask_id.clone();
+
+    let mut chat_request = ChatRequest::new(&ctx.model_name, ctx.llm_context.clone())
+        .with_system(&resolved.system_prompt)
+        .with_temperature(agent_temperature())
+        .with_max_tokens(4096);
+    if !resolved.tool_definitions.is_empty() {
+        chat_request = chat_request.with_tools(resolved.tool_definitions.clone());
+    }
+
+    let request_payload = LlmTracePayload {
+        model: ctx.model_name.clone(),
+        attempt: 0,
+        temperature: agent_temperature(),
+        max_tokens: 4096,
+        context_message_count: chat_request.messages.len(),
+        estimated_context_tokens: estimate_context_tokens(&ctx.llm_context),
+        active_subtask: resolved
+            .current_subtask_summary
+            .as_ref()
+            .map(|(summary, _)| summary.title.clone()),
+        allowed_tools: resolved
+            .tool_definitions
+            .iter()
+            .map(|tool| tool.name.clone())
+            .collect(),
+        system_prompt: truncate_text(&resolved.system_prompt, 12000),
+        request_messages: chat_request
+            .messages
+            .iter()
+            .map(|message| {
+                serde_json::to_value(message)
+                    .unwrap_or_else(|_| json!({"error": "message_serialization_failed"}))
+            })
+            .collect(),
+        tool_definitions: resolved
+            .tool_definitions
+            .iter()
+            .map(|tool| {
+                serde_json::to_value(tool)
+                    .unwrap_or_else(|_| json!({"error": "tool_serialization_failed"}))
+            })
+            .collect(),
+        response_content: None,
+        response_tool_calls: Vec::new(),
+        input_tokens: None,
+        output_tokens: None,
+        total_tokens: None,
+        duration_ms: None,
+        was_truncated: resolved.system_prompt.len() > 12000,
+    };
+
+    let _ = tracer.save_snapshot(&ctx.snapshot(
+        ExecutionPhase::CallingLlm,
+        Some(ctx.model_name.clone()),
+        None,
+    ));
+    let _ = tracer.append_trace(
+        &ctx.session_id,
+        &ctx.task_id,
+        ctx.current_subtask_id.as_deref(),
+        ctx.step_number,
+        RuntimeTraceType::LlmRequestPrepared,
+        serde_json::to_value(&request_payload)
+            .unwrap_or_else(|_| json!({"error": "llm_trace_serialization_failed"})),
+    );
+
+    let retry_config = LlmRetryConfig {
+        max_retries: LLM_MAX_RETRIES,
+        base_delay_ms: LLM_RETRY_BASE_MS,
+    };
+    let _ = tracer.append_trace(
+        &ctx.session_id,
+        &ctx.task_id,
+        ctx.current_subtask_id.as_deref(),
+        ctx.step_number,
+        RuntimeTraceType::LlmRequestStarted,
+        json!({"maxRetries": LLM_MAX_RETRIES, "baseDelayMs": LLM_RETRY_BASE_MS}),
+    );
+
+    let start = Instant::now();
+    let response = chat_with_retry(client, &chat_request, &retry_config).await?;
+    let duration_ms = start.elapsed().as_millis() as u64;
+    if let Some(usage) = &response.usage {
+        ctx.total_input_tokens += usage.input_tokens;
+        ctx.total_output_tokens += usage.output_tokens;
+    }
+
+    let response_payload = LlmTracePayload {
+        model: response.model.clone(),
+        attempt: 0,
+        temperature: agent_temperature(),
+        max_tokens: 4096,
+        context_message_count: chat_request.messages.len(),
+        estimated_context_tokens: estimate_context_tokens(&ctx.llm_context),
+        active_subtask: resolved
+            .current_subtask_summary
+            .as_ref()
+            .map(|(summary, _)| summary.title.clone()),
+        allowed_tools: resolved
+            .tool_definitions
+            .iter()
+            .map(|tool| tool.name.clone())
+            .collect(),
+        system_prompt: truncate_text(&resolved.system_prompt, 12000),
+        request_messages: chat_request
+            .messages
+            .iter()
+            .map(|message| {
+                serde_json::to_value(message)
+                    .unwrap_or_else(|_| json!({"error": "message_serialization_failed"}))
+            })
+            .collect(),
+        tool_definitions: resolved
+            .tool_definitions
+            .iter()
+            .map(|tool| {
+                serde_json::to_value(tool)
+                    .unwrap_or_else(|_| json!({"error": "tool_serialization_failed"}))
+            })
+            .collect(),
+        response_content: Some(truncate_text(&response.content, 20000)),
+        response_tool_calls: response
+            .tool_calls
+            .iter()
+            .map(|call| {
+                serde_json::to_value(call)
+                    .unwrap_or_else(|_| json!({"error": "tool_call_serialization_failed"}))
+            })
+            .collect(),
+        input_tokens: response.usage.as_ref().map(|usage| usage.input_tokens),
+        output_tokens: response.usage.as_ref().map(|usage| usage.output_tokens),
+        total_tokens: response.usage.as_ref().map(|usage| usage.total_tokens),
+        duration_ms: Some(duration_ms),
+        was_truncated: response.content.len() > 20000,
+    };
+    let _ = tracer.append_trace(
+        &ctx.session_id,
+        &ctx.task_id,
+        ctx.current_subtask_id.as_deref(),
+        ctx.step_number,
+        RuntimeTraceType::LlmResponseReceived,
+        serde_json::to_value(&response_payload)
+            .unwrap_or_else(|_| json!({"error": "llm_trace_serialization_failed"})),
+    );
+
+    ctx.current_phase = ExecutionPhase::HandlingLlmResponse;
+    let _ = tracer.save_snapshot(&ctx.snapshot(
+        ExecutionPhase::HandlingLlmResponse,
+        Some(response.model.clone()),
+        None,
+    ));
+
+    Ok(LlmCallResult {
+        response,
+        duration_ms,
+        request_payload,
+        response_payload,
+    })
+}

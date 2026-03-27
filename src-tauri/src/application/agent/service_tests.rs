@@ -41,12 +41,16 @@ fn create_test_service() -> AgentServiceImpl {
         session_store.clone(),
         session_store.clone(),
         session_store.clone(),
+        session_store.clone(),
+        session_store.clone(),
         approval_queue.clone(),
         tool_registry,
     ));
 
     AgentServiceImpl::new(
         registry,
+        session_store.clone(),
+        session_store.clone(),
         session_store.clone(),
         session_store.clone(),
         session_store,
@@ -973,12 +977,16 @@ fn test_service_handles_runtime_creation_failure() {
         session_store.clone(),
         session_store.clone(),
         session_store.clone(),
+        session_store.clone(),
+        session_store.clone(),
         approval_queue.clone(),
         tool_registry,
     ));
 
     let service = AgentServiceImpl::new(
         registry,
+        session_store.clone(),
+        session_store.clone(),
         session_store.clone(),
         session_store.clone(),
         session_store,

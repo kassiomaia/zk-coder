@@ -5,7 +5,7 @@ use crate::application::agent::conversions::{
     core_session_to_agent_session, core_task_to_runtime_task,
 };
 use crate::application::agent::read_models::{
-    AgentCatalog, AgentExecutionContext, AgentSessionRuntimeDetails, FileTouchedView,
+    AgentCatalog, AgentExecutionContext, AgentExecutionDebugDetails, AgentSessionRuntimeDetails, FileTouchedView,
     PendingActionsView, TerminalLineView, ToolCallView,
 };
 use crate::core::agent::entities::{AgentDomainError, SessionState as CoreSessionState};
@@ -246,6 +246,16 @@ impl AgentServiceImpl {
         self.telemetry_repo
             .add_terminal_line(&SessionId(session_id.to_string()), line_type, content)
             .map_err(store_error_to_domain)
+    }
+
+    pub fn load_execution_debug_details(
+        &self,
+        session_id: &str,
+    ) -> RepositoryResult<AgentExecutionDebugDetails> {
+        Ok(AgentExecutionDebugDetails {
+            snapshot: self.execution_repo.get_execution_snapshot(session_id)?,
+            traces: self.trace_repo.get_runtime_traces(session_id, Some(500))?,
+        })
     }
 
     async fn prepare_execution(

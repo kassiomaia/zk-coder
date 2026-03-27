@@ -143,6 +143,19 @@
 	--color-syntax-addition-bg: rgba(152, 195, 121, 0.1);
 	--color-syntax-deletion-bg: rgba(224, 108, 117, 0.1);
 
+	/* Tokyo Night Theme - For specialized editors and terminal-like UIs */
+	--color-tokyo-bg: #1a1b26;
+	--color-tokyo-fg: #a9b1d6;
+	--color-tokyo-selection: #33467c;
+	--color-tokyo-comment: #565f89;
+	--color-tokyo-cyan: #7dcfff;
+	--color-tokyo-blue: #7aa2f7;
+	--color-tokyo-magenta: #bb9af7;
+	--color-tokyo-green: #9ece6a;
+	--color-tokyo-yellow: #e0af68;
+	--color-tokyo-orange: #ff9e64;
+	--color-tokyo-red: #f7768e;
+
 	/* Role-based message colors - subtle differentiation */
 	--color-role-user-bg: var(--color-surface-hover);
 	--color-role-user-bg-hover: var(--color-surface-active);

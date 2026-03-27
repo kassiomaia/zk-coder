@@ -25,7 +25,9 @@ use crate::core::agent::entities::{
     AgentTask as CoreAgentTask, PendingAction as CorePendingAction, SessionId as CoreSessionId,
     TaskStatus as CoreTaskStatus,
 };
-use crate::core::agent::repositories::{RepositoryResult, SessionRepository, TaskRepository};
+use crate::core::agent::repositories::{
+    ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository, TaskRepository,
+};
 use crate::core::agent::services::{
     AgentService, CreateSessionRequest, FileChange, SendAgentRequestRequest, SessionDetails,
 };
@@ -46,6 +48,8 @@ pub struct AgentServiceImpl {
     session_repo: Arc<dyn SessionRepository>,
     task_repo: Arc<dyn TaskRepository>,
     telemetry_repo: Arc<dyn AgentTelemetryRepository>,
+    execution_repo: Arc<dyn ExecutionRepository>,
+    trace_repo: Arc<dyn RuntimeTraceRepository>,
     approval_queue: Arc<ApprovalQueue>,
     runtime: Arc<AgentRuntime>,
     file_snapshot_registry: Arc<FileSnapshotRegistry>,
@@ -60,6 +64,8 @@ impl AgentServiceImpl {
         session_repo: Arc<dyn SessionRepository>,
         task_repo: Arc<dyn TaskRepository>,
         telemetry_repo: Arc<dyn AgentTelemetryRepository>,
+        execution_repo: Arc<dyn ExecutionRepository>,
+        trace_repo: Arc<dyn RuntimeTraceRepository>,
         approval_queue: Arc<ApprovalQueue>,
         runtime: Arc<AgentRuntime>,
     ) -> Result<Self, String> {
@@ -75,6 +81,8 @@ impl AgentServiceImpl {
             session_repo,
             task_repo,
             telemetry_repo,
+            execution_repo,
+            trace_repo,
             approval_queue,
             runtime,
             file_snapshot_registry,
@@ -131,6 +139,14 @@ impl AgentServiceImpl {
     #[cfg(test)]
     pub(crate) fn telemetry_repo(&self) -> &Arc<dyn AgentTelemetryRepository> {
         &self.telemetry_repo
+    }
+
+    pub(crate) fn execution_repo(&self) -> &Arc<dyn ExecutionRepository> {
+        &self.execution_repo
+    }
+
+    pub(crate) fn trace_repo(&self) -> &Arc<dyn RuntimeTraceRepository> {
+        &self.trace_repo
     }
 
     #[cfg(test)]

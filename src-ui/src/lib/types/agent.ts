@@ -65,6 +65,67 @@ export interface AgentSession {
 	updatedAt: string;
 }
 
+export type ExecutionPhase =
+	| 'bootstrapping'
+	| 'preparing_step'
+	| 'resolving_context'
+	| 'calling_llm'
+	| 'handling_llm_response'
+	| 'executing_tools'
+	| 'completed'
+	| 'failed'
+	| 'cancelled';
+
+export interface ExecutionSnapshot {
+	sessionId: string;
+	taskId: string;
+	stepNumber: number;
+	phase: ExecutionPhase;
+	currentSubtaskId?: string | null;
+	contextUsagePercent: number;
+	totalInputTokens: number;
+	totalOutputTokens: number;
+	lastModel?: string | null;
+	lastError?: string | null;
+	updatedAt: string;
+}
+
+export type RuntimeTraceType =
+	| 'execution_started'
+	| 'step_started'
+	| 'step_finished'
+	| 'phase_transition'
+	| 'subtask_context_resolved'
+	| 'retrieval_started'
+	| 'retrieval_completed'
+	| 'context_policy_evaluated'
+	| 'toolset_filtered'
+	| 'llm_request_prepared'
+	| 'llm_request_started'
+	| 'llm_retry_scheduled'
+	| 'llm_response_received'
+	| 'llm_response_classified'
+	| 'tool_batch_started'
+	| 'tool_batch_completed'
+	| 'execution_cancelled'
+	| 'execution_failed'
+	| 'execution_completed';
+
+export interface RuntimeTrace {
+	id: string;
+	sessionId: string;
+	taskId: string;
+	subtaskId?: string | null;
+	stepNumber: number;
+	traceType: RuntimeTraceType;
+	payloadJson: Record<string, unknown> | unknown[] | string | number | boolean | null;
+	createdAt: string;
+}
+
+export type AgentTraceEvent =
+	| {type: 'runtime_trace'; trace: RuntimeTrace}
+	| {type: 'snapshot_updated'; snapshot: ExecutionSnapshot};
+
 /**
  * Session lifecycle state (discriminated union)
  */

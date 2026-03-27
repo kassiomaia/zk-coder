@@ -5,6 +5,7 @@
 use super::entities::{
     Agent, AgentDomainError, AgentSession, AgentTask, PendingAction, SessionId, TaskStatus,
 };
+use super::execution::{ExecutionSnapshot, RuntimeTrace};
 use chrono::{DateTime, Utc};
 
 /// Result type for repository operations.
@@ -98,4 +99,29 @@ pub trait TaskRepository: Send + Sync {
 
     /// Updates subtask status.
     fn update_subtask_status(&self, subtask_id: &str, status: TaskStatus) -> RepositoryResult<()>;
+}
+
+/// Repository for persisted execution checkpoints.
+pub trait ExecutionRepository: Send + Sync {
+    /// Saves or updates the current execution snapshot for a session.
+    fn save_execution_snapshot(&self, snapshot: &ExecutionSnapshot) -> RepositoryResult<()>;
+
+    /// Gets the current execution snapshot for a session.
+    fn get_execution_snapshot(&self, session_id: &str) -> RepositoryResult<Option<ExecutionSnapshot>>;
+
+    /// Clears the current execution snapshot for a session.
+    fn clear_execution_snapshot(&self, session_id: &str) -> RepositoryResult<()>;
+}
+
+/// Repository for append-only runtime traces.
+pub trait RuntimeTraceRepository: Send + Sync {
+    /// Appends a structured runtime trace.
+    fn append_runtime_trace(&self, trace: &RuntimeTrace) -> RepositoryResult<()>;
+
+    /// Gets recent runtime traces for a session in chronological order.
+    fn get_runtime_traces(
+        &self,
+        session_id: &str,
+        limit: Option<usize>,
+    ) -> RepositoryResult<Vec<RuntimeTrace>>;
 }

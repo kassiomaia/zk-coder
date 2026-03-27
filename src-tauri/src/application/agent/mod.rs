@@ -5,6 +5,7 @@
 //! the infrastructure layer (session store, approval queue, runtime, registry).
 
 pub mod conversions;
+pub mod execution;
 pub mod planner;
 pub mod read_models;
 pub mod service;

@@ -9,8 +9,11 @@ use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 
 use crate::core::agent::entities as core_entities;
-use crate::core::agent::repositories::{RepositoryResult, SessionRepository, TaskRepository};
+use crate::core::agent::repositories::{
+    ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository, TaskRepository,
+};
 
+pub mod execution_debug;
 pub mod runtime_data;
 pub mod sessions;
 pub mod tasks;
@@ -584,7 +587,13 @@ impl SqliteSessionRepository {
             .lock()
             .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
         runtime_data::clear_session_runtime_data(&conn, session_id)?;
-        tasks::clear_session_execution_steps(&conn, session_id)
+        tasks::clear_session_execution_steps(&conn, session_id)?;
+        execution_debug::clear_execution_snapshot(&conn, &session_id.0)?;
+        conn.execute(
+            "DELETE FROM agent_runtime_traces WHERE session_id = ?1",
+            rusqlite::params![session_id.0],
+        )?;
+        Ok(())
     }
 
     // ========================================================================
@@ -639,6 +648,64 @@ impl SqliteSessionRepository {
             .lock()
             .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
         tool_calls::get_tool_calls_for_session(&conn, session_id)
+    }
+
+    /// Save current execution snapshot.
+    pub fn save_execution_snapshot(
+        &self,
+        snapshot: &crate::core::agent::execution::ExecutionSnapshot,
+    ) -> Result<(), SessionRepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
+        execution_debug::save_execution_snapshot(&conn, snapshot)
+    }
+
+    /// Load current execution snapshot.
+    pub fn get_execution_snapshot(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<crate::core::agent::execution::ExecutionSnapshot>, SessionRepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
+        execution_debug::get_execution_snapshot(&conn, session_id)
+    }
+
+    /// Clear current execution snapshot.
+    pub fn clear_execution_snapshot(&self, session_id: &str) -> Result<(), SessionRepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
+        execution_debug::clear_execution_snapshot(&conn, session_id)
+    }
+
+    /// Append a runtime trace.
+    pub fn append_runtime_trace(
+        &self,
+        trace: &crate::core::agent::execution::RuntimeTrace,
+    ) -> Result<(), SessionRepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
+        execution_debug::append_runtime_trace(&conn, trace)
+    }
+
+    /// Load runtime traces for a session.
+    pub fn get_runtime_traces(
+        &self,
+        session_id: &str,
+        limit: Option<usize>,
+    ) -> Result<Vec<crate::core::agent::execution::RuntimeTrace>, SessionRepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
+        execution_debug::get_runtime_traces(&conn, session_id, limit)
     }
 }
 
@@ -798,6 +865,48 @@ impl TaskRepository for SqliteSessionRepository {
     ) -> RepositoryResult<()> {
         let internal_status = task_status_to_agents(status);
         SqliteSessionRepository::update_subtask_status(self, subtask_id, &internal_status)
+            .map_err(core_entities::AgentDomainError::from)
+    }
+}
+
+impl ExecutionRepository for SqliteSessionRepository {
+    fn save_execution_snapshot(
+        &self,
+        snapshot: &crate::core::agent::execution::ExecutionSnapshot,
+    ) -> RepositoryResult<()> {
+        SqliteSessionRepository::save_execution_snapshot(self, snapshot)
+            .map_err(core_entities::AgentDomainError::from)
+    }
+
+    fn get_execution_snapshot(
+        &self,
+        session_id: &str,
+    ) -> RepositoryResult<Option<crate::core::agent::execution::ExecutionSnapshot>> {
+        SqliteSessionRepository::get_execution_snapshot(self, session_id)
+            .map_err(core_entities::AgentDomainError::from)
+    }
+
+    fn clear_execution_snapshot(&self, session_id: &str) -> RepositoryResult<()> {
+        SqliteSessionRepository::clear_execution_snapshot(self, session_id)
+            .map_err(core_entities::AgentDomainError::from)
+    }
+}
+
+impl RuntimeTraceRepository for SqliteSessionRepository {
+    fn append_runtime_trace(
+        &self,
+        trace: &crate::core::agent::execution::RuntimeTrace,
+    ) -> RepositoryResult<()> {
+        SqliteSessionRepository::append_runtime_trace(self, trace)
+            .map_err(core_entities::AgentDomainError::from)
+    }
+
+    fn get_runtime_traces(
+        &self,
+        session_id: &str,
+        limit: Option<usize>,
+    ) -> RepositoryResult<Vec<crate::core::agent::execution::RuntimeTrace>> {
+        SqliteSessionRepository::get_runtime_traces(self, session_id, limit)
             .map_err(core_entities::AgentDomainError::from)
     }
 }

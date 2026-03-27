@@ -4,7 +4,8 @@
      * Right-side panel showing agent session state, tasks, files, and terminal output.
      * Contains collapsible sections and approval dialog trigger.
      */
-    import {Activity, ChevronRight, Cpu, FileText, History, Settings, X} from 'lucide-svelte';
+    import {Activity, Bug, ChevronRight, Cpu, FileText, History, Settings, X} from 'lucide-svelte';
+	import { invoke } from '@tauri-apps/api/core';
     import TaskList from './TaskList.svelte';
     import RequestsList from './RequestsList.svelte';
     import FileTree from './FileTree.svelte';
@@ -140,6 +141,15 @@
 		}
 		return tokens.toString();
 	}
+
+	async function openTraceWindow() {
+		if (!import.meta.env.DEV) return;
+		try {
+			await invoke('open_agent_trace_window', { sessionId: session.id });
+		} catch (error) {
+			console.warn('[AgentPanel] Failed to open trace window', error);
+		}
+	}
 </script>
 
 <nav class="agent-panel" aria-label="Agent panel">
@@ -175,6 +185,17 @@
 				<History size={14} />
 			</button>
 			<div class="header-divider"></div>
+			{#if import.meta.env.DEV}
+				<button
+					class="header-btn"
+					onclick={openTraceWindow}
+					type="button"
+					aria-label="Open agent trace window"
+					title="Agent Trace"
+				>
+					<Bug size={14} />
+				</button>
+			{/if}
 			<button
 				class="header-btn"
 				onclick={() => (showAgentConfig = true)}

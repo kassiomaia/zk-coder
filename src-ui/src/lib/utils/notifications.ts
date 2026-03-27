@@ -20,7 +20,21 @@ export async function initNotifications(): Promise<boolean> {
 		return hasPermission;
 	}
 
+	// Check if we are in the main window.
+	// The notification plugin is currently only allowed on the "main" window.
+	// We use try/catch and check the window label to avoid triggering the Tauri permission error
+	// in secondary windows like "agent-trace-dev".
 	try {
+		const {getCurrentWindow} = await import('@tauri-apps/api/window');
+		const windowLabel = getCurrentWindow().label;
+
+		if (windowLabel !== 'main') {
+			console.log(`Notifications disabled for window: ${windowLabel}`);
+			permissionRequested = true;
+			hasPermission = false;
+			return false;
+		}
+
 		// Check if permission is already granted
 		let granted = await isPermissionGranted();
 

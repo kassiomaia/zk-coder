@@ -186,6 +186,8 @@ pub fn run() {
             commands::agent::approvals::get_pending_agent_actions,
             commands::agent::registry::list_agents,
             commands::agent::registry::get_agent,
+            commands::agent::debug::open_agent_trace_window,
+            commands::agent::debug::get_agent_execution_debug,
             // Agent rollback commands
             commands::agent::rollback::get_session_file_snapshots,
             commands::agent::rollback::rollback_file,
