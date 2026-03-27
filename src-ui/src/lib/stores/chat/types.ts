@@ -53,6 +53,8 @@ export interface LlmStreamingState {
 	requestId: string | null;
 	/** Accumulated content during streaming */
 	streamingContent: string;
+	/** Accumulated reasoning content from models like GLM-5 */
+	streamingReasoning: string;
 	/** Model being used for current stream */
 	model: string | null;
 }

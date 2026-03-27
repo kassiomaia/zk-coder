@@ -46,6 +46,7 @@ interface StreamSessionState {
 	expectedRequestId: string | null;
 	bufferedEvents: LlmEvent[];
 	localContent: string;
+	localReasoning: string;
 	startedAt: Date;
 }
 
@@ -101,18 +102,19 @@ export class LlmHandler {
 		threadStreaming: Record<string, ThreadStreamingState>
 	): ChatState['llm'] {
 		if (!state.selectedThreadId) {
-			return { isStreaming: false, requestId: null, streamingContent: '', model: null };
+			return { isStreaming: false, requestId: null, streamingContent: '', streamingReasoning: '', model: null };
 		}
 
 		const selected = threadStreaming[state.selectedThreadId];
 		if (!selected) {
-			return { isStreaming: false, requestId: null, streamingContent: '', model: null };
+			return { isStreaming: false, requestId: null, streamingContent: '', streamingReasoning: '', model: null };
 		}
 
 		return {
 			isStreaming: selected.isStreaming,
 			requestId: selected.requestId,
 			streamingContent: selected.streamingContent,
+			streamingReasoning: selected.streamingReasoning,
 			model: selected.model
 		};
 	}
@@ -304,7 +306,7 @@ export class LlmHandler {
 					assistantMessageId,
 					isStreaming: true,
 					requestId: null,
-					streamingContent: '',
+					streamingContent: '', streamingReasoning: '',
 					model: options?.modelId ?? null
 				}
 			};
@@ -336,6 +338,7 @@ export class LlmHandler {
 			expectedRequestId: null,
 			bufferedEvents: [],
 			localContent: '',
+			localReasoning: '',
 			startedAt: new Date()
 		};
 
@@ -356,6 +359,7 @@ export class LlmHandler {
 							isStreaming: true,
 							requestId: event.requestId,
 							streamingContent: existing?.streamingContent ?? '',
+							streamingReasoning: existing?.streamingReasoning ?? '',
 							model: event.model
 						}
 					};
@@ -371,7 +375,11 @@ export class LlmHandler {
 					this.armStreamTimeout(event.requestId, assistantMessageId, streamingContext);
 				}
 				sessionState.localContent += event.delta;
+				if (event.reasoning_delta) {
+					sessionState.localReasoning += event.reasoning_delta;
+				}
 				const contentToUpdate = sessionState.localContent;
+				const reasoningToUpdate = sessionState.localReasoning;
 
 				this.update((s) => {
 					const threadId = streamingContext.threadId;
@@ -386,6 +394,7 @@ export class LlmHandler {
 							isStreaming: true,
 							requestId: sessionState.requestId ?? existing?.requestId ?? null,
 							streamingContent: contentToUpdate,
+							streamingReasoning: reasoningToUpdate,
 							model: existing?.model ?? null
 						}
 					};
@@ -398,7 +407,12 @@ export class LlmHandler {
 						nextMessages = messageExists
 							? s.messages.map((message) =>
 									message.id === assistantMessageId
-										? { ...message, content: contentToUpdate, status: 'sending' as const }
+										? {
+														...message,
+														content: contentToUpdate,
+														reasoning: reasoningToUpdate || message.reasoning,
+														status: 'sending' as const
+													}
 										: message
 								)
 							: [
@@ -409,6 +423,7 @@ export class LlmHandler {
 										threadId,
 										role: 'assistant',
 										content: contentToUpdate,
+										reasoning: reasoningToUpdate || undefined,
 										timestamp: sessionState.startedAt,
 										status: 'sending'
 									}
@@ -642,7 +657,7 @@ export class LlmHandler {
 		this.update((s) => ({
 			...s,
 			threadStreaming: {},
-			llm: { isStreaming: false, requestId: null, streamingContent: '', model: null }
+			llm: { isStreaming: false, requestId: null, streamingContent: '', streamingReasoning: '', model: null }
 		}));
 	}
 

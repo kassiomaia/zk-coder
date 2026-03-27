@@ -137,6 +137,8 @@ export interface LlmStartedEvent extends LlmEventBase {
 export interface LlmChunkEvent extends LlmEventBase {
 	type: 'chunk';
 	delta: string;
+	/** Reasoning content from models like GLM-5 */
+	reasoning_delta?: string;
 }
 
 /**

@@ -102,6 +102,7 @@ mod tests {
             delta: Some(StreamDelta {
                 role: None,
                 content: Some(content.to_string()),
+                reasoning_content: None,
             }),
             usage: None,
             finish_reason: if is_final {

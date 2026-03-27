@@ -311,12 +311,16 @@ impl OpenAiClient {
         };
 
         // Extract content and structured tool calls from first choice.
+        // For models like GLM-5, fall back to reasoning_content if content is empty.
         let (content, tool_calls) = openai_response
             .choices
             .first()
             .and_then(|c| c.message.as_ref())
             .map(|m| {
-                let content = m.content.clone().unwrap_or_default();
+                // Use reasoning_content as fallback for models that show thinking before answering
+                let content = m.content.clone()
+                    .or(m.reasoning_content.clone())
+                    .unwrap_or_default();
                 let tool_calls = m
                     .tool_calls
                     .as_ref()
@@ -490,9 +494,16 @@ impl OpenAiClient {
 
                                 // Extract delta from first choice
                                 if let Some(choice) = openai_response.choices.first() {
-                                    let delta = choice.delta.as_ref().map(|d| StreamDelta {
-                                        role: d.role.clone(),
-                                        content: d.content.clone(),
+                                    let delta = choice.delta.as_ref().map(|d| {
+                                        // For models like GLM-5, fall back to reasoning_content if content is not present
+                                        let content = d.content.clone()
+                                            .or(d.reasoning_content.clone());
+                                        let reasoning = d.reasoning_content.clone();
+                                        StreamDelta {
+                                            role: d.role.clone(),
+                                            content,
+                                            reasoning_content: reasoning,
+                                        }
                                     });
 
                                     let finish_reason = choice.finish_reason.clone();

@@ -159,6 +159,7 @@ impl StreamState {
                         delta: Some(StreamDelta {
                             role: None,
                             content: Some(text),
+                            reasoning_content: None,
                         }),
                         usage: None,
                         finish_reason: None,

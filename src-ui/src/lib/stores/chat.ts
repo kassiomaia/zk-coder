@@ -69,6 +69,7 @@ const initialState: ChatState = {
 		isStreaming: false,
 		requestId: null,
 		streamingContent: '',
+		streamingReasoning: '',
 		model: null
 	},
 	threadStreaming: {},

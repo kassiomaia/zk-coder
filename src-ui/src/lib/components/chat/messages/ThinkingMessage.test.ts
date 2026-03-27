@@ -165,6 +165,94 @@ describe('ThinkingMessage', () => {
 		});
 	});
 
+	describe('streaming reasoning', () => {
+		it('shows "Thinking..." indicator when streaming but no reasoning yet', () => {
+			const streamingMessage: Message = {
+				...mockMessage,
+				status: 'sending',
+				reasoning: undefined
+			};
+			render(ThinkingMessage, {
+				message: streamingMessage
+			});
+			expect(screen.getByText('Thinking...')).toBeInTheDocument();
+		});
+
+		it('displays reasoning content while streaming', () => {
+			const streamingMessage: Message = {
+				...mockMessage,
+				status: 'sending',
+				reasoning: 'Let me think about this step by step...'
+			};
+			render(ThinkingMessage, {
+				message: streamingMessage
+			});
+			expect(screen.getByText('Let me think about this step by step...')).toBeInTheDocument();
+		});
+
+		it('shows streaming indicator instead of reasoning when empty reasoning and streaming', () => {
+			const streamingMessage: Message = {
+				...mockMessage,
+				status: 'sending',
+				reasoning: ''
+			};
+			render(ThinkingMessage, {
+				message: streamingMessage
+			});
+			// Should show "Thinking..." indicator
+			expect(screen.getByText('Thinking...')).toBeInTheDocument();
+		});
+
+		it('shows actual reasoning content when present while streaming', () => {
+			const streamingMessage: Message = {
+				...mockMessage,
+				status: 'sending',
+				reasoning: 'I need to check the function signature first...'
+			};
+			const { container } = render(ThinkingMessage, {
+				message: streamingMessage
+			});
+			// Should show the reasoning, not the "Thinking..." placeholder
+			expect(screen.getByText('I need to check the function signature first...')).toBeInTheDocument();
+			const thinkingIndicator = screen.queryByText('Thinking...');
+			expect(thinkingIndicator).not.toBeInTheDocument();
+		});
+
+		it('hides streaming indicator when collapsed during streaming', async () => {
+			const streamingMessage: Message = {
+				...mockMessage,
+				status: 'sending',
+				reasoning: undefined
+			};
+			render(ThinkingMessage, {
+				message: streamingMessage
+			});
+
+			const button = screen.getByRole('button');
+			await fireEvent.click(button);
+
+			// After collapse, streaming indicator should be hidden
+			const thinkingIndicator = screen.queryByText('Thinking...');
+			expect(thinkingIndicator).not.toBeInTheDocument();
+		});
+
+		it('auto-expands when reasoning becomes available during streaming', () => {
+			const streamingMessage: Message = {
+				...mockMessage,
+				status: 'sending',
+				reasoning: 'Now I have the answer...'
+			};
+			const { container } = render(ThinkingMessage, {
+				message: streamingMessage
+			});
+			// When streaming with reasoning, should be auto-expanded
+			const button = screen.getByRole('button');
+			expect(button).toHaveAttribute('aria-expanded', 'true');
+			// Reasoning should be visible
+			expect(screen.getByText('Now I have the answer...')).toBeInTheDocument();
+		});
+	});
+
 	describe('model tag', () => {
 		it('displays model name when present in metadata', () => {
 			const messageWithModel: Message = {

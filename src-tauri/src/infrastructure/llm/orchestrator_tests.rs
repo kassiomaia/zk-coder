@@ -327,6 +327,7 @@ mod tests {
             delta: Some(StreamDelta {
                 role: Some("assistant".to_string()),
                 content: Some("Hello".to_string()),
+                reasoning_content: None,
             }),
             usage: None,
             finish_reason: None,
@@ -363,6 +364,7 @@ mod tests {
         let delta = StreamDelta {
             role: Some("assistant".to_string()),
             content: Some("Hello, world!".to_string()),
+            reasoning_content: None,
         };
 
         assert_eq!(delta.role, Some("assistant".to_string()));
@@ -374,6 +376,7 @@ mod tests {
         let delta = StreamDelta {
             role: None,
             content: None,
+            reasoning_content: None,
         };
 
         assert!(delta.role.is_none());
@@ -575,6 +578,7 @@ mod tests {
         let event = LlmEvent::Chunk {
             request_id: "req-456".to_string(),
             delta: "Hello, world!".to_string(),
+            reasoning_delta: None,
         };
 
         let json = serde_json::to_string(&event).unwrap();
@@ -746,6 +750,7 @@ mod tests {
             delta: Some(StreamDelta {
                 role: None,
                 content: Some("".to_string()),
+                reasoning_content: None,
             }),
             usage: None,
             finish_reason: None,

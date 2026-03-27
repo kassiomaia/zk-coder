@@ -4,6 +4,7 @@
  *
  * Displays agent thinking/reasoning as a collapsible muted section.
  * Shows status phrases like "Analyzing...", "Reading files..." during agent execution.
+ * Supports real-time streaming of reasoning content from GLM-5 and similar models.
  */
 
 import type {Message} from '$lib/types/message';
@@ -21,9 +22,17 @@ const content = $derived(message.content || 'Analyzing request...');
 const reasoning = $derived(message.reasoning);
 const modelName = $derived(message.metadata?.model);
 const isComplete = $derived(message.status === 'sent' || message.content === 'Completed');
+const isStreaming = $derived(message.status === 'sending');
 
-// Collapsed state
+// Auto-expand when streaming starts - user can still collapse
 let collapsed = $state(false);
+
+// Auto-expand when we have reasoning content and are streaming
+$effect(() => {
+	if (isStreaming && reasoning) {
+		collapsed = false;
+	}
+});
 
 function toggleCollapse() {
 	collapsed = !collapsed;
@@ -46,7 +55,7 @@ function toggleCollapse() {
 			{/if}
 		</span>
 		<span class={styles.label}>{isComplete ? 'Thought for a few seconds' : content}</span>
-		
+
 		{#if modelName}
 			<span class={styles.modelTag}>{modelName}</span>
 		{/if}
@@ -60,11 +69,17 @@ function toggleCollapse() {
 		</span>
 	</button>
 
-	{#if !collapsed && reasoning}
+	{#if !collapsed && (reasoning || isStreaming)}
 		<div class={styles.content}>
-			<div class={styles.reasoning}>
-				{reasoning}
-			</div>
+			{#if reasoning}
+				<div class={styles.reasoning}>
+					{reasoning}
+				</div>
+			{:else if isStreaming}
+				<div class={styles.streamingIndicator}>
+					<span class={styles.streamingText}>Thinking...</span>
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>

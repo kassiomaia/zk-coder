@@ -131,18 +131,19 @@ export function createDerivedStores(store: Readable<ChatState>): DerivedStores {
 	const nlpState = derived(store, ($chat) => $chat.nlp);
 	const llmState = derived(store, ($chat) => {
 		if (!$chat.selectedThreadId) {
-			return { isStreaming: false, requestId: null, streamingContent: '', model: null };
+			return { isStreaming: false, requestId: null, streamingContent: '', streamingReasoning: '', model: null };
 		}
 
 		const stream = $chat.threadStreaming[$chat.selectedThreadId];
 		if (!stream) {
-			return { isStreaming: false, requestId: null, streamingContent: '', model: null };
+			return { isStreaming: false, requestId: null, streamingContent: '', streamingReasoning: '', model: null };
 		}
 
 		return {
 			isStreaming: stream.isStreaming,
 			requestId: stream.requestId,
 			streamingContent: stream.streamingContent,
+			streamingReasoning: stream.streamingReasoning,
 			model: stream.model
 		};
 	});

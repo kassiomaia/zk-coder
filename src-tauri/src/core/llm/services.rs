@@ -12,7 +12,13 @@ pub enum LlmEvent {
     /// Streaming started
     Started { request_id: String, model: String },
     /// Content chunk received
-    Chunk { request_id: String, delta: String },
+    Chunk {
+        request_id: String,
+        delta: String,
+        /// Reasoning content from models like GLM-5
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reasoning_delta: Option<String>,
+    },
     /// Streaming completed
     Complete {
         request_id: String,

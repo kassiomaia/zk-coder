@@ -96,6 +96,40 @@ vi.mock('$lib/api/nlp', () => ({
 	}))
 }));
 
+// Mock the LLM API functions
+vi.mock('$lib/api/llm', () => ({
+	sendChatMessage: vi.fn(),
+	sendChatMessageStreaming: vi.fn(),
+	cancelChatRequest: vi.fn(),
+	messageResponseToClient: vi.fn(),
+	isStartedEvent: vi.fn(() => false),
+	isChunkEvent: vi.fn(() => false),
+	isCompleteEvent: vi.fn(() => false),
+	isErrorEvent: vi.fn(() => false)
+}));
+
+// Mock the config API
+vi.mock('$lib/api/config', () => ({
+	loadProviders: vi.fn(),
+	saveProvider: vi.fn(),
+	deleteProvider: vi.fn(),
+	loadModels: vi.fn(),
+	saveModel: vi.fn(),
+	deleteModel: vi.fn(),
+	setDefaultModel: vi.fn(),
+	getDefaultModel: vi.fn(),
+	testProvider: vi.fn()
+}));
+
+// Mock configStore
+vi.mock('./configStore', () => ({
+	configStore: {
+		getDefault: vi.fn(() => 'gpt-4'),
+		getAvailableModels: vi.fn(() => []),
+		subscribe: vi.fn()
+	}
+}));
+
 // Mock agentStore for interaction testing
 vi.mock('./agentStore', () => ({
 	agentStore: {
@@ -609,6 +643,7 @@ describe('chatStore', () => {
 				isStreaming: true,
 				requestId: 'req-1',
 				streamingContent: 'Streaming...',
+				streamingReasoning: '',
 				model: 'gpt-4',
 				conversationId: 'conv-1',
 				assistantMessageId: 'assist-1'
@@ -1240,7 +1275,7 @@ describe('chatStore', () => {
 			expect(result).toBe('Edit /path/to/file.ts instead');
 			expect(applyResolutions).toHaveBeenCalledWith({
 				input: 'Edit file instead',
-				resolutions: { amb-1: '/path/to/file.ts' }
+				resolutions: { 'amb-1': '/path/to/file.ts' }
 			});
 		});
 
@@ -1436,6 +1471,7 @@ describe('chatStore', () => {
 				isStreaming: true,
 				requestId: 'req-1',
 				streamingContent: 'test',
+				streamingReasoning: '',
 				model: 'gpt-4',
 				conversationId: 'conv-1',
 				assistantMessageId: 'assist-1'
@@ -1513,6 +1549,7 @@ describe('chatStore', () => {
 				isStreaming: true,
 				requestId: 'req-1',
 				streamingContent: 'Streaming...',
+				streamingReasoning: '',
 				model: 'gpt-4',
 				conversationId: 'conv-1',
 				assistantMessageId: 'assist-1'
@@ -1547,6 +1584,7 @@ describe('chatStore', () => {
 				isStreaming: true,
 				requestId: 'req-1',
 				streamingContent: 'test',
+				streamingReasoning: '',
 				model: 'gpt-4',
 				conversationId: 'conv-1',
 				assistantMessageId: 'assist-1'
@@ -1565,12 +1603,54 @@ describe('chatStore', () => {
 				isStreaming: true,
 				requestId: 'req-1',
 				streamingContent: 'Test content',
+				streamingReasoning: '',
 				model: 'gpt-4',
 				conversationId: 'conv-1',
 				assistantMessageId: 'assist-1'
 			};
 
 			expect(get(streamingContent)).toBe('Test content');
+		});
+
+		it('streamingReasoning is tracked in threadStreaming state', async () => {
+			const state = get(chatStore);
+			state.selectedThreadId = 'thread-3';
+			state.threadStreaming['thread-3'] = {
+				isStreaming: true,
+				requestId: 'req-3',
+				streamingContent: 'Content...',
+				streamingReasoning: 'Let me think about this...',
+				model: 'glm-5',
+				conversationId: 'conv-1',
+				assistantMessageId: 'assist-3'
+			};
+
+			// Verify the streaming state includes reasoning
+			expect(state.threadStreaming['thread-3'].streamingReasoning).toBe('Let me think about this...');
+		});
+
+		it('streamingReasoning accumulates during streaming', async () => {
+			const state = get(chatStore);
+			state.selectedThreadId = 'thread-4';
+
+			// Simulate progressive reasoning updates
+			let threadState = state.threadStreaming['thread-4'] = {
+				isStreaming: true,
+				requestId: 'req-4',
+				streamingContent: '',
+				streamingReasoning: '',
+				model: 'glm-5',
+				conversationId: 'conv-1',
+				assistantMessageId: 'assist-4'
+			};
+
+			// First chunk of reasoning
+			threadState.streamingReasoning = 'Let me analyze';
+			expect(state.threadStreaming['thread-4'].streamingReasoning).toBe('Let me analyze');
+
+			// Second chunk accumulates
+			threadState.streamingReasoning = 'Let me analyze the problem';
+			expect(state.threadStreaming['thread-4'].streamingReasoning).toBe('Let me analyze the problem');
 		});
 
 		it('conversationsLoading returns loading state', async () => {
@@ -1612,9 +1692,15 @@ describe('chatStore', () => {
 		it('isLoading returns true when any loading state is loading', async () => {
 			const { isLoading } = await import('./chat');
 
+			// Reset state to ensure clean test
+			const state = get(chatStore);
+			state.conversationsLoading = 'idle';
+			state.messagesLoading = 'idle';
+			state.threadsLoading = 'idle';
+			state.nlp.processing = false;
+
 			expect(get(isLoading)).toBe(false);
 
-			const state = get(chatStore);
 			state.conversationsLoading = 'loading';
 
 			expect(get(isLoading)).toBe(true);

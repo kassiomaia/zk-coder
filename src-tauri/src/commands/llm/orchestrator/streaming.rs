@@ -142,6 +142,7 @@ fn emit_success(
         let chunk_event = LlmEvent::Chunk {
             request_id: request_id.to_string(),
             delta: final_output.content.clone(),
+            reasoning_delta: None,
         };
         if let Err(e) = app_handle.emit("llm:event", &chunk_event) {
             log::error!("[LLM] Failed to emit orchestrated chunk event: {}", e);

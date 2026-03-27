@@ -52,6 +52,8 @@ pub struct ChunkBatcher {
     config: BatchingConfig,
     full_content: String,
     batch_buffer: String,
+    full_reasoning: String,
+    reasoning_buffer: String,
     last_flush: std::time::Instant,
     final_usage: Option<UsageStats>,
     final_finish_reason: Option<String>,
@@ -65,6 +67,8 @@ impl ChunkBatcher {
             config,
             full_content: String::new(),
             batch_buffer: String::new(),
+            full_reasoning: String::new(),
+            reasoning_buffer: String::new(),
             last_flush: std::time::Instant::now(),
             final_usage: None,
             final_finish_reason: None,
@@ -78,14 +82,18 @@ impl ChunkBatcher {
         chunk: &StreamChunk,
         request_id: &str,
     ) -> Option<Vec<LlmEvent>> {
-        // Accumulate content
+        // Accumulate content and reasoning
         if let Some(ref delta) = chunk.delta {
             if let Some(content) = &delta.content {
                 self.full_content.push_str(content);
                 self.batch_buffer.push_str(content);
-
-                return self.check_flush(request_id);
             }
+            if let Some(reasoning) = &delta.reasoning_content {
+                self.full_reasoning.push_str(reasoning);
+                self.reasoning_buffer.push_str(reasoning);
+            }
+
+            return self.check_flush(request_id);
         }
 
         // Save final usage/finish reason
@@ -100,27 +108,41 @@ impl ChunkBatcher {
 
     /// Checks if batch should be flushed based on config.
     fn check_flush(&mut self, request_id: &str) -> Option<Vec<LlmEvent>> {
-        if self.batch_buffer.is_empty() {
+        let has_content = !self.batch_buffer.is_empty();
+        let has_reasoning = !self.reasoning_buffer.is_empty();
+
+        if !has_content && !has_reasoning {
             return None;
         }
 
         let now = std::time::Instant::now();
         let elapsed_ms = now.duration_since(self.last_flush).as_millis() as u64;
 
+        // Calculate total buffer size for flush decision
+        let total_buffer_size = self.batch_buffer.len() + self.reasoning_buffer.len();
+
         let should_flush = if self.config.interval_ms == 0 {
             // Immediate mode: flush everything
             true
         } else {
             elapsed_ms >= self.config.interval_ms
-                || self.batch_buffer.len() >= self.config.min_flush_length
+                || total_buffer_size >= self.config.min_flush_length
         };
 
         if should_flush {
+            let reasoning_delta = if has_reasoning {
+                Some(self.reasoning_buffer.clone())
+            } else {
+                None
+            };
+
             let events = vec![LlmEvent::Chunk {
                 request_id: request_id.to_string(),
                 delta: self.batch_buffer.clone(),
+                reasoning_delta,
             }];
             self.batch_buffer.clear();
+            self.reasoning_buffer.clear();
             self.last_flush = now;
             Some(events)
         } else {
@@ -130,15 +152,26 @@ impl ChunkBatcher {
 
     /// Flushes any remaining buffered content.
     pub fn flush(&mut self, request_id: &str) -> Option<LlmEvent> {
-        if self.batch_buffer.is_empty() {
+        let has_content = !self.batch_buffer.is_empty();
+        let has_reasoning = !self.reasoning_buffer.is_empty();
+
+        if !has_content && !has_reasoning {
             return None;
         }
+
+        let reasoning_delta = if has_reasoning {
+            Some(self.reasoning_buffer.clone())
+        } else {
+            None
+        };
 
         let event = LlmEvent::Chunk {
             request_id: request_id.to_string(),
             delta: self.batch_buffer.clone(),
+            reasoning_delta,
         };
         self.batch_buffer.clear();
+        self.reasoning_buffer.clear();
         Some(event)
     }
 
@@ -186,6 +219,7 @@ mod tests {
             delta: Some(StreamDelta {
                 role: None,
                 content: Some("Hello".to_string()),
+                reasoning_content: None,
             }),
             usage: None,
             finish_reason: None,
@@ -207,6 +241,7 @@ mod tests {
             delta: Some(StreamDelta {
                 role: None,
                 content: Some("Hello world! Long text here".to_string()),
+                reasoning_content: None,
             }),
             usage: None,
             finish_reason: None,
@@ -244,6 +279,7 @@ mod tests {
             delta: Some(StreamDelta {
                 role: None,
                 content: Some("Hi".to_string()),
+                reasoning_content: None,
             }),
             usage: None,
             finish_reason: None,
@@ -252,5 +288,37 @@ mod tests {
 
         let events = batcher.process_chunk(&chunk, "req-1");
         assert!(events.is_some());
+    }
+
+    #[test]
+    fn test_batcher_with_reasoning_content() {
+        let config = BatchingConfig::immediate();
+        let mut batcher = ChunkBatcher::new(config);
+
+        // GLM-5 style chunk with reasoning_content instead of content
+        let chunk = StreamChunk {
+            id: "test".to_string(),
+            model: "glm-5".to_string(),
+            delta: Some(StreamDelta {
+                role: None,
+                content: None,
+                reasoning_content: Some("Let me think...".to_string()),
+            }),
+            usage: None,
+            finish_reason: None,
+            is_final: false,
+        };
+
+        let events = batcher.process_chunk(&chunk, "req-1");
+        assert!(events.is_some());
+
+        if let Some(events_vec) = events {
+            assert_eq!(events_vec.len(), 1);
+            if let LlmEvent::Chunk { reasoning_delta, .. } = &events_vec[0] {
+                assert_eq!(reasoning_delta, &Some("Let me think...".to_string()));
+            } else {
+                panic!("Expected Chunk event");
+            }
+        }
     }
 }

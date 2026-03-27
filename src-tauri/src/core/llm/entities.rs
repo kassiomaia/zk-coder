@@ -419,6 +419,9 @@ pub struct StreamDelta {
     /// The incremental text content
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    /// Reasoning content from models like GLM-5 that show thinking before answering
+    #[serde(skip_serializing_if = "Option::is_none", rename = "reasoning_content")]
+    pub reasoning_content: Option<String>,
 }
 
 #[cfg(test)]
@@ -447,5 +450,22 @@ mod tests {
         .is_retryable());
         assert!(LlmError::Network("timeout".to_string()).is_retryable());
         assert!(!LlmError::AuthenticationFailed.is_retryable());
+    }
+
+    #[test]
+    fn test_stream_delta_with_reasoning_content() {
+        let json = r#"{"role":"assistant","reasoning_content":"Thinking..."}"#;
+        let delta: StreamDelta = serde_json::from_str(json).expect("valid delta");
+        assert_eq!(delta.role, Some("assistant".to_string()));
+        assert_eq!(delta.content, None);
+        assert_eq!(delta.reasoning_content, Some("Thinking...".to_string()));
+    }
+
+    #[test]
+    fn test_stream_delta_with_content_and_reasoning() {
+        let json = r#"{"content":"Response","reasoning_content":"Thought"}"#;
+        let delta: StreamDelta = serde_json::from_str(json).expect("valid delta");
+        assert_eq!(delta.content, Some("Response".to_string()));
+        assert_eq!(delta.reasoning_content, Some("Thought".to_string()));
     }
 }

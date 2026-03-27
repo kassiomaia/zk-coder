@@ -97,6 +97,9 @@ pub struct OpenAiResponseMessage {
     pub role: Option<String>,
     #[serde(default)]
     pub content: Option<String>,
+    /// Reasoning content from models like GLM-5 that show thinking before answering
+    #[serde(default, rename = "reasoning_content")]
+    pub reasoning_content: Option<String>,
     #[serde(default)]
     pub tool_calls: Option<Vec<OpenAiToolCall>>,
 }
@@ -125,6 +128,9 @@ pub struct OpenAiDelta {
     pub role: Option<String>,
     #[serde(default)]
     pub content: Option<String>,
+    /// Reasoning content from models like GLM-5 that show thinking before answering
+    #[serde(default, rename = "reasoning_content")]
+    pub reasoning_content: Option<String>,
 }
 
 /// OpenAI usage statistics.
@@ -191,5 +197,91 @@ mod tests {
         assert_eq!(tool_calls.len(), 1);
         assert_eq!(tool_calls[0].id, "call_1");
         assert_eq!(tool_calls[0].function.name, "search_code");
+    }
+
+    #[test]
+    fn test_openai_response_with_reasoning_content() {
+        // Test GLM-5 style response with reasoning_content
+        let json = r#"{
+            "id": "chatcmpl-glm-1",
+            "model": "glm-5",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "Hello!",
+                    "reasoning_content": "Let me think about how to respond..."
+                },
+                "finish_reason": "stop"
+            }],
+            "usage": {
+                "prompt_tokens": 8,
+                "completion_tokens": 10,
+                "total_tokens": 18
+            }
+        }"#;
+
+        let parsed: OpenAiResponse = serde_json::from_str(json).expect("valid GLM response");
+        let message = parsed
+            .choices
+            .first()
+            .and_then(|c| c.message.as_ref())
+            .expect("message should exist");
+
+        assert_eq!(message.content, Some("Hello!".to_string()));
+        assert_eq!(message.reasoning_content, Some("Let me think about how to respond...".to_string()));
+    }
+
+    #[test]
+    fn test_openai_delta_with_reasoning_content() {
+        // Test GLM-5 style streaming delta with reasoning_content
+        let json = r#"{
+            "id": "chatcmpl-glm-2",
+            "model": "glm-5",
+            "choices": [{
+                "index": 0,
+                "delta": {
+                    "role": "assistant",
+                    "reasoning_content": "Thinking..."
+                }
+            }]
+        }"#;
+
+        let parsed: OpenAiStreamResponse = serde_json::from_str(json).expect("valid GLM stream");
+        let delta = parsed
+            .choices
+            .first()
+            .and_then(|c| c.delta.as_ref())
+            .expect("delta should exist");
+
+        assert_eq!(delta.role, Some("assistant".to_string()));
+        assert_eq!(delta.content, None);
+        assert_eq!(delta.reasoning_content, Some("Thinking...".to_string()));
+    }
+
+    #[test]
+    fn test_openai_delta_with_content_and_reasoning() {
+        // Test delta with both content and reasoning_content
+        let json = r#"{
+            "id": "chatcmpl-glm-3",
+            "model": "glm-5",
+            "choices": [{
+                "index": 0,
+                "delta": {
+                    "content": "Response",
+                    "reasoning_content": "Thinking step"
+                }
+            }]
+        }"#;
+
+        let parsed: OpenAiStreamResponse = serde_json::from_str(json).expect("valid GLM stream");
+        let delta = parsed
+            .choices
+            .first()
+            .and_then(|c| c.delta.as_ref())
+            .expect("delta should exist");
+
+        assert_eq!(delta.content, Some("Response".to_string()));
+        assert_eq!(delta.reasoning_content, Some("Thinking step".to_string()));
     }
 }

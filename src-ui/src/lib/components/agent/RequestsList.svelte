@@ -17,6 +17,11 @@
 	// Show only recent N steps
 	let recentSteps = $derived(steps.slice(-maxRecent));
 
+	// Create a unique key for each step (stepNumber alone may have duplicates across sessions)
+	function getStepKey(step: ExecutionStep, index: number): string {
+		return `${step.stepNumber}-${step.timestamp}-${index}`;
+	}
+
 	function getStepActionLabel(step: ExecutionStep): string {
 		if (step.action.type === 'llm_request') {
 			return `LLM: ${step.action.model}`;
@@ -34,7 +39,7 @@
 </script>
 
 <section class="requests-list">
-	{#each recentSteps as step (step.stepNumber)}
+	{#each recentSteps as step, index (getStepKey(step, index))}
 		<div class="request-item" class:is-current={step.stepNumber === currentStep}>
 			{#if step.action.type === 'llm_request'}
 				<span class="icon llm">
