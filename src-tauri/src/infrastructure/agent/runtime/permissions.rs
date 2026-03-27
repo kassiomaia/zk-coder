@@ -164,6 +164,19 @@ async fn execute_tool(
     telemetry_repo: &dyn AgentTelemetryRepository,
     task_repo: &dyn TaskRepository,
 ) -> OrchestratorToolResult {
+    if call.name == "system_execute_command" {
+        if let Some(ref workspace) = session.workspace_root {
+            let stats =
+                file_snapshot_registry.capture_workspace_best_effort(&session.id.0, workspace);
+            info!(
+                "[AgentRuntime] Captured workspace snapshot before command: scanned={}, captured={}, skipped_large={}, truncated={}",
+                stats.scanned_files,
+                stats.captured_files,
+                stats.skipped_large_files,
+                stats.truncated
+            );
+        }
+    }
     // Capture file state before write operations for rollback
     if call.name == "fs_write_file" {
         if let Some(path) = call.arguments.get("path").and_then(|v| v.as_str()) {

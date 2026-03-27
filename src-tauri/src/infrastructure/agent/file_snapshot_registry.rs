@@ -25,6 +25,15 @@ pub struct FileSnapshotRegistry {
     snapshots: Mutex<HashMap<String, HashMap<PathBuf, FileSnapshot>>>,
 }
 
+/// Best-effort snapshot stats for workspace capture.
+#[derive(Debug, Clone, Copy)]
+pub struct WorkspaceSnapshotStats {
+    pub scanned_files: usize,
+    pub captured_files: usize,
+    pub skipped_large_files: usize,
+    pub truncated: bool,
+}
+
 impl FileSnapshotRegistry {
     pub fn new() -> Self {
         Self {
@@ -49,6 +58,76 @@ impl FileSnapshotRegistry {
                 rolled_back: false,
             },
         );
+    }
+
+    /// Best-effort capture of workspace files before command execution.
+    ///
+    /// This is intentionally bounded to avoid large memory usage. It skips large
+    /// files and stops after reaching the file or total byte limits.
+    pub fn capture_workspace_best_effort(
+        &self,
+        session_id: &str,
+        workspace_root: &Path,
+    ) -> WorkspaceSnapshotStats {
+        const MAX_FILES: usize = 2000;
+        const MAX_TOTAL_BYTES: u64 = 5 * 1024 * 1024;
+        const MAX_FILE_BYTES: u64 = 256 * 1024;
+        const SKIP_DIRS: [&str; 6] = [".git", "node_modules", "target", "dist", "build", "out"];
+
+        let mut stats = WorkspaceSnapshotStats {
+            scanned_files: 0,
+            captured_files: 0,
+            skipped_large_files: 0,
+            truncated: false,
+        };
+        let mut total_bytes: u64 = 0;
+
+        let mut stack: Vec<PathBuf> = vec![workspace_root.to_path_buf()];
+        while let Some(dir) = stack.pop() {
+            let entries = match std::fs::read_dir(&dir) {
+                Ok(entries) => entries,
+                Err(_) => continue,
+            };
+
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                        if SKIP_DIRS.contains(&name) {
+                            continue;
+                        }
+                    }
+                    stack.push(path);
+                    continue;
+                }
+
+                stats.scanned_files += 1;
+                if stats.captured_files >= MAX_FILES || total_bytes >= MAX_TOTAL_BYTES {
+                    stats.truncated = true;
+                    return stats;
+                }
+
+                let meta = match entry.metadata() {
+                    Ok(meta) => meta,
+                    Err(_) => continue,
+                };
+                if !meta.is_file() {
+                    continue;
+                }
+
+                let size = meta.len();
+                if size > MAX_FILE_BYTES {
+                    stats.skipped_large_files += 1;
+                    continue;
+                }
+
+                self.capture(session_id, &path);
+                total_bytes = total_bytes.saturating_add(size);
+                stats.captured_files += 1;
+            }
+        }
+
+        stats
     }
 
     pub fn rollback_file(&self, session_id: &str, path: &Path) -> Result<bool, RollbackError> {
