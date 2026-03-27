@@ -314,7 +314,10 @@ mod tests {
 
         if let Some(events_vec) = events {
             assert_eq!(events_vec.len(), 1);
-            if let LlmEvent::Chunk { reasoning_delta, .. } = &events_vec[0] {
+            if let LlmEvent::Chunk {
+                reasoning_delta, ..
+            } = &events_vec[0]
+            {
                 assert_eq!(reasoning_delta, &Some("Let me think...".to_string()));
             } else {
                 panic!("Expected Chunk event");

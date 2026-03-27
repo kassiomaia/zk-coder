@@ -9,6 +9,7 @@ pub mod traits;
 
 pub mod agent;
 pub mod conversation;
+pub mod documents;
 pub mod fs;
 pub mod search;
 pub mod system;
@@ -55,6 +56,7 @@ impl ToolRegistry {
         registry.register_category(conversation::ConversationCategory);
         registry.register_category(search::SearchCategory);
         registry.register_category(agent::AgentCategory);
+        registry.register_category(documents::docx::DocxCategory);
 
         Ok(registry)
     }
@@ -213,6 +215,8 @@ mod tests {
         assert!(tool_names.contains(&"fs_read_file".to_string()));
         assert!(tool_names.contains(&"fs_list_files".to_string()));
         assert!(tool_names.contains(&"conversation_search_messages".to_string()));
+        assert!(tool_names.contains(&"docx_start".to_string()));
+        assert!(tool_names.contains(&"docx_add_section".to_string()));
     }
 
     #[test]

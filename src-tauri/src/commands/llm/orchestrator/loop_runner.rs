@@ -144,15 +144,16 @@ pub async fn run_orchestrated_loop(
             stream: false,
         };
 
-        let response: CoreChatResponse = run_chat_with_retry(llm_service.clone(), core_request.clone())
-            .await
-            .map_err(|e| {
-                log::error!(
-                    "send_chat_message_orchestrated_non_stream: LLM error: {}",
-                    e
-                );
-                e.to_string()
-            })?;
+        let response: CoreChatResponse =
+            run_chat_with_retry(llm_service.clone(), core_request.clone())
+                .await
+                .map_err(|e| {
+                    log::error!(
+                        "send_chat_message_orchestrated_non_stream: LLM error: {}",
+                        e
+                    );
+                    e.to_string()
+                })?;
 
         let tool_calls = response.tool_calls.clone();
         if tool_calls.is_empty() {

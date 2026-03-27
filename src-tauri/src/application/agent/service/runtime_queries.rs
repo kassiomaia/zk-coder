@@ -79,7 +79,10 @@ impl AgentServiceImpl {
 
     pub async fn pending_actions_view(&self, session_id: &str) -> PendingActionsView {
         PendingActionsView {
-            actions: self.approval_queue.get_pending_for_session(session_id).await,
+            actions: self
+                .approval_queue
+                .get_pending_for_session(session_id)
+                .await,
         }
     }
 
@@ -210,13 +213,11 @@ impl AgentServiceImpl {
                 id: session_id.0.clone(),
             })?;
 
-        let agent = self
-            .registry
-            .get(&session.agent_id)
-            .await
-            .ok_or_else(|| AgentDomainError::AgentNotFound {
+        let agent = self.registry.get(&session.agent_id).await.ok_or_else(|| {
+            AgentDomainError::AgentNotFound {
                 id: session.agent_id.0.clone(),
-            })?;
+            }
+        })?;
 
         Ok(AgentExecutionContext {
             session,

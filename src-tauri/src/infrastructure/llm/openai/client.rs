@@ -318,7 +318,9 @@ impl OpenAiClient {
             .and_then(|c| c.message.as_ref())
             .map(|m| {
                 // Use reasoning_content as fallback for models that show thinking before answering
-                let content = m.content.clone()
+                let content = m
+                    .content
+                    .clone()
                     .or(m.reasoning_content.clone())
                     .unwrap_or_default();
                 let tool_calls = m

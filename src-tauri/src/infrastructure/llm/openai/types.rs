@@ -229,7 +229,10 @@ mod tests {
             .expect("message should exist");
 
         assert_eq!(message.content, Some("Hello!".to_string()));
-        assert_eq!(message.reasoning_content, Some("Let me think about how to respond...".to_string()));
+        assert_eq!(
+            message.reasoning_content,
+            Some("Let me think about how to respond...".to_string())
+        );
     }
 
     #[test]
