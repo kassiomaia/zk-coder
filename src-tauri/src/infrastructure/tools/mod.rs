@@ -57,6 +57,8 @@ impl ToolRegistry {
         registry.register_category(search::SearchCategory);
         registry.register_category(agent::AgentCategory);
         registry.register_category(documents::docx::DocxCategory);
+        registry.register_category(documents::pptx::PptxCategory);
+        registry.register_category(documents::pdf::PdfCategory);
 
         Ok(registry)
     }
@@ -217,6 +219,10 @@ mod tests {
         assert!(tool_names.contains(&"conversation_search_messages".to_string()));
         assert!(tool_names.contains(&"docx_start".to_string()));
         assert!(tool_names.contains(&"docx_add_section".to_string()));
+        assert!(tool_names.contains(&"pptx_start".to_string()));
+        assert!(tool_names.contains(&"pptx_add_slide".to_string()));
+        assert!(tool_names.contains(&"pdf_start".to_string()));
+        assert!(tool_names.contains(&"pdf_add_page".to_string()));
     }
 
     #[test]

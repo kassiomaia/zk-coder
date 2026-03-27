@@ -313,8 +313,9 @@
 
 		// Set callback to add assistant message when agent completes execution
 		// Import the API function to persist messages to backend
-		agentStore.setExecutionCompleteCallback(async (conversationId, threadId, content) => {
+		agentStore.setExecutionCompleteCallback(async (sessionId, conversationId, threadId, content) => {
 			console.debug('[+page] Execution complete callback invoked:', {
+				sessionId,
 				conversationId,
 				threadId,
 				contentLength: content?.length ?? 0,
@@ -322,11 +323,7 @@
 			});
 
 			try {
-				// Get the active session to find the streaming message ID
-				const session = get(activeSession);
-				const streamingMessageId = session?.id
-					? `streaming-assistant-${session.id}`
-					: null;
+				const streamingMessageId = `streaming-assistant-${sessionId}`;
 
 				// Persist the assistant message to the backend
 				const { sendMessage } = await import('$lib/api/chat');
@@ -379,17 +376,13 @@
 		console.debug('[+page] Execution complete callback registered');
 
 		// Set callback to add system messages from agent (e.g., context compaction)
-		agentStore.setSystemMessageCallback(async (conversationId, content) => {
-			console.debug('[+page] System message callback invoked:', { conversationId, content });
-
-			// Get the current thread for this conversation
-			const state = get(chatStore);
-			const threadId = state.selectedThreadId;
-
-			if (!threadId) {
-				console.warn('[+page] No active thread for system message');
-				return;
-			}
+		agentStore.setSystemMessageCallback(async (sessionId, conversationId, threadId, content) => {
+			console.debug('[+page] System message callback invoked:', {
+				sessionId,
+				conversationId,
+				threadId,
+				content
+			});
 
 			try {
 				// Add system message as a special user message with indicator
@@ -464,6 +457,7 @@
 						const updates: Partial<Message> = {};
 						if (messageData.content !== undefined) updates.content = messageData.content;
 						if (messageData.status !== undefined) updates.status = messageData.status as any;
+						if (messageData.reasoning !== undefined) updates.reasoning = messageData.reasoning as string;
 						if (messageData.agentData) {
 							// Deep merge agentData to preserve existing fields
 							updates.agentData = {

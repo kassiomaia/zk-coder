@@ -3,7 +3,10 @@ use std::path::PathBuf;
 use chrono::Utc;
 use log::info;
 
-use crate::core::agent::entities::{AgentSession as CoreAgentSession, SessionId as CoreSessionId};
+use crate::core::agent::entities::{
+    AgentDomainError, AgentSession as CoreAgentSession, SessionId as CoreSessionId,
+    SessionState as CoreSessionState,
+};
 use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::services::{CreateSessionRequest, SendAgentRequestRequest};
 use crate::core::agent::session::{AgentSession, SessionState};
@@ -66,12 +69,15 @@ impl AgentServiceImpl {
 
         self.session_repo
             .update_state(&CoreSessionId(session_id.to_string()), &core_state)?;
+        self.block_on(self.approval_queue.clear_session(session_id));
         self.file_snapshot_registry.clear_session(session_id);
 
         Ok(())
     }
 
     pub(super) fn delete_session_impl(&self, session_id: &str) -> RepositoryResult<()> {
+        self.block_on(self.approval_queue.clear_session(session_id));
+        self.block_on(self.abort_execution(session_id));
         self.session_repo
             .delete_session(&CoreSessionId(session_id.to_string()))?;
         self.file_snapshot_registry.clear_session(session_id);
@@ -91,9 +97,31 @@ impl AgentServiceImpl {
         &self,
         request: SendAgentRequestRequest,
     ) -> RepositoryResult<CoreSessionId> {
-        let _session = self
+        let session = self
             .session_repo
             .get_session(&CoreSessionId(request.session_id.clone()))?;
+
+        if self.block_on(self.is_execution_active(&request.session_id)) {
+            return Err(AgentDomainError::InvalidInput {
+                reason: "An agent run is already active for this session".to_string(),
+            });
+        }
+
+        match session.state {
+            CoreSessionState::Processing { .. } | CoreSessionState::AwaitingApproval { .. } => {
+                return Err(AgentDomainError::InvalidInput {
+                    reason: "This session is already processing a request".to_string(),
+                });
+            }
+            CoreSessionState::Cancelled { .. } => {
+                return Err(AgentDomainError::InvalidInput {
+                    reason: "This session was cancelled and cannot accept new requests".to_string(),
+                });
+            }
+            CoreSessionState::WaitForRequest { .. }
+            | CoreSessionState::Finished { .. }
+            | CoreSessionState::Error { .. } => {}
+        }
 
         info!(
             "[AgentService] Request validated for session {}",

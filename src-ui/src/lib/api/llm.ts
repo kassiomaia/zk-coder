@@ -243,6 +243,7 @@ type RawLlmEvent =
 			requestId?: string;
 			request_id?: string;
 			delta: string;
+			reasoning_delta?: string;
 	  }
 	| {
 			type: 'complete';
@@ -290,7 +291,8 @@ function normalizeLlmEvent(raw: RawLlmEvent): LlmEvent | null {
 			return {
 				type: 'chunk',
 				requestId,
-				delta: raw.delta
+				delta: raw.delta,
+				reasoning_delta: raw.reasoning_delta
 			};
 		case 'complete':
 			return {

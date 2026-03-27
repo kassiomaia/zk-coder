@@ -5,7 +5,6 @@
 
 import type {AgentEvent} from '$lib/types/agent';
 import type {AgentState} from '../state';
-import {flushPendingTerminalOutput, scheduleTerminalOutput} from '../streaming';
 
 /**
  * Handle command_output event.
@@ -23,16 +22,6 @@ export function handleCommandOutput(state: AgentState, event: Extract<AgentEvent
 			...session,
 			terminalOutput: [...(session.terminalOutput ?? []), line]
 		});
-
-		// Batch terminal output for chat - accumulate and send in batches
-		// Prefix with stream type indicator
-		const prefix = event.stream === 'stderr' ? 'ERR: ' : event.stream === ('stdin' as any) ? '< ' : '> ';
-		scheduleTerminalOutput(
-			event.sessionId,
-			session.conversationId,
-			session.threadId,
-			prefix + event.content
-		);
 	}
 }
 
@@ -52,8 +41,5 @@ export function handleCommandFinished(state: AgentState, event: Extract<AgentEve
 			...session,
 			terminalOutput: [...(session.terminalOutput ?? []), line]
 		});
-
-		// Flush any pending terminal output
-		flushPendingTerminalOutput(event.sessionId);
 	}
 }

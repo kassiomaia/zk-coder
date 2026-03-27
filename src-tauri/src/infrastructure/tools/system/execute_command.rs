@@ -13,6 +13,8 @@ use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
+use crate::core::agent::entities::SessionState as CoreSessionState;
+use crate::core::agent::services::AgentService;
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
@@ -25,6 +27,7 @@ const MAX_OUTPUT_BYTES: usize = 512 * 1024;
 
 /// Maximum command execution time (60 seconds).
 const COMMAND_TIMEOUT_SECS: u64 = 60;
+const COMMAND_CANCELLATION_POLL_MS: u64 = 250;
 
 /// Arguments for command execution.
 #[derive(Debug, Deserialize)]
@@ -192,22 +195,34 @@ impl Tool for ExecuteCommandTool {
             };
 
             // Wait for completion with timeout
-            let result = tokio::time::timeout(
-                std::time::Duration::from_secs(COMMAND_TIMEOUT_SECS),
-                async {
-                    let (stdout_result, stderr_result, status) =
-                        tokio::join!(stdout_handle, stderr_handle, child.wait());
+            let result = tokio::time::timeout(std::time::Duration::from_secs(COMMAND_TIMEOUT_SECS), async {
+                let exit_status = loop {
+                    tokio::select! {
+                        status = child.wait() => {
+                            break status.map_err(|e| {
+                                ToolError::failed(format!("Failed to wait for command: {}", e))
+                            })?;
+                        }
+                        _ = tokio::time::sleep(std::time::Duration::from_millis(COMMAND_CANCELLATION_POLL_MS)) => {
+                            if let Some(ref service) = agent_service {
+                                let cancelled = service
+                                    .get_session(&session_id)
+                                    .map(|session| matches!(session.state, CoreSessionState::Cancelled { .. }))
+                                    .unwrap_or(false);
+                                if cancelled {
+                                    let _ = child.kill().await;
+                                    return Err(ToolError::failed("Command cancelled"));
+                                }
+                            }
+                        }
+                    }
+                };
 
-                    let stdout_out = stdout_result.unwrap_or_default();
-                    let stderr_out = stderr_result.unwrap_or_default();
-                    let exit_status = status.map_err(|e| {
-                        ToolError::failed(format!("Failed to wait for command: {}", e))
-                    })?;
-
-                    Ok::<_, ToolError>((stdout_out, stderr_out, exit_status))
-                },
-            )
-            .await;
+                let (stdout_result, stderr_result) = tokio::join!(stdout_handle, stderr_handle);
+                let stdout_out = stdout_result.unwrap_or_default();
+                let stderr_out = stderr_result.unwrap_or_default();
+                Ok::<_, ToolError>((stdout_out, stderr_out, exit_status))
+            }).await;
 
             match result {
                 Ok(Ok((mut stdout_out, mut stderr_out, exit_status))) => {

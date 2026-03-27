@@ -583,7 +583,8 @@ impl SqliteSessionRepository {
             .conn
             .lock()
             .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
-        runtime_data::clear_session_runtime_data(&conn, session_id)
+        runtime_data::clear_session_runtime_data(&conn, session_id)?;
+        tasks::clear_session_execution_steps(&conn, session_id)
     }
 
     // ========================================================================

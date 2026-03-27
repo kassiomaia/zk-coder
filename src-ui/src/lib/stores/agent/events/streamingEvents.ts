@@ -101,9 +101,10 @@ export function handleStatusPhrase(state: AgentState, event: Extract<AgentEvent,
  * Handle context_compacted event.
  */
 export function handleContextCompacted(state: AgentState, event: Extract<AgentEvent, { type: 'context_compacted' }>) {
+	const session = state.sessions.get(event.sessionId);
 	const onSystemMessage = getOnSystemMessage();
-	if (onSystemMessage) {
+	if (onSystemMessage && session) {
 		const summary = `🗜️ **Context compacted**\n\n${event.beforeCount} → ${event.afterCount} messages\n${event.beforeTokens.toLocaleString()} → ${event.afterTokens.toLocaleString()} tokens`;
-		onSystemMessage(event.conversationId, summary);
+		onSystemMessage(event.sessionId, event.conversationId, session.threadId, summary);
 	}
 }

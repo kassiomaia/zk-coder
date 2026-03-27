@@ -29,6 +29,7 @@ static DECOMPOSED_SUBTASKS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 
 /// Timeout for waiting on user approval (seconds).
 const APPROVAL_TIMEOUT_SECS: u64 = 300;
+const CANCELLATION_POLL_MS: u64 = 250;
 
 /// Extension trait for adding preview to pending actions.
 trait PendingActionExt {
@@ -326,10 +327,23 @@ async fn execute_with_approval(
     // Wait for approval decision
     let mut rx = approval_queue.subscribe();
     let timeout = tokio::time::sleep(Duration::from_secs(APPROVAL_TIMEOUT_SECS));
+    let mut cancellation_poll = tokio::time::interval(Duration::from_millis(CANCELLATION_POLL_MS));
     tokio::pin!(timeout);
 
     loop {
         tokio::select! {
+            _ = cancellation_poll.tick() => {
+                let current_session = session_repo
+                    .get_session(&crate::core::agent::entities::SessionId(session.id.0.clone()))
+                    .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
+                if matches!(
+                    current_session.state,
+                    crate::core::agent::entities::SessionState::Cancelled { .. }
+                ) {
+                    approval_queue.clear_session(&session.id.0).await;
+                    return Err(AgentRuntimeError::Cancelled);
+                }
+            }
             event = rx.recv() => {
                 match event {
                     Ok(ApprovalEvent::ActionApproved { action_id: approved_id })
@@ -455,9 +469,10 @@ fn handle_plan_subtasks(
             call_id: call.id.clone(),
             name: call.name.clone(),
             output: serde_json::json!({
-                "error": "Subtasks already exist for this task"
+                "success": true,
+                "message": "Subtasks already planned for this task. Continue with current subtask."
             }),
-            is_error: true,
+            is_error: false,
         };
     }
 
@@ -914,6 +929,10 @@ fn validate_plan_subtasks(
 
     let actionable_verbs = [
         "analyze",
+        "investigate",
+        "identify",
+        "understand",
+        "trace",
         "inspect",
         "read",
         "search",
@@ -963,6 +982,10 @@ fn validate_plan_subtasks(
             .split_whitespace()
             .next()
             .unwrap_or_default()
+            .to_string();
+        let first_word = first_word
+            .trim_matches(|c: char| c.is_ascii_punctuation())
+            .trim_matches(|c: char| c.is_ascii_digit())
             .to_string();
         if !actionable_verbs.contains(&first_word.as_str()) {
             return Err(format!(

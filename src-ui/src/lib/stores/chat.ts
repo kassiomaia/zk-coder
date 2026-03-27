@@ -1092,11 +1092,66 @@ function createChatStore() {
 			});
 
 			if (thread?.metadata.agentSessionId) {
+				let targetSessionId = thread.metadata.agentSessionId;
+				const linkedSession = await agentStore.loadSession(targetSessionId);
+
+				if (!linkedSession || linkedSession.state.type === 'cancelled') {
+					const conversation = state.conversations.find((c) => c.id === thread.conversationId);
+					const replacementSession = await agentStore.createSession(
+						'code-agent',
+						thread.conversationId,
+						thread.id,
+						conversation?.settings.workspaceRoot
+					);
+
+					if (replacementSession) {
+						targetSessionId = replacementSession.id;
+						await setThreadAgentSession(thread.id, replacementSession.id);
+						update((s) => ({
+							...s,
+							threads: s.threads.map((item) =>
+								item.id === thread.id
+									? {
+											...item,
+											metadata: {
+												...item.metadata,
+												agentSessionId: replacementSession.id
+											}
+										}
+									: item
+							),
+							conversations: s.conversations.map((conversation) =>
+								conversation.id === thread.conversationId
+									? {
+											...conversation,
+											threads: (conversation.threads || []).map((item) =>
+												item.id === thread.id
+													? {
+															...item,
+															metadata: {
+																...item.metadata,
+																agentSessionId: replacementSession.id
+															}
+														}
+													: item
+											)
+										}
+									: conversation
+							)
+						}));
+					}
+				}
+
 				// Route through agent - the agent will emit events with results
 				// We'll add the assistant message when execution_complete event arrives
-				console.debug('[chatStore] Routing to agent:', thread.metadata.agentSessionId);
+				if (!targetSessionId) {
+					update((s) => ({ ...s, error: 'Agent session is unavailable for this thread' }));
+					return userMessage;
+				}
+
+				console.debug('[chatStore] Routing to agent:', targetSessionId);
 				try {
-					await agentStore.sendRequest(thread.metadata.agentSessionId, content);
+					await agentStore.sendRequest(targetSessionId, content);
 				} catch (err) {
 					console.error('[chatStore] Agent request failed:', err);
 					update((s) => ({ ...s, error: `Agent request failed: ${err}` }));

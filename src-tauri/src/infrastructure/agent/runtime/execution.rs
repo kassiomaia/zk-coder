@@ -45,6 +45,8 @@ const DEFAULT_AGENT_TEMPERATURE: f32 = 0.0;
 
 /// Environment override for agent temperature.
 const ENV_AGENT_TEMPERATURE: &str = "CODER_AGENT_TEMPERATURE";
+/// Safety limit for max agent loop steps.
+const MAX_EXECUTION_STEPS: u32 = 120;
 
 fn agent_temperature() -> f32 {
     let value = std::env::var(ENV_AGENT_TEMPERATURE)
@@ -52,6 +54,37 @@ fn agent_temperature() -> f32 {
         .and_then(|v| v.parse::<f32>().ok())
         .unwrap_or(DEFAULT_AGENT_TEMPERATURE);
     value.clamp(0.0, 2.0)
+}
+
+fn session_is_cancelled(
+    session_repo: &dyn SessionRepository,
+    session_id: &SessionId,
+) -> Result<bool, AgentRuntimeError> {
+    let session = session_repo
+        .get_session(&crate::core::agent::entities::SessionId(session_id.0.clone()))
+        .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
+
+    Ok(matches!(
+        session.state,
+        crate::core::agent::entities::SessionState::Cancelled { .. }
+    ))
+}
+
+fn cancel_active_task(
+    session_id: &str,
+    task_id: &str,
+    app_handle: &AppHandle,
+    task_repo: &dyn TaskRepository,
+) {
+    let _ = task_repo.update_task_status(task_id, crate::core::agent::entities::TaskStatus::Cancelled);
+    let _ = app_handle.emit(
+        AGENT_EVENT_NAME,
+        AgentEvent::TaskUpdated {
+            session_id: session_id.to_string(),
+            task_id: task_id.to_string(),
+            status: TaskStatus::Cancelled,
+        },
+    );
 }
 
 /// Executes an agent request within a session.
@@ -152,7 +185,40 @@ pub async fn execute(
     // === EXECUTION PHASE ===
     // Agent runs until it has no more tool calls (decides it's done)
     loop {
+        if session_is_cancelled(session_repo, &session.id)? {
+            cancel_active_task(&session_id, &task_id, app_handle, task_repo);
+            return Err(AgentRuntimeError::Cancelled);
+        }
+
         step_num += 1;
+        if step_num > MAX_EXECUTION_STEPS {
+            let msg = format!(
+                "Execution step limit reached ({}). Aborting to prevent runaway loop.",
+                MAX_EXECUTION_STEPS
+            );
+            warn!("[AgentRuntime] {}", msg);
+            update_session_state(
+                session_repo,
+                &session.id,
+                SessionState::Error {
+                    message: msg.clone(),
+                    recoverable: true,
+                },
+                app_handle,
+            )?;
+
+            let _ = task_repo
+                .update_task_status(&task_id, crate::core::agent::entities::TaskStatus::Failed);
+            let _ = app_handle.emit(
+                AGENT_EVENT_NAME,
+                AgentEvent::TaskUpdated {
+                    session_id: session_id.clone(),
+                    task_id: task_id.clone(),
+                    status: TaskStatus::Failed,
+                },
+            );
+            return Err(AgentRuntimeError::LoopDetected);
+        }
         info!(
             "[AgentRuntime] Step {} for session {}",
             step_num, session_id
@@ -395,6 +461,10 @@ pub async fn execute(
 
         // If no tool calls, we're done - agent has completed its task
         if response.tool_calls.is_empty() {
+            if session_is_cancelled(session_repo, &session.id)? {
+                cancel_active_task(&session_id, &task_id, app_handle, task_repo);
+                return Err(AgentRuntimeError::Cancelled);
+            }
             return finalize_execution(
                 response.content,
                 &session_id,
@@ -414,6 +484,16 @@ pub async fn execute(
 
         // Check for repetitive action loops
         for tool_call in &response.tool_calls {
+            if tool_call.name == "agent_plan_subtasks" {
+                let seen_before = recent_tool_calls
+                    .iter()
+                    .any(|(name, _)| name == "agent_plan_subtasks");
+                if seen_before {
+                    warn!(
+                        "[AgentRuntime] Repeated planning call detected: agent_plan_subtasks called again; treating as idempotent and continuing"
+                    );
+                }
+            }
             if let Some(repeat_count) =
                 detect_repetitive_loop(tool_call, &recent_tool_calls, MAX_REPETITIONS)
             {
@@ -472,6 +552,11 @@ pub async fn execute(
             task_repo,
         )
         .await?;
+
+        if session_is_cancelled(session_repo, &session.id)? {
+            cancel_active_task(&session_id, &task_id, app_handle, task_repo);
+            return Err(AgentRuntimeError::Cancelled);
+        }
 
         // Append tool results to context
         for result in &tool_results {

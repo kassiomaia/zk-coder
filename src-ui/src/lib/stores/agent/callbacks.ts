@@ -7,11 +7,13 @@ import type {Message} from '$lib/types/message';
 
 /** Callback for when agent completes execution - returns (conversationId, threadId, content) */
 let onExecutionComplete:
-	| ((conversationId: string, threadId: string, content: string) => void)
+	| ((sessionId: string, conversationId: string, threadId: string, content: string) => void)
 	| null = null;
 
 /** Callback for agent system messages (e.g., context compaction) - returns (conversationId, message) */
-let onSystemMessage: ((conversationId: string, message: string) => void) | null = null;
+let onSystemMessage:
+	| ((sessionId: string, conversationId: string, threadId: string, message: string) => void)
+	| null = null;
 
 /** Callback for agent activity messages (thinking, tool_call, terminal) - adds transient messages to chat */
 let onAgentActivity:
@@ -27,7 +29,7 @@ let onCleanupTransients:
  * Set the execution complete callback.
  */
 export function setExecutionCompleteCallback(
-	callback: (conversationId: string, threadId: string, content: string) => void
+	callback: (sessionId: string, conversationId: string, threadId: string, content: string) => void
 ) {
 	onExecutionComplete = callback;
 }
@@ -35,7 +37,9 @@ export function setExecutionCompleteCallback(
 /**
  * Set the system message callback.
  */
-export function setSystemMessageCallback(callback: (conversationId: string, message: string) => void) {
+export function setSystemMessageCallback(
+	callback: (sessionId: string, conversationId: string, threadId: string, message: string) => void
+) {
 	onSystemMessage = callback;
 }
 

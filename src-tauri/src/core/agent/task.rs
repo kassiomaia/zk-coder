@@ -193,7 +193,6 @@ impl SubTaskMode {
                 "search_grep",
                 "system_execute_command",
                 "agent_emit_status",
-                "agent_plan_subtasks",
                 "agent_advance_to_next_subtask",
             ],
         }
@@ -452,8 +451,8 @@ mod tests {
             "FullAccess should allow system_execute_command"
         );
         assert!(
-            tools.contains(&"agent_plan_subtasks"),
-            "FullAccess should allow agent_plan_subtasks"
+            !tools.contains(&"agent_plan_subtasks"),
+            "FullAccess should not allow agent_plan_subtasks after planning"
         );
     }
 

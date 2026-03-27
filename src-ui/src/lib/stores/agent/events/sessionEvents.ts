@@ -28,7 +28,12 @@ export function handleExecutionStarted(state: AgentState, event: Extract<AgentEv
 	if (session) {
 		state.sessions.set(event.sessionId, {
 			...session,
-			state: { type: 'running', currentStep: 0, contextUsage: 0 }
+			state: { type: 'running', currentStep: 0, contextUsage: 0 },
+			executionSteps: [],
+			toolCalls: [],
+			terminalOutput: [],
+			statusPhrases: [],
+			streamingAssistantContent: undefined
 		});
 
 		// Create thinking message in chat with consistent ID for updates
@@ -75,7 +80,7 @@ export function handleExecutionComplete(state: AgentState, event: Extract<AgentE
 	// Call the callback with conversation/thread IDs from the event
 	const onExecutionComplete = getOnExecutionComplete();
 	if (onExecutionComplete) {
-		onExecutionComplete(event.conversationId, event.threadId, event.result.content);
+		onExecutionComplete(event.sessionId, event.conversationId, event.threadId, event.result.content);
 	}
 
 	// Update session state to finished if session exists

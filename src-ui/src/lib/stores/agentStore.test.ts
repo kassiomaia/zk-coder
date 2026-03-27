@@ -32,19 +32,16 @@ describe('agentStore', () => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
 
-		// Reset store state - need to properly reset panel and sessions
+		// Reset store state
 		agentStore.setActiveSession(null);
 		agentStore.clearError();
-		// Reset panel state
 		let state = get(agentStore);
+		state.sessions.clear();
+		state.pendingActions = [];
+		state.activeSessionId = null;
 		if (state.panelOpen) {
 			agentStore.togglePanel();
 		}
-		// Clear any existing sessions
-		state = get(agentStore);
-		state.sessions.forEach((_, sessionId) => {
-			agentStore.cancelSession(sessionId);
-		});
 	});
 
 	afterEach(() => {
@@ -208,7 +205,7 @@ describe('agentStore', () => {
 			consoleErrorSpy.mockRestore();
 		});
 
-		it('cancelSession removes session from store', async () => {
+		it('cancelSession marks session as cancelled in store', async () => {
 			// Setup: add a session
 			mockInvoke.mockResolvedValue(mockSession);
 			await agentStore.createSession('agent-1', 'conv-1', 'thread-1');
@@ -224,8 +221,10 @@ describe('agentStore', () => {
 			});
 
 			const state = get(agentStore);
-			expect(state.sessions.has('session-1')).toBe(false);
-			expect(state.activeSessionId).toBeNull();
+			expect(state.sessions.get('session-1')?.state).toEqual({
+				type: 'cancelled',
+				reason: 'User cancelled'
+			});
 		});
 
 		it('rollbackSession returns reverted files', async () => {

@@ -155,9 +155,7 @@ mod tests {
         assert!(LOOP_SKIP_TOOLS.contains(&"agent_advance_to_next_subtask"));
         assert!(LOOP_SKIP_TOOLS.contains(&"agent_emit_status"));
         assert!(LOOP_SKIP_TOOLS.contains(&"agent_mark_subtask_status"));
-
-        // agent_plan_subtasks is NOT in the skip list because it should only be called once
-        assert!(!LOOP_SKIP_TOOLS.contains(&"agent_plan_subtasks"));
+        assert!(LOOP_SKIP_TOOLS.contains(&"agent_plan_subtasks"));
     }
 
     #[test]
@@ -168,9 +166,7 @@ mod tests {
         // - agent_advance_to_next_subtask: once per subtask advancement
         // - agent_emit_status: for progress updates (can be many)
         // - agent_mark_subtask_status: for manual status updates
-        assert_eq!(LOOP_SKIP_TOOLS.len(), 3);
-
-        // agent_plan_subtasks should NOT be skipped (has its own protection)
-        assert!(!LOOP_SKIP_TOOLS.contains(&"agent_plan_subtasks"));
+        // - agent_plan_subtasks: idempotent once subtasks already exist
+        assert_eq!(LOOP_SKIP_TOOLS.len(), 4);
     }
 }

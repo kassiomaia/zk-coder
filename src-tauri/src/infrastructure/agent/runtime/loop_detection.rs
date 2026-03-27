@@ -17,6 +17,7 @@ pub const LOOP_SKIP_TOOLS: &[&str] = &[
     "agent_advance_to_next_subtask",
     "agent_emit_status",
     "agent_mark_subtask_status",
+    "agent_plan_subtasks",
 ];
 
 /// Creates a hash of the tool call arguments for comparison.
@@ -157,6 +158,7 @@ mod tests {
         assert!(should_skip_loop_detection("agent_advance_to_next_subtask"));
         assert!(should_skip_loop_detection("agent_emit_status"));
         assert!(should_skip_loop_detection("agent_mark_subtask_status"));
+        assert!(should_skip_loop_detection("agent_plan_subtasks"));
         assert!(!should_skip_loop_detection("fs_write_file"));
         assert!(!should_skip_loop_detection("fs_read_file"));
     }
@@ -451,8 +453,9 @@ mod tests {
         assert!(LOOP_SKIP_TOOLS.contains(&"agent_advance_to_next_subtask"));
         assert!(LOOP_SKIP_TOOLS.contains(&"agent_emit_status"));
         assert!(LOOP_SKIP_TOOLS.contains(&"agent_mark_subtask_status"));
+        assert!(LOOP_SKIP_TOOLS.contains(&"agent_plan_subtasks"));
 
         // Verify length is as expected
-        assert_eq!(LOOP_SKIP_TOOLS.len(), 3);
+        assert_eq!(LOOP_SKIP_TOOLS.len(), 4);
     }
 }

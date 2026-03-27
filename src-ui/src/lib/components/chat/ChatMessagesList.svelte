@@ -339,6 +339,14 @@
 					<div class={messageStyles.messageContent}>
 						<MarkdownRenderer content={message.content} />
 					</div>
+					{#if message.role === 'assistant' && message.reasoning && message.reasoning.trim().length > 0}
+						<div class={messageStyles.reasoningBlock}>
+							<div class={messageStyles.reasoningLabel}>Reasoning</div>
+							<div class={messageStyles.reasoningContent}>
+								<MarkdownRenderer content={message.reasoning} />
+							</div>
+						</div>
+					{/if}
 					<!-- Message status indicator -->
 					{#if message.status === 'sending' && message.content.trim() === '' && !hasAgentMessages}
 						<AnsweringIndicator status={agentStatus} />

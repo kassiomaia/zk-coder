@@ -14,7 +14,11 @@ mod runtime_queries;
 mod sessions;
 mod tasks;
 
+use std::collections::HashMap;
 use std::sync::Arc;
+
+use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 use crate::core::agent::entities::{
     Agent as CoreAgent, AgentDomainError, AgentSession as CoreAgentSession,
@@ -45,6 +49,7 @@ pub struct AgentServiceImpl {
     approval_queue: Arc<ApprovalQueue>,
     runtime: Arc<AgentRuntime>,
     file_snapshot_registry: Arc<FileSnapshotRegistry>,
+    active_executions: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
     runtime_handle: tokio::runtime::Runtime,
 }
 
@@ -73,6 +78,7 @@ impl AgentServiceImpl {
             approval_queue,
             runtime,
             file_snapshot_registry,
+            active_executions: Arc::new(Mutex::new(HashMap::new())),
             runtime_handle,
         })
     }
@@ -84,6 +90,42 @@ impl AgentServiceImpl {
 
     pub(crate) fn runtime(&self) -> &Arc<AgentRuntime> {
         &self.runtime
+    }
+
+    pub(crate) async fn is_execution_active(&self, session_id: &str) -> bool {
+        let mut active = self.active_executions.lock().await;
+        match active.get(session_id) {
+            Some(handle) if handle.is_finished() => {
+                active.remove(session_id);
+                false
+            }
+            Some(_) => true,
+            None => false,
+        }
+    }
+
+    pub(crate) async fn register_execution(
+        &self,
+        session_id: String,
+        handle: JoinHandle<()>,
+    ) -> Option<JoinHandle<()>> {
+        let mut active = self.active_executions.lock().await;
+        active.insert(session_id, handle)
+    }
+
+    pub(crate) async fn abort_execution(&self, session_id: &str) -> bool {
+        let mut active = self.active_executions.lock().await;
+        if let Some(handle) = active.remove(session_id) {
+            handle.abort();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) async fn clear_execution(&self, session_id: &str) {
+        let mut active = self.active_executions.lock().await;
+        active.remove(session_id);
     }
 
     #[cfg(test)]

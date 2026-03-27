@@ -123,10 +123,11 @@ impl Agent {
          'Reading main.rs...', 'Planning refactoring...', 'Running tests...', \
          'Analyzing code structure...', 'Processing results...'.
 
-         ## DO NOT CREATE MULTIPLE PLANS
+         ## PLAN REUSE AND REPLANNING
 
          Once you have created your initial plan with 'agent_plan_subtasks', \
-         DO NOT call it again. Follow your original plan to completion.
+         follow your original plan to completion. If planning is called again \
+         after subtasks already exist, treat it as a no-op and continue.
 
          ## FINAL STEP
 

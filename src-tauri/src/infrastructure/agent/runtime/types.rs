@@ -18,6 +18,8 @@ pub enum AgentRuntimeError {
     ActionDenied,
     #[error("Approval timeout - action timed out waiting for approval")]
     ApprovalTimeout,
+    #[error("Execution cancelled")]
+    Cancelled,
     #[error("Repository error: {0}")]
     Repository(String),
     #[error("Config error: {0}")]
@@ -153,6 +155,7 @@ mod tests {
             AgentRuntimeError::LoopDetected,
             AgentRuntimeError::ActionDenied,
             AgentRuntimeError::ApprovalTimeout,
+            AgentRuntimeError::Cancelled,
             AgentRuntimeError::Repository("Database error".to_string()),
             AgentRuntimeError::Config("Missing config".to_string()),
         ];

@@ -1,0 +1,686 @@
+//! Draft store for incremental document building.
+//!
+//! Manages in-memory drafts for DOCX, PPTX, and PDF documents that are
+//! being constructed incrementally by agents.
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Duration;
+use uuid::Uuid;
+
+/// Global draft store instance.
+pub static DRAFT_STORE: OnceLock<Arc<Mutex<DraftStore>>> = OnceLock::new();
+
+/// Get the global draft store, initializing if needed.
+pub fn get_draft_store() -> Arc<Mutex<DraftStore>> {
+    DRAFT_STORE
+        .get_or_init(|| Arc::new(Mutex::new(DraftStore::new())))
+        .clone()
+}
+
+/// In-memory storage for active document drafts.
+pub struct DraftStore {
+    /// DOCX drafts indexed by document_id
+    docx_drafts: HashMap<String, DocxDraft>,
+    /// PPTX drafts indexed by deck_id
+    pptx_drafts: HashMap<String, PptxDraft>,
+    /// PDF drafts indexed by pdf_id
+    pdf_drafts: HashMap<String, PdfDraft>,
+}
+
+impl Default for DraftStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DraftStore {
+    /// Create a new empty draft store.
+    pub fn new() -> Self {
+        Self {
+            docx_drafts: HashMap::new(),
+            pptx_drafts: HashMap::new(),
+            pdf_drafts: HashMap::new(),
+        }
+    }
+
+    // === DOCX Draft Methods ===
+
+    /// Create a new DOCX draft and return its ID.
+    pub fn create_docx_draft(&mut self, filename: String) -> String {
+        let id = format!("docx_{}", Uuid::new_v4());
+        let draft = DocxDraft {
+            document_id: id.clone(),
+            filename,
+            sections: Vec::new(),
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        self.docx_drafts.insert(id.clone(), draft);
+        id
+    }
+
+    /// Get a mutable reference to a DOCX draft.
+    pub fn get_docx_draft_mut(&mut self, doc_id: &str) -> Option<&mut DocxDraft> {
+        self.docx_drafts.get_mut(doc_id)
+    }
+
+    /// Get an immutable reference to a DOCX draft.
+    pub fn get_docx_draft(&self, doc_id: &str) -> Option<&DocxDraft> {
+        self.docx_drafts.get(doc_id)
+    }
+
+    /// Add a section to a DOCX draft.
+    pub fn add_docx_section(
+        &mut self,
+        doc_id: &str,
+        content: DocxContent,
+    ) -> Result<String, DraftError> {
+        let draft = self
+            .docx_drafts
+            .get_mut(doc_id)
+            .ok_or_else(|| DraftError::DraftNotFound(doc_id.to_string()))?;
+
+        if draft.status != DraftStatus::Building {
+            return Err(DraftError::NotBuilding(draft.status.clone()));
+        }
+
+        let section_id = format!("sec_{}", Uuid::new_v4());
+        let index = draft.sections.len();
+        draft.sections.push(DraftSection {
+            id: section_id.clone(),
+            index,
+            content,
+        });
+        draft.updated_at = Utc::now();
+        Ok(section_id)
+    }
+
+    /// Remove a DOCX draft and return it.
+    pub fn remove_docx_draft(&mut self, doc_id: &str) -> Option<DocxDraft> {
+        self.docx_drafts.remove(doc_id)
+    }
+
+    // === PPTX Draft Methods ===
+
+    /// Create a new PPTX draft and return its ID.
+    pub fn create_pptx_draft(&mut self, filename: String) -> String {
+        let id = format!("pptx_{}", Uuid::new_v4());
+        let draft = PptxDraft {
+            deck_id: id.clone(),
+            filename,
+            slides: Vec::new(),
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        self.pptx_drafts.insert(id.clone(), draft);
+        id
+    }
+
+    /// Get a mutable reference to a PPTX draft.
+    pub fn get_pptx_draft_mut(&mut self, deck_id: &str) -> Option<&mut PptxDraft> {
+        self.pptx_drafts.get_mut(deck_id)
+    }
+
+    /// Get an immutable reference to a PPTX draft.
+    pub fn get_pptx_draft(&self, deck_id: &str) -> Option<&PptxDraft> {
+        self.pptx_drafts.get(deck_id)
+    }
+
+    /// Add a slide to a PPTX draft.
+    pub fn add_pptx_slide(
+        &mut self,
+        deck_id: &str,
+        slide: PptxSlide,
+    ) -> Result<String, DraftError> {
+        let draft = self
+            .pptx_drafts
+            .get_mut(deck_id)
+            .ok_or_else(|| DraftError::DraftNotFound(deck_id.to_string()))?;
+
+        if draft.status != DraftStatus::Building {
+            return Err(DraftError::NotBuilding(draft.status.clone()));
+        }
+
+        let slide_id = format!("slide_{}", Uuid::new_v4());
+        let index = draft.slides.len();
+        draft.slides.push(DraftSlide {
+            id: slide_id.clone(),
+            index,
+            slide,
+        });
+        draft.updated_at = Utc::now();
+        Ok(slide_id)
+    }
+
+    /// Remove a PPTX draft and return it.
+    pub fn remove_pptx_draft(&mut self, deck_id: &str) -> Option<PptxDraft> {
+        self.pptx_drafts.remove(deck_id)
+    }
+
+    // === PDF Draft Methods ===
+
+    /// Create a new PDF draft and return its ID.
+    pub fn create_pdf_draft(&mut self, filename: String, page_size: Option<PdfPageSize>) -> String {
+        let id = format!("pdf_{}", Uuid::new_v4());
+        let draft = PdfDraft {
+            pdf_id: id.clone(),
+            filename,
+            pages: Vec::new(),
+            page_size: page_size.unwrap_or_default(),
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        self.pdf_drafts.insert(id.clone(), draft);
+        id
+    }
+
+    /// Get a mutable reference to a PDF draft.
+    pub fn get_pdf_draft_mut(&mut self, pdf_id: &str) -> Option<&mut PdfDraft> {
+        self.pdf_drafts.get_mut(pdf_id)
+    }
+
+    /// Get an immutable reference to a PDF draft.
+    pub fn get_pdf_draft(&self, pdf_id: &str) -> Option<&PdfDraft> {
+        self.pdf_drafts.get(pdf_id)
+    }
+
+    /// Add a page to a PDF draft.
+    pub fn add_pdf_page(
+        &mut self,
+        pdf_id: &str,
+        content: PdfPageContent,
+    ) -> Result<String, DraftError> {
+        let draft = self
+            .pdf_drafts
+            .get_mut(pdf_id)
+            .ok_or_else(|| DraftError::DraftNotFound(pdf_id.to_string()))?;
+
+        if draft.status != DraftStatus::Building {
+            return Err(DraftError::NotBuilding(draft.status.clone()));
+        }
+
+        let page_id = format!("page_{}", Uuid::new_v4());
+        let index = draft.pages.len();
+        draft.pages.push(DraftPage {
+            id: page_id.clone(),
+            index,
+            content,
+        });
+        draft.updated_at = Utc::now();
+        Ok(page_id)
+    }
+
+    /// Remove a PDF draft and return it.
+    pub fn remove_pdf_draft(&mut self, pdf_id: &str) -> Option<PdfDraft> {
+        self.pdf_drafts.remove(pdf_id)
+    }
+
+    // === Cleanup Methods ===
+
+    /// Remove drafts that have been abandoned (in Building status for too long).
+    pub fn cleanup_expired_drafts(&mut self, timeout: Duration) -> usize {
+        let now = Utc::now();
+        let mut removed = 0;
+
+        // Clean DOCX drafts
+        self.docx_drafts.retain(|_, draft| {
+            if draft.status == DraftStatus::Building {
+                let age = now.signed_duration_since(draft.updated_at);
+                if age.num_seconds() > timeout.as_secs() as i64 {
+                    removed += 1;
+                    return false;
+                }
+            }
+            true
+        });
+
+        // Clean PPTX drafts
+        self.pptx_drafts.retain(|_, draft| {
+            if draft.status == DraftStatus::Building {
+                let age = now.signed_duration_since(draft.updated_at);
+                if age.num_seconds() > timeout.as_secs() as i64 {
+                    removed += 1;
+                    return false;
+                }
+            }
+            true
+        });
+
+        // Clean PDF drafts
+        self.pdf_drafts.retain(|_, draft| {
+            if draft.status == DraftStatus::Building {
+                let age = now.signed_duration_since(draft.updated_at);
+                if age.num_seconds() > timeout.as_secs() as i64 {
+                    removed += 1;
+                    return false;
+                }
+            }
+            true
+        });
+
+        removed
+    }
+
+    /// Get counts of all drafts by status.
+    pub fn get_counts(&self) -> DraftCounts {
+        let mut counts = DraftCounts::default();
+        counts.docx_building = self
+            .docx_drafts
+            .values()
+            .filter(|d| d.status == DraftStatus::Building)
+            .count();
+        counts.docx_finalizing = self
+            .docx_drafts
+            .values()
+            .filter(|d| d.status == DraftStatus::Finalizing)
+            .count();
+        counts.pptx_building = self
+            .pptx_drafts
+            .values()
+            .filter(|d| d.status == DraftStatus::Building)
+            .count();
+        counts.pptx_finalizing = self
+            .pptx_drafts
+            .values()
+            .filter(|d| d.status == DraftStatus::Finalizing)
+            .count();
+        counts.pdf_building = self
+            .pdf_drafts
+            .values()
+            .filter(|d| d.status == DraftStatus::Building)
+            .count();
+        counts.pdf_finalizing = self
+            .pdf_drafts
+            .values()
+            .filter(|d| d.status == DraftStatus::Finalizing)
+            .count();
+        counts
+    }
+}
+
+// === Draft Types ===
+
+/// Status of a document draft.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum DraftStatus {
+    /// Draft is actively being built
+    Building,
+    /// Draft is being finalized (generating actual file)
+    Finalizing,
+    /// Draft is complete and stored as artifact
+    Complete,
+    /// Draft was abandoned by user
+    Abandoned,
+}
+
+/// A DOCX draft being incrementally built.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocxDraft {
+    pub document_id: String,
+    pub filename: String,
+    pub sections: Vec<DraftSection>,
+    pub status: DraftStatus,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// A PPTX draft being incrementally built.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PptxDraft {
+    pub deck_id: String,
+    pub filename: String,
+    pub slides: Vec<DraftSlide>,
+    pub status: DraftStatus,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// A PDF draft being incrementally built.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PdfDraft {
+    pub pdf_id: String,
+    pub filename: String,
+    pub pages: Vec<DraftPage>,
+    pub page_size: PdfPageSize,
+    pub status: DraftStatus,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// A section within a DOCX draft.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DraftSection {
+    pub id: String,
+    pub index: usize,
+    pub content: DocxContent,
+}
+
+/// A slide within a PPTX draft.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DraftSlide {
+    pub id: String,
+    pub index: usize,
+    pub slide: PptxSlide,
+}
+
+/// A page within a PDF draft.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DraftPage {
+    pub id: String,
+    pub index: usize,
+    pub content: PdfPageContent,
+}
+
+// === Content Types ===
+
+/// Content types for DOCX sections.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum DocxContent {
+    Heading {
+        level: u8,
+        text: String,
+        page_break_before: bool,
+    },
+    Paragraph {
+        text: String,
+        style: Option<String>,
+    },
+    BulletList {
+        items: Vec<String>,
+    },
+    NumberedList {
+        items: Vec<String>,
+        start_at: Option<u32>,
+    },
+    Table {
+        headers: Vec<String>,
+        rows: Vec<Vec<String>>,
+        caption: Option<String>,
+    },
+    Image {
+        path: String,
+        caption: Option<String>,
+        width: Option<String>,
+    },
+    PageBreak,
+    HorizontalRule,
+}
+
+/// A slide in a PPTX presentation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PptxSlide {
+    pub layout: SlideLayout,
+    pub title: String,
+    pub content: Vec<SlideContent>,
+    pub notes: Option<String>,
+}
+
+/// Slide layout types.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum SlideLayout {
+    TitleSlide,
+    TitleAndContent,
+    SectionHeader,
+    TwoColumn,
+    TwoContent,
+    Comparison,
+    ContentWithCaption,
+    Blank,
+}
+
+/// Content within a slide.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum SlideContent {
+    Title,
+    Subtitle,
+    TextBox {
+        text: String,
+        position: Option<String>,
+    },
+    BulletList {
+        items: Vec<String>,
+        level: u8,
+    },
+    NumberedList {
+        items: Vec<String>,
+    },
+    Table {
+        headers: Vec<String>,
+        rows: Vec<Vec<String>>,
+    },
+    Image {
+        path: String,
+        caption: Option<String>,
+    },
+    ChartPlaceholder {
+        title: String,
+        data_type: String,
+    },
+}
+
+/// Content types for PDF pages.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum PdfPageContent {
+    Markdown {
+        content: String,
+    },
+    Html {
+        content: String,
+        styles: Option<String>,
+    },
+    Text {
+        content: String,
+    },
+    Image {
+        path: String,
+        caption: Option<String>,
+    },
+}
+
+/// PDF page sizes.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq)]
+pub enum PdfPageSize {
+    #[default]
+    A4,
+    Letter,
+    Legal,
+    A3,
+}
+
+// === Error Types ===
+
+/// Errors that can occur in draft operations.
+#[derive(Debug, thiserror::Error)]
+pub enum DraftError {
+    #[error("Draft not found: {0}")]
+    DraftNotFound(String),
+
+    #[error("Draft is not in Building status, current status: {0:?}")]
+    NotBuilding(DraftStatus),
+
+    #[error("Section not found: {0}")]
+    SectionNotFound(String),
+
+    #[error("Slide not found: {0}")]
+    SlideNotFound(String),
+
+    #[error("Page not found: {0}")]
+    PageNotFound(String),
+}
+
+/// Counts of drafts by type and status.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct DraftCounts {
+    pub docx_building: usize,
+    pub docx_finalizing: usize,
+    pub pptx_building: usize,
+    pub pptx_finalizing: usize,
+    pub pdf_building: usize,
+    pub pdf_finalizing: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_docx_draft() {
+        let mut store = DraftStore::new();
+        let id = store.create_docx_draft("test.docx".to_string());
+
+        let draft = store.get_docx_draft(&id).unwrap();
+        assert_eq!(draft.filename, "test.docx");
+        assert_eq!(draft.sections.len(), 0);
+        assert_eq!(draft.status, DraftStatus::Building);
+    }
+
+    #[test]
+    fn test_add_docx_section() {
+        let mut store = DraftStore::new();
+        let id = store.create_docx_draft("test.docx".to_string());
+
+        let content = DocxContent::Heading {
+            level: 1,
+            text: "Title".to_string(),
+            page_break_before: false,
+        };
+
+        let section_id = store.add_docx_section(&id, content).unwrap();
+
+        let draft = store.get_docx_draft(&id).unwrap();
+        assert_eq!(draft.sections.len(), 1);
+        assert_eq!(draft.sections[0].id, section_id);
+        assert_eq!(draft.sections[0].index, 0);
+    }
+
+    #[test]
+    fn test_add_multiple_docx_sections() {
+        let mut store = DraftStore::new();
+        let id = store.create_docx_draft("test.docx".to_string());
+
+        store
+            .add_docx_section(
+                &id,
+                DocxContent::Heading {
+                    level: 1,
+                    text: "Title".to_string(),
+                    page_break_before: false,
+                },
+            )
+            .unwrap();
+
+        store
+            .add_docx_section(
+                &id,
+                DocxContent::Paragraph {
+                    text: "Content".to_string(),
+                    style: None,
+                },
+            )
+            .unwrap();
+
+        let draft = store.get_docx_draft(&id).unwrap();
+        assert_eq!(draft.sections.len(), 2);
+        assert_eq!(draft.sections[0].index, 0);
+        assert_eq!(draft.sections[1].index, 1);
+    }
+
+    #[test]
+    fn test_create_pptx_draft() {
+        let mut store = DraftStore::new();
+        let id = store.create_pptx_draft("presentation.pptx".to_string());
+
+        let draft = store.get_pptx_draft(&id).unwrap();
+        assert_eq!(draft.filename, "presentation.pptx");
+        assert_eq!(draft.slides.len(), 0);
+    }
+
+    #[test]
+    fn test_add_pptx_slide() {
+        let mut store = DraftStore::new();
+        let id = store.create_pptx_draft("presentation.pptx".to_string());
+
+        let slide = PptxSlide {
+            layout: SlideLayout::TitleSlide,
+            title: "Title".to_string(),
+            content: vec![],
+            notes: None,
+        };
+
+        let slide_id = store.add_pptx_slide(&id, slide).unwrap();
+
+        let draft = store.get_pptx_draft(&id).unwrap();
+        assert_eq!(draft.slides.len(), 1);
+        assert_eq!(draft.slides[0].id, slide_id);
+    }
+
+    #[test]
+    fn test_create_pdf_draft() {
+        let mut store = DraftStore::new();
+        let id = store.create_pdf_draft("document.pdf".to_string(), None);
+
+        let draft = store.get_pdf_draft(&id).unwrap();
+        assert_eq!(draft.filename, "document.pdf");
+        assert_eq!(draft.pages.len(), 0);
+        assert_eq!(draft.page_size, PdfPageSize::A4);
+    }
+
+    #[test]
+    fn test_add_pdf_page() {
+        let mut store = DraftStore::new();
+        let id = store.create_pdf_draft("document.pdf".to_string(), None);
+
+        let content = PdfPageContent::Text {
+            content: "Page content".to_string(),
+        };
+
+        let page_id = store.add_pdf_page(&id, content).unwrap();
+
+        let draft = store.get_pdf_draft(&id).unwrap();
+        assert_eq!(draft.pages.len(), 1);
+        assert_eq!(draft.pages[0].id, page_id);
+    }
+
+    #[test]
+    fn test_draft_not_found_error() {
+        let store = DraftStore::new();
+        let result = store.get_docx_draft("nonexistent");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_remove_docx_draft() {
+        let mut store = DraftStore::new();
+        let id = store.create_docx_draft("test.docx".to_string());
+
+        let removed = store.remove_docx_draft(&id).unwrap();
+        assert_eq!(removed.filename, "test.docx");
+
+        assert!(store.get_docx_draft(&id).is_none());
+    }
+
+    #[test]
+    fn test_get_counts() {
+        let mut store = DraftStore::new();
+
+        store.create_docx_draft("test1.docx".to_string());
+        store.create_docx_draft("test2.docx".to_string());
+        store.create_pptx_draft("test.pptx".to_string());
+        store.create_pdf_draft("test.pdf".to_string(), None);
+
+        let counts = store.get_counts();
+        assert_eq!(counts.docx_building, 2);
+        assert_eq!(counts.pptx_building, 1);
+        assert_eq!(counts.pdf_building, 1);
+    }
+}

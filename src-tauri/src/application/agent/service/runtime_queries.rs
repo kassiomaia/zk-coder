@@ -8,7 +8,7 @@ use crate::application::agent::read_models::{
     AgentCatalog, AgentExecutionContext, AgentSessionRuntimeDetails, FileTouchedView,
     PendingActionsView, TerminalLineView, ToolCallView,
 };
-use crate::core::agent::entities::AgentDomainError;
+use crate::core::agent::entities::{AgentDomainError, SessionState as CoreSessionState};
 use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::session::SessionId;
 use crate::core::agent::task::AgentRequest;
@@ -26,16 +26,50 @@ impl AgentServiceImpl {
         content: String,
         app_handle: AppHandle,
     ) -> RepositoryResult<String> {
+        let core_session = self
+            .session_repo
+            .get_session(&crate::core::agent::entities::SessionId(session_id.clone()))?;
+
+        if self.is_execution_active(&session_id).await {
+            return Err(AgentDomainError::InvalidInput {
+                reason: "An agent run is already active for this session".to_string(),
+            });
+        }
+
+        match &core_session.state {
+            CoreSessionState::Processing { .. } | CoreSessionState::AwaitingApproval { .. } => {
+                return Err(AgentDomainError::InvalidInput {
+                    reason: "This session is already processing a request".to_string(),
+                });
+            }
+            CoreSessionState::Cancelled { .. } => {
+                return Err(AgentDomainError::InvalidInput {
+                    reason: "This session was cancelled and cannot accept new requests".to_string(),
+                });
+            }
+            CoreSessionState::WaitForRequest { .. }
+            | CoreSessionState::Finished { .. }
+            | CoreSessionState::Error { .. } => {}
+        }
+
         let sid = SessionId(session_id.clone());
+        self.telemetry_repo
+            .clear_session_runtime_data(&sid)
+            .map_err(store_error_to_domain)?;
+        self.approval_queue.clear_session(&session_id).await;
+
         let execution = self.prepare_execution(&sid).await?;
         let runtime = self.runtime.clone();
+        let active_executions = self.active_executions.clone();
+        let session_id_for_task = session_id.clone();
+        let session_id_for_cleanup = session_id.clone();
 
         info!(
             "[AgentCommand] Spawning agent execution for session {}",
             session_id
         );
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             let result = runtime
                 .execute(
                     &execution.session,
@@ -54,25 +88,38 @@ impl AgentServiceImpl {
                 Ok(execution_result) => {
                     info!(
                         "[AgentCommand] Agent execution completed for session {}, content length: {}",
-                        session_id,
+                        session_id_for_task,
                         execution_result.content.len()
+                    );
+                }
+                Err(crate::infrastructure::agent::runtime::AgentRuntimeError::Cancelled) => {
+                    info!(
+                        "[AgentCommand] Agent execution cancelled for session {}",
+                        session_id_for_task
                     );
                 }
                 Err(error) => {
                     error!(
                         "[AgentRuntime] Execution failed for session {}: {}",
-                        session_id, error
+                        session_id_for_task, error
                     );
                     let _ = app_handle.emit(
                         AGENT_EVENT_NAME,
                         AgentEvent::ExecutionError {
-                            session_id,
+                            session_id: session_id_for_task,
                             error: error.to_string(),
                         },
                     );
                 }
             }
+
+            let mut active = active_executions.lock().await;
+            active.remove(&session_id_for_cleanup);
         });
+
+        if let Some(stale) = self.register_execution(session_id.clone(), handle).await {
+            stale.abort();
+        }
 
         Ok(sid.0)
     }

@@ -14,7 +14,9 @@ pub fn derive_system_prompt(
             if summary.status == TaskStatus::InProgress {
                 format!(
                     "{}\n\n## Current Task ({}/{}): {}\n\n{}\n\nFocus on completing this task. \
-                        When done, call agent_advance_to_next_subtask.",
+                        When done, call agent_advance_to_next_subtask. \
+                        If agent_plan_subtasks is called again after planning, \
+                        treat it as a no-op and continue the current plan.",
                     agent_system_prompt,
                     summary.order + 1,
                     total,
@@ -38,7 +40,36 @@ pub fn infer_action_type(tool_name: &str, arguments: &serde_json::Value) -> Acti
         .unwrap_or("")
         .to_string();
 
+    // Extract filename for document operations
+    let filename = arguments
+        .get("filename")
+        .or_else(|| arguments.get("title"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
     match tool_name {
+        // Document creation tools
+        name if name.contains("docx") && name.contains("start") => {
+            ActionType::CreateDocx { filename }
+        }
+        name if name.contains("pptx") && name.contains("start") => {
+            ActionType::CreatePptx { filename }
+        }
+        name if name.contains("pdf") && name.contains("start") => {
+            ActionType::CreatePdf { filename }
+        }
+        // Document finalization tools
+        name if name.contains("docx") && (name.contains("finalize") || name.contains("final")) => {
+            ActionType::FinalizeDocx { filename }
+        }
+        name if name.contains("pptx") && (name.contains("finalize") || name.contains("final")) => {
+            ActionType::FinalizePptx { filename }
+        }
+        name if name.contains("pdf") && (name.contains("finalize") || name.contains("final")) => {
+            ActionType::FinalizePdf { filename }
+        }
+        // Standard file operations
         name if name.contains("read") => ActionType::ReadFile { path },
         name if name.contains("write") || name.contains("create") => {
             let size = arguments
@@ -399,6 +430,24 @@ mod tests {
             ActionType::WebRequest {
                 url: "https://example.com".to_string(),
             },
+            ActionType::CreateDocx {
+                filename: "test.docx".to_string(),
+            },
+            ActionType::CreatePptx {
+                filename: "test.pptx".to_string(),
+            },
+            ActionType::CreatePdf {
+                filename: "test.pdf".to_string(),
+            },
+            ActionType::FinalizeDocx {
+                filename: "test.docx".to_string(),
+            },
+            ActionType::FinalizePptx {
+                filename: "test.pptx".to_string(),
+            },
+            ActionType::FinalizePdf {
+                filename: "test.pdf".to_string(),
+            },
         ];
 
         for action in actions {
@@ -424,8 +473,96 @@ mod tests {
                 (ActionType::WebRequest { url: a }, ActionType::WebRequest { url: b }) => {
                     assert_eq!(a, b);
                 }
+                (ActionType::CreateDocx { filename: a }, ActionType::CreateDocx { filename: b }) => {
+                    assert_eq!(a, b);
+                }
+                (ActionType::CreatePptx { filename: a }, ActionType::CreatePptx { filename: b }) => {
+                    assert_eq!(a, b);
+                }
+                (ActionType::CreatePdf { filename: a }, ActionType::CreatePdf { filename: b }) => {
+                    assert_eq!(a, b);
+                }
+                (
+                    ActionType::FinalizeDocx { filename: a },
+                    ActionType::FinalizeDocx { filename: b },
+                ) => {
+                    assert_eq!(a, b);
+                }
+                (
+                    ActionType::FinalizePptx { filename: a },
+                    ActionType::FinalizePptx { filename: b },
+                ) => {
+                    assert_eq!(a, b);
+                }
+                (
+                    ActionType::FinalizePdf { filename: a },
+                    ActionType::FinalizePdf { filename: b },
+                ) => {
+                    assert_eq!(a, b);
+                }
                 _ => panic!("Action types don't match"),
             }
+        }
+    }
+
+    #[test]
+    fn test_infer_action_type_docx_start() {
+        let action = infer_action_type(
+            "docx_start",
+            &serde_json::json!({"filename": "report.docx"}),
+        );
+        match action {
+            ActionType::CreateDocx { filename } => assert_eq!(filename, "report.docx"),
+            _ => panic!("Expected CreateDocx"),
+        }
+    }
+
+    #[test]
+    fn test_infer_action_type_docx_finalize() {
+        let action = infer_action_type(
+            "docx_finalize",
+            &serde_json::json!({"filename": "report.docx"}),
+        );
+        match action {
+            ActionType::FinalizeDocx { filename } => assert_eq!(filename, "report.docx"),
+            _ => panic!("Expected FinalizeDocx"),
+        }
+    }
+
+    #[test]
+    fn test_infer_action_type_pptx_start() {
+        let action = infer_action_type(
+            "pptx_start",
+            &serde_json::json!({"filename": "deck.pptx"}),
+        );
+        match action {
+            ActionType::CreatePptx { filename } => assert_eq!(filename, "deck.pptx"),
+            _ => panic!("Expected CreatePptx"),
+        }
+    }
+
+    #[test]
+    fn test_infer_action_type_pdf_finalize() {
+        let action = infer_action_type(
+            "pdf_finalize",
+            &serde_json::json!({"filename": "doc.pdf"}),
+        );
+        match action {
+            ActionType::FinalizePdf { filename } => assert_eq!(filename, "doc.pdf"),
+            _ => panic!("Expected FinalizePdf"),
+        }
+    }
+
+    #[test]
+    fn test_infer_action_type_docx_add_section_defaults_to_read() {
+        // docx_add_section doesn't match any document pattern, defaults to ReadFile
+        let action = infer_action_type(
+            "docx_add_section",
+            &serde_json::json!({"document_id": "abc", "content": {}}),
+        );
+        match action {
+            ActionType::ReadFile { .. } => {}
+            _ => panic!("Expected ReadFile as default for non-matching docx tool"),
         }
     }
 }

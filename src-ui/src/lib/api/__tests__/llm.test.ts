@@ -230,14 +230,16 @@ describe('llm API', () => {
 				payload: {
 					type: 'chunk',
 					requestId: 'request-123',
-					delta: 'Hello'
+					delta: 'Hello',
+					reasoning_delta: 'Thinking...'
 				}
 			});
 
 			expect(onEvent).toHaveBeenCalledWith({
 				type: 'chunk',
 				requestId: 'request-123',
-				delta: 'Hello'
+				delta: 'Hello',
+				reasoning_delta: 'Thinking...'
 			});
 
 			// Simulate complete event with snake_case usage

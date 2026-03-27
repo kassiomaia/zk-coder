@@ -70,6 +70,7 @@ impl PermissionResolver {
 
     /// Default permission based on the type of action.
     /// Read operations are auto-run; writes, deletes, and commands require approval.
+    /// Document creation and finalization require approval.
     fn default_for_action(action: &ActionType) -> PermissionLevel {
         match action {
             ActionType::ReadFile { .. } => PermissionLevel::AutoRun,
@@ -77,6 +78,13 @@ impl PermissionResolver {
             ActionType::DeleteFile { .. } => PermissionLevel::ApprovalRequired,
             ActionType::ExecuteCommand { .. } => PermissionLevel::ApprovalRequired,
             ActionType::WebRequest { .. } => PermissionLevel::AutoRun,
+            // Document operations require approval
+            ActionType::CreateDocx { .. } => PermissionLevel::ApprovalRequired,
+            ActionType::CreatePptx { .. } => PermissionLevel::ApprovalRequired,
+            ActionType::CreatePdf { .. } => PermissionLevel::ApprovalRequired,
+            ActionType::FinalizeDocx { .. } => PermissionLevel::ApprovalRequired,
+            ActionType::FinalizePptx { .. } => PermissionLevel::ApprovalRequired,
+            ActionType::FinalizePdf { .. } => PermissionLevel::ApprovalRequired,
         }
     }
 }

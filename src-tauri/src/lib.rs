@@ -12,6 +12,7 @@ pub mod commands;
 pub mod infrastructure;
 
 use commands::{AgentState, ChatState, ConfigState, LlmState, NlpState};
+use infrastructure::tools::documents::shared::ArtifactStore;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::Manager;
@@ -81,6 +82,10 @@ pub fn run() {
             app.manage(config_state);
             app.manage(llm_state);
             app.manage(agent_state);
+
+            // Initialize and manage artifact store
+            let artifact_store = Arc::new(std::sync::Mutex::new(ArtifactStore::new()));
+            app.manage(artifact_store);
 
             // Configure logging - always log to file, also log to stdout in debug mode
             let log_targets = if cfg!(debug_assertions) {
@@ -192,6 +197,16 @@ pub fn run() {
             // Session history commands
             commands::agent::history::get_conversation_session_history,
             commands::agent::history::get_session_details,
+            // Document artifact commands
+            commands::documents::list_artifacts,
+            commands::documents::list_all_artifacts,
+            commands::documents::download_artifact,
+            commands::documents::get_artifact,
+            commands::documents::save_artifact,
+            commands::documents::update_metadata,
+            commands::documents::delete_artifact,
+            commands::documents::cleanup_session,
+            commands::documents::count_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -162,11 +162,16 @@ export async function cancelSession(
 		const { invoke } = await import('@tauri-apps/api/core');
 		await invoke('cancel_agent_session', { sessionId });
 		update((state) => {
-			state.sessions.delete(sessionId);
+			const session = state.sessions.get(sessionId);
+			if (session) {
+				state.sessions.set(sessionId, {
+					...session,
+					state: { type: 'cancelled', reason: 'User cancelled' }
+				});
+			}
 			return {
 				...state,
-				sessions: new Map(state.sessions),
-				activeSessionId: state.activeSessionId === sessionId ? null : state.activeSessionId
+				sessions: new Map(state.sessions)
 			};
 		});
 	} catch (error) {

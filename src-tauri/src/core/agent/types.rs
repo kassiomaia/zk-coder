@@ -77,6 +77,13 @@ pub enum ActionType {
     DeleteFile { path: String },
     ExecuteCommand { command: String },
     WebRequest { url: String },
+    // Document generation actions
+    CreateDocx { filename: String },
+    CreatePptx { filename: String },
+    CreatePdf { filename: String },
+    FinalizeDocx { filename: String },
+    FinalizePptx { filename: String },
+    FinalizePdf { filename: String },
 }
 
 /// Preview content for an action awaiting approval.

@@ -1,0 +1,314 @@
+/**
+ * ArtifactPanel Component Styles
+ * Sidebar panel for browsing and managing document artifacts.
+ *
+ * Design Features:
+ * - Clean filter buttons with active states
+ * - Grouped display for "All Documents" view
+ * - Compact list items with file info
+ * - Selection highlighting
+ * - Empty state messaging
+ * - Scrollable artifact list
+ */
+
+.artifactPanel {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--color-surface);
+	border-right: 1px solid var(--color-border);
+}
+
+/* Header Section */
+
+.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--space-4) var(--space-4) var(--space-3);
+	border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+	font-size: var(--text-base);
+	font-weight: var(--font-semibold);
+	color: var(--color-text-primary);
+	margin: 0;
+}
+
+.count {
+	font-size: var(--text-xs);
+	color: var(--color-text-muted);
+}
+
+/* Filter Buttons */
+
+.filters {
+	display: flex;
+	gap: var(--space-1);
+	padding: var(--space-2) var(--space-4);
+	border-bottom: 1px solid var(--color-border);
+	overflow-x: auto;
+	flex-shrink: 0;
+}
+
+.filterButton {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-2);
+	font-size: var(--text-xs);
+	font-weight: var(--font-medium);
+	color: var(--color-text-secondary);
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	transition: all var(--transition-fast) ease;
+	white-space: nowrap;
+}
+
+.filterButton:hover {
+	background: var(--color-neutral-100);
+	color: var(--color-text-primary);
+}
+
+.filterButton.active {
+	background: var(--color-primary-50);
+	color: var(--color-primary-700);
+	border-color: var(--color-primary-200);
+}
+
+.filterIcon {
+	font-size: 0.875rem;
+	line-height: 1;
+}
+
+.filterLabel {
+	display: none;
+}
+
+@media (min-width: 640px) {
+	.filterLabel {
+		display: inline;
+	}
+}
+
+.filterCount {
+	font-variant-numeric: tabular-nums;
+	opacity: 0.7;
+}
+
+/* Artifact List */
+
+.artifactList {
+	flex: 1;
+	overflow-y: auto;
+	padding: var(--space-2);
+}
+
+/* Scrollbar styling */
+.artifactList::-webkit-scrollbar {
+	width: 6px;
+}
+
+.artifactList::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.artifactList::-webkit-scrollbar-thumb {
+	background: var(--color-neutral-300);
+	border-radius: var(--radius-full);
+}
+
+.artifactList::-webkit-scrollbar-thumb:hover {
+	background: var(--color-neutral-400);
+}
+
+/* Empty State */
+
+.emptyState {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-12) var(--space-6);
+	text-align: center;
+	height: 100%;
+}
+
+.emptyIcon {
+	font-size: 3rem;
+	margin-bottom: var(--space-4);
+	opacity: 0.5;
+}
+
+.emptyMessage {
+	font-size: var(--text-sm);
+	color: var(--color-text-muted);
+	margin: 0;
+}
+
+/* Artifact Groups (for "All" view) */
+
+.artifactGroup {
+	margin-bottom: var(--space-4);
+}
+
+.artifactGroup:last-child {
+	margin-bottom: 0;
+}
+
+.groupTitle {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	font-size: var(--text-xs);
+	font-weight: var(--font-semibold);
+	color: var(--color-text-secondary);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-wide);
+	padding: var(--space-2) var(--space-3);
+	margin: 0 0 var(--space-2);
+}
+
+.groupCount {
+	font-variant-numeric: tabular-nums;
+	opacity: 0.6;
+}
+
+/* Artifact Grid */
+
+.artifactGrid {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+}
+
+/* Artifact Item (list item) */
+
+.artifactItem {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-0-5);
+	padding: var(--space-2) var(--space-3);
+	border: 1px solid transparent;
+	border-radius: var(--radius-md);
+	background: transparent;
+	cursor: pointer;
+	transition: all var(--transition-fast) ease;
+}
+
+.artifactItem:hover {
+	background: var(--color-neutral-100);
+}
+
+.artifactItem.selected {
+	background: var(--color-primary-50);
+	border-color: var(--color-primary-200);
+}
+
+.artifactItem.selected:hover {
+	background: var(--color-primary-100);
+}
+
+.artifactItem:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+}
+
+/* Artifact Header (icon + filename + size) */
+
+.artifactHeader {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.artifactIcon {
+	font-size: 1rem;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+.artifactFilename {
+	flex: 1;
+	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
+	color: var(--color-text-primary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.artifactSize {
+	font-size: var(--text-2xs);
+	color: var(--color-text-muted);
+	font-variant-numeric: tabular-nums;
+	flex-shrink: 0;
+}
+
+/* Artifact Date */
+
+.artifactDate {
+	font-size: var(--text-2xs);
+	color: var(--color-text-muted);
+	padding-left: calc(1rem + var(--space-2)); /* Align with filename */
+}
+
+/* Responsive Adjustments */
+
+@media (max-width: 480px) {
+	.artifactPanel {
+		border-right: none;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.header {
+		padding: var(--space-3) var(--space-3) var(--space-2);
+	}
+
+	.title {
+		font-size: var(--text-sm);
+	}
+
+	.filters {
+		padding: var(--space-1-5) var(--space-3);
+	}
+}
+
+/* Scrollbar for Firefox */
+.artifactList {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-neutral-300) transparent;
+}
+
+/* Loading skeleton for future use */
+@keyframes skeletonShimmer {
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
+}
+
+.artifactItem.loading {
+	pointer-events: none;
+	opacity: 0.6;
+}
+
+.artifactItem.loading .artifactFilename,
+.artifactItem.loading .artifactSize,
+.artifactItem.loading .artifactDate {
+	background: linear-gradient(
+		90deg,
+		var(--color-neutral-200) 25%,
+		var(--color-neutral-100) 50%,
+		var(--color-neutral-200) 75%
+	);
+	background-size: 200% 100%;
+	animation: skeletonShimmer 1.5s infinite;
+	color: transparent;
+	border-radius: var(--radius-sm);
+}

@@ -4,18 +4,19 @@ import ChatMessagesList from './ChatMessagesList.svelte';
 import type {Message, MessageKind} from '$lib/types/message';
 import type {Thread} from '$lib/types/thread';
 
-// Mock the agent stores
-const mockActiveSession = {
-	get subscribe() {
-		return vi.fn(() => vi.fn());
+// Mock the agent stores (hoisted for vi.mock factories)
+const { mockActiveSession, mockPendingActions } = vi.hoisted(() => ({
+	mockActiveSession: {
+		get subscribe() {
+			return vi.fn(() => vi.fn());
+		}
+	},
+	mockPendingActions: {
+		get subscribe() {
+			return vi.fn(() => vi.fn());
+		}
 	}
-};
-
-const mockPendingActions = {
-	get subscribe() {
-		return vi.fn(() => vi.fn());
-	}
-};
+}));
 
 vi.mock('$lib/stores/agentStore', () => ({
 	activeSession: mockActiveSession,
@@ -103,6 +104,29 @@ describe('ChatMessagesList', () => {
 				error: 'Failed to load messages'
 			});
 			expect(screen.getByText(/failed to load messages/i)).toBeInTheDocument();
+		});
+
+		it('renders assistant reasoning when available', () => {
+			const messagesWithReasoning: Message[] = [
+				{
+					id: 'msg-1',
+					conversationId: 'conv-1',
+					threadId: 'thread-1',
+					role: 'assistant',
+					content: 'Here is the answer.',
+					reasoning: 'Let me think step by step...',
+					timestamp: new Date('2024-01-01T12:00:00Z'),
+					status: 'sending'
+				}
+			];
+
+			render(ChatMessagesList, {
+				...defaultProps,
+				messages: messagesWithReasoning
+			});
+
+			expect(screen.getByText('Reasoning')).toBeInTheDocument();
+			expect(screen.getByText('Let me think step by step...')).toBeInTheDocument();
 		});
 
 		it('shows retry button in error state when onRetry provided', () => {

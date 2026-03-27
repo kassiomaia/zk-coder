@@ -52,9 +52,11 @@ export interface AgentStore {
 	setActiveSession(sessionId: string | null): void;
 	clearError(): void;
 	setExecutionCompleteCallback(
-		callback: (conversationId: string, threadId: string, content: string) => void
+		callback: (sessionId: string, conversationId: string, threadId: string, content: string) => void
 	): void;
-	setSystemMessageCallback(callback: (conversationId: string, message: string) => void): void;
+	setSystemMessageCallback(
+		callback: (sessionId: string, conversationId: string, threadId: string, message: string) => void
+	): void;
 	setAgentActivityCallback(
 		callback: (conversationId: string, threadId: string, message: Partial<any>) => void
 	): void;
@@ -253,7 +255,7 @@ function createAgentStore(): AgentStore {
 	 * Set a callback for execution completion.
 	 */
 	function setExecutionCompleteCallback(
-		callback: (conversationId: string, threadId: string, content: string) => void
+		callback: (sessionId: string, conversationId: string, threadId: string, content: string) => void
 	) {
 		Callbacks.setExecutionCompleteCallback(callback);
 	}
@@ -261,7 +263,9 @@ function createAgentStore(): AgentStore {
 	/**
 	 * Set a callback for system messages.
 	 */
-	function setSystemMessageCallback(callback: (conversationId: string, message: string) => void) {
+	function setSystemMessageCallback(
+		callback: (sessionId: string, conversationId: string, threadId: string, message: string) => void
+	) {
 		Callbacks.setSystemMessageCallback(callback);
 	}
 

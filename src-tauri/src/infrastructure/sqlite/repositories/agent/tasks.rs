@@ -466,6 +466,18 @@ pub fn get_session_execution_steps(
     Ok(steps)
 }
 
+/// Clear all execution steps for a session.
+pub fn clear_session_execution_steps(
+    conn: &Connection,
+    session_id: &crate::core::agent::session::SessionId,
+) -> Result<(), SessionRepositoryError> {
+    conn.execute(
+        "DELETE FROM agent_execution_steps WHERE session_id = ?1",
+        params![session_id.0],
+    )?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

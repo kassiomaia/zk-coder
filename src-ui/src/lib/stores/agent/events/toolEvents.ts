@@ -5,7 +5,6 @@
 
 import type {AgentEvent} from '$lib/types/agent';
 import type {AgentState} from '../state';
-import {getOnAgentActivity} from '../callbacks';
 
 /**
  * Handle tool_call event.
@@ -24,28 +23,6 @@ export function handleToolCall(state: AgentState, event: Extract<AgentEvent, { t
 			...session,
 			toolCalls: [...(session.toolCalls ?? []), record]
 		});
-
-		// Create tool call message in chat
-		const toolCallId = record.id;
-		const onAgentActivity = getOnAgentActivity();
-		if (onAgentActivity) {
-			onAgentActivity(session.conversationId, session.threadId, {
-				id: toolCallId,
-				conversationId: session.conversationId,
-				threadId: session.threadId,
-				role: 'assistant',
-				kind: 'tool_call',
-				content: '',
-				agentData: {
-					toolName: event.tool,
-					toolArgs: event.arguments,
-					sessionId: event.sessionId,
-					expanded: false,
-					toolCallStatus: 'pending'
-				},
-				timestamp: new Date()
-			});
-		}
 	}
 }
 
@@ -71,26 +48,5 @@ export function handleToolResult(state: AgentState, event: Extract<AgentEvent, {
 			...session,
 			toolCalls
 		});
-
-		// Update the existing tool call message with result
-		const onAgentActivity = getOnAgentActivity();
-		if (onAgentActivity) {
-			onAgentActivity(session.conversationId, session.threadId, {
-				id: toolCallId,
-				conversationId: session.conversationId,
-				threadId: session.threadId,
-				role: 'assistant',
-				kind: 'tool_call',
-				content: '',
-				agentData: {
-					toolName: event.tool,
-					toolResult: event.result,
-					toolError: event.isError,
-					sessionId: event.sessionId,
-					toolCallStatus: event.isError ? 'error' : 'success'
-				},
-				timestamp: new Date()
-			});
-		}
 	}
 }
