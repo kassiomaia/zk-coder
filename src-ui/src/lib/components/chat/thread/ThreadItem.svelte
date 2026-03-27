@@ -138,6 +138,7 @@
 		<ListItemActions
 			{onresolve}
 			isResolved={thread.metadata.resolved}
+			isArchived={thread.metadata.archived ?? false}
 			onrename={onrename ? startEdit : undefined}
 			{onarchive}
 			{ondelete}

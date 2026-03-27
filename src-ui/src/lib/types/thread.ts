@@ -44,6 +44,8 @@ export interface Thread {
 export interface ThreadMetadata {
 	/** Whether the thread has been resolved */
 	resolved: boolean;
+	/** Whether the thread has been archived */
+	archived?: boolean;
 
 	/** Tags associated with the thread */
 	tags?: string[];
@@ -78,6 +80,9 @@ export interface Conversation {
 
 	/** When the conversation was last updated */
 	updatedAt: Date;
+
+	/** Whether the conversation has been archived */
+	archived?: boolean;
 
 	/**
 	 * Threads within this conversation.

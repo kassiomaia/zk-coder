@@ -80,3 +80,15 @@ pub async fn set_conversation_workspace(
         .set_conversation_workspace(&id, &workspace_root)
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn archive_conversation(
+    id: String,
+    archived: bool,
+    state: tauri::State<'_, ChatState>,
+) -> Result<(), String> {
+    state
+        .service
+        .archive_conversation(&id, archived)
+        .map_err(|e| e.to_string())
+}

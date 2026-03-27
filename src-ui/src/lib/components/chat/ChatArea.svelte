@@ -31,6 +31,7 @@
     import {createLogger} from '$lib/utils/logger';
     import {shouldForceInitialBottomScroll} from './chatAreaScroll';
     import {chatStore} from '$lib/stores';
+    import type {AgentStatus} from '$lib/utils/agentStatus';
 
     const log = createLogger('ChatArea');
 
@@ -59,6 +60,12 @@
 
 		/** Is assistant typing */
 		isTyping?: boolean;
+
+		/** Status for the thread-linked agent session */
+		agentStatus?: AgentStatus | null;
+
+		/** Session ID linked to the visible thread */
+		agentSessionId?: string | null;
 
 		/** Error message to display */
 		error?: string;
@@ -111,6 +118,8 @@
 		conversationTitle,
 		loading = false,
 		isTyping = false,
+		agentStatus = null,
+		agentSessionId = null,
 		error,
 		messagesLoading = 'idle',
 		threadResolved = false,
@@ -422,6 +431,7 @@
 			{emptyContext}
 			{conversationTitle}
 			{isTyping}
+			{agentStatus}
 			{error}
 			{hasInputActivity}
 			onEditMessage={onEditMessage}
@@ -448,17 +458,19 @@
 	{/if}
 
 	<!-- Input area -->
-	<ChatInputContainer
-		bind:value={inputValue}
-		onchange={handleInputChange}
-		onsubmit={handleSubmit}
+		<ChatInputContainer
+			bind:value={inputValue}
+			onchange={handleInputChange}
+			onsubmit={handleSubmit}
 		onfocus={handleInputFocus}
 		onblur={handleInputBlur}
-		placeholder="Send a message..."
-		{loading}
-		{threadResolved}
-		modelId={selectedModelId}
-		onModelChange={handleModelChange}
+			placeholder="Send a message..."
+			{loading}
+			isAgentWorking={isTyping}
+			{agentSessionId}
+			{threadResolved}
+			modelId={selectedModelId}
+			onModelChange={handleModelChange}
 		onOpenSettings={onOpenSettings}
 	/>
 </div>

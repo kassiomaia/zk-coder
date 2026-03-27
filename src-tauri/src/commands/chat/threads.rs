@@ -43,6 +43,18 @@ pub async fn resolve_thread(
 }
 
 #[tauri::command]
+pub async fn archive_thread(
+    id: String,
+    archived: bool,
+    state: tauri::State<'_, ChatState>,
+) -> Result<(), String> {
+    state
+        .service
+        .archive_thread(&id, archived)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn delete_thread(id: String, state: tauri::State<'_, ChatState>) -> Result<(), String> {
     state.service.delete_thread(&id).map_err(|e| e.to_string())
 }

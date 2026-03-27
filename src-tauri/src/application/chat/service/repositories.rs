@@ -45,6 +45,10 @@ impl ChatRepository for ChatServiceImpl {
         self.repository
             .update_conversation_workspace(id, workspace_root)
     }
+
+    fn update_conversation_archived(&self, id: &str, archived: bool) -> RepositoryResult<()> {
+        self.repository.update_conversation_archived(id, archived)
+    }
 }
 
 impl ThreadRepository for ChatServiceImpl {
@@ -62,6 +66,10 @@ impl ThreadRepository for ChatServiceImpl {
 
     fn update_thread_resolved(&self, id: &str, resolved: bool) -> RepositoryResult<()> {
         self.repository.update_thread_resolved(id, resolved)
+    }
+
+    fn update_thread_archived(&self, id: &str, archived: bool) -> RepositoryResult<()> {
+        self.repository.update_thread_archived(id, archived)
     }
 
     fn set_thread_agent_session(

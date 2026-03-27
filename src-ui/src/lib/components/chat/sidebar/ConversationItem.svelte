@@ -142,6 +142,7 @@
 			{ondelete}
 			onrename={onrename ? startEdit : undefined}
 			{onarchive}
+			isArchived={conversation.archived ?? false}
 			iconSize={14}
 			onMenuOpen={() => (isMenuOpen = true)}
 			onMenuClose={() => (isMenuOpen = false)}

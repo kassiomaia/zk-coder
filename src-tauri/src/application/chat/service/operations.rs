@@ -46,6 +46,10 @@ impl ChatService for ChatServiceImpl {
         ChatRepository::update_conversation_workspace(self, id, workspace_root)
     }
 
+    fn archive_conversation(&self, id: &str, archived: bool) -> RepositoryResult<()> {
+        ChatRepository::update_conversation_archived(self, id, archived)
+    }
+
     fn create_thread(&self, request: CreateThreadRequest) -> RepositoryResult<Thread> {
         ThreadRepository::create_thread(self, &request.conversation_id, &request.title)
     }
@@ -60,6 +64,10 @@ impl ChatService for ChatServiceImpl {
 
     fn resolve_thread(&self, id: &str, resolved: bool) -> RepositoryResult<()> {
         ThreadRepository::update_thread_resolved(self, id, resolved)
+    }
+
+    fn archive_thread(&self, id: &str, archived: bool) -> RepositoryResult<()> {
+        ThreadRepository::update_thread_archived(self, id, archived)
     }
 
     fn delete_thread(&self, id: &str) -> RepositoryResult<()> {

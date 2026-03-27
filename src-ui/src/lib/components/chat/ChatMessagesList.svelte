@@ -10,15 +10,14 @@
     import AnsweringIndicator from './AnsweringIndicator.svelte';
     // Agent message components
     import ThinkingMessage from './messages/ThinkingMessage.svelte';
+    import SystemNoticeMessage from './messages/SystemNoticeMessage.svelte';
     import ToolCallMessage from './messages/ToolCallMessage.svelte';
     import TerminalOutput from './messages/TerminalOutput.svelte';
     import type {Message} from '$lib/types/message';
     import type {Thread} from '$lib/types/thread';
-    import layoutStyles from './ChatArea.module.css';
+    import type {AgentStatus} from '$lib/utils/agentStatus';
     import messageStyles from './MessageBubbles.module.css';
     import inputStyles from './ChatInputContainer.module.css';
-    import {activeSession, pendingActions} from '$lib/stores/agentStore';
-    import {getAgentStatus} from '$lib/utils/agentStatus';
 
     interface Props {
 		/** Array of messages to display */
@@ -38,6 +37,9 @@
 
 		/** Is assistant typing */
 		isTyping?: boolean;
+
+		/** Current thread agent status */
+		agentStatus?: AgentStatus | null;
 
 		/** Error message to display */
 		error?: string;
@@ -74,6 +76,7 @@
 		emptyContext = 'thread',
 		conversationTitle,
 		isTyping = false,
+		agentStatus = null,
 		error,
 		hasInputActivity = false,
 		onEditMessage,
@@ -125,6 +128,10 @@
 			: null;
 	}
 
+	function isSystemNotice(message: Message): boolean {
+		return message.role === 'system' && message.metadata?.systemNotice?.type === 'context_update';
+	}
+
 	/**
 	 * Check if a message should show a group header.
 	 * Agent messages (thinking, tool_call, terminal) don't show group headers.
@@ -135,8 +142,8 @@
 		const currentMessage = messages[index];
 		const previousMessage = messages[index - 1];
 
-		// Skip group header for agent-specific messages
-		if (getMessageKind(currentMessage)) return false;
+		// Skip group header for agent-specific and structured system notices
+		if (getMessageKind(currentMessage) || isSystemNotice(currentMessage)) return false;
 
 		// Show header if role changed
 		if (currentMessage.role !== previousMessage.role) return true;
@@ -190,46 +197,6 @@
 		}
 	}
 
-	// Check if current messages contain agent activity (thinking, tool_call, terminal)
-	// When present, we suppress the generic AnsweringIndicator to avoid duplicates
-	let hasAgentMessages = $derived(
-		messages.some((m) => m.kind === 'thinking' || m.kind === 'tool_call' || m.kind === 'terminal')
-	);
-
-	// Derive agent status from active session
-	let agentStatus = $derived(
-		(() => {
-			const session = $activeSession;
-			if (!session) return null;
-
-			const hasPendingApproval = $pendingActions.length > 0;
-
-			// Get latest execution step
-			const latestStep = session.executionSteps?.[session.executionSteps.length - 1] ?? null;
-
-			// Get current in-progress subtask
-			const currentSubtask =
-				session.tasks
-					?.flatMap((t) => t.subtasks ?? [])
-					.find((st) => st.status === 'in_progress') ?? null;
-
-			// Get context usage from session state
-			const contextUsage = session.state.type === 'running' ? session.state.contextUsage : 0;
-
-			// Get last activity timestamp for stall detection
-			const lastActivityAt = session.updatedAt ? new Date(session.updatedAt) : null;
-
-			return getAgentStatus(
-				session.state,
-				latestStep,
-				currentSubtask,
-				hasPendingApproval,
-				session.statusPhrases,
-				contextUsage,
-				lastActivityAt
-			);
-		})()
-	);
 </script>
 
 {#if messagesLoading === 'loading'}
@@ -294,6 +261,12 @@
 					{/if}
 				</div>
 			</div>
+		{:else if isSystemNotice(message)}
+			<div class={[messageStyles.messageWrapper, messageStyles.systemNoticeWrapper].filter(Boolean).join(' ')}>
+				<div class={[messageStyles.message, messageStyles.systemNoticeMessage].filter(Boolean).join(' ')}>
+					<SystemNoticeMessage {message} />
+				</div>
+			</div>
 		{:else}
 			<!-- Normal messages (user, assistant, system) -->
 			{#if shouldShowGroupHeader(index)}
@@ -348,7 +321,7 @@
 						</div>
 					{/if}
 					<!-- Message status indicator -->
-					{#if message.status === 'sending' && message.content.trim() === '' && !hasAgentMessages}
+					{#if message.status === 'sending' && message.content.trim() === '' && !isTyping}
 						<AnsweringIndicator status={agentStatus} />
 					{:else if message.status === 'error'}
 						<div class={messageStyles.statusIndicator} aria-label="Failed to send">
@@ -395,8 +368,8 @@
 		{/if}
 	{/each}
 
-	<!-- Answering indicator (only show when no specialized agent messages are present) -->
-	{#if isTyping && !hasAgentMessages}
+	<!-- Persistent bottom status strip for the thread-linked agent session -->
+	{#if isTyping && agentStatus?.active}
 		<AnsweringIndicator status={agentStatus} />
 	{/if}
 {/if}

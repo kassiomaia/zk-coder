@@ -68,6 +68,9 @@ pub trait ChatService: Send + Sync {
         workspace_root: &str,
     ) -> RepositoryResult<Conversation>;
 
+    /// Archives or restores a conversation.
+    fn archive_conversation(&self, id: &str, archived: bool) -> RepositoryResult<()>;
+
     // ========================================================================
     // Thread Operations
     // ========================================================================
@@ -83,6 +86,9 @@ pub trait ChatService: Send + Sync {
 
     /// Updates a thread's resolved status.
     fn resolve_thread(&self, id: &str, resolved: bool) -> RepositoryResult<()>;
+
+    /// Archives or restores a thread.
+    fn archive_thread(&self, id: &str, archived: bool) -> RepositoryResult<()>;
 
     /// Deletes a thread.
     fn delete_thread(&self, id: &str) -> RepositoryResult<()>;

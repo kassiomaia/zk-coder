@@ -10,6 +10,7 @@
     import {chatStore, unreadThreadIds} from '$lib/stores';
     import type {Thread} from '$lib/types/thread';
     import type {Message} from '$lib/types/message';
+    import type {AgentStatus} from '$lib/utils/agentStatus';
     import {slide} from 'svelte/transition';
     import {cubicOut} from 'svelte/easing';
 
@@ -44,6 +45,10 @@
 		error?: string;
 		/** Whether agent/LLM is currently active */
 		isTyping?: boolean;
+		/** Status for the thread-linked agent session */
+		agentStatus?: AgentStatus | null;
+		/** Session ID linked to the visible thread */
+		agentSessionId?: string | null;
 	}
 
 	let {
@@ -61,7 +66,9 @@
 		onMessageFeedback,
 		loading = false,
 		error,
-		isTyping = false
+		isTyping = false,
+		agentStatus = null,
+		agentSessionId = null
 	}: Props = $props();
 
 	// Derive resolved state for styling
@@ -295,6 +302,8 @@
 			{loading}
 			{error}
 			{isTyping}
+			{agentStatus}
+			{agentSessionId}
 			{onSendMessage}
 			{onOpenSettings}
 			{onRetry}
@@ -357,12 +366,12 @@
 				</div>
 
 				{#if isExpanded}
-					<div transition:slide={{ duration: 200, easing: cubicOut }} class={styles.detailsWrapper}>
-						<p class={styles.resolvedHint}>
-							This conversation is archived. Unlock to continue messaging.
-						</p>
-					</div>
-				{/if}
+						<div transition:slide={{ duration: 200, easing: cubicOut }} class={styles.detailsWrapper}>
+							<p class={styles.resolvedHint}>
+								This thread is locked. Unlock to continue messaging.
+							</p>
+						</div>
+					{/if}
 			</button>
 
 			<div class={styles.actionControl}>

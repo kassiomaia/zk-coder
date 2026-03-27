@@ -45,8 +45,8 @@ pub fn migrate_orphan_messages_to_threads(conn: &Connection) -> Result<(), ChatR
         let metadata_json = serde_json::to_string(&ThreadMetadata::default())?;
 
         conn.execute(
-            "INSERT INTO threads (id, conversation_id, parent_id, title, created_at, updated_at, message_count, metadata)
-             VALUES (?1, ?2, NULL, ?3, ?4, ?5, 0, ?6)",
+            "INSERT INTO threads (id, conversation_id, parent_id, title, created_at, updated_at, archived, message_count, metadata)
+             VALUES (?1, ?2, NULL, ?3, ?4, ?5, 0, 0, ?6)",
             params![
                 &thread_id,
                 &conv_id,

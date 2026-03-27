@@ -41,6 +41,9 @@ pub trait ChatRepository: Send + Sync {
         id: &str,
         workspace_root: &str,
     ) -> RepositoryResult<Conversation>;
+
+    /// Updates a conversation's archived status.
+    fn update_conversation_archived(&self, id: &str, archived: bool) -> RepositoryResult<()>;
 }
 
 /// Repository for thread operations.
@@ -56,6 +59,9 @@ pub trait ThreadRepository: Send + Sync {
 
     /// Updates a thread's resolved status.
     fn update_thread_resolved(&self, id: &str, resolved: bool) -> RepositoryResult<()>;
+
+    /// Updates a thread's archived status.
+    fn update_thread_archived(&self, id: &str, archived: bool) -> RepositoryResult<()>;
 
     /// Sets the agent session ID for a thread.
     fn set_thread_agent_session(

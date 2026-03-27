@@ -5,6 +5,12 @@
 
 import type {Message} from '$lib/types/message';
 
+export interface SystemMessagePayload {
+	role: 'system';
+	content: string;
+	metadata?: Message['metadata'];
+}
+
 /** Callback for when agent completes execution - returns (conversationId, threadId, content) */
 let onExecutionComplete:
 	| ((sessionId: string, conversationId: string, threadId: string, content: string) => void)
@@ -12,7 +18,7 @@ let onExecutionComplete:
 
 /** Callback for agent system messages (e.g., context compaction) - returns (conversationId, message) */
 let onSystemMessage:
-	| ((sessionId: string, conversationId: string, threadId: string, message: string) => void)
+	| ((sessionId: string, conversationId: string, threadId: string, message: SystemMessagePayload) => void)
 	| null = null;
 
 /** Callback for agent activity messages (thinking, tool_call, terminal) - adds transient messages to chat */
@@ -38,7 +44,12 @@ export function setExecutionCompleteCallback(
  * Set the system message callback.
  */
 export function setSystemMessageCallback(
-	callback: (sessionId: string, conversationId: string, threadId: string, message: string) => void
+	callback: (
+		sessionId: string,
+		conversationId: string,
+		threadId: string,
+		message: SystemMessagePayload
+	) => void
 ) {
 	onSystemMessage = callback;
 }

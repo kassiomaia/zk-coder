@@ -255,6 +255,7 @@ export type AgentEvent =
 		type: 'context_compacted';
 		sessionId: string;
 		conversationId: string;
+		reason: 'token_limit' | 'subtask_transition';
 		beforeCount: number;
 		afterCount: number;
 		beforeTokens: number;

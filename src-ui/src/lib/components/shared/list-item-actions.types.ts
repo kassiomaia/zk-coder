@@ -22,6 +22,8 @@ export interface ListItemActionsProps {
 	onresolve?: () => void;
 	/** Whether the item is resolved (affects resolve button label) */
 	isResolved?: boolean;
+	/** Whether the item is archived (affects archive button label) */
+	isArchived?: boolean;
 	/** Size of the icons (14 or 16 pixels) */
 	iconSize?: 14 | 16;
 	/** Callback when menu opens */

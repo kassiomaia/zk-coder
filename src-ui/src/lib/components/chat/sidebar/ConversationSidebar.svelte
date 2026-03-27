@@ -122,10 +122,10 @@
 		});
 	}
 
-	// Group filtered conversations by date
-	function getGroupedFilteredConversations() {
-		return groupConversations(getFilteredConversations());
-	}
+	let filteredConversations = $derived(getFilteredConversations());
+	let activeConversations = $derived(filteredConversations.filter((conversation) => !conversation.archived));
+	let archivedConversations = $derived(filteredConversations.filter((conversation) => conversation.archived));
+	let groupedActiveConversations = $derived(groupConversations(activeConversations));
 
 	let statusText = $derived(() => {
 		if (hasSelectedThread) return 'Active thread';
@@ -275,7 +275,7 @@
 			<div class={styles.loading} aria-label="Loading conversations">
 				<div class={styles.spinner}></div>
 			</div>
-		{:else if getFilteredConversations().length === 0}
+		{:else if filteredConversations.length === 0}
 			<div class={styles.empty}>
 				<svg
 					class={styles.emptyIcon}
@@ -298,8 +298,8 @@
 				{/if}
 			</div>
 		{:else}
-			{#each getGroupedFilteredConversations() as group, groupIndex (group.label)}
-				{@const groupOffset = getGroupedFilteredConversations()
+			{#each groupedActiveConversations as group, groupIndex (group.label)}
+				{@const groupOffset = groupedActiveConversations
 					.slice(0, groupIndex)
 					.reduce((acc: number, g: ConversationGroup) => acc + g.conversations.length, 0)}
 				<section class={styles.group}>
@@ -343,6 +343,42 @@
 					</ul>
 				</section>
 			{/each}
+
+			{#if archivedConversations.length > 0}
+				<section class={styles.group}>
+					<h3 class={styles.groupLabel}>Archived</h3>
+					<ul class={styles.list} role="listbox" aria-label="Archived conversations">
+						{#each archivedConversations as conv, index (conv.id)}
+							<li class={styles.conversationWrapper}>
+								<ConversationItem
+									conversation={conv}
+									selected={conv.id === selectedId}
+									onclick={() => onSelect(conv)}
+									ondoubleclick={onOpenChat ? () => onOpenChat(conv) : undefined}
+									ondelete={onDelete ? () => onDelete(conv) : undefined}
+									onrename={onRename ? (title) => onRename(conv, title) : undefined}
+									onarchive={onArchive ? () => onArchive(conv) : undefined}
+									style="animation-delay: calc({activeConversations.length + index} * var(--stagger-normal))"
+								/>
+								{#if conv.id === selectedId && hasThreads && onSelectThread}
+									<InlineThreadList
+										threads={threadsForSelected}
+										{activeStreamingThreadIds}
+										{unreadThreadIds}
+										{selectedThreadId}
+										expanded={true}
+										{onSelectThread}
+										{onResolveThread}
+										{onRenameThread}
+										{onDeleteThread}
+										{onArchiveThread}
+									/>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</section>
+			{/if}
 		{/if}
 	</div>
 

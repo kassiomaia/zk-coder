@@ -16,6 +16,7 @@
 		onarchive,
 		onresolve,
 		isResolved = false,
+		isArchived = false,
 		iconSize = 16,
 		onMenuOpen,
 		onMenuClose
@@ -82,8 +83,8 @@
 		if (onarchive) {
 			items.push({
 				id: 'archive',
-				label: 'Archive',
-				variant: 'warning',
+				label: isArchived ? 'Restore' : 'Archive',
+				variant: isArchived ? 'default' : 'warning',
 				iconHtml: ICONS.archive
 			});
 		}

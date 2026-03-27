@@ -193,12 +193,14 @@ pub enum AgentEvent {
         is_final: bool,
     },
 
-    /// Context was compacted to stay within token limits.
+    /// Context was compacted or repacked for the next model step.
     ContextCompacted {
         #[serde(rename = "sessionId")]
         session_id: String,
         #[serde(rename = "conversationId")]
         conversation_id: String,
+        /// Why the runtime updated the working context
+        reason: ContextCompactionReason,
         /// Number of messages before compaction
         #[serde(rename = "beforeCount")]
         before_count: usize,
@@ -223,6 +225,16 @@ pub enum FileAction {
     Read,
     Write,
     Delete,
+}
+
+/// Reason the runtime repacked or compacted the working context.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContextCompactionReason {
+    /// Context was compacted because token usage reached the working limit.
+    TokenLimit,
+    /// Context was repacked because the active subtask changed.
+    SubtaskTransition,
 }
 
 /// Tauri event name for agent events.

@@ -18,7 +18,9 @@ use crate::core::agent::task::{
 use crate::core::agent::types::TrustMode;
 use crate::core::llm::entities::{ChatMessage as Message, ChatRequest, ToolCall, ToolDefinition};
 use crate::infrastructure::agent::approval::ApprovalQueue;
-use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
+use crate::infrastructure::agent::events::{
+    AgentEvent, ContextCompactionReason, AGENT_EVENT_NAME,
+};
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
 use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
 use crate::infrastructure::llm::LlmClient;
@@ -340,6 +342,11 @@ pub async fn execute(
                 AgentEvent::ContextCompacted {
                     session_id: session_id.clone(),
                     conversation_id: session.conversation_id.clone(),
+                    reason: if usage_ratio >= COMPRESSION_THRESHOLD {
+                        ContextCompactionReason::TokenLimit
+                    } else {
+                        ContextCompactionReason::SubtaskTransition
+                    },
                     before_count: compaction.before_count,
                     after_count: compaction.after_count,
                     before_tokens: compaction.before_tokens,
@@ -356,6 +363,7 @@ pub async fn execute(
                     AgentEvent::ContextCompacted {
                         session_id: session_id.clone(),
                         conversation_id: session.conversation_id.clone(),
+                        reason: ContextCompactionReason::TokenLimit,
                         before_count: compaction.before_count,
                         after_count: compaction.after_count,
                         before_tokens: compaction.before_tokens,

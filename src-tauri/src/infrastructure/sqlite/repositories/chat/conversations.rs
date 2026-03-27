@@ -16,13 +16,14 @@ pub fn create_conversation(
     let settings_json = serde_json::to_string(&conversation.settings)?;
 
     conn.execute(
-        "INSERT INTO conversations (id, title, created_at, updated_at, settings)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO conversations (id, title, created_at, updated_at, archived, settings)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
             &conversation.id,
             &conversation.title,
             &conversation.created_at.to_rfc3339(),
             &conversation.updated_at.to_rfc3339(),
+            conversation.archived as i64,
             &settings_json,
         ],
     )?;
@@ -34,7 +35,7 @@ pub fn create_conversation(
 pub fn load_conversation(conn: &Connection, id: &str) -> Result<Conversation, ChatRepositoryError> {
     let row = conn
         .query_row(
-            "SELECT id, title, created_at, updated_at, settings
+            "SELECT id, title, created_at, updated_at, archived, settings
              FROM conversations WHERE id = ?1",
             params![id],
             |row| {
@@ -43,13 +44,14 @@ pub fn load_conversation(conn: &Connection, id: &str) -> Result<Conversation, Ch
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                     row.get::<_, String>(3)?,
-                    row.get::<_, String>(4)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, String>(5)?,
                 ))
             },
         )
         .optional()?;
 
-    let (id, title, created_at, updated_at, settings_json) = row.ok_or(
+    let (id, title, created_at, updated_at, archived, settings_json) = row.ok_or(
         ChatRepositoryError::NotFound("Conversation", id.to_string()),
     )?;
 
@@ -60,6 +62,7 @@ pub fn load_conversation(conn: &Connection, id: &str) -> Result<Conversation, Ch
         title,
         created_at: parse_datetime(&created_at),
         updated_at: parse_datetime(&updated_at),
+        archived: archived != 0,
         settings,
     })
 }
@@ -67,7 +70,7 @@ pub fn load_conversation(conn: &Connection, id: &str) -> Result<Conversation, Ch
 /// Loads all conversations, sorted by update time (newest first).
 pub fn load_all_conversations(conn: &Connection) -> Result<Vec<Conversation>, ChatRepositoryError> {
     let mut stmt = conn.prepare(
-        "SELECT id, title, created_at, updated_at, settings
+        "SELECT id, title, created_at, updated_at, archived, settings
          FROM conversations ORDER BY updated_at DESC",
     )?;
 
@@ -78,17 +81,19 @@ pub fn load_all_conversations(conn: &Connection) -> Result<Vec<Conversation>, Ch
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
-                row.get::<_, String>(4)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, String>(5)?,
             ))
         })?
         .map(|result| {
-            let (id, title, created_at, updated_at, settings_json) = result?;
+            let (id, title, created_at, updated_at, archived, settings_json) = result?;
             let settings: ConversationSettings = serde_json::from_str(&settings_json)?;
             Ok(Conversation {
                 id,
                 title,
                 created_at: parse_datetime(&created_at),
                 updated_at: parse_datetime(&updated_at),
+                archived: archived != 0,
                 settings,
             })
         })
@@ -195,6 +200,28 @@ pub fn update_conversation_workspace(
     )?;
 
     load_conversation(conn, id)
+}
+
+/// Updates a conversation's archived status.
+pub fn update_conversation_archived(
+    conn: &Connection,
+    id: &str,
+    archived: bool,
+) -> Result<(), ChatRepositoryError> {
+    let now = Utc::now();
+    let rows_affected = conn.execute(
+        "UPDATE conversations SET archived = ?1, updated_at = ?2 WHERE id = ?3",
+        params![archived as i64, now.to_rfc3339(), id],
+    )?;
+
+    if rows_affected == 0 {
+        return Err(ChatRepositoryError::NotFound(
+            "Conversation",
+            id.to_string(),
+        ));
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -50,17 +50,42 @@ vi.mock('$lib/stores/chat', () => ({
 		dismissAmbiguity: vi.fn()
 	},
 	nlpState: {
-		get pendingAmbiguities() {
-			return [];
-		}
+		subscribe: vi.fn((run: (value: unknown) => void) => {
+			run({ pendingAmbiguities: [] });
+			return () => {};
+		})
 	},
-	isLlmStreaming: { subscribe: vi.fn(() => vi.fn()) },
-	streamingContent: { subscribe: vi.fn(() => vi.fn()) }
+	isLlmStreaming: {
+		subscribe: vi.fn((run: (value: boolean) => void) => {
+			run(false);
+			return () => {};
+		})
+	},
+	streamingContent: {
+		subscribe: vi.fn((run: (value: string) => void) => {
+			run('');
+			return () => {};
+		})
+	}
 }));
 
 vi.mock('$lib/stores/configStore', () => ({
 	configStore: {
 		getDefault: vi.fn(() => 'claude-3-opus-20240229')
+	},
+	availableModelsByOperation: {
+		subscribe: vi.fn((run: (value: unknown) => void) => {
+			run({
+				code: [
+					{
+						id: 'claude-3-opus-20240229',
+						name: 'Claude 3 Opus',
+						providerId: 'anthropic'
+					}
+				]
+			});
+			return () => {};
+		})
 	}
 }));
 
@@ -271,10 +296,16 @@ describe('ChatArea', () => {
 		it('renders with isTyping state', () => {
 			render(ChatArea, {
 				...defaultProps,
-				isTyping: true
+				isTyping: true,
+				agentStatus: {
+					text: 'Reading files...',
+					icon: 'file',
+					active: true
+				},
+				agentSessionId: 'session-1'
 			});
-			const container = document.body;
-			expect(container).toBeInTheDocument();
+			expect(screen.getByLabelText('Agent status')).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: /stop generation/i })).toBeInTheDocument();
 		});
 	});
 

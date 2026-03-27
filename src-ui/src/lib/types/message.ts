@@ -14,6 +14,16 @@ export type MessageFeedback = 'like' | 'dislike';
 
 /** Kind of message for specialized rendering */
 export type MessageKind = 'normal' | 'thinking' | 'tool_call' | 'terminal';
+export type SystemNoticeReason = 'token_limit' | 'subtask_transition';
+
+export interface ContextUpdateNotice {
+	type: 'context_update';
+	reason: SystemNoticeReason;
+	beforeCount: number;
+	afterCount: number;
+	beforeTokens: number;
+	afterTokens: number;
+}
 
 /**
  * Agent-specific data for messages that represent agent activity.
@@ -106,6 +116,9 @@ export interface MessageMetadata {
 
 	/** Code references mentioned in the message */
 	codeReferences?: CodeReference[];
+
+	/** Structured system notice rendering metadata */
+	systemNotice?: ContextUpdateNotice;
 }
 
 /**

@@ -50,6 +50,10 @@
 		disabled?: boolean;
 		/** Loading state */
 		loading?: boolean;
+		/** Whether the thread-linked agent session is currently active */
+		isAgentWorking?: boolean;
+		/** Session ID linked to the visible thread */
+		agentSessionId?: string | null;
 		/** Attached files */
 		attachments?: FileAttachment[];
 		/** File attach handler */
@@ -85,6 +89,8 @@
 		onblur,
 		disabled = false,
 		loading = false,
+		isAgentWorking = false,
+		agentSessionId = null,
 		attachments = [],
 		onattach,
 		onremoveattachment,
@@ -121,7 +127,7 @@
 	);
 
 	// Determine if the agent is actively working (LLM streaming OR Agent running)
-	let isAgentWorking = $derived($isLlmStreaming || loading || isSending);
+	let isWorking = $derived(isAgentWorking || $isLlmStreaming || loading || isSending);
 
 	// Intent detection: use backend if available and enabled, otherwise fallback to frontend
 	let detectedIntent = $derived(() => {
@@ -182,15 +188,15 @@
 
 	async function handleSendMessage() {
 		// Handle Stop action if agent is working
-		if (isAgentWorking) {
+		if (isWorking) {
 			if ($isLlmStreaming) {
 				await chatStore.cancelLlmStream();
+			} else if (agentSessionId) {
+				await agentStore.cancelSession(agentSessionId);
 			} else {
-				// If agent session is active, cancel it
 				const state = get(agentStore);
-				const activeSessionId = state.activeSessionId;
-				if (activeSessionId) {
-					await agentStore.cancelSession(activeSessionId);
+				if (state.activeSessionId) {
+					await agentStore.cancelSession(state.activeSessionId);
 				}
 			}
 			isSending = false;
@@ -488,21 +494,21 @@
 			{/if}
 
 			<IconButton
-				label={isAgentWorking ? 'Stop generation' : 'Send message'}
-				tooltip={isAgentWorking ? 'Stop' : 'Send'}
+				label={isWorking ? 'Stop generation' : 'Send message'}
+				tooltip={isWorking ? 'Stop' : 'Send'}
 				variant="subtle"
-				intent={isAgentWorking ? 'danger' : canSubmit ? 'success' : 'default'}
+				intent={isWorking ? 'danger' : canSubmit ? 'success' : 'default'}
 				size="sm"
-				disabled={!canSubmit && !isAgentWorking}
+				disabled={!canSubmit && !isWorking}
 				onclick={handleSendMessage}
 				class={[
 					styles.sendButton,
-					canSubmit && !isAgentWorking && styles.canSubmit,
-					isAgentWorking && styles.isRunning
+					canSubmit && !isWorking && styles.canSubmit,
+					isWorking && styles.isRunning
 				].filter(Boolean).join(' ')}
 			>
 				{#snippet icon()}
-					{#if isAgentWorking}
+					{#if isWorking}
 						<div class={styles.stopIcon}></div>
 					{:else}
 						<SendIcon size={16} strokeWidth={2.5} />

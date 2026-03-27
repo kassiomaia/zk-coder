@@ -30,6 +30,7 @@
 	import {
 		agentStore,
 		activeSession,
+		allSessions,
 		conversationSessions,
 		sessionThreadTitles,
 		pendingActions as agentPendingActionsStore,
@@ -59,6 +60,7 @@
 	let agentSession = $state<AgentSession | null>(null);
 	let agentPendingActions = $state<PendingAction[]>([]);
 	let agentSessions = $state<AgentSession[]>([]);
+	let allAgentSessions = $state<AgentSession[]>([]);
 	let agentSessionTitles = $state<Map<string, string>>(new Map());
 
 	// Subscribe to agent store
@@ -75,6 +77,9 @@
 		const unsubSessions = conversationSessions.subscribe((sessions) => {
 			agentSessions = sessions;
 		});
+		const unsubAllSessions = allSessions.subscribe((sessions) => {
+			allAgentSessions = sessions;
+		});
 		const unsubTitles = sessionThreadTitles.subscribe((titles) => {
 			agentSessionTitles = titles;
 		});
@@ -83,6 +88,7 @@
 			unsubSession();
 			unsubActions();
 			unsubSessions();
+			unsubAllSessions();
 			unsubTitles();
 		};
 	});
@@ -252,6 +258,11 @@
 		item: Conversation | Thread;
 	} | null>(null);
 	let archiveLoading = $state(false);
+	let archiveTargetIsArchived = $derived(
+		archiveTarget?.type === 'conversation'
+			? ((archiveTarget.item as Conversation | undefined)?.archived ?? false)
+			: ((archiveTarget?.item as Thread | undefined)?.metadata.archived ?? false)
+	);
 
 	// Delete confirmation state
 	let deleteConfirmOpen = $state(false);
@@ -376,27 +387,31 @@
 		console.debug('[+page] Execution complete callback registered');
 
 		// Set callback to add system messages from agent (e.g., context compaction)
-		agentStore.setSystemMessageCallback(async (sessionId, conversationId, threadId, content) => {
+		agentStore.setSystemMessageCallback(async (sessionId, conversationId, threadId, message) => {
 			console.debug('[+page] System message callback invoked:', {
 				sessionId,
 				conversationId,
 				threadId,
-				content
+				message
 			});
 
 			try {
-				// Add system message as a special user message with indicator
-				// Using role: 'user' with special styling for visibility
 				const { sendMessage } = await import('$lib/api/chat');
 				const savedMessage = await sendMessage({
 					conversationId,
 					threadId,
-					role: 'user',
-					content
+					role: message.role,
+					content: message.content
 				});
 
 				// Add to local state
-				chatStore.addMessage(savedMessage);
+				chatStore.addMessage({
+					...savedMessage,
+					metadata: {
+						...savedMessage.metadata,
+						...message.metadata
+					}
+				});
 				console.debug('[+page] System message persisted and added to chatStore:', savedMessage.id);
 			} catch (error) {
 				console.error('[+page] Failed to persist system message:', error);
@@ -405,10 +420,11 @@
 					id: crypto.randomUUID(),
 					conversationId,
 					threadId,
-					role: 'user',
-					content,
+					role: message.role,
+					content: message.content,
 					timestamp: new Date(),
-					status: 'error'
+					status: 'error',
+					metadata: message.metadata
 				});
 			}
 		});
@@ -606,11 +622,11 @@
 		archiveLoading = true;
 		try {
 			if (archiveTarget.type === 'conversation') {
-				// TODO: Implement proper archive in backend
-				// For now, this behaves the same as delete
-				await chatStore.deleteConversation((archiveTarget.item as Conversation).id);
+				const conversation = archiveTarget.item as Conversation;
+				await chatStore.archiveConversation(conversation.id, !conversation.archived);
 			} else {
-				await chatStore.deleteThread((archiveTarget.item as Thread).id);
+				const thread = archiveTarget.item as Thread;
+				await chatStore.archiveThread(thread.id, !(thread.metadata.archived ?? false));
 			}
 			archiveConfirmOpen = false;
 			archiveTarget = null;
@@ -704,6 +720,7 @@
 		onDenyAction={handleDenyAction}
 		onWorkspaceChange={handleWorkspaceChange}
 		{agentSessions}
+		allAgentSessions={allAgentSessions}
 		{agentSessionTitles}
 		onSelectSession={handleSelectSession}
 		onCreateSession={handleCreateSession}
@@ -782,11 +799,17 @@
 <!-- Archive Confirmation Dialog -->
 <ConfirmDialog
 	open={archiveConfirmOpen}
-	title={archiveTarget?.type === 'conversation' ? 'Archive Conversation' : 'Archive Thread'}
+	title={archiveTarget?.type === 'conversation'
+		? (archiveTargetIsArchived ? 'Restore Conversation' : 'Archive Conversation')
+		: (archiveTargetIsArchived ? 'Restore Thread' : 'Archive Thread')}
 	message={archiveTarget?.type === 'conversation'
-		? 'Are you sure you want to archive this conversation? It will be moved to the archived section.'
-		: 'Are you sure you want to archive this thread? It will be moved to the archived section.'}
-	confirmLabel="Archive"
+		? (archiveTargetIsArchived
+			? 'Restore this conversation to the active list?'
+			: 'Are you sure you want to archive this conversation? It will be moved to the archived section.')
+		: (archiveTargetIsArchived
+			? 'Restore this thread to the active list?'
+			: 'Are you sure you want to archive this thread? It will be removed from the thread list.')}
+	confirmLabel={archiveTargetIsArchived ? 'Restore' : 'Archive'}
 	cancelLabel="Cancel"
 	onconfirm={handleArchiveConfirm}
 	oncancel={handleArchiveCancel}

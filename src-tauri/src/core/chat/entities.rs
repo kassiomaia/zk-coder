@@ -183,6 +183,9 @@ impl ChatMessage {
 pub struct ThreadMetadata {
     /// Whether the thread has been resolved
     pub resolved: bool,
+    /// Whether the thread has been archived
+    #[serde(default)]
+    pub archived: bool,
     /// Tags associated with the thread
     pub tags: Vec<String>,
     /// Priority level of the thread
@@ -297,6 +300,9 @@ pub struct Conversation {
     pub created_at: DateTime<Utc>,
     /// When the conversation was last updated
     pub updated_at: DateTime<Utc>,
+    /// Whether the conversation has been archived
+    #[serde(default)]
+    pub archived: bool,
     /// Settings for this conversation
     pub settings: ConversationSettings,
 }
@@ -310,6 +316,7 @@ impl Conversation {
             title: title.to_string(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
+            archived: false,
             settings: ConversationSettings::default(),
         }
     }
@@ -322,6 +329,7 @@ impl Conversation {
             title: title.to_string(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
+            archived: false,
             settings: ConversationSettings::default(),
         }
     }

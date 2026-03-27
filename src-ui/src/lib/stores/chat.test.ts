@@ -9,6 +9,8 @@ import type {Conversation, Thread} from '$lib/types/thread';
 import type {Message} from '$lib/types/message';
 import type {Ambiguity, IntentClassification, ResolvedAmbiguity} from '$lib/types/nlp';
 import {
+    archiveConversation,
+    archiveThread,
     createConversation,
     createThread,
     createThreadWithMessage,
@@ -67,11 +69,13 @@ vi.mock('$lib/api/chat', () => ({
 	createConversation: vi.fn(),
 	renameConversation: vi.fn(),
 	deleteConversation: vi.fn(),
+	archiveConversation: vi.fn(),
 	updateConversationSettings: vi.fn(),
 	setConversationWorkspace: vi.fn(),
 	loadThreads: vi.fn(),
 	createThread: vi.fn(),
 	resolveThread: vi.fn(),
+	archiveThread: vi.fn(),
 	deleteThread: vi.fn(),
 	renameThread: vi.fn(),
 	setThreadAgentSession: vi.fn(),
@@ -166,6 +170,7 @@ const createMockThread = (id: string, conversationId: string, title: string): Th
 	messageCount: 5,
 	metadata: {
 		resolved: false,
+		archived: false,
 		tags: [],
 		priority: 'medium'
 	}
@@ -743,6 +748,29 @@ describe('chatStore', () => {
 
 			expect(result).toBe(false);
 			expect(get(chatStore).error).toBe('Resolve failed');
+		});
+
+		it('archiveThread removes archived thread from active state', async () => {
+			const mockThread = createMockThread('thread-1', 'conv-1', 'Thread 1');
+			const mockConversation = createMockConversation('conv-1', 'Conversation 1');
+			const state = get(chatStore);
+			state.selectedConversationId = 'conv-1';
+			state.selectedThreadId = 'thread-1';
+			state.threads = [mockThread];
+			state.conversations = [{ ...mockConversation, threads: [mockThread] }];
+
+			vi.mocked(archiveThread).mockResolvedValue(undefined);
+
+			const result = await chatStore.archiveThread('thread-1', true);
+
+			expect(result).toBe(true);
+			expect(archiveThread).toHaveBeenCalledWith('thread-1', true);
+
+			const newState = get(chatStore);
+			expect(newState.threads).toEqual([]);
+			expect(newState.conversations[0].threads).toEqual([]);
+			expect(newState.selectedThreadId).toBeNull();
+			expect(newState.messages).toEqual([]);
 		});
 
 		it('deleteThread removes thread from state', async () => {

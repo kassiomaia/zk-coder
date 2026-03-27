@@ -7,6 +7,7 @@ import type {AgentEvent} from '$lib/types/agent';
 import type {AgentState} from '../state';
 import {clearStreamingUpdates, scheduleStreamingUpdate} from '../streaming';
 import {getOnAgentActivity, getOnSystemMessage} from '../callbacks';
+import {buildContextNoticeContent} from '$lib/utils/systemNotices';
 
 /**
  * Handle streaming_content event.
@@ -104,7 +105,19 @@ export function handleContextCompacted(state: AgentState, event: Extract<AgentEv
 	const session = state.sessions.get(event.sessionId);
 	const onSystemMessage = getOnSystemMessage();
 	if (onSystemMessage && session) {
-		const summary = `🗜️ **Context compacted**\n\n${event.beforeCount} → ${event.afterCount} messages\n${event.beforeTokens.toLocaleString()} → ${event.afterTokens.toLocaleString()} tokens`;
-		onSystemMessage(event.sessionId, event.conversationId, session.threadId, summary);
+		onSystemMessage(event.sessionId, event.conversationId, session.threadId, {
+			role: 'system',
+			content: buildContextNoticeContent(event),
+			metadata: {
+				systemNotice: {
+					type: 'context_update',
+					reason: event.reason,
+					beforeCount: event.beforeCount,
+					afterCount: event.afterCount,
+					beforeTokens: event.beforeTokens,
+					afterTokens: event.afterTokens
+				}
+			}
+		});
 	}
 }

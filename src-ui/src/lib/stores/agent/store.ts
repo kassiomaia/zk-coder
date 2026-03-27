@@ -12,6 +12,7 @@ import * as Events from './events';
 import * as Streaming from './streaming';
 import * as Callbacks from './callbacks';
 import * as UiState from './uiState';
+import type {SystemMessagePayload} from './callbacks';
 
 /**
  * Agent store interface.
@@ -55,7 +56,12 @@ export interface AgentStore {
 		callback: (sessionId: string, conversationId: string, threadId: string, content: string) => void
 	): void;
 	setSystemMessageCallback(
-		callback: (sessionId: string, conversationId: string, threadId: string, message: string) => void
+		callback: (
+			sessionId: string,
+			conversationId: string,
+			threadId: string,
+			message: SystemMessagePayload
+		) => void
 	): void;
 	setAgentActivityCallback(
 		callback: (conversationId: string, threadId: string, message: Partial<any>) => void
@@ -264,7 +270,12 @@ function createAgentStore(): AgentStore {
 	 * Set a callback for system messages.
 	 */
 	function setSystemMessageCallback(
-		callback: (sessionId: string, conversationId: string, threadId: string, message: string) => void
+		callback: (
+			sessionId: string,
+			conversationId: string,
+			threadId: string,
+			message: SystemMessagePayload
+		) => void
 	) {
 		Callbacks.setSystemMessageCallback(callback);
 	}

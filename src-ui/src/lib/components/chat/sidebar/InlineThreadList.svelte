@@ -51,13 +51,13 @@
 		onArchiveThread
 	}: Props = $props();
 
-	// Sort threads: open first, then resolved (no grouping labels)
-	let sortedThreads = $derived([
-		...threads.filter((t) => !t.metadata.resolved),
-		...threads.filter((t) => t.metadata.resolved)
-	]);
-
 	let hasThreads = $derived(threads.length > 0);
+	let openThreads = $derived(
+		threads.filter((t) => !t.metadata.archived && !t.metadata.resolved)
+	);
+	let resolvedThreads = $derived(
+		threads.filter((t) => !t.metadata.archived && t.metadata.resolved)
+	);
 </script>
 
 {#if hasThreads}
@@ -67,24 +67,55 @@
 		data-threads-expanded={expanded || undefined}
 		aria-label="Conversation threads"
 	>
-		<ul class={styles.list} role="listbox" aria-label="Threads">
-			{#each sortedThreads as thread, index (thread.id)}
-				<li class={styles.itemWrapper}>
-					<ThreadItem
-						{thread}
-						variant="inline"
-						selected={thread.id === selectedThreadId}
-						isStreaming={activeStreamingThreadIds.includes(thread.id)}
-						hasUnread={unreadThreadIds.includes(thread.id) && thread.id !== selectedThreadId}
-						onclick={() => onSelectThread(thread)}
-						onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
-						onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
-						ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
-						onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
-						style="animation-delay: calc({index} * var(--stagger-normal))"
-					/>
-				</li>
-			{/each}
-		</ul>
+		{#if openThreads.length > 0}
+			<div class={styles.section}>
+				<h4 class={styles.sectionLabel}>Open</h4>
+				<ul class={styles.list} role="listbox" aria-label="Open threads">
+					{#each openThreads as thread, index (thread.id)}
+						<li class={styles.itemWrapper}>
+							<ThreadItem
+								{thread}
+								variant="inline"
+								selected={thread.id === selectedThreadId}
+								isStreaming={activeStreamingThreadIds.includes(thread.id)}
+								hasUnread={unreadThreadIds.includes(thread.id) && thread.id !== selectedThreadId}
+								onclick={() => onSelectThread(thread)}
+								onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
+								onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
+								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
+								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
+								style="animation-delay: calc({index} * var(--stagger-normal))"
+							/>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+
+		{#if resolvedThreads.length > 0}
+			<div class={styles.section}>
+				<h4 class={styles.sectionLabel}>Resolved</h4>
+				<ul class={styles.list} role="listbox" aria-label="Resolved threads">
+					{#each resolvedThreads as thread, index (thread.id)}
+						<li class={styles.itemWrapper}>
+							<ThreadItem
+								{thread}
+								variant="inline"
+								selected={thread.id === selectedThreadId}
+								isStreaming={activeStreamingThreadIds.includes(thread.id)}
+								hasUnread={unreadThreadIds.includes(thread.id) && thread.id !== selectedThreadId}
+								onclick={() => onSelectThread(thread)}
+								onresolve={onResolveThread ? () => onResolveThread(thread) : undefined}
+								onrename={onRenameThread ? (newTitle) => onRenameThread(thread, newTitle) : undefined}
+								ondelete={onDeleteThread ? () => onDeleteThread(thread) : undefined}
+								onarchive={onArchiveThread ? () => onArchiveThread(thread) : undefined}
+								style="animation-delay: calc({openThreads.length + index} * var(--stagger-normal))"
+							/>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+
 	</div>
 {/if}

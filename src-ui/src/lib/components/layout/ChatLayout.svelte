@@ -15,6 +15,7 @@
     import type {Message} from '$lib/types/message';
     import type {AgentSession, PendingAction} from '$lib/types/agent';
     import {createAppShortcuts, unregisterShortcuts} from '$lib/utils/keyboardShortcuts';
+    import {getThreadAgentState} from '$lib/utils/threadAgentState';
 
     interface Props {
 		/** Conversations for the sidebar */
@@ -87,6 +88,8 @@
 		onWorkspaceChange?: (path: string) => void;
 		/** All agent sessions for this conversation */
 		agentSessions?: AgentSession[];
+		/** All loaded agent sessions */
+		allAgentSessions?: AgentSession[];
 		/** Map of sessionId to thread title for tab display */
 		agentSessionTitles?: Map<string, string>;
 		/** Handler to select a different agent session */
@@ -137,6 +140,7 @@
 		onDenyAction,
 		onWorkspaceChange,
 		agentSessions = [],
+		allAgentSessions = [],
 		agentSessionTitles = new Map(),
 		onSelectSession,
 		onCreateSession,
@@ -238,10 +242,7 @@
 			: []
 	);
 
-	// Determine if agent or LLM is actively working
-	let isAgentRunning = $derived(
-		agentSession?.state?.type === 'running' || agentSession?.state?.type === 'launching'
-	);
+	let currentThreadAgentState = $derived(getThreadAgentState(selectedThread, allAgentSessions));
 </script>
 
 <div class={styles.layout} data-sidebar-open={sidebarOpen}>
@@ -334,7 +335,9 @@
 					onReopenThread={handleReopenThread}
 					onToggleSidebar={toggleSidebar}
 					{loading}
-					isTyping={isAgentRunning}
+					isTyping={currentThreadAgentState.isWorking}
+					agentStatus={currentThreadAgentState.status}
+					agentSessionId={currentThreadAgentState.sessionId}
 					{initialModelId}
 					onModelChange={handleModelChange}
 					{onMessageFeedback}
@@ -348,7 +351,9 @@
 					emptyContext="conversation"
 					conversationTitle={selectedConversation?.title}
 					{loading}
-					isTyping={isAgentRunning}
+					isTyping={currentThreadAgentState.isWorking}
+					agentStatus={currentThreadAgentState.status}
+					agentSessionId={currentThreadAgentState.sessionId}
 					onSendMessage={handleSendMessage}
 					onThreadClick={handleSelectThreadById}
 					onOpenSettings={onSettings}
@@ -363,7 +368,9 @@
 					threadId={selectedThreadId}
 					emptyContext="none"
 					{loading}
-					isTyping={isAgentRunning}
+					isTyping={currentThreadAgentState.isWorking}
+					agentStatus={currentThreadAgentState.status}
+					agentSessionId={currentThreadAgentState.sessionId}
 					onSendMessage={handleSendMessage}
 					onOpenSettings={onSettings}
 				/>

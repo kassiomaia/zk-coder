@@ -18,6 +18,8 @@ import {
 } from '$lib/api/nlp';
 import type {ResolutionType} from '$lib/types/nlp';
 import {
+    archiveConversation as apiArchiveConversation,
+    archiveThread as apiArchiveThread,
     createConversation as apiCreateConversation,
     createThread as apiCreateThread,
     createThreadWithMessage as apiCreateThreadWithMessage,
@@ -277,6 +279,40 @@ function createChatStore() {
 		},
 
 		/**
+		 * Archive or restore a conversation.
+		 */
+		async archiveConversation(id: string, archived: boolean): Promise<boolean> {
+			try {
+				await apiArchiveConversation(id, archived);
+				if (archived && get({ subscribe }).selectedConversationId === id) {
+					agentStore.setActiveSession(null);
+				}
+				update((state) => {
+					const nextConversationId =
+						archived && state.selectedConversationId === id ? null : state.selectedConversationId;
+					return {
+						...state,
+						conversations: state.conversations.map((c) =>
+							c.id === id ? { ...c, archived, updatedAt: new Date() } : c
+						),
+						selectedConversationId: nextConversationId,
+						selectedThreadId:
+							archived && state.selectedConversationId === id ? null : state.selectedThreadId,
+						messages: archived && state.selectedConversationId === id ? [] : state.messages,
+						threads: archived && state.selectedConversationId === id ? [] : state.threads
+					};
+				});
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to archive conversation'
+				}));
+				return false;
+			}
+		},
+
+		/**
 		 * Update a conversation's settings (model, temperature, etc.).
 		 */
 		async updateConversationSettings(
@@ -370,8 +406,9 @@ function createChatStore() {
 						conversations: state.conversations.map((c) => (c.id === id ? { ...c, threads } : c))
 					}));
 
-					if (threads.length > 0) {
-						const mostRecentThread = sortThreadsByRecent(threads)[0];
+					const selectableThreads = threads.filter((thread) => !thread.metadata.archived);
+					if (selectableThreads.length > 0) {
+						const mostRecentThread = sortThreadsByRecent(selectableThreads)[0];
 						await this.selectThread(mostRecentThread.id);
 					}
 				} catch (error) {
@@ -547,6 +584,22 @@ function createChatStore() {
 					...state,
 					threads: state.threads.map((t) =>
 						t.id === id ? { ...t, metadata: { ...t.metadata, resolved }, updatedAt: new Date() } : t
+					),
+					conversations: state.conversations.map((c) =>
+						c.id === state.selectedConversationId
+							? {
+									...c,
+									threads: (c.threads || []).map((t) =>
+										t.id === id
+											? {
+													...t,
+													metadata: { ...t.metadata, resolved },
+													updatedAt: new Date()
+												}
+											: t
+									)
+								}
+							: c
 					)
 				}));
 				return true;
@@ -554,6 +607,47 @@ function createChatStore() {
 				update((state) => ({
 					...state,
 					error: error instanceof Error ? error.message : 'Failed to update thread'
+				}));
+				return false;
+			}
+		},
+
+		/**
+		 * Archive or restore a thread.
+		 */
+		async archiveThread(id: string, archived: boolean): Promise<boolean> {
+			try {
+				await apiArchiveThread(id, archived);
+				if (archived && get({ subscribe }).selectedThreadId === id) {
+					agentStore.setActiveSession(null);
+				}
+				update((state) => {
+					const shouldClearSelection = archived && state.selectedThreadId === id;
+					return {
+						...state,
+						threads: archived
+							? state.threads.filter((t) => t.id !== id)
+							: state.threads,
+						conversations: state.conversations.map((c) =>
+							c.id === state.selectedConversationId
+								? {
+										...c,
+										threads: archived
+											? (c.threads || []).filter((t) => t.id !== id)
+											: c.threads
+									}
+								: c
+						),
+						selectedThreadId: shouldClearSelection ? null : state.selectedThreadId,
+						messages: shouldClearSelection ? [] : state.messages,
+						unreadThreadIds: state.unreadThreadIds.filter((threadId) => threadId !== id)
+					};
+				});
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to archive thread'
 				}));
 				return false;
 			}

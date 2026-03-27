@@ -18,8 +18,8 @@ pub fn create_thread(
     let metadata_json = serde_json::to_string(&thread.metadata)?;
 
     conn.execute(
-        "INSERT INTO threads (id, conversation_id, parent_id, title, created_at, updated_at, message_count, metadata)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO threads (id, conversation_id, parent_id, title, created_at, updated_at, archived, message_count, metadata)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             &thread.id,
             &thread.conversation_id,
@@ -27,6 +27,7 @@ pub fn create_thread(
             &thread.title,
             &thread.created_at.to_rfc3339(),
             &thread.updated_at.to_rfc3339(),
+            thread.metadata.archived as i64,
             thread.message_count as i64,
             &metadata_json,
         ],
@@ -41,19 +42,21 @@ pub fn load_threads(
     conversation_id: &str,
 ) -> Result<Vec<Thread>, ChatRepositoryError> {
     let mut stmt = conn.prepare(
-        "SELECT id, conversation_id, parent_id, title, created_at, updated_at, message_count, metadata
-         FROM threads WHERE conversation_id = ?1 ORDER BY updated_at DESC",
+        "SELECT id, conversation_id, parent_id, title, created_at, updated_at, archived, message_count, metadata
+         FROM threads WHERE conversation_id = ?1 AND archived = 0 ORDER BY updated_at DESC",
     )?;
 
     let threads = stmt
         .query_map(params![conversation_id], |row| {
             let thread_id: String = row.get(0)?;
-            let metadata_json: String = row.get(7)?;
+            let metadata_json: String = row.get(8)?;
             let metadata = serde_json::from_str(&metadata_json)
                 .unwrap_or_else(|e| {
                     warn!("Failed to parse thread metadata for thread {thread_id} in conversation {conversation_id}: {e}");
                     ThreadMetadata::default()
                 });
+            let mut metadata = metadata;
+            metadata.archived = row.get::<_, i64>(6)? != 0;
             Ok(Thread {
                 id: thread_id,
                 conversation_id: row.get(1)?,
@@ -61,7 +64,7 @@ pub fn load_threads(
                 title: row.get(3)?,
                 created_at: parse_datetime(&row.get::<_, String>(4)?),
                 updated_at: parse_datetime(&row.get::<_, String>(5)?),
-                message_count: row.get::<_, i64>(6)? as usize,
+                message_count: row.get::<_, i64>(7)? as usize,
                 metadata,
             })
         })?
@@ -74,16 +77,18 @@ pub fn load_threads(
 pub fn load_thread(conn: &Connection, id: &str) -> Result<Thread, ChatRepositoryError> {
     let row = conn
         .query_row(
-            "SELECT id, conversation_id, parent_id, title, created_at, updated_at, message_count, metadata
+            "SELECT id, conversation_id, parent_id, title, created_at, updated_at, archived, message_count, metadata
              FROM threads WHERE id = ?1",
             params![id],
             |row| {
-                let metadata_json: String = row.get(7)?;
+                let metadata_json: String = row.get(8)?;
                 let metadata = serde_json::from_str(&metadata_json)
                     .unwrap_or_else(|e| {
                         warn!("Failed to parse thread metadata for thread {id}: {e}");
                         ThreadMetadata::default()
                     });
+                let mut metadata = metadata;
+                metadata.archived = row.get::<_, i64>(6)? != 0;
                 Ok(Thread {
                     id: row.get(0)?,
                     conversation_id: row.get(1)?,
@@ -91,7 +96,7 @@ pub fn load_thread(conn: &Connection, id: &str) -> Result<Thread, ChatRepository
                     title: row.get(3)?,
                     created_at: parse_datetime(&row.get::<_, String>(4)?),
                     updated_at: parse_datetime(&row.get::<_, String>(5)?),
-                    message_count: row.get::<_, i64>(6)? as usize,
+                    message_count: row.get::<_, i64>(7)? as usize,
                     metadata,
                 })
             },
@@ -131,9 +136,49 @@ pub fn update_thread_resolved(
     let now = Utc::now();
 
     conn.execute(
-        "UPDATE threads SET metadata = ?1, updated_at = ?2 WHERE id = ?3",
-        params![new_metadata_json, now.to_rfc3339(), id],
+        "UPDATE threads SET metadata = ?1, archived = ?2, updated_at = ?3 WHERE id = ?4",
+        params![new_metadata_json, metadata.archived as i64, now.to_rfc3339(), id],
     )?;
+
+    Ok(())
+}
+
+/// Updates a thread's archived status.
+pub fn update_thread_archived(
+    conn: &Connection,
+    id: &str,
+    archived: bool,
+) -> Result<(), ChatRepositoryError> {
+    let metadata_json: Option<String> = conn
+        .query_row(
+            "SELECT metadata FROM threads WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .optional()?;
+
+    let mut metadata: ThreadMetadata = metadata_json
+        .as_deref()
+        .and_then(|j| {
+            serde_json::from_str(j)
+                .inspect_err(|e| {
+                    warn!("Failed to parse thread metadata for thread {id} when updating archived state, using default: {e}");
+                })
+                .ok()
+        })
+        .unwrap_or_default();
+    metadata.archived = archived;
+
+    let new_metadata_json = serde_json::to_string(&metadata)?;
+    let now = Utc::now();
+    let rows_affected = conn.execute(
+        "UPDATE threads SET metadata = ?1, archived = ?2, updated_at = ?3 WHERE id = ?4",
+        params![new_metadata_json, archived as i64, now.to_rfc3339(), id],
+    )?;
+
+    if rows_affected == 0 {
+        return Err(ChatRepositoryError::NotFound("Thread", id.to_string()));
+    }
 
     Ok(())
 }
@@ -168,8 +213,8 @@ pub fn set_thread_agent_session(
     let now = Utc::now();
 
     conn.execute(
-        "UPDATE threads SET metadata = ?1, updated_at = ?2 WHERE id = ?3",
-        params![new_metadata_json, now.to_rfc3339(), id],
+        "UPDATE threads SET metadata = ?1, archived = ?2, updated_at = ?3 WHERE id = ?4",
+        params![new_metadata_json, metadata.archived as i64, now.to_rfc3339(), id],
     )?;
 
     Ok(())
@@ -218,8 +263,8 @@ pub fn create_thread_with_message(
     let metadata_json = serde_json::to_string(&thread.metadata)?;
 
     conn.execute(
-        "INSERT INTO threads (id, conversation_id, parent_id, title, created_at, updated_at, message_count, metadata)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO threads (id, conversation_id, parent_id, title, created_at, updated_at, archived, message_count, metadata)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             &thread.id,
             &thread.conversation_id,
@@ -227,6 +272,7 @@ pub fn create_thread_with_message(
             &thread.title,
             &thread.created_at.to_rfc3339(),
             &thread.updated_at.to_rfc3339(),
+            thread.metadata.archived as i64,
             1i64, // Start with 1 message
             &metadata_json,
         ],
@@ -332,6 +378,22 @@ mod tests {
 
         let loaded = load_thread(&conn, &thread.id).unwrap();
         assert!(!loaded.metadata.resolved);
+    }
+
+    #[test]
+    fn test_archived_thread_is_hidden_from_load_threads_but_loadable_directly() {
+        let conn = make_test_store();
+        let conv_id = make_test_conversation(&conn);
+
+        let thread = create_thread(&conn, &conv_id, "Archived Thread").unwrap();
+        update_thread_archived(&conn, &thread.id, true).unwrap();
+
+        let visible_threads = load_threads(&conn, &conv_id).unwrap();
+        assert!(visible_threads.is_empty());
+
+        let archived = load_thread(&conn, &thread.id).unwrap();
+        assert!(archived.metadata.archived);
+        assert_eq!(archived.title, "Archived Thread");
     }
 
     #[test]

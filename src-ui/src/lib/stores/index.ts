@@ -60,9 +60,10 @@ export const conversationSessions = derived(
 		if (!conversationId) return [];
 		return Array.from($agentState.sessions.values()).filter((s) => {
 			if (s.conversationId !== conversationId) return false;
-			// Hide sessions for resolved threads
+			// Hide sessions for resolved or archived threads
 			const thread = $chatState.threads.find((t) => t.id === s.threadId);
-			return !thread?.metadata.resolved;
+			if (!thread) return false;
+			return !thread.metadata.resolved && !thread.metadata.archived;
 		});
 	}
 );

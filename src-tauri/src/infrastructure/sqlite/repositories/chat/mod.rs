@@ -17,12 +17,13 @@ use crate::infrastructure::sqlite::migrations::{chat, chat_schema};
 
 pub use conversations::{
     create_conversation, delete_conversation, load_all_conversations, load_conversation,
-    update_conversation_settings, update_conversation_title, update_conversation_workspace,
+    update_conversation_archived, update_conversation_settings, update_conversation_title,
+    update_conversation_workspace,
 };
 
 pub use threads::{
     create_thread, create_thread_with_message, delete_thread, load_thread, load_threads,
-    rename_thread, set_thread_agent_session, update_thread_resolved,
+    rename_thread, set_thread_agent_session, update_thread_archived, update_thread_resolved,
 };
 
 pub use messages::{
@@ -195,6 +196,16 @@ impl SqliteChatRepository {
         conversations::update_conversation_workspace(&conn, id, workspace_root)
     }
 
+    /// Updates a conversation's archived status.
+    pub fn update_conversation_archived_impl(
+        &self,
+        id: &str,
+        archived: bool,
+    ) -> Result<(), ChatRepositoryError> {
+        let conn = self.acquire_lock()?;
+        conversations::update_conversation_archived(&conn, id, archived)
+    }
+
     // ========================================================================
     // Thread Operations
     // ========================================================================
@@ -232,6 +243,16 @@ impl SqliteChatRepository {
     ) -> Result<(), ChatRepositoryError> {
         let conn = self.acquire_lock()?;
         threads::update_thread_resolved(&conn, id, resolved)
+    }
+
+    /// Updates a thread's archived status.
+    pub fn update_thread_archived_impl(
+        &self,
+        id: &str,
+        archived: bool,
+    ) -> Result<(), ChatRepositoryError> {
+        let conn = self.acquire_lock()?;
+        threads::update_thread_archived(&conn, id, archived)
     }
 
     /// Sets the agent session ID for a thread.
@@ -396,6 +417,11 @@ impl ChatRepository for SqliteChatRepository {
         self.update_conversation_workspace_impl(id, workspace_root)
             .map_err(ChatDomainError::from)
     }
+
+    fn update_conversation_archived(&self, id: &str, archived: bool) -> RepositoryResult<()> {
+        self.update_conversation_archived_impl(id, archived)
+            .map_err(ChatDomainError::from)
+    }
 }
 
 impl ThreadRepository for SqliteChatRepository {
@@ -415,6 +441,11 @@ impl ThreadRepository for SqliteChatRepository {
 
     fn update_thread_resolved(&self, id: &str, resolved: bool) -> RepositoryResult<()> {
         self.update_thread_resolved_impl(id, resolved)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn update_thread_archived(&self, id: &str, archived: bool) -> RepositoryResult<()> {
+        self.update_thread_archived_impl(id, archived)
             .map_err(ChatDomainError::from)
     }
 
@@ -493,6 +524,7 @@ impl MessageRepository for SqliteChatRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn test_create_and_load_conversation() {
@@ -558,5 +590,55 @@ mod tests {
         let reloaded = store.load_conversation(&conv.id).expect("Failed to load");
         assert_eq!(reloaded.settings.model, "custom-model");
         assert_eq!(reloaded.settings.temperature, 0.9);
+    }
+
+    #[test]
+    fn test_archived_thread_stays_hidden_after_repository_reopen() {
+        let db_path = std::env::temp_dir().join(format!(
+            "coder-chat-archive-regression-{}.db",
+            uuid::Uuid::new_v4()
+        ));
+
+        {
+            let store = SqliteChatRepository::new(db_path.to_str().expect("Invalid temp path"))
+                .expect("Failed to create store");
+            let conv = store
+                .create_conversation("Archive Regression")
+                .expect("Failed to create conversation");
+            let thread = store
+                .create_thread(&conv.id, "Should stay archived")
+                .expect("Failed to create thread");
+
+            store
+                .add_message(&ChatMessage::user(&conv.id, "hello").with_thread(&thread.id))
+                .expect("Failed to add message");
+            store
+                .update_thread_archived(&thread.id, true)
+                .expect("Failed to archive thread");
+
+            let threads = store.load_threads(&conv.id).expect("Failed to load threads");
+            assert!(threads.is_empty());
+        }
+
+        {
+            let reopened = SqliteChatRepository::new(db_path.to_str().expect("Invalid temp path"))
+                .expect("Failed to reopen store");
+            let conversations = reopened
+                .load_all_conversations()
+                .expect("Failed to load conversations");
+            let conv_id = conversations
+                .first()
+                .expect("Expected persisted conversation")
+                .id
+                .clone();
+
+            let threads = reopened.load_threads(&conv_id).expect("Failed to load threads");
+            assert!(
+                threads.is_empty(),
+                "Archived thread should not reappear after reopening the repository"
+            );
+        }
+
+        let _ = fs::remove_file(db_path);
     }
 }

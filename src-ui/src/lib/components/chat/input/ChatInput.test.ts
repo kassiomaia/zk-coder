@@ -3,38 +3,39 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import ChatInput from './ChatInput.svelte';
 import type {Command} from '$lib/types/command';
 
-// Mock the stores
-const mockChatStore = {
-	classifyInput: vi.fn(),
-	cancelLlmStream: vi.fn()
-};
-
-const mockNlpState = {
-	get backendAvailable() {
-		return false;
+const { mockChatStore, mockNlpState, mockIsLlmStreaming, mockAgentStore } = vi.hoisted(() => ({
+	mockChatStore: {
+		classifyInput: vi.fn(),
+		cancelLlmStream: vi.fn()
 	},
-	get processing() {
-		return false;
+	mockNlpState: {
+		subscribe: vi.fn((run: (value: unknown) => void) => {
+			run({
+				backendAvailable: false,
+				processing: false,
+				detectedIntent: null,
+				pendingAmbiguities: []
+			});
+			return () => {};
+		})
 	},
-	get detectedIntent() {
-		return null;
+	mockIsLlmStreaming: {
+		subscribe: vi.fn((run: (value: boolean) => void) => {
+			run(false);
+			return () => {};
+		})
 	},
-	get pendingAmbiguities() {
-		return [];
-	},
-	subscribe: vi.fn(() => vi.fn())
-};
-
-const mockIsLlmStreaming = {
-	subscribe: vi.fn(() => vi.fn())
-};
-
-const mockAgentStore = {
-	cancelSession: vi.fn(),
-	get activeSessionId() {
-		return null;
+	mockAgentStore: {
+		subscribe: vi.fn((run: (value: unknown) => void) => {
+			run({ activeSessionId: null });
+			return () => {};
+		}),
+		cancelSession: vi.fn(),
+		get activeSessionId() {
+			return null;
+		}
 	}
-};
+}));
 
 vi.mock('$lib/stores', () => ({
 	chatStore: mockChatStore,
@@ -146,7 +147,7 @@ describe('ChatInput', () => {
 			const textarea = container.querySelector('textarea');
 			if (textarea) {
 				await fireEvent.keyDown(textarea, { key: 'Enter' });
-				// Submit should be called
+				await vi.advanceTimersByTimeAsync(200);
 				expect(onsubmit).toHaveBeenCalled();
 			}
 		});
@@ -269,25 +270,44 @@ describe('ChatInput', () => {
 				...defaultProps,
 				value: 'test'
 			});
-			// Send button should be in the document
-			const container = document.body;
-			expect(container).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: /send message/i })).toBeInTheDocument();
 		});
 
 		it('calls onsubmit when send button is clicked', async () => {
 			const onsubmit = vi.fn();
-			const { container } = render(ChatInput, {
+			render(ChatInput, {
 				...defaultProps,
 				value: 'test message',
 				onsubmit
 			});
 
-			const buttons = container.querySelectorAll('button');
-			if (buttons.length > 0) {
-				await fireEvent.click(buttons[0]);
-				// Handler may or may not be called depending on which button
-				expect(container).toBeInTheDocument();
-			}
+			await fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+			await vi.advanceTimersByTimeAsync(200);
+			expect(onsubmit).toHaveBeenCalled();
+		});
+
+		it('shows stop button while the linked agent session is working', () => {
+			render(ChatInput, {
+				...defaultProps,
+				value: 'test message',
+				isAgentWorking: true,
+				agentSessionId: 'session-1'
+			});
+
+			expect(screen.getByRole('button', { name: /stop generation/i })).toBeInTheDocument();
+		});
+
+		it('cancels the linked agent session when stop is clicked', async () => {
+			render(ChatInput, {
+				...defaultProps,
+				value: 'test message',
+				isAgentWorking: true,
+				agentSessionId: 'session-1'
+			});
+
+			await fireEvent.click(screen.getByRole('button', { name: /stop generation/i }));
+			expect(mockAgentStore.cancelSession).toHaveBeenCalledWith('session-1');
+			expect(mockChatStore.cancelLlmStream).not.toHaveBeenCalled();
 		});
 	});
 
@@ -331,7 +351,7 @@ describe('ChatInput', () => {
 				attachments
 			});
 
-			expect(screen.getByText('1 KB')).toBeInTheDocument();
+			expect(screen.getByText('1.0 KB')).toBeInTheDocument();
 			expect(screen.getByText('2.5 MB')).toBeInTheDocument();
 		});
 	});

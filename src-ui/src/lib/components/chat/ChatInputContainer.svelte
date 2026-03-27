@@ -28,6 +28,12 @@
 		/** Loading state */
 		loading?: boolean;
 
+		/** Whether the thread-linked agent session is active */
+		isAgentWorking?: boolean;
+
+		/** Session ID linked to the visible thread */
+		agentSessionId?: string | null;
+
 		/** Whether thread is resolved (hides input with animation) */
 		threadResolved?: boolean;
 
@@ -49,6 +55,8 @@
 		onblur,
 		placeholder = 'Send a message...',
 		loading = false,
+		isAgentWorking = false,
+		agentSessionId = null,
 		threadResolved = false,
 		modelId,
 		onModelChange,
@@ -116,6 +124,8 @@
 			onblur={onblur}
 			{placeholder}
 			{loading}
+			{isAgentWorking}
+			{agentSessionId}
 			showIntent={true}
 			modelId={modelId}
 			onModelChange={onModelChange}

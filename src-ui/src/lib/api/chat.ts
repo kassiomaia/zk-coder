@@ -6,6 +6,7 @@
 import {invoke} from '@tauri-apps/api/core';
 import type {Conversation, Thread} from '$lib/types/thread';
 import type {Message} from '$lib/types/message';
+import {parseSystemNoticeFromMessage} from '$lib/utils/systemNotices';
 
 // ============================================================================
 // Error Handling
@@ -72,6 +73,7 @@ export interface ConversationResponse {
 	title: string;
 	createdAt: string;
 	updatedAt: string;
+	archived: boolean;
 	settings: {
 		model: string;
 		temperature: number;
@@ -94,6 +96,7 @@ export interface ThreadResponse {
 	messageCount: number;
 	metadata: {
 		resolved: boolean;
+		archived: boolean;
 		tags: string[];
 		priority: 'low' | 'medium' | 'high';
 		intent?: string;
@@ -157,6 +160,16 @@ export async function renameConversation(id: string, title: string): Promise<Con
  */
 export async function deleteConversation(id: string): Promise<void> {
 	await safeInvoke<void>('delete_conversation', { id });
+}
+
+/**
+ * Archives or restores a conversation.
+ *
+ * @param id - Conversation ID
+ * @param archived - Whether the conversation should be archived
+ */
+export async function archiveConversation(id: string, archived: boolean): Promise<void> {
+	await safeInvoke<void>('archive_conversation', { id, archived });
 }
 
 /**
@@ -252,6 +265,16 @@ export async function createThread(conversationId: string, title: string): Promi
  */
 export async function resolveThread(id: string, resolved: boolean): Promise<void> {
 	await safeInvoke<void>('resolve_thread', { id, resolved });
+}
+
+/**
+ * Archives or restores a thread.
+ *
+ * @param id - Thread ID
+ * @param archived - Whether the thread should be archived
+ */
+export async function archiveThread(id: string, archived: boolean): Promise<void> {
+	await safeInvoke<void>('archive_thread', { id, archived });
 }
 
 /**
@@ -437,6 +460,7 @@ function convToClient(conv: ConversationResponse): Conversation {
 		title: conv.title,
 		createdAt: new Date(conv.createdAt),
 		updatedAt: new Date(conv.updatedAt),
+		archived: conv.archived,
 		threads: [],
 		settings: {
 			model: conv.settings.model,
@@ -462,6 +486,7 @@ function threadToClient(thread: ThreadResponse): Thread {
 		messageCount: thread.messageCount,
 		metadata: {
 			resolved: thread.metadata.resolved,
+			archived: thread.metadata.archived,
 			tags: thread.metadata.tags,
 			priority: thread.metadata.priority,
 			intent: thread.metadata.intent,
@@ -475,6 +500,8 @@ function threadToClient(thread: ThreadResponse): Thread {
  * Converts a backend message to client format.
  */
 function msgToClient(msg: ChatMessageResponse): Message {
+	const parsedSystemNotice = parseSystemNoticeFromMessage(msg.role, msg.content);
+
 	return {
 		id: msg.id,
 		conversationId: msg.conversationId,
@@ -489,8 +516,11 @@ function msgToClient(msg: ChatMessageResponse): Message {
 					confidence: msg.metadata.confidence,
 					tokens: msg.metadata.tokens,
 					model: msg.metadata.model,
-					feedback: msg.metadata.feedback
+					feedback: msg.metadata.feedback,
+					systemNotice: parsedSystemNotice
 				}
-			: undefined
+			: parsedSystemNotice
+				? { systemNotice: parsedSystemNotice }
+				: undefined
 	};
 }

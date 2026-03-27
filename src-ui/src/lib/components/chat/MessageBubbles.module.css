@@ -23,6 +23,11 @@
 	margin-bottom: var(--space-3);
 }
 
+.systemNoticeWrapper {
+	align-items: center;
+	margin-bottom: var(--space-3);
+}
+
 /* =====================
    MESSAGE GROUPS
    ===================== */
@@ -133,6 +138,12 @@
 	margin-right: var(--space-2);
 	max-width: 100%;
 	width: 100%;
+}
+
+.systemNoticeMessage {
+	max-width: min(42rem, 100%);
+	width: 100%;
+	padding: 0;
 }
 
 /* Message content wrapper */

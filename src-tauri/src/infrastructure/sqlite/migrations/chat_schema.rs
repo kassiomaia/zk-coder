@@ -17,6 +17,7 @@ pub fn init_schema(conn: &Connection) -> Result<(), ChatRepositoryError> {
             title TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
+            archived INTEGER NOT NULL DEFAULT 0,
             settings TEXT NOT NULL
         );
 
@@ -31,6 +32,7 @@ pub fn init_schema(conn: &Connection) -> Result<(), ChatRepositoryError> {
             title TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
+            archived INTEGER NOT NULL DEFAULT 0,
             message_count INTEGER NOT NULL DEFAULT 0,
             metadata TEXT NOT NULL,
             FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
@@ -64,6 +66,38 @@ pub fn init_schema(conn: &Connection) -> Result<(), ChatRepositoryError> {
         ON chat_messages(thread_id, timestamp ASC);
         "#,
     )?;
+    ensure_column_exists(
+        conn,
+        "conversations",
+        "archived",
+        "ALTER TABLE conversations ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+    )?;
+    ensure_column_exists(
+        conn,
+        "threads",
+        "archived",
+        "ALTER TABLE threads ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+    )?;
+    Ok(())
+}
+
+fn ensure_column_exists(
+    conn: &Connection,
+    table_name: &str,
+    column_name: &str,
+    alter_sql: &str,
+) -> Result<(), ChatRepositoryError> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table_name})"))?;
+    let has_column = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?
+        .iter()
+        .any(|name| name == column_name);
+
+    if !has_column {
+        conn.execute(alter_sql, [])?;
+    }
+
     Ok(())
 }
 
