@@ -4,7 +4,7 @@
      * Wraps ChatInput with state management and animations.
      */
     import ChatInput from './input/ChatInput.svelte';
-    import styles from './ChatArea.module.css';
+    import styles from './ChatInputContainer.module.css';
 
     interface Props {
 		/** Current input value (bindable) */

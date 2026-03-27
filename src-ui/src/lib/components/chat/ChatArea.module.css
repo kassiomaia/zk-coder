@@ -44,7 +44,7 @@
 	padding: var(--space-5);
 	margin: 0 auto;
 	scrollbar-gutter: stable;
-	width: 1400px;
+	width: var(--content-max-width);
 	max-width: 100%;
 	transition: all var(--duration-slow) var(--ease-in-out);
 }
