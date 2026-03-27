@@ -97,6 +97,8 @@
 		conversationWorkspace?: string;
 		/** Handler to set conversation workspace */
 		onSetConversationWorkspace?: (path: string) => void;
+		/** Handler to retry latest request for a recovered session */
+		onRetryLastRequest?: (sessionId: string) => void;
 	}
 
 	let {
@@ -139,7 +141,8 @@
 		onSelectSession,
 		onCreateSession,
 		conversationWorkspace,
-		onSetConversationWorkspace
+		onSetConversationWorkspace,
+		onRetryLastRequest
 	}: Props = $props();
 
 	// UI state for responsive behavior
@@ -381,6 +384,7 @@
 						onWorkspaceChange={(path) => onWorkspaceChange?.(path)}
 						onSelectSession={(id) => onSelectSession?.(id)}
 						onCreateSession={() => onCreateSession?.()}
+						onRetryLastRequest={(id) => onRetryLastRequest?.(id)}
 						onclose={() => onToggleAgentPanel?.()}
 					/>
 				{:else}

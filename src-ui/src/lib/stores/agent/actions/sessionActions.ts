@@ -133,6 +133,24 @@ export async function sendRequest(
 }
 
 /**
+ * Retry execution with the latest persisted request for a session.
+ */
+export async function retryLastRequest(
+	state: AgentState,
+	update: (fn: (state: AgentState) => AgentState) => void,
+	sessionId: string
+): Promise<string | null> {
+	try {
+		const { invoke } = await import('@tauri-apps/api/core');
+		const resumedSessionId = await invoke<string>('retry_last_agent_request', { sessionId });
+		return resumedSessionId;
+	} catch (error) {
+		update((s) => ({ ...s, error: String(error) }));
+		return null;
+	}
+}
+
+/**
  * Cancel an active session.
  */
 export async function cancelSession(

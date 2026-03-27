@@ -28,6 +28,7 @@ export interface AgentStore {
 	): Promise<import('$lib/types/agent').AgentSession | null>;
 	loadSession(sessionId: string): Promise<import('$lib/types/agent').AgentSession | null>;
 	sendRequest(sessionId: string, content: string): Promise<void>;
+	retryLastRequest(sessionId: string): Promise<string | null>;
 	approveAction(sessionId: string, actionId: string): Promise<void>;
 	denyAction(sessionId: string, actionId: string): Promise<void>;
 	cancelSession(sessionId: string): Promise<void>;
@@ -129,6 +130,14 @@ function createAgentStore(): AgentStore {
 	async function sendRequest(sessionId: string, content: string) {
 		const state = get({ subscribe });
 		return Actions.sendRequest(state, update, sessionId, content);
+	}
+
+	/**
+	 * Retry the latest request for a session.
+	 */
+	async function retryLastRequest(sessionId: string) {
+		const state = get({ subscribe });
+		return Actions.retryLastRequest(state, update, sessionId);
 	}
 
 	/**
@@ -283,6 +292,7 @@ function createAgentStore(): AgentStore {
 		createSession,
 		loadSession,
 		sendRequest,
+		retryLastRequest,
 		approveAction,
 		denyAction,
 		cancelSession,

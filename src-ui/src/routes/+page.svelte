@@ -114,6 +114,10 @@
 		}
 	}
 
+	async function handleRetryLastRequest(sessionId: string) {
+		await agentStore.retryLastRequest(sessionId);
+	}
+
 	async function handleSetConversationWorkspace(path: string) {
 		console.debug('[+page] handleSetConversationWorkspace called:', { path });
 		const conversation = $selectedConversation;
@@ -709,6 +713,7 @@
 		{agentSessionTitles}
 		onSelectSession={handleSelectSession}
 		onCreateSession={handleCreateSession}
+		onRetryLastRequest={handleRetryLastRequest}
 		conversationWorkspace={$selectedConversation?.settings.workspaceRoot}
 		onSetConversationWorkspace={handleSetConversationWorkspace}
 	/>

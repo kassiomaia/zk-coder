@@ -28,6 +28,7 @@
 		onSelectSession?: (sessionId: string) => void;
 		onCreateSession?: () => void;
 		onChangeAgent?: (agentId: string) => void;
+		onRetryLastRequest?: (sessionId: string) => void;
 		onclose: () => void;
 	}
 
@@ -42,6 +43,7 @@
 		onSelectSession,
 		onCreateSession,
 		onChangeAgent,
+		onRetryLastRequest,
 		onclose
 	}: Props = $props();
 
@@ -63,6 +65,9 @@
 	/** Approval dialog derived from pending actions */
 	let showApprovalDialog = $derived(pendingActions.length > 0);
 	let currentApproval = $derived(pendingActions[0] ?? null);
+	let canRetryRecovered = $derived(
+		session.state.type === 'error' && session.state.recoverable
+	);
 
 	function getStatusLabel(session: AgentSession): string {
 		switch (session.state.type) {
@@ -207,6 +212,16 @@
 			>
 				<span class="status-dot {getStatusDotClass(session)}"></span>
 				<span class="status-label">{getStatusLabel(session)}</span>
+				{#if canRetryRecovered}
+					<button
+						class="retry-btn"
+						type="button"
+						onclick={() => onRetryLastRequest?.(session.id)}
+						aria-label="Retry last request"
+					>
+						Retry last request
+					</button>
+				{/if}
 			</div>
 
 			<!-- Activity (Tasks + Progress) section -->
@@ -480,6 +495,24 @@
 	.status-label {
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
+	}
+
+	.retry-btn {
+		margin-left: auto;
+		padding: 2px 8px;
+		border: 1px solid var(--color-warning);
+		border-radius: var(--radius-sm);
+		background: var(--color-warning-light);
+		color: var(--color-warning);
+		font-size: 10px;
+		font-weight: 600;
+		cursor: pointer;
+		transition: background var(--transition-fast);
+	}
+
+	.retry-btn:hover {
+		background: var(--color-warning-light);
+		filter: brightness(0.95);
 	}
 
 	/* Sections */
