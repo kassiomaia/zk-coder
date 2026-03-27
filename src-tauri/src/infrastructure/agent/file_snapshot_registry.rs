@@ -282,4 +282,19 @@ mod tests {
         assert!(result);
         assert!(!file.exists());
     }
+
+    #[test]
+    fn test_capture_workspace_best_effort() {
+        let dir = TempDir::new().unwrap();
+        let file_a = dir.path().join("a.txt");
+        let file_b = dir.path().join("b.txt");
+        fs::write(&file_a, "a").unwrap();
+        fs::write(&file_b, "b").unwrap();
+
+        let registry = FileSnapshotRegistry::new();
+        let stats = registry.capture_workspace_best_effort("sess-2", dir.path());
+
+        assert!(stats.scanned_files >= 2);
+        assert!(stats.captured_files >= 2);
+    }
 }
