@@ -1015,7 +1015,7 @@ fn test_multiple_tool_calls_conversion() {
             },
             ToolCall {
                 id: "call-3".to_string(),
-                name: "search_google_scrape".to_string(),
+                name: "search_grep".to_string(),
                 arguments: serde_json::json!({"query": "test"}),
             },
         ],
@@ -1026,5 +1026,5 @@ fn test_multiple_tool_calls_conversion() {
     assert_eq!(llm_msg.tool_calls.len(), 3);
     assert_eq!(llm_msg.tool_calls[0].name, "fs_read_file");
     assert_eq!(llm_msg.tool_calls[1].name, "fs_read_file");
-    assert_eq!(llm_msg.tool_calls[2].name, "search_google_scrape");
+    assert_eq!(llm_msg.tool_calls[2].name, "search_grep");
 }

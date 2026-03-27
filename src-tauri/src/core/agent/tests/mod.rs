@@ -412,7 +412,7 @@ fn user_story_multiple_tool_calls_per_subtask() {
         .insert_tool_call(
             &session_id,
             "tool-3",
-            "search_google_scrape",
+            "search_grep",
             &serde_json::json!({"query": "TODO"}),
             Some(&subtask.id),
         )

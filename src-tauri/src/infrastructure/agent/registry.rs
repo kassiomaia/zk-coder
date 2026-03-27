@@ -67,7 +67,7 @@ impl Agent {
                 "fs_read_file".to_string(),
                 "fs_write_file".to_string(),
                 "fs_list_files".to_string(),
-                "search_google_scrape".to_string(),
+                "search_grep".to_string(),
                 "system_execute_command".to_string(),
                 "agent_emit_status".to_string(),
                 "agent_plan_subtasks".to_string(),
@@ -94,11 +94,16 @@ impl Agent {
          to see what you'll be doing.
 
          Simple tasks that DON'T need planning:
+         - Greetings / acknowledgements / small talk (e.g., 'Hi', 'Hello', 'Thanks', 'Ok')
          - Reading a single file
          - Answering a simple question
          - Explaining how something works
+         - Single-step requests that do not require code changes or command execution
 
          Everything else requires a plan first.
+
+         If the user input is conversational, DO NOT create a plan. \
+         Reply directly in natural language.
 
          ## EXECUTING YOUR PLAN
 

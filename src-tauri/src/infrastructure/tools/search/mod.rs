@@ -1,9 +1,11 @@
 //! Web search tools.
 
 mod google_scrape;
+mod grep;
 
 use crate::infrastructure::tools::traits::{Tool, ToolCategory};
 pub use google_scrape::GoogleScrapeTool;
+pub use grep::GrepTool;
 
 /// Search tools category for web searching and scraping.
 pub struct SearchCategory;
@@ -14,10 +16,10 @@ impl ToolCategory for SearchCategory {
     }
 
     fn description(&self) -> &'static str {
-        "Web search and scraping tools"
+        "Workspace and web search tools"
     }
 
     fn tools(&self) -> Vec<Box<dyn Tool>> {
-        vec![Box::new(GoogleScrapeTool)]
+        vec![Box::new(GrepTool), Box::new(GoogleScrapeTool)]
     }
 }

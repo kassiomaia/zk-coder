@@ -285,7 +285,7 @@ impl TaskMode {
         match self {
             TaskMode::Read => vec![
                 "fs_read_file",
-                "search_google_scrape",
+                "search_grep",
                 "fs_list_files",
                 "agent_emit_status",
                 "agent_advance_to_next_subtask",
@@ -293,14 +293,14 @@ impl TaskMode {
             TaskMode::Write => vec![
                 "fs_read_file",
                 "fs_write_file",
-                "search_google_scrape",
+                "search_grep",
                 "fs_list_files",
                 "agent_emit_status",
                 "agent_advance_to_next_subtask",
             ],
             TaskMode::Execute => vec![
                 "fs_read_file",
-                "search_google_scrape",
+                "search_grep",
                 "fs_list_files",
                 "system_execute_command",
                 "agent_emit_status",
@@ -310,7 +310,7 @@ impl TaskMode {
                 "fs_read_file",
                 "fs_write_file",
                 "fs_list_files",
-                "search_google_scrape",
+                "search_grep",
                 "system_execute_command",
                 "agent_emit_status",
                 "agent_plan_subtasks",
