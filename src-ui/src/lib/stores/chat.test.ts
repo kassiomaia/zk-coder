@@ -1464,9 +1464,12 @@ describe('chatStore', () => {
 		it('activeStreamingThreadIds returns streaming thread IDs', async () => {
 			const { activeStreamingThreadIds } = await import('./chat');
 
+			// Reset state to ensure clean test
+			const state = get(chatStore);
+			state.threadStreaming = {};
+
 			expect(get(activeStreamingThreadIds)).toEqual([]);
 
-			const state = get(chatStore);
 			state.threadStreaming['thread-1'] = {
 				isStreaming: true,
 				requestId: 'req-1',
@@ -1541,10 +1544,11 @@ describe('chatStore', () => {
 			expect(nlp.processing).toBe(true);
 		});
 
-		it('llmState returns LLM state for selected thread', async () => {
-			const { llmState } = await import('./chat');
+		it('isLlmStreaming and streamingContent return streaming state for selected thread', async () => {
+			const { isLlmStreaming, streamingContent } = await import('./chat');
 
 			const state = get(chatStore);
+			state.selectedThreadId = 'thread-1';
 			state.threadStreaming['thread-1'] = {
 				isStreaming: true,
 				requestId: 'req-1',
@@ -1555,31 +1559,35 @@ describe('chatStore', () => {
 				assistantMessageId: 'assist-1'
 			};
 
-			const llm = get(llmState);
-
-			expect(llm.isStreaming).toBe(true);
-			expect(llm.streamingContent).toBe('Streaming...');
-			expect(llm.model).toBe('gpt-4');
+			expect(get(isLlmStreaming)).toBe(true);
+			expect(get(streamingContent)).toBe('Streaming...');
 		});
 
-		it('llmState returns empty state when no thread selected', async () => {
-			const { llmState } = await import('./chat');
+		it('isLlmStreaming returns false when no thread selected', async () => {
+			const { isLlmStreaming, streamingContent } = await import('./chat');
+
+			// Reset state to ensure clean test
+			const state = get(chatStore);
+			state.selectedThreadId = null;
+			state.threadStreaming = {};
 
 			chatStore.selectThread(null);
 
-			const llm = get(llmState);
-
-			expect(llm.isStreaming).toBe(false);
-			expect(llm.streamingContent).toBe('');
-			expect(llm.model).toBeNull();
+			expect(get(isLlmStreaming)).toBe(false);
+			expect(get(streamingContent)).toBe('');
 		});
 
 		it('isLlmStreaming returns streaming boolean', async () => {
 			const { isLlmStreaming } = await import('./chat');
 
+			// Reset state to ensure clean test
+			const state = get(chatStore);
+			state.selectedThreadId = null;
+			state.threadStreaming = {};
+
 			expect(get(isLlmStreaming)).toBe(false);
 
-			const state = get(chatStore);
+			state.selectedThreadId = 'thread-1';
 			state.threadStreaming['thread-1'] = {
 				isStreaming: true,
 				requestId: 'req-1',
@@ -1596,9 +1604,14 @@ describe('chatStore', () => {
 		it('streamingContent returns streaming content', async () => {
 			const { streamingContent } = await import('./chat');
 
+			// Reset state to ensure clean test
+			const state = get(chatStore);
+			state.selectedThreadId = null;
+			state.threadStreaming = {};
+
 			expect(get(streamingContent)).toBe('');
 
-			const state = get(chatStore);
+			state.selectedThreadId = 'thread-1';
 			state.threadStreaming['thread-1'] = {
 				isStreaming: true,
 				requestId: 'req-1',
