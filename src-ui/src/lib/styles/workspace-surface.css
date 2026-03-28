@@ -1,0 +1,343 @@
+/**
+ * Workspace Surface Module
+ *
+ * Creates a distinct, focused workspace surface within the application shell.
+ * Provides constrained content columns for optimal readability and visual hierarchy.
+ *
+ * Design Principles:
+ * - Constrained content column (720px max) for 68-75 character line length
+ * - Subtle surface distinction from shell using depth system
+ * - Consistent vertical rhythm with 8px spacing grid
+ * - Smooth state transitions
+ */
+
+@import 'design-system.css';
+
+/* =====================
+   WORKSPACE CONTAINER
+   Base wrapper for workspace areas
+   ===================== */
+
+.workspace-surface {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+	min-height: 0;
+	background: var(--depth-bg-1);
+	position: relative;
+}
+
+/* Subtle surface overlay for depth */
+.workspace-surface::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: var(--color-bg-secondary);
+	opacity: 0.35;
+	pointer-events: none;
+	z-index: 0;
+}
+
+/* Ensure content sits above surface */
+.workspace-surface > * {
+	position: relative;
+	z-index: 1;
+}
+
+/* =====================
+   CONSTRAINED CONTENT COLUMN
+   Optimal reading width (68-75 characters)
+   ===================== */
+
+.content-column {
+	width: 100%;
+	max-width: 720px;
+	margin: 0 auto;
+	padding: 0 var(--space-5);
+}
+
+/* Content column with more padding for larger screens */
+@media (min-width: 1280px) {
+	.content-column {
+		padding: 0 var(--space-6);
+	}
+}
+
+/* Content column for compact mode */
+.content-column-compact {
+	width: 100%;
+	max-width: 640px;
+	margin: 0 auto;
+	padding: 0 var(--space-4);
+}
+
+/* Full-width variant for tables/code */
+.content-column-full {
+	width: 100%;
+	max-width: 100%;
+	padding: 0 var(--space-5);
+}
+
+/* =====================
+   CONTENT WRAPPERS
+   For scrollable content areas
+   ===================== */
+
+.content-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	scrollbar-gutter: stable;
+}
+
+.content-scroll.content-column {
+	padding-top: var(--space-6);
+	padding-bottom: var(--space-6);
+}
+
+/* Smooth scrolling */
+.content-scroll.smooth-scroll {
+	scroll-behavior: smooth;
+}
+
+/* =====================
+   VERTICAL RHYTHM
+   Consistent spacing using 8px grid
+   ===================== */
+
+/* Vertical spacing utilities */
+.vr-tight { gap: var(--space-2); }
+.vr-normal { gap: var(--space-3); }
+.vr-relaxed { gap: var(--space-4); }
+.vr-loose { gap: var(--space-6); }
+.vr-x-loose { gap: var(--space-8); }
+
+/* Vertical margin utilities */
+.vmt-0 { margin-top: 0; }
+.vmt-1 { margin-top: var(--space-1); }
+.vmt-2 { margin-top: var(--space-2); }
+.vmt-3 { margin-top: var(--space-3); }
+.vmt-4 { margin-top: var(--space-4); }
+.vmt-5 { margin-top: var(--space-5); }
+.vmt-6 { margin-top: var(--space-6); }
+.vmt-8 { margin-top: var(--space-8); }
+
+.vmb-0 { margin-bottom: 0; }
+.vmb-1 { margin-bottom: var(--space-1); }
+.vmb-2 { margin-bottom: var(--space-2); }
+.vmb-3 { margin-bottom: var(--space-3); }
+.vmb-4 { margin-bottom: var(--space-4); }
+.vmb-5 { margin-bottom: var(--space-5); }
+.vmb-6 { margin-bottom: var(--space-6); }
+.vmb-8 { margin-bottom: var(--space-8); }
+
+/* =====================
+   WORKSPACE SECTIONS
+   Distinct areas within workspace
+   ===================== */
+
+.workspace-section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+	padding: var(--space-5) 0;
+}
+
+.workspace-section:first-child {
+	padding-top: 0;
+}
+
+.workspace-section:last-child {
+	padding-bottom: 0;
+}
+
+/* Section with visual separator */
+.workspace-section-bordered {
+	border-top: 1px solid var(--color-border-subtle);
+	padding-top: var(--space-5);
+	margin-top: var(--space-4);
+}
+
+/* =====================
+   EMPTY STATES
+   Centered content with consistent positioning
+   ===================== */
+
+.empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 400px;
+	text-align: center;
+	padding: var(--space-8) var(--space-6);
+}
+
+.empty-state-compact {
+	min-height: 280px;
+	padding: var(--space-6) var(--space-4);
+}
+
+.empty-state-content {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-3);
+	max-width: 380px;
+}
+
+.empty-state-icon {
+	width: 56px;
+	height: 56px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--color-text-muted);
+	background: var(--color-interactive-hover);
+	border-radius: var(--radius-xl);
+	margin-bottom: var(--space-2);
+}
+
+.empty-state-title {
+	font-size: var(--text-lg);
+	font-weight: var(--font-semibold);
+	color: var(--color-text-primary);
+	margin: 0;
+}
+
+.empty-state-description {
+	font-size: var(--text-sm);
+	color: var(--color-text-secondary);
+	line-height: var(--leading-relaxed);
+	margin: 0;
+}
+
+/* =====================
+   INPUT ANCHOR
+   Visual connection between content and input
+   ===================== */
+
+.input-anchor {
+	position: relative;
+	border-top: 1px solid var(--color-border-subtle);
+	background: var(--depth-bg-1);
+	transition: background-color var(--transition-fast);
+}
+
+.input-anchor::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 48px;
+	height: 2px;
+	background: var(--color-accent-primary);
+	border-radius: 0 0 var(--radius-full) var(--radius-full);
+	opacity: 0;
+	transition: opacity var(--transition-fast);
+}
+
+.input-anchor:hover::before {
+	opacity: 0.25;
+}
+
+.input-anchor:focus-within {
+	background: var(--color-bg-secondary);
+}
+
+/* =====================
+   SCROLL INDICATORS
+   Visual hints for scrollable content
+   ===================== */
+
+.scroll-hint-top {
+	position: sticky;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 1px;
+	background: linear-gradient(
+		to bottom,
+		var(--color-border-subtle) 0%,
+		transparent 100%
+	);
+	opacity: 0.5;
+	pointer-events: none;
+}
+
+.scroll-hint-bottom {
+	position: sticky;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 1px;
+	background: linear-gradient(
+		to top,
+		var(--color-border-subtle) 0%,
+		transparent 100%
+	);
+	opacity: 0.5;
+	pointer-events: none;
+}
+
+/* =====================
+   RESPONSIVE ADJUSTMENTS
+   ===================== */
+
+@media (max-width: 768px) {
+	.content-column,
+	.content-column-compact {
+		padding: 0 var(--space-4);
+	}
+
+	.workspace-section {
+		padding: var(--space-4) 0;
+	}
+
+	.empty-state {
+		min-height: 320px;
+		padding: var(--space-6) var(--space-4);
+	}
+
+	.empty-state-icon {
+		width: 48px;
+		height: 48px;
+	}
+}
+
+@media (max-width: 480px) {
+	.content-column,
+	.content-column-compact {
+		padding: 0 var(--space-3);
+	}
+
+	.workspace-section {
+		gap: var(--space-3);
+		padding: var(--space-3) 0;
+	}
+
+	.empty-state-compact {
+		min-height: 240px;
+		padding: var(--space-4) var(--space-3);
+	}
+}
+
+/* =====================
+   REDUCED MOTION
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	.content-scroll.smooth-scroll {
+		scroll-behavior: auto;
+	}
+
+	.input-anchor::before {
+		transition: none;
+	}
+
+	.input-anchor {
+		transition: background-color 0.01ms;
+	}
+}

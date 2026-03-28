@@ -1,51 +1,36 @@
 /**
  * AnsweringIndicator Component Styles
- * Redesigned to follow a structured, Claude-style activity panel.
+ *
+ * Minimal active status - just icon and text, no container background.
  */
 
 .container {
 	display: flex;
 	align-items: center;
-	height: auto;
 	width: 100%;
-	contain: layout;
-	margin-bottom: var(--space-2);
-	animation: slideIn 0.3s cubic-bezier(0.2, 0, 0, 1);
+	margin-bottom: var(--space-4);
+	padding-left: var(--space-1);
+	animation: fadeIn 0.2s var(--ease-out);
 }
 
-@keyframes slideIn {
+@keyframes fadeIn {
 	from {
 		opacity: 0;
-		transform: translateY(8px);
 	}
 	to {
 		opacity: 1;
-		transform: translateY(0);
 	}
 }
 
 .panel {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
-	padding: var(--space-1) var(--space-3);
 	gap: var(--space-2);
-	background: var(--color-interactive-selected);
-	border: 1px solid var(--color-primary-border);
-	border-radius: var(--radius-full);
-	box-shadow: var(--shadow-sm);
-	position: relative;
-	overflow: hidden;
-	height: 32px;
-	width: auto;
-	min-width: 140px;
-	transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+	transition: opacity var(--transition-fast) var(--ease-out);
 }
 
-/* Complete state */
 .panel.complete {
 	opacity: 0;
-	transform: translateY(-4px);
-	pointer-events: none;
 }
 
 .iconWrapper {
@@ -53,173 +38,41 @@
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	color: var(--color-accent-primary);
-	transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+	color: var(--color-primary-400);
 }
 
 .labelContainer {
-	position: relative;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	overflow: hidden;
-}
-
-.label {
-	font-family: var(--font-mono);
-	font-size: var(--text-xs);
-	font-weight: var(--font-medium);
-	color: var(--color-text-primary);
-	letter-spacing: var(--tracking-tight);
-	white-space: pre;
-	line-height: 1;
-}
-
-.activityIndicator {
-	height: 2px;
-	width: 100%;
-	background: linear-gradient(90deg, transparent, var(--color-accent-primary), transparent);
-	background-size: 200% 100%;
-	margin-top: 4px;
-	border-radius: var(--radius-full);
-	animation: pulseWave 2s linear infinite;
-	opacity: 0.6;
-}
-
-@keyframes pulseWave {
-	0% {
-		background-position: 200% 0;
-	}
-	100% {
-		background-position: -200% 0;
-	}
-}
-
-.panel {
 	display: flex;
 	align-items: center;
-	padding: 0;
 	gap: var(--space-2);
-	background: transparent;
-	border: none;
-	border-radius: 0;
-	box-shadow: none;
-	position: relative;
-	overflow: hidden;
-
-	/* Fixed dimensions for stability & zero layout shift */
-	height: var(--answering-indicator-panel-height);
-	/* Accommodates standardized phrases + padding */
-	width: auto;
-	min-width: var(--answering-indicator-min-width);
-
-	/* Single-state animation controller prevents overlapping transitions */
-	transition: transform var(--answering-indicator-duration) cubic-bezier(0.2, 0, 0, 1);
-}
-
-/* Stable state (during phases) */
-.panel.stable {
-	background: transparent;
-	box-shadow: none;
-	border: none;
-}
-
-/* Complete state (final resolved state) */
-.panel.complete {
-	border: none;
-	background: transparent;
-	/* Visual weight normalization */
-	box-shadow: none;
-	opacity: var(--opacity-muted);
-	/* Soft success pulse */
-	animation: successPulse 2s ease-out forwards;
-}
-
-.iconWrapper {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	color: var(--color-accent-primary);
-
-	/* Contextual icon morphing */
-	transition:
-		opacity 0.3s ease,
-		transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.panel.stable .iconWrapper {
-	transform: scale(1);
-}
-
-/* Label styling */
-.labelContainer {
-	flex: 1;
-	display: flex;
-	align-items: center;
-	overflow: hidden;
-	height: 100%;
 }
 
 .label {
-	font-family: var(--font-mono); /* Monospace for zero layout shift during shuffle */
+	font-family: var(--font-sans);
 	font-size: var(--text-xs);
 	font-weight: var(--font-medium);
 	color: var(--color-text-secondary);
-	letter-spacing: var(--tracking-wide);
+	letter-spacing: var(--tracking-tight);
 	white-space: pre;
-
-	/* Resolving characters left to right without fade */
-	opacity: var(--opacity-muted);
 }
 
-/* Stall warning - shown when LLM is taking longer than expected */
+/* Stall warning */
 .stallWarning {
 	font-family: var(--font-sans);
 	font-size: var(--text-2xs);
 	font-weight: var(--font-normal);
 	color: var(--color-warning);
-	white-space: normal;
-	opacity: var(--opacity-subtle);
+	opacity: 0.8;
 	margin-left: var(--space-1);
 	padding-left: var(--space-1);
-	border-left: 1px solid var(--color-border-primary);
+	border-left: 1px solid var(--color-warning-border);
 }
 
-/* Highlight sweep removed */
-
-@keyframes successPulse {
-	0% {
-		opacity: var(--opacity-muted);
-	}
-	70% {
-		opacity: 1;
-	}
-	100% {
-		opacity: var(--opacity-subtle);
-	}
-}
-
-/* Dark mode adjustments */
-:global([data-theme='dark']) .panel {
-	background: transparent;
-}
-
-:global([data-theme='dark']) .panel.stable {
-	background: transparent;
-}
-
-:global([data-theme='dark']) .panel.complete {
-	background: transparent;
-	border: none;
-}
-
-/* Reduced motion support */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-	.iconWrapper,
-	.label,
-	.highlightSweep,
-	.panel {
+	.container,
+	.panel,
+	.iconWrapper {
 		animation: none;
 		transition: none;
 	}

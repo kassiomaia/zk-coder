@@ -1,13 +1,14 @@
 /**
- * ChatArea Main Layout Styles
+ * ChatArea - Focused Workspace Design
  *
- * Main chat layout container with unified message rendering system.
+ * A structured workspace surface for conversation and execution.
  *
- * Design Features:
- * - Unified message card design with structural rhythm
- * - Clear visual hierarchy with consistent spacing
- * - Motion hierarchy with entry transitions and stagger
- * - Optimistic layout reservation for scrollbar stability
+ * Design Philosophy:
+ * - Constrained content column for optimal readability (68-75 characters)
+ * - Distinct workspace surface that differentiates from shell
+ * - Standardized vertical rhythm for consistent visual pacing
+ * - Clear hierarchy: user messages, assistant responses, artifacts
+ * - Input area anchored to conversation flow
  */
 
 @import '../../styles/animations.css';
@@ -19,6 +20,27 @@
 	height: 100%;
 	background: var(--depth-bg-1);
 	position: relative;
+}
+
+/* =====================
+   WORKSPACE SURFACE
+   Distinct background layer for chat area
+   ===================== */
+
+.chatArea::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: var(--color-bg-secondary);
+	opacity: 0.35;
+	pointer-events: none;
+	z-index: 0;
+}
+
+/* Content sits above workspace surface */
+.chatArea > * {
+	position: relative;
+	z-index: 1;
 }
 
 /* =====================
@@ -34,47 +56,111 @@
 }
 
 /* =====================
-   MESSAGES WRAPPER - Scrollbar Stability
+   MESSAGES WRAPPER - Constrained Content Column
    ===================== */
 
 .messagesWrapper {
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
-	padding: var(--layout-padding);
-	margin: 0 auto;
 	scrollbar-gutter: stable;
-	width: 800px; /* Constrained message width for readability */
-	max-width: 100%;
-	transition: all var(--duration-slow) var(--ease-in-out);
+
+	/* Constrained content column */
+	padding: var(--space-6) var(--space-5);
+	margin: 0 auto;
+	width: 100%;
+	max-width: 720px;
+
+	/* Smooth state transitions */
+	transition: padding var(--transition-normal) var(--state-ease);
 }
 
-/* Scrollbar styling - using shared .standard-scrollbar class */
-.messagesWrapper {
-	@apply standard-scrollbar;
+/* Workspace surface integration */
+.messagesWrapper::before {
+	content: '';
+	position: sticky;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 1px;
+	background: linear-gradient(
+		to bottom,
+		var(--color-border-subtle),
+		transparent
+	);
+	opacity: 0.5;
+	pointer-events: none;
 }
 
+/* Scrollbar styling */
+.messagesWrapper::-webkit-scrollbar {
+	width: 6px;
+}
+
+.messagesWrapper::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.messagesWrapper::-webkit-scrollbar-thumb {
+	background: var(--color-border-primary);
+	border-radius: 3px;
+}
+
+.messagesWrapper::-webkit-scrollbar-thumb:hover {
+	background: var(--color-border-secondary);
+}
+
+/* Empty state positioning */
 .messagesWrapper.isEmptyState {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	padding-top: min(10vh, 80px);
 }
 
 /* =====================
    CLARIFICATION BANNER WRAPPER
+   Aligned with content column
    ===================== */
 
 .clarificationWrapper {
-	padding: 0 var(--space-5);
-	background: var(--color-bg-primary);
+	padding: 0;
+	margin: 0 auto;
+	width: 100%;
+	max-width: 720px;
+	background: transparent;
+}
+
+.clarificationWrapper > * {
+	border-radius: var(--radius-lg);
 }
 
 /* =====================
    RESPONSIVE ADJUSTMENTS
    ===================== */
 
+@media (max-width: 900px) {
+	.messagesWrapper {
+		max-width: 100%;
+		padding: var(--space-5) var(--space-4);
+	}
+
+	.clarificationWrapper {
+		max-width: 100%;
+		padding: 0 var(--space-4);
+	}
+}
+
 @media (max-width: 600px) {
 	.messagesWrapper {
-		padding: var(--space-4);
+		padding: var(--space-4) var(--space-3);
+	}
+
+	.clarificationWrapper {
+		padding: 0 var(--space-3);
+	}
+
+	.messagesWrapper.isEmptyState {
+		padding-top: var(--space-8);
 	}
 }

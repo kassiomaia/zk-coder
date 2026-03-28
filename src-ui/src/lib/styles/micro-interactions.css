@@ -1,0 +1,498 @@
+/**
+ * Micro-Interactions System
+ *
+ * Consistent, restrained micro-interactions for the Coder application.
+ * All animations follow the design system timing and easing functions.
+ *
+ * Principles:
+ * - Motion reinforces function, not decoration
+ * - Smooth transitions for state changes
+ * - Respects reduced motion preferences
+ * - Consistent timing across the application
+ */
+
+@import 'design-system.css';
+
+/* =====================
+   ENTRANCE ANIMATIONS
+   Staggered reveals for content
+   ===================== */
+
+@keyframes fade-in-up {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes fade-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@keyframes scale-in {
+	from {
+		opacity: 0;
+		transform: scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@keyframes slide-in-right {
+	from {
+		opacity: 0;
+		transform: translateX(12px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes slide-in-left {
+	from {
+		opacity: 0;
+		transform: translateX(-12px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+/* =====================
+   INTERACTION STATES
+   Hover, active, focus feedback
+   ===================== */
+
+/* Hover lift effect */
+.hover-lift {
+	transition:
+		transform var(--transition-fast) var(--ease-out),
+		box-shadow var(--transition-fast) var(--ease-out);
+}
+
+.hover-lift:hover {
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-md);
+}
+
+/* Active press effect */
+.hover-lift:active {
+	transform: translateY(0);
+	box-shadow: var(--shadow-sm);
+}
+
+/* Subtle background shift */
+.hover-bg {
+	transition: background-color var(--transition-fast) var(--ease-out);
+}
+
+.hover-bg:hover {
+	background-color: var(--color-interactive-hover);
+}
+
+/* Border color transition */
+.hover-border {
+	transition: border-color var(--transition-fast) var(--ease-out);
+}
+
+.hover-border:hover {
+	border-color: var(--color-border-secondary);
+}
+
+/* =====================
+   LOADING STATES
+   ===================== */
+
+/* Skeleton loading animation */
+@keyframes skeleton-shimmer {
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
+}
+
+.skeleton {
+	background: linear-gradient(
+		90deg,
+		var(--color-bg-secondary) 0%,
+		var(--color-bg-tertiary) 20%,
+		var(--color-bg-elevated) 40%,
+		var(--color-bg-tertiary) 60%,
+		var(--color-bg-secondary) 100%
+	);
+	background-size: 200% 100%;
+	animation: skeleton-shimmer 1.5s ease-in-out infinite;
+	border-radius: var(--radius-md);
+}
+
+/* Pulse for loading indicators */
+@keyframes pulse-subtle {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.6;
+	}
+}
+
+.pulse {
+	animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Spin for circular loaders */
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.spin {
+	animation: spin 0.8s linear infinite;
+}
+
+/* =====================
+   PROGRESS INDICATORS
+   ===================== */
+
+/* Progress bar animation */
+@keyframes progress-fill {
+	from {
+		transform: scaleX(0);
+	}
+	to {
+		transform: scaleX(1);
+	}
+}
+
+.progress-bar {
+	transform-origin: left;
+	animation: progress-fill var(--transition-normal) var(--ease-out);
+}
+
+/* Sequential step animation */
+@keyframes step-activate {
+	0% {
+		transform: scale(0.9);
+		opacity: 0.5;
+	}
+	50% {
+		transform: scale(1.05);
+	}
+	100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+
+.step-active {
+	animation: step-activate 0.3s var(--ease-out);
+}
+
+/* =====================
+   STATE TRANSITIONS
+   Smooth changes between UI states
+   ===================== */
+
+/* Panel/section expand/collapse */
+@keyframes expand {
+	from {
+		opacity: 0;
+		max-height: 0;
+	}
+	to {
+		opacity: 1;
+		max-height: 500px;
+	}
+}
+
+@keyframes collapse {
+	from {
+		opacity: 1;
+		max-height: 500px;
+	}
+	to {
+		opacity: 0;
+		max-height: 0;
+	}
+}
+
+.expand {
+	animation: expand var(--transition-normal) var(--ease-out) forwards;
+	overflow: hidden;
+}
+
+.collapse {
+	animation: collapse var(--transition-normal) var(--ease-in) forwards;
+	overflow: hidden;
+}
+
+/* Crossfade for content replacement */
+@keyframes crossfade-out {
+	from { opacity: 1; }
+	to { opacity: 0; }
+}
+
+@keyframes crossfade-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+.crossfade-out {
+	animation: crossfade-out var(--transition-fast) var(--ease-in) forwards;
+}
+
+.crossfade-in {
+	animation: crossfade-in var(--transition-fast) var(--ease-out) forwards;
+}
+
+/* =====================
+   UTILITY CLASSES
+   Common interaction patterns
+   ===================== */
+
+/* Staggered delay for list items */
+.stagger-item-1 { animation-delay: var(--stagger-fast); }
+.stagger-item-2 { animation-delay: calc(var(--stagger-fast) * 2); }
+.stagger-item-3 { animation-delay: calc(var(--stagger-fast) * 3); }
+.stagger-item-4 { animation-delay: calc(var(--stagger-fast) * 4); }
+.stagger-item-5 { animation-delay: calc(var(--stagger-fast) * 5); }
+
+/* Apply entrance animation */
+.entrance-fade {
+	animation: fade-in var(--transition-normal) var(--ease-out);
+}
+
+.entrance-slide-up {
+	animation: fade-in-up var(--transition-normal) var(--ease-out);
+}
+
+.entrance-scale {
+	animation: scale-in var(--transition-normal) var(--ease-out);
+}
+
+/* Smooth property transitions */
+.smooth-all {
+	transition: all var(--transition-normal) var(--ease-out);
+}
+
+.smooth-transform {
+	transition: transform var(--transition-normal) var(--ease-out);
+}
+
+.smooth-opacity {
+	transition: opacity var(--transition-normal) var(--ease-out);
+}
+
+.smooth-colors {
+	transition:
+		color var(--transition-normal) var(--ease-out),
+		background-color var(--transition-normal) var(--ease-out),
+		border-color var(--transition-normal) var(--ease-out);
+}
+
+/* =====================
+   FEEDBACK STATES
+   Success, error, warning indicators
+   ===================== */
+
+@keyframes shake-once {
+	0%, 100% { transform: translateX(0); }
+	25% { transform: translateX(-4px); }
+	75% { transform: translateX(4px); }
+}
+
+.shake {
+	animation: shake-once 0.3s var(--ease-out);
+}
+
+@keyframes success-check {
+	0% {
+		transform: scale(0) rotate(-45deg);
+		opacity: 0;
+	}
+	50% {
+		transform: scale(1.2) rotate(0deg);
+	}
+	100% {
+		transform: scale(1) rotate(0deg);
+		opacity: 1;
+	}
+}
+
+.success-check {
+	animation: success-check 0.4s var(--ease-bounce);
+}
+
+/* =====================
+   REDUCED MOTION SUPPORT
+   Respects user preferences
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	/* Disable all animations for reduced motion */
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+
+	/* Keep essential transforms but make instant */
+	.hover-lift:hover {
+		transform: translateY(0);
+	}
+
+	/* Remove shimmer effect, use solid color */
+	.skeleton {
+		background: var(--color-bg-tertiary);
+		animation: none;
+	}
+}
+
+/* =====================
+   SPECIFIC COMPONENT ANIMATIONS
+   Tailored animations for specific components
+   ===================== */
+
+/* Message entrance */
+@keyframes message-appear {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.message-entrance {
+	animation: message-appear 0.25s var(--ease-out) forwards;
+}
+
+/* Typing indicator dots */
+@keyframes typing-dot {
+	0%, 60%, 100% {
+		transform: translateY(0);
+	}
+	30% {
+		transform: translateY(-4px);
+	}
+}
+
+.typing-dot {
+	animation: typing-dot 1.2s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) {
+	animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+	animation-delay: 0.4s;
+}
+
+/* Panel slide in */
+@keyframes panel-slide-in {
+	from {
+		opacity: 0;
+		transform: translateX(100%);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+.panel-slide-in {
+	animation: panel-slide-in var(--transition-normal) var(--ease-out) forwards;
+}
+
+/* Modal backdrop */
+@keyframes backdrop-fade {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+.backdrop-fade {
+	animation: backdrop-fade var(--transition-fast) var(--ease-out) forwards;
+}
+
+/* Ripple effect for buttons */
+@keyframes ripple {
+	from {
+		transform: scale(0);
+		opacity: 0.4;
+	}
+	to {
+		transform: scale(2.5);
+		opacity: 0;
+	}
+}
+
+.ripple {
+	animation: ripple 0.5s ease-out forwards;
+}
+
+/* Status indicator pulse */
+@keyframes status-pulse-glow {
+	0%, 100% {
+		box-shadow: 0 0 0 0 currentColor;
+		opacity: 1;
+	}
+	50% {
+		box-shadow: 0 0 0 4px currentColor;
+		opacity: 0.6;
+	}
+}
+
+.status-pulse {
+	animation: status-pulse-glow 2s ease-in-out infinite;
+}
+
+/* Scroll indicator fade */
+@keyframes scroll-indicator {
+	0%, 100% {
+		opacity: 0.4;
+		transform: translateY(0);
+	}
+	50% {
+		opacity: 1;
+		transform: translateY(4px);
+	}
+}
+
+.scroll-indicator {
+	animation: scroll-indicator 1.5s ease-in-out infinite;
+}
+
+/* Focus ring animation */
+@keyframes focus-ring {
+	from {
+		box-shadow: 0 0 0 0px var(--color-primary-400);
+		opacity: 0.6;
+	}
+	to {
+		box-shadow: 0 0 0 3px var(--color-primary-400);
+		opacity: 0.2;
+	}
+}
+
+.focus-ring-visible:focus-visible {
+	animation: focus-ring 0.2s var(--ease-out) forwards;
+}

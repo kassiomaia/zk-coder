@@ -1,14 +1,23 @@
 /**
- * Message Bubbles Styling
+ * Message Bubbles - Workspace Rhythm
  *
- * Individual message bubble styles for user and assistant messages.
- * Includes hover effects, action containers, and role-based styling.
+ * Standardized vertical rhythm for consistent visual pacing.
+ * Clear differentiation between user messages, assistant responses, and artifacts.
+ *
+ * Design Philosophy:
+ * - Consistent spacing based on design system spacing scale
+ * - Visual hierarchy through subtle variations, not heavy containers
+ * - Artifacts and structured outputs get their own visual identity
+ * - Smooth micro-transitions for message entry
  */
 
 @import '../../styles/animations.css';
+@import '../../styles/workspace-surface.css';
+@import '../../styles/micro-interactions.css';
 
 /* =====================
    MESSAGE WRAPPER - Base
+   Standardized vertical rhythm
    ===================== */
 
 .messageWrapper {
@@ -16,6 +25,20 @@
 	flex-direction: column;
 	position: relative;
 	margin-bottom: var(--content-gap);
+
+	/* Smooth entry animation */
+	animation: messageEntry 200ms var(--ease-out) backwards;
+}
+
+@keyframes messageEntry {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 /* Agent message wrapper (thinking, tool_call, terminal) */
@@ -30,10 +53,12 @@
 
 /* =====================
    MESSAGE GROUPS
+   Refined visual hierarchy
    ===================== */
 
 .messageGroup {
-	margin-bottom: var(--item-gap);
+	margin-bottom: var(--space-4);
+	margin-top: var(--space-2);
 }
 
 .messageGroupFirst {
@@ -44,8 +69,8 @@
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
-	margin-bottom: var(--micro-gap);
-	padding: var(--space-1) var(--space-2);
+	margin-bottom: var(--space-3);
+	padding: 0;
 	background-color: transparent;
 	border: none;
 }
@@ -54,8 +79,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 18px;
-	height: 18px;
+	width: 20px;
+	height: 20px;
 	border-radius: var(--radius-sm);
 	background: var(--color-bg-secondary);
 	color: var(--color-text-tertiary);
@@ -72,15 +97,16 @@
 .groupRole {
 	font-size: var(--text-2xs);
 	font-weight: var(--font-semibold);
-	color: var(--text-metadata-color);
+	color: var(--color-text-muted);
 	text-transform: uppercase;
-	letter-spacing: 0.05em;
+	letter-spacing: 0.06em;
 }
 
 .groupTime {
 	font-size: var(--text-2xs);
-	color: var(--text-metadata-color);
-	opacity: 0.6;
+	color: var(--color-text-muted);
+	opacity: 0.5;
+	margin-left: auto;
 }
 
 /* =====================
@@ -112,19 +138,23 @@
 
 /* =====================
    MESSAGE BUBBLES
+   Clear role differentiation
    ===================== */
 
 .message {
 	position: relative;
-	padding: var(--item-gap) var(--space-3);
+	padding: var(--space-3) var(--space-4);
 	border-radius: var(--radius-lg);
 	max-width: 100%;
 	width: fit-content;
 	word-wrap: break-word;
 	line-height: var(--text-line-height);
+	transition:
+		background-color var(--transition-fast),
+		box-shadow var(--transition-fast);
 }
 
-/* User message styling */
+/* User message: clear visual identity */
 .userWrapper .message {
 	background-color: var(--color-interactive-selected);
 	color: var(--color-text-primary);
@@ -132,18 +162,35 @@
 	margin-left: auto;
 	display: flex;
 	align-items: center;
+	max-width: 85%;
+	box-shadow: var(--shadow-xs);
 }
 
-/* Assistant message styling */
+.userWrapper .message:hover {
+	background-color: var(--color-interactive-selected-hover);
+	box-shadow: var(--shadow-sm);
+}
+
+/* Assistant message: clean, unstyled for readability */
 .assistantWrapper .message {
 	background-color: transparent;
 	color: var(--color-text-primary);
-	border-radius: var(--radius-lg);
-	border: none;
 	padding: 0;
 	margin-right: 0;
 	max-width: 100%;
 	width: 100%;
+}
+
+/* Message content wrapper */
+.messageContent {
+	font-size: var(--text-sm);
+	line-height: 1.6;
+	color: var(--color-text-primary);
+}
+
+/* Assistant message content gets slight padding */
+.assistantWrapper .messageContent {
+	padding: var(--space-1) 0;
 }
 
 .systemNoticeMessage {
@@ -158,27 +205,62 @@
 	line-height: 1.45;
 }
 
+/* =====================
+   REASONING BLOCK
+   Thought process disclosure
+   ===================== */
+
 .reasoningBlock {
-	margin-top: var(--space-2);
-	padding: var(--space-2);
-	border: 1px solid var(--color-border-muted);
-	border-radius: var(--radius-lg);
-	background: var(--color-surface-secondary);
+	margin-top: var(--space-3);
+	padding: var(--space-3);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-md);
+	background: var(--color-bg-tertiary);
+	transition: all var(--transition-fast);
+}
+
+.reasoningBlock:hover {
+	border-color: var(--color-border-primary);
+	background: var(--color-interactive-hover);
 }
 
 .reasoningLabel {
-	font-size: var(--text-xs);
+	font-size: var(--text-2xs);
 	font-weight: var(--font-semibold);
 	color: var(--color-text-muted);
 	text-transform: uppercase;
-	letter-spacing: 0.04em;
+	letter-spacing: 0.06em;
 	margin-bottom: var(--space-2);
+	display: flex;
+	align-items: center;
+	gap: var(--space-1-5);
+}
+
+.reasoningLabel::before {
+	content: '';
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--color-primary-400);
 }
 
 .reasoningContent {
 	font-size: var(--text-sm);
-	line-height: 1.45;
+	line-height: 1.5;
 	color: var(--color-text-secondary);
+}
+
+/* =====================
+   ROLE-SPECIFIC STYLING
+   Subtle differentiation
+   ===================== */
+
+.roleAssistant {
+	color: var(--color-text-primary);
+}
+
+.roleUser {
+	color: var(--color-text-primary);
 }
 
 /* =====================
@@ -282,13 +364,22 @@
 	outline-offset: 2px;
 }
 
+/* =====================
+   AGENT STATUS WRAPPER
+   Connection between chat and agent panel
+   ===================== */
+
 .agentStatusWrapper {
 	display: flex;
 	justify-content: flex-start;
 	padding: var(--space-2) var(--space-4);
-	margin-top: calc(-1 * var(--space-2));
-	margin-bottom: var(--space-4);
-	animation: slideUpFade 0.3s cubic-bezier(0.2, 0, 0, 1);
+	margin-top: calc(-1 * var(--space-3));
+	margin-bottom: var(--space-5);
+	background: var(--color-bg-tertiary);
+	border-radius: var(--radius-md);
+	border: 1px solid var(--color-border-subtle);
+	align-self: flex-start;
+	animation: slideUpFade 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
 
 @keyframes slideUpFade {
@@ -308,9 +399,22 @@
 
 @media (max-width: 600px) {
 	.message {
-		max-width: 100%;
-		padding: var(--space-2) var(--space-3);
-		padding-bottom: var(--space-6);
-		border-radius: var(--radius-lg);
+		padding: var(--space-2-5) var(--space-3);
+	}
+
+	.userWrapper .message {
+		max-width: 90%;
+	}
+
+	.groupHeader {
+		margin-bottom: var(--space-2);
+	}
+
+	.messageWrapper {
+		margin-bottom: var(--space-3);
+	}
+
+	.reasoningBlock {
+		padding: var(--space-2);
 	}
 }

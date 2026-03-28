@@ -167,8 +167,6 @@
 		flex-direction: column;
 		min-height: 100%;
 		background: var(--depth-bg-2);
-		border-color: var(--color-border-subtle);
-		border-style: solid;
 		/* No transition on width for instant resize response */
 		overflow: hidden;
 	}

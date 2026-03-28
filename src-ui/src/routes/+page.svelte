@@ -318,6 +318,34 @@
 		};
 	});
 
+	// Agent panel visibility logic based on conversation and thread selection
+	$effect(() => {
+		const conversation = $selectedConversation;
+		const threadId = selectedThreadId;
+
+		// Rule 1: No conversation or thread selected - close agent panel
+		if (!conversation) {
+			if (agentPanelOpen) {
+				agentStore.togglePanel();
+			}
+			return;
+		}
+
+		// Rule 2: Thread is selected - show agent panel automatically
+		if (threadId) {
+			if (!agentPanelOpen) {
+				agentStore.togglePanel();
+			}
+			return;
+		}
+
+		// Rule 3: Conversation selected but no thread (empty chat) - open agent panel for workspace setup
+		// This allows user to set workspace before starting a thread
+		if (!agentPanelOpen) {
+			agentStore.togglePanel();
+		}
+	});
+
 	// Initialize
 	onMount(async () => {
 		try {

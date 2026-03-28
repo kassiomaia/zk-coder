@@ -1,40 +1,45 @@
 /**
  * ChatInput Component Styles
- * Enhanced multi-line input with command palette and mentions support.
  *
- * Design Features:
- * - Clear input area with visible border
- * - Multi-line textarea with proper height
- * - Simplified send button
- * - Max-width constraint for readability
+ * A refined, minimal command surface designed for precision and clarity.
+ * Single integrated bar with subtle interaction feedback.
  */
 
 @import '../../../styles/animations.css';
+@import '../../../styles/design-system.css';
+
+/* =====================
+   CONTAINER
+   Minimal single-surface design
+   ===================== */
 
 .container {
-	background: var(--depth-bg-2);
+	background: var(--color-bg-secondary);
 	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-xl);
-	padding: var(--micro-gap) var(--item-gap);
-	transition: all var(--transition-normal);
+	border-radius: var(--radius-lg);
 	width: 100%;
 	display: flex;
 	flex-direction: column;
-	gap: var(--micro-gap);
-}
-
-.container:hover {
-	border-color: var(--color-border-primary);
+	gap: 0;
+	position: relative;
+	transition: border-color var(--transition-fast) var(--ease-out);
 }
 
 .container:focus-within {
-	background: var(--depth-bg-2);
-	border-color: var(--color-border-focus);
+	background: var(--color-bg-secondary);
 }
 
 .container.shake {
-	animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
-	border-color: var(--color-error);
+	animation: shake-once 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+	border-color: var(--color-error-border);
+}
+
+@keyframes shake-once {
+	0%, 100% { transform: translateX(0); }
+	20% { transform: translateX(-3px); }
+	40% { transform: translateX(3px); }
+	60% { transform: translateX(-1px); }
+	80% { transform: translateX(1px); }
 }
 
 .container.disabled {
@@ -46,51 +51,64 @@
 	background: var(--color-bg-tertiary);
 }
 
-/* Attachments */
+/* =====================
+   ATTACHMENTS
+   Compact file display
+   ===================== */
+
 .attachments {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--space-1-5);
-	margin-bottom: var(--space-1);
-	padding: 0 var(--space-1);
+	gap: var(--space-1);
+	padding: var(--space-2) var(--space-3) 0;
 }
 
 .attachment {
 	display: flex;
 	align-items: center;
-	gap: var(--space-2);
-	padding: var(--space-1-5) var(--space-2);
+	gap: var(--space-1-5);
+	padding: var(--space-1) var(--space-1-5);
 	background: var(--color-bg-tertiary);
-	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-sm);
 	font-size: var(--text-xs);
-	transition: all var(--transition-fast);
+	transition: background var(--transition-fast);
+	animation: attachment-appear 0.15s var(--ease-out) backwards;
+}
+
+@keyframes attachment-appear {
+	from {
+		opacity: 0;
+		transform: translateY(2px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 .attachment:hover {
-	border-color: var(--color-border-secondary);
 	background: var(--color-interactive-hover);
 }
 
 .attachmentPreview {
-	width: 24px;
-	height: 24px;
+	width: 20px;
+	height: 20px;
 	object-fit: cover;
 	border-radius: var(--radius-sm);
 }
 
 .fileIcon {
-	color: var(--color-text-tertiary);
+	color: var(--color-text-muted);
 	flex-shrink: 0;
 }
 
 .attachmentName {
 	color: var(--color-text-primary);
-	max-width: 150px;
+	max-width: 120px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	font-weight: var(--font-medium);
+	font-weight: var(--font-normal);
 }
 
 .attachmentSize {
@@ -98,35 +116,32 @@
 	font-size: 10px;
 }
 
-/* Intent indicator wrapper */
+/* =====================
+   INTENT INDICATOR
+   ===================== */
+
 .intentWrapper {
-	margin-bottom: var(--space-1);
-	padding: 0 var(--space-1);
+	padding: var(--space-1) var(--space-3) 0;
 }
 
-/* Input area */
-.inputArea {
-	display: flex;
-	align-items: flex-end;
-	gap: var(--space-2);
-	width: 100%;
-}
+/* =====================
+   INPUT WRAPPER
+   Integrated horizontal layout
+   ===================== */
 
-/* Input wrapper */
 .inputWrapper {
 	position: relative;
 	flex: 1;
 	display: flex;
-	align-items: center;
-	min-height: 32px;
+	align-items: flex-end;
+	min-height: 36px;
 }
 
-/* Textarea */
 .textarea {
 	width: 100%;
-	min-height: 24px;
+	min-height: 22px;
 	max-height: 120px;
-	padding: var(--space-1-5) 0;
+	padding: var(--space-2) var(--space-3);
 	font-family: var(--font-sans);
 	font-size: var(--text-sm);
 	line-height: 1.5;
@@ -137,37 +152,40 @@
 	box-shadow: none;
 	resize: none;
 	overflow-y: auto;
-	transition: opacity var(--transition-fast) var(--ease-out);
-}
-
-.textarea.sending {
-	opacity: 0;
-	transform: translateY(-4px);
 }
 
 .textarea:focus {
 	outline: none;
-	border: none;
 	box-shadow: none;
+}
+
+.textarea.sending {
+	opacity: 0;
+	transform: translateY(-2px);
+	transition: all 0.12s var(--ease-in);
 }
 
 .textarea::placeholder {
 	color: var(--color-text-muted);
-	opacity: 0.6;
-	transition: opacity var(--transition-fast) var(--ease-out);
+	opacity: 0.65;
 }
 
 .textarea:focus::placeholder {
-	opacity: 0.4;
+	opacity: 0.45;
 }
 
-/* Actions */
+/* =====================
+   ACTIONS BAR
+   Inline integrated layout
+   ===================== */
+
 .actions {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding: 0 var(--space-0-5);
-	min-height: 28px;
+	padding: var(--space-1) var(--space-2);
+	min-height: 32px;
+	gap: var(--space-2);
 }
 
 .leftActions,
@@ -175,53 +193,125 @@
 	display: flex;
 	align-items: center;
 	gap: var(--space-1);
-	min-width: 120px;
-	justify-content: flex-end;
+	min-width: 0;
+}
+
+.leftActions {
+	flex: 1;
+}
+
+.rightActions {
+	flex-shrink: 0;
 }
 
 .fileInput {
 	display: none;
 }
 
-/* Character count */
+/* =====================
+   CHARACTER COUNT
+   ===================== */
+
 .characterCount {
 	font-size: 10px;
 	color: var(--color-text-muted);
 	font-family: var(--font-mono);
 	padding: 0 var(--space-1);
+	transition: color var(--transition-fast);
 }
 
 .characterCount.overLimit {
 	color: var(--color-error);
-	font-weight: var(--font-bold);
+	font-weight: var(--font-medium);
+	animation: pulse-subtle 0.3s ease-in-out;
 }
 
-.stopActionPlaceholder {
-	width: 28px;
-	height: 28px;
-	flex-shrink: 0;
+/* =====================
+   STATUS TEXT
+   ===================== */
+
+.statusText {
+	font-size: var(--text-2xs);
+	font-weight: var(--font-medium);
+	color: var(--color-text-secondary);
+	padding: 0 var(--space-2);
+	letter-spacing: var(--tracking-tight);
+	animation: status-appear 0.15s var(--ease-out);
 }
 
-/* Stop Button Styles */
+@keyframes status-appear {
+	from {
+		opacity: 0;
+		transform: translateY(2px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* =====================
+   SEND BUTTON
+   Refined with subtle states
+   ===================== */
+
+.sendButton {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	background: transparent;
+	color: var(--color-text-muted);
+	border: none;
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	transition: all var(--transition-fast) var(--ease-out);
+}
+
+.sendButton.canSubmit {
+	background: var(--color-accent-primary);
+	color: var(--color-text-primary);
+}
+
+.sendButton.canSubmit:hover {
+	background: var(--color-accent-primary-hover);
+	transform: translateY(-1px);
+}
+
+.sendButton.canSubmit:active {
+	transform: scale(0.95);
+}
+
+.sendButton:disabled {
+	opacity: var(--opacity-disabled);
+	cursor: not-allowed;
+	transform: none;
+}
+
+/* =====================
+   STOP BUTTON
+   ===================== */
+
 .stopButton {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 28px;
-	height: 28px;
+	width: 30px;
+	height: 30px;
 	background: var(--color-error-light);
 	color: var(--color-error);
-	border: 1px solid var(--color-error-border);
+	border: none;
 	border-radius: var(--radius-md);
 	cursor: pointer;
 	transition: all var(--transition-fast) var(--ease-out);
-	animation: actionButtonAppear 0.25s var(--ease-out) forwards;
+	animation: stop-appear 0.2s var(--ease-out) forwards;
 }
 
-@keyframes actionButtonAppear {
+@keyframes stop-appear {
 	from {
 		opacity: 0;
-		transform: scale(0.96);
+		transform: scale(0.9);
 	}
 	to {
 		opacity: 1;
@@ -231,87 +321,88 @@
 
 .stopButton:hover {
 	background: var(--color-error-border);
-	color: var(--color-error-dark);
-	transform: scale(1.02);
+	transform: scale(1.05);
 }
 
 .stopButton:active {
-	transform: scale(0.98);
-	opacity: 0.8;
+	transform: scale(0.95);
 }
 
 .stopIcon {
-	width: 10px;
-	height: 10px;
+	width: 11px;
+	height: 11px;
 	background: currentColor;
-	border-radius: 1px;
+	border-radius: 2px;
 }
 
-/* Send Button Styles */
-.sendButton {
-	position: relative;
-	display: flex;
+/* =====================
+   COMMAND HINTS
+   ===================== */
+
+.commandHint {
+	display: inline-flex;
 	align-items: center;
-	justify-content: center;
-	width: 28px;
-	height: 28px;
-	background: var(--color-bg-tertiary);
-	color: var(--color-text-muted);
-	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-md);
-	cursor: pointer;
-	transition: all var(--transition-fast) var(--ease-out);
-	animation: actionButtonAppear 0.25s var(--ease-out) forwards;
-}
-
-.sendButton.canSubmit {
-	background: var(--color-primary-500);
-	color: var(--color-neutral-0);
-	border-color: var(--color-primary-600);
-}
-
-.sendButton.canSubmit:hover {
-	background: var(--color-primary-600);
-	transform: translateY(-1px);
-	box-shadow: var(--shadow-sm);
-}
-
-.sendButton.canSubmit:active {
-	transform: translateY(0) scale(0.96);
-}
-
-.sendButton:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
-}
-
-/* Status Text */
-.statusText {
-	font-size: 11px;
-	color: var(--color-text-tertiary);
+	gap: var(--space-1);
+	padding: var(--space-0-5) var(--space-1-5);
+	background: var(--color-primary-subtle);
+	color: var(--color-primary-400);
+	border: 1px solid var(--color-primary-border);
+	border-radius: var(--radius-sm);
+	font-size: 10px;
 	font-weight: var(--font-medium);
-	margin-right: var(--space-1);
-	animation: fadeIn 0.3s var(--ease-out);
+	font-family: var(--font-mono);
+	letter-spacing: var(--tracking-tight);
+	transition: all var(--transition-fast);
 }
 
-@keyframes fadeIn {
-	from { opacity: 0; }
-	to { opacity: 1; }
+.commandHint:hover {
+	background: var(--color-primary-light);
+	border-color: var(--color-primary-400);
 }
 
-/* Responsive */
+/* =====================
+   WORKING STATE
+   ===================== */
+
+.container.isWorking {
+	border-color: var(--color-border-secondary);
+}
+
+/* =====================
+   FOCUS RINGS
+   ===================== */
+
+.sendButton:focus-visible,
+.stopButton:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+/* =====================
+   RESPONSIVE
+   ===================== */
+
 @media (max-width: 600px) {
-	.container {
-		padding: var(--space-2);
-		border-radius: var(--radius-xl);
+	.textarea {
+		max-height: 100px;
 	}
 
 	.attachmentName {
 		max-width: 100px;
 	}
+
+	.sendButton,
+	.stopButton {
+		width: 28px;
+		height: 28px;
+	}
 }
 
-/* Reduced motion */
+/* =====================
+   REDUCED MOTION
+   ===================== */
+
 @media (prefers-reduced-motion: reduce) {
 	.container,
 	.attachment,
@@ -325,5 +416,9 @@
 	.sendButton:active,
 	.stopButton:active {
 		transform: none;
+	}
+
+	.characterCount.overLimit {
+		animation: none;
 	}
 }

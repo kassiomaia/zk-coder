@@ -1,0 +1,291 @@
+/**
+ * AgentProgressIndicator Styles
+ *
+ * Dynamic progress feedback with smooth phase transitions.
+ */
+
+@import '../../styles/design-system.css';
+@import '../../styles/animations.css';
+
+/* =====================
+   BASE INDICATOR
+   ===================== */
+
+.indicator {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding: var(--space-4);
+	background: var(--color-bg-secondary);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-lg);
+	animation: progress-entrance 0.3s var(--ease-out);
+}
+
+@keyframes progress-entrance {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.indicator.error {
+	border-color: var(--color-error-border);
+	background: var(--color-error-light);
+}
+
+/* =====================
+   PHASE LIST
+   Vertical phase indicators
+   ===================== */
+
+.phaseList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.phase {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-2);
+	border-radius: var(--radius-md);
+	transition: all var(--transition-normal) var(--state-ease);
+	animation: phase-appear 0.2s var(--ease-out) backwards;
+}
+
+@keyframes phase-appear {
+	from {
+		opacity: 0;
+		transform: translateX(-8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+.phase.pending {
+	opacity: 0.4;
+}
+
+.phase.active {
+	opacity: 1;
+	background: var(--color-interactive-hover);
+}
+
+.phase.completed {
+	opacity: 0.7;
+}
+
+.phaseIcon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	flex-shrink: 0;
+	border-radius: var(--radius-sm);
+	background: var(--color-bg-tertiary);
+	color: var(--color-text-muted);
+	transition: all var(--transition-fast);
+}
+
+.phase.active .phaseIcon {
+	background: var(--color-primary-subtle);
+	color: var(--color-primary-400);
+}
+
+.phase.completed .phaseIcon {
+	background: var(--color-success-light);
+	color: var(--color-success);
+}
+
+.phaseInfo {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-0-5);
+	flex: 1;
+	min-width: 0;
+}
+
+.phaseLabel {
+	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
+	color: var(--color-text-primary);
+}
+
+.phaseDetail {
+	font-size: var(--text-xs);
+	color: var(--color-text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.phase.active .phaseDetail {
+	color: var(--color-text-secondary);
+}
+
+.phaseCheck {
+	flex-shrink: 0;
+	color: var(--color-success);
+}
+
+/* =====================
+   PROGRESS BAR
+   Visual progress indicator
+   ===================== */
+
+.progressContainer {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+}
+
+.progressTrack {
+	flex: 1;
+	height: 4px;
+	background: var(--color-bg-tertiary);
+	border-radius: var(--radius-full);
+	overflow: hidden;
+}
+
+.progressFill {
+	height: 100%;
+	background: var(--color-primary-500);
+	border-radius: var(--radius-full);
+	transition: width var(--transition-normal) var(--state-ease);
+	animation: progress-pulse 2s ease-in-out infinite;
+}
+
+@keyframes progress-pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.8;
+	}
+}
+
+.progressLabel {
+	font-size: var(--text-2xs);
+	font-weight: var(--font-medium);
+	color: var(--color-text-muted);
+	white-space: nowrap;
+}
+
+/* =====================
+   ERROR STATE
+   ===================== */
+
+.errorContainer {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
+	background: var(--color-error-light);
+	border: 1px solid var(--color-error-border);
+	border-radius: var(--radius-md);
+	color: var(--color-error);
+}
+
+.errorMessage {
+	font-size: var(--text-sm);
+	flex: 1;
+}
+
+/* =====================
+   COMPACT VARIANT
+   Single-line progress indicator
+   ===================== */
+
+.indicator.compact {
+	padding: var(--space-2) var(--space-3);
+	background: transparent;
+	border: none;
+	gap: var(--space-2);
+}
+
+.compactView {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.compactIcon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--color-primary-400);
+}
+
+.compactLabel {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
+	color: var(--color-text-secondary);
+}
+
+.compactDetail {
+	font-weight: var(--font-normal);
+	color: var(--color-text-muted);
+}
+
+.compactProgress {
+	margin-left: auto;
+	font-size: var(--text-2xs);
+	color: var(--color-text-muted);
+}
+
+.indicator.compact.error .compactIcon,
+.indicator.compact.error .compactLabel {
+	color: var(--color-error);
+}
+
+/* =====================
+   SPINNING ANIMATION
+   ===================== */
+
+.spinning {
+	animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* =====================
+   REDUCED MOTION
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	.indicator {
+		animation: none;
+	}
+
+	.phase {
+		animation: none;
+	}
+
+	.progressFill {
+		animation: none;
+		transition: width 0.3s linear;
+	}
+
+	.spinning {
+		animation: none;
+	}
+}

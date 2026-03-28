@@ -467,20 +467,22 @@
 		</div>
 	{/if}
 
-	<!-- Input area -->
-	<ChatInputContainer
-		bind:value={inputValue}
-		onchange={handleInputChange}
-		onsubmit={handleSubmit}
-		onfocus={handleInputFocus}
-		onblur={handleInputBlur}
-		placeholder="Send a message..."
-		{loading}
-		isAgentWorking={isTyping}
-		{agentSessionId}
-		{threadResolved}
-		modelId={selectedModelId}
-		onModelChange={handleModelChange}
-		onOpenSettings={onOpenSettings}
-	/>
+	<!-- Input area - only show when thread is selected -->
+	{#if threadId}
+		<ChatInputContainer
+			bind:value={inputValue}
+			onchange={handleInputChange}
+			onsubmit={handleSubmit}
+			onfocus={handleInputFocus}
+			onblur={handleInputBlur}
+			placeholder="Send a message..."
+			{loading}
+			isAgentWorking={isTyping}
+			{agentSessionId}
+			{threadResolved}
+			modelId={selectedModelId}
+			onModelChange={handleModelChange}
+			onOpenSettings={onOpenSettings}
+		/>
+	{/if}
 </div>

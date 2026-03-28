@@ -5,7 +5,7 @@
 	 * Provides window controls, command palette trigger, and drag support.
 	 */
 	import { onMount } from 'svelte';
-	import { Minus, Square, Maximize2, X, Search, Terminal } from 'lucide-svelte';
+	import { Minus, Square, Maximize2, X, Terminal } from 'lucide-svelte';
 	import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 	import type { Snippet } from 'svelte';
 
@@ -99,17 +99,8 @@
 		{/if}
 	</div>
 
-	<!-- Center: Command palette trigger -->
-	<button
-		class="command-trigger"
-		onclick={onCommandPalette}
-		type="button"
-		title="Command Palette (⌘P)"
-	>
-		<Search size={15} strokeWidth={1.5} />
-		<span>Search or run command...</span>
-		<kbd>⌘</kbd><kbd>P</kbd>
-	</button>
+	<!-- Spacer -->
+	<div class="header-spacer"></div>
 
 	<!-- Right: Window controls -->
 	{#if showControls}
@@ -211,70 +202,12 @@
 		border-radius: var(--radius-sm);
 	}
 
-	/* Center - command palette trigger */
-	.command-trigger {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-		height: 30px;
-		padding: 0 var(--space-3);
-		background: var(--color-bg-tertiary);
-		border: 1px solid var(--color-border-primary);
-		border-radius: var(--radius-md);
-		color: var(--color-text-muted);
-		font-size: var(--text-xs);
-		font-family: var(--font-sans);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-		min-width: 200px;
-		max-width: 360px;
+	/* Spacer */
+	.header-spacer {
 		flex: 1;
-		margin: 0 var(--space-4);
-		pointer-events: auto;
-		-webkit-app-region: no-drag;
 	}
 
-	.command-trigger:hover {
-		background: var(--color-bg-elevated);
-		border-color: var(--color-border-secondary);
-		color: var(--color-text-secondary);
-	}
-
-	.command-trigger:active {
-		transform: scale(0.99);
-	}
-
-	.command-trigger:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: 2px;
-		border-color: var(--color-primary-500);
-	}
-
-	.command-trigger span {
-		flex: 1;
-		text-align: left;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.command-trigger kbd {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 18px;
-		height: 18px;
-		padding: 0 4px;
-		font-size: 10px;
-		font-family: var(--font-mono);
-		font-weight: var(--font-medium);
-		color: var(--color-text-muted);
-		background: var(--color-bg-secondary);
-		border: 1px solid var(--color-border-primary);
-		border-radius: var(--radius-sm);
-	}
-
-	/* Right - window controls */
+	/* Window controls */
 	.window-controls {
 		display: flex;
 		align-items: center;
@@ -319,19 +252,6 @@
 
 	/* Compact mode for smaller windows */
 	@media (max-width: 900px) {
-		.command-trigger {
-			min-width: 140px;
-			margin: 0 var(--space-2);
-		}
-
-		.command-trigger span {
-			display: none;
-		}
-
-		.command-trigger kbd {
-			display: none;
-		}
-
 		.header-subtitle {
 			display: none;
 		}
@@ -339,13 +259,8 @@
 
 	/* Reduced motion */
 	@media (prefers-reduced-motion: reduce) {
-		.command-trigger,
 		.window-btn {
 			transition: none;
-		}
-
-		.command-trigger:active {
-			transform: none;
 		}
 	}
 </style>

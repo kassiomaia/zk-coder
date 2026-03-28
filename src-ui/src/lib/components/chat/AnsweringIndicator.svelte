@@ -237,7 +237,6 @@
 
 		<div class={styles.labelContainer}>
 			<span class={styles.label}>{displayText}</span>
-			<div class={styles.activityIndicator}></div>
 			{#if status?.stallWarning && status.elapsedSeconds}
 				<span class={styles.stallWarning}>
 					{#if status.stallWarning === 'still-working'}

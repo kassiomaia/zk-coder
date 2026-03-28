@@ -1,0 +1,424 @@
+/**
+ * MessageArtifact Styles
+ *
+ * Distinct artifact presentation for agent-generated outputs.
+ * Strong visual hierarchy separates artifacts from conversational messages.
+ */
+
+@import '../../../styles/animations.css';
+@import '../../../styles/design-system.css';
+
+.artifact {
+	display: flex;
+	flex-direction: column;
+	background: var(--depth-bg-3);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-lg);
+	margin: var(--space-4) 0;
+	overflow: hidden;
+	transition: all var(--transition-normal) var(--state-ease);
+	animation: artifact-entrance var(--transition-normal) var(--ease-out);
+}
+
+@keyframes artifact-entrance {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.artifact:hover {
+	border-color: var(--color-border-primary);
+	box-shadow: var(--shadow-sm);
+}
+
+/* =====================
+   HEADER
+   Toggle with metadata and icon
+   ===================== */
+
+.header {
+	flex-shrink: 0;
+}
+
+.headerToggle {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-4);
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	text-align: left;
+	transition: background var(--transition-fast);
+}
+
+.headerToggle:hover {
+	background: var(--color-interactive-hover);
+}
+
+.headerToggle:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: -2px;
+}
+
+.headerLeft {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	min-width: 0;
+	flex: 1;
+}
+
+.icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	flex-shrink: 0;
+	font-size: 14px;
+	border-radius: var(--radius-md);
+	background: var(--color-interactive-hover);
+	color: var(--color-text-secondary);
+	transition: all var(--transition-fast);
+}
+
+/* Type-specific icon colors */
+.artifact.table .icon {
+	background: rgba(59, 130, 246, 0.12);
+	color: #3b82f6;
+}
+
+.artifact.code .icon {
+	background: rgba(139, 92, 246, 0.12);
+	color: #8b5cf6;
+}
+
+.artifact.report .icon {
+	background: rgba(16, 185, 129, 0.12);
+	color: #10b981;
+}
+
+.artifact.file .icon {
+	background: rgba(245, 158, 11, 0.12);
+	color: #f59e0b;
+}
+
+.artifact.diagnostic .icon {
+	background: rgba(239, 68, 68, 0.12);
+	color: #ef4444;
+}
+
+.headerInfo {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-0-5);
+	min-width: 0;
+	flex: 1;
+}
+
+.title {
+	font-size: var(--text-sm);
+	font-weight: var(--font-semibold);
+	color: var(--color-text-primary);
+	margin: 0;
+	line-height: var(--leading-tight);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.meta {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	font-size: var(--text-2xs);
+	color: var(--color-text-muted);
+	flex-wrap: wrap;
+}
+
+.typeLabel {
+	font-weight: var(--font-medium);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-wide);
+}
+
+.separator {
+	color: var(--color-border-secondary);
+}
+
+.source {
+	color: var(--color-text-secondary);
+}
+
+.timestamp {
+	color: var(--color-text-muted);
+}
+
+.headerRight {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	flex-shrink: 0;
+}
+
+.preview {
+	font-size: var(--text-xs);
+	color: var(--color-text-muted);
+	font-style: italic;
+	max-width: 200px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chevron {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--color-text-muted);
+	transition: transform var(--transition-fast);
+}
+
+.chevronExpanded {
+	transform: rotate(90deg);
+}
+
+/* =====================
+   CONTENT
+   Expandable content area
+   ===================== */
+
+.content {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding: 0 var(--space-4) var(--space-4);
+	animation: content-expand var(--transition-normal) var(--state-ease);
+}
+
+@keyframes content-expand {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.description {
+	font-size: var(--text-sm);
+	color: var(--color-text-secondary);
+	line-height: var(--leading-relaxed);
+	margin: 0;
+	padding: var(--space-2) 0;
+}
+
+.contentInner {
+	background: var(--color-bg-base);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-md);
+	overflow: hidden;
+}
+
+.textContent {
+	margin: 0;
+	padding: var(--space-4);
+	background: var(--color-bg-base);
+	border: none;
+	border-radius: var(--radius-md);
+	overflow-x: auto;
+	font-size: var(--text-sm);
+	line-height: var(--leading-relaxed);
+	color: var(--color-text-primary);
+}
+
+.textContent code {
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+	color: inherit;
+	background: transparent;
+	padding: 0;
+}
+
+/* =====================
+   TAGS
+   Metadata tags display
+   ===================== */
+
+.tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+
+.tag {
+	display: inline-flex;
+	align-items: center;
+	padding: var(--space-0-5) var(--space-2);
+	background: var(--color-interactive-hover);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-sm);
+	font-size: var(--text-2xs);
+	font-weight: var(--font-medium);
+	color: var(--color-text-secondary);
+	letter-spacing: var(--tracking-tight);
+}
+
+/* =====================
+   ACTIONS
+   Footer action buttons
+   ===================== */
+
+.actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-3) var(--space-4);
+	border-top: 1px solid var(--color-border-subtle);
+	background: var(--color-bg-secondary);
+}
+
+.actionBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	padding: var(--space-1-5) var(--space-2-5);
+	background: transparent;
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-md);
+	color: var(--color-text-secondary);
+	font-size: var(--text-2xs);
+	font-weight: var(--font-medium);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.actionBtn:hover:not(:disabled) {
+	background: var(--color-interactive-hover);
+	border-color: var(--color-border-primary);
+	color: var(--color-text-primary);
+}
+
+.actionBtn:active:not(:disabled) {
+	transform: scale(0.98);
+}
+
+.actionBtn:disabled {
+	opacity: var(--opacity-disabled);
+	cursor: not-allowed;
+}
+
+.copyBtn {
+	color: var(--color-primary-400);
+	border-color: var(--color-primary-border);
+}
+
+.copyBtn:hover:not(:disabled) {
+	background: var(--color-primary-light);
+	border-color: var(--color-primary-400);
+}
+
+.checkIcon {
+	color: var(--color-success);
+	font-weight: var(--font-semibold);
+}
+
+/* =====================
+   TYPE-SPECIFIC STYLES
+   ===================== */
+
+/* Table artifacts */
+.artifact.table .contentInner {
+	overflow-x: auto;
+}
+
+/* Code artifacts */
+.artifact.code .textContent {
+	font-family: var(--font-mono);
+	tab-size: 4;
+}
+
+/* Diagnostic artifacts */
+.artifact.diagnostic {
+	border-color: var(--color-error-border);
+}
+
+.artifact.diagnostic .icon {
+	background: var(--color-error-light);
+	color: var(--color-error);
+}
+
+/* =====================
+   RESPONSIVE
+   ===================== */
+
+@media (max-width: 600px) {
+	.artifact {
+		margin: var(--space-3) 0;
+	}
+
+	.headerToggle {
+		padding: var(--space-2-5) var(--space-3);
+		gap: var(--space-2);
+	}
+
+	.icon {
+		width: 28px;
+		height: 28px;
+		font-size: 12px;
+	}
+
+	.content {
+		padding: 0 var(--space-3) var(--space-3);
+	}
+
+	.textContent {
+		padding: var(--space-3);
+		font-size: var(--text-xs);
+	}
+
+	.actions {
+		padding: var(--space-2) var(--space-3);
+		flex-wrap: wrap;
+	}
+
+	.preview {
+		display: none;
+	}
+}
+
+/* =====================
+   REDUCED MOTION
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	.artifact {
+		animation: none;
+	}
+
+	.content {
+		animation: none;
+	}
+
+	.chevron {
+		transition: none;
+	}
+
+	.actionBtn:hover:not(:disabled) {
+		transform: none;
+	}
+
+	.actionBtn:active:not(:disabled) {
+		transform: none;
+	}
+}

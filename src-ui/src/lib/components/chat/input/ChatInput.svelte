@@ -81,7 +81,7 @@
 	}
 
 	let {
-		placeholder = '',
+		placeholder = 'Type a message or command...',
 		value,
 		onchange,
 		onsubmit,
@@ -129,6 +129,15 @@
 	// Determine if the agent is actively working (LLM streaming OR Agent running)
 	let isWorking = $derived(isAgentWorking || $isLlmStreaming || loading || isSending);
 
+	// Dynamic placeholder based on context
+	let dynamicPlaceholder = $derived(() => {
+		if (isWorking) return 'Working...';
+		if (isSending) return '';
+		if (value.startsWith('/')) return 'Select a command...';
+		if (value.startsWith('@')) return 'Reference files, agents...';
+		return placeholder;
+	});
+
 	// Intent detection: use backend if available and enabled, otherwise fallback to frontend
 	let detectedIntent = $derived(() => {
 		if (useBackendNlp && $nlpState.backendAvailable && $nlpState.detectedIntent) {
@@ -148,7 +157,8 @@
 			styles.container,
 			disabled && styles.disabled,
 			isPreviewMode && styles.previewMode,
-			isShaking && styles.shake
+			isShaking && styles.shake,
+			isWorking && styles.isWorking
 		]
 			.filter(Boolean)
 			.join(' ')
@@ -404,7 +414,7 @@
 			<textarea
 				bind:this={textareaRef}
 				class={[styles.textarea, isSending && styles.sending].filter(Boolean).join(' ')}
-				placeholder={isWorking ? 'Generating...' : placeholder}
+				placeholder={dynamicPlaceholder()}
 				{value}
 				disabled={disabled || isWorking}
 				oninput={handleInput}
@@ -485,7 +495,15 @@
 
 		<div class={styles.rightActions}>
 			{#if isWorking}
-				<span class={styles.statusText}>Generating...</span>
+				<span class={styles.statusText}>
+					{#if $isLlmStreaming}
+						Generating response
+					{:else if agentSessionId}
+						Executing tasks
+					{:else}
+						Processing
+					{/if}
+				</span>
 			{/if}
 
 			{#if maxLength && !isWorking}

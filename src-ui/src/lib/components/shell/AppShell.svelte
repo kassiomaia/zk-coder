@@ -492,19 +492,13 @@
 		flex-direction: column;
 		min-height: 100%;
 		background: var(--depth-bg-2);
-		border-color: var(--color-border-subtle);
-		border-style: solid;
 		flex-shrink: 0;
 		overflow: hidden;
 	}
 
-	.sidebar-left {
-		border-right-width: 1px;
-	}
+	.sidebar-left {}
 
-	.sidebar-right {
-		border-left-width: 1px;
-	}
+	.sidebar-right {}
 
 	/* Center content area */
 	.shell-center {
@@ -519,27 +513,53 @@
 		border-right: 1px solid var(--color-border-subtle);
 	}
 
-	/* Resizers - simple buttons between panels */
+	/* Resizers - Enhanced visual feedback */
 	.resizer {
 		position: relative;
-		width: 2px;
+		width: 4px;
 		padding: 0;
-		border: 0;
+		border: none;
 		appearance: none;
 		background: transparent;
 		cursor: col-resize;
 		z-index: 10;
 		flex-shrink: 0;
-		margin-left: -1px;
-		margin-right: -1px;
-		transition: background-color 0.15s;
+		margin: 0 -2px;
+		transition: all var(--transition-fast) var(--ease-out);
 		-webkit-app-region: no-drag;
+	}
+
+	/* Visual indicator area */
+	.resizer::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 2px;
+		height: 100%;
+		background: var(--color-border-subtle);
+		border-radius: var(--radius-full);
+		transition: all var(--transition-fast) var(--ease-out);
+	}
+
+	/* Hover state - expand hit area and show indicator */
+	.resizer:hover::before {
+		width: 3px;
+		background: var(--color-primary-400);
+		box-shadow: 0 0 8px var(--color-primary-glow);
+	}
+
+	/* Active state during resize */
+	.resizer.resizer-active::before {
+		width: 3px;
+		background: var(--color-primary-500);
+		box-shadow: 0 0 12px var(--color-primary-glow-strong);
 	}
 
 	.resizer:hover,
 	.resizer-active {
-		background: var(--color-primary-500);
-		transition-delay: 80ms;
+		background: transparent;
 	}
 
 	/* Agent panel empty state */
@@ -702,6 +722,11 @@
 	/* Touch support */
 	@media (pointer: coarse) {
 		.resizer {
+			width: 8px;
+			margin: 0 -4px;
+		}
+
+		.resizer::before {
 			width: 4px;
 		}
 	}

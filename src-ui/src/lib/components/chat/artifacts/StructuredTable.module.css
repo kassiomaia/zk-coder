@@ -1,0 +1,281 @@
+/**
+ * StructuredTable Styles
+ *
+ * Productized table styling integrated with design system.
+ * Strong visual hierarchy with clear headers and data distinction.
+ */
+
+@import '../../../styles/design-system.css';
+
+/* =====================
+   TABLE WRAPPER
+   Container with scroll support
+   ===================== */
+
+.tableWrapper {
+	width: 100%;
+	overflow-x: auto;
+	overflow-y: auto;
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-md);
+	background: var(--color-bg-base);
+}
+
+.tableWrapper.compact {
+	font-size: var(--text-xs);
+}
+
+/* =====================
+   TABLE
+   Base table styling
+   ===================== */
+
+.table {
+	width: 100%;
+	border-collapse: collapse;
+	border-spacing: 0;
+	background: transparent;
+}
+
+/* =====================
+   HEADER
+   Distinct header row
+   ===================== */
+
+.thead {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	background: var(--color-bg-secondary);
+	border-bottom: 2px solid var(--color-border-primary);
+}
+
+.headerRow {
+	background: transparent;
+}
+
+.headerCell {
+	padding: var(--space-3) var(--space-4);
+	font-size: var(--text-2xs);
+	font-weight: var(--font-semibold);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-wider);
+	color: var(--color-text-muted);
+	background: transparent;
+	border-bottom: 1px solid var(--color-border-primary);
+	white-space: nowrap;
+	user-select: none;
+}
+
+.headerCell:first-child {
+	border-top-left-radius: var(--radius-md);
+}
+
+.headerCell:last-child {
+	border-top-right-radius: var(--radius-md);
+}
+
+/* Alignment classes */
+.alignLeft {
+	text-align: left;
+}
+
+.alignCenter {
+	text-align: center;
+}
+
+.alignRight {
+	text-align: right;
+}
+
+/* Sortable header */
+.headerCell.sortable {
+	cursor: pointer;
+	transition: background-color var(--transition-fast);
+}
+
+.headerCell.sortable:hover {
+	background: var(--color-interactive-hover);
+}
+
+.headerButton {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	padding: 0;
+	background: transparent;
+	border: none;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+	transition: color var(--transition-fast);
+}
+
+.headerButton:hover {
+	color: var(--color-text-secondary);
+}
+
+.headerButton:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+	border-radius: var(--radius-sm);
+}
+
+.headerLabel {
+	display: inline-block;
+}
+
+.sortIcon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	opacity: 0.3;
+	transition: opacity var(--transition-fast);
+}
+
+.headerCell.sortable:hover .sortIcon {
+	opacity: 0.6;
+}
+
+/* Active sort column styling */
+.headerCell.sortable[aria-sort="ascending"] .sortIcon,
+.headerCell.sortable[aria-sort="descending"] .sortIcon {
+	opacity: 1;
+	color: var(--color-accent-primary);
+}
+
+/* =====================
+   BODY
+   Data rows with hover
+   ===================== */
+
+.tbody {
+	background: transparent;
+}
+
+.row {
+	border-bottom: 1px solid var(--color-border-subtle);
+	transition: background-color var(--transition-fast);
+	animation: row-entrance 0.2s var(--ease-out) backwards;
+}
+
+@keyframes row-entrance {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.row:last-child {
+	border-bottom: none;
+}
+
+.row.highlightable:hover {
+	background: var(--color-interactive-hover);
+}
+
+.rowHighlighted {
+	background: var(--color-primary-light);
+}
+
+.rowHighlighted:hover {
+	background: var(--color-primary-lighter);
+}
+
+/* =====================
+   CELLS
+   Data cell styling
+   ===================== */
+
+.cell {
+	padding: var(--space-3) var(--space-4);
+	color: var(--color-text-secondary);
+	background: transparent;
+}
+
+.tableWrapper.compact .cell {
+	padding: var(--space-2) var(--space-3);
+}
+
+.cellContent {
+	display: block;
+	line-height: var(--leading-relaxed);
+}
+
+/* =====================
+   EMPTY STATE
+   No data message
+   ===================== */
+
+.emptyRow {
+	background: transparent;
+}
+
+.emptyCell {
+	padding: var(--space-8) var(--space-6);
+	text-align: center;
+}
+
+.emptyState {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-2);
+}
+
+.emptyMessage {
+	font-size: var(--text-sm);
+	color: var(--color-text-muted);
+	margin: 0;
+}
+
+/* =====================
+   STRIPED VARIANTS
+   Optional alternating rows
+   ===================== */
+
+.tableWrapper.striped .row:nth-child(even) {
+	background: var(--color-bg-secondary);
+}
+
+.tableWrapper.striped .row:nth-child(even).highlightable:hover {
+	background: var(--color-interactive-hover);
+}
+
+/* =====================
+   RESPONSIVE
+   ===================== */
+
+@media (max-width: 600px) {
+	.headerCell,
+	.cell {
+		padding: var(--space-2) var(--space-3);
+	}
+
+	.emptyCell {
+		padding: var(--space-6) var(--space-4);
+	}
+
+	.headerLabel {
+		font-size: 10px;
+	}
+}
+
+/* =====================
+   REDUCED MOTION
+   ===================== */
+
+@media (prefers-reduced-motion: reduce) {
+	.row {
+		animation: none;
+	}
+
+	.row.highlightable {
+		transition: none;
+	}
+}
