@@ -58,7 +58,14 @@ export function registerCustomThemes() {
 			'editorLineNumber.activeForeground': '#a1a1aa',
 			'scrollbarSlider.background': '#1f1f23',
 			'scrollbarSlider.hoverBackground': '#27272a',
-			'scrollbarSlider.activeBackground': '#3f3f46'
+			'scrollbarSlider.activeBackground': '#3f3f46',
+			'minimap.background': '#09090b',
+			'minimap.selectionHighlight': '#6366f140',
+			'minimap.errorHighlight': '#ef4444',
+			'minimap.warningHighlight': '#f59e0b',
+			'minimapSlider.background': '#1f1f2360',
+			'minimapSlider.hoverBackground': '#27272a80',
+			'minimapSlider.activeBackground': '#3f3f46a0'
 		}
 	});
 }

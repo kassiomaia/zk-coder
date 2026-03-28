@@ -12,6 +12,7 @@
 		Radio,
 		RefreshCw,
 		Search,
+		X,
 		Zap
 	} from 'lucide-svelte';
 	import MonacoEditor from '$lib/components/shared/MonacoEditor.svelte';
@@ -250,6 +251,10 @@
 		selectedTraceId = traces[traces.length - 1]?.id ?? null;
 	}
 
+	function dismissError() {
+		error = null;
+	}
+
 	function resetLiveCounters() {
 		liveEventsCount = 0;
 		lastEventAt = null;
@@ -427,7 +432,7 @@
 	<div class={shell.warningSurface}>Agent trace is available only in development mode.</div>
 {:else}
 	<div class={shell.page} data-tone={headerTone}>
-		<header class={`${shell.surface} ${shell.header}`}>
+		<header class={shell.header}>
 			<div class={shell.headerMain}>
 				<div class={shell.titleBlock}>
 					<h1 class={shell.title}>
@@ -438,71 +443,74 @@
 						<code>{sessionId || 'waiting...'}</code>
 					</p>
 				</div>
-
-				<div class={shell.liveBanner} data-state={transportState}>
-					<div class={shell.liveBadge}>
-						<Radio size={12} />
-						<span>{listeningLabel}</span>
-					</div>
-					<div class={shell.liveMeta}>
-						<span>{lastEventLabel}</span>
-						<span>{liveEventsCount} events</span>
-					</div>
-				</div>
 			</div>
 
-			<div class={shell.snapshotGrid}>
-				<div class={shell.snapshotCell}>
-					<span class={shell.snapshotLabel}>Phase</span>
-					<strong class={shell.snapshotValue}>{snapshot?.phase ?? '-'}</strong>
+			<div class={shell.systemStrip} data-state={transportState}>
+				<div class={shell.liveBadge}>
+					<div class={shell.liveIndicator}></div>
+					<span>{listeningLabel}</span>
 				</div>
-				<div class={shell.snapshotCell}>
-					<span class={shell.snapshotLabel}>Step</span>
-					<strong class={shell.snapshotValue}>{snapshot?.stepNumber ?? 0}</strong>
-				</div>
-				<div class={shell.snapshotCell}>
-					<span class={shell.snapshotLabel}>Tokens</span>
-					<strong class={shell.snapshotValue}>
-						{snapshot ? `${snapshot.totalInputTokens}/${snapshot.totalOutputTokens}` : '-'}
-					</strong>
-				</div>
-				<div class={shell.snapshotCell}>
-					<span class={shell.snapshotLabel}>Model</span>
-					<strong class={shell.snapshotValue}>{snapshot?.lastModel ?? '-'}</strong>
+
+				<div class={shell.snapshotGrid}>
+					<div class={shell.snapshotCell}>
+						<span class={shell.snapshotLabel}>Phase</span>
+						<strong class={shell.snapshotValue}>{snapshot?.phase ?? '-'}</strong>
+					</div>
+					<div class={shell.snapshotCell}>
+						<span class={shell.snapshotLabel}>Step</span>
+						<strong class={shell.snapshotValue}>{snapshot?.stepNumber ?? 0}</strong>
+					</div>
+					<div class={shell.snapshotCell}>
+						<span class={shell.snapshotLabel}>Tokens</span>
+						<strong class={shell.snapshotValue}>
+							{snapshot ? `${snapshot.totalInputTokens}/${snapshot.totalOutputTokens}` : '-'}
+						</strong>
+					</div>
+					<div class={shell.snapshotCell}>
+						<span class={shell.snapshotLabel}>Model</span>
+						<strong class={shell.snapshotValue}>{snapshot?.lastModel ?? '-'}</strong>
+					</div>
 				</div>
 			</div>
 		</header>
 
 		{#if error}
 			<div class={shell.warningSurface}>
-				<AlertCircle size={16} />
-				{error}
+				<AlertCircle size={14} />
+				<span class="flex-1">{error}</span>
+				<button 
+					class={shell.dismissButton} 
+					onclick={dismissError}
+					aria-label="Dismiss error"
+				>
+					<X size={14} />
+				</button>
 			</div>
 		{/if}
 
-		<section class={`${shell.surface} ${shell.toolbar}`}>
+		<section class={shell.toolbar}>
 			<div class={shell.toolbarSearch}>
-				<Search size={14} class="text-muted" />
+				<Search size={14} />
 				<input class={shell.field} bind:value={sessionId} placeholder="Session ID" />
 			</div>
 
 			<div class={shell.toolbarFilters}>
 				<select class={shell.select} bind:value={filterType}>
-					<option value="">All actions</option>
+					<option value="">Actions: All</option>
 					{#each uniqueTypes as type}
 						<option value={type}>{type}</option>
 					{/each}
 				</select>
 
 				<select class={shell.select} bind:value={filterPhase}>
-					<option value="">All phases</option>
+					<option value="">Phases: All</option>
 					{#each uniquePhases as phase}
 						<option value={phase}>{phase}</option>
 					{/each}
 				</select>
 
 				<select class={shell.select} bind:value={filterStep}>
-					<option value="">All steps</option>
+					<option value="">Steps: All</option>
 					{#each uniqueSteps as step}
 						<option value={String(step)}>Step {step}</option>
 					{/each}
@@ -516,19 +524,19 @@
 				</label>
 
 				<button class={shell.buttonGhost} type="button" onclick={reconnect} disabled={!sessionId}>
-					<RefreshCw size={14} />
+					<RefreshCw size={13} />
 					Resync
 				</button>
 
 				<button class={shell.buttonPrimary} type="button" onclick={jumpToLatest}>
-					<ArrowDown size={14} />
+					<ArrowDown size={13} />
 					Latest
 				</button>
 			</div>
 		</section>
 
 		<div class={shell.layout}>
-			<div class={`${shell.surface} ${shell.tableShell}`} bind:this={traceContainer}>
+			<div class={shell.tableShell} bind:this={traceContainer}>
 				<TracePlanTable
 					{rows}
 					{columnWidths}
@@ -545,7 +553,7 @@
 				onmousedown={handleMouseDown}
 			></button>
 
-			<aside class={`${shell.surface} ${shell.detail}`} style:width="{detailWidth}px">
+			<aside class={shell.detail} style:width="{detailWidth}px">
 				<div class={shell.detailHeader}>
 					<h2 class={shell.detailTitle}>
 						<Info size={14} />
@@ -569,7 +577,7 @@
 					{:else}
 						<div class={shell.placeholder}>
 							<Search size={44} />
-							<span>Select a row to inspect the live payload</span>
+							<span>Select a row to inspect payload</span>
 						</div>
 					{/if}
 				</div>
