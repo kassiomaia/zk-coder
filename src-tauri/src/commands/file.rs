@@ -5,6 +5,9 @@
 
 use crate::commands::agent::AgentState;
 use std::path::PathBuf;
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+const FILE_DIFF_WINDOW_LABEL: &str = "file-diff";
 
 /// Response containing file content and diff information.
 #[derive(Debug, serde::Serialize)]
@@ -121,4 +124,66 @@ fn format_as_deleted_file_diff(path: &str, content: &str) -> String {
         "--- a/{}\n+++ /dev/null\n@@ -1,{} +0,0 @@\n{}",
         path, line_count, lines
     )
+}
+
+/// Simple URL encoding function that avoids additional dependencies.
+fn encode_url(s: &str) -> String {
+    let mut encoded = String::new();
+    for c in s.chars() {
+        match c {
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => encoded.push(c),
+            _ => {
+                let mut buf = [0; 4];
+                for byte in c.encode_utf8(&mut buf).as_bytes() {
+                    encoded.push('%');
+                    encoded.push_str(&format!("{:02X}", byte));
+                }
+            }
+        }
+    }
+    encoded
+}
+
+/// Open a file diff in a dedicated chromeless window.
+#[tauri::command]
+pub async fn open_file_diff_window(
+    file_path: String,
+    workspace_root: String,
+    session_id: String,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    let encoded_path = encode_url(&file_path);
+    let path = format!(
+        "/file-diff?filePath={}&workspaceRoot={}&sessionId={}",
+        encoded_path, workspace_root, session_id
+    );
+
+    if let Some(window) = app_handle.get_webview_window(FILE_DIFF_WINDOW_LABEL) {
+        window
+            .eval(&format!(
+                "window.location.href = '{}'",
+                path
+            ))
+            .map_err(|e| e.to_string())?;
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+
+    let window = WebviewWindowBuilder::new(
+        &app_handle,
+        FILE_DIFF_WINDOW_LABEL,
+        WebviewUrl::App(path.into()),
+    )
+    .title("File Diff")
+    .inner_size(1200.0, 800.0)
+    .min_inner_size(600.0, 400.0)
+    .decorations(false)
+    .maximized(true)
+    .devtools(false)
+    .build()
+    .map_err(|e| e.to_string())?;
+
+    let _ = window.set_focus();
+    Ok(())
 }

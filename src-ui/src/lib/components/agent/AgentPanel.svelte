@@ -15,7 +15,6 @@
     import SessionTabs from './SessionTabs.svelte';
     import SessionHistory from './SessionHistory.svelte';
     import AgentConfig from './AgentConfig.svelte';
-    import FileDiffModal from './FileDiffModal.svelte';
     import type {AgentSession, PendingAction} from '$lib/types/agent';
 
     interface Props {
@@ -60,8 +59,6 @@
 	/** Modal states */
 	let showSessionHistory = $state(false);
 	let showAgentConfig = $state(false);
-	let showFileDiff = $state(false);
-	let selectedFile = $state<{ path: string; diff?: string } | null>(null);
 
 	/** Approval dialog derived from pending actions */
 	let showApprovalDialog = $derived(pendingActions.length > 0);
@@ -113,18 +110,18 @@
 		return 'Unknown';
 	}
 
-	function handleFileClick(path: string) {
-		const file = session.filesTouched?.find((f) => f.path === path);
-		if (file) {
-			selectedFile = { path: file.path, diff: file.diff };
-			showFileDiff = true;
-		}
-	}
-
-	function closeFileDiff() {
-		showFileDiff = false;
-		selectedFile = null;
-	}
+	async function handleFileClick(path: string) {
+        if (!session.workspaceRoot) return;
+        try {
+            await invoke('open_file_diff_window', {
+                filePath: path,
+                workspaceRoot: session.workspaceRoot,
+                sessionId: session.id
+            });
+        } catch (error) {
+            console.warn('[AgentPanel] Failed to open file diff window', error);
+        }
+    }
 
 	/** Calculate total tokens used - latest step's total (API reports cumulative) */
 	let totalTokensUsed = $derived(() => {
@@ -371,16 +368,15 @@
 				{#if filesExpanded}
 					<div id="files-section" class="section-content-wrapper">
 						<FileTree 
-							files={session.filesTouched ?? []} 
-							onfileclick={handleFileClick} 
-							activePath={selectedFile?.path}
-						/>
-					</div>
-				{/if}
-			</section>
+                            files={session.filesTouched ?? []} 
+                            onfileclick={handleFileClick} 
+                        />
+                    </div>
+                {/if}
+            </section>
 
-				<!-- Tool Calls section -->
-				<section class="panel-section tool-calls-section" style="animation-delay: 0.3s">
+            <!-- Tool Calls section -->
+            <section class="panel-section tool-calls-section" style="animation-delay: 0.3s">
 					<button
 						class="section-header"
 						onclick={() => (toolCallsExpanded = !toolCallsExpanded)}
@@ -417,27 +413,15 @@
 			/>
 		{/if}
 	</div>
-</nav>
 
 	<!-- Agent Config (modal overlay) -->
-<AgentConfig
-	open={showAgentConfig}
-	onClose={() => (showAgentConfig = false)}
-	onSelectAgent={(id) => onChangeAgent?.(id)}
-	selectedAgentId={session.agentId}
-/>
-
-<!-- File Diff Modal (modal overlay) -->
-{#if showFileDiff && selectedFile}
-	<FileDiffModal
-		open={showFileDiff}
-		onclose={closeFileDiff}
-		filePath={selectedFile.path}
-		workspaceRoot={session.workspaceRoot ?? ''}
-		sessionId={session.id}
-		existingDiff={selectedFile.diff}
+	<AgentConfig
+		open={showAgentConfig}
+		onClose={() => (showAgentConfig = false)}
+		onSelectAgent={(id) => onChangeAgent?.(id)}
+		selectedAgentId={session.agentId}
 	/>
-{/if}
+</nav>
 
 <style>
 	.agent-panel {
