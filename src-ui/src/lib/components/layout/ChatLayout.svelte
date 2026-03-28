@@ -9,9 +9,12 @@
     import ConversationSidebar from '../chat/sidebar/ConversationSidebar.svelte';
     import ThreadPanel from '../chat/thread/ThreadPanel.svelte';
     import ChatArea from '../chat/ChatArea.svelte';
-    import AgentPanel from '../agent/AgentPanel.svelte';
-    import WorkspaceSelector from '../agent/WorkspaceSelector.svelte';
-    import type {Conversation, Thread} from '$lib/types/thread';
+	import AgentPanel from '../agent/AgentPanel.svelte';
+	import WorkspaceSelector from '../agent/WorkspaceSelector.svelte';
+	import {Bot, Layout} from 'lucide-svelte';
+	import {tick} from 'svelte';
+	import {chatStore} from '$lib/stores/chat';
+	import type {Conversation, Thread} from '$lib/types/thread';
     import type {Message} from '$lib/types/message';
     import type {AgentSession, PendingAction} from '$lib/types/agent';
     import {createAppShortcuts, unregisterShortcuts} from '$lib/utils/keyboardShortcuts';
@@ -243,6 +246,17 @@
 	);
 
 	let currentThreadAgentState = $derived(getThreadAgentState(selectedThread, allAgentSessions));
+	async function handleReadyToWork() {
+		const thread = await chatStore.createThread();
+		if (thread) {
+			// Small delay to ensure the DOM is updated before focusing
+			await tick();
+			const chatInput = document.querySelector('textarea') as HTMLTextAreaElement | null;
+			if (chatInput) {
+				chatInput.focus();
+			}
+		}
+	}
 </script>
 
 <div class={styles.layout} data-sidebar-open={sidebarOpen}>
@@ -402,15 +416,45 @@
 					/>
 				{:else}
 					<div class={styles.agentPanelEmpty}>
-						<p class={styles.emptyTitle}>No active agent session</p>
-						<p class={styles.emptyHint}>Select a workspace and launch an agent.</p>
-						<WorkspaceSelector
-							workspacePath={conversationWorkspace}
-							onSelect={(path) => onSetConversationWorkspace?.(path)}
-						/>
-						<button class={styles.emptyButton} onclick={() => onCreateSession?.()} type="button">
-							Launch Agent
-						</button>
+						<div class={styles.emptyHeader}>
+							<div class={styles.emptyIconContainer}>
+								<Bot size={20} strokeWidth={2} />
+							</div>
+							<div class={styles.emptyContent}>
+								{#if conversationWorkspace}
+									<p class={styles.emptyTitle}>Ready to Assist</p>
+									<p class={styles.emptyHint}>Workspace active. Start a thread to begin.</p>
+								{:else}
+									<p class={styles.emptyTitle}>Workspace Required</p>
+									<p class={styles.emptyHint}>Select a workspace to enable agents.</p>
+								{/if}
+							</div>
+						</div>
+
+						<div class={styles.emptyStateGroup}>
+							<div class={styles.workspaceSection}>
+								<div class={styles.workspaceHeader}>
+									<Layout size={14} />
+									<span>Workspace Status</span>
+								</div>
+								<div class={styles.workspaceSelectorContainer}>
+									<WorkspaceSelector
+										workspacePath={conversationWorkspace}
+										onSelect={(path) => onSetConversationWorkspace?.(path)}
+									/>
+								</div>
+							</div>
+
+							<button
+								class={styles.emptyButton}
+								onclick={handleReadyToWork}
+								type="button"
+								disabled={!conversationWorkspace}
+								title={!conversationWorkspace ? 'Select a workspace first' : 'Create a new thread'}
+							>
+								Ready to Work
+							</button>
+						</div>
 					</div>
 				{/if}
 			</div>

@@ -55,12 +55,12 @@ impl Default for AgentRegistry {
 }
 
 impl Agent {
-    /// Built-in Code Agent configuration.
+    /// Built-in Agent configuration.
     pub fn code_agent() -> Self {
         let now = Utc::now();
         Self {
             id: AgentId::new("code-agent"),
-            name: "Code Agent".to_string(),
+            name: "Agent".to_string(),
             description: "Assists with code reading, writing, and execution".to_string(),
             system_prompt: Self::code_agent_system_prompt().to_string(),
             allowed_tools: vec![
@@ -193,7 +193,7 @@ mod tests {
         let registry = AgentRegistry::new();
         let agent = registry.get(&AgentId::new("code-agent")).await;
         assert!(agent.is_some());
-        assert_eq!(agent.unwrap().name, "Code Agent");
+        assert_eq!(agent.unwrap().name, "Agent");
     }
 
     #[tokio::test]

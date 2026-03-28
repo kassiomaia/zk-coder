@@ -43,6 +43,7 @@ import {LlmHandler} from './chat/llm-handler';
 import type {ChatState, LlmRequestOptions} from './chat/types';
 import {deriveThreadTitle, sortThreadsByRecent} from './chat/utils';
 import {agentStore} from './agentStore';
+import {configStore} from './configStore';
 import {createDerivedStores} from './chat/derived-stores';
 
 // ============================================================================
@@ -525,6 +526,13 @@ function createChatStore() {
 
 					// Auto-create an agent session for this thread
 					try {
+						const codingModelId = configStore.getDefault('code');
+						if (codingModelId) {
+							await this.updateConversationSettings(conversationId, {
+								model: codingModelId
+							});
+						}
+
 						const agentSession = await agentStore.createSession(
 							'code-agent', // Default to code agent
 							conversationId,

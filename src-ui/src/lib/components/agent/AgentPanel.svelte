@@ -156,60 +156,92 @@
 	<!-- Header -->
 	<header class="panel-header">
 		<div class="header-left">
-			<h3 class="panel-title">{session.agentName}</h3>
-			<WorkspaceSelector
-				workspacePath={session.workspaceRoot}
-				onSelect={onWorkspaceChange}
-				disabled={session.state.type === 'running' || session.state.type === 'user_input_required'}
-			/>
+			<div class="context-info">
+				<h3 class="panel-title">{session.agentName}</h3>
+				<span class="system-label">Agent Session</span>
+			</div>
+			
+			<div class="status-indicator">
+				<span class="status-dot {getStatusDotClass(session)}"></span>
+				<span class="status-label">{getStatusLabel(session)}</span>
+				{#if canRetryRecovered}
+					<button
+						class="retry-btn-mini"
+						type="button"
+						onclick={() => onRetryLastRequest?.(session.id)}
+						aria-label="Retry last request"
+						title="Retry last request"
+					>
+						<Activity size={10} />
+						Retry
+					</button>
+				{/if}
+			</div>
 		</div>
+
 		<div class="header-actions">
+			<button class="header-btn close" onclick={onclose} type="button" aria-label="Close agent panel">
+				<X size={14} />
+			</button>
+		</div>
+	</header>
+
+	<div class="panel-toolbar">
+		<div class="toolbar-group">
 			<button
-				class="header-btn"
+				class="toolbar-btn"
 				class:active={currentView === 'active'}
 				onclick={() => (currentView = 'active')}
 				type="button"
 				aria-label="Active session"
-				title="Active Session"
 			>
 				<Activity size={14} />
+				<span>Active</span>
 			</button>
 			<button
-				class="header-btn"
+				class="toolbar-btn"
 				class:active={currentView === 'history'}
 				onclick={() => (currentView = 'history')}
 				type="button"
 				aria-label="View session history"
-				title="Session History"
 			>
 				<History size={14} />
+				<span>History</span>
 			</button>
-			<div class="header-divider"></div>
+		</div>
+
+		<div class="toolbar-group actions">
 			{#if import.meta.env.DEV}
 				<button
-					class="header-btn"
+					class="toolbar-btn-icon"
 					onclick={openTraceWindow}
 					type="button"
-					aria-label="Open agent trace window"
 					title="Agent Trace"
 				>
 					<Bug size={14} />
 				</button>
 			{/if}
 			<button
-				class="header-btn"
+				class="toolbar-btn-icon"
 				onclick={() => (showAgentConfig = true)}
 				type="button"
-				aria-label="Agent configuration"
 				title="Agent Configuration"
 			>
 				<Settings size={14} />
 			</button>
-			<button class="header-btn close" onclick={onclose} type="button" aria-label="Close agent panel">
-				<X size={16} />
-			</button>
 		</div>
-	</header>
+	</div>
+
+	<div class="workspace-bar">
+		<div class="workspace-info">
+			<span class="workspace-microcopy">Targeting project</span>
+			<WorkspaceSelector
+				workspacePath={session.workspaceRoot}
+				onSelect={onWorkspaceChange}
+				disabled={session.state.type === 'running' || session.state.type === 'user_input_required'}
+			/>
+		</div>
+	</div>
 
 	<!-- Content Area -->
 	<div class="panel-content">
@@ -243,25 +275,7 @@
 					/>
 				{/if}
 
-			<!-- Status bar -->
-			<div
-				class="session-status"
-				class:waiting={session.state.type === 'user_input_required'}
-				class:error={session.state.type === 'error'}
-			>
-				<span class="status-dot {getStatusDotClass(session)}"></span>
-				<span class="status-label">{getStatusLabel(session)}</span>
-				{#if canRetryRecovered}
-					<button
-						class="retry-btn"
-						type="button"
-						onclick={() => onRetryLastRequest?.(session.id)}
-						aria-label="Retry last request"
-					>
-						Retry last request
-					</button>
-				{/if}
-			</div>
+			<!-- Status bar removed as its info is now in the header -->
 
 			<!-- Activity (Tasks + Progress) section -->
 			<section class="panel-section activity-section">
@@ -442,102 +456,169 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: var(--space-2) var(--component-padding);
+		padding: var(--space-3) var(--component-padding);
 		border-bottom: 1px solid var(--color-border-subtle);
 		flex-shrink: 0;
 		background: var(--depth-bg-2);
+		animation: header-entrance var(--transition-normal) var(--ease-out);
 	}
 
-	.header-left {
+	.panel-toolbar {
 		display: flex;
-		flex-direction: column;
-		gap: var(--space-px);
+		align-items: center;
+		padding: var(--space-1-5) var(--component-padding);
+		background: var(--depth-bg-1);
+		border-bottom: 1px solid var(--color-border-subtle);
+		flex-shrink: 0;
+	}
+
+	.workspace-bar {
+		display: flex;
+		align-items: center;
+		padding: var(--space-1-5) var(--component-padding);
+		background: var(--depth-bg-2);
+		border-bottom: 1px solid var(--color-border-subtle);
+		flex-shrink: 0;
+	}
+
+	.workspace-info {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
 		min-width: 0;
 		flex: 1;
 	}
 
-	.panel-title {
-		font-size: var(--text-2xs);
-		font-weight: var(--font-semibold);
-		color: var(--text-metadata-color);
-		margin: 0;
-		letter-spacing: 0.05em;
-		line-height: var(--leading-tight);
-		text-transform: uppercase;
-		opacity: 0.8;
+	.workspace-microcopy {
+		font-size: 10px;
+		font-weight: var(--font-medium);
+		color: var(--color-text-muted);
+		letter-spacing: normal;
+		opacity: 0.6;
+		white-space: nowrap;
+		flex-shrink: 0;
 	}
 
-	.header-actions {
+	.toolbar-group {
 		display: flex;
 		align-items: center;
 		gap: var(--space-1);
 	}
 
-	.header-btn {
+	.toolbar-group.actions {
+		margin-left: auto;
+	}
+
+	.toolbar-divider {
+		display: none;
+	}
+
+	.toolbar-btn {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1-5);
+		padding: var(--space-1) var(--space-2);
+		border-radius: var(--radius-md);
+		border: 1px solid transparent;
+		color: var(--color-text-tertiary);
+		background: transparent;
+		font-size: var(--text-2xs);
+		font-weight: var(--font-medium);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.toolbar-btn:hover {
+		color: var(--color-text-primary);
+		background: var(--color-interactive-hover);
+	}
+
+	.toolbar-btn.active {
+		color: var(--color-primary-400);
+		background: var(--color-primary-subtle);
+		border-color: var(--color-primary-border);
+	}
+
+	.toolbar-btn-icon {
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		width: var(--space-6);
 		height: var(--space-6);
 		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
+		color: var(--color-text-tertiary);
 		background: transparent;
 		border: none;
 		cursor: pointer;
-		opacity: 0.6;
 		transition: all var(--transition-fast);
 	}
 
-	.header-btn:hover {
-		opacity: 1;
-		background: var(--color-interactive-hover);
+	.toolbar-btn-icon:hover {
 		color: var(--color-text-primary);
+		background: var(--color-interactive-hover);
 	}
 
-	.header-btn.active {
-		color: var(--color-primary-400);
-		opacity: 1;
-		background: var(--color-primary-subtle);
+	@keyframes header-entrance {
+		from { opacity: 0; transform: translateY(-4px); }
+		to { opacity: 1; transform: translateY(0); }
 	}
 
-	.header-divider {
-		width: 1px;
-		height: var(--space-3-5);
-		background: var(--color-border-primary);
-		margin: 0 var(--space-0-5);
+	.header-left {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		min-width: 0;
+		flex: 1;
 	}
 
-	.header-btn.close:hover {
-		color: var(--color-error);
-		background: var(--color-error-light);
+	.context-info {
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-2);
+		min-width: 0;
 	}
 
-	/* Status bar */
-	.session-status {
+	.panel-title {
+		font-size: var(--text-xs);
+		font-weight: var(--font-semibold);
+		color: var(--color-text-primary);
+		margin: 0;
+		line-height: var(--leading-tight);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.system-label {
+		font-size: 10px;
+		font-weight: var(--font-medium);
+		color: var(--color-text-muted);
+		letter-spacing: normal;
+		opacity: 0.5;
+		white-space: nowrap;
+	}
+
+	.status-indicator {
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-bg-secondary);
-		border-bottom: 1px solid var(--color-border-primary);
-		font-size: var(--text-2xs);
-		font-weight: var(--font-medium);
-		color: var(--color-text-secondary);
-		flex-shrink: 0;
+		gap: var(--space-1-5);
 	}
 
 	.status-label {
-		text-transform: none;
-		letter-spacing: normal;
-		color: var(--color-text-primary);
+		font-size: 11px;
+		font-weight: var(--font-medium);
+		color: var(--color-text-secondary);
+		line-height: 1;
 	}
 
 	.status-dot {
-		width: var(--space-1-5);
-		height: var(--space-1-5);
+		width: 6px;
+		height: 6px;
 		border-radius: var(--radius-full);
 		background: var(--color-text-muted);
 		position: relative;
+		flex-shrink: 0;
+		transition: background var(--transition-normal) var(--state-ease);
 	}
 
 	.status-dot.running {
@@ -563,9 +644,50 @@
 	.status-dot.error { background: var(--color-error); }
 	.status-dot.waiting { background: var(--color-warning); }
 
-	.retry-btn {
-		margin-left: auto;
-		padding: var(--space-0-5) var(--space-2);
+	.workspace-context {
+		display: none;
+	}
+
+	.header-actions {
+		display: flex;
+		align-items: center;
+		margin-left: var(--space-2);
+	}
+
+	.action-cluster {
+		display: none;
+	}
+
+	.header-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--space-7);
+		height: var(--space-7);
+		border-radius: var(--radius-sm);
+		color: var(--color-text-muted);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		transition: all var(--transition-fast) var(--state-ease);
+	}
+
+	.header-btn:hover {
+		color: var(--color-text-primary);
+		background: var(--color-interactive-active);
+	}
+
+	.header-btn.close:hover {
+		color: var(--color-error);
+		background: var(--color-error-light);
+	}
+
+	.retry-btn-mini {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		margin-left: var(--space-2);
+		padding: var(--space-0-5) var(--space-1-5);
 		border: 1px solid var(--color-warning-border);
 		border-radius: var(--radius-sm);
 		background: var(--color-warning-subtle);
@@ -574,11 +696,21 @@
 		font-weight: var(--font-medium);
 		cursor: pointer;
 		transition: all var(--transition-fast);
+		line-height: 1;
 	}
 
-	.retry-btn:hover {
+	.retry-btn-mini:hover {
 		background: var(--color-warning-light);
 		border-color: var(--color-warning);
+		transform: translateY(-0.5px);
+	}
+
+	/* Remove old status bar styles */
+	.session-status,
+	.status-label.status-label,
+	.status-dot.status-dot,
+	.retry-btn {
+		display: none;
 	}
 
 	/* Sections */

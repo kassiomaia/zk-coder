@@ -35,7 +35,7 @@
 					agents = [
 						{
 							id: 'code-agent',
-							name: 'Code Agent',
+							name: 'Agent',
 							description: 'Assists with code reading, writing, and execution',
 							systemPrompt:
 								'You are a code assistant agent. You can read files, write code, search codebases, and execute commands.',

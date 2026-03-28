@@ -109,7 +109,7 @@
 			const shortId = session.id.split('-')[0] || session.id.substring(0, 8);
 			return `#${shortId}`;
 		}
-		return session.agentName || 'Code Agent';
+		return session.agentName || 'Agent';
 	}
 </script>
 

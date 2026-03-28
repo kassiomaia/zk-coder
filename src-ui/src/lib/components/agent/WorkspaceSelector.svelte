@@ -67,17 +67,18 @@
 	.workspace-selector {
 		display: flex;
 		align-items: center;
-		gap: 2px;
-		padding: var(--space-0-5) 0;
-		font-size: 11px;
-		color: var(--color-text-muted);
+		gap: var(--space-1);
+		padding: 0;
+		font-size: var(--text-2xs);
+		color: var(--color-text-tertiary);
 		background: transparent;
 		border: none;
 		cursor: pointer;
 		text-align: left;
-		transition: color var(--transition-fast);
+		transition: all var(--transition-fast);
 		overflow: hidden;
 		max-width: 100%;
+		height: 100%;
 	}
 
 	.workspace-selector:hover:not(.disabled) {
@@ -95,20 +96,23 @@
 	}
 
 	.workspace-selector.has-path {
-		color: var(--color-text-muted);
+		color: var(--color-text-tertiary);
 	}
 
 	.workspace-label {
-		opacity: 0.5;
-		margin-right: var(--space-1);
+		display: none;
 	}
 
 	.workspace-path {
-		color: var(--color-text-secondary);
-		font-weight: 500;
+		color: inherit;
+		font-weight: var(--font-medium);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		border-bottom: 1px dashed var(--color-border-subtle);
+		border-bottom: 1px dashed transparent;
+	}
+
+	.workspace-selector:hover .workspace-path {
+		border-color: currentColor;
 	}
 </style>
