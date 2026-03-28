@@ -16,7 +16,7 @@
 	height: 100%;
 	width: 100%;
 	overflow: hidden;
-	background: var(--color-bg-primary);
+	background: var(--depth-bg-1);
 }
 
 /* Header - Mobile only */
@@ -25,8 +25,8 @@
 	align-items: center;
 	justify-content: space-between;
 	height: var(--header-height);
-	padding: var(--space-2) var(--space-4);
-	background: var(--color-bg-secondary);
+	padding: var(--space-2) var(--layout-padding);
+	background: var(--depth-bg-2);
 	border-bottom: 1px solid var(--color-border-subtle);
 	flex-shrink: 0;
 	z-index: var(--z-sticky);
@@ -87,6 +87,7 @@
 	flex-shrink: 0;
 	min-height: 100%;
 	border-right: 1px solid var(--color-border-subtle);
+	background: var(--depth-bg-2);
 }
 
 /* Content area */
@@ -97,6 +98,7 @@
 	display: flex;
 	flex-direction: column;
 	position: relative;
+	background: var(--depth-bg-1);
 }
 
 /* Agent Panel (right side) */
@@ -105,7 +107,7 @@
 	width: var(--agent-panel-width);
 	min-height: 100%;
 	border-left: 1px solid var(--color-border-subtle);
-	background: var(--color-bg-secondary);
+	background: var(--depth-bg-2);
 	transition: width var(--transition-normal);
 	overflow: hidden;
 }

@@ -70,8 +70,8 @@
 
 	.empty-icon-wrapper {
 		font-family: var(--font-mono);
-		font-size: 16px;
-		font-weight: 600;
+		font-size: var(--text-lg);
+		font-weight: var(--font-semibold);
 		color: var(--color-text-tertiary);
 		margin-bottom: var(--space-2);
 	}
@@ -89,23 +89,23 @@
 	}
 
 	.empty-title {
-		font-size: 11px;
-		font-weight: 500;
+		font-size: var(--text-xs);
+		font-weight: var(--font-medium);
 		color: var(--color-text-secondary);
 		letter-spacing: 0.02em;
 	}
 
 	.empty-subtitle {
-		font-size: 10px;
+		font-size: var(--text-2xs);
 		opacity: 0.5;
-		max-width: 160px;
+		max-width: var(--space-40);
 		text-align: center;
-		line-height: 1.4;
+		line-height: var(--leading-snug);
 	}
 
 	/* Scrollbar styling */
 	.tool-calls-view::-webkit-scrollbar {
-		width: 6px;
+		width: var(--space-1-5);
 	}
 
 	.tool-calls-view::-webkit-scrollbar-track {

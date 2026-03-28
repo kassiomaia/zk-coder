@@ -143,11 +143,11 @@
    ===================== */
 
 .inputContainer {
-	padding: var(--space-4) var(--space-5);
+	padding: var(--item-gap) var(--layout-padding);
 	margin: 0 auto;
-	width: var(--content-max-width);
+	width: 800px; /* Aligned with message width */
 	max-width: 100%;
-	background: var(--color-bg-primary);
+	background: var(--depth-bg-1);
 	transition:
 		opacity var(--duration-slow) var(--ease-in-out),
 		transform var(--duration-slow) var(--ease-in-out);

@@ -12,25 +12,24 @@
 @import '../../../styles/animations.css';
 
 .container {
-	background: var(--color-surface);
-	border: 1px solid var(--color-border-primary);
+	background: var(--depth-bg-2);
+	border: 1px solid var(--color-border-subtle);
 	border-radius: var(--radius-xl);
-	padding: var(--space-1-5) var(--space-2);
+	padding: var(--micro-gap) var(--item-gap);
 	transition: all var(--transition-normal);
 	width: 100%;
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-1);
+	gap: var(--micro-gap);
 }
 
 .container:hover {
-	border-color: var(--color-border-secondary);
+	border-color: var(--color-border-primary);
 }
 
 .container:focus-within {
-	background: var(--color-surface);
+	background: var(--depth-bg-2);
 	border-color: var(--color-primary-500);
-	box-shadow: var(--shadow-glow-sm);
 }
 
 .container.shake {

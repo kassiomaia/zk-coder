@@ -21,7 +21,7 @@
 		background var(--transition-normal) cubic-bezier(0.2, 0, 0, 1),
 		transform var(--transition-fast) ease-out;
 	z-index: 1;
-	min-height: 40px;
+	min-height: 36px;
 }
 
 /* Expanded state - part of unified wrapper container */
@@ -33,29 +33,29 @@
 	background: transparent;
 	margin: 0;
 	border-radius: var(--radius-md) var(--radius-md) 0 0;
-	border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+	border-bottom: 1px solid var(--color-border-subtle);
 }
 
 /* Increase separation between title and status chips when expanded */
 .item.expanded .content {
-	gap: var(--space-2);
+	gap: var(--item-gap);
 }
 
 /* Parent button in expanded state */
 .item.expanded .button {
 	border-radius: var(--radius-md) var(--radius-md) 0 0;
-	font-weight: 600;
+	font-weight: var(--font-semibold);
 }
 
 /* Edit mode - morph transition state */
 .item:has(.container) {
 	/* Subtle background shift when entering edit */
-	background: var(--color-bg-primary);
+	background: var(--depth-bg-3);
 }
 
 /* Maintain active state when menu is open */
 .item.menuOpen .button {
-	background: rgba(0, 0, 0, 0.03);
+	background: var(--color-interactive-hover);
 }
 
 .item.menuOpen .icon {
@@ -80,9 +80,9 @@
 .button {
 	display: flex;
 	align-items: center;
-	gap: var(--space-3);
+	gap: var(--item-gap);
 	width: 100%;
-	height: 40px;
+	height: 36px;
 	padding: 0 var(--space-3);
 	background: transparent;
 	border: none;
@@ -98,12 +98,11 @@
 
 .button:hover {
 	/* Subtle hover elevation */
-	background: rgba(0, 0, 0, 0.03);
-	transform: translateY(-0.5px);
+	background: var(--color-interactive-hover);
 }
 
 .button:active {
-	transform: translateY(0) scale(0.995);
+	transform: scale(0.995);
 }
 
 /* Hidden state - morph transition to edit mode */
@@ -114,18 +113,17 @@
 
 /* Selected state - softened contrast */
 .item.selected .button {
-	background: rgba(0, 0, 0, 0.05);
+	background: var(--color-interactive-selected);
 	color: var(--color-text-primary);
 }
 
 .item.selected .button:hover {
-	background: rgba(0, 0, 0, 0.07);
+	background: var(--color-interactive-selected-hover);
 }
 
 .button:focus-visible {
 	outline: 2px solid var(--color-primary-500);
 	outline-offset: -2px;
-	background: rgba(0, 0, 0, 0.02);
 }
 
 /* Icon container - Normalized size */
@@ -156,7 +154,7 @@
 	min-width: 0;
 	display: flex;
 	align-items: center;
-	gap: var(--space-2);
+	gap: var(--item-gap);
 	/* Ensure consistent vertical rhythm */
 	padding-top: 1px;
 }
@@ -164,29 +162,29 @@
 .title {
 	flex: 1;
 	min-width: 0;
-	font-size: 13px;
-	font-weight: 500;
+	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
 	color: var(--color-text-secondary);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	line-height: 1.4;
+	line-height: var(--text-line-height);
 	transition: color 0.2s ease;
 }
 
 .item.selected .title {
 	color: var(--color-text-primary);
-	font-weight: 600;
+	font-weight: var(--font-semibold);
 }
 
 .meta {
 	display: flex;
 	align-items: center;
-	gap: var(--space-1-5);
+	gap: var(--micro-gap);
 	flex-shrink: 0;
 	white-space: nowrap;
-	font-size: var(--text-xs);
-	color: var(--color-text-quaternary);
+	font-size: var(--text-2xs);
+	color: var(--text-metadata-color);
 	opacity: 0; /* Hide meta by default for cleaner look, reveal on hover/selected */
 	transition: opacity var(--transition-fast) ease;
 }

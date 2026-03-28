@@ -230,6 +230,30 @@
 	--space-24: 6rem; /* 96px */
 
 	/* =====================
+     Depth System - Background layers for tonal hierarchy
+     ===================== */
+	--depth-bg-1: var(--color-bg-base); /* Main application background */
+	--depth-bg-2: var(--color-bg-secondary); /* Sidebars, sidebar panels, and secondary panels */
+	--depth-bg-3: var(--color-bg-tertiary); /* Embedded components like message code blocks or sub-panels */
+	--depth-surface: var(--color-surface); /* Cards and interactive surface elements */
+
+	/* =====================
+     Consistent Spacing - 4px base unit
+     ===================== */
+	--layout-padding: var(--space-6); /* 24px - Standard page container padding */
+	--content-gap: var(--space-4); /* 16px - Standard gap between major components */
+	--component-padding: var(--space-4); /* 16px - Standard internal component padding */
+	--item-gap: var(--space-2); /* 8px - Standard gap between items in a list */
+	--micro-gap: var(--space-1); /* 4px - Smallest gap for tightly coupled elements */
+
+	/* Typography Alignment */
+	--text-line-height: var(--leading-normal);
+	--text-primary-weight: var(--font-normal);
+	--text-label-weight: var(--font-medium);
+	--text-metadata-weight: var(--font-normal);
+	--text-metadata-color: var(--color-text-muted);
+
+	/* =====================
      Border Radius
      ===================== */
 	--radius-none: 0;

@@ -74,14 +74,14 @@
 		align-items: center;
 		gap: var(--space-3);
 		padding: var(--space-1-5) var(--space-4);
-		font-size: 11px;
+		font-size: var(--text-xs);
 		color: var(--color-text-secondary);
 		transition: all var(--transition-fast);
 		border-left: 2px solid transparent;
 	}
 
 	.request-item:hover {
-		background: var(--interactive-hover);
+		background: var(--color-interactive-hover);
 		color: var(--color-text-primary);
 	}
 
@@ -92,12 +92,12 @@
 	}
 
 	.request-type {
-		font-size: 9px;
-		font-weight: 600;
+		font-size: var(--text-2xs);
+		font-weight: var(--font-semibold);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--color-text-tertiary);
-		width: 32px;
+		width: var(--space-8);
 		flex-shrink: 0;
 	}
 
@@ -112,12 +112,12 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-family: var(--font-mono);
-		font-size: 10px;
+		font-size: var(--text-2xs);
 		opacity: 0.9;
 	}
 
 	.request-duration {
-		font-size: 10px;
+		font-size: var(--text-2xs);
 		color: var(--color-text-muted);
 		font-family: var(--font-mono);
 		opacity: 0.6;
@@ -127,7 +127,7 @@
 	.empty-state {
 		padding: var(--space-6) var(--space-4);
 		color: var(--color-text-muted);
-		font-size: 11px;
+		font-size: var(--text-xs);
 		text-align: center;
 		opacity: 0.5;
 	}

@@ -159,19 +159,19 @@
 
 	.tool-name {
 		font-family: var(--font-mono);
-		font-size: 11px;
-		font-weight: 600;
+		font-size: var(--text-xs);
+		font-weight: var(--font-semibold);
 		color: var(--color-text-primary);
 	}
 
 	.primary-arg {
 		font-family: var(--font-mono);
-		font-size: 10px;
+		font-size: var(--text-2xs);
 		color: var(--color-text-muted);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		max-width: 200px;
+		max-width: var(--space-50);
 		opacity: 0.8;
 	}
 
@@ -185,8 +185,8 @@
 	.latency {
 		display: flex;
 		align-items: center;
-		gap: 4px;
-		font-size: 10px;
+		gap: var(--space-1);
+		font-size: var(--text-2xs);
 		color: var(--color-text-muted);
 		font-family: var(--font-mono);
 	}
@@ -216,8 +216,8 @@
 	}
 
 	.section-label {
-		font-size: 10px;
-		font-weight: 700;
+		font-size: var(--text-2xs);
+		font-weight: var(--font-bold);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--color-text-muted);
@@ -230,14 +230,14 @@
 		background: var(--color-neutral-900);
 		border-radius: var(--radius-md);
 		font-family: var(--font-mono);
-		font-size: 11px;
-		line-height: 1.5;
+		font-size: var(--text-xs);
+		line-height: var(--leading-normal);
 		overflow-x: auto;
 		border: 1px solid var(--color-border-subtle);
 	}
 
 	.timestamp-footer {
-		font-size: 9px;
+		font-size: var(--text-2xs);
 		color: var(--color-text-muted);
 		opacity: 0.5;
 		text-align: right;

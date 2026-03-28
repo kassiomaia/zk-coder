@@ -17,7 +17,7 @@
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--color-bg-primary);
+	background: var(--depth-bg-1);
 	position: relative;
 }
 
@@ -41,10 +41,10 @@
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
-	padding: var(--space-5);
+	padding: var(--layout-padding);
 	margin: 0 auto;
 	scrollbar-gutter: stable;
-	width: var(--content-max-width);
+	width: 800px; /* Constrained message width for readability */
 	max-width: 100%;
 	transition: all var(--duration-slow) var(--ease-in-out);
 }

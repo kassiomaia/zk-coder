@@ -19,16 +19,16 @@
 	flex-direction: column;
 	width: var(--sidebar-width);
 	height: 100%;
-	background: var(--color-bg-secondary);
+	background: var(--depth-bg-2);
 	border-right: 1px solid var(--color-border-subtle);
 }
 
 /* Header */
 .header {
-	padding: var(--space-4);
+	padding: var(--component-padding);
 	border-bottom: 1px solid var(--color-border-subtle);
 	flex-shrink: 0;
-	background: var(--color-bg-secondary);
+	background: var(--depth-bg-2);
 }
 
 /* Header row: search + action buttons */
@@ -107,29 +107,25 @@
 	flex: 1;
 	overflow-y: auto;
 	overflow-x: hidden;
-	padding: var(--space-2);
+	padding: var(--item-gap);
 }
 
 /* Groups - Visual grouping with subtle backgrounds */
 .group {
 	/* Controlled margin between conversation groups */
-	margin-bottom: var(--space-4);
+	margin-bottom: var(--content-gap);
 	padding: 0;
 	background: transparent;
 	border-radius: 0;
 }
 
-.group:last-child {
-	margin-bottom: 0;
-}
-
 .groupLabel {
 	display: flex;
 	align-items: center;
-	padding: var(--space-2) var(--space-4);
-	font-size: 11px;
+	padding: var(--item-gap) var(--component-padding);
+	font-size: var(--text-2xs);
 	font-weight: var(--font-semibold);
-	color: var(--color-text-tertiary);
+	color: var(--text-metadata-color);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	margin: 0;
@@ -251,20 +247,20 @@
 /* Footer */
 .footer {
 	flex-shrink: 0;
-	padding: var(--space-3) var(--space-4);
+	padding: var(--item-gap) var(--component-padding);
 	border-top: 1px solid var(--color-border-subtle);
-	background: var(--color-bg-secondary);
+	background: var(--depth-bg-2);
 }
 
 .settingsButton {
 	display: flex;
 	align-items: center;
-	gap: var(--space-3);
+	gap: var(--item-gap);
 	width: 100%;
-	padding: var(--space-2-5) var(--space-3);
-	background: var(--color-bg-tertiary);
+	padding: var(--space-2) var(--space-3);
+	background: var(--depth-bg-3);
 	border: 1px solid var(--color-border-primary);
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-md);
 	color: var(--color-text-secondary);
 	font-size: var(--text-sm);
 	font-weight: var(--font-medium);

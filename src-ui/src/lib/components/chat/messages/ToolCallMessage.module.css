@@ -5,7 +5,7 @@
 	background: transparent;
 	overflow: hidden;
 	transition: background var(--transition-fast);
-	margin-bottom: 2px;
+	margin-bottom: var(--space-px);
 }
 
 .toolCall:hover {
@@ -16,11 +16,11 @@
 	display: flex;
 	align-items: center;
 	width: 100%;
-	padding: 4px 8px;
+	padding: var(--space-1) var(--space-2);
 	background: transparent;
 	border: none;
 	cursor: pointer;
-	gap: 6px;
+	gap: var(--space-1-5);
 	text-align: left;
 }
 
@@ -42,20 +42,20 @@
 
 .toolName {
 	font-family: var(--font-mono);
-	font-size: 11px;
-	font-weight: 600;
+	font-size: var(--text-xs);
+	font-weight: var(--font-semibold);
 	color: var(--color-text-secondary);
 	white-space: nowrap;
 }
 
 .primaryArg {
 	font-family: var(--font-mono);
-	font-size: 11px;
+	font-size: var(--text-2xs);
 	color: var(--color-text-muted);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	max-width: 400px;
+	max-width: var(--space-100);
 	opacity: 0.7;
 }
 
@@ -63,7 +63,7 @@
 	margin-left: auto;
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .statusIcon {
@@ -76,10 +76,10 @@
 }
 
 .content {
-	padding: 8px 12px 12px 32px;
+	padding: var(--space-2) var(--space-3) var(--space-3) var(--space-8);
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--space-2);
 	background: var(--color-neutral-900);
 	border-top: 1px solid var(--color-neutral-800);
 }
@@ -91,8 +91,8 @@
 }
 
 .sectionTitle {
-	font-size: 10px;
-	font-weight: 700;
+	font-size: var(--text-2xs);
+	font-weight: var(--font-bold);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	color: var(--color-text-muted);
@@ -105,14 +105,14 @@
 	background: var(--color-neutral-900);
 	border-radius: var(--radius-sm);
 	font-family: var(--font-mono);
-	font-size: 11px;
-	line-height: 1.5;
+	font-size: var(--text-xs);
+	line-height: var(--leading-normal);
 	overflow-x: auto;
 	border: 1px solid var(--color-border-subtle);
 }
 
 .timestampFooter {
-	font-size: 9px;
+	font-size: var(--text-2xs);
 	color: var(--color-text-muted);
 	opacity: 0.5;
 	text-align: right;
@@ -123,11 +123,11 @@
 }
 
 .spinner {
-	width: 14px;
-	height: 14px;
+	width: var(--space-3-5);
+	height: var(--space-3-5);
 	border: 2px solid var(--color-primary-400);
 	border-bottom-color: transparent;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	display: inline-block;
 	animation: spin 1s linear infinite;
 }

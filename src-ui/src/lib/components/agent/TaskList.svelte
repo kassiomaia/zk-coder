@@ -154,7 +154,7 @@
 		bottom: 0;
 		width: 2px;
 		background: var(--color-primary-400);
-		box-shadow: 0 0 8px var(--color-primary-glow);
+		box-shadow: 0 0 var(--space-2) var(--color-primary-glow);
 	}
 
 	.task-item {
@@ -184,7 +184,7 @@
 		align-items: center;
 		justify-content: center;
 		color: var(--color-text-muted);
-		margin-top: 3px;
+		margin-top: var(--space-0-5);
 		transition: color var(--transition-fast);
 	}
 
@@ -206,21 +206,21 @@
 		flex-direction: column;
 		min-width: 0;
 		flex: 1;
-		gap: 2px;
+		gap: var(--space-0-5);
 	}
 
 	.task-title {
-		font-size: 11px;
-		font-weight: 500;
+		font-size: var(--text-xs);
+		font-weight: var(--font-medium);
 		color: var(--color-text-primary);
-		line-height: 1.4;
+		line-height: var(--leading-snug);
 	}
 
 	.task-description {
-		font-size: 10px;
+		font-size: var(--text-2xs);
 		color: var(--color-text-tertiary);
 		white-space: normal;
-		line-height: 1.4;
+		line-height: var(--leading-snug);
 	}
 
 	.expand-icon {
@@ -238,8 +238,8 @@
 	.subtasks {
 		display: flex;
 		flex-direction: column;
-		gap: 1px;
-		margin-left: 28px;
+		gap: var(--space-px);
+		margin-left: var(--space-7);
 		padding: var(--space-1) 0 var(--space-2) var(--space-2);
 		border-left: 1px solid var(--color-border-primary);
 	}
@@ -264,9 +264,9 @@
 	}
 
 	.subtask-title {
-		font-size: 10px;
+		font-size: var(--text-2xs);
 		color: var(--color-text-secondary);
-		font-weight: 400;
+		font-weight: var(--font-normal);
 	}
 
 	.empty-state {
@@ -282,18 +282,18 @@
 
 	.empty-state p {
 		margin: 0;
-		font-size: 11px;
-		font-weight: 500;
+		font-size: var(--text-xs);
+		font-weight: var(--font-medium);
 		color: var(--color-text-secondary);
 		opacity: 0.9;
 	}
 
 	.empty-state::after {
 		content: 'The agent will list planned and completed activities here once a task begins.';
-		font-size: 10px;
+		font-size: var(--text-2xs);
 		opacity: 0.5;
-		max-width: 180px;
-		line-height: 1.4;
+		max-width: var(--space-40);
+		line-height: var(--leading-snug);
 	}
 
 	.running-indicator {
