@@ -33,31 +33,27 @@
 }
 
 /* ============================================================================
-   MODAL - Two-phase entrance: fast capture + deceleration settle
+   MODAL - Refined entrance with slight scale and fade
    ============================================================================ */
 
 .modal {
 	background: var(--color-surface);
 	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-2xl);
+	border-radius: var(--radius-xl);
 	box-shadow:
 		0 0 0 1px rgba(255, 255, 255, 0.03) inset,
-		0 32px 64px -16px rgba(0, 0, 0, 0.55),
-		0 16px 32px -8px rgba(0, 0, 0, 0.35);
+		var(--shadow-2xl);
 	width: 90%;
 	max-width: 520px;
 	max-height: 85vh;
 	overflow: hidden;
 	display: none;
 	flex-direction: column;
-
-	/* Fixed bounds to prevent reflow */
 	position: relative;
 }
 
 .modal.open {
 	display: flex;
-	/* Two-phase animation defined below */
 }
 
 .modal.lg {
@@ -65,8 +61,9 @@
 }
 
 .modal.xl {
-	max-width: 960px;
+	max-width: 1024px;
 }
+
 
 .modal.full {
 	max-width: 95vw;

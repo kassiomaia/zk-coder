@@ -144,7 +144,7 @@
 	});
 </script>
 
-<Modal title="Add Custom Provider" {open} onclose={handleClose}>
+<Modal title="Add Custom Provider" {open} onclose={handleClose} stacked={true}>
 	<div class={styles.form}>
 		<Input
 			name="providerName"

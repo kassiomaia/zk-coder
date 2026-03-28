@@ -720,15 +720,13 @@
 
 	function handleConfigureProvider(providerId: string) {
 		selectedProviderId = providerId;
-		// Track the previous modal so we can return to it after configuration
-		previousModal = activeModal;
+		// Keep SettingsModal open behind the new modal
 		activeModal = 'config';
 	}
 
 	function handleConfigSaved() {
-		// Return to the previous modal (settings or providers)
-		activeModal = previousModal === 'closed' ? 'settings' : previousModal;
-		previousModal = 'closed';
+		// Return to SettingsModal
+		activeModal = 'settings';
 	}
 
 	function handleAddCustomProvider() {
@@ -795,15 +793,11 @@
 
 	<!-- Status indicator -->
 	<div class="status-bar">
-		<span class="status">
+		<span class="status-actions">
 			{#if currentError}
 				<span class="error">Error: {currentError}</span>
 				<button class="retry-btn" onclick={handleErrorRetry} type="button">Dismiss</button>
-			{:else}
-				{backendStatus}
 			{/if}
-		</span>
-		<span class="status-actions">
 			<button
 				class="agent-toggle-btn"
 				class:active={agentPanelOpen}
@@ -814,9 +808,6 @@
 			>
 				Agent
 			</button>
-			{#if appInfo}
-				<span class="version">{appInfo.name} v{appInfo.version}</span>
-			{/if}
 		</span>
 	</div>
 </div>
@@ -910,7 +901,7 @@
 
 	.status-bar {
 		display: flex;
-		justify-content: space-between;
+		justify-content: flex-end;
 		align-items: center;
 		padding: var(--space-1) var(--space-4);
 		background: var(--color-bg-secondary);
@@ -918,37 +909,14 @@
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
 		flex-shrink: 0;
-	}
-
-	.status {
-		font-family: var(--font-mono);
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-	}
-
-	.error {
-		color: var(--color-text-error);
-	}
-
-	.retry-btn {
-		padding: 2px 8px;
-		font-size: var(--text-2xs);
-		background: var(--color-bg-tertiary);
-		border: 1px solid var(--color-border-primary);
-		border-radius: var(--radius-sm);
-		color: var(--color-text-primary);
-		cursor: pointer;
-	}
-
-	.retry-btn:hover {
-		background: var(--color-bg-hover);
+		min-height: 24px;
 	}
 
 	.status-actions {
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
+		gap: var(--space-4);
+		font-family: var(--font-mono);
 	}
 
 	.version {
@@ -960,8 +928,8 @@
 		padding: 2px 8px;
 		font-size: var(--text-2xs);
 		font-family: var(--font-mono);
-		background: var(--color-bg-tertiary);
-		border: 1px solid var(--color-border-primary);
+		background: transparent;
+		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-sm);
 		color: var(--color-text-muted);
 		cursor: pointer;
@@ -969,14 +937,14 @@
 	}
 
 	.agent-toggle-btn:hover {
-		background: var(--color-bg-hover);
+		background: var(--color-interactive-hover);
 		color: var(--color-text-primary);
 	}
 
 	.agent-toggle-btn.active {
-		background: var(--color-primary-500);
-		border-color: var(--color-primary-500);
-		color: white;
+		background: var(--color-interactive-selected);
+		border-color: var(--color-accent-primary);
+		color: var(--color-accent-primary);
 	}
 
 	@media (max-width: 600px) {

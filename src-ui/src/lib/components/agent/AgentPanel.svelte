@@ -214,16 +214,34 @@
 	<!-- Content Area -->
 	<div class="panel-content">
 		{#if currentView === 'active'}
-			<!-- Session tabs (shown when multiple sessions exist) -->
-			{#if allSessions.length > 1 || allSessions.length === 0}
-				<SessionTabs
-					sessions={allSessions}
-					activeSessionId={session.id}
-					threadTitles={sessionTitles}
-					onSelect={(id) => onSelectSession?.(id)}
-					onCreate={() => onCreateSession?.()}
-				/>
-			{/if}
+			{#if !session.workspaceRoot}
+				<div class="empty-workspace-state">
+					<div class="empty-icon-wrapper">
+						<FileText size={48} strokeWidth={1} />
+					</div>
+					<h4 class="empty-title">No workspace selected</h4>
+					<p class="empty-description">
+						Select a project folder to enable the agent to analyze and edit your code.
+					</p>
+					<div class="empty-actions">
+						<WorkspaceSelector
+							workspacePath={session.workspaceRoot}
+							onSelect={onWorkspaceChange}
+							disabled={session.state.type === 'running' || session.state.type === 'user_input_required'}
+						/>
+					</div>
+				</div>
+			{:else}
+				<!-- Session tabs (shown when multiple sessions exist) -->
+				{#if allSessions.length > 1 || allSessions.length === 0}
+					<SessionTabs
+						sessions={allSessions}
+						activeSessionId={session.id}
+						threadTitles={sessionTitles}
+						onSelect={(id) => onSelectSession?.(id)}
+						onCreate={() => onCreateSession?.()}
+					/>
+				{/if}
 
 			<!-- Status bar -->
 			<div
@@ -347,32 +365,33 @@
 				{/if}
 			</section>
 
-			<!-- Tool Calls section -->
-			<section class="panel-section tool-calls-section" style="animation-delay: 0.3s">
-				<button
-					class="section-header"
-					onclick={() => (toolCallsExpanded = !toolCallsExpanded)}
-					type="button"
-					aria-expanded={toolCallsExpanded}
-					aria-controls="tool-calls-section"
-				>
-					<span class="header-main">
-						<span class="chevron-icon" class:is-expanded={toolCallsExpanded}>
-							<ChevronRight size={14} strokeWidth={2} />
+				<!-- Tool Calls section -->
+				<section class="panel-section tool-calls-section" style="animation-delay: 0.3s">
+					<button
+						class="section-header"
+						onclick={() => (toolCallsExpanded = !toolCallsExpanded)}
+						type="button"
+						aria-expanded={toolCallsExpanded}
+						aria-controls="tool-calls-section"
+					>
+						<span class="header-main">
+							<span class="chevron-icon" class:is-expanded={toolCallsExpanded}>
+								<ChevronRight size={14} strokeWidth={2} />
+							</span>
+							<span class="header-label">Tool Calls</span>
 						</span>
-						<span class="header-label">Tool Calls</span>
-					</span>
 
-					<div class="header-meta">
-						<Activity size={13} strokeWidth={1.5} class="section-icon" />
-					</div>
-				</button>
-				{#if toolCallsExpanded}
-					<div id="tool-calls-section" class="tool-calls-content section-content-wrapper">
-						<ToolCallsView toolCalls={session.toolCalls ?? []} />
-					</div>
-				{/if}
-			</section>
+						<div class="header-meta">
+							<Activity size={13} strokeWidth={1.5} class="section-icon" />
+						</div>
+					</button>
+					{#if toolCallsExpanded}
+						<div id="tool-calls-section" class="tool-calls-content section-content-wrapper">
+							<ToolCallsView toolCalls={session.toolCalls ?? []} />
+						</div>
+					{/if}
+				</section>
+			{/if}
 		{:else if currentView === 'history'}
 			<SessionHistory
 				conversationId={session.conversationId}
@@ -792,5 +811,76 @@
 	.panel-content::-webkit-scrollbar-thumb {
 		background: var(--color-neutral-700);
 		border-radius: var(--radius-full);
+	}
+
+	/* Empty state */
+	.empty-workspace-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		flex: 1;
+		padding: var(--space-8) var(--space-6);
+		text-align: center;
+		color: var(--color-text-muted);
+	}
+
+	.empty-icon-wrapper {
+		width: var(--space-16);
+		height: var(--space-16);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--color-bg-secondary);
+		border-radius: var(--radius-2xl);
+		margin-bottom: var(--space-4);
+		color: var(--color-text-muted);
+		opacity: 0.5;
+	}
+
+	.empty-title {
+		font-size: var(--text-base);
+		font-weight: var(--font-semibold);
+		color: var(--color-text-primary);
+		margin-bottom: var(--space-2);
+	}
+
+	.empty-description {
+		font-size: var(--text-sm);
+		line-height: var(--leading-relaxed);
+		margin-bottom: var(--space-6);
+		max-width: 240px;
+	}
+
+	.empty-actions {
+		display: flex;
+		justify-content: center;
+		width: 100%;
+	}
+
+	.empty-actions :global(.workspace-selector) {
+		background: var(--color-primary-500);
+		color: white;
+		padding: var(--space-2) var(--space-4);
+		border-radius: var(--radius-md);
+		gap: var(--space-2);
+		font-size: var(--text-sm);
+		font-weight: var(--font-medium);
+		box-shadow: var(--shadow-sm);
+		transition: transform var(--transition-fast), background var(--transition-fast);
+	}
+
+	.empty-actions :global(.workspace-selector:hover) {
+		background: var(--color-primary-600);
+		transform: translateY(-1px);
+	}
+
+	.empty-actions :global(.workspace-selector .workspace-label) {
+		display: none;
+	}
+
+	.empty-actions :global(.workspace-selector .workspace-path) {
+		color: inherit;
+		border-bottom: none;
 	}
 </style>

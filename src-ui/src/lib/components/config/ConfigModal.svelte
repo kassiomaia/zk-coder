@@ -210,6 +210,7 @@
 	title={provider ? `Configure ${provider.name}` : 'Configure Provider'}
 	{open}
 	onclose={handleClose}
+	stacked={true}
 >
 	{#snippet children()}
 		{#if provider}

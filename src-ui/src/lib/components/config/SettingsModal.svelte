@@ -9,9 +9,11 @@
     import {availableModelsByOperation, configStore} from '$lib/stores/configStore';
     import {OPERATION_CONFIGS, type OperationType} from '$lib/types/config';
     import ModelCard from './ModelCard.svelte';
-    import ProviderIcon from './ProviderIcon.svelte';
-    import OperationIcon from './OperationIcon.svelte';
-    import {AlertCircleIcon, BoxIcon, CheckIcon, UserIcon} from '$lib/icons';
+	import ProviderIcon from './ProviderIcon.svelte';
+	import OperationIcon from './OperationIcon.svelte';
+	import Select from '../shared/Select.svelte';
+	import {AlertCircleIcon, BoxIcon, CheckIcon, UserIcon} from '$lib/icons';
+
     import {createLogger} from '$lib/utils/logger';
 
     const log = createLogger('SettingsModal');
@@ -95,38 +97,34 @@
 			<!-- Providers Section -->
 			<section class="modal-section {styles.section}">
 				<header class={styles.sectionHeader}>
-					<div class={styles.sectionIconWrapper}>
-						<UserIcon size={18} />
+					<div class={styles.sectionTitleGroup}>
+						<div class={styles.sectionIcon}>
+							<UserIcon size={16} />
+						</div>
+						<h3 class={styles.sectionTitle}>Providers</h3>
 					</div>
-					<h3 class={styles.sectionTitle}>Providers</h3>
-					<Button variant="primary" size="sm" onclick={onaddcustom}>Add Provider</Button>
+					<Button variant="ghost" size="sm" onclick={onaddcustom}>Add Provider</Button>
 				</header>
 
 				<div class={styles.providersList}>
-					{#each $configStore.providers as provider (provider.id)}
-						<div
-							class={[styles.providerItem, provider.isConfigured && styles.configured].join(' ')}
-						>
+					{#each $configStore.providers.filter(p => p.isConfigured) as provider (provider.id)}
+						<div class={styles.providerItem}>
 							<div class={styles.providerInfo}>
 								<div class={styles.providerIconWrapper}>
-									<ProviderIcon {provider} size={24} />
+									<ProviderIcon {provider} size={20} />
 								</div>
 								<div class={styles.providerDetails}>
 									<div class={styles.providerName}>{provider.name}</div>
-									<div class={styles.providerMeta}>
-										<span class={styles.apiType}>{provider.apiType}</span>
-									</div>
+									<div class={styles.apiType}>{provider.apiType}</div>
 								</div>
 							</div>
 							<div class={styles.providerActions}>
-								{#if provider.isConfigured}
-									<span class={styles.configuredBadge}>
-										<CheckIcon size={14} />
-										Connected
-									</span>
-								{/if}
+								<span class={styles.configuredBadge}>
+									<CheckIcon size={14} />
+									Connected
+								</span>
 								<Button variant="ghost" size="sm" onclick={() => onconfigure(provider.id)}>
-									{provider.isConfigured ? 'Edit' : 'Configure'}
+									Edit
 								</Button>
 								{#if provider.isCustom}
 									<Button
@@ -141,62 +139,56 @@
 						</div>
 					{/each}
 
-					{#if $configStore.providers.length === 0}
+					{#if $configStore.providers.filter(p => p.isConfigured).length === 0}
 						<div class={styles.emptyState}>
-							<AlertCircleIcon size={24} />
 							<span>No providers configured. Add a provider to get started.</span>
 						</div>
 					{/if}
 				</div>
+
 			</section>
 
 			<!-- Models Section -->
 			<section class="modal-section {styles.section}">
 				<header class={styles.sectionHeader}>
-					<div class={styles.sectionIconWrapper}>
-						<BoxIcon size={18} />
+					<div class={styles.sectionTitleGroup}>
+						<div class={styles.sectionIcon}>
+							<BoxIcon size={16} />
+						</div>
+						<h3 class={styles.sectionTitle}>Default Models</h3>
 					</div>
-					<h3 class={styles.sectionTitle}>Default Models by Operation</h3>
 				</header>
 
 				{#each OPERATION_CONFIGS as op (op.id)}
 					{@const availableModels = $availableModelsByOperation[op.id]}
 					{@const selectedModelId = getSelectedModelId(op.id)}
+					{@const options = availableModels.map((m) => ({value: m.id, label: m.name}))}
+
 					<div class={styles.operationGroup}>
-						<header class={styles.operationHeader}>
-							<div class={styles.operationIcon} style:color={op.color}>
-								<OperationIcon type={op.id} size={18} color={op.color} />
+						<div class={styles.operationHeader}>
+							<div class={styles.operationIcon}>
+								<OperationIcon type={op.id} size={16} color={op.color} />
 							</div>
 							<div class={styles.operationInfo}>
 								<span class={styles.operationName}>{op.name}</span>
 								<span class={styles.operationDesc}>{op.description}</span>
 							</div>
-							<!-- Selected model badge -->
-							{#if selectedModelId}
-								<div class={styles.operationSelected}>
-									<span class={styles.selectedLabel}>{getSelectedModelShortName(op.id)}</span>
-								</div>
-							{/if}
-						</header>
+						</div>
 
-						<div class={styles.modelGrid}>
-							{#each availableModels as model (model.id)}
-								<ModelCard
-									{model}
-									selected={selectedModelId === model.id}
-									onclick={() => handleSelectModel(op.id, model.id)}
-								/>
-							{/each}
-
-							{#if availableModels.length === 0}
-								<div class={styles.emptyModels}>
-									<span>No models available - configure a provider first</span>
-								</div>
-							{/if}
+						<div class={styles.modelSelectWrapper}>
+							<Select
+								value={selectedModelId ?? ''}
+								{options}
+								placeholder={availableModels.length === 0 ? "No models available - configure provider" : "Select a model"}
+								disabled={availableModels.length === 0}
+								onchange={(val) => handleSelectModel(op.id, val)}
+							/>
 						</div>
 					</div>
 				{/each}
+
 			</section>
+
 		</div>
 	{/snippet}
 </Modal>

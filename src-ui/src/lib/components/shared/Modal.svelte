@@ -131,14 +131,12 @@
 						<IconButton
 							label="Close modal"
 							tooltip="Close"
+							tooltipPosition="bottom"
 							variant="ghost"
 							size="sm"
 							onclick={onclose}
-						>
-							{#snippet icon()}
-								<CloseIcon size={20} />
-							{/snippet}
-						</IconButton>
+							icon={closeIcon}
+						/>
 					{/if}
 				</header>
 			{/if}
@@ -155,6 +153,10 @@
 		</div>
 	</div>
 {/if}
+
+{#snippet closeIcon()}
+	<CloseIcon size={20} />
+{/snippet}
 
 <style>
 	/* Styles are in Modal.module.css */

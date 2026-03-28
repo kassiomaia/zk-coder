@@ -27,13 +27,13 @@
 	 * Only these specific transform patterns are permitted.
 	 */
 	const ALLOWED_TRANSFORM_PATTERNS = [
-		/^translateX\(-50%\)$/,
-		/^translateY\(-50%\)$/,
-		/^translateX\(-100%\)$/,
-		/^translateY\(-100%\)$/,
-		/^translateX\(-50%\) translateY\(-100%\)$/,
-		/^translateX\(-100%\) translateY\(-50%\)$/,
-		/^translateX\(-50%\) translateY\(-100%\)$/,
+		/^translateX\(calc\(-50% \+ -?\d+px\)\)$/,
+		/^translateY\(calc\(-50% \+ -?\d+px\)\)$/,
+		/^translateX\(calc\(-100% \+ -?\d+px\)\)$/,
+		/^translateY\(calc\(-100% \+ -?\d+px\)\)$/,
+		/^translateX\(calc\(-50% \+ -?\d+px\)\) translateY\(-100%\)$/,
+		/^translateX\(-100%\) translateY\(calc\(-50% \+ -?\d+px\)\)$/,
+		/^translateY\(calc\(-50% \+ -?\d+px\)\)$/,
 		/^translateX\(calc\(-50% \+ -?\d+px\)\) rotate\(45deg\)$/,
 		/^translateY\(calc\(-50% \+ -?\d+px\)\) rotate\(45deg\)$/
 	];
@@ -323,22 +323,22 @@
 			top: {
 				left: triggerCenterX,
 				top: Math.round(triggerRect.top - gap),
-				transform: 'translateX(-50%) translateY(-100%)'
+				transform: 'translateX(calc(-50% + 0px)) translateY(-100%)'
 			},
 			bottom: {
 				left: triggerCenterX,
 				top: Math.round(triggerRect.bottom + gap),
-				transform: 'translateX(-50%)'
+				transform: 'translateX(calc(-50% + 0px))'
 			},
 			left: {
 				left: Math.round(triggerRect.left - gap),
 				top: triggerCenterY,
-				transform: 'translateX(-100%) translateY(-50%)'
+				transform: 'translateX(-100%) translateY(calc(-50% + 0px))'
 			},
 			right: {
 				left: Math.round(triggerRect.right + gap),
 				top: triggerCenterY,
-				transform: 'translateY(-50%)'
+				transform: 'translateY(calc(-50% + 0px))'
 			}
 		};
 
@@ -349,6 +349,7 @@
 		const viewportHeight = window.innerHeight;
 		let clampedLeft = pos.left;
 		let clampedTop = pos.top;
+		let transform = pos.transform;
 
 		if (actualPosition === 'top' || actualPosition === 'bottom') {
 			// Clamp horizontal position to keep tooltip in viewport
@@ -356,16 +357,24 @@
 			const minLeft = viewportPadding + halfWidth;
 			const maxLeft = viewportWidth - viewportPadding - halfWidth;
 			clampedLeft = Math.max(minLeft, Math.min(maxLeft, pos.left));
+			
+			// Adjust transform to account for clamping
+			const drift = pos.left - clampedLeft;
+			transform = pos.transform.replace('0px', `${Math.round(drift)}px`);
 		} else {
 			// Clamp vertical position for left/right tooltips
 			const halfHeight = tooltipHeight / 2;
 			const minTop = viewportPadding + halfHeight;
 			const maxTop = viewportHeight - viewportPadding - halfHeight;
 			clampedTop = Math.max(minTop, Math.min(maxTop, pos.top));
+
+			// Adjust transform to account for clamping
+			const drift = pos.top - clampedTop;
+			transform = pos.transform.replace('0px', `${Math.round(drift)}px`);
 		}
 
 		// Use safe style object creation to prevent CSS injection
-		return createSafePositionStyle(clampedLeft, clampedTop, pos.transform, isInitialRender);
+		return createSafePositionStyle(clampedLeft, clampedTop, transform, isInitialRender);
 	});
 
 	// Arrow position style based on calculated offset

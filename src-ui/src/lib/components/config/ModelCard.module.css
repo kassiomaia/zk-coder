@@ -1,36 +1,53 @@
 /**
  * ModelCard Component Styles
- * Refined density, state logic, and morph transitions for selection.
- *
- * Uses shared card styles from card-styles.css as base.
+ * Flattened selection item with subtle states and icon-based confirmation.
  */
 
-@import '../../styles/card-styles.css';
-@import '../../styles/animations.css';
-
-/* ============================================================================
-   MODEL CARD EXTENSIONS
-   Extends shared .card base styles
-   ============================================================================ */
-
-/* Fixed height for consistency */
 .card {
-	height: 88px;
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	width: 100%;
+	padding: var(--space-3) var(--space-4);
+	background: transparent;
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-lg);
+	text-align: left;
+	cursor: pointer;
+	position: relative;
+	overflow: hidden;
+	transition: 
+		background var(--transition-fast),
+		border-color var(--transition-fast),
+		transform var(--transition-fast);
 }
 
-/* Override border from shared styles for consistency */
-.card {
+.card:hover {
+	background: var(--color-surface-hover);
 	border-color: var(--color-border-primary);
 }
 
+.card:active {
+	transform: scale(0.98);
+}
+
+.card.selected {
+	background: var(--color-interactive-selected);
+	border-color: var(--color-primary-border);
+}
+
+.card.selected:hover {
+	background: var(--color-interactive-selected-hover);
+}
+
 /* ============================================================================
-   MODEL INFO - Extends shared .cardContent
+   MODEL INFO
    ============================================================================ */
 
 .modelInfo {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-1);
+	gap: var(--space-0-5);
 	flex: 1;
 	min-width: 0;
 }
@@ -55,76 +72,40 @@
 	opacity: 0.8;
 }
 
-.card.selected .modelName {
-	color: var(--color-text-primary);
-}
-
-.card.selected .modelId {
-	color: var(--color-primary-300);
-	opacity: 1;
-}
-
 /* ============================================================================
-   CHECK ICON - Morph + opacity transition (component-specific)
+   CHECK ICON - Subtle icon-based confirmation
    ============================================================================ */
 
 .checkIcon {
-	position: absolute;
-	top: var(--space-2);
-	right: var(--space-2);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 22px;
-	height: 22px;
-	background: var(--color-primary-500);
-	color: white;
-	border-radius: var(--radius-full);
-
-	/* Morph transition */
-	opacity: 0;
-	transform: scale(0.5) rotate(-45deg);
-	animation: checkMorph var(--state-duration-morph) var(--card-ease-tap) forwards;
-}
-
-.checkIcon svg {
-	/* Icon morph within container */
-	animation: iconScale var(--state-duration-morph) var(--card-ease-tap) forwards;
-	animation-delay: 60ms;
-	opacity: 0;
-	transform: scale(0);
+	color: var(--color-primary-500);
+	flex-shrink: 0;
 }
 
 /* ============================================================================
-   CAPABILITIES (component-specific)
+   CAPABILITIES
    ============================================================================ */
 
 .capabilities {
 	display: flex;
 	gap: var(--space-1);
-	margin-top: auto;
+	margin-left: auto;
 }
 
 .capability {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 20px;
-	height: 20px;
-	background: var(--color-bg-secondary);
+	width: 18px;
+	height: 18px;
 	color: var(--color-text-tertiary);
-	border-radius: var(--radius-sm);
-	transition: all var(--card-duration-hover) var(--card-ease-hover);
-}
-
-.capability:hover {
-	background: var(--color-bg-tertiary);
-	color: var(--color-text-secondary);
+	opacity: 0.6;
 }
 
 .card.selected .capability {
-	background: var(--color-accent-primary-muted);
-	color: var(--color-primary-300);
+	color: var(--color-primary-500);
+	opacity: 0.8;
 }
 
-/* Note: Base card styles, hover, focus, selected states now in shared card-styles.css */
