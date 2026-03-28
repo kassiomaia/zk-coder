@@ -2,6 +2,11 @@
     /**
      * ChatMessagesList Component
      * Renders the list of chat messages with grouping and specialized rendering.
+     *
+     * Document Generation Integration:
+     * - Detects document generation tool calls and aggregates them
+     * - Renders DocumentGenerationCard instead of individual tool_call messages
+     * - Hides transient execution narration during doc generation
      */
     import ThreadIndicator from './ThreadIndicator.svelte';
     import MarkdownRenderer from '../markdown/MarkdownRenderer.svelte';
@@ -15,10 +20,18 @@
     import TerminalOutput from './messages/TerminalOutput.svelte';
     import NarrationMessage from './messages/NarrationMessage.svelte';
     import ApprovalMessage from './messages/ApprovalMessage.svelte';
+    import DocumentGenerationCard from './messages/DocumentGenerationCard.svelte';
     import {MessageSquareIcon, UserIcon} from '$lib/icons';
     import type {Message} from '$lib/types/message';
     import type {Thread} from '$lib/types/thread';
     import type {AgentStatus} from '$lib/utils/agentStatus';
+    import type {DocumentGenerationJob} from '$lib/utils/documentGenerationTracker';
+    import type { DocumentGenerationState } from '$lib/stores/documentGenerationStore';
+    import {
+        documentGenerationTracker,
+        shouldHideMessageInDocGen
+    } from '$lib/utils/documentGenerationTracker';
+    import { documentGenerationStore } from '$lib/stores/documentGenerationStore';
     import messageStyles from './MessageBubbles.module.css';
     import inputStyles from './ChatInputContainer.module.css';
 
@@ -98,6 +111,42 @@
 		onApproveAction,
 		onDenyAction
 	}: Props = $props();
+
+	// Document generation state - use centralized store
+	// We need to subscribe to the store to get reactive updates
+	let docGenState: DocumentGenerationState = $state({
+		jobs: [],
+		activeJob: null,
+		hasActiveJob: false
+	});
+
+	// Subscribe to the store for reactive updates
+	const unsubscribe = documentGenerationStore.subscribe((state) => {
+		docGenState.jobs = state.jobs;
+		docGenState.activeJob = state.activeJob;
+		docGenState.hasActiveJob = state.hasActiveJob;
+	});
+
+	// Cleanup on unmount
+	$effect(() => {
+		return () => unsubscribe();
+	});
+
+	// Track which messages should be hidden due to doc gen aggregation
+	function getVisibleMessages(): Message[] {
+		return messages.filter((msg) => !shouldHideMessageInDocGen(msg));
+	}
+
+	// Process messages to update document generation tracking
+	$effect(() => {
+		// Process each message to update doc gen jobs via the store
+		for (const message of messages) {
+			documentGenerationStore.processMessage(message);
+		}
+	});
+
+	// Get the current doc gen job for display (most recent active)
+	let currentDocGenJob = $derived(docGenState.activeJob);
 
 	/**
 	 * Format time for group headers.
@@ -209,6 +258,33 @@
 		}
 	}
 
+	// Document generation handlers
+	async function handleDownloadDoc(job: DocumentGenerationJob) {
+		// TODO: Implement download via Tauri API
+		console.log('[DocGen] Download:', job.filePath);
+		if (job.filePath) {
+			// For now, just log - would invoke a download command
+		}
+	}
+
+	async function handleCopyDocLink(job: DocumentGenerationJob) {
+		if (job.filePath) {
+			try {
+				await navigator.clipboard.writeText(job.filePath);
+			} catch (err) {
+				console.error('Failed to copy path:', err);
+			}
+		}
+	}
+
+	function handleRetryDocGen(job: DocumentGenerationJob) {
+		documentGenerationStore.retryJob(job.id);
+	}
+
+	function handleDismissDocGen(job: DocumentGenerationJob) {
+		documentGenerationStore.removeJob(job.id);
+	}
+
 </script>
 
 {#if messagesLoading === 'loading'}
@@ -243,6 +319,33 @@
 {:else}
 	<!-- Messages - flat rendering to avoid Svelte 5 nested #each reconciliation issues -->
 	{#each messages as message, index (message.id)}
+		<!-- Skip messages that are part of document generation (they're shown in the card) -->
+		{#if !shouldHideMessageInDocGen(message)}
+		<!-- Insert DocumentGenerationCard after last user message when active -->
+		{@const isLastUserMessage = message.role === 'user' && (index === messages.length - 1 || messages[index + 1]?.role !== 'user')}
+		{#if currentDocGenJob && isLastUserMessage}
+			<div class={messageStyles.messageWrapper}>
+				<div class={messageStyles.message}>
+					<DocumentGenerationCard
+						docType={currentDocGenJob.docType}
+						filename={currentDocGenJob.filename}
+						phase={currentDocGenJob.phase}
+						statusText={currentDocGenJob.statusText}
+						progress={currentDocGenJob.progress}
+						steps={currentDocGenJob.steps}
+						error={currentDocGenJob.error}
+						sessionId={currentDocGenJob.sessionId}
+						artifactId={currentDocGenJob.artifactId}
+						filePath={currentDocGenJob.filePath}
+						onDownload={() => handleDownloadDoc(currentDocGenJob)}
+						onCopy={() => handleCopyDocLink(currentDocGenJob)}
+						onRetry={() => handleRetryDocGen(currentDocGenJob)}
+						onDismiss={() => handleDismissDocGen(currentDocGenJob)}
+					/>
+				</div>
+			</div>
+		{/if}
+
 		<!-- Agent-specific messages (thinking, tool_call, terminal) - rendered with assistant styling -->
 		{#if message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal' || message.kind === 'narration' || message.kind === 'approval'}
 			<!-- Show ASSISTANT group header for agent messages -->
@@ -392,6 +495,8 @@
 					</div>
 				{/if}
 			</div>
+		{/if}
+		<!-- End of skip-if for hidden doc gen messages -->
 		{/if}
 	{/each}
 

@@ -48,6 +48,14 @@ export {
 	agentError
 } from './agentStore.js';
 
+// Document generation store
+export {
+	documentGenerationStore,
+	activeDocGenJob,
+	hasActiveDocGenJob,
+	activeDocGenJobs
+} from './documentGenerationStore.js';
+
 // Cross-store derived: sessions filtered to current conversation
 import {derived} from 'svelte/store';
 import {chatStore} from './chat.js';
