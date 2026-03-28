@@ -44,11 +44,20 @@
 		class: className = ''
 	}: Props = $props();
 
-	let resolvedTheme = $state<string>(themeProp ?? 'coder-light');
+	// Initial values - will be updated by effects below
+	function getInitialTheme() {
+		return themeProp ?? 'coder-light';
+	}
+
+	function getInitialFontSize() {
+		return fontSize;
+	}
+
+	let resolvedTheme = $state<string>(getInitialTheme());
 
 	let container = $state<HTMLDivElement | null>(null);
 	let editor = $state<monaco.editor.IStandaloneCodeEditor | null>(null);
-	let currentFontSize = $state(fontSize);
+	let currentFontSize = $state(getInitialFontSize());
 
 	// Update editor value when prop changes
 	$effect(() => {

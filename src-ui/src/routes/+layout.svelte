@@ -57,6 +57,8 @@
 	<link rel="icon" href={favicon} />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<meta name="theme-color" content={THEME_COLORS[theme]} />
+	<!-- Transparent background for chromeless window with rounded corners -->
+	<style>html, body { background: transparent !important; }</style>
 </svelte:head>
 
 <div class="app" data-theme={theme}>
@@ -67,6 +69,14 @@
 	.app {
 		width: 100%;
 		height: 100%;
+		overflow: hidden;
+		/* Rounded corners for chromeless window */
+		border-radius: var(--radius-xl);
+		/* Subtle border for window definition */
+		border: 1px solid var(--color-border-subtle);
+		/* Subtle shadow for depth */
+		box-shadow: var(--shadow-2xl);
+		/* Ensure content clips to rounded corners */
 		overflow: hidden;
 	}
 </style>

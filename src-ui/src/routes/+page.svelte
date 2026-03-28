@@ -6,7 +6,7 @@
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { invoke } from '@tauri-apps/api/core';
-	import ChatLayout from '$lib/components/layout/ChatLayout.svelte';
+	import AppShell from '$lib/components/shell/AppShell.svelte';
 	import ProvidersModal from '$lib/components/config/ProvidersModal.svelte';
 	import ConfigModal from '$lib/components/config/ConfigModal.svelte';
 	import CustomProviderModal from '$lib/components/config/CustomProviderModal.svelte';
@@ -747,7 +747,7 @@
 </svelte:head>
 
 <div class="page-container">
-	<ChatLayout
+	<AppShell
 		{conversations}
 		{threads}
 		activeStreamingThreadIds={processingThreadIds}
@@ -798,16 +798,6 @@
 				<span class="error">Error: {currentError}</span>
 				<button class="retry-btn" onclick={handleErrorRetry} type="button">Dismiss</button>
 			{/if}
-			<button
-				class="agent-toggle-btn"
-				class:active={agentPanelOpen}
-				onclick={handleToggleAgentPanel}
-				type="button"
-				aria-label="Toggle agent panel"
-				title="Toggle agent panel"
-			>
-				Agent
-			</button>
 		</span>
 	</div>
 </div>
@@ -893,7 +883,7 @@
 		overflow: hidden;
 	}
 
-	/* ChatLayout fills available space above status bar */
+	/* AppShell fills available space above status bar */
 	.page-container:global(> :first-child) {
 		flex: 1;
 		min-height: 0;
@@ -905,11 +895,11 @@
 		align-items: center;
 		padding: var(--space-1) var(--space-4);
 		background: var(--color-bg-secondary);
-		border-top: 1px solid var(--color-border-primary);
-		font-size: var(--text-xs);
+		border-top: 1px solid var(--color-border-subtle);
+		font-size: var(--text-2xs);
 		color: var(--color-text-muted);
 		flex-shrink: 0;
-		min-height: 24px;
+		min-height: 20px;
 	}
 
 	.status-actions {
@@ -919,33 +909,24 @@
 		font-family: var(--font-mono);
 	}
 
-	.agent-toggle-btn {
-		padding: 2px 8px;
+	.error {
+		color: var(--color-error);
+	}
+
+	.retry-btn {
+		padding: 2px 6px;
 		font-size: var(--text-2xs);
 		font-family: var(--font-mono);
-		background: transparent;
+		background: var(--color-bg-tertiary);
 		border: 1px solid var(--color-border-subtle);
 		border-radius: var(--radius-sm);
-		color: var(--color-text-muted);
+		color: var(--color-text-secondary);
 		cursor: pointer;
 		transition: all var(--transition-fast);
 	}
 
-	.agent-toggle-btn:hover {
+	.retry-btn:hover {
 		background: var(--color-interactive-hover);
 		color: var(--color-text-primary);
-	}
-
-	.agent-toggle-btn.active {
-		background: var(--color-interactive-selected);
-		border-color: var(--color-accent-primary);
-		color: var(--color-accent-primary);
-	}
-
-	@media (max-width: 600px) {
-		.status-bar {
-			padding: var(--space-1) var(--space-2);
-			font-size: var(--text-2xs);
-		}
 	}
 </style>

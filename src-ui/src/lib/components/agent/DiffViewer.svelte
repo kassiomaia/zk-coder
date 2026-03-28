@@ -45,7 +45,12 @@
 		minimap = true
 	}: Props = $props();
 
-	let resolvedTheme = $state<string>(themeProp ?? 'coder-light');
+	// Initialize theme - will be updated by effect if theme prop changes
+	function getInitialTheme() {
+		return themeProp ?? 'coder-light';
+	}
+
+	let resolvedTheme = $state<string>(getInitialTheme());
 
 	let container = $state<HTMLDivElement | null>(null);
 	let diffEditor = $state<monaco.editor.IStandaloneDiffEditor | null>(null);
