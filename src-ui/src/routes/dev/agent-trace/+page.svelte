@@ -430,34 +430,30 @@
 		<header class={`${shell.surface} ${shell.header}`}>
 			<div class={shell.headerMain}>
 				<div class={shell.titleBlock}>
-					<div class={shell.eyebrow}>Development diagnostics</div>
 					<h1 class={shell.title}>
-						<Activity size={22} />
+						<Activity size={18} />
 						Agent Trace
 					</h1>
 					<p class={shell.subtitle}>
-						Live execution plan for <code>{sessionId || 'waiting for session'}</code>
+						<code>{sessionId || 'waiting...'}</code>
 					</p>
 				</div>
 
 				<div class={shell.liveBanner} data-state={transportState}>
 					<div class={shell.liveBadge}>
-						<Radio size={14} />
+						<Radio size={12} />
 						<span>{listeningLabel}</span>
 					</div>
 					<div class={shell.liveMeta}>
-						<span>{listenerRegistered ? 'subscription ready' : 'subscription offline'}</span>
-						<span>window {windowLabel}</span>
-						<span>last event {lastEventLabel}</span>
-						<span>last poll {lastPollLabel}</span>
-						<span>{liveEventsCount} live updates</span>
+						<span>{lastEventLabel}</span>
+						<span>{liveEventsCount} events</span>
 					</div>
 				</div>
 			</div>
 
 			<div class={shell.snapshotGrid}>
 				<div class={shell.snapshotCell}>
-					<span class={shell.snapshotLabel}>Current phase</span>
+					<span class={shell.snapshotLabel}>Phase</span>
 					<strong class={shell.snapshotValue}>{snapshot?.phase ?? '-'}</strong>
 				</div>
 				<div class={shell.snapshotCell}>
@@ -465,13 +461,13 @@
 					<strong class={shell.snapshotValue}>{snapshot?.stepNumber ?? 0}</strong>
 				</div>
 				<div class={shell.snapshotCell}>
-					<span class={shell.snapshotLabel}>Total tokens</span>
+					<span class={shell.snapshotLabel}>Tokens</span>
 					<strong class={shell.snapshotValue}>
 						{snapshot ? `${snapshot.totalInputTokens}/${snapshot.totalOutputTokens}` : '-'}
 					</strong>
 				</div>
 				<div class={shell.snapshotCell}>
-					<span class={shell.snapshotLabel}>Active model</span>
+					<span class={shell.snapshotLabel}>Model</span>
 					<strong class={shell.snapshotValue}>{snapshot?.lastModel ?? '-'}</strong>
 				</div>
 			</div>
@@ -486,20 +482,17 @@
 
 		<section class={`${shell.surface} ${shell.toolbar}`}>
 			<div class={shell.toolbarSearch}>
-				<div class={shell.iconWrapper}><Search size={14} /></div>
+				<Search size={14} class="text-muted" />
 				<input class={shell.field} bind:value={sessionId} placeholder="Session ID" />
 			</div>
 
 			<div class={shell.toolbarFilters}>
-				<div class={shell.filterGroup}>
-					<div class={shell.iconWrapper}><Filter size={14} /></div>
-					<select class={shell.select} bind:value={filterType}>
-						<option value="">All types</option>
-						{#each uniqueTypes as type}
-							<option value={type}>{type}</option>
-						{/each}
-					</select>
-				</div>
+				<select class={shell.select} bind:value={filterType}>
+					<option value="">All actions</option>
+					{#each uniqueTypes as type}
+						<option value={type}>{type}</option>
+					{/each}
+				</select>
 
 				<select class={shell.select} bind:value={filterPhase}>
 					<option value="">All phases</option>
@@ -508,7 +501,7 @@
 					{/each}
 				</select>
 
-				<select class={`${shell.select} ${shell.selectCompact}`} bind:value={filterStep}>
+				<select class={shell.select} bind:value={filterStep}>
 					<option value="">All steps</option>
 					{#each uniqueSteps as step}
 						<option value={String(step)}>Step {step}</option>
@@ -519,7 +512,7 @@
 			<div class={shell.toolbarActions}>
 				<label class={shell.toggle}>
 					<input bind:checked={autoScroll} type="checkbox" />
-					<span>Auto-follow</span>
+					<span>Auto-scroll</span>
 				</label>
 
 				<button class={shell.buttonGhost} type="button" onclick={reconnect} disabled={!sessionId}>
@@ -529,7 +522,7 @@
 
 				<button class={shell.buttonPrimary} type="button" onclick={jumpToLatest}>
 					<ArrowDown size={14} />
-					Latest event
+					Latest
 				</button>
 			</div>
 		</section>
@@ -555,12 +548,11 @@
 			<aside class={`${shell.surface} ${shell.detail}`} style:width="{detailWidth}px">
 				<div class={shell.detailHeader}>
 					<h2 class={shell.detailTitle}>
-						<Info size={18} />
+						<Info size={14} />
 						Trace payload
 					</h2>
 					<div class={shell.detailMeta}>
-						<span>{selectedTrace?.traceType ?? 'No trace selected'}</span>
-						<span>{selectedTrace ? buildRow(selectedTrace, 0, [], snapshot).model : ''}</span>
+						<span>{selectedTrace?.traceType ?? 'None'}</span>
 					</div>
 				</div>
 

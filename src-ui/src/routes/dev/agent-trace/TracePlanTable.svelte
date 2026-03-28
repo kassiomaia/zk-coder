@@ -149,18 +149,18 @@
 	<tbody>
 		{#each rows as row (row.id)}
 			<tr
-				class={`${table.row} ${row.id === selectedTraceId ? table.rowSelected : ''} ${row.status === 'failed' ? table.rowFailed : ''} ${row.status === 'completed' ? table.rowCompleted : ''} ${row.action === 'llm_request_prepared' || row.actor === 'LLM' ? table.rowLlmAction : ''}`}
+				class={`${table.row} ${row.id === selectedTraceId ? table.rowSelected : ''}`}
 				onclick={() => onSelect(row.id)}
 			>
 				<td class={table.rowCode}>{row.time}</td>
-				<td class={`${table.deltaCell} ${row.deltaMs && row.deltaMs > 1000 ? table.deltaSlow : ''}`}>
+				<td class={table.deltaCell}>
 					{row.deltaMs ? `+${row.deltaMs}ms` : '-'}
 				</td>
-				<td class={table.centered}>{row.step}</td>
+				<td>{row.step}</td>
 				<td>
 					<span class={`${table.pill} ${table.pillNeutral}`}>{row.phase}</span>
 				</td>
-				<td title={row.action}>{row.action}</td>
+				<td class={table.rowAction} title={row.action}>{row.action}</td>
 				<td>
 					<span
 						class={`${table.pill} ${row.actor === 'LLM' ? table.pillPrimary : row.actor === 'Tools' ? table.pillSuccess : table.pillNeutral}`}
@@ -184,7 +184,7 @@
 					</span>
 				</td>
 				<td>{row.duration}</td>
-				<td>{row.tokens}</td>
+				<td class={table.rowCode}>{row.tokens}</td>
 				<td title={row.tool}>{row.tool}</td>
 				<td class={table.summaryCell} title={row.summary}>{row.summary}</td>
 			</tr>

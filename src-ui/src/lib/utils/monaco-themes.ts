@@ -45,20 +45,20 @@ export function registerCustomThemes() {
 			{ token: 'function.definition', foreground: '7aa2f7' },
 		],
 		colors: {
-			'editor.background': '#1a1b26',
-			'editor.foreground': '#a9b1d6',
-			'editor.lineHighlightBackground': '#292e42',
-			'editor.selectionBackground': '#33467c',
-			'editor.selectionHighlightBackground': '#33467c',
-			'editorCursor.foreground': '#c0caf5',
-			'editorWhitespace.foreground': '#3b4261',
-			'editorIndentGuide.background': '#292e42',
-			'editorIndentGuide.activeBackground': '#3b4261',
-			'editorLineNumber.foreground': '#3b4261',
-			'editorLineNumber.activeForeground': '#737aa2',
-			'scrollbarSlider.background': '#292e4275',
-			'scrollbarSlider.hoverBackground': '#292e42',
-			'scrollbarSlider.activeBackground': '#292e42'
+			'editor.background': '#09090b',
+			'editor.foreground': '#d4d4d8',
+			'editor.lineHighlightBackground': '#18181b',
+			'editor.selectionBackground': '#27272a',
+			'editor.selectionHighlightBackground': '#27272a',
+			'editorCursor.foreground': '#6366f1',
+			'editorWhitespace.foreground': '#27272a',
+			'editorIndentGuide.background': '#1f1f23',
+			'editorIndentGuide.activeBackground': '#3f3f46',
+			'editorLineNumber.foreground': '#3f3f46',
+			'editorLineNumber.activeForeground': '#a1a1aa',
+			'scrollbarSlider.background': '#1f1f23',
+			'scrollbarSlider.hoverBackground': '#27272a',
+			'scrollbarSlider.activeBackground': '#3f3f46'
 		}
 	});
 }
