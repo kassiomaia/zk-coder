@@ -12,8 +12,8 @@ pub fn create_session(
     session: &AgentSession,
 ) -> Result<(), SessionRepositoryError> {
     conn.execute(
-        "INSERT INTO agent_sessions (id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        "INSERT INTO agent_sessions (id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             session.id.0,
             session.agent_id.0,
@@ -23,6 +23,7 @@ pub fn create_session(
             serde_json::to_string(&session.state)?,
             session.workspace_root.as_ref().map(|p| p.to_string_lossy().to_string()),
             session.parent_session_id.as_ref().map(|id| id.0.clone()),
+            session.model_id.clone(),
             session.created_at.to_rfc3339(),
             session.updated_at.to_rfc3339(),
         ],
@@ -37,15 +38,16 @@ pub fn get_session(
 ) -> Result<Option<AgentSession>, SessionRepositoryError> {
     let result = conn
         .query_row(
-            "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, created_at, updated_at
+            "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, created_at, updated_at
              FROM agent_sessions WHERE id = ?1",
             params![id.0],
             |row| {
                 let state_str: String = row.get(5)?;
                 let workspace: Option<String> = row.get(6)?;
                 let parent: Option<String> = row.get(7)?;
-                let created: String = row.get(8)?;
-                let updated: String = row.get(9)?;
+                let model_id: Option<String> = row.get(8)?;
+                let created: String = row.get(9)?;
+                let updated: String = row.get(10)?;
 
                 Ok((
                     row.get::<_, String>(0)?,
@@ -56,6 +58,7 @@ pub fn get_session(
                     state_str,
                     workspace,
                     parent,
+                    model_id,
                     created,
                     updated,
                 ))
@@ -73,6 +76,7 @@ pub fn get_session(
             state_str,
             workspace,
             parent,
+            model_id,
             created,
             updated,
         )) => {
@@ -86,6 +90,7 @@ pub fn get_session(
                 state,
                 workspace_root: workspace.as_deref().map(std::path::PathBuf::from),
                 parent_session_id: parent.as_deref().map(|s| SessionId(s.to_string())),
+                model_id,
                 created_at: chrono::DateTime::parse_from_rfc3339(&created)
                     .unwrap_or_default()
                     .with_timezone(&chrono::Utc),
@@ -121,7 +126,7 @@ pub fn get_sessions_for_conversation(
     conversation_id: &str,
 ) -> Result<Vec<AgentSession>, SessionRepositoryError> {
     let mut stmt = conn.prepare(
-        "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, created_at, updated_at
+        "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, created_at, updated_at
          FROM agent_sessions
          WHERE conversation_id = ?1
          ORDER BY created_at DESC",
@@ -132,8 +137,9 @@ pub fn get_sessions_for_conversation(
             let state_str: String = row.get(5)?;
             let workspace: Option<String> = row.get(6)?;
             let parent: Option<String> = row.get(7)?;
-            let created: String = row.get(8)?;
-            let updated: String = row.get(9)?;
+            let model_id: Option<String> = row.get(8)?;
+            let created: String = row.get(9)?;
+            let updated: String = row.get(10)?;
 
             Ok((
                 row.get::<_, String>(0)?,
@@ -144,6 +150,7 @@ pub fn get_sessions_for_conversation(
                 state_str,
                 workspace,
                 parent,
+                model_id,
                 created,
                 updated,
             ))
@@ -162,6 +169,7 @@ pub fn get_sessions_for_conversation(
                 state_str,
                 workspace,
                 parent,
+                model_id,
                 created,
                 updated,
             )| {
@@ -175,6 +183,7 @@ pub fn get_sessions_for_conversation(
                     state,
                     workspace_root: workspace.map(std::path::PathBuf::from),
                     parent_session_id: parent.map(SessionId),
+                    model_id,
                     created_at: chrono::DateTime::parse_from_rfc3339(&created)
                         .unwrap_or_default()
                         .with_timezone(&chrono::Utc),
@@ -190,7 +199,7 @@ pub fn get_sessions_for_conversation(
 /// Get all sessions.
 pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepositoryError> {
     let mut stmt = conn.prepare(
-        "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, created_at, updated_at
+        "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, created_at, updated_at
          FROM agent_sessions
          ORDER BY created_at DESC",
     )?;
@@ -200,8 +209,9 @@ pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepo
             let state_str: String = row.get(5)?;
             let workspace: Option<String> = row.get(6)?;
             let parent: Option<String> = row.get(7)?;
-            let created: String = row.get(8)?;
-            let updated: String = row.get(9)?;
+            let model_id: Option<String> = row.get(8)?;
+            let created: String = row.get(9)?;
+            let updated: String = row.get(10)?;
 
             Ok((
                 row.get::<_, String>(0)?,
@@ -212,6 +222,7 @@ pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepo
                 state_str,
                 workspace,
                 parent,
+                model_id,
                 created,
                 updated,
             ))
@@ -230,6 +241,7 @@ pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepo
                 state_str,
                 workspace,
                 parent,
+                model_id,
                 created,
                 updated,
             )| {
@@ -243,6 +255,7 @@ pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepo
                     state,
                     workspace_root: workspace.map(std::path::PathBuf::from),
                     parent_session_id: parent.map(SessionId),
+                    model_id,
                     created_at: chrono::DateTime::parse_from_rfc3339(&created)
                         .unwrap_or_default()
                         .with_timezone(&chrono::Utc),
@@ -323,6 +336,7 @@ mod tests {
             "conv-1".to_string(),
             "thread-1".to_string(),
             None,
+            None,
         )
     }
 
@@ -380,6 +394,7 @@ mod tests {
             "Code Agent".to_string(),
             "conv-1".to_string(),
             "thread-2".to_string(),
+            None,
             None,
         );
 

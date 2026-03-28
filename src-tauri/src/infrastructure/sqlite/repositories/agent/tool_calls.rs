@@ -125,6 +125,7 @@ mod tests {
             "conv-1".to_string(),
             "thread-1".to_string(),
             None,
+            None,
         );
         super::super::sessions::create_session(conn, &session).unwrap();
         session.id

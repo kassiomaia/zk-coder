@@ -28,15 +28,18 @@
 
 	let { open, onclose, onconfigure, onaddcustom, onremoveprovider }: Props = $props();
 
-	// Helper to get selected model ID from store (reactive via $configStore)
-	function getSelectedModelId(operation: OperationType): string | null {
-		const default_ = $configStore.operationDefaults.find((d) => d.operation === operation);
-		return default_?.modelId ?? null;
-	}
+	// Derived reactive map of selected model IDs by operation
+	// Using $derived ensures Svelte 5 properly tracks $configStore.operationDefaults changes
+	let selectedModelIds = $derived.by(() => {
+		const map = new Map<OperationType, string | null>();
+		for (const d of $configStore.operationDefaults) {
+			map.set(d.operation, d.modelId);
+		}
+		return map;
+	});
 
 	// Helper to get short name for selected model badge
-	function getSelectedModelShortName(operation: OperationType): string | null {
-		const modelId = getSelectedModelId(operation);
+	function getSelectedModelShortName(operation: OperationType, modelId: string | null): string | null {
 		if (!modelId) return null;
 
 		// Find the model in available models
@@ -161,7 +164,7 @@
 
 				{#each OPERATION_CONFIGS as op (op.id)}
 					{@const availableModels = $availableModelsByOperation[op.id]}
-					{@const selectedModelId = getSelectedModelId(op.id)}
+					{@const selectedModelId = selectedModelIds.get(op.id)}
 					{@const options = availableModels.map((m) => ({value: m.id, label: m.name}))}
 
 					<div class={styles.operationGroup}>

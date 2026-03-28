@@ -38,16 +38,39 @@ impl Default for LlmRetryConfig {
 /// Returns an error if the model or provider cannot be resolved.
 pub async fn create_llm_client(
     app_handle: &AppHandle,
+    model_id: Option<String>,
 ) -> Result<(Box<dyn LlmClient>, String), AgentRuntimeError> {
     log::info!("[AgentRuntime] Creating LLM client for agent execution");
     let llm_state = app_handle.state::<LlmState>();
     let config_repository = llm_state.config_repository.clone();
 
-    // Use the "code" operation default model
-    let model = get_code_operation_model(config_repository.as_ref()).map_err(|e| {
-        log::error!("[AgentRuntime] Failed to get code operation model: {}", e);
-        AgentRuntimeError::Config(e.to_string())
-    })?;
+    // Use provided model_id or fall back to code operation default
+    let model = if let Some(mid) = model_id {
+        log::info!("[AgentRuntime] Using session model: {}", mid);
+        match config_repository.get_model(&mid) {
+            Ok(Some(m)) => m,
+            Ok(None) => {
+                log::warn!("[AgentRuntime] Model '{}' not found, falling back to default", mid);
+                get_code_operation_model(config_repository.as_ref()).map_err(|e| {
+                    log::error!("[AgentRuntime] Failed to get code operation model: {}", e);
+                    AgentRuntimeError::Config(e.to_string())
+                })?
+            }
+            Err(e) => {
+                log::warn!("[AgentRuntime] Failed to get model '{}', falling back to default: {}", mid, e);
+                get_code_operation_model(config_repository.as_ref()).map_err(|e| {
+                    log::error!("[AgentRuntime] Failed to get code operation model: {}", e);
+                    AgentRuntimeError::Config(e.to_string())
+                })?
+            }
+        }
+    } else {
+        log::info!("[AgentRuntime] Using code operation default model");
+        get_code_operation_model(config_repository.as_ref()).map_err(|e| {
+            log::error!("[AgentRuntime] Failed to get code operation model: {}", e);
+            AgentRuntimeError::Config(e.to_string())
+        })?
+    };
 
     log::info!(
         "[AgentRuntime] Using model: {} ({})",

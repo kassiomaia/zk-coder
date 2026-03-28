@@ -492,6 +492,7 @@ mod tests {
             "conv-1".to_string(),
             "thread-1".to_string(),
             None,
+            None,
         );
         super::super::sessions::create_session(conn, &session).unwrap();
         session.id
@@ -665,5 +666,195 @@ mod tests {
         assert_eq!(task2_subtasks.len(), 1);
         assert_eq!(task1_subtasks[0].task_id, task1_id);
         assert_eq!(task2_subtasks[0].task_id, task2_id);
+    }
+
+    // ========================================================================
+    // Incomplete Task Detection Tests
+    // ========================================================================
+
+    #[test]
+    fn test_find_incomplete_task_returns_pending_root_task() {
+        // Test that Pending root tasks are found (tasks that haven't been completed)
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session_id = make_test_session(&conn);
+        let task = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "Test request".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+
+        create_task(&conn, &task).unwrap();
+
+        // Create subtasks - some completed, some pending
+        let subtask1 = SubTask::new(task.id.clone(), "Step 1".to_string(), SubTaskMode::Read, 0);
+        let subtask2 = SubTask::new(task.id.clone(), "Step 2".to_string(), SubTaskMode::Read, 1);
+        create_subtask(&conn, &subtask1).unwrap();
+        create_subtask(&conn, &subtask2).unwrap();
+
+        // Mark first subtask as completed, second as pending
+        update_subtask_status(&conn, &subtask1.id, &TaskStatus::Completed).unwrap();
+
+        // Query for incomplete tasks
+        let tasks = get_session_tasks(&conn, &session_id).unwrap();
+        let incomplete: Vec<_> = tasks
+            .iter()
+            .filter(|t| !matches!(t.status, TaskStatus::Completed | TaskStatus::Cancelled))
+            .collect();
+
+        // Root task should still be Pending because it hasn't been completed
+        assert_eq!(incomplete.len(), 1);
+        assert_eq!(incomplete[0].id, task.id);
+    }
+
+    #[test]
+    fn test_find_incomplete_task_excludes_completed_tasks() {
+        // Test that Completed tasks are not returned
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session_id = make_test_session(&conn);
+        let task = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "Test request".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+
+        create_task(&conn, &task).unwrap();
+        update_task_status(&conn, &task.id, &TaskStatus::Completed).unwrap();
+
+        // Query for incomplete tasks
+        let tasks = get_session_tasks(&conn, &session_id).unwrap();
+        let incomplete: Vec<_> = tasks
+            .iter()
+            .filter(|t| matches!(t.status, TaskStatus::InProgress | TaskStatus::Failed))
+            .collect();
+
+        // Should be empty - task is completed
+        assert!(incomplete.is_empty());
+    }
+
+    #[test]
+    fn test_find_incomplete_task_with_failed_status() {
+        // Test that Failed tasks are also considered incomplete
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session_id = make_test_session(&conn);
+        let task = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "Test request".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+
+        create_task(&conn, &task).unwrap();
+        update_task_status(&conn, &task.id, &TaskStatus::Failed).unwrap();
+
+        // Query for incomplete tasks
+        let tasks = get_session_tasks(&conn, &session_id).unwrap();
+        let incomplete: Vec<_> = tasks
+            .iter()
+            .filter(|t| matches!(t.status, TaskStatus::InProgress | TaskStatus::Failed))
+            .collect();
+
+        // Failed tasks should be considered incomplete
+        assert_eq!(incomplete.len(), 1);
+        assert!(matches!(incomplete[0].status, TaskStatus::Failed));
+    }
+
+    #[test]
+    fn test_multiple_tasks_finds_most_recent_incomplete() {
+        // Test that when there are multiple tasks, we can identify incomplete ones
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session_id = make_test_session(&conn);
+
+        // Create first task - completed
+        let task1 = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "First task".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+        create_task(&conn, &task1).unwrap();
+        update_task_status(&conn, &task1.id, &TaskStatus::Completed).unwrap();
+
+        // Create second task - pending (incomplete)
+        let task2 = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "Second task".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+        create_task(&conn, &task2).unwrap();
+
+        // Query for incomplete tasks
+        let tasks = get_session_tasks(&conn, &session_id).unwrap();
+        let incomplete: Vec<_> = tasks
+            .iter()
+            .filter(|t| !matches!(t.status, TaskStatus::Completed | TaskStatus::Cancelled))
+            .collect();
+
+        // Only task2 should be incomplete
+        assert_eq!(incomplete.len(), 1);
+        assert_eq!(incomplete[0].id, task2.id);
+    }
+
+    #[test]
+    fn test_subtask_completion_affects_task_completion() {
+        // Test that a task with pending subtasks is considered incomplete
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session_id = make_test_session(&conn);
+        let task = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "Multi-step task".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+
+        create_task(&conn, &task).unwrap();
+
+        // Create multiple subtasks
+        let subtask1 = SubTask::new(task.id.clone(), "Step 1".to_string(), SubTaskMode::Read, 0);
+        let subtask2 = SubTask::new(task.id.clone(), "Step 2".to_string(), SubTaskMode::Read, 1);
+        let subtask3 = SubTask::new(task.id.clone(), "Step 3".to_string(), SubTaskMode::Read, 2);
+        create_subtask(&conn, &subtask1).unwrap();
+        create_subtask(&conn, &subtask2).unwrap();
+        create_subtask(&conn, &subtask3).unwrap();
+
+        // Complete first subtask only
+        update_subtask_status(&conn, &subtask1.id, &TaskStatus::Completed).unwrap();
+
+        // Check subtask status
+        let subtasks = get_subtasks(&conn, &task.id).unwrap();
+        let completed = subtasks.iter().filter(|st| matches!(st.status, TaskStatus::Completed)).count();
+        let pending = subtasks.iter().filter(|st| matches!(st.status, TaskStatus::Pending | TaskStatus::InProgress)).count();
+
+        assert_eq!(completed, 1);
+        assert_eq!(pending, 2);
+
+        // Task should still be incomplete (has pending subtasks)
+        let tasks = get_session_tasks(&conn, &session_id).unwrap();
+        let root_task = &tasks[0];
+        assert!(matches!(root_task.status, TaskStatus::Pending | TaskStatus::InProgress));
     }
 }

@@ -145,6 +145,7 @@ fn session_to_core(
         conversation_id: session.conversation_id,
         thread_id: session.thread_id,
         workspace_root: session.workspace_root,
+        model_id: session.model_id,
         state: session_state_to_core(&session.state),
         created_at: session.created_at,
     }
@@ -162,6 +163,7 @@ fn session_from_core(
         state: session_state_to_agents(&session.state),
         workspace_root: session.workspace_root.clone(),
         parent_session_id: None,
+        model_id: session.model_id.clone(),
         created_at: session.created_at,
         updated_at: session.created_at,
     }
@@ -176,6 +178,7 @@ fn task_status_to_agents(
         core_entities::TaskStatus::Completed => crate::core::agent::task::TaskStatus::Completed,
         core_entities::TaskStatus::Failed => crate::core::agent::task::TaskStatus::Failed,
         core_entities::TaskStatus::Cancelled => crate::core::agent::task::TaskStatus::Cancelled,
+        core_entities::TaskStatus::Aborted => crate::core::agent::task::TaskStatus::Cancelled,
     }
 }
 
@@ -244,6 +247,7 @@ fn agents_task_to_core(task: &crate::core::agent::task::AgentTask) -> core_entit
         status: task_status_to_core(task.status.clone()),
         order: 0,
         mode: None,
+        needs_review: false,
     }
 }
 
@@ -840,6 +844,7 @@ impl TaskRepository for SqliteSessionRepository {
                 status: task_status_to_core(subtask.status.clone()),
                 order: subtask.order,
                 mode: Some(task_mode_to_core(subtask.mode.clone())),
+                needs_review: false,
             })
             .collect())
     }
@@ -917,6 +922,7 @@ mod tests {
             "Code Agent".to_string(),
             "conv-1".to_string(),
             "thread-1".to_string(),
+            None,
             None,
         )
     }

@@ -129,6 +129,8 @@ pub struct AgentSession {
     pub thread_id: String,
     /// Workspace root for file operations
     pub workspace_root: Option<PathBuf>,
+    /// Cached model_id from conversation settings
+    pub model_id: Option<String>,
     /// Current session state
     #[serde(flatten)]
     pub state: SessionState,
@@ -144,6 +146,7 @@ impl AgentSession {
         conversation_id: String,
         thread_id: String,
         workspace_root: Option<PathBuf>,
+        model_id: Option<String>,
     ) -> Self {
         Self {
             id: SessionId::new(),
@@ -152,6 +155,7 @@ impl AgentSession {
             conversation_id,
             thread_id,
             workspace_root,
+            model_id,
             state: SessionState::WaitForRequest {
                 last_action_at: Utc::now(),
             },
@@ -252,6 +256,8 @@ pub struct AgentTask {
     pub order: i32,
     /// Optional execution mode for the task/subtask.
     pub mode: Option<TaskMode>,
+    /// Flag indicating task stopped mid-execution and needs review/replan
+    pub needs_review: bool,
 }
 
 /// Status of a task.
@@ -268,6 +274,8 @@ pub enum TaskStatus {
     Failed,
     /// Task was cancelled
     Cancelled,
+    /// Task was aborted (user pivoted to different work)
+    Aborted,
 }
 
 /// Execution mode for a task.
@@ -405,9 +413,11 @@ mod tests {
             "conv-123".to_string(),
             "thread-456".to_string(),
             Some(PathBuf::from("/workspace")),
+            Some("claude-opus-4".to_string()),
         );
         assert_eq!(session.agent_id.0, "code-agent");
         assert_eq!(session.agent_name, "Code Agent");
+        assert_eq!(session.model_id, Some("claude-opus-4".to_string()));
         assert!(matches!(session.state, SessionState::WaitForRequest { .. }));
     }
 
@@ -418,6 +428,7 @@ mod tests {
             "Test".to_string(),
             "conv".to_string(),
             "thread".to_string(),
+            None,
             None,
         );
         assert!(!session.is_finished());

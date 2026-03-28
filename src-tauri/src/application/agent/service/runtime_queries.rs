@@ -164,11 +164,31 @@ impl AgentServiceImpl {
             .map(|step| serde_json::to_value(step).map_err(store_error_to_domain))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let tasks = self
-            .task_repo
-            .get_session_tasks(&sid.0)?
+        // Load tasks and their subtasks
+        let core_tasks = self.task_repo.get_session_tasks(&sid.0)?;
+        let tasks = core_tasks
             .into_iter()
-            .map(core_task_to_runtime_task)
+            .map(|core_task| {
+                // Load subtasks for this task
+                let subtasks = self
+                    .task_repo
+                    .get_subtasks(&core_task.id)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|core_subtask| {
+                        // Convert core subtask (AgentTask entity) to runtime SubTask
+                        crate::infrastructure::agent::runtime::permissions::core_task_to_event_subtask(
+                            core_subtask,
+                            &core_task.id,
+                        )
+                    })
+                    .collect();
+
+                // Convert core task to runtime task and attach subtasks
+                let mut runtime_task = core_task_to_runtime_task(core_task);
+                runtime_task.subtasks = Some(subtasks);
+                runtime_task
+            })
             .collect();
 
         Ok(AgentSessionRuntimeDetails {

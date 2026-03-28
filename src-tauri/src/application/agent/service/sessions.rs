@@ -32,6 +32,7 @@ impl AgentServiceImpl {
             request.conversation_id,
             request.thread_id,
             workspace_root,
+            request.model_id,
         );
 
         let core_session: CoreAgentSession = session.clone().into();

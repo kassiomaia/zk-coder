@@ -14,6 +14,7 @@ pub fn make_test_session(store: &SqliteSessionRepository) -> SessionId {
         "conv-1".to_string(),
         "thread-1".to_string(),
         None,
+        None,
     );
     let session_id = session.id.clone();
     store.create_session(&session).unwrap();
@@ -31,6 +32,7 @@ pub fn make_test_task(store: &SqliteSessionRepository, task_id: &str, session_id
         status: TaskStatus::Pending,
         order: 0,
         mode: Some(TaskMode::FullAccess),
+        needs_review: false,
     };
     TaskRepository::create_task(store, &task).unwrap();
 }

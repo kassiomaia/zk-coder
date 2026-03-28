@@ -11,3 +11,7 @@ pub mod read_models;
 pub mod service;
 
 pub use service::AgentServiceImpl;
+
+#[cfg(test)]
+#[path = "integration_tests.rs"]
+mod integration_tests;

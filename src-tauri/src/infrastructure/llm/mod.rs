@@ -6,6 +6,7 @@
 
 pub mod anthropic;
 pub mod error;
+pub mod mock;
 pub mod openai;
 pub mod streaming;
 

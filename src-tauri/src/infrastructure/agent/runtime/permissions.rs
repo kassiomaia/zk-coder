@@ -674,6 +674,7 @@ fn handle_plan_subtasks(
             status: crate::core::agent::entities::TaskStatus::Pending,
             order: idx as i32,
             mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
+            needs_review: false,
         };
 
         if let Err(e) = task_repo.create_subtask(task_id, &core_subtask) {
@@ -1312,6 +1313,7 @@ fn auto_decompose_failed_subtask(
             status: crate::core::agent::entities::TaskStatus::Pending,
             order: base_order + idx as i32,
             mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
+            needs_review: false,
         };
         if let Err(e) = task_repo.create_subtask(task_id, &core_subtask) {
             warn!("[AgentRuntime] Failed to auto-create decomposed subtask: {e}");
@@ -1358,7 +1360,10 @@ fn auto_decompose_failed_subtask(
     }
 }
 
-fn core_task_to_event_subtask(
+/// Convert a database agent task entity to an event subtask.
+///
+/// This is used when emitting subtask-related events to the frontend.
+pub fn core_task_to_event_subtask(
     task: crate::core::agent::entities::AgentTask,
     task_id: &str,
 ) -> crate::core::agent::task::SubTask {
@@ -1378,13 +1383,35 @@ fn core_task_to_event_subtask(
         }
     };
 
+    // Convert status from core entity to runtime type
+    let status = match task.status {
+        crate::core::agent::entities::TaskStatus::Pending => {
+            crate::core::agent::task::TaskStatus::Pending
+        }
+        crate::core::agent::entities::TaskStatus::InProgress => {
+            crate::core::agent::task::TaskStatus::InProgress
+        }
+        crate::core::agent::entities::TaskStatus::Completed => {
+            crate::core::agent::task::TaskStatus::Completed
+        }
+        crate::core::agent::entities::TaskStatus::Failed => {
+            crate::core::agent::task::TaskStatus::Failed
+        }
+        crate::core::agent::entities::TaskStatus::Cancelled => {
+            crate::core::agent::task::TaskStatus::Cancelled
+        }
+        crate::core::agent::entities::TaskStatus::Aborted => {
+            crate::core::agent::task::TaskStatus::Cancelled
+        }
+    };
+
     crate::core::agent::task::SubTask {
         id: task.id,
         task_id: task.parent_task_id.unwrap_or_else(|| task_id.to_string()),
         title: task.title,
         description: task.description,
         mode,
-        status: crate::core::agent::task::TaskStatus::Pending,
+        status,
         order: task.order,
         created_at: Utc::now(),
         started_at: None,

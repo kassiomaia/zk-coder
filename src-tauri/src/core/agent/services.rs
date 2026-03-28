@@ -18,6 +18,8 @@ pub struct CreateSessionRequest {
     pub thread_id: String,
     /// Optional workspace root
     pub workspace_root: Option<String>,
+    /// Cached model_id from conversation settings
+    pub model_id: Option<String>,
 }
 
 /// Request to send to an agent session.

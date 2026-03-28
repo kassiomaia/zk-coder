@@ -71,6 +71,7 @@ fn create_test_session(
         conversation_id: conversation_id.to_string(),
         thread_id: thread_id.to_string(),
         workspace_root: Some("/test/workspace".to_string()),
+        model_id: None,
     };
 
     service
@@ -135,6 +136,7 @@ fn test_create_session_success() {
         conversation_id: "conv-123".to_string(),
         thread_id: "thread-456".to_string(),
         workspace_root: Some("/workspace".to_string()),
+        model_id: None,
     };
 
     let result = service.create_session(request);
@@ -160,6 +162,7 @@ fn test_create_session_without_workspace() {
         conversation_id: "conv-123".to_string(),
         thread_id: "thread-456".to_string(),
         workspace_root: None,
+        model_id: None,
     };
 
     let result = service.create_session(request);
@@ -888,6 +891,7 @@ fn test_session_state_conversion_wait_for_request() {
         "conv-1".to_string(),
         "thread-1".to_string(),
         None,
+        None,
     );
     agents_session.set_state(crate::core::agent::session::SessionState::WaitForRequest {
         last_action_at: chrono::Utc::now(),
@@ -909,6 +913,7 @@ fn test_session_state_conversion_finished() {
         "Test Agent".to_string(),
         "conv-1".to_string(),
         "thread-1".to_string(),
+        None,
         None,
     );
     agents_session.set_state(crate::core::agent::session::SessionState::Finished {

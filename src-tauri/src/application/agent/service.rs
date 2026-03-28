@@ -6,6 +6,7 @@
 
 mod approvals;
 mod history;
+pub mod planner;
 mod recovery;
 mod registry;
 mod retry;

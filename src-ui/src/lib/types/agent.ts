@@ -14,7 +14,7 @@ export type AgentId = string;
 export type TrustMode = 'trusted' | 'untrusted' | 'restricted';
 
 /** Task execution status */
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'aborted';
 
 /** Permission level for tools */
 export type PermissionLevel = 'auto_run' | 'approval_required' | 'disabled';
@@ -158,16 +158,32 @@ export interface BackendAgentTask {
 	id: string;
 	sessionId: string;
 	request: { content: string };
+	title?: string; // LLM-generated title from single-shot planning
+	description?: string; // LLM-generated description
 	status: TaskStatus;
 	steps: unknown[];
 	subtasks?: SubTask[];
 	createdAt: string;
 	completedAt?: string;
+	needsReview?: boolean; // Flag for tasks that stopped mid-execution
 }
 
 /** Convert a backend task to the frontend AgentTask shape. */
 export function toAgentTask(bt: BackendAgentTask): AgentTask {
-	// Use the first line of the request as the title, full content as description
+	// Use the backend-provided title if available (from LLM planning)
+	// Otherwise fall back to truncating the request content (legacy behavior)
+	if (bt.title) {
+		return {
+			id: bt.id,
+			title: bt.title,
+			description: bt.description,
+			status: bt.status,
+			subtasks: bt.subtasks ?? [],
+			selected: false
+		};
+	}
+
+	// Legacy fallback: truncate first line
 	const content = bt.request.content;
 	const firstLine = content.split('\n')[0].slice(0, 80);
 	return {
@@ -175,7 +191,8 @@ export function toAgentTask(bt: BackendAgentTask): AgentTask {
 		title: firstLine || 'Task',
 		description: content.length > 80 ? content : undefined,
 		status: bt.status,
-		subtasks: bt.subtasks ?? []
+		subtasks: bt.subtasks ?? [],
+		selected: false
 	};
 }
 
@@ -408,3 +425,69 @@ export interface ExecutionResult {
 		totalTokens: number;
 	};
 }
+
+/**
+ * Check if a task is incomplete (still in progress or pending).
+ */
+export function isTaskIncomplete(task: AgentTask): boolean {
+	return task.status === 'pending' || task.status === 'in_progress';
+}
+
+/**
+ * Check if a session has any incomplete root tasks.
+ */
+export function hasIncompleteTasks(session: AgentSession): boolean {
+	if (!session.tasks || session.tasks.length === 0) {
+		return false;
+	}
+	// Only check root tasks (no parent), not subtasks
+	return session.tasks.some(
+		(task) => task.subtasks === undefined && isTaskIncomplete(task)
+	);
+}
+
+/**
+ * Get incomplete root task from a session, if any.
+ */
+export function getIncompleteTask(session: AgentSession): AgentTask | undefined {
+	if (!session.tasks || session.tasks.length === 0) {
+		return undefined;
+	}
+	return session.tasks.find(
+		(task) => task.subtasks === undefined && isTaskIncomplete(task)
+	);
+}
+
+/**
+ * Check if subtasks have any incomplete work.
+ */
+export function hasIncompleteSubtasks(task: AgentTask): boolean {
+	if (!task.subtasks || task.subtasks.length === 0) {
+		return false;
+	}
+	return task.subtasks.some((st) => st.status === 'pending' || st.status === 'in_progress');
+}
+
+/**
+ * Get a summary of completed vs incomplete subtasks.
+ */
+export function getSubtaskProgress(task: AgentTask): {
+	total: number;
+	completed: number;
+	pending: number;
+	inProgress: number;
+	failed: number;
+} {
+	if (!task.subtasks || task.subtasks.length === 0) {
+		return { total: 0, completed: 0, pending: 0, inProgress: 0, failed: 0 };
+	}
+
+	return {
+		total: task.subtasks.length,
+		completed: task.subtasks.filter((st) => st.status === 'completed').length,
+		pending: task.subtasks.filter((st) => st.status === 'pending').length,
+		inProgress: task.subtasks.filter((st) => st.status === 'in_progress').length,
+		failed: task.subtasks.filter((st) => st.status === 'failed').length
+	};
+}
+

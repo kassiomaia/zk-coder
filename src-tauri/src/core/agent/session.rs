@@ -45,6 +45,8 @@ pub struct AgentSession {
     pub state: SessionState,
     pub workspace_root: Option<PathBuf>,
     pub parent_session_id: Option<SessionId>,
+    /// Cached model_id from conversation settings
+    pub model_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -57,6 +59,7 @@ impl AgentSession {
         conversation_id: String,
         thread_id: String,
         workspace_root: Option<PathBuf>,
+        model_id: Option<String>,
     ) -> Self {
         let now = Utc::now();
         Self {
@@ -68,6 +71,7 @@ impl AgentSession {
             state: SessionState::Launching,
             workspace_root,
             parent_session_id: None,
+            model_id,
             created_at: now,
             updated_at: now,
         }

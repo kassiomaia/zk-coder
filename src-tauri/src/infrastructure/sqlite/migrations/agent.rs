@@ -17,6 +17,7 @@ pub fn init_schema(conn: &Connection) -> Result<(), SessionRepositoryError> {
             state TEXT NOT NULL,
             workspace_root TEXT,
             parent_session_id TEXT,
+            model_id TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
@@ -201,6 +202,12 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SessionRepositoryError> {
     // Migration 3: Add subtask_id column to agent_tool_calls
     let _ = conn.execute(
         "ALTER TABLE agent_tool_calls ADD COLUMN subtask_id TEXT REFERENCES agent_subtasks(id)",
+        [],
+    ); // Ignore error if column exists
+
+    // Migration 4: Add model_id column to agent_sessions
+    let _ = conn.execute(
+        "ALTER TABLE agent_sessions ADD COLUMN model_id TEXT",
         [],
     ); // Ignore error if column exists
 

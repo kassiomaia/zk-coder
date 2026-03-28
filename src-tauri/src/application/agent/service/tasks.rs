@@ -31,6 +31,7 @@ impl AgentServiceImpl {
                 status: crate::core::agent::entities::TaskStatus::Pending,
                 order: subtask.order,
                 mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
+                needs_review: false,
             },
         )?;
 

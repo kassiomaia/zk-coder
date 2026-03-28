@@ -12,3 +12,7 @@ pub mod termination;
 pub mod tool_phase;
 pub mod tracing;
 pub mod utils;
+
+#[cfg(test)]
+#[path = "bootstrap_tests.rs"]
+mod bootstrap_tests;

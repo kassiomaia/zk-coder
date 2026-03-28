@@ -1,6 +1,7 @@
 use tauri::Emitter;
 
 use crate::application::agent::conversions::core_session_to_agent_session;
+use crate::commands::ChatState;
 use crate::core::agent::services::{AgentService, CreateSessionRequest};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 
@@ -14,8 +15,20 @@ pub async fn create_agent_session(
     thread_id: String,
     workspace_root: Option<String>,
     state: tauri::State<'_, AgentState>,
+    chat_state: tauri::State<'_, ChatState>,
     app_handle: tauri::AppHandle,
 ) -> Result<crate::core::agent::session::AgentSession, String> {
+    // Fetch conversation to get model_id from settings
+    let model_id = match chat_state.service.load_conversation(&conversation_id) {
+        Ok(conversation) => Some(conversation.settings.model),
+        Err(e) => {
+            log::warn!(
+                "[Agent] Failed to load conversation {conversation_id} for model_id: {e}. Using default.",
+            );
+            None
+        }
+    };
+
     let session = state
         .service
         .create_session(CreateSessionRequest {
@@ -23,6 +36,7 @@ pub async fn create_agent_session(
             conversation_id,
             thread_id,
             workspace_root,
+            model_id,
         })
         .map_err(|e| e.to_string())?;
 

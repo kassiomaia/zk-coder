@@ -190,6 +190,7 @@ impl From<AgentSession> for CoreAgentSession {
             conversation_id: session.conversation_id,
             thread_id: session.thread_id,
             workspace_root: session.workspace_root,
+            model_id: session.model_id,
             state: session.state.into(),
             created_at: session.created_at,
         }
@@ -206,6 +207,7 @@ pub fn core_session_to_agent_session(session: CoreAgentSession) -> AgentSession 
         thread_id: session.thread_id,
         workspace_root: session.workspace_root,
         parent_session_id: None,
+        model_id: session.model_id,
         state: match session.state {
             CoreSessionState::WaitForRequest { last_action_at } => {
                 SessionState::WaitForRequest { last_action_at }
@@ -315,6 +317,7 @@ impl From<CoreTaskStatus> for TaskStatus {
             CoreTaskStatus::Completed => TaskStatus::Completed,
             CoreTaskStatus::Failed => TaskStatus::Failed,
             CoreTaskStatus::Cancelled => TaskStatus::Cancelled,
+            CoreTaskStatus::Aborted => TaskStatus::Cancelled,
         }
     }
 }
@@ -334,6 +337,7 @@ impl From<SubTask> for CoreAgentTask {
             status: subtask.status.into(),
             order: subtask.order,
             mode: Some(subtask.mode.into()),
+            needs_review: false,
         }
     }
 }

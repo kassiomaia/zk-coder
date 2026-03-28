@@ -63,6 +63,7 @@ mod tests {
             order: 1,
             status: TaskStatus::Pending,
             mode: Some(TaskMode::Read),
+            needs_review: false,
         };
 
         let summary = SubtaskSummary::from_subtask(&subtask);
@@ -83,6 +84,7 @@ mod tests {
             mode: Some(TaskMode::Read),
             status: TaskStatus::Pending,
             order: 0,
+            needs_review: false,
         };
 
         for status in &[
@@ -91,6 +93,7 @@ mod tests {
             TaskStatus::Completed,
             TaskStatus::Failed,
             TaskStatus::Cancelled,
+            TaskStatus::Aborted,
         ] {
             let mut subtask = subtask_base.clone();
             subtask.status = status.clone();
@@ -110,6 +113,7 @@ mod tests {
             mode: Some(TaskMode::Read),
             status: TaskStatus::Pending,
             order: 0,
+            needs_review: false,
         };
 
         for mode in &[
@@ -137,6 +141,7 @@ mod tests {
                 order,
                 status: TaskStatus::Pending,
                 mode: Some(TaskMode::Read),
+                needs_review: false,
             };
 
             let summary = SubtaskSummary::from_subtask(&subtask);
@@ -177,6 +182,7 @@ mod tests {
             order: 1,
             status: TaskStatus::Pending,
             mode: Some(TaskMode::Read),
+            needs_review: false,
         };
 
         let summary1 = SubtaskSummary::from_subtask(&subtask);
