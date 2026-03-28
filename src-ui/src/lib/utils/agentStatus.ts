@@ -57,6 +57,8 @@ export function stateToStatus(state: SessionState): AgentStatus {
 			return { text: 'Ready', icon: 'check', active: false };
 		case 'user_input_required':
 			return { text: 'Waiting for your approval...', icon: 'wait', active: true };
+		case 'paused':
+			return { text: state.message || 'Paused', icon: 'wait', active: false };
 		case 'finished':
 			return { text: 'Task completed', icon: 'check', active: false };
 		case 'cancelled':

@@ -1,63 +1,64 @@
-//! Chat domain entities.
+//! Defines the core domain entities for the chat module.
 //!
-//! These are the core data structures for conversations, threads, and messages.
-//! They are pure data types with no dependencies on storage or external services.
+//! These data structures represent the fundamental concepts of the chat system,
+//! such as conversations, threads, and messages. They are pure data types and
+//! have no dependencies on storage or external services.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Priority level for a thread.
+/// Represents the priority level for a thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ThreadPriority {
-    /// Low priority
+    /// Low priority.
     Low,
-    /// Medium priority (default)
+    /// Medium priority (the default).
     #[default]
     Medium,
-    /// High priority
+    /// High priority.
     High,
 }
 
-/// Feedback type for a message (like/dislike).
+/// Represents user feedback on a message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageFeedback {
-    /// User liked the response
+    /// The user liked the response.
     Like,
-    /// User disliked the response
+    /// The user disliked the response.
     Dislike,
 }
 
-/// Status of a message.
+/// Represents the status of a message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageStatus {
-    /// Message is being sent
+    /// The message is in the process of being sent.
     Sending,
-    /// Message has been sent
+    /// The message has been sent (the default).
     #[default]
     Sent,
-    /// Message has been delivered
+    /// The message has been delivered to the recipient.
     Delivered,
-    /// Message failed to send
+    /// The message failed to send.
     Error,
 }
 
-/// Role of a message sender.
+/// Represents the role of the sender of a message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageRole {
-    /// User message
+    /// A message sent by the user.
     User,
-    /// Assistant/AI message
+    /// A message sent by the assistant or AI.
     Assistant,
-    /// System message
+    /// A system-level message.
     System,
 }
 
 impl MessageRole {
-    /// Converts the role to a string for database storage.
+    /// Converts the message role to a string slice for database storage.
     #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -67,7 +68,7 @@ impl MessageRole {
         }
     }
 
-    /// Creates a role from a string.
+    /// Creates a `MessageRole` from a string slice.
     #[must_use]
     pub fn from_str(s: &str) -> Self {
         match s {
@@ -78,46 +79,46 @@ impl MessageRole {
     }
 }
 
-/// Additional metadata for a message.
+/// Additional metadata associated with a message.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageMetadata {
-    /// Detected intent from NLP
+    /// The intent detected by the NLP system.
     pub intent: Option<String>,
-    /// Confidence score of intent detection (0-1)
+    /// The confidence score of the intent detection, from 0 to 1.
     pub confidence: Option<f64>,
-    /// Token count for the message
+    /// The number of tokens in the message.
     pub tokens: Option<usize>,
-    /// AI model used for generation
+    /// The AI model that was used for generation.
     pub model: Option<String>,
-    /// User feedback on the message (like/dislike)
+    /// User feedback on the message, if any.
     pub feedback: Option<MessageFeedback>,
 }
 
-/// Represents a single chat message.
+/// Represents a single message in a chat.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatMessage {
-    /// Unique identifier for the message
+    /// The unique identifier for the message.
     pub id: String,
-    /// ID of the conversation this message belongs to
+    /// The ID of the conversation this message belongs to.
     pub conversation_id: String,
-    /// ID of the thread this message belongs to (optional)
+    /// The ID of the thread this message belongs to, if any.
     pub thread_id: Option<String>,
-    /// Role of the message sender
+    /// The role of the message sender.
     pub role: MessageRole,
-    /// Message content
+    /// The content of the message.
     pub content: String,
-    /// When the message was sent
+    /// The timestamp of when the message was sent.
     pub timestamp: DateTime<Utc>,
-    /// Current status of the message
+    /// The current status of the message.
     pub status: MessageStatus,
-    /// Optional metadata about the message
+    /// Optional metadata about the message.
     pub metadata: Option<MessageMetadata>,
 }
 
 impl ChatMessage {
-    /// Creates a new user message.
+    /// Creates a new message with the `User` role.
     #[must_use]
     pub fn user(conversation_id: &str, content: &str) -> Self {
         Self {
@@ -132,7 +133,7 @@ impl ChatMessage {
         }
     }
 
-    /// Creates a new assistant message.
+    /// Creates a new message with the `Assistant` role.
     #[must_use]
     pub fn assistant(conversation_id: &str, content: &str) -> Self {
         Self {
@@ -147,7 +148,7 @@ impl ChatMessage {
         }
     }
 
-    /// Creates a new system message.
+    /// Creates a new message with the `System` role.
     #[must_use]
     pub fn system(conversation_id: &str, content: &str) -> Self {
         Self {
@@ -169,7 +170,7 @@ impl ChatMessage {
         self
     }
 
-    /// Sets the message status.
+    /// Sets the status for this message.
     #[must_use]
     pub fn with_status(mut self, status: MessageStatus) -> Self {
         self.status = status;
@@ -177,51 +178,51 @@ impl ChatMessage {
     }
 }
 
-/// Metadata for a thread.
+/// Additional metadata associated with a thread.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadMetadata {
-    /// Whether the thread has been resolved
+    /// A flag indicating whether the thread has been resolved.
     pub resolved: bool,
-    /// Whether the thread has been archived
+    /// A flag indicating whether the thread has been archived.
     #[serde(default)]
     pub archived: bool,
-    /// Tags associated with the thread
+    /// A list of tags associated with the thread.
     pub tags: Vec<String>,
-    /// Priority level of the thread
+    /// The priority level of the thread.
     pub priority: ThreadPriority,
-    /// Detected intent for the thread
+    /// The detected intent for the thread.
     pub intent: Option<String>,
-    /// Summary of the thread
+    /// A summary of the thread's content.
     pub summary: Option<String>,
-    /// ID of the associated agent session (if any)
+    /// The ID of the agent session associated with this thread, if any.
     pub agent_session_id: Option<String>,
 }
 
-/// Represents a thread within a conversation.
+/// Represents a thread of conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Thread {
-    /// Unique identifier for the thread
+    /// The unique identifier for the thread.
     pub id: String,
-    /// ID of the parent conversation
+    /// The ID of the parent conversation.
     pub conversation_id: String,
-    /// ID of the parent thread (for nested threads)
+    /// The ID of the parent thread, for nested threads.
     pub parent_id: Option<String>,
-    /// Title/topic of the thread
+    /// The title or topic of the thread.
     pub title: String,
-    /// When the thread was created
+    /// The timestamp of when the thread was created.
     pub created_at: DateTime<Utc>,
-    /// When the thread was last updated
+    /// The timestamp of when the thread was last updated.
     pub updated_at: DateTime<Utc>,
-    /// Number of messages in the thread
+    /// The number of messages in the thread.
     pub message_count: usize,
-    /// Additional metadata about the thread
+    /// Additional metadata about the thread.
     pub metadata: ThreadMetadata,
 }
 
 impl Thread {
-    /// Creates a new thread.
+    /// Creates a new `Thread` with the given conversation ID and title.
     #[must_use]
     pub fn new(conversation_id: &str, title: &str) -> Self {
         Self {
@@ -236,42 +237,45 @@ impl Thread {
         }
     }
 
-    /// Checks if the thread is resolved.
+    /// Checks if the thread is marked as resolved.
     #[must_use]
     pub fn is_resolved(&self) -> bool {
         self.metadata.resolved
     }
 }
 
-/// Settings for a conversation.
+/// Represents the settings for a conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConversationSettings {
-    /// AI model to use
+    /// The AI model to be used for the conversation.
     #[serde(default = "default_model")]
     pub model: String,
-    /// Temperature for response generation
+    /// The temperature setting for response generation.
     #[serde(default = "default_temperature")]
     pub temperature: f32,
-    /// Maximum tokens for responses
+    /// The maximum number of tokens for responses.
     #[serde(default = "default_max_tokens")]
     pub max_tokens: u32,
-    /// Custom system prompt
+    /// A custom system prompt for the conversation.
     #[serde(default)]
     pub system_prompt: Option<String>,
-    /// Workspace directory for agent operations
+    /// The workspace directory for agent operations.
     #[serde(default)]
     pub workspace_root: Option<String>,
 }
 
+/// Returns the default model for a conversation.
 fn default_model() -> String {
     "claude-sonnet-4-20250514".to_string()
 }
 
+/// Returns the default temperature for a conversation.
 fn default_temperature() -> f32 {
     0.7
 }
 
+/// Returns the default maximum tokens for a conversation.
 fn default_max_tokens() -> u32 {
     4096
 }
@@ -288,27 +292,27 @@ impl Default for ConversationSettings {
     }
 }
 
-/// Represents a full conversation with its threads.
+/// Represents a full conversation, which can contain multiple threads.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Conversation {
-    /// Unique identifier for the conversation
+    /// The unique identifier for the conversation.
     pub id: String,
-    /// Title of the conversation
+    /// The title of the conversation.
     pub title: String,
-    /// When the conversation was created
+    /// The timestamp of when the conversation was created.
     pub created_at: DateTime<Utc>,
-    /// When the conversation was last updated
+    /// The timestamp of when the conversation was last updated.
     pub updated_at: DateTime<Utc>,
-    /// Whether the conversation has been archived
+    /// A flag indicating whether the conversation has been archived.
     #[serde(default)]
     pub archived: bool,
-    /// Settings for this conversation
+    /// The settings for this conversation.
     pub settings: ConversationSettings,
 }
 
 impl Conversation {
-    /// Creates a new conversation.
+    /// Creates a new `Conversation` with the given title.
     #[must_use]
     pub fn new(title: &str) -> Self {
         Self {
@@ -321,7 +325,7 @@ impl Conversation {
         }
     }
 
-    /// Creates a new conversation with a custom ID.
+    /// Creates a new `Conversation` with a custom ID and title.
     #[must_use]
     pub fn with_id(id: &str, title: &str) -> Self {
         Self {
@@ -335,19 +339,34 @@ impl Conversation {
     }
 }
 
-/// Error type for chat domain operations.
+/// Represents an error that can occur during chat domain operations.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChatDomainError {
-    /// Thread is resolved and cannot accept new messages
-    ThreadResolved { thread_title: String },
-    /// Conversation not found
-    ConversationNotFound { id: String },
-    /// Thread not found
-    ThreadNotFound { id: String },
-    /// Message not found
-    MessageNotFound { id: String },
-    /// Invalid input
-    InvalidInput { reason: String },
+    /// The thread is resolved and cannot accept new messages.
+    ThreadResolved {
+        /// The title of the resolved thread.
+        thread_title: String,
+    },
+    /// The specified conversation was not found.
+    ConversationNotFound {
+        /// The ID of the conversation that was not found.
+        id: String,
+    },
+    /// The specified thread was not found.
+    ThreadNotFound {
+        /// The ID of the thread that was not found.
+        id: String,
+    },
+    /// The specified message was not found.
+    MessageNotFound {
+        /// The ID of the message that was not found.
+        id: String,
+    },
+    /// The input provided for an operation was invalid.
+    InvalidInput {
+        /// A description of the reason for the invalid input.
+        reason: String,
+    },
 }
 
 impl std::fmt::Display for ChatDomainError {

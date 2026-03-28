@@ -312,39 +312,55 @@ impl OpenAiClient {
 
         // Extract content and structured tool calls from first choice.
         // For models like GLM-5, fall back to reasoning_content if content is empty.
-        let (content, tool_calls) = openai_response
+        let message = openai_response
             .choices
             .first()
             .and_then(|c| c.message.as_ref())
-            .map(|m| {
-                // Use reasoning_content as fallback for models that show thinking before answering
-                let content = m
-                    .content
-                    .clone()
-                    .or(m.reasoning_content.clone())
-                    .unwrap_or_default();
-                let tool_calls = m
-                    .tool_calls
-                    .as_ref()
-                    .map(|calls| calls.iter())
-                    .into_iter()
-                    .flatten()
-                    .map(|call| {
-                        let arguments =
-                            serde_json::from_str::<serde_json::Value>(&call.function.arguments)
-                                .unwrap_or_else(|_| {
-                                    serde_json::Value::String(call.function.arguments.clone())
-                                });
-                        ToolCall {
-                            id: call.id.clone(),
-                            name: call.function.name.clone(),
-                            arguments,
-                        }
+            .ok_or_else(|| LlmError::parse("No message in response"))?;
+
+        // Use reasoning_content as fallback for models that show thinking before answering
+        let content = message
+            .content
+            .clone()
+            .or(message.reasoning_content.clone())
+            .unwrap_or_default();
+
+        // Parse tool calls with proper error handling
+        let tool_calls = if let Some(calls) = &message.tool_calls {
+            calls
+                .iter()
+                .map(|call| -> Result<ToolCall, LlmError> {
+                    let arguments =
+                        match serde_json::from_str::<serde_json::Value>(&call.function.arguments) {
+                            Ok(value) => value,
+                            Err(e) => {
+                                let truncated = if call.function.arguments.len() > 500 {
+                                    format!("{}...", &call.function.arguments[..500])
+                                } else {
+                                    call.function.arguments.clone()
+                                };
+                                log::error!(
+                                    "Failed to parse tool arguments for '{}': {}. Arguments: {}",
+                                    call.function.name,
+                                    e,
+                                    truncated
+                                );
+                                return Err(LlmError::parse(format!(
+                                    "Provider returned malformed tool arguments for '{}': {}. Arguments JSON could not be parsed.",
+                                    call.function.name, e
+                                )));
+                            }
+                        };
+                    Ok(ToolCall {
+                        id: call.id.clone(),
+                        name: call.function.name.clone(),
+                        arguments,
                     })
-                    .collect::<Vec<_>>();
-                (content, tool_calls)
-            })
-            .unwrap_or_else(|| (String::new(), Vec::new()));
+                })
+                .collect::<Result<Vec<_>, _>>()?
+        } else {
+            Vec::new()
+        };
 
         let finish_reason = openai_response
             .choices

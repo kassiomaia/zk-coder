@@ -1,7 +1,7 @@
-//! Application layer for chat functionality.
+//! Provides the application layer for chat functionality.
 //!
-//! This module provides the service layer that orchestrates business logic
-//! between the core domain and the storage infrastructure.
+//! This module contains the service layer that orchestrates the business logic
+//! between the core chat domain and the underlying storage infrastructure.
 
 mod service;
 

@@ -1,22 +1,24 @@
-//! Code understanding types for analysis.
+//! Defines types for understanding and analyzing the structure of code.
 //!
-//! This module defines types for understanding and analyzing code.
+//! This module provides the data structures needed to represent the results of
+//! code analysis, including information about the programming language, code
+//! structure, and complexity metrics.
 
 use serde::{Deserialize, Serialize};
 
-/// Information extracted from code analysis.
+/// Represents the comprehensive result of a code analysis.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodeUnderstanding {
-    /// Detected language
+    /// The programming language that was detected.
     pub language: ProgrammingLanguage,
-    /// Code structure
+    /// The structural elements of the code, such as functions and classes.
     pub structure: CodeStructure,
-    /// Complexity metrics
+    /// The complexity metrics calculated for the code.
     pub complexity: ComplexityMetrics,
 }
 
 impl CodeUnderstanding {
-    /// Creates a new code understanding result.
+    /// Creates a new `CodeUnderstanding` result.
     #[must_use]
     pub fn new(
         language: ProgrammingLanguage,
@@ -31,24 +33,24 @@ impl CodeUnderstanding {
     }
 }
 
-/// Supported programming languages.
+/// An enum representing the supported programming languages.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum ProgrammingLanguage {
-    /// Rust
+    /// The Rust programming language.
     Rust,
-    /// TypeScript
+    /// The TypeScript programming language.
     TypeScript,
-    /// JavaScript
+    /// The JavaScript programming language.
     JavaScript,
-    /// Python
+    /// The Python programming language.
     Python,
-    /// Unknown language
+    /// An unknown or unsupported programming language.
     Unknown,
 }
 
 impl ProgrammingLanguage {
-    /// Returns the file extension for this language.
+    /// Returns the typical file extension for this language.
     #[must_use]
     pub const fn extension(&self) -> &'static str {
         match self {
@@ -60,7 +62,7 @@ impl ProgrammingLanguage {
         }
     }
 
-    /// Detects language from file extension.
+    /// Detects the programming language from a file extension.
     #[must_use]
     pub fn from_extension(ext: &str) -> Self {
         match ext.to_lowercase().as_str() {
@@ -72,7 +74,7 @@ impl ProgrammingLanguage {
         }
     }
 
-    /// Returns a human-readable name.
+    /// Returns a human-readable name for the programming language.
     #[must_use]
     pub const fn name(&self) -> &'static str {
         match self {
@@ -85,48 +87,48 @@ impl ProgrammingLanguage {
     }
 }
 
-/// Structure of code.
+/// Represents the structural elements of a piece of code.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CodeStructure {
-    /// Functions found
+    /// A list of functions found in the code.
     pub functions: Vec<FunctionInfo>,
-    /// Classes/structs found
+    /// A list of classes or structs found in the code.
     pub classes: Vec<ClassInfo>,
-    /// Import statements
+    /// A list of import statements found in the code.
     pub imports: Vec<String>,
 }
 
 impl CodeStructure {
-    /// Returns true if no structure was found.
+    /// Returns `true` if no structural elements were found.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.functions.is_empty() && self.classes.is_empty() && self.imports.is_empty()
     }
 
-    /// Returns the total number of items.
+    /// Returns the total number of structural items found.
     #[must_use]
     pub fn len(&self) -> usize {
         self.functions.len() + self.classes.len() + self.imports.len()
     }
 }
 
-/// Information about a function.
+/// Information about a function found in the code.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionInfo {
-    /// Function name
+    /// The name of the function.
     pub name: String,
-    /// Parameter names (simplified)
+    /// A simplified list of the function's parameter names.
     pub parameters: Vec<String>,
-    /// Return type if known
+    /// The return type of the function, if known.
     pub return_type: Option<String>,
-    /// Start line (0-indexed)
+    /// The starting line number of the function (0-indexed).
     pub line_start: usize,
-    /// End line (0-indexed)
+    /// The ending line number of the function (0-indexed).
     pub line_end: usize,
 }
 
 impl FunctionInfo {
-    /// Creates a new function info.
+    /// Creates a new `FunctionInfo`.
     #[must_use]
     pub fn new(name: &str, line_start: usize, line_end: usize) -> Self {
         Self {
@@ -138,28 +140,28 @@ impl FunctionInfo {
         }
     }
 
-    /// Returns the number of lines.
+    /// Returns the number of lines in the function.
     #[must_use]
     pub const fn line_count(&self) -> usize {
         self.line_end.saturating_sub(self.line_start) + 1
     }
 }
 
-/// Information about a class/struct.
+/// Information about a class or struct found in the code.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClassInfo {
-    /// Class name
+    /// The name of the class or struct.
     pub name: String,
-    /// Methods
+    /// A list of methods within the class or struct.
     pub methods: Vec<FunctionInfo>,
-    /// Start line (0-indexed)
+    /// The starting line number of the class or struct (0-indexed).
     pub line_start: usize,
-    /// End line (0-indexed)
+    /// The ending line number of the class or struct (0-indexed).
     pub line_end: usize,
 }
 
 impl ClassInfo {
-    /// Creates a new class info.
+    /// Creates a new `ClassInfo`.
     #[must_use]
     pub fn new(name: &str, line_start: usize, line_end: usize) -> Self {
         Self {
@@ -171,19 +173,19 @@ impl ClassInfo {
     }
 }
 
-/// Complexity metrics for code.
+/// A set of complexity metrics for a piece of code.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplexityMetrics {
-    /// Cyclomatic complexity
+    /// The cyclomatic complexity score.
     pub cyclomatic: usize,
-    /// Lines of code
+    /// The number of lines of code.
     pub lines: usize,
-    /// Maximum nesting depth
+    /// The maximum nesting depth.
     pub nesting: usize,
 }
 
 impl ComplexityMetrics {
-    /// Creates a new complexity metrics.
+    /// Creates a new `ComplexityMetrics`.
     #[must_use]
     pub const fn new(cyclomatic: usize, lines: usize, nesting: usize) -> Self {
         Self {
@@ -193,7 +195,7 @@ impl ComplexityMetrics {
         }
     }
 
-    /// Returns a complexity rating.
+    /// Returns a `ComplexityRating` based on the cyclomatic complexity.
     #[must_use]
     pub const fn rating(&self) -> ComplexityRating {
         if self.cyclomatic <= 5 {
@@ -214,22 +216,22 @@ impl Default for ComplexityMetrics {
     }
 }
 
-/// Complexity rating levels.
+/// The different levels of complexity rating.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ComplexityRating {
-    /// Low complexity (1-5)
+    /// Low complexity (cyclomatic score of 1-5).
     Low,
-    /// Medium complexity (6-15)
+    /// Medium complexity (cyclomatic score of 6-15).
     Medium,
-    /// High complexity (16-25)
+    /// High complexity (cyclomatic score of 16-25).
     High,
-    /// Very high complexity (26+)
+    /// Very high complexity (cyclomatic score of 26+).
     VeryHigh,
 }
 
 impl ComplexityRating {
-    /// Returns a human-readable label.
+    /// Returns a human-readable label for the complexity rating.
     #[must_use]
     pub const fn label(&self) -> &'static str {
         match self {

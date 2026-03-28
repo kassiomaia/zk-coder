@@ -441,11 +441,34 @@ function createChatStore() {
 			if (id) {
 				// Check if thread has an agent session and activate it
 				const thread = get({ subscribe }).threads.find((t) => t.id === id);
+				let pausedSessionRecoveryMessage: Message | null = null;
+
+				console.log('[chatStore] selectThread:', { threadId: id, hasAgentSession: !!thread?.metadata.agentSessionId, agentSessionId: thread?.metadata.agentSessionId });
+
 				if (thread?.metadata.agentSessionId) {
 					// Load the session from backend before setting as active
 					const session = await agentStore.loadSession(thread.metadata.agentSessionId);
+					console.log('[chatStore] Loaded session:', session ? { id: session.id, state: session.state } : null);
 					if (session) {
 						agentStore.setActiveSession(thread.metadata.agentSessionId);
+
+						// Check if session is paused and create recovery message
+						if (session.state.type === 'paused') {
+							console.log('[chatStore] Creating recovery message for paused session');
+							pausedSessionRecoveryMessage = {
+								id: `recovery-${session.id}`,
+								conversationId: thread.conversationId,
+								threadId: id,
+								role: 'assistant',
+								kind: 'recovery',
+								content: session.state.message,
+								timestamp: new Date(session.state.pausedAt),
+								agentData: {
+									sessionId: session.id,
+									recoveryResolved: false
+								}
+							};
+						}
 					}
 				} else {
 					// Thread has no agent session - clear active session
@@ -453,7 +476,17 @@ function createChatStore() {
 				}
 
 				try {
-					const loadedMessages = await loadThreadMessages(id);
+					let loadedMessages = await loadThreadMessages(id);
+
+					// Add recovery message if session is paused (avoid duplicates)
+					if (pausedSessionRecoveryMessage) {
+						const hasRecoveryMessage = loadedMessages.some(
+							(m) => m.id === pausedSessionRecoveryMessage?.id
+						);
+						if (!hasRecoveryMessage) {
+							loadedMessages = [...loadedMessages, pausedSessionRecoveryMessage];
+						}
+					}
 					update((state) => {
 						const threadStream = state.threadStreaming[id];
 						if (!threadStream?.isStreaming) {

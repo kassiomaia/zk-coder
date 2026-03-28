@@ -1,4 +1,8 @@
-//! Application services for execution observability.
+//! Provides application services for observing and managing agent execution.
+//!
+//! This module contains the components responsible for coordinating the different
+//! phases of an agent's execution, handling state transitions, and tracing the
+//! runtime behavior of the agent.
 
 pub mod bootstrap;
 pub mod coordinator;

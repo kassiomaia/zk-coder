@@ -135,7 +135,10 @@
 							>
 								<span class={styles.headerLabel}>{column.label}</span>
 								<span class={styles.sortIcon}>
-									<svelte:component this={getSortIcon(column)} size={12} strokeWidth={2} />
+									{@const SortIcon = getSortIcon(column)}
+									{#if SortIcon}
+										<SortIcon size={12} strokeWidth={2} />
+									{/if}
 								</span>
 							</button>
 						{:else}
@@ -163,7 +166,7 @@
 							>
 								{#if typeof row.cells[column.key] === 'string'}
 									<span class={styles.cellContent}>{row.cells[column.key]}</span>
-								{:else}
+								{:else if typeof row.cells[column.key] === 'function'}
 									<span class={styles.cellContent}>{@render row.cells[column.key]()}</span>
 								{/if}
 							</td>

@@ -107,6 +107,11 @@ pub enum SessionState {
         error_at: DateTime<Utc>,
         error: String,
     },
+    /// Session paused - work was saved and can be continued
+    Paused {
+        paused_at: DateTime<Utc>,
+        message: String,
+    },
     /// Session was cancelled
     Cancelled {
         cancelled_at: DateTime<Utc>,

@@ -211,12 +211,8 @@
 			overviewRulerBorder: false,
 			renderOverviewRuler: false
 		});
-		
-		// Add wheel listener for zoom
-		diffEditor.getModifiedEditor().onMouseWheel(handleWheel);
-		diffEditor.getOriginalEditor().onMouseWheel(handleWheel);
-		
-		// Also add native listener to handle the preventDefault more reliably
+
+		// Add native wheel listener for zoom control
 		container.addEventListener('wheel', handleWheel, { passive: false });
 		
 		updateDiffModels();
@@ -251,11 +247,8 @@
 			overviewRulerBorder: false,
 			hideCursorInOverviewRuler: true
 		});
-		
-		// Add wheel listener for zoom
-		codeEditor.onMouseWheel(handleWheel);
-		
-		// Also add native listener to handle the preventDefault more reliably
+
+		// Add native wheel listener for zoom control
 		container.addEventListener('wheel', handleWheel, { passive: false });
 		
 		updateCodeModel();

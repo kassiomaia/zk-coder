@@ -134,6 +134,7 @@ export type SessionState =
 	| { type: 'running'; currentStep: number; contextUsage: number }
 	| { type: 'wait_for_request'; lastActionAt: string }
 	| { type: 'user_input_required'; pendingActionIds: string[] }
+	| { type: 'paused'; pausedAt: string; message: string; currentSubtaskId?: string }
 	| { type: 'finished'; completedAt: string }
 	| { type: 'cancelled'; reason: string }
 	| { type: 'error'; message: string; recoverable: boolean };
@@ -301,6 +302,9 @@ export interface ActionPreview {
 export type AgentEvent =
 	| { type: 'session_created'; sessionId: string; agentId: string }
 	| { type: 'session_state_changed'; sessionId: string; state: SessionState }
+	| { type: 'session_paused'; sessionId: string; message: string; pausedAt: string; currentSubtaskId?: string }
+	| { type: 'recovery_continue'; sessionId: string }
+	| { type: 'recovery_replan'; sessionId: string }
 	| { type: 'execution_started'; sessionId: string; requestId: string }
 	| { type: 'execution_step'; sessionId: string; step: ExecutionStep }
 	| {

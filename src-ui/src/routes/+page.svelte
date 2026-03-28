@@ -121,6 +121,14 @@
 		await agentStore.retryLastRequest(sessionId);
 	}
 
+	async function handleContinueExecution(sessionId: string) {
+		await agentStore.continueExecution(sessionId);
+	}
+
+	async function handleReplanExecution(sessionId: string) {
+		await agentStore.replanExecution(sessionId);
+	}
+
 	async function handleSetConversationWorkspace(path: string) {
 		console.debug('[+page] handleSetConversationWorkspace called:', { path });
 		const conversation = $selectedConversation;
@@ -815,6 +823,8 @@
 		onSelectSession={handleSelectSession}
 		onCreateSession={handleCreateSession}
 		onRetryLastRequest={handleRetryLastRequest}
+		onContinueExecution={handleContinueExecution}
+		onReplanExecution={handleReplanExecution}
 		conversationWorkspace={$selectedConversation?.settings.workspaceRoot}
 		onSetConversationWorkspace={handleSetConversationWorkspace}
 	/>

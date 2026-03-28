@@ -1,66 +1,68 @@
-//! Chat repository interfaces.
+//! Defines the repository interfaces for the chat module.
 //!
-//! These traits define the storage operations for chat entities.
-//! Implementations are provided by the infrastructure layer.
+//! These traits outline the storage and retrieval operations for chat entities,
+//! such as conversations, threads, and messages. The actual implementations
+//! are provided by the infrastructure layer, decoupling the core domain logic
+//! from the specific persistence mechanism.
 
 use super::entities::{
     ChatDomainError, ChatMessage, Conversation, ConversationSettings, MessageFeedback, MessageRole,
     MessageStatus, Thread,
 };
 
-/// Result type for repository operations.
+/// A specialized `Result` type for chat repository operations.
 pub type RepositoryResult<T> = Result<T, ChatDomainError>;
 
-/// Repository for conversation operations.
+/// A repository for managing `Conversation` data.
 pub trait ChatRepository: Send + Sync {
-    /// Creates a new conversation.
+    /// Creates a new conversation with the given title.
     fn create_conversation(&self, title: &str) -> RepositoryResult<Conversation>;
 
-    /// Loads a conversation by ID.
+    /// Loads a conversation by its unique ID.
     fn load_conversation(&self, id: &str) -> RepositoryResult<Conversation>;
 
-    /// Loads all conversations, sorted by update time (newest first).
+    /// Loads all conversations, sorted by their last update time (newest first).
     fn load_all_conversations(&self) -> RepositoryResult<Vec<Conversation>>;
 
-    /// Updates a conversation's title.
+    /// Updates the title of a conversation.
     fn update_conversation_title(&self, id: &str, title: &str) -> RepositoryResult<Conversation>;
 
-    /// Deletes a conversation and all its threads and messages.
+    /// Deletes a conversation and all of its associated threads and messages.
     fn delete_conversation(&self, id: &str) -> RepositoryResult<()>;
 
-    /// Updates a conversation's settings.
+    /// Updates the settings for a conversation.
     fn update_conversation_settings(
         &self,
         id: &str,
         settings: &ConversationSettings,
     ) -> RepositoryResult<Conversation>;
 
-    /// Updates a conversation's workspace root.
+    /// Updates the workspace root directory for a conversation.
     fn update_conversation_workspace(
         &self,
         id: &str,
         workspace_root: &str,
     ) -> RepositoryResult<Conversation>;
 
-    /// Updates a conversation's archived status.
+    /// Updates the archived status of a conversation.
     fn update_conversation_archived(&self, id: &str, archived: bool) -> RepositoryResult<()>;
 }
 
-/// Repository for thread operations.
+/// A repository for managing `Thread` data.
 pub trait ThreadRepository: Send + Sync {
-    /// Creates a new thread in a conversation.
+    /// Creates a new thread within a conversation.
     fn create_thread(&self, conversation_id: &str, title: &str) -> RepositoryResult<Thread>;
 
-    /// Loads all threads for a conversation.
+    /// Loads all threads for a specific conversation.
     fn load_threads(&self, conversation_id: &str) -> RepositoryResult<Vec<Thread>>;
 
-    /// Loads a single thread by ID.
+    /// Loads a single thread by its unique ID.
     fn load_thread(&self, id: &str) -> RepositoryResult<Thread>;
 
-    /// Updates a thread's resolved status.
+    /// Updates the resolved status of a thread.
     fn update_thread_resolved(&self, id: &str, resolved: bool) -> RepositoryResult<()>;
 
-    /// Updates a thread's archived status.
+    /// Updates the archived status of a thread.
     fn update_thread_archived(&self, id: &str, archived: bool) -> RepositoryResult<()>;
 
     /// Sets the agent session ID for a thread.
@@ -70,13 +72,13 @@ pub trait ThreadRepository: Send + Sync {
         agent_session_id: Option<String>,
     ) -> RepositoryResult<()>;
 
-    /// Deletes a thread and all its messages.
+    /// Deletes a thread and all of its associated messages.
     fn delete_thread(&self, id: &str) -> RepositoryResult<()>;
 
     /// Renames a thread.
     fn rename_thread(&self, id: &str, title: &str) -> RepositoryResult<Thread>;
 
-    /// Creates a thread with its first message atomically.
+    /// Creates a new thread and its first message in a single, atomic operation.
     fn create_thread_with_message(
         &self,
         conversation_id: &str,
@@ -86,24 +88,24 @@ pub trait ThreadRepository: Send + Sync {
     ) -> RepositoryResult<(Thread, ChatMessage)>;
 }
 
-/// Repository for message operations.
+/// A repository for managing `ChatMessage` data.
 pub trait MessageRepository: Send + Sync {
-    /// Adds a message to a conversation (optionally to a thread).
+    /// Adds a new message to a conversation, optionally within a thread.
     fn add_message(&self, message: &ChatMessage) -> RepositoryResult<()>;
 
-    /// Loads messages for a conversation.
+    /// Loads all messages for a specific conversation.
     fn load_messages(&self, conversation_id: &str) -> RepositoryResult<Vec<ChatMessage>>;
 
-    /// Loads messages for a specific thread.
+    /// Loads all messages for a specific thread.
     fn load_thread_messages(&self, thread_id: &str) -> RepositoryResult<Vec<ChatMessage>>;
 
-    /// Deletes a message.
+    /// Deletes a message by its unique ID.
     fn delete_message(&self, id: &str) -> RepositoryResult<()>;
 
-    /// Updates a message's status.
+    /// Updates the status of a message.
     fn update_message_status(&self, id: &str, status: MessageStatus) -> RepositoryResult<()>;
 
-    /// Updates a message's feedback (like/dislike).
+    /// Updates the feedback (like/dislike) for a message.
     fn update_message_feedback(
         &self,
         id: &str,
@@ -111,11 +113,13 @@ pub trait MessageRepository: Send + Sync {
     ) -> RepositoryResult<()>;
 }
 
-/// Combined chat repository contract.
+/// A combined repository contract for all chat-related persistence.
 ///
-/// This is a convenience trait for adapters that implement all chat persistence
-/// operations behind a single dependency.
+/// This trait serves as a convenient way to require all chat repository
+/// capabilities behind a single dependency, which is useful for adapters
+/// that implement all the necessary traits.
 pub trait ChatRepositorySet: ChatRepository + ThreadRepository + MessageRepository {}
 
-// Blanket implementation for types that implement all traits
+// A blanket implementation that applies `ChatRepositorySet` to any type
+// that implements all the required underlying repository traits.
 impl<T> ChatRepositorySet for T where T: ChatRepository + ThreadRepository + MessageRepository {}

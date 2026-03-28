@@ -1,9 +1,17 @@
+//! Provides utility functions and constants for the agent execution process.
+
+/// The maximum number of retries for an LLM call.
 pub const LLM_MAX_RETRIES: usize = 2;
+/// The base delay in milliseconds for LLM retry backoff.
 pub const LLM_RETRY_BASE_MS: u64 = 1000;
+/// The default temperature for the agent's LLM calls.
 pub const DEFAULT_AGENT_TEMPERATURE: f32 = 0.0;
+/// The environment variable for overriding the agent's temperature.
 pub const ENV_AGENT_TEMPERATURE: &str = "CODER_AGENT_TEMPERATURE";
+/// The maximum number of execution steps to prevent runaway loops.
 pub const MAX_EXECUTION_STEPS: u32 = 120;
 
+/// Returns the temperature for the agent's LLM calls, reading from the environment variable if set.
 pub fn agent_temperature() -> f32 {
     let value = std::env::var(ENV_AGENT_TEMPERATURE)
         .ok()
@@ -12,6 +20,7 @@ pub fn agent_temperature() -> f32 {
     value.clamp(0.0, 2.0)
 }
 
+/// Derives a concise task title from the user's request content.
 pub fn derive_task_title(content: &str) -> String {
     let trimmed = content.trim();
     if trimmed.is_empty() {
@@ -33,6 +42,7 @@ pub fn derive_task_title(content: &str) -> String {
     title
 }
 
+/// Truncates a string to a maximum length, appending an indicator if truncated.
 pub fn truncate_text(content: &str, max_len: usize) -> String {
     if content.chars().count() <= max_len {
         return content.to_string();

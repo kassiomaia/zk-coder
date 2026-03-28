@@ -1,6 +1,8 @@
-//! Agent repository interfaces.
+//! Defines the repository interfaces for agent-related data.
 //!
-//! Defines storage operations for agent sessions and approvals.
+//! This module provides traits that abstract the storage and retrieval of
+//! agent sessions, approvals, tasks, and execution data. These interfaces
+//! decouple the core agent logic from specific database implementations.
 
 use super::entities::{
     Agent, AgentDomainError, AgentSession, AgentTask, PendingAction, SessionId, TaskStatus,
@@ -8,40 +10,40 @@ use super::entities::{
 use super::execution::{ExecutionSnapshot, RuntimeTrace};
 use chrono::{DateTime, Utc};
 
-/// Result type for repository operations.
+/// A specialized `Result` type for repository operations.
 pub type RepositoryResult<T> = Result<T, AgentDomainError>;
 
-/// Repository for agent session operations.
+/// A repository for managing `AgentSession` data.
 pub trait SessionRepository: Send + Sync {
-    /// Creates a new agent session.
+    /// Creates a new agent session in the repository.
     fn create_session(&self, session: &AgentSession) -> RepositoryResult<()>;
 
-    /// Gets a session by ID.
+    /// Retrieves an agent session by its unique ID.
     fn get_session(&self, id: &SessionId) -> RepositoryResult<AgentSession>;
 
-    /// Gets all sessions for a conversation.
+    /// Retrieves all agent sessions associated with a specific conversation.
     fn get_sessions_for_conversation(
         &self,
         conversation_id: &str,
     ) -> RepositoryResult<Vec<AgentSession>>;
 
-    /// Lists all sessions.
+    /// Lists all agent sessions in the repository.
     fn list_sessions(&self) -> RepositoryResult<Vec<AgentSession>>;
 
-    /// Updates the session state.
+    /// Updates the state of a specific agent session.
     fn update_state(
         &self,
         id: &SessionId,
         state: &super::entities::SessionState,
     ) -> RepositoryResult<()>;
 
-    /// Updates the workspace for a session.
+    /// Updates the workspace directory for a specific session.
     fn update_workspace(&self, id: &SessionId, workspace: &str) -> RepositoryResult<()>;
 
-    /// Deletes a session.
+    /// Deletes an agent session from the repository.
     fn delete_session(&self, id: &SessionId) -> RepositoryResult<()>;
 
-    /// Records a crash-recovery event for diagnostics.
+    /// Records a crash recovery event for diagnostic purposes.
     fn record_recovery_event(
         &self,
         session_id: &SessionId,
@@ -50,75 +52,75 @@ pub trait SessionRepository: Send + Sync {
     ) -> RepositoryResult<()>;
 }
 
-/// Repository for agent registry operations.
+/// A repository for managing agent definitions.
 pub trait AgentRepository: Send + Sync {
-    /// Gets an agent by ID.
+    /// Retrieves an agent definition by its unique ID.
     fn get_agent(&self, id: &super::entities::AgentId) -> RepositoryResult<Agent>;
 
-    /// Lists all available agents.
+    /// Lists all available agent definitions.
     fn list_agents(&self) -> RepositoryResult<Vec<Agent>>;
 }
 
-/// Repository for approval queue operations.
+/// A repository for managing the approval queue for pending actions.
 pub trait ApprovalRepository: Send + Sync {
-    /// Adds a pending action.
+    /// Adds a new pending action to the approval queue.
     fn add_action(&self, action: &PendingAction) -> RepositoryResult<()>;
 
-    /// Gets all pending actions for a session.
+    /// Retrieves all pending actions for a specific session.
     fn get_pending_actions(&self, session_id: &str) -> RepositoryResult<Vec<PendingAction>>;
 
-    /// Gets a specific action by ID.
+    /// Retrieves a specific pending action by its ID.
     fn get_action(&self, action_id: &str) -> RepositoryResult<PendingAction>;
 
-    /// Approves an action.
+    /// Marks a pending action as approved.
     fn approve_action(&self, action_id: &str) -> RepositoryResult<()>;
 
-    /// Denies an action.
+    /// Marks a pending action as denied.
     fn deny_action(&self, action_id: &str) -> RepositoryResult<()>;
 
-    /// Clears all actions for a session.
+    /// Clears all pending actions for a specific session.
     fn clear_session(&self, session_id: &str) -> RepositoryResult<()>;
 }
 
-/// Repository for task tracking.
+/// A repository for tracking agent tasks and subtasks.
 pub trait TaskRepository: Send + Sync {
-    /// Creates a new task.
+    /// Creates a new task in the repository.
     fn create_task(&self, task: &AgentTask) -> RepositoryResult<()>;
 
-    /// Creates a subtask for a parent task.
+    /// Creates a new subtask associated with a parent task.
     fn create_subtask(&self, parent_task_id: &str, task: &AgentTask) -> RepositoryResult<()>;
 
-    /// Gets tasks for a session.
+    /// Retrieves all tasks for a specific session.
     fn get_session_tasks(&self, session_id: &str) -> RepositoryResult<Vec<AgentTask>>;
 
-    /// Gets tasks for a parent task.
+    /// Retrieves all subtasks for a specific parent task.
     fn get_subtasks(&self, parent_task_id: &str) -> RepositoryResult<Vec<AgentTask>>;
 
-    /// Updates task status.
+    /// Updates the status of a specific task.
     fn update_task_status(&self, task_id: &str, status: TaskStatus) -> RepositoryResult<()>;
 
-    /// Updates subtask status.
+    /// Updates the status of a specific subtask.
     fn update_subtask_status(&self, subtask_id: &str, status: TaskStatus) -> RepositoryResult<()>;
 }
 
-/// Repository for persisted execution checkpoints.
+/// A repository for persisting execution snapshots.
 pub trait ExecutionRepository: Send + Sync {
     /// Saves or updates the current execution snapshot for a session.
     fn save_execution_snapshot(&self, snapshot: &ExecutionSnapshot) -> RepositoryResult<()>;
 
-    /// Gets the current execution snapshot for a session.
+    /// Retrieves the current execution snapshot for a session, if it exists.
     fn get_execution_snapshot(&self, session_id: &str) -> RepositoryResult<Option<ExecutionSnapshot>>;
 
-    /// Clears the current execution snapshot for a session.
+    /// Clears the execution snapshot for a session.
     fn clear_execution_snapshot(&self, session_id: &str) -> RepositoryResult<()>;
 }
 
-/// Repository for append-only runtime traces.
+/// A repository for storing and retrieving append-only runtime traces.
 pub trait RuntimeTraceRepository: Send + Sync {
-    /// Appends a structured runtime trace.
+    /// Appends a new runtime trace to the repository.
     fn append_runtime_trace(&self, trace: &RuntimeTrace) -> RepositoryResult<()>;
 
-    /// Gets recent runtime traces for a session in chronological order.
+    /// Retrieves recent runtime traces for a session in chronological order.
     fn get_runtime_traces(
         &self,
         session_id: &str,

@@ -1,33 +1,47 @@
-//! LLM domain entities.
+//! Defines the core domain entities for Large Language Model (LLM) communication.
 //!
-//! Core data structures for LLM communication.
+//! These data structures are used to represent requests, responses, and other
+//! concepts related to interacting with LLMs.
 
 use serde::{Deserialize, Serialize};
 
-/// Result type for LLM operations.
+/// A specialized `Result` type for LLM operations.
 pub type LlmResult<T> = Result<T, LlmError>;
 
-/// LLM operation errors.
+/// Represents errors that can occur during LLM operations.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LlmError {
-    /// Authentication failed
+    /// An error indicating that authentication with the LLM provider failed.
     AuthenticationFailed,
-    /// Rate limited
-    RateLimited { retry_after_seconds: Option<u64> },
-    /// Invalid request
-    InvalidRequest { message: String },
-    /// Network error
+    /// An error indicating that the request was rate-limited.
+    RateLimited {
+        /// The number of seconds to wait before retrying, if available.
+        retry_after_seconds: Option<u64>,
+    },
+    /// An error indicating that the request was invalid.
+    InvalidRequest {
+        /// A message describing the reason for the invalid request.
+        message: String,
+    },
+    /// An error indicating a network-related issue.
     Network(String),
-    /// Provider error
-    Provider { code: String, message: String },
-    /// Timeout
+    /// An error reported by the LLM provider.
+    Provider {
+        /// The error code from the provider.
+        code: String,
+        /// The error message from the provider.
+        message: String,
+    },
+    /// An error indicating that the request timed out.
     Timeout,
-    /// Unknown error
+    /// An unknown or unexpected error.
     Unknown(String),
 }
 
 impl LlmError {
     /// Checks if the error is retryable.
+    ///
+    /// `RateLimited`, `Network`, and `Timeout` errors are considered retryable.
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
@@ -60,22 +74,22 @@ impl std::fmt::Display for LlmError {
 
 impl std::error::Error for LlmError {}
 
-/// Role of a message in a conversation.
+/// The role of a message in a conversation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageRole {
-    /// System message (sets behavior)
+    /// A system message that sets the behavior of the assistant.
     System,
-    /// User message
+    /// A message sent by the user.
     User,
-    /// Assistant/AI message
+    /// A message sent by the assistant.
     Assistant,
-    /// Tool result message
+    /// A message containing the result of a tool call.
     Tool,
 }
 
 impl MessageRole {
-    /// Converts the role to a string.
+    /// Converts the `MessageRole` to a string slice.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::System => "system",
@@ -86,31 +100,31 @@ impl MessageRole {
     }
 }
 
-/// Content block for multi-modal messages.
+/// A block of content within a multi-modal message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum ContentBlock {
-    /// Text content
+    /// A block of text content.
     Text {
-        /// The text content
+        /// The text content.
         text: String,
     },
-    /// Image content (base64 or URL)
+    /// A block of image content, which can be specified as a base64 string or a URL.
     Image {
-        /// Image source
+        /// The source of the image.
         source: ImageSource,
     },
 }
 
 impl ContentBlock {
-    /// Creates a text content block.
+    /// Creates a new `ContentBlock` with text content.
     pub fn text(content: impl Into<String>) -> Self {
         Self::Text {
             text: content.into(),
         }
     }
 
-    /// Creates an image content block from base64 data.
+    /// Creates a new `ContentBlock` with an image from base64 data.
     pub fn image_base64(media_type: impl Into<String>, data: impl Into<String>) -> Self {
         Self::Image {
             source: ImageSource {
@@ -121,7 +135,7 @@ impl ContentBlock {
         }
     }
 
-    /// Creates an image content block from a URL.
+    /// Creates a new `ContentBlock` with an image from a URL.
     pub fn image_url(url: impl Into<String>) -> Self {
         Self::Image {
             source: ImageSource {
@@ -133,46 +147,46 @@ impl ContentBlock {
     }
 }
 
-/// Source for image content.
+/// The source of image content for a multi-modal message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageSource {
-    /// Type of source (base64 or url)
+    /// The type of the source, either "base64" or "url".
     #[serde(rename = "type")]
     pub source_type: String,
-    /// Media type (e.g., "image/png")
+    /// The media type of the image (e.g., "image/png").
     pub media_type: Option<String>,
-    /// The image data or URL
+    /// The image data as a base64 string or a URL.
     pub data: String,
 }
 
-/// Content of a message.
+/// The content of a message, which can be simple text or a series of multi-modal blocks.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MessageContent {
-    /// Simple text content
+    /// Simple text content.
     Text(String),
-    /// Multi-modal content with multiple blocks
+    /// Multi-modal content composed of multiple blocks.
     Blocks(Vec<ContentBlock>),
 }
 
 /// A message in a conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
-    /// Role of the message sender
+    /// The role of the message sender.
     pub role: MessageRole,
-    /// Content of the message
+    /// The content of the message.
     pub content: MessageContent,
-    /// Structured tool calls emitted by an assistant message
+    /// A list of structured tool calls requested by the assistant.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_calls: Vec<ToolCall>,
-    /// Structured tool result payload (for tool role messages)
+    /// The result of a tool call, for messages with the `Tool` role.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_result: Option<ToolResult>,
 }
 
 impl ChatMessage {
-    /// Creates a new user message with text content.
+    /// Creates a new message with the `User` role and text content.
     pub fn user(content: impl Into<String>) -> Self {
         Self {
             role: MessageRole::User,
@@ -182,7 +196,7 @@ impl ChatMessage {
         }
     }
 
-    /// Creates a new assistant message with text content.
+    /// Creates a new message with the `Assistant` role and text content.
     pub fn assistant(content: impl Into<String>) -> Self {
         Self {
             role: MessageRole::Assistant,
@@ -192,7 +206,7 @@ impl ChatMessage {
         }
     }
 
-    /// Creates a new system message.
+    /// Creates a new message with the `System` role.
     pub fn system(content: impl Into<String>) -> Self {
         Self {
             role: MessageRole::System,
@@ -202,7 +216,7 @@ impl ChatMessage {
         }
     }
 
-    /// Creates a message with multi-modal content.
+    /// Creates a new message with multi-modal content.
     pub fn multimodal(role: MessageRole, blocks: Vec<ContentBlock>) -> Self {
         Self {
             role,
@@ -212,7 +226,7 @@ impl ChatMessage {
         }
     }
 
-    /// Creates an assistant message that carries structured tool calls.
+    /// Creates a new message with the `Assistant` role and structured tool calls.
     pub fn assistant_with_tool_calls(
         content: impl Into<String>,
         tool_calls: Vec<ToolCall>,
@@ -225,7 +239,7 @@ impl ChatMessage {
         }
     }
 
-    /// Creates a tool result message for a given tool call ID.
+    /// Creates a new message with the `Tool` role, containing the result of a tool call.
     pub fn tool_result(
         call_id: impl Into<String>,
         output: serde_json::Value,
@@ -243,7 +257,7 @@ impl ChatMessage {
         }
     }
 
-    /// Gets the text content if this is a simple text message.
+    /// Returns the text content of the message if it is a simple text message.
     pub fn as_text(&self) -> Option<&str> {
         match &self.content {
             MessageContent::Text(text) => Some(text),
@@ -252,50 +266,50 @@ impl ChatMessage {
     }
 }
 
-/// Structured tool result payload.
+/// The structured result of a tool call.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ToolResult {
-    /// Tool call identifier this result belongs to
+    /// The ID of the tool call this result corresponds to.
     pub call_id: String,
-    /// Tool output JSON payload
+    /// The JSON payload of the tool's output.
     pub output: serde_json::Value,
-    /// Whether the result represents an error
+    /// A flag indicating whether the result represents an error.
     #[serde(default)]
     pub is_error: bool,
 }
 
-/// Request to generate a chat completion.
+/// A request to generate a chat completion.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatRequest {
-    /// The model to use
+    /// The model to be used for the completion.
     pub model: String,
-    /// The conversation messages
+    /// The list of messages in the conversation.
     pub messages: Vec<ChatMessage>,
-    /// System prompt (optional, prepended to messages)
+    /// An optional system prompt to guide the model's behavior.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<String>,
-    /// Sampling temperature (0-2)
+    /// The sampling temperature to use, between 0 and 2.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
-    /// Maximum tokens to generate
+    /// The maximum number of tokens to generate.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
-    /// Top-p sampling
+    /// The top-p sampling value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f32>,
-    /// Stop sequences
+    /// A list of stop sequences to use.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop: Option<Vec<String>>,
-    /// Whether to stream the response
+    /// A flag indicating whether to stream the response.
     #[serde(default)]
     pub stream: bool,
-    /// Tool definitions available to the model
+    /// A list of tool definitions available to the model.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tools: Vec<ToolDefinition>,
 }
 
 impl ChatRequest {
-    /// Creates a new chat request.
+    /// Creates a new `ChatRequest` with the given model and messages.
     pub fn new(model: impl Into<String>, messages: Vec<ChatMessage>) -> Self {
         Self {
             model: model.into(),
@@ -310,85 +324,85 @@ impl ChatRequest {
         }
     }
 
-    /// Sets the system prompt.
+    /// Sets the system prompt for the request.
     pub fn with_system(mut self, system: impl Into<String>) -> Self {
         self.system = Some(system.into());
         self
     }
 
-    /// Sets the temperature.
+    /// Sets the temperature for the request.
     pub fn with_temperature(mut self, temperature: f32) -> Self {
         self.temperature = Some(temperature);
         self
     }
 
-    /// Sets the maximum tokens.
+    /// Sets the maximum number of tokens for the request.
     pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
         self.max_tokens = Some(max_tokens);
         self
     }
 
-    /// Enables streaming mode.
+    /// Enables streaming mode for the request.
     pub fn with_stream(mut self) -> Self {
         self.stream = true;
         self
     }
 
-    /// Sets available tool definitions.
+    /// Sets the available tool definitions for the request.
     pub fn with_tools(mut self, tools: Vec<ToolDefinition>) -> Self {
         self.tools = tools;
         self
     }
 }
 
-/// Provider-agnostic tool definition.
+/// A provider-agnostic definition of a tool.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ToolDefinition {
-    /// Tool name
+    /// The name of the tool.
     pub name: String,
-    /// Short tool description
+    /// A short description of what the tool does.
     pub description: String,
-    /// JSON Schema for tool arguments
+    /// A JSON Schema object defining the tool's input arguments.
     pub input_schema: serde_json::Value,
 }
 
-/// Response from a chat completion.
+/// A response from a chat completion.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatResponse {
-    /// Unique ID for this response
+    /// A unique ID for the response.
     pub id: String,
-    /// The model used
+    /// The model that was used to generate the response.
     pub model: String,
-    /// The generated content
+    /// The generated content of the response.
     pub content: String,
-    /// Usage statistics
+    /// Token usage statistics for the response.
     pub usage: Option<UsageStats>,
-    /// Finish reason
+    /// The reason why the model finished generating the response.
     pub finish_reason: Option<String>,
-    /// Structured tool calls requested by the model
+    /// A list of structured tool calls requested by the model.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_calls: Vec<ToolCall>,
 }
 
-/// Provider-agnostic tool call representation.
+/// A provider-agnostic representation of a tool call.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ToolCall {
-    /// Unique call identifier
+    /// A unique identifier for the tool call.
     pub id: String,
-    /// Tool name
+    /// The name of the tool to be called.
     pub name: String,
-    /// JSON arguments for the tool invocation
+    /// The JSON arguments for the tool invocation.
     pub arguments: serde_json::Value,
 }
 
-/// Token usage statistics.
+/// Token usage statistics for a response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageStats {
-    /// Input tokens used
+    /// The number of input tokens used.
     pub input_tokens: u32,
-    /// Output tokens generated
+    /// The number of output tokens generated.
     pub output_tokens: u32,
-    /// Total tokens
+    /// The total number of tokens used.
     #[serde(default)]
     pub total_tokens: u32,
 }
@@ -396,30 +410,30 @@ pub struct UsageStats {
 /// A chunk of a streaming response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamChunk {
-    /// Unique ID for this response
+    /// A unique ID for the response this chunk belongs to.
     pub id: String,
-    /// The model used
+    /// The model that is generating the response.
     pub model: String,
-    /// Delta content
+    /// The delta content of this chunk.
     pub delta: Option<StreamDelta>,
-    /// Usage statistics (usually only in final chunk)
+    /// Token usage statistics, typically included in the final chunk.
     pub usage: Option<UsageStats>,
-    /// Finish reason (only in final chunk)
+    /// The finish reason, included in the final chunk.
     pub finish_reason: Option<String>,
-    /// Whether this is the final chunk
+    /// A flag indicating whether this is the final chunk of the stream.
     pub is_final: bool,
 }
 
-/// Delta content in a streaming response.
+/// The delta content in a streaming response chunk.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamDelta {
-    /// The role (usually only in first chunk)
+    /// The role of the sender, typically included in the first chunk.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<String>,
-    /// The incremental text content
+    /// The incremental text content of this chunk.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
-    /// Reasoning content from models like GLM-5 that show thinking before answering
+    /// The reasoning content from models that show their thinking process.
     #[serde(skip_serializing_if = "Option::is_none", rename = "reasoning_content")]
     pub reasoning_content: Option<String>,
 }

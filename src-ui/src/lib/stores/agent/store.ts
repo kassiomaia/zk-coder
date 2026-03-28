@@ -30,6 +30,8 @@ export interface AgentStore {
 	loadSession(sessionId: string): Promise<import('$lib/types/agent').AgentSession | null>;
 	sendRequest(sessionId: string, content: string): Promise<void>;
 	retryLastRequest(sessionId: string): Promise<string | null>;
+	continueExecution(sessionId: string): Promise<string | null>;
+	replanExecution(sessionId: string): Promise<string | null>;
 	approveAction(sessionId: string, actionId: string): Promise<void>;
 	denyAction(sessionId: string, actionId: string): Promise<void>;
 	cancelSession(sessionId: string): Promise<void>;
@@ -113,6 +115,17 @@ function createAgentStore(): AgentStore {
 				set(newState);
 			});
 			eventUnsubscribe = unlisten;
+
+			// Initialize agent recovery - detects unterminated sessions and emits SessionPaused events
+			const { invoke } = await import('@tauri-apps/api/core');
+			try {
+				const recoveredCount = await invoke<number>('initialize_agent_recovery');
+				if (recoveredCount > 0) {
+					console.log(`[agentStore] Recovered ${recoveredCount} session(s)`);
+				}
+			} catch (error) {
+				console.warn('[agentStore] Failed to initialize agent recovery:', error);
+			}
 		} catch {
 			// Tauri not available (running in browser dev mode)
 			console.debug('[agentStore] Tauri event listener not available');
@@ -161,6 +174,22 @@ function createAgentStore(): AgentStore {
 	async function retryLastRequest(sessionId: string) {
 		const state = get({ subscribe });
 		return Actions.retryLastRequest(state, update, sessionId);
+	}
+
+	/**
+	 * Continue execution from a paused session.
+	 */
+	async function continueExecution(sessionId: string) {
+		const state = get({ subscribe });
+		return Actions.continueExecution(state, update, sessionId);
+	}
+
+	/**
+	 * Replan and continue execution from a paused session.
+	 */
+	async function replanExecution(sessionId: string) {
+		const state = get({ subscribe });
+		return Actions.replanExecution(state, update, sessionId);
 	}
 
 	/**
@@ -344,6 +373,8 @@ function createAgentStore(): AgentStore {
 		loadSession,
 		sendRequest,
 		retryLastRequest,
+		continueExecution,
+		replanExecution,
 		approveAction,
 		denyAction,
 		cancelSession,

@@ -145,6 +145,21 @@
 	const summary = $derived(getActionSummary(toolName, agentData?.toolArgs));
 	const outcome = $derived(getOutcomeSummary(toolName, agentData?.toolResult, toolCallStatus));
 
+	// Helper to safely extract error message from toolResult
+	function getErrorMessage(result: unknown): string {
+		if (result && typeof result === 'object') {
+			if ('error' in result && typeof result.error === 'string') {
+				return result.error || 'An error occurred';
+			}
+			if ('message' in result && typeof result.message === 'string') {
+				return result.message;
+			}
+		}
+		return 'An unknown error occurred';
+	}
+
+	const errorMessage = $derived(agentData?.toolResult !== undefined ? getErrorMessage(agentData.toolResult) : '');
+
 	function formatTime(date: Date): string {
 		return date.toLocaleTimeString('en-US', {
 			hour12: false,
@@ -225,7 +240,7 @@
 						<div class={styles.resultSummary}>
 							{#if isError}
 								<div class={styles.errorMessage}>
-									{agentData.toolResult.error || agentData.toolResult.message || 'An unknown error occurred'}
+									{errorMessage}
 								</div>
 							{:else}
 								<div class={styles.successData}>

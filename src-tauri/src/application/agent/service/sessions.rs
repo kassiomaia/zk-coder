@@ -121,7 +121,8 @@ impl AgentServiceImpl {
             }
             CoreSessionState::WaitForRequest { .. }
             | CoreSessionState::Finished { .. }
-            | CoreSessionState::Error { .. } => {}
+            | CoreSessionState::Error { .. }
+            | CoreSessionState::Paused { .. } => {}
         }
 
         info!(

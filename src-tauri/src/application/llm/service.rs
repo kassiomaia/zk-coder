@@ -1,8 +1,9 @@
-//! LLM service implementation.
+//! Provides the concrete implementation of the `LlmService`.
 //!
-//! This module provides the concrete implementation of the LlmService trait
-//! defined in the core layer. It coordinates between the domain entities and
-//! the infrastructure layer (OpenAI, Anthropic clients).
+//! This module contains the `LlmServiceImpl`, which is the concrete implementation
+//! of the `LlmService` trait from the core layer. It is responsible for
+//! coordinating between the domain entities and the underlying infrastructure,
+//! such as clients for OpenAI and Anthropic.
 
 mod client_factory;
 mod conversions;
@@ -12,16 +13,17 @@ use std::sync::Arc;
 
 use crate::core::config::ConfigRepository;
 
-/// Implementation of the LLM service.
+/// The concrete implementation of the LLM service.
 ///
-/// This service manages provider clients and provides high-level LLM operations.
+/// This service is responsible for managing provider clients and providing
+/// high-level LLM operations, such as chat completions and API key validation.
 pub struct LlmServiceImpl {
-    /// Configuration repository for provider and API key access
+    /// The repository for accessing configuration data, such as providers and API keys.
     config_repository: Arc<dyn ConfigRepository>,
 }
 
 impl LlmServiceImpl {
-    /// Creates a new LLM service instance.
+    /// Creates a new `LlmServiceImpl`.
     #[must_use]
     pub fn new(config_repository: Arc<dyn ConfigRepository>) -> Self {
         Self { config_repository }

@@ -1,7 +1,9 @@
-//! NLP application layer.
+//! Provides the application layer for Natural Language Processing (NLP) services.
 //!
-//! This module contains orchestration and workflow logic built on top of core
-//! NLP entities and infrastructure-backed gateways/repositories.
+//! This module contains the orchestration and workflow logic that is built on top
+//! of the core NLP entities and infrastructure-backed gateways and repositories.
+//! It includes services for intent classification, ambiguity resolution, code analysis,
+//! and more.
 
 pub mod ambiguity_resolver;
 pub mod classifier;

@@ -57,8 +57,14 @@
 		id
 	}: Props = $props();
 
-	// Internal state
+	// Internal state - track expanded state with initial value from prop
 	let isExpanded = $state(!collapsed);
+
+	// Sync with collapsed prop when it changes externally
+	$effect(() => {
+		isExpanded = !collapsed;
+	});
+
 	let isCopying = $state(false);
 	let isActionInProgress = $state(false);
 
@@ -226,8 +232,10 @@
 			<div class={styles.contentInner}>
 				{#if typeof content === 'string'}
 					<pre class={styles.textContent}><code>{content}</code></pre>
-				{:else}
+				{:else if typeof content === 'function'}
 					{@render content()}
+				{:else}
+					<pre class={styles.textContent}><code>{JSON.stringify(content, null, 2)}</code></pre>
 				{/if}
 			</div>
 

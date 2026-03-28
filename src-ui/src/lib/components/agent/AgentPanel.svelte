@@ -77,6 +77,8 @@
 				return 'Ready for instructions';
 			case 'user_input_required':
 				return 'Awaiting your approval';
+			case 'paused':
+				return 'Progress saved';
 			case 'finished':
 				return 'Task completed successfully';
 			case 'cancelled':
@@ -95,6 +97,8 @@
 				return 'running';
 			case 'user_input_required':
 				return 'waiting';
+			case 'paused':
+				return 'paused';
 			case 'finished':
 				return 'complete';
 			case 'error':
@@ -627,6 +631,7 @@
 	.status-dot.complete { background: var(--color-success); }
 	.status-dot.error { background: var(--color-error); }
 	.status-dot.waiting { background: var(--color-warning); }
+	.status-dot.paused { background: var(--color-info); }
 
 	.workspace-context {
 		display: none;

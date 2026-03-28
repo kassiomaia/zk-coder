@@ -1,22 +1,39 @@
+//! Provides functions for retrieving LLM configuration for specific operations.
+
 use crate::core::config::{ApiType, ConfigRepository, Model, OperationType};
 
-/// Response containing the complete LLM configuration for the `code` operation.
+/// A response containing the complete LLM configuration for the `code` operation.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CodeLlmConfigResponse {
+    /// The unique identifier of the model.
     pub id: String,
+    /// The name of the model.
     pub name: String,
+    /// The unique identifier of the provider.
     pub provider_id: String,
+    /// The name of the provider.
     pub provider_name: String,
+    /// The type of the provider's API.
     pub api_type: ApiType,
+    /// The custom base URL for the API, if applicable.
     pub base_url: Option<String>,
 }
 
-/// Gets the model configured for the `code` operation.
+/// Retrieves the model that is configured as the default for the `code` operation.
+///
+/// # Arguments
+///
+/// * `repository` - A reference to the configuration repository.
+///
+/// # Errors
+///
+/// Returns an error if the operation default is not configured, or if the
+/// configured model or provider no longer exists.
 pub fn get_code_operation_model(repository: &dyn ConfigRepository) -> Result<Model, String> {
     let defaults = repository
         .get_operation_defaults()
-        .map_err(|e| format!("Failed to get operation defaults: {}", e))?;
+        .map_err(|e| format!("Failed to get operation defaults: {e}"))?;
 
     let code_default = defaults
         .into_iter()
@@ -31,11 +48,19 @@ pub fn get_code_operation_model(repository: &dyn ConfigRepository) -> Result<Mod
 
     repository
         .get_model(&model_id)
-        .map_err(|e| format!("Failed to get model {}: {}", model_id, e))?
-        .ok_or_else(|| format!("Model {} no longer exists", model_id))
+        .map_err(|e| format!("Failed to get model {model_id}: {e}"))?
+        .ok_or_else(|| format!("Model {model_id} no longer exists"))
 }
 
-/// Gets the complete provider/model configuration for the `code` operation.
+/// Retrieves the complete provider and model configuration for the `code` operation.
+///
+/// # Arguments
+///
+/// * `repository` - A reference to the configuration repository.
+///
+/// # Errors
+///
+/// Returns an error if the `code` operation model or its provider cannot be retrieved.
 pub fn get_code_llm_config(
     repository: &dyn ConfigRepository,
 ) -> Result<CodeLlmConfigResponse, String> {

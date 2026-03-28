@@ -1,4 +1,8 @@
-//! NLP core domain module.
+//! Defines the core domain for Natural Language Processing (NLP) tasks.
+//!
+//! This module contains the fundamental entities, services, and repositories
+//! related to NLP, such as intent classification, ambiguity detection, and
+//! code understanding.
 
 pub mod ambiguity;
 pub mod code_understanding;

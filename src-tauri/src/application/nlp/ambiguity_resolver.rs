@@ -1,6 +1,8 @@
-//! Ambiguity resolution engine.
+//! Provides an ambiguity resolution engine for detecting and resolving ambiguities in user input.
 //!
-//! This module detects and resolves ambiguities in user input.
+//! This module contains the `AmbiguityResolver`, which is responsible for identifying
+//! potential ambiguities in user requests, such as missing file references or
+//! unclear scope, and providing suggestions for clarification.
 
 use regex::Regex;
 use thiserror::Error;
@@ -9,17 +11,17 @@ use crate::core::nlp::ambiguity::{
     Ambiguity, AmbiguitySeverity, AmbiguitySuggestion, AmbiguityType, ClarificationOption,
     ClarificationRequest,
 };
-use crate::core::nlp::entities::{ConversationContext, FileInfo};
+use crate::core::nlp::entities::ConversationContext;
 use crate::core::nlp::multi_intent::TextSpan;
 
-/// Ambiguity resolver for user input.
+/// A resolver for detecting and handling ambiguities in user input.
 pub struct AmbiguityResolver {
-    /// Pattern for matching file references
+    /// A regular expression for matching file references in text.
     file_pattern: Regex,
 }
 
 impl AmbiguityResolver {
-    /// Creates a new ambiguity resolver.
+    /// Creates a new `AmbiguityResolver`.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -28,11 +30,18 @@ impl AmbiguityResolver {
         }
     }
 
-    /// Detects ambiguities in the input.
+    /// Detects ambiguities in the user's input based on the current context and project files.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The user's input text.
+    /// * `context` - The current conversation context.
+    /// * `project_files` - A slice of all file paths in the project.
     ///
     /// # Errors
     ///
-    /// Currently does not return errors, but reserves the right to in the future.
+    /// Returns a `ResolverError` if an error occurs during detection, though this
+    /// is not currently implemented.
     pub async fn detect(
         &self,
         input: &str,
@@ -115,7 +124,7 @@ impl AmbiguityResolver {
         Ok(ambiguities)
     }
 
-    /// Checks if the input needs file context.
+    /// Checks if the user's input implies a need for file context.
     fn needs_file_context(&self, input: &str) -> bool {
         let keywords = [
             "this file",
@@ -131,7 +140,7 @@ impl AmbiguityResolver {
         keywords.iter().any(|k| lower.contains(k))
     }
 
-    /// Performs fuzzy matching on files.
+    /// Performs a fuzzy match on file paths to find potential suggestions.
     fn fuzzy_match_files(&self, input: &str, files: &[String]) -> Vec<AmbiguitySuggestion> {
         let input_lower = input.to_lowercase();
 
@@ -149,7 +158,7 @@ impl AmbiguityResolver {
             .collect()
     }
 
-    /// Resolves an ambiguity using context.
+    /// Attempts to resolve an ambiguity using the current conversation context.
     #[must_use]
     pub fn resolve_with_context(
         &self,
@@ -159,17 +168,17 @@ impl AmbiguityResolver {
         match ambiguity.ambiguity_type {
             AmbiguityType::MissingFile | AmbiguityType::MultipleMatches => {
                 // Check if file was mentioned in conversation
+                context.metadata.current_file.as_ref().map(|f| {
+                    AmbiguitySuggestion::new(&f.path, 0.8, "from conversation context")
+                })
+            }
+            AmbiguityType::UnclearScope => {
                 context
                     .metadata
                     .current_file
                     .as_ref()
-                    .map(|f| AmbiguitySuggestion::new(&f.path, 0.8, "from conversation context"))
+                    .map(|f| AmbiguitySuggestion::new(&f.path, 0.9, "currently active file"))
             }
-            AmbiguityType::UnclearScope => context
-                .metadata
-                .current_file
-                .as_ref()
-                .map(|f| AmbiguitySuggestion::new(&f.path, 0.9, "currently active file")),
             _ => None,
         }
     }
@@ -181,10 +190,10 @@ impl Default for AmbiguityResolver {
     }
 }
 
-/// Errors from ambiguity resolution.
+/// Represents errors that can occur during ambiguity resolution.
 #[derive(Debug, Error)]
 pub enum ResolverError {
-    /// Pattern error
+    /// An error related to the pattern used for detection.
     #[error("Pattern error: {0}")]
     PatternError(String),
 }

@@ -162,11 +162,12 @@
 		<div class={styles.phaseList}>
 			{#each Object.entries(phases) as [phase, config]}
 				{#if phase !== 'completed' && phase !== 'error'}
+					{@const Icon = config.icon}
 					<div
 						class={[styles.phase, getPhaseClass(phase as ProgressPhase)].join(' ')}
 					>
 						<div class={styles.phaseIcon}>
-							<svelte:component this={config.icon} size={14} strokeWidth={2} />
+							<Icon size={14} strokeWidth={2} />
 						</div>
 						<div class={styles.phaseInfo}>
 							<span class={styles.phaseLabel}>{config.label}</span>

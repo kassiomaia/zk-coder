@@ -1,9 +1,11 @@
-//! Application layer for LLM services.
+//! Provides the application layer for LLM (Large Language Model) services.
 //!
-//! This module provides the concrete implementation of the LlmService trait
-//! defined in the core layer. It coordinates between the domain entities and
+//! This module contains the concrete implementation of the `LlmService` trait
+//! from the core layer. It is responsible for coordinating between the domain
+//! entities and the underlying infrastructure, such as clients for OpenAI and
+//! Anthropic.
+
 pub mod config;
-/// the infrastructure layer (OpenAI, Anthropic clients).
 pub mod service;
 
 #[cfg(test)]

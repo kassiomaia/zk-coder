@@ -20,6 +20,7 @@
     import TerminalOutput from './messages/TerminalOutput.svelte';
     import NarrationMessage from './messages/NarrationMessage.svelte';
     import ApprovalMessage from './messages/ApprovalMessage.svelte';
+    import RecoveryMessage from './messages/RecoveryMessage.svelte';
     import DocumentGenerationCard from './messages/DocumentGenerationCard.svelte';
     import {MessageSquareIcon, UserIcon} from '$lib/icons';
     import type {Message} from '$lib/types/message';
@@ -89,7 +90,13 @@
 
 		/** Deny action handler */
 		onDenyAction?: (sessionId: string, actionId: string) => void;
-	}
+
+		/** Continue execution handler */
+		onContinueExecution?: (sessionId: string) => void;
+
+		/** Replan execution handler */
+		onReplanExecution?: (sessionId: string) => void;
+		}
 
 	let {
 		messages,
@@ -109,7 +116,9 @@
 		onRetry,
 		onCopyMessage,
 		onApproveAction,
-		onDenyAction
+		onDenyAction,
+		onContinueExecution,
+		onReplanExecution
 	}: Props = $props();
 
 	// Document generation state - use centralized store
@@ -347,7 +356,7 @@
 		{/if}
 
 		<!-- Agent-specific messages (thinking, tool_call, terminal) - rendered with assistant styling -->
-		{#if message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal' || message.kind === 'narration' || message.kind === 'approval'}
+		{#if message.kind === 'thinking' || message.kind === 'tool_call' || message.kind === 'terminal' || message.kind === 'narration' || message.kind === 'approval' || message.kind === 'recovery'}
 			<!-- Show ASSISTANT group header for agent messages -->
 			{#if shouldShowAgentHeader(index)}
 				<div class={messageStyles.messageGroup}>
@@ -380,6 +389,12 @@
 							{message}
 							onApprove={onApproveAction}
 							onDeny={onDenyAction}
+						/>
+					{:else if message.kind === 'recovery'}
+						<RecoveryMessage
+							{message}
+							onContinue={onContinueExecution}
+							onReplan={onReplanExecution}
 						/>
 					{/if}
 				</div>

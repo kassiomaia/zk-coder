@@ -17,6 +17,9 @@ pub struct AgentState {
 
 impl AgentState {
     /// Creates a new agent state.
+    ///
+    /// Note: Recovery of unterminated executions is handled separately
+    /// via the `initialize_agent_recovery` command to allow event emission.
     pub fn new(db_path: &str) -> Result<Self, String> {
         let sqlite_repository = Arc::new(
             SqliteSessionRepository::new(db_path)
@@ -56,10 +59,6 @@ impl AgentState {
             )
             .map_err(|e| format!("Failed to create agent service: {e}"))?,
         );
-
-        service
-            .recover_unterminated_executions()
-            .map_err(|e| format!("Failed to recover unterminated agent executions: {e}"))?;
 
         Ok(Self { service })
     }

@@ -1,7 +1,7 @@
-//! Agent task types.
+//! Defines the types related to agent tasks and execution steps.
 //!
-//! Tasks represent units of work that an agent performs within a session.
-//! Each request to an agent creates a task that tracks execution steps.
+//! A task represents a unit of work initiated by a user's request to an agent.
+//! It tracks the execution steps, status, and any sub-tasks that are created.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -9,48 +9,65 @@ use uuid::Uuid;
 
 use super::session::SessionId;
 
-/// Agent request (what the user sends to the agent).
+/// Represents a request sent by the user to an agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentRequest {
+    /// The main content of the user's request.
     pub content: String,
+    /// A list of file or data attachments included with the request.
     pub attachments: Vec<Attachment>,
+    /// Additional context for the request, such as the current file or selection.
     pub context: Option<RequestContext>,
 }
 
-/// File or data attachment to a request.
+/// A file or data attachment included in an `AgentRequest`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Attachment {
+    /// The name of the attachment.
     pub name: String,
+    /// The content of the attachment, typically as a base64-encoded string.
     pub content: String,
+    /// The MIME type of the attachment's content.
     pub content_type: String,
 }
 
-/// Additional context for a request.
+/// Provides additional context for an `AgentRequest`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestContext {
+    /// The path of the file that was active when the request was made.
     pub file_path: Option<String>,
+    /// The text selection that was active when the request was made.
     pub selection: Option<String>,
 }
 
-/// Task execution tracking.
+/// Represents a task that tracks the execution of an agent's work.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentTask {
+    /// The unique identifier for the task.
     pub id: String,
+    /// The ID of the session this task belongs to.
     pub session_id: SessionId,
+    /// The user's request that initiated this task.
     pub request: AgentRequest,
+    /// The current status of the task.
     pub status: TaskStatus,
+    /// A list of execution steps that have been performed for this task.
     pub steps: Vec<ExecutionStep>,
+    /// A list of sub-tasks that have been created for this task.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subtasks: Option<Vec<SubTask>>,
+    /// The timestamp of when the task was created.
     pub created_at: DateTime<Utc>,
+    /// The timestamp of when the task was completed, if applicable.
     pub completed_at: Option<DateTime<Utc>>,
 }
 
 impl AgentTask {
+    /// Creates a new `AgentTask` for a given session and request.
     pub fn new(session_id: SessionId, request: AgentRequest) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
@@ -64,6 +81,7 @@ impl AgentTask {
         }
     }
 
+    /// Sets the status of the task and updates the completion timestamp if terminal.
     pub fn set_status(&mut self, status: TaskStatus) {
         let is_terminal = matches!(
             status,
@@ -75,92 +93,120 @@ impl AgentTask {
         }
     }
 
+    /// Adds a new execution step to the task.
     pub fn add_step(&mut self, step: ExecutionStep) {
         self.steps.push(step);
     }
 }
 
-/// Task execution status.
+/// The execution status of a task or sub-task.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
+    /// The task is waiting to be executed.
     Pending,
+    /// The task is currently in progress.
     InProgress,
+    /// The task is waiting for user approval.
     WaitingApproval,
+    /// The task has been completed successfully.
     Completed,
+    /// The task has failed.
     Failed,
+    /// The task was cancelled by the user.
     Cancelled,
 }
 
-/// A single step in the agent's execution.
+/// A single step within the execution of an agent's task.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionStep {
+    /// The sequential number of the step.
     pub step_number: u32,
+    /// The action that was taken in this step.
     pub action: StepAction,
+    /// The result of the action, if available.
     pub result: Option<StepResult>,
+    /// The timestamp of when the step was recorded.
     pub timestamp: DateTime<Utc>,
 }
 
-/// What action was taken in this step.
+/// The type of action that was taken in an `ExecutionStep`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum StepAction {
+    /// A request was made to the Large Language Model.
     LlmRequest {
+        /// The model that was used for the request.
         model: String,
     },
+    /// A tool was called as part of the execution.
     ToolCall {
+        /// The name of the tool that was called.
         tool: String,
+        /// The arguments that were passed to the tool.
         arguments: serde_json::Value,
     },
 }
 
-/// The result of a step.
+/// The result of an `ExecutionStep`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StepResult {
+    /// A flag indicating whether the step was successful.
     pub success: bool,
+    /// The output of the step, in JSON format.
     pub output: serde_json::Value,
+    /// The total number of tokens used in this step, if applicable.
     pub tokens_used: Option<u32>,
+    /// The number of input tokens used, if applicable.
     pub input_tokens: Option<u32>,
+    /// The number of output tokens generated, if applicable.
     pub output_tokens: Option<u32>,
+    /// The duration of the step in milliseconds.
     pub duration_ms: u64,
 }
 
-/// Result of a full agent execution.
+/// The result of a full agent execution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentExecutionResult {
+    /// The final content produced by the agent.
     pub content: String,
+    /// The sequence of steps that were executed.
     pub steps: Vec<ExecutionStep>,
+    /// The token usage statistics for the execution.
     pub usage: Option<UsageStats>,
 }
 
-/// Token usage statistics.
+/// Token usage statistics for an agent execution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageStats {
+    /// The number of input tokens used.
     pub input_tokens: u32,
+    /// The number of output tokens generated.
     pub output_tokens: u32,
+    /// The total number of tokens used.
     pub total_tokens: u32,
 }
 
-/// Execution mode for a subtask. Determines what tools are available.
+/// The execution mode for a sub-task, which determines the set of available tools.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SubTaskMode {
-    /// Read-only mode: Can read files and search. Cannot write or execute.
+    /// Read-only mode: Can read files and search, but cannot write or execute.
     Read,
-    /// Write mode: Can read and write files. Cannot execute commands.
+    /// Write mode: Can read and write files, but cannot execute commands.
     Write,
-    /// Execute mode: Can read files and execute commands. Cannot write.
+    /// Execute mode: Can read files and execute commands, but cannot write.
     Execute,
-    /// Full access: Can read, write, and execute.
+    /// Full access mode: Can read, write, and execute.
     FullAccess,
 }
 
 impl SubTaskMode {
-    /// Get allowed tools for this mode.
+    /// Returns the list of tools that are allowed for this mode.
     pub fn allowed_tools(&self) -> Vec<&'static str> {
         match self {
             SubTaskMode::Read => vec![
@@ -198,7 +244,7 @@ impl SubTaskMode {
         }
     }
 
-    /// Get mode-specific instruction text.
+    /// Returns the instruction text that corresponds to this mode.
     pub fn instruction_text(&self) -> &'static str {
         match self {
             SubTaskMode::Read => {
@@ -219,7 +265,7 @@ impl SubTaskMode {
         }
     }
 
-    /// Get display icon for UI.
+    /// Returns the icon that represents this mode in the UI.
     pub fn icon(&self) -> &'static str {
         match self {
             SubTaskMode::Read => "👁️",
@@ -230,26 +276,37 @@ impl SubTaskMode {
     }
 }
 
-/// A sub-task within an agent's task decomposition.
+/// Represents a sub-task within a larger agent task decomposition.
 ///
-/// Agents can break down complex requests into smaller sub-tasks
-/// for better tracking and user visibility.
+/// Agents can break down complex requests into a series of smaller, more
+/// manageable sub-tasks for improved tracking and user visibility.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubTask {
+    /// The unique identifier for the sub-task.
     pub id: String,
+    /// The ID of the parent task this sub-task belongs to.
     pub task_id: String,
+    /// The title of the sub-task.
     pub title: String,
+    /// An optional, more detailed description of the sub-task.
     pub description: Option<String>,
+    /// The execution mode for this sub-task, which determines its permissions.
     pub mode: SubTaskMode,
+    /// The current status of the sub-task.
     pub status: TaskStatus,
+    /// The display order of the sub-task.
     pub order: i32,
+    /// The timestamp of when the sub-task was created.
     pub created_at: DateTime<Utc>,
+    /// The timestamp of when the sub-task was started.
     pub started_at: Option<DateTime<Utc>>,
+    /// The timestamp of when the sub-task was completed.
     pub completed_at: Option<DateTime<Utc>>,
 }
 
 impl SubTask {
+    /// Creates a new `SubTask` with the given parameters.
     pub fn new(task_id: String, title: String, mode: SubTaskMode, order: i32) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
@@ -265,43 +322,53 @@ impl SubTask {
         }
     }
 
+    /// Sets the description for the sub-task.
     pub fn with_description(mut self, description: String) -> Self {
         self.description = Some(description);
         self
     }
 
+    /// Marks the sub-task as completed.
     pub fn complete(&mut self) {
         self.status = TaskStatus::Completed;
         self.completed_at = Some(Utc::now());
     }
 
+    /// Marks the sub-task as failed.
     pub fn fail(&mut self) {
         self.status = TaskStatus::Failed;
         self.completed_at = Some(Utc::now());
     }
 }
 
-/// Complexity estimate for a plan step.
+/// An estimate of the complexity of a plan step.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Complexity {
+    /// A simple step with low complexity.
     Simple,
+    /// A step with medium complexity.
     Medium,
+    /// A complex step that may require multiple actions.
     Complex,
 }
 
-/// A single step in an execution plan.
+/// A single step within an execution plan.
 ///
-/// Generated during the planning phase before execution begins.
+/// These steps are generated during the planning phase before execution begins.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanStep {
+    /// The title of the plan step.
     pub title: String,
+    /// An optional, more detailed description of the step.
     pub description: Option<String>,
+    /// The estimated complexity of the step.
     pub complexity: Complexity,
 }
 
 impl PlanStep {
+    /// Creates a new `PlanStep` with the given title.
     pub fn new(title: String) -> Self {
         Self {
             title,
@@ -310,31 +377,38 @@ impl PlanStep {
         }
     }
 
+    /// Sets the description for the plan step.
     pub fn with_description(mut self, description: String) -> Self {
         self.description = Some(description);
         self
     }
 
+    /// Sets the complexity for the plan step.
     pub fn with_complexity(mut self, complexity: Complexity) -> Self {
         self.complexity = complexity;
         self
     }
 }
 
-/// An execution plan generated during the planning phase.
+/// Represents an execution plan generated during the planning phase.
 ///
-/// The planner analyzes the user's request and generates a structured
-/// plan before execution begins.
+/// The planner analyzes the user's request and generates a structured plan
+/// of steps to be taken before execution begins.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Plan {
+    /// A summary of the overall plan.
     pub summary: String,
+    /// The list of steps in the plan.
     pub steps: Vec<PlanStep>,
+    /// The estimated number of steps in the plan.
     pub estimated_steps: usize,
+    /// The timestamp of when the plan was created.
     pub created_at: DateTime<Utc>,
 }
 
 impl Plan {
+    /// Creates a new `Plan` with the given summary and steps.
     pub fn new(summary: String, steps: Vec<PlanStep>) -> Self {
         let estimated_steps = steps.len();
         Self {
@@ -345,7 +419,7 @@ impl Plan {
         }
     }
 
-    /// Convert plan steps to subtasks for a given task.
+    /// Converts the plan's steps into a list of `SubTask` objects for a given task.
     pub fn to_subtasks(&self, task_id: &str) -> Vec<SubTask> {
         self.steps
             .iter()

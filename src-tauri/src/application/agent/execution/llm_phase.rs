@@ -1,3 +1,9 @@
+//! Handles the LLM (Large Language Model) call phase of the agent's execution.
+//!
+//! This module is responsible for constructing the chat request, making the call
+//! to the LLM with retry logic, and tracing the request and response for
+//! observability.
+
 use std::time::Instant;
 
 use serde_json::json;
@@ -11,6 +17,22 @@ use crate::infrastructure::agent::runtime::client::LlmRetryConfig;
 use crate::infrastructure::agent::runtime::context::estimate_context_tokens;
 use crate::infrastructure::agent::runtime::{chat_with_retry, AgentRuntimeError};
 
+/// Makes a call to the LLM with the resolved context.
+///
+/// This function constructs the `ChatRequest`, sends it to the LLM with retry logic,
+/// and records detailed traces of the request and response for debugging and
+/// observability purposes.
+///
+/// # Arguments
+///
+/// * `deps` - The execution dependencies.
+/// * `ctx` - The mutable execution context.
+/// * `resolved` - The resolved context from the previous phase.
+/// * `client` - The LLM client to use for the call.
+///
+/// # Returns
+///
+/// A `Result` containing the `LlmCallResult` on success, or an `AgentRuntimeError` on failure.
 pub async fn call_llm(
     deps: &ExecutionDeps<'_>,
     ctx: &mut ExecutionContext,

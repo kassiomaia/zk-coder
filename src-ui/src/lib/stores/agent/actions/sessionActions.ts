@@ -151,6 +151,42 @@ export async function retryLastRequest(
 }
 
 /**
+ * Continue execution from a paused session.
+ */
+export async function continueExecution(
+	state: AgentState,
+	update: (fn: (state: AgentState) => AgentState) => void,
+	sessionId: string
+): Promise<string | null> {
+	try {
+		const { invoke } = await import('@tauri-apps/api/core');
+		const resumedSessionId = await invoke<string>('continue_agent_execution', { sessionId });
+		return resumedSessionId;
+	} catch (error) {
+		update((s) => ({ ...s, error: String(error) }));
+		return null;
+	}
+}
+
+/**
+ * Replan and continue execution from a paused session.
+ */
+export async function replanExecution(
+	state: AgentState,
+	update: (fn: (state: AgentState) => AgentState) => void,
+	sessionId: string
+): Promise<string | null> {
+	try {
+		const { invoke } = await import('@tauri-apps/api/core');
+		const resumedSessionId = await invoke<string>('replan_agent_execution', { sessionId });
+		return resumedSessionId;
+	} catch (error) {
+		update((s) => ({ ...s, error: String(error) }));
+		return null;
+	}
+}
+
+/**
  * Cancel an active session.
  */
 export async function cancelSession(

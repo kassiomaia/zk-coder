@@ -1,3 +1,9 @@
+//! Handles the response phase of the agent's execution.
+//!
+//! This module is responsible for processing the response from the LLM,
+//! determining the next course of action, and handling the completion or
+//! continuation of the execution.
+
 use chrono::Utc;
 use serde_json::json;
 use tauri::Emitter;
@@ -12,11 +18,34 @@ use crate::infrastructure::agent::runtime::{
     detect_repetitive_loop, AgentRuntimeError, MAX_REPETITIONS,
 };
 
+/// Represents the decision made after handling the LLM's response.
 pub enum ResponseDecision {
+    /// The execution has finished, and this is the final result.
     Finished(AgentExecutionResult),
+    /// The execution should continue by executing the specified tools.
     ExecuteTools(crate::core::llm::entities::ChatResponse),
 }
 
+/// Handles the response from the LLM and determines the next step.
+///
+/// This function processes the `LlmCallResult` by:
+/// 1.  Recording the LLM execution step and emitting an event.
+/// 2.  Checking if the response contains tool calls.
+/// 3.  If there are no tool calls, it completes the execution and returns the final result.
+/// 4.  If there are tool calls, it checks for repetitive loops to prevent infinite execution.
+/// 5.  If any intermediate content was generated, it streams it to the frontend.
+/// 6.  Finally, it returns a decision to either finish the execution or proceed with tool execution.
+///
+/// # Arguments
+///
+/// * `deps` - The execution dependencies.
+/// * `ctx` - The mutable execution context.
+/// * `session` - The current agent session.
+/// * `llm_result` - The result of the LLM call.
+///
+/// # Returns
+///
+/// A `Result` containing a `ResponseDecision` on success, or an `AgentRuntimeError` on failure.
 pub async fn handle_response(
     deps: &ExecutionDeps<'_>,
     ctx: &mut ExecutionContext,

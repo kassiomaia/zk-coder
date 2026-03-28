@@ -1,3 +1,5 @@
+//! Handles the termination of an agent's execution, including completion, cancellation, and failure.
+
 use chrono::Utc;
 use serde_json::json;
 use tauri::Emitter;
@@ -8,12 +10,13 @@ use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::session::{SessionId, SessionState};
 use crate::core::agent::task::{AgentExecutionResult, TaskStatus, UsageStats};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
-use crate::infrastructure::agent::runtime::AgentRuntimeError;
 use crate::infrastructure::agent::runtime::permissions::core_task_to_event_subtask;
+use crate::infrastructure::agent::runtime::AgentRuntimeError;
 
 const STREAMING_CHUNK_BYTES: usize = 96;
 const STREAMING_CHUNK_DELAY_MS: u64 = 24;
 
+/// Updates the state of an agent session and emits a `SessionStateChanged` event.
 pub fn update_session_state(
     deps: &ExecutionDeps<'_>,
     session_id: &SessionId,
@@ -38,6 +41,10 @@ pub fn update_session_state(
     Ok(())
 }
 
+/// Cancels the execution of an agent.
+///
+/// This function updates the execution snapshot, records a trace event,
+/// updates the task status, and emits a `TaskUpdated` event.
 pub fn cancel_execution(
     deps: &ExecutionDeps<'_>,
     ctx: &ExecutionContext,
@@ -74,6 +81,10 @@ pub fn cancel_execution(
     Ok(())
 }
 
+/// Fails the execution of an agent.
+///
+/// This function updates the session state to `Error`, updates the task status,
+/// and records a snapshot and trace event for the failure.
 pub fn fail_execution(
     deps: &ExecutionDeps<'_>,
     ctx: &ExecutionContext,
@@ -156,52 +167,52 @@ fn build_streaming_events(content: &str, finalize_stream: bool) -> Vec<(String, 
 }
 
 pub(super) async fn emit_streaming_content(
-	deps: &ExecutionDeps<'_>,
-	session_id: &str,
-	conversation_id: &str,
-	thread_id: &str,
-	content: &str,
-	finalize_stream: bool,
+    deps: &ExecutionDeps<'_>,
+    session_id: &str,
+    conversation_id: &str,
+    thread_id: &str,
+    content: &str,
+    finalize_stream: bool,
 ) {
-	emit_streaming_message(
-		deps,
-		session_id,
-		conversation_id,
-		thread_id,
-		content,
-		finalize_stream,
-		None,
-		false,
-	)
-	.await;
+    emit_streaming_message(
+        deps,
+        session_id,
+        conversation_id,
+        thread_id,
+        content,
+        finalize_stream,
+        None,
+        false,
+    )
+    .await;
 }
 
 pub(super) async fn emit_streaming_message(
-	deps: &ExecutionDeps<'_>,
-	session_id: &str,
-	conversation_id: &str,
-	thread_id: &str,
-	content: &str,
-	finalize_stream: bool,
-	message_id: Option<String>,
-	persist_message: bool,
+    deps: &ExecutionDeps<'_>,
+    session_id: &str,
+    conversation_id: &str,
+    thread_id: &str,
+    content: &str,
+    finalize_stream: bool,
+    message_id: Option<String>,
+    persist_message: bool,
 ) {
-	let events = build_streaming_events(content, finalize_stream);
-	let last_index = events.len().saturating_sub(1);
+    let events = build_streaming_events(content, finalize_stream);
+    let last_index = events.len().saturating_sub(1);
 
-	for (index, (chunk, is_final)) in events.into_iter().enumerate() {
-		let _ = deps.app_handle.emit(
+    for (index, (chunk, is_final)) in events.into_iter().enumerate() {
+        let _ = deps.app_handle.emit(
             AGENT_EVENT_NAME,
             AgentEvent::StreamingContent {
                 session_id: session_id.to_string(),
-				conversation_id: conversation_id.to_string(),
-				thread_id: thread_id.to_string(),
-				chunk,
-				is_final,
-				message_id: message_id.clone(),
-				persist_message: persist_message.then_some(true),
-			},
-		);
+                conversation_id: conversation_id.to_string(),
+                thread_id: thread_id.to_string(),
+                chunk,
+                is_final,
+                message_id: message_id.clone(),
+                persist_message: persist_message.then_some(true),
+            },
+        );
 
         if index != last_index {
             tokio::time::sleep(std::time::Duration::from_millis(
@@ -212,6 +223,15 @@ pub(super) async fn emit_streaming_message(
     }
 }
 
+/// Completes the execution of an agent.
+///
+/// This function finalizes the execution by:
+/// 1.  Updating the session state to `Finished`.
+/// 2.  Updating the task status to `Completed`.
+/// 3.  Auto-completing any subtask that is still `InProgress`.
+/// 4.  Recording a final snapshot and trace event.
+/// 5.  Emitting `TaskUpdated` and `ExecutionComplete` events.
+/// 6.  Streaming the final content to the frontend.
 pub async fn complete_execution(
     deps: &ExecutionDeps<'_>,
     ctx: &ExecutionContext,

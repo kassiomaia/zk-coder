@@ -43,6 +43,10 @@
 		onApproveAction?: (sessionId: string, actionId: string) => void;
 		/** Handler to deny an agent action */
 		onDenyAction?: (sessionId: string, actionId: string) => void;
+		/** Handler to continue execution from paused state */
+		onContinueExecution?: (sessionId: string) => void;
+		/** Handler to replan and continue from paused state */
+		onReplanExecution?: (sessionId: string) => void;
 		/** Loading state */
 		loading?: boolean;
 		/** Error state */
@@ -70,6 +74,8 @@
 		onMessageFeedback,
 		onApproveAction,
 		onDenyAction,
+		onContinueExecution,
+		onReplanExecution,
 		loading = false,
 		error,
 		isTyping = false,
@@ -319,6 +325,8 @@
 			{onMessageFeedback}
 			{onApproveAction}
 			{onDenyAction}
+			{onContinueExecution}
+			{onReplanExecution}
 			onScroll={(scrollTop, scrollHeight, clientHeight) =>
 				handleChatScroll(scrollTop, scrollHeight, clientHeight)}
 		/>

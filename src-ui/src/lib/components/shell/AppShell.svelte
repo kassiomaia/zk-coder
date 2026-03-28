@@ -62,6 +62,8 @@
 		onSelectSession?: (sessionId: string) => void;
 		onCreateSession?: () => void;
 		onRetryLastRequest?: (sessionId: string) => void;
+		onContinueExecution?: (sessionId: string) => void;
+		onReplanExecution?: (sessionId: string) => void;
 		conversationWorkspace?: string;
 		onSetConversationWorkspace?: (path: string) => void;
 
@@ -112,6 +114,8 @@
 		onSelectSession,
 		onCreateSession,
 		onRetryLastRequest,
+		onContinueExecution,
+		onReplanExecution,
 		conversationWorkspace,
 		onSetConversationWorkspace,
 		messages,
@@ -354,6 +358,8 @@
 					{onMessageFeedback}
 					onApproveAction={(sessionId, actionId) => onApproveAction?.(sessionId, actionId)}
 					onDenyAction={(sessionId, actionId) => onDenyAction?.(sessionId, actionId)}
+					onContinueExecution={(sessionId) => onContinueExecution?.(sessionId)}
+					onReplanExecution={(sessionId) => onReplanExecution?.(sessionId)}
 				/>
 			{:else if selectedConversation}
 				<ChatArea
@@ -374,6 +380,8 @@
 					{onMessageFeedback}
 					onApproveAction={(sessionId, actionId) => onApproveAction?.(sessionId, actionId)}
 					onDenyAction={(sessionId, actionId) => onDenyAction?.(sessionId, actionId)}
+					onContinueExecution={(sessionId) => onContinueExecution?.(sessionId)}
+					onReplanExecution={(sessionId) => onReplanExecution?.(sessionId)}
 				/>
 			{:else}
 				<ChatArea
@@ -388,6 +396,8 @@
 					onOpenSettings={onSettings}
 					onApproveAction={(sessionId, actionId) => onApproveAction?.(sessionId, actionId)}
 					onDenyAction={(sessionId, actionId) => onDenyAction?.(sessionId, actionId)}
+					onContinueExecution={(sessionId) => onContinueExecution?.(sessionId)}
+					onReplanExecution={(sessionId) => onReplanExecution?.(sessionId)}
 				/>
 			{/if}
 		</main>
@@ -496,9 +506,6 @@
 		overflow: hidden;
 	}
 
-	.sidebar-left {}
-
-	.sidebar-right {}
 
 	/* Center content area */
 	.shell-center {

@@ -80,6 +80,13 @@ fn runtime_session_state_from_core(
                 reason: reason.clone(),
             }
         }
+        crate::core::agent::entities::SessionState::Paused { paused_at, message } => {
+            crate::core::agent::session::SessionState::Paused {
+                paused_at: *paused_at,
+                message: message.clone(),
+                current_subtask_id: None,
+            }
+        }
     }
 }
 

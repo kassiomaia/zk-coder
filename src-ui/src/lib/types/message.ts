@@ -13,7 +13,7 @@ export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'error';
 export type MessageFeedback = 'like' | 'dislike';
 
 /** Kind of message for specialized rendering */
-export type MessageKind = 'normal' | 'thinking' | 'tool_call' | 'terminal' | 'narration' | 'approval';
+export type MessageKind = 'normal' | 'thinking' | 'tool_call' | 'terminal' | 'narration' | 'approval' | 'recovery';
 export type SystemNoticeReason = 'token_limit' | 'subtask_transition';
 
 export interface ContextUpdateNotice {
@@ -55,6 +55,10 @@ export interface AgentMessageData {
 	approvalResolved?: boolean;
 	/** The decision made ('approved' | 'denied') */
 	approvalDecision?: 'approved' | 'denied';
+	/** Whether the recovery has been resolved */
+	recoveryResolved?: boolean;
+	/** The recovery decision made ('continued' | 'replanned') */
+	recoveryDecision?: 'continued' | 'replanned';
 }
 
 /**

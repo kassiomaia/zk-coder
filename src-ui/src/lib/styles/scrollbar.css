@@ -52,7 +52,7 @@
 .thin-scrollbar::-webkit-scrollbar-thumb {
 	background: var(--color-border-subtle);
 	border-radius: var(--radius-full);
-	transition: background var(--card-duration-hover) var(--card-ease-hover);
+	transition: background var(--transition-fast) var(--ease-out);
 }
 
 .thin-scrollbar:hover::-webkit-scrollbar-thumb {

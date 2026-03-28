@@ -49,7 +49,8 @@ impl AgentServiceImpl {
             }
             CoreSessionState::WaitForRequest { .. }
             | CoreSessionState::Finished { .. }
-            | CoreSessionState::Error { .. } => {}
+            | CoreSessionState::Error { .. }
+            | CoreSessionState::Paused { .. } => {}
         }
 
         let sid = SessionId(session_id.clone());

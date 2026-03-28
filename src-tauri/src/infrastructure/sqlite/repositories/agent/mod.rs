@@ -94,6 +94,11 @@ fn session_state_to_agents(
         core_entities::SessionState::Cancelled { reason, .. } => AgentSessionState::Cancelled {
             reason: reason.clone(),
         },
+        core_entities::SessionState::Paused { paused_at, message } => AgentSessionState::Paused {
+            paused_at: *paused_at,
+            message: message.clone(),
+            current_subtask_id: None,
+        },
     }
 }
 
@@ -132,6 +137,12 @@ fn session_state_to_core(
             error_at: chrono::Utc::now(),
             error: message.clone(),
         },
+        AgentSessionState::Paused { paused_at, message, .. } => {
+            core_entities::SessionState::Paused {
+                paused_at: *paused_at,
+                message: message.clone(),
+            }
+        }
     }
 }
 

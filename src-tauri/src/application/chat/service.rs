@@ -1,7 +1,7 @@
-//! Chat service implementation.
+//! Provides the implementation of the `ChatService`.
 //!
-//! This service implements the core ChatService trait, providing business logic
-//! for chat operations while delegating persistence to the storage layer.
+//! This service implements the core `ChatService` trait, offering business logic
+//! for chat operations while delegating persistence to the underlying storage layer.
 
 mod operations;
 mod repositories;
@@ -10,18 +10,19 @@ use std::sync::Arc;
 
 use crate::core::chat::repositories::ChatRepositorySet;
 
-/// Implementation of the ChatService trait.
+/// The concrete implementation of the `ChatService` trait.
 ///
-/// This service orchestrates business logic between the core domain entities
-/// and the storage layer. It enforces business rules such as thread resolved
-/// validation while delegating persistence operations to a repository adapter.
+/// This service is responsible for orchestrating the business logic between the
+/// core domain entities and the storage layer. It enforces business rules, such
+/// as validating that a thread is not resolved before adding a message, while
+/// delegating persistence operations to a repository adapter.
 pub struct ChatServiceImpl {
-    /// The underlying repository implementation
+    /// The underlying repository implementation that handles data persistence.
     repository: Arc<dyn ChatRepositorySet>,
 }
 
 impl ChatServiceImpl {
-    /// Creates a new chat service with the given repository backend.
+    /// Creates a new `ChatServiceImpl` with the given repository backend.
     #[must_use]
     pub fn new(repository: Arc<dyn ChatRepositorySet>) -> Self {
         Self { repository }

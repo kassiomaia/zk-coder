@@ -1,24 +1,34 @@
-//! Permission system for agent tool execution.
+//! Defines the permission system for controlling agent tool execution.
 //!
-//! Determines whether a tool call should be auto-executed,
-//! queued for user approval, or blocked entirely.
+//! This module is responsible for determining whether a specific tool call
+//! should be executed automatically, queued for user approval, or blocked.
+//! The decision is based on the agent's trust mode and any configured overrides.
 
 use std::collections::HashMap;
 
 use super::types::{ActionType, PermissionLevel, TrustMode};
 
-/// Resolves permissions for tool calls based on trust mode and overrides.
+/// Resolves the permission level for tool calls based on trust mode and overrides.
+///
+/// The `PermissionResolver` is used to determine the appropriate `PermissionLevel`
+/// for a given tool call by considering the overall trust mode of the agent,
+/// as well as any specific overrides for tools or tool categories.
 #[derive(Debug, Clone)]
 pub struct PermissionResolver {
+    /// The overall trust mode for the agent.
     trust_mode: TrustMode,
-    /// Per-tool permission overrides (tool full name -> level).
+    /// A map of permission overrides for specific tools, indexed by tool name.
     tool_overrides: HashMap<String, PermissionLevel>,
-    /// Per-category permission overrides (category -> level).
+    /// A map of permission overrides for tool categories, indexed by category name.
     category_overrides: HashMap<String, PermissionLevel>,
 }
 
 impl PermissionResolver {
-    /// Create a new resolver with the given trust mode.
+    /// Creates a new `PermissionResolver` with the specified trust mode.
+    ///
+    /// # Arguments
+    ///
+    /// * `trust_mode` - The trust mode to be used for resolving permissions.
     pub fn new(trust_mode: TrustMode) -> Self {
         Self {
             trust_mode,
@@ -27,23 +37,48 @@ impl PermissionResolver {
         }
     }
 
-    /// Set a permission override for a specific tool.
+    /// Sets a permission override for a specific tool.
+    ///
+    /// This allows for fine-grained control over individual tools, overriding
+    /// the default behavior determined by the trust mode or category.
+    ///
+    /// # Arguments
+    ///
+    /// * `tool_name` - The full name of the tool to override.
+    /// * `level` - The `PermissionLevel` to be applied to the tool.
     pub fn set_tool_permission(&mut self, tool_name: &str, level: PermissionLevel) {
         self.tool_overrides.insert(tool_name.to_string(), level);
     }
 
-    /// Set a permission override for an entire tool category.
+    /// Sets a permission override for an entire category of tools.
+    ///
+    /// This is useful for applying a consistent permission level to a group of
+    /// related tools (e.g., all filesystem tools).
+    ///
+    /// # Arguments
+    ///
+    /// * `category` - The name of the category to override.
+    /// * `level` - The `PermissionLevel` to be applied to the category.
     pub fn set_category_permission(&mut self, category: &str, level: PermissionLevel) {
         self.category_overrides.insert(category.to_string(), level);
     }
 
-    /// Check the permission level for a given tool and action.
+    /// Checks the permission level for a given tool and action type.
     ///
-    /// Resolution order:
-    /// 1. Trust mode override (Trusted -> AutoRun, Restricted -> ApprovalRequired)
+    /// The permission is resolved in the following order of precedence:
+    /// 1. Trust mode override (`Trusted` -> `AutoRun`, `Restricted` -> `ApprovalRequired`)
     /// 2. Per-tool override
     /// 3. Per-category override
-    /// 4. Default based on action type
+    /// 4. Default permission based on the `ActionType`
+    ///
+    /// # Arguments
+    ///
+    /// * `tool_name` - The name of the tool being checked.
+    /// * `action` - The type of action the tool is performing.
+    ///
+    /// # Returns
+    ///
+    /// The resolved `PermissionLevel` for the tool call.
     pub fn check(&self, tool_name: &str, action: &ActionType) -> PermissionLevel {
         // Trust mode takes precedence
         match self.trust_mode {
@@ -68,9 +103,10 @@ impl PermissionResolver {
         Self::default_for_action(action)
     }
 
-    /// Default permission based on the type of action.
-    /// Read operations are auto-run; writes, deletes, and commands require approval.
-    /// Document creation and finalization require approval.
+    /// Determines the default permission level based on the action type.
+    ///
+    /// By default, read operations are auto-run, while writes, deletes, and commands
+    /// require user approval. Document creation and finalization also require approval.
     fn default_for_action(action: &ActionType) -> PermissionLevel {
         match action {
             ActionType::ReadFile { .. } => PermissionLevel::AutoRun,

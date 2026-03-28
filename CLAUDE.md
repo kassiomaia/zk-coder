@@ -121,6 +121,97 @@ For the resolved state UI, use these design system tokens:
     c) The style of the application must be unique, consistent, and visually appealing, and it must not look like a generic application, or like an application that was built using a component library without any customization. The design system must be followed to ensure consistency across the application, and to ensure that the application has a unique and visually appealing style.
     b) Colors, spacing, typography, and other design tokens must be defined in the design system, and they must be used consistently across the application to ensure a cohesive and visually appealing design.
 
+### CSS/Svelte Styling Guidelines
+
+#### Prohibited Patterns - DO NOT USE
+
+1. **Empty CSS rulesets**: Never create empty CSS rules. They cause Vite virtual CSS module loader to fail.
+   ```css
+   /* ❌ WRONG - Causes build errors */
+   .sidebar-left {}
+
+   /* ✅ CORRECT - Add a comment or remove the rule entirely */
+   .sidebar-left {
+       /* Styles inherited from parent */
+   }
+   /* Or simply remove if not needed */
+   ```
+
+2. **Invalid CSS properties**: Only use valid CSS properties. Data attributes cannot be set via CSS.
+   ```css
+   /* ❌ WRONG - Invalid syntax */
+   :root {
+       data-theme: 'light';
+   }
+
+   /* ✅ CORRECT - Use JavaScript to set data attributes */
+   // In component: document.documentElement.setAttribute('data-theme', 'light');
+   ```
+
+3. **Undefined CSS variables**: Always verify variables exist in `design-system.css` before using them.
+   ```css
+   /* ❌ WRONG - Variable doesn't exist */
+   transition: background var(--card-duration-hover) var(--card-ease-hover);
+
+   /* ✅ CORRECT - Use defined variables from design-system.css */
+   transition: background var(--transition-fast) var(--ease-out);
+   ```
+
+#### Required Verification Steps
+
+Before committing any CSS changes:
+
+1. **Check variable existence**: Search `src-ui/src/lib/styles/design-system.css` to verify the variable is defined
+2. **Run type check**: Execute `npm run check` from `src-ui/` directory
+3. **Run dev server**: Execute `npm run dev` to verify no CSS module loading errors
+4. **Check for empty rulesets**: Run `grep -r "\. {}\|\.className {}" src-ui/src/lib/components`
+
+#### Shared CSS Files - Usage Guidelines
+
+The following shared CSS files exist in `src-ui/src/lib/styles/`:
+
+| File | Purpose | When to Import |
+|------|---------|----------------|
+| `animations.css` | 30+ @keyframes (spin, fadeIn, slideIn, pulse) | Component needs animations |
+| `scrollbar.css` | Unified scrollbar classes (.standard-scrollbar, .thin-scrollbar) | Component has scrollable content |
+| `reduced-motion.css` | WCAG 2.1.2.3 compliant reduced motion | Component has animations |
+| `design-system.css` | ALL design tokens (colors, spacing, typography) | Already imported globally - do NOT re-import |
+| `global.css` | Global resets and base styles | Already imported in +layout.svelte |
+
+**Import pattern**:
+```css
+/* In component .svelte files <style> block: */
+@import '../../styles/animations.css';
+@import '../../styles/scrollbar.css';
+
+/* NEVER import design-system.css or global.css - already loaded globally */
+```
+
+#### Component CSS Best Practices
+
+1. **Prefer component-scoped styles**: Use `<style>` blocks in `.svelte` files, not external CSS modules unless necessary
+
+2. **Design tokens reference**: All available tokens are in `design-system.css`. Common categories:
+   - Colors: `--color-primary-*`, `--color-neutral-*`, `--color-text-*`, `--color-border-*`
+   - Spacing: `--space-0` through `--space-24`
+   - Transitions: `--transition-instant`, `--transition-fast`, `--transition-normal`, `--transition-slow`
+   - Easing: `--ease-out`, `--ease-in`, `--ease-in-out`
+   - Radius: `--radius-sm`, `--radius-md`, `--radius-lg`, `--radius-xl`, `--radius-full`
+
+3. **When in doubt, check first**: If unsure about a CSS variable, search the design-system.css file:
+   ```bash
+   grep -r "variable-name" src-ui/src/lib/styles/design-system.css
+   ```
+
+#### Common Mistakes and Solutions
+
+| Mistake | Symptom | Solution |
+|---------|---------|----------|
+| Empty ruleset `{}` | `vite-plugin-svelte:load` failed | Add comment or remove rule |
+| Undefined variable | Style not applied, console warning | Verify in design-system.css |
+| Invalid CSS syntax | Build fails, parsing errors | Use valid CSS properties only |
+| Duplicate @import | Circular dependency warnings | Don't import global files already loaded |
+
 ## Development Guidelines
 
 ### Code Style (Rust)

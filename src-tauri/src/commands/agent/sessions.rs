@@ -161,3 +161,63 @@ pub async fn retry_last_agent_request(
         .await
         .map_err(|e| e.to_string())
 }
+
+/// Continue execution from a paused session.
+#[tauri::command]
+pub async fn continue_agent_execution(
+    session_id: String,
+    state: tauri::State<'_, AgentState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    state
+        .service
+        .continue_execution(session_id, app_handle)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Replan and continue execution from a paused session.
+#[tauri::command]
+pub async fn replan_agent_execution(
+    session_id: String,
+    state: tauri::State<'_, AgentState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    state
+        .service
+        .replan_and_continue(session_id, app_handle)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Initialize agent recovery on app startup.
+///
+/// This command should be called when the app starts to:
+/// 1. Detect any unterminated sessions from previous runs
+/// 2. Move them to Paused state
+/// 3. Emit SessionPaused events so the frontend can show recovery UI
+#[tauri::command]
+pub async fn initialize_agent_recovery(
+    state: tauri::State<'_, AgentState>,
+    app_handle: tauri::AppHandle,
+) -> Result<usize, String> {
+    let recovered = state
+        .service
+        .recover_unterminated_executions()
+        .map_err(|e| e.to_string())?;
+
+    // Emit SessionPaused events for each recovered session
+    for session in &recovered {
+        let _ = app_handle.emit(
+            AGENT_EVENT_NAME,
+            AgentEvent::SessionPaused {
+                session_id: session.session_id.clone(),
+                message: session.message.clone(),
+                paused_at: session.paused_at,
+                current_subtask_id: None,
+            },
+        );
+    }
+
+    Ok(recovered.len())
+}

@@ -21,7 +21,19 @@ use tauri_plugin_log::{Target, TargetKind};
 use application::llm::LlmServiceImpl;
 use infrastructure::sqlite::repositories::config::SqliteConfigRepository;
 
-/// Get the app data directory for storing databases.
+/// Retrieves the application's data directory, creating it if it doesn't exist.
+///
+/// This function is used to get a platform-specific and user-specific directory
+/// for storing application data, such as databases and configuration files.
+///
+/// # Arguments
+///
+/// * `app_handle` - A handle to the Tauri application instance.
+///
+/// # Returns
+///
+/// A `Result` containing the `PathBuf` of the data directory on success,
+/// or a `String` with an error message on failure.
 fn get_app_data_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
     // Use Tauri's app data directory
     let data_dir = app_handle
@@ -36,6 +48,12 @@ fn get_app_data_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(data_dir)
 }
 
+/// The main entry point for the Coder Tauri application.
+///
+/// This function sets up and runs the Tauri application. It initializes the
+/// application builder, sets up the database connections, initializes all
+/// the application states and services, configures plugins, and registers
+/// all the Tauri commands.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -176,6 +194,9 @@ pub fn run() {
             commands::agent::sessions::create_agent_session,
             commands::agent::sessions::send_agent_request,
             commands::agent::sessions::retry_last_agent_request,
+            commands::agent::sessions::continue_agent_execution,
+            commands::agent::sessions::replan_agent_execution,
+            commands::agent::sessions::initialize_agent_recovery,
             commands::agent::sessions::get_agent_session,
             commands::agent::sessions::get_agent_sessions_for_conversation,
             commands::agent::sessions::cancel_agent_session,

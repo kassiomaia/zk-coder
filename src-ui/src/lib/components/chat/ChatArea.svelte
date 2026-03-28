@@ -114,6 +114,12 @@
 
 		/** Deny action handler */
 		onDenyAction?: (sessionId: string, actionId: string) => void;
+
+		/** Continue execution handler */
+		onContinueExecution?: (sessionId: string) => void;
+
+		/** Replan execution handler */
+		onReplanExecution?: (sessionId: string) => void;
 	}
 
 	let {
@@ -141,7 +147,9 @@
 		onThreadClick,
 		onScroll,
 		onApproveAction,
-		onDenyAction
+		onDenyAction,
+		onContinueExecution,
+		onReplanExecution
 	}: Props = $props();
 
 	// Input state
@@ -450,6 +458,8 @@
 			onRetry={onRetry}
 			onApproveAction={onApproveAction}
 			onDenyAction={onDenyAction}
+			onContinueExecution={onContinueExecution}
+			onReplanExecution={onReplanExecution}
 		/>
 
 		<!-- Scroll to bottom button -->

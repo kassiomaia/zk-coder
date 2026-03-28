@@ -1,3 +1,9 @@
+//! Handles the initial setup and bootstrapping of an agent's execution.
+//!
+//! This module is responsible for preparing the execution environment when a new
+//! request is received, including planning the task, creating the necessary
+//! data structures, and initializing the execution context.
+
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::session::{AgentSession, SessionState};
 use crate::core::agent::task::{AgentRequest, AgentTask};
@@ -16,11 +22,37 @@ use crate::application::agent::service::planner::{
     plan_new_task, subtask_plan_to_agent_task,
 };
 
+/// The result of a successful bootstrap process.
 pub struct BootstrapResult {
+    /// The initialized execution context.
     pub context: ExecutionContext,
+    /// The client for communicating with the LLM.
     pub client: Box<dyn crate::infrastructure::llm::LlmClient>,
 }
 
+/// Starts the execution of an agent for a given session and request.
+///
+/// This function performs the following steps:
+/// 1. Updates the session state to `Running`.
+/// 2. Emits an `ExecutionStarted` event.
+/// 3. Uses a single-shot LLM call to plan the task, generating a title, description, and subtasks.
+/// 4. Creates a root task with the generated title and description.
+/// 5. Creates all subtasks, marking the first one as `InProgress`.
+/// 6. Initializes the `ExecutionContext` and saves an initial snapshot.
+/// 7. Emits `TaskCreated` and `SubtaskCreated` events to notify the frontend.
+/// 8. Creates the LLM client and builds the initial LLM context.
+/// 9. Updates the root task status to `InProgress` and emits a `TaskUpdated` event.
+///
+/// # Arguments
+///
+/// * `deps` - The execution dependencies, including repositories and application handles.
+/// * `session` - The agent session for which the execution is starting.
+/// * `request` - The user's request that initiated the execution.
+/// * `trust_mode` - The trust mode for the execution, which determines permission levels.
+///
+/// # Returns
+///
+/// A `Result` containing a `BootstrapResult` on success, or an `AgentRuntimeError` on failure.
 pub async fn start_execution(
     deps: &ExecutionDeps<'_>,
     session: &AgentSession,

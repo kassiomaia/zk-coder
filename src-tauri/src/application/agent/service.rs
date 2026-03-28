@@ -1,8 +1,8 @@
-//! Agent service implementation.
+//! Provides the implementation of the `AgentService`.
 //!
-//! The service is split into focused submodules so session lifecycle, runtime
-//! execution, approvals, task tracking, and rollback concerns can evolve
-//! independently while preserving a single application-layer entry point.
+//! The service is split into focused submodules so that session lifecycle,
+//! runtime execution, approvals, task tracking, and rollback concerns can
+//! evolve independently while preserving a single application-layer entry point.
 
 mod approvals;
 mod history;
@@ -43,7 +43,7 @@ use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
 
 use super::conversions::store_error_to_domain;
 
-/// Implementation of the AgentService trait.
+/// The concrete implementation of the `AgentService` trait.
 pub struct AgentServiceImpl {
     registry: Arc<AgentRegistry>,
     session_repo: Arc<dyn SessionRepository>,
@@ -59,7 +59,11 @@ pub struct AgentServiceImpl {
 }
 
 impl AgentServiceImpl {
-    /// Creates a new agent service.
+    /// Creates a new `AgentServiceImpl`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the Tokio runtime fails to build.
     pub fn new(
         registry: Arc<AgentRegistry>,
         session_repo: Arc<dyn SessionRepository>,

@@ -1,63 +1,80 @@
-//! LLM service interface.
+//! Defines the service interface for LLM-related business operations.
 //!
-//! Defines business operations for LLM functionality.
+//! This module provides the `LlmService` trait, which outlines the core
+//! functionalities for interacting with LLMs, such as sending chat requests
+//! and managing provider configurations.
 
 use super::entities::{ChatRequest, ChatResponse, LlmResult};
 use super::repositories::LlmProvider;
 
-/// Event emitted during LLM streaming.
+/// An event emitted during an LLM streaming operation.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum LlmEvent {
-    /// Streaming started
-    Started { request_id: String, model: String },
-    /// Content chunk received
-    Chunk {
+    /// Indicates that the streaming has started.
+    Started {
+        /// The unique ID of the request.
         request_id: String,
+        /// The model being used for the request.
+        model: String,
+    },
+    /// A chunk of content has been received.
+    Chunk {
+        /// The unique ID of the request.
+        request_id: String,
+        /// The incremental change in the content.
         delta: String,
-        /// Reasoning content from models like GLM-5
+        /// Optional reasoning content from models that provide it.
         #[serde(skip_serializing_if = "Option::is_none")]
         reasoning_delta: Option<String>,
     },
-    /// Streaming completed
+    /// Indicates that the streaming has completed.
     Complete {
+        /// The unique ID of the request.
         request_id: String,
+        /// The final, complete content of the response.
         content: String,
+        /// Token usage statistics for the response.
         usage: Option<super::entities::UsageStats>,
+        /// The reason why the model finished generating the response.
         finish_reason: Option<String>,
     },
-    /// Error occurred
+    /// An error occurred during the streaming operation.
     Error {
+        /// The unique ID of the request.
         request_id: String,
+        /// The error message.
         error: String,
+        /// A flag indicating whether the error is retryable.
         retryable: bool,
     },
 }
 
-/// Options for streaming requests.
+/// Options for configuring LLM streaming requests.
 #[derive(Debug, Clone, Default)]
 pub struct StreamingOptions {
-    /// Unique request ID
+    /// A unique identifier for the request.
     pub request_id: Option<String>,
-    /// Batch interval in milliseconds
+    /// The interval in milliseconds at which to batch chunks.
     pub batch_interval_ms: Option<u64>,
-    /// Minimum content length to trigger immediate flush
+    /// The minimum content length to trigger an immediate flush of the batch.
     pub min_flush_length: Option<usize>,
 }
 
-/// LLM service interface.
+/// The main service interface for LLM-related business logic.
 ///
-/// Defines business logic operations for LLM functionality.
+/// This trait defines the high-level operations that can be performed with LLMs,
+/// abstracting away the underlying implementation details.
 pub trait LlmService: Send + Sync {
-    /// Sends a simple chat request (non-streaming).
+    /// Sends a simple, non-streaming chat request to the LLM.
     fn chat(&self, request: ChatRequest) -> LlmResult<ChatResponse>;
 
-    /// Validates an API key for a provider.
+    /// Validates an API key for a given LLM provider.
     fn validate_api_key(&self, provider: LlmProvider, api_key: &str) -> LlmResult<bool>;
 
-    /// Fetches available models for a provider.
+    /// Fetches the list of available models for a given LLM provider.
     fn fetch_models(&self, provider: LlmProvider, api_key: &str) -> LlmResult<Vec<String>>;
 
-    /// Gets the default model for a provider.
+    /// Retrieves the default model for a given LLM provider.
     fn get_default_model(&self, provider: LlmProvider) -> Option<String>;
 }

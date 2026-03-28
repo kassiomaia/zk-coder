@@ -39,9 +39,7 @@ html {
 }
 
 /* Default to light theme - pale, refined aesthetic */
-:root {
-	data-theme: 'light';
-}
+/* Theme is set via JavaScript in +layout.svelte */
 
 body {
 	font-family: var(--font-sans);

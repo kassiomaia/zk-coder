@@ -1,4 +1,8 @@
-//! Runtime tracing helpers for agent execution.
+//! Provides runtime tracing helpers for observing agent execution.
+//!
+//! This module defines the `RuntimeTraceService`, which is responsible for
+//! persisting execution traces and emitting live events for real-time
+//! monitoring of the agent's internal operations.
 
 use chrono::Utc;
 use tauri::{AppHandle, Emitter, Manager};
@@ -11,7 +15,7 @@ use crate::infrastructure::agent::events::{AgentTraceEvent, AGENT_TRACE_EVENT_NA
 
 const TRACE_WINDOW_LABEL: &str = "agent-trace-dev";
 
-/// Coordinates trace persistence and live event emission for execution internals.
+/// A service that coordinates trace persistence and live event emission for execution internals.
 pub struct RuntimeTraceService<'a> {
     execution_repo: &'a dyn ExecutionRepository,
     trace_repo: &'a dyn RuntimeTraceRepository,
@@ -19,6 +23,7 @@ pub struct RuntimeTraceService<'a> {
 }
 
 impl<'a> RuntimeTraceService<'a> {
+    /// Creates a new `RuntimeTraceService`.
     pub fn new(
         execution_repo: &'a dyn ExecutionRepository,
         trace_repo: &'a dyn RuntimeTraceRepository,
@@ -31,6 +36,7 @@ impl<'a> RuntimeTraceService<'a> {
         }
     }
 
+    /// Saves a snapshot of the execution state and emits a trace event.
     pub fn save_snapshot(&self, snapshot: &ExecutionSnapshot) -> RepositoryResult<()> {
         self.execution_repo.save_execution_snapshot(snapshot)?;
         self.emit_trace_event(AgentTraceEvent::SnapshotUpdated {
@@ -39,10 +45,12 @@ impl<'a> RuntimeTraceService<'a> {
         Ok(())
     }
 
+    /// Clears the execution snapshot for a given session.
     pub fn clear_snapshot(&self, session_id: &str) -> RepositoryResult<()> {
         self.execution_repo.clear_execution_snapshot(session_id)
     }
 
+    /// Appends a new trace to the runtime trace repository and emits a trace event.
     pub fn append_trace(
         &self,
         session_id: &str,
@@ -63,7 +71,9 @@ impl<'a> RuntimeTraceService<'a> {
             created_at: Utc::now(),
         };
         self.trace_repo.append_runtime_trace(&trace)?;
-        self.emit_trace_event(AgentTraceEvent::RuntimeTrace { trace: trace.clone() });
+        self.emit_trace_event(AgentTraceEvent::RuntimeTrace {
+            trace: trace.clone(),
+        });
         Ok(trace)
     }
 
@@ -73,6 +83,7 @@ impl<'a> RuntimeTraceService<'a> {
         }
     }
 
+    /// Emits a `PhaseTransition` trace event.
     pub fn emit_transition(
         &self,
         session_id: &str,

@@ -1,7 +1,8 @@
-//! Conversion utilities between agent store types and core domain entities.
+//! Provides conversion utilities between agent store types and core domain entities.
 //!
-//! This module provides `From` implementations and helper functions
-//! for converting between the agent infrastructure layer and the core domain layer.
+//! This module contains `From` implementations and helper functions that facilitate
+//! the conversion of data structures between the agent infrastructure layer and the
+//! core domain layer.
 
 use chrono::Utc;
 
@@ -22,13 +23,13 @@ use crate::core::agent::types::{ActionType, Agent, AgentId, TrustMode};
 
 impl From<&str> for SessionId {
     fn from(s: &str) -> Self {
-        SessionId(s.to_string())
+        Self(s.to_string())
     }
 }
 
 impl From<String> for SessionId {
     fn from(s: String) -> Self {
-        SessionId(s)
+        Self(s)
     }
 }
 
@@ -40,19 +41,19 @@ impl From<SessionId> for String {
 
 impl From<&SessionId> for CoreSessionId {
     fn from(id: &SessionId) -> Self {
-        CoreSessionId(id.0.clone())
+        Self(id.0.clone())
     }
 }
 
 impl From<SessionId> for CoreSessionId {
     fn from(id: SessionId) -> Self {
-        CoreSessionId(id.0)
+        Self(id.0)
     }
 }
 
 impl From<&CoreSessionId> for SessionId {
     fn from(id: &CoreSessionId) -> Self {
-        SessionId(id.0.clone())
+        Self(id.0.clone())
     }
 }
 
@@ -62,13 +63,13 @@ impl From<&CoreSessionId> for SessionId {
 
 impl From<&str> for AgentId {
     fn from(s: &str) -> Self {
-        AgentId(s.to_string())
+        Self(s.to_string())
     }
 }
 
 impl From<String> for AgentId {
     fn from(s: String) -> Self {
-        AgentId(s)
+        Self(s)
     }
 }
 
@@ -80,13 +81,13 @@ impl From<AgentId> for String {
 
 impl From<&AgentId> for crate::core::agent::entities::AgentId {
     fn from(id: &AgentId) -> Self {
-        crate::core::agent::entities::AgentId(id.0.clone())
+        Self(id.0.clone())
     }
 }
 
 impl From<AgentId> for crate::core::agent::entities::AgentId {
     fn from(id: AgentId) -> Self {
-        crate::core::agent::entities::AgentId(id.0)
+        Self(id.0)
     }
 }
 
@@ -97,9 +98,9 @@ impl From<AgentId> for crate::core::agent::entities::AgentId {
 impl From<TrustMode> for AgentTrustMode {
     fn from(mode: TrustMode) -> Self {
         match mode {
-            TrustMode::Trusted => AgentTrustMode::Never,
-            TrustMode::Untrusted => AgentTrustMode::RiskyOnly,
-            TrustMode::Restricted => AgentTrustMode::Always,
+            TrustMode::Trusted => Self::Never,
+            TrustMode::Untrusted => Self::RiskyOnly,
+            TrustMode::Restricted => Self::Always,
         }
     }
 }
@@ -107,9 +108,9 @@ impl From<TrustMode> for AgentTrustMode {
 impl From<AgentTrustMode> for TrustMode {
     fn from(mode: AgentTrustMode) -> Self {
         match mode {
-            AgentTrustMode::Never => TrustMode::Trusted,
-            AgentTrustMode::RiskyOnly => TrustMode::Untrusted,
-            AgentTrustMode::Always => TrustMode::Restricted,
+            AgentTrustMode::Never => Self::Trusted,
+            AgentTrustMode::RiskyOnly => Self::Untrusted,
+            AgentTrustMode::Always => Self::Restricted,
         }
     }
 }
@@ -117,10 +118,10 @@ impl From<AgentTrustMode> for TrustMode {
 impl From<SubTaskMode> for crate::core::agent::entities::TaskMode {
     fn from(mode: SubTaskMode) -> Self {
         match mode {
-            SubTaskMode::Read => crate::core::agent::entities::TaskMode::Read,
-            SubTaskMode::Write => crate::core::agent::entities::TaskMode::Write,
-            SubTaskMode::Execute => crate::core::agent::entities::TaskMode::Execute,
-            SubTaskMode::FullAccess => crate::core::agent::entities::TaskMode::FullAccess,
+            SubTaskMode::Read => Self::Read,
+            SubTaskMode::Write => Self::Write,
+            SubTaskMode::Execute => Self::Execute,
+            SubTaskMode::FullAccess => Self::FullAccess,
         }
     }
 }
@@ -131,7 +132,7 @@ impl From<SubTaskMode> for crate::core::agent::entities::TaskMode {
 
 impl From<Agent> for CoreAgent {
     fn from(agent: Agent) -> Self {
-        CoreAgent {
+        Self {
             id: crate::core::agent::entities::AgentId(agent.id.0),
             name: agent.name,
             description: agent.description,
@@ -148,30 +149,33 @@ impl From<Agent> for CoreAgent {
 impl From<SessionState> for CoreSessionState {
     fn from(state: SessionState) -> Self {
         match state {
-            SessionState::Launching => CoreSessionState::WaitForRequest {
+            SessionState::Launching => Self::WaitForRequest {
                 last_action_at: Utc::now(),
             },
-            SessionState::Running { .. } => CoreSessionState::Processing {
+            SessionState::Running { .. } => Self::Processing {
                 started_at: Utc::now(),
             },
             SessionState::WaitForRequest { last_action_at } => {
-                CoreSessionState::WaitForRequest { last_action_at }
+                Self::WaitForRequest { last_action_at }
             }
-            SessionState::UserInputRequired { .. } => CoreSessionState::AwaitingApproval {
+            SessionState::UserInputRequired { .. } => Self::AwaitingApproval {
                 action_id: String::new(),
                 requested_at: Utc::now(),
             },
-            SessionState::Finished { completed_at } => CoreSessionState::Finished {
+            SessionState::Finished { completed_at } => Self::Finished {
                 completed_at,
                 result: String::new(),
             },
-            SessionState::Cancelled { reason } => CoreSessionState::Cancelled {
+            SessionState::Cancelled { reason } => Self::Cancelled {
                 cancelled_at: Utc::now(),
                 reason,
             },
-            SessionState::Error { message, .. } => CoreSessionState::Error {
+            SessionState::Error { message, .. } => Self::Error {
                 error_at: Utc::now(),
                 error: message,
+            },
+            SessionState::Paused { .. } => Self::WaitForRequest {
+                last_action_at: Utc::now(),
             },
         }
     }
@@ -183,7 +187,7 @@ impl From<SessionState> for CoreSessionState {
 
 impl From<AgentSession> for CoreAgentSession {
     fn from(session: AgentSession) -> Self {
-        CoreAgentSession {
+        Self {
             id: (&session.id).into(),
             agent_id: (&session.agent_id).into(),
             agent_name: session.agent_name,
@@ -197,7 +201,7 @@ impl From<AgentSession> for CoreAgentSession {
     }
 }
 
-/// Convert a core session into the runtime/UI session shape.
+/// Converts a core agent session into the runtime session representation used by the UI.
 pub fn core_session_to_agent_session(session: CoreAgentSession) -> AgentSession {
     AgentSession {
         id: SessionId(session.id.0),
@@ -227,6 +231,15 @@ pub fn core_session_to_agent_session(session: CoreAgentSession) -> AgentSession 
                 recoverable: crate::application::agent::service::AgentServiceImpl::is_recoverable_error_message(&error),
                 message: crate::application::agent::service::AgentServiceImpl::strip_recoverable_prefix(&error),
             },
+            CoreSessionState::Paused { paused_at, message } => {
+                // TODO: Query task repo for in-progress subtask
+                let current_subtask_id = None;
+                SessionState::Paused {
+                    paused_at,
+                    message,
+                    current_subtask_id,
+                }
+            }
         },
         created_at: session.created_at,
         updated_at: session.created_at,
@@ -241,27 +254,27 @@ impl From<PendingAction> for CorePendingAction {
     fn from(action: PendingAction) -> Self {
         use crate::core::agent::entities::ApprovalStatus;
 
-        CorePendingAction {
+        Self {
             id: action.id,
             session_id: action.session_id.0,
             action_type: match &action.action_type {
-                ActionType::ReadFile { path } => format!("read_file:{}", path),
-                ActionType::WriteFile { path, .. } => format!("write_file:{}", path),
-                ActionType::DeleteFile { path } => format!("delete_file:{}", path),
-                ActionType::ExecuteCommand { command } => format!("execute:{}", command),
-                ActionType::WebRequest { url } => format!("web_request:{}", url),
-                ActionType::CreateDocx { filename } => format!("create_docx:{}", filename),
-                ActionType::MutateDocxDraft { document_id } => format!("mutate_docx:{}", document_id),
-                ActionType::InspectDocxDraft { document_id } => format!("inspect_docx:{}", document_id),
-                ActionType::CreatePptx { filename } => format!("create_pptx:{}", filename),
-                ActionType::MutatePptxDraft { deck_id } => format!("mutate_pptx:{}", deck_id),
-                ActionType::InspectPptxDraft { deck_id } => format!("inspect_pptx:{}", deck_id),
-                ActionType::CreatePdf { filename } => format!("create_pdf:{}", filename),
-                ActionType::MutatePdfDraft { pdf_id } => format!("mutate_pdf:{}", pdf_id),
-                ActionType::InspectPdfDraft { pdf_id } => format!("inspect_pdf:{}", pdf_id),
-                ActionType::FinalizeDocx { document_id } => format!("finalize_docx:{}", document_id),
-                ActionType::FinalizePptx { deck_id } => format!("finalize_pptx:{}", deck_id),
-                ActionType::FinalizePdf { pdf_id } => format!("finalize_pdf:{}", pdf_id),
+                ActionType::ReadFile { path } => format!("read_file:{path}"),
+                ActionType::WriteFile { path, .. } => format!("write_file:{path}"),
+                ActionType::DeleteFile { path } => format!("delete_file:{path}"),
+                ActionType::ExecuteCommand { command } => format!("execute:{command}"),
+                ActionType::WebRequest { url } => format!("web_request:{url}"),
+                ActionType::CreateDocx { filename } => format!("create_docx:{filename}"),
+                ActionType::MutateDocxDraft { document_id } => format!("mutate_docx:{document_id}"),
+                ActionType::InspectDocxDraft { document_id } => format!("inspect_docx:{document_id}"),
+                ActionType::CreatePptx { filename } => format!("create_pptx:{filename}"),
+                ActionType::MutatePptxDraft { deck_id } => format!("mutate_pptx:{deck_id}"),
+                ActionType::InspectPptxDraft { deck_id } => format!("inspect_pptx:{deck_id}"),
+                ActionType::CreatePdf { filename } => format!("create_pdf:{filename}"),
+                ActionType::MutatePdfDraft { pdf_id } => format!("mutate_pdf:{pdf_id}"),
+                ActionType::InspectPdfDraft { pdf_id } => format!("inspect_pdf:{pdf_id}"),
+                ActionType::FinalizeDocx { document_id } => format!("finalize_docx:{document_id}"),
+                ActionType::FinalizePptx { deck_id } => format!("finalize_pptx:{deck_id}"),
+                ActionType::FinalizePdf { pdf_id } => format!("finalize_pdf:{pdf_id}"),
             },
             description: action.description,
             parameters: action.arguments,
@@ -271,7 +284,7 @@ impl From<PendingAction> for CorePendingAction {
     }
 }
 
-/// Convert a core task into the runtime task representation used by the UI.
+/// Converts a core agent task into the runtime task representation used by the UI.
 pub fn core_task_to_runtime_task(task: CoreAgentTask) -> AgentTask {
     AgentTask {
         id: task.id,
@@ -299,12 +312,12 @@ pub fn core_task_to_runtime_task(task: CoreAgentTask) -> AgentTask {
 impl From<TaskStatus> for CoreTaskStatus {
     fn from(status: TaskStatus) -> Self {
         match status {
-            TaskStatus::Pending => CoreTaskStatus::Pending,
-            TaskStatus::InProgress => CoreTaskStatus::InProgress,
-            TaskStatus::WaitingApproval => CoreTaskStatus::Pending,
-            TaskStatus::Completed => CoreTaskStatus::Completed,
-            TaskStatus::Failed => CoreTaskStatus::Failed,
-            TaskStatus::Cancelled => CoreTaskStatus::Cancelled,
+            TaskStatus::Pending => Self::Pending,
+            TaskStatus::InProgress => Self::InProgress,
+            TaskStatus::WaitingApproval => Self::Pending,
+            TaskStatus::Completed => Self::Completed,
+            TaskStatus::Failed => Self::Failed,
+            TaskStatus::Cancelled => Self::Cancelled,
         }
     }
 }
@@ -312,12 +325,12 @@ impl From<TaskStatus> for CoreTaskStatus {
 impl From<CoreTaskStatus> for TaskStatus {
     fn from(status: CoreTaskStatus) -> Self {
         match status {
-            CoreTaskStatus::Pending => TaskStatus::Pending,
-            CoreTaskStatus::InProgress => TaskStatus::InProgress,
-            CoreTaskStatus::Completed => TaskStatus::Completed,
-            CoreTaskStatus::Failed => TaskStatus::Failed,
-            CoreTaskStatus::Cancelled => TaskStatus::Cancelled,
-            CoreTaskStatus::Aborted => TaskStatus::Cancelled,
+            CoreTaskStatus::Pending => Self::Pending,
+            CoreTaskStatus::InProgress => Self::InProgress,
+            CoreTaskStatus::Completed => Self::Completed,
+            CoreTaskStatus::Failed => Self::Failed,
+            CoreTaskStatus::Cancelled => Self::Cancelled,
+            CoreTaskStatus::Aborted => Self::Cancelled,
         }
     }
 }
@@ -328,7 +341,7 @@ impl From<CoreTaskStatus> for TaskStatus {
 
 impl From<SubTask> for CoreAgentTask {
     fn from(subtask: SubTask) -> Self {
-        CoreAgentTask {
+        Self {
             id: subtask.id,
             session_id: String::new(),
             parent_task_id: Some(subtask.task_id),
@@ -342,29 +355,20 @@ impl From<SubTask> for CoreAgentTask {
     }
 }
 
-/// Convert a core task into the public subtask shape used by IPC commands.
+/// Converts a core agent task into the public subtask representation used by IPC commands.
 pub fn core_task_to_subtask(task: CoreAgentTask) -> SubTask {
+    use crate::core::agent::entities::TaskMode;
+
     SubTask {
         id: task.id,
         task_id: task.parent_task_id.unwrap_or_default(),
         title: task.title,
         description: task.description,
-        mode: match task
-            .mode
-            .unwrap_or(crate::core::agent::entities::TaskMode::FullAccess)
-        {
-            crate::core::agent::entities::TaskMode::Read => {
-                crate::core::agent::task::SubTaskMode::Read
-            }
-            crate::core::agent::entities::TaskMode::Write => {
-                crate::core::agent::task::SubTaskMode::Write
-            }
-            crate::core::agent::entities::TaskMode::Execute => {
-                crate::core::agent::task::SubTaskMode::Execute
-            }
-            crate::core::agent::entities::TaskMode::FullAccess => {
-                crate::core::agent::task::SubTaskMode::FullAccess
-            }
+        mode: match task.mode.unwrap_or(TaskMode::FullAccess) {
+            TaskMode::Read => SubTaskMode::Read,
+            TaskMode::Write => SubTaskMode::Write,
+            TaskMode::Execute => SubTaskMode::Execute,
+            TaskMode::FullAccess => SubTaskMode::FullAccess,
         },
         status: task.status.into(),
         order: task.order,
@@ -378,7 +382,7 @@ pub fn core_task_to_subtask(task: CoreAgentTask) -> SubTask {
 // Error Conversions
 // =========================================================================
 
-/// Convert any displayable error to an AgentDomainError.
+/// Converts any displayable error into an `AgentDomainError`.
 pub fn store_error_to_domain<E: std::fmt::Display>(err: E) -> AgentDomainError {
     AgentDomainError::InvalidInput {
         reason: err.to_string(),

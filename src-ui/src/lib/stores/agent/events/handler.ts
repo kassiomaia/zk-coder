@@ -85,6 +85,15 @@ export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentSta
 		case 'artifact_created':
 			SessionEvents.handleArtifactCreated(state, event);
 			break;
+		case 'session_paused':
+			SessionEvents.handleSessionPaused(state, event);
+			break;
+		case 'recovery_continue':
+			SessionEvents.handleRecoveryContinue(state, event);
+			break;
+		case 'recovery_replan':
+			SessionEvents.handleRecoveryReplan(state, event);
+			break;
 	}
 
 	// Update the session's updatedAt timestamp for stall detection

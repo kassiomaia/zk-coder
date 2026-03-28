@@ -1,8 +1,8 @@
-//! LLM Provider and Model Configuration domain entities.
+//! Defines the domain entities for LLM provider and model configuration.
 //!
-//! This module provides data structures for managing LLM providers,
-//! models, and operation defaults. These are core domain entities
-//! that define the configuration contract for the application.
+//! This module provides the core data structures for managing LLM providers,
+//! models, and their default assignments for various operations. These entities
+//! form the contract for how the application's configuration is structured.
 
 pub mod repositories;
 
@@ -14,21 +14,21 @@ pub use repositories::{
     OperationDefaultsRepository, ProviderRepository, RepositoryResult as ConfigRepositoryResult,
 };
 
-/// API provider type.
+/// Represents the type of an API provider.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ApiType {
-    /// OpenAI-compatible API
+    /// An OpenAI-compatible API.
     #[default]
     OpenAI,
-    /// Anthropic API
+    /// The Anthropic API.
     Anthropic,
-    /// Google OpenAI-compatible API (Gemini)
+    /// A Google AI (Gemini) API.
     Google,
 }
 
 impl ApiType {
-    /// Converts the API type to a string for database storage.
+    /// Converts the `ApiType` to a string slice for database storage.
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -38,7 +38,7 @@ impl ApiType {
         }
     }
 
-    /// Creates an API type from a string.
+    /// Creates an `ApiType` from a string slice.
     #[must_use]
     pub fn from_str(s: &str) -> Self {
         match s {
@@ -49,21 +49,21 @@ impl ApiType {
     }
 }
 
-/// Model source mode for a provider.
+/// Defines the source for a provider's list of models.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ModelsSource {
-    /// Automatically fetch models from provider API (with fallback to hardcoded list)
+    /// Automatically fetch models from the provider's API.
     #[default]
     Auto,
-    /// Use only manually configured models
+    /// Use only a manually configured list of models.
     Manual,
-    /// Combine API-fetched models with manual models
+    /// Combine API-fetched models with the manual list.
     Hybrid,
 }
 
 impl ModelsSource {
-    /// Converts the models source to a string for database storage.
+    /// Converts the `ModelsSource` to a string slice for database storage.
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -73,7 +73,7 @@ impl ModelsSource {
         }
     }
 
-    /// Creates a models source from a string.
+    /// Creates a `ModelsSource` from a string slice.
     #[must_use]
     pub fn from_str(s: &str) -> Self {
         match s {
@@ -84,35 +84,35 @@ impl ModelsSource {
     }
 }
 
-/// LLM provider configuration.
+/// Represents the configuration for an LLM provider.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Provider {
-    /// Unique identifier for the provider
+    /// The unique identifier for the provider.
     pub id: String,
-    /// Display name of the provider
+    /// The display name of the provider.
     pub name: String,
-    /// Icon identifier (e.g., "AC" for Anthropic)
+    /// An icon identifier for the provider (e.g., "AC" for Anthropic).
     pub icon: String,
-    /// Whether this is a custom (user-added) provider
+    /// A flag indicating whether this is a custom, user-added provider.
     pub is_custom: bool,
-    /// Type of API (OpenAI-compatible or Anthropic)
+    /// The type of the provider's API.
     pub api_type: ApiType,
-    /// Custom base URL (for custom providers)
+    /// The custom base URL for the API, if applicable.
     pub base_url: Option<String>,
-    /// Whether the provider has been configured with an API key
+    /// A flag indicating whether the provider has been configured with an API key.
     pub is_configured: bool,
-    /// Model source mode (auto, manual, hybrid)
+    /// The source for the provider's list of models.
     #[serde(default)]
     pub models_source: ModelsSource,
-    /// When the provider was created
+    /// The timestamp of when the provider was created.
     pub created_at: DateTime<Utc>,
-    /// When the provider was last updated
+    /// The timestamp of when the provider was last updated.
     pub updated_at: DateTime<Utc>,
 }
 
 impl Provider {
-    /// Creates a new built-in provider.
+    /// Creates a new built-in provider configuration.
     #[must_use]
     pub fn builtin(id: &str, name: &str, icon: &str, api_type: ApiType) -> Self {
         let now = Utc::now();
@@ -130,14 +130,14 @@ impl Provider {
         }
     }
 
-    /// Creates a new custom provider.
+    /// Creates a new custom provider configuration.
     #[must_use]
     pub fn custom(name: &str, icon: &str, api_type: ApiType, base_url: Option<String>) -> Self {
         let id = Self::generate_custom_id(name);
         Self::custom_with_id(&id, name, icon, api_type, base_url)
     }
 
-    /// Creates a new custom provider with a specific ID.
+    /// Creates a new custom provider configuration with a specific ID.
     #[must_use]
     pub fn custom_with_id(
         id: &str,
@@ -161,7 +161,7 @@ impl Provider {
         }
     }
 
-    /// Generates a unique ID for a custom provider.
+    /// Generates a unique ID for a custom provider based on its name.
     fn generate_custom_id(name: &str) -> String {
         format!(
             "custom-{}",
@@ -171,7 +171,7 @@ impl Provider {
         )
     }
 
-    /// Marks the provider as configured.
+    /// Marks the provider as configured and updates its timestamp.
     #[must_use]
     pub fn with_configured(mut self) -> Self {
         self.is_configured = true;
@@ -180,36 +180,37 @@ impl Provider {
     }
 }
 
-/// Model capability flags.
+/// A set of flags representing the capabilities of a model.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelCapabilities {
-    /// Supports analysis tasks
+    /// A flag indicating whether the model supports analysis tasks.
     #[serde(default = "default_true")]
     pub analysis: bool,
-    /// Supports code generation
+    /// A flag indicating whether the model supports code generation.
     #[serde(default = "default_true")]
     pub code: bool,
-    /// Supports vision/image input
+    /// A flag indicating whether the model supports vision or image input.
     #[serde(default)]
     pub vision: bool,
-    /// Supports audio input/transcription
+    /// A flag indicating whether the model supports audio input or transcription.
     #[serde(default)]
     pub audio: bool,
-    /// Supports tips and refinements
+    /// A flag indicating whether the model supports tips and refinements.
     #[serde(default = "default_true")]
     pub tips: bool,
-    /// Supports code review
+    /// A flag indicating whether the model supports code review.
     #[serde(default = "default_true")]
     pub review: bool,
 }
 
+/// Returns `true` by default for JSON deserialization.
 const fn default_true() -> bool {
     true
 }
 
 impl ModelCapabilities {
-    /// Creates capabilities based on model name patterns.
+    /// Infers the capabilities of a model based on patterns in its name.
     #[must_use]
     pub fn infer_from_name(model_name: &str) -> Self {
         let name = model_name.to_lowercase();
@@ -228,14 +229,14 @@ impl ModelCapabilities {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManualModelEntry {
-    /// Model name (e.g., "gpt-4", "claude-3-opus-20240229")
+    /// The name of the model (e.g., "gpt-4", "claude-3-opus-20240229").
     pub name: String,
-    /// Model capabilities
+    /// The capabilities of the model.
     pub capabilities: ModelCapabilities,
 }
 
 impl ManualModelEntry {
-    /// Creates a new manual model entry.
+    /// Creates a new `ManualModelEntry` with the given name and capabilities.
     #[must_use]
     pub fn new(name: impl Into<String>, capabilities: ModelCapabilities) -> Self {
         Self {
@@ -244,7 +245,7 @@ impl ManualModelEntry {
         }
     }
 
-    /// Creates a manual model entry with inferred capabilities from the model name.
+    /// Creates a `ManualModelEntry` with capabilities inferred from the model's name.
     #[must_use]
     pub fn infer_from_name(name: impl Into<String>) -> Self {
         let name_str = name.into();
@@ -253,36 +254,36 @@ impl ManualModelEntry {
     }
 }
 
-/// Request to add or update a manual model for a provider.
+/// A request to add or update a manual model for a provider.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManualModelRequest {
-    /// Provider ID
+    /// The ID of the provider to add the model to.
     pub provider_id: String,
-    /// Model name
+    /// The name of the model.
     pub name: String,
-    /// Model capabilities (optional, will infer from name if not provided)
+    /// The capabilities of the model (optional; will be inferred if not provided).
     pub capabilities: Option<ModelCapabilities>,
 }
 
-/// LLM model available from a provider.
+/// Represents an LLM model available from a provider.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Model {
-    /// Unique identifier for the model
+    /// The unique identifier for the model.
     pub id: String,
-    /// ID of the provider this model belongs to
+    /// The ID of the provider this model belongs to.
     pub provider_id: String,
-    /// Display name of the model
+    /// The display name of the model.
     pub name: String,
-    /// Model capabilities
+    /// The capabilities of the model.
     pub capabilities: ModelCapabilities,
-    /// When the model was last fetched from the API
+    /// The timestamp of when the model was last fetched from the API.
     pub last_fetched: DateTime<Utc>,
 }
 
 impl Model {
-    /// Creates a new model.
+    /// Creates a new `Model` with the given parameters.
     #[must_use]
     pub fn new(provider_id: &str, name: &str, capabilities: ModelCapabilities) -> Self {
         let id = format!(
@@ -300,26 +301,26 @@ impl Model {
     }
 }
 
-/// Operation type for model assignment.
+/// The type of operation for which a model can be assigned as the default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OperationType {
-    /// Analysis and quick questions
+    /// Analysis and quick questions.
     Analysis,
-    /// Code generation
+    /// Code generation.
     Code,
-    /// Image and vision tasks
+    /// Image and vision tasks.
     Vision,
-    /// Audio transcription
+    /// Audio transcription.
     Audio,
-    /// Tips and refinements
+    /// Tips and refinements.
     Tips,
-    /// Code review
+    /// Code review.
     Review,
 }
 
 impl OperationType {
-    /// Converts the operation type to a string for database storage.
+    /// Converts the `OperationType` to a string slice for database storage.
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -332,7 +333,7 @@ impl OperationType {
         }
     }
 
-    /// Creates an operation type from a string.
+    /// Creates an `OperationType` from a string slice.
     #[must_use]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
@@ -346,7 +347,7 @@ impl OperationType {
         }
     }
 
-    /// Returns all operation types.
+    /// Returns a slice containing all `OperationType` variants.
     #[must_use]
     pub const fn all() -> &'static [Self] {
         &[
@@ -366,44 +367,44 @@ impl std::fmt::Display for OperationType {
     }
 }
 
-/// Default model assignment for an operation.
+/// Represents the default model assignment for a specific operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OperationDefault {
-    /// The operation type
+    /// The type of the operation.
     pub operation: OperationType,
-    /// The model ID assigned as default (can be null if the default model was deleted)
+    /// The ID of the model assigned as the default (can be `None` if the model was deleted).
     pub model_id: Option<String>,
 }
 
-/// Request to save a provider.
+/// A request to save a provider's configuration.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveProviderRequest {
-    /// Provider ID (optional for new providers)
+    /// The ID of the provider (optional for new providers).
     pub id: Option<String>,
-    /// Display name
+    /// The display name of the provider.
     pub name: String,
-    /// Icon identifier
+    /// The icon identifier for the provider.
     pub icon: String,
-    /// API type
+    /// The type of the provider's API.
     pub api_type: ApiType,
-    /// Custom base URL
+    /// The custom base URL for the API, if applicable.
     pub base_url: Option<String>,
 }
 
-/// Result of API key validation.
+/// The result of an API key validation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ValidationResult {
-    /// Whether the validation succeeded
+    /// A flag indicating whether the validation was successful.
     pub valid: bool,
-    /// Message describing the result
+    /// A message describing the result of the validation.
     pub message: String,
 }
 
 impl ValidationResult {
-    /// Creates a successful validation result.
+    /// Creates a successful `ValidationResult`.
     #[must_use]
     pub fn success(message: impl Into<String>) -> Self {
         Self {
@@ -412,7 +413,7 @@ impl ValidationResult {
         }
     }
 
-    /// Creates a failed validation result.
+    /// Creates a failed `ValidationResult`.
     #[must_use]
     pub fn failure(message: impl Into<String>) -> Self {
         Self {
@@ -422,20 +423,20 @@ impl ValidationResult {
     }
 }
 
-/// Result of model fetching.
+/// The result of a model fetching operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FetchModelsResult {
-    /// Whether the fetch succeeded
+    /// A flag indicating whether the fetch was successful.
     pub success: bool,
-    /// List of model names fetched
+    /// The list of model names that were fetched.
     pub models: Vec<String>,
-    /// Optional message (for errors)
+    /// An optional message, typically for errors.
     pub message: Option<String>,
 }
 
 impl FetchModelsResult {
-    /// Creates a successful fetch result.
+    /// Creates a successful `FetchModelsResult`.
     #[must_use]
     pub fn success(models: Vec<String>) -> Self {
         Self {
@@ -445,7 +446,7 @@ impl FetchModelsResult {
         }
     }
 
-    /// Creates a failed fetch result.
+    /// Creates a failed `FetchModelsResult`.
     #[must_use]
     pub fn failure(message: impl Into<String>) -> Self {
         Self {

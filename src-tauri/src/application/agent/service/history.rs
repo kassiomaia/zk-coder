@@ -25,6 +25,7 @@ impl AgentServiceImpl {
                     CoreSessionState::Finished { .. }
                         | CoreSessionState::Error { .. }
                         | CoreSessionState::Cancelled { .. }
+                        | CoreSessionState::Paused { .. }
                 )
             })
             .collect())

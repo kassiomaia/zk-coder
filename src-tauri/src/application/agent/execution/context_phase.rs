@@ -1,5 +1,12 @@
+//! Handles the context resolution phase of the agent's execution.
+//!
+//! This module is responsible for preparing the context for the LLM call,
+//! which includes summarizing the current subtask, managing the context window,
+//! performing retrieval passes, and deriving the system prompt.
+
 use log::info;
 use serde_json::json;
+use tauri::Emitter;
 
 use super::deps::ExecutionDeps;
 use super::state::{ExecutionContext, ResolvedContext};
@@ -18,8 +25,27 @@ use crate::infrastructure::agent::runtime::{
     derive_system_prompt, AgentRuntimeError, SubtaskSummary,
 };
 use crate::infrastructure::tools::context::ToolExecutionContext;
-use tauri::Emitter;
 
+/// Resolves the context for the current step of the execution.
+///
+/// This function performs several key tasks:
+/// 1. Determines the current subtask and its allowed tools.
+/// 2. Decides whether to perform a retrieval pass based on context window usage and subtask changes.
+/// 3. Applies a context policy to compact the context window if necessary.
+/// 4. Derives the system prompt based on the agent's system prompt and the current subtask.
+/// 5. Filters the available tool definitions based on the current subtask's permissions.
+///
+/// # Arguments
+///
+/// * `deps` - The execution dependencies.
+/// * `ctx` - The mutable execution context.
+/// * `session` - The current agent session.
+/// * `request` - The user's request that initiated the execution.
+/// * `agent_system_prompt` - The base system prompt for the agent.
+///
+/// # Returns
+///
+/// A `Result` containing the `ResolvedContext` on success, or an `AgentRuntimeError` on failure.
 pub async fn resolve_context(
     deps: &ExecutionDeps<'_>,
     ctx: &mut ExecutionContext,
@@ -289,7 +315,7 @@ async fn run_retrieval_pass(
                     let path = m.get("path").and_then(|value| value.as_str())?;
                     let line = m.get("line").and_then(|value| value.as_u64()).unwrap_or(0);
                     let text = m.get("text").and_then(|value| value.as_str()).unwrap_or("");
-                    Some(format!("{}:{} {}", path, line, text.trim()))
+                    Some(format!("{path}:{line} {text}", text = text.trim()))
                 })
                 .collect::<Vec<_>>()
         })

@@ -221,3 +221,79 @@ export function handleArtifactCreated(state: AgentState, event: Extract<AgentEve
 		});
 	}
 }
+
+/**
+ * Handle session_paused event.
+ * Creates a recovery message in the chat when a session is recovered after app restart.
+ */
+export function handleSessionPaused(state: AgentState, event: Extract<AgentEvent, { type: 'session_paused' }>) {
+	// Update session state
+	const session = state.sessions.get(event.sessionId);
+	if (session) {
+		state.sessions.set(event.sessionId, {
+			...session,
+			state: {
+				type: 'paused',
+				pausedAt: event.pausedAt,
+				message: event.message,
+				currentSubtaskId: event.currentSubtaskId
+			}
+		});
+	}
+
+	// Create recovery message in chat
+	const onAgentActivity = getOnAgentActivity();
+	if (onAgentActivity && session) {
+		onAgentActivity(session.conversationId, session.threadId, {
+			id: `recovery-${event.sessionId}`,
+			conversationId: session.conversationId,
+			threadId: session.threadId,
+			role: 'assistant',
+			kind: 'recovery',
+			content: event.message,
+			timestamp: new Date(event.pausedAt),
+			agentData: {
+				sessionId: event.sessionId,
+				recoveryResolved: false
+			}
+		});
+	}
+}
+
+/**
+ * Handle recovery_continue event.
+ * Updates the recovery message to show "resuming..." state.
+ */
+export function handleRecoveryContinue(state: AgentState, event: Extract<AgentEvent, { type: 'recovery_continue' }>) {
+	const onAgentActivity = getOnAgentActivity();
+	const session = state.sessions.get(event.sessionId);
+	if (onAgentActivity && session) {
+		onAgentActivity(session.conversationId, session.threadId, {
+			id: `recovery-${event.sessionId}`,
+			agentData: {
+				sessionId: event.sessionId,
+				recoveryResolved: true,
+				recoveryDecision: 'continued'
+			}
+		});
+	}
+}
+
+/**
+ * Handle recovery_replan event.
+ * Updates the recovery message to show "replanning..." state.
+ */
+export function handleRecoveryReplan(state: AgentState, event: Extract<AgentEvent, { type: 'recovery_replan' }>) {
+	const onAgentActivity = getOnAgentActivity();
+	const session = state.sessions.get(event.sessionId);
+	if (onAgentActivity && session) {
+		onAgentActivity(session.conversationId, session.threadId, {
+			id: `recovery-${event.sessionId}`,
+			agentData: {
+				sessionId: event.sessionId,
+				recoveryResolved: true,
+				recoveryDecision: 'replanned'
+			}
+		});
+	}
+}

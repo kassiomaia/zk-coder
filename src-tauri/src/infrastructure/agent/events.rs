@@ -32,6 +32,32 @@ pub enum AgentEvent {
         state: SessionState,
     },
 
+    /// A session was paused and needs user decision to continue.
+    SessionPaused {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        /// Friendly message explaining the state
+        message: String,
+        /// Timestamp when paused
+        #[serde(rename = "pausedAt")]
+        paused_at: DateTime<Utc>,
+        /// Current subtask being worked on (if any)
+        #[serde(rename = "currentSubtaskId", skip_serializing_if = "Option::is_none")]
+        current_subtask_id: Option<String>,
+    },
+
+    /// User chose to continue from paused state.
+    RecoveryContinue {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+    },
+
+    /// User chose to replan from paused state.
+    RecoveryReplan {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+    },
+
     /// Agent started executing a request.
     ExecutionStarted {
         #[serde(rename = "sessionId")]

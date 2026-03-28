@@ -1,7 +1,9 @@
-//! Intent classification engine.
+//! Provides an intent classification engine for user input.
 //!
-//! This module provides intent classification using pattern matching
-//! and AI-based classification.
+//! This module contains the `IntentClassifier`, which is responsible for
+//! classifying user input into a specific `Intent` using a combination of
+//! pattern matching for fast, deterministic results and an AI-based
+//! classifier for more nuanced cases.
 
 use log::warn;
 use serde::Deserialize;
@@ -13,16 +15,16 @@ use crate::core::nlp::entities::ConversationContext;
 use crate::core::nlp::intent::{Intent, IntentClassification, IntentParams};
 use crate::core::nlp::patterns::IntentPatterns;
 
-/// Intent classifier combining pattern matching and AI.
+/// A classifier that combines pattern matching and AI to determine user intent.
 pub struct IntentClassifier {
-    /// LLM gateway for slow-path classification
+    /// The gateway for making calls to the NLP LLM.
     gateway: Arc<dyn NlpLlmGateway + Send + Sync>,
-    /// Pattern matcher for fast-path classification
+    /// The pattern matcher for fast-path intent classification.
     patterns: IntentPatterns,
 }
 
 impl IntentClassifier {
-    /// Creates a new intent classifier with an abstract NLP LLM gateway.
+    /// Creates a new `IntentClassifier` with a given NLP LLM gateway.
     #[must_use]
     pub fn new(gateway: Arc<dyn NlpLlmGateway + Send + Sync>) -> Self {
         Self {
@@ -31,11 +33,15 @@ impl IntentClassifier {
         }
     }
 
-    /// Classifies intent from user input.
+    /// Classifies the user's intent from the input text.
+    ///
+    /// This method first attempts to classify the intent using fast pattern matching.
+    /// If no definitive match is found, it falls back to a more sophisticated
+    /// AI-based classification.
     ///
     /// # Errors
     ///
-    /// Returns an error if AI classification fails.
+    /// Returns a `ClassifierError` if the AI-based classification fails.
     pub async fn classify(
         &self,
         input: &str,
@@ -63,11 +69,14 @@ impl IntentClassifier {
         }
     }
 
-    /// Classifies with additional alternatives.
+    /// Classifies the intent and provides alternative classifications.
+    ///
+    /// Similar to `classify`, but this method also returns a list of alternative
+    /// intents if multiple patterns match with varying confidence scores.
     ///
     /// # Errors
     ///
-    /// Returns an error if AI classification fails.
+    /// Returns a `ClassifierError` if the AI-based classification fails.
     pub async fn classify_with_alternatives(
         &self,
         input: &str,
@@ -77,10 +86,8 @@ impl IntentClassifier {
         let matches = self.patterns.match_all(input);
         if !matches.is_empty() {
             let (primary, confidence) = matches[0];
-            let alternatives: Vec<(Intent, f64)> = matches[1..]
-                .iter()
-                .map(|(i, c)| ((*i).clone(), *c))
-                .collect();
+            let alternatives: Vec<(Intent, f64)> =
+                matches[1..].iter().map(|(i, c)| ((*i).clone(), *c)).collect();
 
             return Ok(IntentClassification::with_alternatives(
                 primary.clone(),
@@ -162,7 +169,7 @@ Return JSON: {{"intent": "...", "confidence": 0.0-1.0, "alternatives": [["intent
         Ok(IntentClassification::new(Intent::Unknown, 0.5))
     }
 
-    /// Extracts parameters from input text.
+    /// Extracts parameters, such as file paths and programming languages, from the input text.
     #[must_use]
     pub fn extract_params(&self, input: &str) -> IntentParams {
         let mut params = IntentParams::default();
@@ -212,7 +219,7 @@ Return JSON: {{"intent": "...", "confidence": 0.0-1.0, "alternatives": [["intent
     }
 }
 
-/// Response from AI classification.
+/// A response from the AI-based classification.
 #[derive(Debug, Deserialize)]
 struct ClassificationResponse {
     intent: Intent,
@@ -220,13 +227,13 @@ struct ClassificationResponse {
     alternatives: Vec<(Intent, f64)>,
 }
 
-/// Errors from intent classification.
+/// Represents errors that can occur during intent classification.
 #[derive(Debug, Error)]
 pub enum ClassifierError {
-    /// AI error
+    /// An error reported by the AI gateway.
     #[error("AI error: {0}")]
     AiError(#[from] NlpLlmError),
-    /// Parse error
+    /// An error that occurred while parsing the AI's response.
     #[error("Parse error: {0}")]
     ParseError(String),
 }

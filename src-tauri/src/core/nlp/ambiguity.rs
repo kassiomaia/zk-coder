@@ -1,32 +1,33 @@
-//! Ambiguity types for clarification requests.
+//! Defines types for detecting, clarifying, and resolving ambiguities in user input.
 //!
-//! This module defines types for detecting and resolving
-//! ambiguities in user input.
+//! This module provides the data structures needed to represent ambiguities that
+//! may arise during natural language processing, as well as the mechanisms for
+//! requesting clarification from the user and tracking their resolutions.
 
 use serde::{Deserialize, Serialize};
 
 use super::multi_intent::TextSpan;
 
-/// Types of ambiguities that can be detected.
+/// Represents the different types of ambiguities that can be detected.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AmbiguityType {
-    /// Referenced file not found
+    /// A referenced file was not found in the current context.
     MissingFile,
-    /// Referenced symbol not found
+    /// A referenced symbol (e.g., a function or class) was not found.
     MissingSymbol,
-    /// Reference could mean multiple things
+    /// A reference could apply to multiple things (e.g., a common term).
     AmbiguousReference,
-    /// Multiple matches found
+    /// Multiple matches were found for a search or reference.
     MultipleMatches,
-    /// Scope is unclear
+    /// The scope of a request is unclear (e.g., "fix this" without context).
     UnclearScope,
-    /// Required parameter missing
+    /// A required parameter for an intent is missing.
     MissingParameter,
 }
 
 impl AmbiguityType {
-    /// Returns a human-readable label.
+    /// Returns a human-readable label for the ambiguity type.
     #[must_use]
     pub const fn label(&self) -> &'static str {
         match self {
@@ -40,25 +41,25 @@ impl AmbiguityType {
     }
 }
 
-/// A detected ambiguity in user input.
+/// Represents a detected ambiguity in the user's input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ambiguity {
-    /// Unique identifier for this ambiguity
+    /// A unique identifier for this ambiguity.
     pub id: String,
-    /// Type of ambiguity
+    /// The type of the ambiguity.
     pub ambiguity_type: AmbiguityType,
-    /// Location in the input
+    /// The location of the ambiguous text in the user's input.
     pub span: TextSpan,
-    /// Severity level
+    /// The severity level of the ambiguity.
     pub severity: AmbiguitySeverity,
-    /// Request for clarification
+    /// The request for clarification to be presented to the user.
     pub clarification: ClarificationRequest,
-    /// Suggested resolutions
+    /// A list of suggested resolutions for the ambiguity.
     pub suggestions: Vec<AmbiguitySuggestion>,
 }
 
 impl Ambiguity {
-    /// Creates a new ambiguity with auto-generated ID.
+    /// Creates a new `Ambiguity` with an automatically generated ID.
     #[must_use]
     pub fn new(
         ambiguity_type: AmbiguityType,
@@ -76,7 +77,7 @@ impl Ambiguity {
         }
     }
 
-    /// Creates with suggestions and auto-generated ID.
+    /// Creates a new `Ambiguity` with suggestions and an auto-generated ID.
     #[must_use]
     pub fn with_suggestions(
         ambiguity_type: AmbiguityType,
@@ -95,7 +96,7 @@ impl Ambiguity {
         }
     }
 
-    /// Creates with a specific ID (for testing or reconstruction).
+    /// Creates a new `Ambiguity` with a specific ID, for testing or reconstruction.
     #[must_use]
     pub fn with_id(
         id: String,
@@ -116,20 +117,20 @@ impl Ambiguity {
     }
 }
 
-/// Severity of an ambiguity.
+/// The severity level of an ambiguity.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AmbiguitySeverity {
-    /// Can guess with high confidence
+    /// The system can make a high-confidence guess, but it's worth noting.
     Low,
-    /// Should confirm but have likely answer
+    /// The system has a likely answer but should confirm with the user.
     Medium,
-    /// Must clarify before proceeding
+    /// The system must clarify with the user before proceeding.
     High,
 }
 
 impl AmbiguitySeverity {
-    /// Returns a CSS class name for styling.
+    /// Returns a CSS class name for styling based on the severity.
     #[must_use]
     pub const fn css_class(&self) -> &'static str {
         match self {
@@ -140,19 +141,19 @@ impl AmbiguitySeverity {
     }
 }
 
-/// Request for clarification from the user.
+/// A request for clarification to be presented to the user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClarificationRequest {
-    /// Question to ask the user
+    /// The question to ask the user.
     pub question: String,
-    /// Predefined options
+    /// A list of predefined options for the user to choose from.
     pub options: Vec<ClarificationOption>,
-    /// Whether freeform input is allowed
+    /// A flag indicating whether the user can provide freeform input.
     pub allows_freeform: bool,
 }
 
 impl ClarificationRequest {
-    /// Creates a new clarification request.
+    /// Creates a new `ClarificationRequest` with a given question.
     #[must_use]
     pub fn new(question: &str) -> Self {
         Self {
@@ -162,7 +163,7 @@ impl ClarificationRequest {
         }
     }
 
-    /// Creates with options.
+    /// Creates a new `ClarificationRequest` with predefined options.
     #[must_use]
     pub fn with_options(question: &str, options: Vec<ClarificationOption>) -> Self {
         Self {
@@ -172,7 +173,7 @@ impl ClarificationRequest {
         }
     }
 
-    /// Creates with options and freeform.
+    /// Creates a new `ClarificationRequest` with options and freeform input control.
     #[must_use]
     pub fn with_options_and_freeform(
         question: &str,
@@ -187,19 +188,19 @@ impl ClarificationRequest {
     }
 }
 
-/// An option in a clarification request.
+/// An option presented to the user in a `ClarificationRequest`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClarificationOption {
-    /// Value to return if selected
+    /// The value to be returned if this option is selected.
     pub value: String,
-    /// Display label
+    /// The label to be displayed for this option.
     pub label: String,
-    /// Optional description
+    /// An optional, more detailed description of the option.
     pub description: Option<String>,
 }
 
 impl ClarificationOption {
-    /// Creates a new option.
+    /// Creates a new `ClarificationOption` with a value and a label.
     #[must_use]
     pub fn new(value: &str, label: &str) -> Self {
         Self {
@@ -209,7 +210,7 @@ impl ClarificationOption {
         }
     }
 
-    /// Creates with description.
+    /// Creates a new `ClarificationOption` with a description.
     #[must_use]
     pub fn with_description(value: &str, label: &str, description: &str) -> Self {
         Self {
@@ -223,16 +224,16 @@ impl ClarificationOption {
 /// A suggested resolution for an ambiguity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AmbiguitySuggestion {
-    /// Suggested value
+    /// The suggested value for resolving the ambiguity.
     pub value: String,
-    /// Confidence in this suggestion
+    /// The confidence score for this suggestion, from 0 to 1.
     pub confidence: f64,
-    /// Reason for the suggestion
+    /// The reason for providing this suggestion.
     pub reason: String,
 }
 
 impl AmbiguitySuggestion {
-    /// Creates a new suggestion.
+    /// Creates a new `AmbiguitySuggestion`.
     #[must_use]
     pub fn new(value: &str, confidence: f64, reason: &str) -> Self {
         Self {
@@ -243,20 +244,20 @@ impl AmbiguitySuggestion {
     }
 }
 
-/// Type of resolution applied to an ambiguity.
+/// The type of resolution that was applied to an ambiguity.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ResolutionType {
-    /// User selected from provided options
+    /// The user selected one of the provided options.
     Selected,
-    /// User entered custom value
+    /// The user provided a custom value.
     Custom,
-    /// User dismissed without resolving
+    /// The user dismissed the clarification without resolving it.
     Dismissed,
 }
 
 impl ResolutionType {
-    /// Returns a human-readable label.
+    /// Returns a human-readable label for the resolution type.
     #[must_use]
     pub const fn label(&self) -> &'static str {
         match self {
@@ -267,21 +268,21 @@ impl ResolutionType {
     }
 }
 
-/// A resolved ambiguity with the chosen resolution.
+/// Represents a resolved ambiguity, including the chosen resolution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolvedAmbiguity {
-    /// ID of the original ambiguity
+    /// The ID of the original ambiguity that was resolved.
     pub id: String,
-    /// The original ambiguous text
+    /// The original text that was ambiguous.
     pub original_text: String,
-    /// The resolution value (selected option or custom input)
+    /// The value of the resolution, either from a selected option or custom input.
     pub resolution: String,
-    /// How the resolution was made
+    /// The type of resolution that was applied.
     pub resolution_type: ResolutionType,
 }
 
 impl ResolvedAmbiguity {
-    /// Creates a new resolved ambiguity.
+    /// Creates a new `ResolvedAmbiguity`.
     #[must_use]
     pub fn new(
         id: String,
@@ -297,7 +298,7 @@ impl ResolvedAmbiguity {
         }
     }
 
-    /// Creates from an ambiguity with a selected option.
+    /// Creates a `ResolvedAmbiguity` from a selected option.
     #[must_use]
     pub fn selected(ambiguity: &Ambiguity, resolution: String) -> Self {
         Self {
@@ -308,7 +309,7 @@ impl ResolvedAmbiguity {
         }
     }
 
-    /// Creates from an ambiguity with a custom value.
+    /// Creates a `ResolvedAmbiguity` from a custom user-provided value.
     #[must_use]
     pub fn custom(ambiguity: &Ambiguity, resolution: String) -> Self {
         Self {
@@ -319,7 +320,7 @@ impl ResolvedAmbiguity {
         }
     }
 
-    /// Creates a dismissed resolution.
+    /// Creates a `ResolvedAmbiguity` for a dismissed clarification.
     #[must_use]
     pub fn dismissed(ambiguity: &Ambiguity) -> Self {
         Self {
