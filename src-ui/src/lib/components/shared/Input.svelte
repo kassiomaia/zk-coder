@@ -95,7 +95,3 @@
 		{helper}
 	</div>
 {/if}
-
-<style>
-	/* Styles are in Input.module.css */
-</style>

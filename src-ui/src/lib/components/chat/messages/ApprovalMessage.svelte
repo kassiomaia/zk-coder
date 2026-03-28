@@ -186,7 +186,7 @@ function toggleExpand() {
 					</div>
 					<div class={styles.previewScroll}>
 						{#if pendingAction.preview.contentType === 'diff'}
-							<DiffViewer diff={pendingAction.preview.content} maxHeight={200} />
+							<DiffViewer modifiedContent={pendingAction.preview.content} filePath="changes.patch" />
 						{:else}
 							<pre class={styles.previewContent}><code>{pendingAction.preview.content}</code></pre>
 						{/if}

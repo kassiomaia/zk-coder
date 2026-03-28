@@ -380,7 +380,3 @@
 		{/if}
 	{/snippet}
 </Modal>
-
-<style>
-	/* Styles are in ConfigModal.module.css */
-</style>

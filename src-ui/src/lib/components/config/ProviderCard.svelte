@@ -55,7 +55,3 @@
 		{/if}
 	</div>
 </button>
-
-<style>
-	/* Styles are in ProviderCard.module.css */
-</style>

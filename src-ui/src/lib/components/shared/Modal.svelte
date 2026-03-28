@@ -140,7 +140,7 @@
 					{/if}
 				</header>
 			{/if}
-			<div class={[styles.body, contentClass].filter(Boolean).join(' ')}>
+			<div class={[styles.body, contentClass === 'no-padding-body' ? styles['no-padding-body'] : contentClass].filter(Boolean).join(' ')}>
 				{#if children}
 					{@render children()}
 				{/if}
@@ -158,6 +158,3 @@
 	<CloseIcon size={20} />
 {/snippet}
 
-<style>
-	/* Styles are in Modal.module.css */
-</style>

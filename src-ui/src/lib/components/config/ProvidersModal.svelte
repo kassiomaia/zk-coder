@@ -104,7 +104,3 @@
 		</div>
 	{/snippet}
 </Modal>
-
-<style>
-	/* Styles are in ProvidersModal.module.css */
-</style>

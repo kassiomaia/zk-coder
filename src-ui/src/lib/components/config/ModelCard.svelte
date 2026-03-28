@@ -99,7 +99,3 @@
 		</div>
 	{/if}
 </button>
-
-<style>
-	/* Styles are in ModelCard.module.css */
-</style>

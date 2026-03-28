@@ -1,0 +1,163 @@
+.container {
+	position: relative;
+	background: var(--depth-bg-3);
+	border: 1px solid var(--color-border-subtle);
+	border-radius: var(--radius-lg);
+	margin: var(--space-4) 0;
+	transition: 
+		border-color var(--transition-fast), 
+		background var(--transition-fast), 
+		box-shadow var(--transition-fast);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+/* Subtle indicator line on the left */
+.container::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 3px;
+	background: transparent;
+	transition: background var(--transition-normal);
+	z-index: 10;
+}
+
+.indicatorRequest::before {
+	background: var(--color-info);
+}
+
+.indicatorResponse::before {
+	background: var(--color-success);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--space-2) var(--space-3);
+	background: var(--color-bg-secondary);
+	border-bottom: 1px solid var(--color-border-subtle);
+	user-select: none;
+}
+
+.language {
+	font-family: var(--font-sans);
+	font-size: var(--text-2xs);
+	font-weight: var(--font-semibold);
+	color: var(--color-text-muted);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-wider);
+}
+
+.copyButton {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	padding: var(--space-1) var(--space-2);
+	background: transparent;
+	border: none;
+	border-radius: var(--radius-sm);
+	color: var(--color-text-tertiary);
+	cursor: pointer;
+	transition: 
+		background var(--transition-fast), 
+		color var(--transition-fast);
+}
+
+.copyButton:hover {
+	background: var(--color-interactive-hover);
+	color: var(--color-text-secondary);
+}
+
+.copyButton:active {
+	background: var(--color-interactive-active);
+}
+
+.copyText {
+	font-family: var(--font-sans);
+	font-size: var(--text-2xs);
+	font-weight: var(--font-medium);
+}
+
+.viewport {
+	position: relative;
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
+.pre {
+	margin: 0;
+	padding: var(--space-3) var(--space-4);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	line-height: var(--leading-snug);
+	color: var(--color-text-primary);
+	white-space: pre;
+}
+
+/* Scrollbar styling for the viewport */
+.viewport::-webkit-scrollbar {
+	height: 8px;
+}
+
+.viewport::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.viewport::-webkit-scrollbar-thumb {
+	background: var(--color-border-secondary);
+	border-radius: var(--radius-full);
+	border: 2px solid var(--depth-bg-3);
+}
+
+.viewport::-webkit-scrollbar-thumb:hover {
+	background: var(--color-text-muted);
+}
+
+/* Syntax hierarchy overrides for hljs */
+:global(.hljs-keyword),
+:global(.hljs-selector-tag),
+:global(.hljs-built_in) {
+	color: var(--color-syntax-keyword);
+	font-weight: var(--font-medium);
+}
+
+:global(.hljs-string),
+:global(.hljs-title),
+:global(.hljs-section) {
+	color: var(--color-syntax-string);
+}
+
+:global(.hljs-number),
+:global(.hljs-regexp),
+:global(.hljs-literal) {
+	color: var(--color-syntax-number);
+}
+
+:global(.hljs-comment),
+:global(.hljs-quote) {
+	color: var(--color-syntax-comment);
+	font-style: italic;
+	opacity: 0.8;
+}
+
+:global(.hljs-variable),
+:global(.hljs-params),
+:global(.hljs-template-variable) {
+	color: var(--color-syntax-variable);
+}
+
+:global(.hljs-type),
+:global(.hljs-name),
+:global(.hljs-attr) {
+	color: var(--color-syntax-symbol);
+}
+
+:global(.hljs-tag),
+:global(.hljs-attribute) {
+	color: var(--color-syntax-keyword);
+}

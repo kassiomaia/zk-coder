@@ -52,17 +52,17 @@ export function stateToStatus(state: SessionState): AgentStatus {
 		case 'launching':
 			return { text: 'Starting...', icon: 'sparkle', active: true };
 		case 'running':
-			return THINKING_STATUS;
+			return { text: 'Thinking...', icon: 'sparkle', active: true };
 		case 'wait_for_request':
-			return IDLE_STATUS;
+			return { text: 'Ready', icon: 'check', active: false };
 		case 'user_input_required':
-			return WAITING_STATUS;
+			return { text: 'Waiting for your approval...', icon: 'wait', active: true };
 		case 'finished':
-			return { text: 'Complete', icon: 'check', active: false };
+			return { text: 'Task completed', icon: 'check', active: false };
 		case 'cancelled':
-			return { text: 'Cancelled', icon: 'check', active: false };
+			return { text: 'Task cancelled', icon: 'check', active: false };
 		case 'error':
-			return { text: 'Error', icon: 'check', active: false };
+			return { text: 'Something went wrong', icon: 'check', active: false };
 	}
 }
 
@@ -70,7 +70,7 @@ export function stateToStatus(state: SessionState): AgentStatus {
  * Extract file path from tool arguments.
  */
 function extractFilePath(args: Record<string, unknown>): string | null {
-	const path = args.path as string | undefined;
+	const path = (args.path as string | undefined) || (args.filePath as string | undefined);
 	if (path) {
 		// Get just the filename for brevity
 		const parts = path.split(/[/\\]/);
@@ -83,7 +83,7 @@ function extractFilePath(args: Record<string, unknown>): string | null {
  * Extract command from tool arguments.
  */
 function extractCommand(args: Record<string, unknown>): string | null {
-	const cmd = args.command as string | undefined;
+	const cmd = (args.command as string | undefined) || (args.cmd as string | undefined);
 	if (cmd) {
 		// Truncate long commands
 		return cmd.length > 30 ? cmd.slice(0, 27) + '...' : cmd;
@@ -99,36 +99,38 @@ export function stepToStatus(step: ExecutionStep): AgentStatus | null {
 
 	switch (action.type) {
 		case 'llm_request':
-			return THINKING_STATUS;
+			return { text: 'Planning next steps...', icon: 'sparkle', active: true };
 
 		case 'tool_call': {
 			const tool = action.tool;
 
 			switch (tool) {
-				case 'read_file': {
+				case 'read_file':
+				case 'read': {
 					const path = extractFilePath(action.arguments);
 					return path
-						? { text: `Reading ${path}...`, icon: 'file', active: true }
-						: { text: 'Reading file...', icon: 'file', active: true };
+						? { text: `Reading ${path}`, icon: 'file', active: true }
+						: { text: 'Reading project files...', icon: 'file', active: true };
 				}
 				case 'write_file':
-				case 'edit_file': {
+				case 'write':
+				case 'edit_file':
+				case 'edit': {
 					const path = extractFilePath(action.arguments);
 					return path
-						? { text: `Writing ${path}...`, icon: 'edit', active: true }
-						: { text: 'Writing file...', icon: 'edit', active: true };
+						? { text: `Updating ${path}`, icon: 'edit', active: true }
+						: { text: 'Applying changes...', icon: 'edit', active: true };
 				}
-				case 'execute_command': {
-					const cmd = extractCommand(action.arguments);
-					return cmd
-						? { text: `Running: ${cmd}`, icon: 'terminal', active: true }
-						: { text: 'Running command...', icon: 'terminal', active: true };
-				}
+				case 'execute_command':
 				case 'bash': {
 					const cmd = extractCommand(action.arguments);
 					return cmd
-						? { text: `Running: ${cmd}`, icon: 'terminal', active: true }
-						: { text: 'Running command...', icon: 'terminal', active: true };
+						? { text: `Executing: ${cmd}`, icon: 'terminal', active: true }
+						: { text: 'Running system command...', icon: 'terminal', active: true };
+				}
+				case 'grep':
+				case 'glob': {
+					return { text: 'Searching codebase...', icon: 'scan', active: true };
 				}
 				default:
 					return { text: `Using ${tool}...`, icon: 'sparkle', active: true };

@@ -919,11 +919,6 @@
 		font-family: var(--font-mono);
 	}
 
-	.version {
-		font-family: var(--font-mono);
-		opacity: 0.7;
-	}
-
 	.agent-toggle-btn {
 		padding: 2px 8px;
 		font-size: var(--text-2xs);

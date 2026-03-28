@@ -1,125 +1,273 @@
 <script lang="ts">
-    /**
-     * DiffViewer Component
-     * Renders unified or side-by-side diffs using Diff2Html.
-     * Features syntax highlighting, word-level diffing, and custom dark theme.
-     */
-    import {onDestroy} from 'svelte';
-    import {Diff2HtmlUI} from 'diff2html/lib/ui/js/diff2html-ui';
-    import 'diff2html/bundles/css/diff2html.min.css';
-    import hljs from 'highlight.js/lib/core';
-    import typescript from 'highlight.js/lib/languages/typescript';
-    import javascript from 'highlight.js/lib/languages/javascript';
-    import rust from 'highlight.js/lib/languages/rust';
-    import python from 'highlight.js/lib/languages/python';
-    import css from 'highlight.js/lib/languages/css';
-    import scss from 'highlight.js/lib/languages/scss';
-    import json from 'highlight.js/lib/languages/json';
-    import yaml from 'highlight.js/lib/languages/yaml';
-    import markdown from 'highlight.js/lib/languages/markdown';
-    import html from 'highlight.js/lib/languages/xml';
-    import svelte from 'highlight.js/lib/languages/xml'; // Reuse XML for Svelte
-
-    // Register common languages for syntax highlighting
-	hljs.registerLanguage('typescript', typescript);
-	hljs.registerLanguage('javascript', javascript);
-	hljs.registerLanguage('rust', rust);
-	hljs.registerLanguage('python', python);
-	hljs.registerLanguage('css', css);
-	hljs.registerLanguage('scss', scss);
-	hljs.registerLanguage('json', json);
-	hljs.registerLanguage('yaml', yaml);
-	hljs.registerLanguage('markdown', markdown);
-	hljs.registerLanguage('html', html);
-	hljs.registerLanguage('svelte', svelte);
-	hljs.registerLanguage('xml', html);
+	/**
+	 * DiffViewer Component
+	 * Renders unified or side-by-side diffs using Monaco Editor.
+	 * Also supports a "Full File" view mode for inspecting the final result.
+	 */
+	import { onMount, onDestroy } from 'svelte';
+	import * as monaco from 'monaco-editor';
+	import { registerCustomThemes } from '$lib/utils/monaco-themes';
 
 	interface Props {
-		/** Unified diff content (e.g., from `similar` crate output) */
-		diff: string;
-		/** Maximum height in pixels before scrolling */
-		maxHeight?: number;
-		/** View mode: unified or side-by-side */
-		view?: 'unified' | 'side-by-side';
-		/** Enable word-level diffing */
-		wordLevelDiff?: boolean;
-		/** Language for syntax highlighting (auto-detected if not specified) */
-		language?: string;
+		/** Original content for diff */
+		originalContent?: string;
+		/** Modified content for diff or single view */
+		modifiedContent: string;
+		/** File path to determine language */
+		filePath: string;
+		/** View mode: 'diff' or 'full' */
+		mode?: 'diff' | 'full';
+		/** Diff style: 'side-by-side' or 'inline' (unified) */
+		diffStyle?: 'side-by-side' | 'inline';
+		/** Preferred editor theme */
+		theme?: 'vs-dark' | 'vs-light' | 'tokyo-night';
+		/** Whether to show the minimap */
+		minimap?: boolean;
 	}
 
-	let { diff, maxHeight = 500, view = 'unified', wordLevelDiff = true, language }: Props = $props();
+	let {
+		originalContent = '',
+		modifiedContent = '',
+		filePath,
+		mode = 'diff',
+		diffStyle = 'side-by-side',
+		theme = 'vs-dark',
+		minimap = true
+	}: Props = $props();
 
-	let container: HTMLElement;
-	let diff2HtmlUi: Diff2HtmlUI | null = null;
-	let currentView = $state<'unified' | 'side-by-side'>('unified');
+	let container = $state<HTMLDivElement | null>(null);
+	let diffEditor = $state<monaco.editor.IStandaloneDiffEditor | null>(null);
+	let codeEditor = $state<monaco.editor.IStandaloneCodeEditor | null>(null);
+	let fontSize = $state(13);
 
-	// Update internal view when prop changes
-	$effect(() => {
-		currentView = view;
-	});
-
-	// Re-render when diff, currentView, or wordLevelDiff changes
-	$effect(() => {
-		if (container && diff) {
-			renderDiff();
+	// Handle CTRL + Scroll for zoom
+	function handleWheel(e: any) {
+		const browserEvent = e.browserEvent || e;
+		if (browserEvent.ctrlKey || browserEvent.metaKey) {
+			browserEvent.preventDefault();
+			const delta = browserEvent.deltaY > 0 ? -1 : 1;
+			const newSize = Math.max(8, Math.min(32, fontSize + delta));
+			if (newSize !== fontSize) {
+				fontSize = newSize;
+				updateEditorOptions();
+			}
 		}
-	});
+	}
 
-	function renderDiff() {
+	function updateEditorOptions() {
+		const options = {
+			fontSize,
+			lineHeight: Math.round(fontSize * 1.5)
+		};
+		
+		if (diffEditor) {
+			diffEditor.updateOptions(options);
+		}
+		if (codeEditor) {
+			codeEditor.updateOptions(options);
+		}
+	}
+
+	// Determine language from file extension
+	function getLanguage(path: string): string {
+		const ext = path.split('.').pop()?.toLowerCase();
+		switch (ext) {
+			case 'js':
+			case 'mjs':
+			case 'cjs':
+				return 'javascript';
+			case 'ts':
+			case 'mts':
+				return 'typescript';
+			case 'py':
+				return 'python';
+			case 'rs':
+				return 'rust';
+			case 'json':
+				return 'json';
+			case 'html':
+				return 'html';
+			case 'css':
+				return 'css';
+			case 'scss':
+				return 'scss';
+			case 'md':
+				return 'markdown';
+			case 'svelte':
+				return 'html'; // Monaco doesn't have native svelte, html is close
+			case 'sh':
+			case 'bash':
+				return 'shell';
+			case 'yml':
+			case 'yaml':
+				return 'yaml';
+			default:
+				return 'plaintext';
+		}
+	}
+
+	let language = $derived(getLanguage(filePath));
+
+	// Effect to update models and switch between editor types
+	$effect(() => {
 		if (!container) return;
 
-		// Clear previous content
-		container.innerHTML = '';
-
-		try {
-			const targetElement = container;
-			const configuration = {
-				drawFileList: false,
-				matching: wordLevelDiff ? 'words' : 'lines',
-				outputFormat: currentView === 'side-by-side' ? 'side-by-side' : 'line-by-line',
-				highlight: true,
-				// Don't use built-in theme - we use custom CSS
-				style: ''
-			};
-
-			diff2HtmlUi = new Diff2HtmlUI(targetElement, diff, configuration);
-			diff2HtmlUi.draw();
-			diff2HtmlUi.highlightCode();
-		} catch (error) {
-			console.error('[DiffViewer] Failed to render diff:', error);
-			container.innerHTML = `<div class="diff-error">Failed to render diff: \${error}</div>`;
+		// Clean up previous editors if mode switches
+		if (mode === 'diff') {
+			if (codeEditor) {
+				codeEditor.dispose();
+				codeEditor = null;
+			}
+			if (!diffEditor) {
+				initDiffEditor();
+			} else {
+				updateDiffModels();
+			}
+		} else {
+			if (diffEditor) {
+				diffEditor.dispose();
+				diffEditor = null;
+			}
+			if (!codeEditor) {
+				initCodeEditor();
+			} else {
+				updateCodeModel();
+			}
 		}
+	});
+
+	// Effect for theme changes
+	$effect(() => {
+		if (monaco.editor) {
+			monaco.editor.setTheme(theme);
+		}
+	});
+
+	// Effect for diffStyle changes
+	$effect(() => {
+		if (diffEditor) {
+			diffEditor.updateOptions({
+				renderSideBySide: diffStyle === 'side-by-side'
+			});
+		}
+	});
+
+	function initDiffEditor() {
+		if (!container) return;
+		diffEditor = monaco.editor.createDiffEditor(container, {
+			theme,
+			automaticLayout: true,
+			renderSideBySide: diffStyle === 'side-by-side',
+			readOnly: true,
+			minimap: { enabled: minimap },
+			scrollBeyondLastLine: false,
+			fontSize,
+			lineHeight: Math.round(fontSize * 1.5),
+			fontFamily: 'var(--font-mono)',
+			renderLineHighlight: 'all',
+			scrollbar: {
+				vertical: 'auto',
+				horizontal: 'auto',
+				useShadows: false,
+				verticalHasArrows: false,
+				horizontalHasArrows: false,
+				verticalScrollbarSize: 10,
+				horizontalScrollbarSize: 10
+			},
+			diffWordWrap: 'on',
+			renderIndicators: true,
+			originalEditable: false,
+			ignoreTrimWhitespace: false,
+			folding: true,
+			bracketPairColorization: { enabled: true },
+			smoothScrolling: true,
+			cursorBlinking: 'smooth',
+			cursorSmoothCaretAnimation: 'on',
+			mouseWheelZoom: false,
+			fastScrollSensitivity: 5,
+			hideCursorInOverviewRuler: true,
+			overviewRulerBorder: false,
+			renderOverviewRuler: false
+		});
+		
+		// Add wheel listener for zoom
+		diffEditor.getModifiedEditor().onMouseWheel(handleWheel);
+		diffEditor.getOriginalEditor().onMouseWheel(handleWheel);
+		
+		// Also add native listener to handle the preventDefault more reliably
+		container.addEventListener('wheel', handleWheel, { passive: false });
+		
+		updateDiffModels();
 	}
 
-	function toggleView() {
-		currentView = currentView === 'unified' ? 'side-by-side' : 'unified';
+	function initCodeEditor() {
+		if (!container) return;
+		codeEditor = monaco.editor.create(container, {
+			theme,
+			automaticLayout: true,
+			readOnly: true,
+			minimap: { enabled: minimap },
+			scrollBeyondLastLine: false,
+			fontSize,
+			lineHeight: Math.round(fontSize * 1.5),
+			fontFamily: 'var(--font-mono)',
+			renderLineHighlight: 'all',
+			scrollbar: {
+				vertical: 'auto',
+				horizontal: 'auto',
+				useShadows: false,
+				verticalScrollbarSize: 10,
+				horizontalScrollbarSize: 10
+			},
+			wordWrap: 'on',
+			folding: true,
+			bracketPairColorization: { enabled: true },
+			smoothScrolling: true,
+			cursorBlinking: 'smooth',
+			cursorSmoothCaretAnimation: 'on',
+			renderWhitespace: 'none',
+			overviewRulerBorder: false,
+			hideCursorInOverviewRuler: true
+		});
+		
+		// Add wheel listener for zoom
+		codeEditor.onMouseWheel(handleWheel);
+		
+		// Also add native listener to handle the preventDefault more reliably
+		container.addEventListener('wheel', handleWheel, { passive: false });
+		
+		updateCodeModel();
 	}
+
+	function updateDiffModels() {
+		if (!diffEditor) return;
+		const originalModel = monaco.editor.createModel(originalContent, language);
+		const modifiedModel = monaco.editor.createModel(modifiedContent, language);
+		diffEditor.setModel({
+			original: originalModel,
+			modified: modifiedModel
+		});
+	}
+
+	function updateCodeModel() {
+		if (!codeEditor) return;
+		const model = monaco.editor.createModel(modifiedContent, language);
+		codeEditor.setModel(model);
+	}
+
+	onMount(() => {
+		registerCustomThemes();
+	});
 
 	onDestroy(() => {
-		if (container) {
-			container.innerHTML = '';
-		}
-		diff2HtmlUi = null;
+		diffEditor?.dispose();
+		codeEditor?.dispose();
+		container?.removeEventListener('wheel', handleWheel);
 	});
 </script>
 
 <div class="diff-viewer-wrapper">
-	<div class="diff-header">
-		<span class="diff-title">Changes</span>
-		<button
-			class="view-toggle"
-			onclick={toggleView}
-			type="button"
-			title="Switch between unified and side-by-side view"
-		>
-			{#if currentView === 'unified'}
-				Side by Side
-			{:else}
-				Unified
-			{/if}
-		</button>
-	</div>
-	<div bind:this={container} class="diff2html-container"></div>
+	<div bind:this={container} class="monaco-host"></div>
 </div>
 
 <style>
@@ -127,343 +275,85 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
+		width: 100%;
 		min-height: 0;
 		background: var(--color-bg-primary);
-		border: 1px solid var(--color-border-primary);
-		border-radius: var(--radius-md);
 		overflow: hidden;
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
 	}
 
-	.diff-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--space-2) var(--space-4);
-		background: var(--color-bg-secondary);
-		border-bottom: 1px solid var(--color-border-primary);
-		flex-shrink: 0;
-	}
-
-	.diff-title {
-		font-size: 10px;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.1em;
-		color: var(--color-text-muted);
-	}
-
-	.view-toggle {
-		padding: 2px 8px;
-		font-size: 10px;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-text-secondary);
-		background: var(--color-neutral-800);
-		border: 1px solid var(--color-border-subtle);
-		border-radius: 4px;
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.view-toggle:hover {
-		background: var(--color-neutral-700);
-		color: var(--color-text-primary);
-	}
-
-	.diff2html-container {
+	.monaco-host {
 		flex: 1;
 		min-height: 0;
-		overflow: hidden !important; /* Prevent the main container from scrolling */
-		background: var(--color-bg-primary);
-		display: flex;
-		flex-direction: column;
+		width: 100%;
+		height: 100%;
+		position: relative;
 	}
 
-	:global(.d2h-file-diff) {
-		overflow: auto !important; /* Only this element should scroll */
-		flex: 1 !important;
-		min-height: 0 !important;
-		background: transparent !important;
-		scrollbar-width: thin;
-		scrollbar-color: var(--color-neutral-700) transparent;
+	/* Monaco System Normalization */
+	:global(.monaco-editor),
+	:global(.monaco-editor-background),
+	:global(.monaco-editor .margin) {
+		background-color: transparent !important;
 	}
 
-	:global(.d2h-file-diff::-webkit-scrollbar) {
-		width: 6px;
-		height: 6px;
-	}
-
-	:global(.d2h-file-diff::-webkit-scrollbar-track) {
-		background: transparent;
-	}
-
-	:global(.d2h-file-diff::-webkit-scrollbar-thumb) {
-		background: var(--color-neutral-700);
-		border-radius: var(--radius-full);
-	}
-
-	:global(.d2h-files-diff) {
-		display: flex !important;
-		flex-direction: column !important;
-		flex: 1 !important;
-		min-height: 0 !important;
-		overflow: hidden !important;
-	}
-
-	:global(.d2h-wrapper) {
-		display: flex !important;
-		flex-direction: column !important;
-		flex: 1 !important;
-		min-height: 0 !important;
-		overflow: hidden !important;
-		border: none !important;
-		margin: 0 !important;
-		padding: 0 !important;
-		background: transparent !important;
-	}
-
-	:global(.d2h-file-wrapper) {
-		border: none !important;
-		margin: 0 !important;
-		margin-bottom: 0 !important;
-		display: flex !important;
-		flex-direction: column !important;
-		flex: 1 !important;
-		min-height: 0 !important;
-		overflow: hidden !important;
-	}
-
-	/* Target split view specifically for vertical alignment */
-	:global(.d2h-file-side-diff) {
-		margin-bottom: 0 !important;
-		display: table-cell !important;
-		width: 50% !important; 
-		vertical-align: top !important;
-		position: relative !important;
-		float: none !important; /* Ensure table-cell behavior is not overridden by floats */
-	}
-
-	:global(.d2h-files-diff) {
-		display: table !important;
-		width: 100% !important;
-		table-layout: fixed !important;
-		border-spacing: 0 !important;
-		border-collapse: collapse !important;
-	}
-
-	:global(.d2h-file-side-diff table) {
-		width: 100% !important;
-		table-layout: fixed !important;
-		border-collapse: collapse !important;
-	}
-
-	/* Reset code lines to block/table-row to ensure they fill the side panels */
-	:global(.d2h-code-side-line) {
-		display: table-row !important;
-		width: 100% !important;
-	}
-
-	:global(.d2h-code-side-linenumber) {
-		width: 50px !important;
-		min-width: 50px !important;
-		display: table-cell !important;
-	}
-
-	:global(.d2h-code-side-line-ctn) {
-		display: table-cell !important;
-		width: 100% !important;
-	}
-
-	/* Prevent internal diff2html headers/containers from introducing independent scrolls */
-	:global(.d2h-file-diff) {
-		overflow-y: auto !important;
-		overflow-x: auto !important;
-		flex: 1 !important;
-		min-height: 0 !important;
-		display: block !important;
-		height: 100% !important; /* Ensure it takes full height to enable scrolling */
-		scrollbar-width: thin;
-		scrollbar-color: var(--color-neutral-700) transparent;
-	}
-
-	:global(.d2h-files-diff) {
-		display: table !important;
-		width: 100% !important;
-		height: 100% !important; /* Fixed height for table within scroller */
-		table-layout: fixed !important;
-		border-spacing: 0 !important;
-		border-collapse: collapse !important;
-		min-height: 100% !important;
-	}
-
-	:global(.d2h-file-side-diff) {
-		margin-bottom: 0 !important;
-		display: table-cell !important;
-		width: 50% !important; 
-		height: 100% !important; /* Ensure columns fill scroller height */
-		vertical-align: top !important;
-		position: relative !important;
-		float: none !important;
-	}
-
-	:global(.d2h-file-side-diff table) {
-		width: 100% !important;
-		height: 100% !important; /* Ensure internal table fills the column */
-		table-layout: fixed !important;
-		border-collapse: collapse !important;
-	}
-
-	:global(.d2h-file-wrapper) {
-		display: flex !important;
-		flex-direction: column !important;
-		flex: 1 !important;
-		min-height: 0 !important;
-	}
-
-	/* Ensure the "Original" and "Modified" headers don't push the tables out of sync */
-	:global(.d2h-file-side-diff .d2h-code-side-linenumber) {
-		position: sticky !important;
-		left: 0 !important;
-		z-index: 2 !important;
-	}
-
-	:global(.d2h-file-header) {
+	:global(.monaco-diff-editor .diffOverview) {
 		display: none !important;
 	}
 
-	/* Ensure the header (hunk lines) stay while code scrolls if we want, 
-	   but for now let's just make the whole diff area scrollable 
-	*/
-
-	/* CORE ALIGNMENT: Standard Table Flow */
-	:global(.d2h-diff-table) {
-		display: table !important;
-		width: 100% !important;
-		border-collapse: collapse !important;
-		table-layout: auto !important;
-		font-family: var(--font-mono) !important;
-		font-size: 12px !important;
-		border: none !important;
+	/* Refined scrollbars */
+	:global(.monaco-scrollable-element > .scrollbar > .slider) {
+		background: var(--color-neutral-700) !important;
+		border-radius: var(--radius-full) !important;
+		opacity: 0.4;
+		transition: opacity var(--transition-fast);
 	}
 
-	:global(.d2h-code-line) {
-		display: table-row !important;
-		background: transparent !important;
+	:global(.monaco-scrollable-element > .scrollbar > .slider:hover) {
+		opacity: 0.8;
 	}
 
-	:global(.d2h-code-linenumber),
-	:global(.d2h-code-side-linenumber) {
-		display: table-cell !important;
-		position: relative !important;
-		float: none !important; /* Eliminate float-based detachment */
-		width: 50px !important;
-		min-width: 50px !important;
-		background: var(--color-bg-secondary) !important;
-		color: var(--color-text-muted) !important;
-		border: none !important;
-		border-right: 1px solid var(--color-border-subtle) !important;
-		text-align: right !important;
-		padding: 0 8px !important;
-		line-height: 20px !important;
-		user-select: none !important;
-		vertical-align: top !important;
+	:global(.monaco-scrollable-element > .scrollbar.active > .slider) {
+		opacity: 1;
 	}
 
-	:global(.d2h-code-line-ctn) {
-		display: table-cell !important;
-		position: relative !important;
-		float: none !important; /* Eliminate float-based detachment */
-		padding: 0 16px !important;
-		line-height: 20px !important;
-		vertical-align: top !important;
-		width: 100% !important;
-		white-space: pre !important;
-		word-break: normal !important;
+	/* Subtle diff highlights - Precise line-level accents */
+	:global(.monaco-editor .line-insert),
+	:global(.monaco-editor .char-insert) {
+		background-color: var(--color-success-subtle) !important;
 	}
 
-	/* TINTS & MARKERS */
-	:global(.d2h-del) {
-		background: rgba(248, 81, 73, 0.1) !important;
+	:global(.monaco-editor .line-delete),
+	:global(.monaco-editor .char-delete) {
+		background-color: var(--color-error-light) !important;
+		opacity: 0.1;
 	}
 
-	:global(.d2h-ins) {
-		background: rgba(63, 185, 80, 0.1) !important;
+	/* Gutter indicators - Sharp 2px accents */
+	:global(.monaco-diff-editor .ced-1-diff-line-insert) {
+		border-left: 2px solid var(--color-success) !important;
 	}
 
-	/* Fix white background in split view (d2h-code-line/d2h-code-side-line) */
-	:global(.d2h-code-line),
-	:global(.d2h-code-side-line),
-	:global(.d2h-code-line-ctn),
-	:global(.d2h-code-side-linenumber) {
-		background: transparent !important;
+	:global(.monaco-diff-editor .ced-1-diff-line-delete) {
+		border-left: 2px solid var(--color-error) !important;
 	}
 
-	/* Ensure the empty/spacer side of a diff also uses a dark background */
-	:global(.d2h-code-side-emptyplaceholder),
-	:global(.d2h-emptyplaceholder) {
-		background: var(--color-bg-primary) !important;
-		border: none !important;
-		display: table-row !important; /* Ensure it behaves like a row to maintain height */
+	/* Hide default overview ruler as it adds noise */
+	:global(.monaco-editor .vertical-gradient-shadow) {
+		display: none !important;
 	}
 
-	/* Fix: Ensure split view tables always have at least 100% height to trigger scroll even if one side is empty */
-	:global(.d2h-files-diff) {
-		display: table !important;
-		width: 100% !important;
-		height: 100% !important;
-		table-layout: fixed !important;
-		border-spacing: 0 !important;
-		border-collapse: collapse !important;
-		min-height: 100% !important;
+	/* Refine glyph margin for diff markers */
+	:global(.monaco-editor .margin-view-overlays .line-numbers) {
+		opacity: 0.5;
+		transition: opacity var(--transition-fast);
 	}
 
-	:global(.d2h-code-line-prefix) {
-		display: inline-block !important;
-		width: 1ch !important;
-		margin-right: 8px !important;
-		opacity: 0.5 !important;
-		font-weight: bold !important;
-	}
-
-	/* Hunk header (The \"@@\" line) */
-	:global(.d2h-info) {
-		background: var(--color-neutral-900) !important;
-		border: none !important;
-		color: var(--color-text-muted) !important;
-		font-size: 11px !important;
-		font-style: italic !important;
-		padding: 6px 16px !important;
-		border-bottom: 1px solid var(--color-border-subtle) !important;
-		border-top: 1px solid var(--color-border-subtle) !important;
-	}
-
-	:global(.d2h-code-linenumber.d2h-info),
-	:global(.d2h-code-side-linenumber.d2h-info) {
-		background: var(--color-neutral-800) !important;
-		border: none !important;
-	}
-
-	/* Syntax highlighting colors */
-	:global(.hljs-keyword) { color: #ff79c6 !important; }
-	:global(.hljs-string) { color: #f1fa8c !important; }
-	:global(.hljs-number) { color: #bd93f9 !important; }
-	:global(.hljs-comment) { color: #6272a4 !important; }
-	:global(.hljs-function) { color: #50fa7b !important; }
-	:global(.hljs-title) { color: #8be9fd !important; }
-
-	/* Scrollbar styling */
-	.diff2html-container::-webkit-scrollbar {
-		width: 6px;
-		height: 6px;
-	}
-
-	.diff2html-container::-webkit-scrollbar-track {
-		background: transparent;
-	}
-
-	.diff2html-container::-webkit-scrollbar-thumb {
-		background: var(--color-neutral-700);
-		border-radius: var(--radius-full);
+	:global(.monaco-editor:hover .margin-view-overlays .line-numbers) {
+		opacity: 1;
 	}
 </style>

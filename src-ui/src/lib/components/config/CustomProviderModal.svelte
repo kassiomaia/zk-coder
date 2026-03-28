@@ -274,7 +274,3 @@
 		</div>
 	{/snippet}
 </Modal>
-
-<style>
-	/* Styles are in CustomProviderModal.module.css */
-</style>

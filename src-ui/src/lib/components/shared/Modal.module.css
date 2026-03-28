@@ -189,6 +189,15 @@
 	scroll-behavior: smooth;
 	/* Prevent abrupt reflow */
 	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+/* Special case for full-height content (like FileDiffModal) */
+.body.no-padding-body {
+	padding: 0;
+	overflow: hidden;
+	height: 100%;
 }
 
 /* Staggered content reveal - applied via JS class or Svelte transition */

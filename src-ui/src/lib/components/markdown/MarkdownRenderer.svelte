@@ -6,6 +6,7 @@
      */
     import {browser} from '$app/environment';
     import {escapeHtml, renderMarkdown} from '$lib/utils/markdown';
+    import CodeBlock from './code/CodeBlock.svelte';
     import {
         type ContentValidationConfig,
         defaultValidationConfig,
@@ -78,11 +79,56 @@
 			? renderMarkdown(contentToRender)
 			: escapeHtml(contentToRender).replace(/\n/g, '<br>');
 	});
+
+	let blocks = $derived.by(() => {
+		if (!browser) return [];
+		
+		const container = document.createElement('div');
+		container.innerHTML = renderedHtml;
+		
+		const newBlocks: Array<{ type: 'html' | 'code', content: string, language?: string, code?: string }> = [];
+		
+		Array.from(container.childNodes).forEach(node => {
+			if (node instanceof HTMLElement && node.classList.contains('code-block')) {
+				const codeElem = node.querySelector('code');
+				newBlocks.push({
+					type: 'code',
+					content: codeElem?.innerHTML || '',
+					code: codeElem?.innerText || '',
+					language: node.getAttribute('data-language') || ''
+				});
+			} else {
+				const wrapper = document.createElement('div');
+				if (node.nodeType === Node.TEXT_NODE) {
+					wrapper.textContent = node.textContent;
+				} else {
+					wrapper.appendChild(node.cloneNode(true));
+				}
+				newBlocks.push({
+					type: 'html',
+					content: wrapper.innerHTML
+				});
+			}
+		});
+		
+		return newBlocks;
+	});
 </script>
 
 <div class={`${styles.markdown} ${className}`}>
-	{#if !validationResult.isValid}
-		<!-- Validation error is rendered in the HTML above -->
+	{#if !browser}
+		{@html renderedHtml}
+	{:else}
+		{#each blocks as block}
+			{#if block.type === 'code'}
+				<CodeBlock 
+					code={block.code || ''} 
+					language={block.language} 
+					highlightedCode={block.content} 
+				/>
+			{:else}
+				{@html block.content}
+			{/if}
+		{/each}
 	{/if}
-	{@html renderedHtml}
 </div>

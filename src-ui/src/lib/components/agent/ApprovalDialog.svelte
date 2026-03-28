@@ -138,7 +138,7 @@
 						{/if}
 					</div>
 					{#if action.preview.contentType === 'diff'}
-						<DiffViewer diff={action.preview.content} maxHeight={500} />
+						<DiffViewer modifiedContent={action.preview.content} filePath="changes.patch" />
 					{:else}
 						<pre class="preview-content"><code>{action.preview.content}</code></pre>
 					{/if}
@@ -152,7 +152,6 @@
 		</div>
 	</div>
 </Modal>
-
 <style>
 	.approval-dialog {
 		display: flex;

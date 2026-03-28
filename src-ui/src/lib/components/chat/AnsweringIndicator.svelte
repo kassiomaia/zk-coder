@@ -62,10 +62,14 @@
 	}
 
 	function scrambleText(target: string) {
+		if (displayText === target) return;
+		
 		isStable = false;
 		let startTime: number;
 		const startText = displayText;
-		const maxLength = Math.max(startText.length, target.length);
+		const targetLength = target.length;
+		const startLength = startText.length;
+		const maxLength = Math.max(startLength, targetLength);
 
 		const run = (now: number) => {
 			if (!mounted) return;
@@ -76,20 +80,25 @@
 			const easedProgress = easeOutQuart(progress);
 
 			// Calculate how many characters should be resolved based on eased progress
-			const resolvedCount = Math.floor(easedProgress * target.length);
+			const resolvedCount = Math.floor(easedProgress * targetLength);
 
-			displayText = target
-				.split('')
-				.map((letter, index) => {
-					if (index < resolvedCount) {
-						return target[index];
-					}
-					// Deterministic-ish shuffle: use index and elapsed to pick char
-					// to avoid "parallel rendering artifacts" (flickering of same char in same spot)
-					const seed = index + Math.floor(elapsed / 50);
-					return SCRAMBLE_CHARS[seed % SCRAMBLE_CHARS.length];
-				})
-				.join('');
+			let current = '';
+			for (let i = 0; i < maxLength; i++) {
+				if (i < resolvedCount) {
+					// Character from target resolved
+					current += target[i];
+				} else if (i < targetLength) {
+					// Character from target still scrambling
+					const seed = i + Math.floor(elapsed / 50);
+					current += SCRAMBLE_CHARS[seed % SCRAMBLE_CHARS.length];
+				} else if (i < startLength) {
+					// Character from previous text still exists (shrinking)
+					const seed = i + Math.floor(elapsed / 50);
+					current += SCRAMBLE_CHARS[seed % SCRAMBLE_CHARS.length];
+				}
+			}
+			
+			displayText = current;
 
 			if (progress < 1) {
 				animationFrame = requestAnimationFrame(run);
@@ -123,14 +132,14 @@
 		}
 
 		const newPhrases = status?.phrases ?? [];
-		const newActive = status?.active ?? true;
+		const newActive = status?.active ?? active;
 		const newText = status?.text ?? '';
 
 		// Determine what to display
 		const targetText = newPhrases.length > 0 ? newPhrases[0] : newText;
 
 		// Check if anything meaningful changed
-		if (targetText === currentDisplayText && newPhrases.length === currentPhrases.length) {
+		if (targetText === currentDisplayText && newPhrases.length === currentPhrases.length && newActive === !isComplete) {
 			// Nothing meaningful changed, but we still need to keep the loop running if active
 			if (newActive && targetText && !loopTimer) {
 				// Restart the loop timer
@@ -146,14 +155,9 @@
 		// Update tracked values
 		currentDisplayText = targetText;
 		currentPhrases = newPhrases;
-
-		if (!newActive) {
-			isComplete = true;
-			return;
-		}
-
-		// Update completion state
 		isComplete = !newActive;
+
+		if (isComplete) return;
 
 		// Initial animation
 		if (targetText) {
@@ -233,6 +237,7 @@
 
 		<div class={styles.labelContainer}>
 			<span class={styles.label}>{displayText}</span>
+			<div class={styles.activityIndicator}></div>
 			{#if status?.stallWarning && status.elapsedSeconds}
 				<span class={styles.stallWarning}>
 					{#if status.stallWarning === 'still-working'}

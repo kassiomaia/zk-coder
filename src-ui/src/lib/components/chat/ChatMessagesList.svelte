@@ -15,6 +15,7 @@
     import TerminalOutput from './messages/TerminalOutput.svelte';
     import NarrationMessage from './messages/NarrationMessage.svelte';
     import ApprovalMessage from './messages/ApprovalMessage.svelte';
+    import {MessageSquareIcon, UserIcon} from '$lib/icons';
     import type {Message} from '$lib/types/message';
     import type {Thread} from '$lib/types/thread';
     import type {AgentStatus} from '$lib/utils/agentStatus';
@@ -294,10 +295,17 @@
 						.filter(Boolean)
 						.join(' ')}
 				>
-					<div class={messageStyles.groupHeader}>
-						<span class={messageStyles.groupRole}>{message.role}</span>
-						<span class={messageStyles.groupTime}>{formatGroupTime(message.timestamp)}</span>
-					</div>
+			<div class={messageStyles.groupHeader}>
+				<div class={messageStyles.avatarWrapper}>
+					{#if message.role === 'user'}
+						<UserIcon size={12} strokeWidth={2.5} />
+					{:else}
+						<MessageSquareIcon size={12} strokeWidth={2.5} />
+					{/if}
+				</div>
+				<span class={messageStyles.groupRole}>{message.role}</span>
+				<span class={messageStyles.groupTime}>{formatGroupTime(message.timestamp)}</span>
+			</div>
 				</div>
 			{/if}
 			<div
@@ -389,6 +397,8 @@
 
 	<!-- Persistent bottom status strip for the thread-linked agent session -->
 	{#if isTyping && agentStatus?.active}
-		<AnsweringIndicator status={agentStatus} />
+		<div class={messageStyles.agentStatusWrapper}>
+			<AnsweringIndicator status={agentStatus} />
+		</div>
 	{/if}
 {/if}

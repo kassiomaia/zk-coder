@@ -45,17 +45,21 @@ export function registerCustomThemes() {
 			{ token: 'function.definition', foreground: '7aa2f7' },
 		],
 		colors: {
-			'editor.background': '#09090b',
-			'editor.foreground': '#d4d4d8',
-			'editor.lineHighlightBackground': '#18181b',
-			'editor.selectionBackground': '#27272a',
+			'editor.background': '#09090b', // --color-neutral-950
+			'editor.foreground': '#e4e4e7', // --color-neutral-200
+			'editor.lineHighlightBackground': '#18181b', // --color-surface-hover
+			'editor.selectionBackground': '#27272a', // --color-surface-active
 			'editor.selectionHighlightBackground': '#27272a',
-			'editorCursor.foreground': '#6366f1',
+			'editorCursor.foreground': '#6366f1', // --color-primary-500
 			'editorWhitespace.foreground': '#27272a',
-			'editorIndentGuide.background': '#1f1f23',
-			'editorIndentGuide.activeBackground': '#3f3f46',
-			'editorLineNumber.foreground': '#3f3f46',
-			'editorLineNumber.activeForeground': '#a1a1aa',
+			'editorIndentGuide.background': '#1f1f23', // --color-border-subtle
+			'editorIndentGuide.activeBackground': '#3f3f46', // --color-border-secondary
+			'editorLineNumber.foreground': '#3f3f46', // --color-text-muted
+			'editorLineNumber.activeForeground': '#a1a1aa', // --color-text-secondary
+			'diffEditor.insertedTextBackground': '#10b98115', // --color-success-light (reduced)
+			'diffEditor.removedTextBackground': '#ef444415', // --color-error-light (reduced)
+			'diffEditor.insertedLineBackground': '#10b98108', // --color-success-subtle
+			'diffEditor.removedLineBackground': '#ef444408', // --color-error-subtle
 			'scrollbarSlider.background': '#1f1f23',
 			'scrollbarSlider.hoverBackground': '#27272a',
 			'scrollbarSlider.activeBackground': '#3f3f46',

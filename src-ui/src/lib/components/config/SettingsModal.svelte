@@ -192,7 +192,3 @@
 		</div>
 	{/snippet}
 </Modal>
-
-<style>
-	/* Styles are in SettingsModal.module.css */
-</style>
