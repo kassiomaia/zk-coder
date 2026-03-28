@@ -5,9 +5,10 @@
  * All components should reference these variables for consistent styling.
  *
  * Design Philosophy:
- * - High contrast for accessibility
- * - Clear visual hierarchy
- * - Distinct interactive states
+ * - Calm, pale, softly layered surfaces with warm neutral tones
+ * - Clear visual hierarchy through controlled tonal steps
+ * - Accessible contrast ratios with refined legibility
+ * - Subtle shadows and light separators over heavy borders
  * - Consistent spacing and radii
  */
 
@@ -16,49 +17,49 @@
      Color Palette
      ===================== */
 
-	/* Primary Colors - Main brand color */
-	--color-primary-50: #eef2ff;
-	--color-primary-100: #e0e7ff;
-	--color-primary-200: #c7d2fe;
-	--color-primary-300: #a5b4fc;
-	--color-primary-400: #818cf8;
-	--color-primary-500: #6366f1;
-	--color-primary-600: #4f46e5;
-	--color-primary-700: #4338ca;
-	--color-primary-800: #3730a3;
-	--color-primary-900: #312e81;
+	/* Primary Colors - Desaturated warm slate-blue, calm and precise */
+	--color-primary-50: #f0f1f4;
+	--color-primary-100: #dfe1e8;
+	--color-primary-200: #c2c5d1;
+	--color-primary-300: #9ea2b4;
+	--color-primary-400: #7a7f96;
+	--color-primary-500: #5c6178;
+	--color-primary-600: #4b5068;
+	--color-primary-700: #3e4259;
+	--color-primary-800: #33364a;
+	--color-primary-900: #2a2d3e;
 
 	/* Provider Brand Colors - for provider icons and badges */
 	/* Base colors (high opacity for icons/badges) */
 	--color-provider-anthropic: #d97706;
 	--color-provider-openai: #10a37f;
 	--color-provider-google: #3b82f6;
-	--color-provider-custom: #6366f1;
-	--color-provider-default: #6366f1;
+	--color-provider-custom: #5c6178;
+	--color-provider-default: #5c6178;
 
 	/* Light variants for backgrounds (15% opacity) */
 	--color-provider-anthropic-light: rgba(217, 119, 6, 0.15);
 	--color-provider-openai-light: rgba(16, 163, 127, 0.15);
 	--color-provider-google-light: rgba(59, 130, 246, 0.15);
-	--color-provider-custom-light: rgba(99, 102, 241, 0.15);
+	--color-provider-custom-light: rgba(92, 97, 120, 0.12);
 
 	/* Border variants (20% opacity) */
 	--color-provider-anthropic-border: rgba(217, 119, 6, 0.2);
 	--color-provider-openai-border: rgba(16, 163, 127, 0.2);
 	--color-provider-google-border: rgba(59, 130, 246, 0.2);
-	--color-provider-custom-border: rgba(99, 102, 241, 0.2);
+	--color-provider-custom-border: rgba(92, 97, 120, 0.2);
 
 	/* Text variants (90% opacity) */
 	--color-provider-anthropic-text: rgba(217, 119, 6, 0.9);
 	--color-provider-openai-text: rgba(16, 163, 127, 0.9);
 	--color-provider-google-text: rgba(59, 130, 246, 0.9);
-	--color-provider-custom-text: rgba(99, 102, 241, 0.9);
+	--color-provider-custom-text: rgba(92, 97, 120, 0.9);
 
 	/* Darker gradients for two-stop gradients (darker end) */
 	--color-provider-anthropic-dark: rgba(146, 64, 14, 0.15);
 	--color-provider-openai-dark: rgba(5, 150, 105, 0.15);
 	--color-provider-google-dark: rgba(29, 78, 216, 0.15);
-	--color-provider-custom-dark: rgba(139, 92, 246, 0.15);
+	--color-provider-custom-dark: rgba(62, 66, 89, 0.15);
 
 	/* Programming Language Colors - for file type icons */
 	--color-lang-rust: #f74c00;
@@ -75,86 +76,86 @@
 	--color-lang-kotlin: #7f52ff;
 	--color-lang-default: var(--color-text-muted);
 
-	/* Neutral Colors - Text and backgrounds */
+	/* Neutral Colors - Warm stone palette for refined, calm surfaces */
 	--color-neutral-0: #ffffff;
-	--color-neutral-50: #fafafa;
-	--color-neutral-100: #f4f4f5;
-	--color-neutral-200: #e4e4e7;
-	--color-neutral-300: #d4d4d8;
-	--color-neutral-400: #a1a1aa;
-	--color-neutral-500: #71717a;
-	--color-neutral-600: #52525b;
-	--color-neutral-700: #3f3f46;
-	--color-neutral-800: #27272a;
-	--color-neutral-850: #1f1f23;
-	--color-neutral-900: #18181b;
-	--color-neutral-925: #141417;
-	--color-neutral-950: #09090b;
+	--color-neutral-50: #faf9f7;
+	--color-neutral-100: #f3f2ee;
+	--color-neutral-200: #e6e5df;
+	--color-neutral-300: #d6d5ce;
+	--color-neutral-400: #a3a29a;
+	--color-neutral-500: #73726a;
+	--color-neutral-600: #545350;
+	--color-neutral-700: #3e3d3a;
+	--color-neutral-800: #282726;
+	--color-neutral-850: #201f1e;
+	--color-neutral-900: #1a1918;
+	--color-neutral-925: #141413;
+	--color-neutral-950: #0b0b0a;
 
-	/* Secondary Colors - Complementary actions */
-	--color-secondary-50: #f0fdf4;
-	--color-secondary-100: #dcfce7;
-	--color-secondary-200: #bbf7d0;
-	--color-secondary-300: #86efac;
-	--color-secondary-400: #4ade80;
-	--color-secondary-500: #22c55e;
-	--color-secondary-600: #16a34a;
-	--color-secondary-700: #15803d;
-	--color-secondary-800: #166534;
-	--color-secondary-900: #14532d;
+	/* Secondary Colors - Muted green complementary actions */
+	--color-secondary-50: #f2f8f4;
+	--color-secondary-100: #dff0e5;
+	--color-secondary-200: #c0e0cc;
+	--color-secondary-300: #90c7a5;
+	--color-secondary-400: #5daa7a;
+	--color-secondary-500: #3d9970;
+	--color-secondary-600: #2d8060;
+	--color-secondary-700: #24694f;
+	--color-secondary-800: #1d5440;
+	--color-secondary-900: #174434;
 
 	/* Accent Colors - Reserved for special cases only */
 	/* These colors are intentionally limited to reduce visual clutter */
-	/* Primary blue (#6366f1) and success green (#10b981) are the main accent colors */
+	/* Primary slate (#5c6178) and success green (#2d9468) are the main accent colors */
 
-	/* Semantic Colors - Primary palette for the application */
-	--color-success: #10b981;
-	--color-success-light: rgba(16, 185, 129, 0.15);
-	--color-success-subtle: rgba(16, 185, 129, 0.08);
-	--color-success-border: rgba(16, 185, 129, 0.2);
-	--color-success-dark: #059669;
-	--color-warning: #f59e0b;
-	--color-warning-light: rgba(245, 158, 11, 0.15);
-	--color-warning-border: rgba(245, 158, 11, 0.2);
-	--color-warning-dark: #d97706;
-	--color-error: #ef4444;
-	--color-error-light: rgba(239, 68, 68, 0.15);
-	--color-error-border: rgba(239, 68, 68, 0.2);
-	--color-error-dark: #dc2626;
-	--color-info: #0ea5e9;
-	--color-info-light: rgba(14, 165, 233, 0.15);
-	--color-info-border: rgba(14, 165, 233, 0.2);
+	/* Semantic Colors - Desaturated, calm palette */
+	--color-success: #3d9970;
+	--color-success-light: rgba(61, 153, 112, 0.12);
+	--color-success-subtle: rgba(61, 153, 112, 0.06);
+	--color-success-border: rgba(61, 153, 112, 0.18);
+	--color-success-dark: #2d8060;
+	--color-warning: #d4930d;
+	--color-warning-light: rgba(212, 147, 13, 0.12);
+	--color-warning-border: rgba(212, 147, 13, 0.18);
+	--color-warning-dark: #b87e0a;
+	--color-error: #c94a4a;
+	--color-error-light: rgba(201, 74, 74, 0.12);
+	--color-error-border: rgba(201, 74, 74, 0.18);
+	--color-error-dark: #b03838;
+	--color-info: #4a9ec9;
+	--color-info-light: rgba(74, 158, 201, 0.12);
+	--color-info-border: rgba(74, 158, 201, 0.18);
 
 	/* Primary color opacity variants - for backgrounds and borders */
-	--color-primary-light: rgba(99, 102, 241, 0.15);
-	--color-primary-lighter: rgba(99, 102, 241, 0.25);
-	--color-primary-border: rgba(99, 102, 241, 0.3);
-	--color-primary-subtle: rgba(99, 102, 241, 0.08);
-	--color-primary-glow: rgba(99, 102, 241, 0.2);
+	--color-primary-light: rgba(92, 97, 120, 0.12);
+	--color-primary-lighter: rgba(92, 97, 120, 0.2);
+	--color-primary-border: rgba(92, 97, 120, 0.25);
+	--color-primary-subtle: rgba(92, 97, 120, 0.06);
+	--color-primary-glow: rgba(92, 97, 120, 0.15);
 
-	/* Syntax highlighting colors - One Dark inspired theme */
-	--color-syntax-keyword: #c678dd;
-	--color-syntax-string: #98c379;
-	--color-syntax-comment: #5c6370;
-	--color-syntax-number: #d19a66;
-	--color-syntax-function: #61afef;
-	--color-syntax-variable: #e06c75;
-	--color-syntax-symbol: #56b6c2;
-	--color-syntax-addition-bg: rgba(152, 195, 121, 0.1);
-	--color-syntax-deletion-bg: rgba(224, 108, 117, 0.1);
+	/* Syntax highlighting colors - Muted dark theme */
+	--color-syntax-keyword: #b099c4;
+	--color-syntax-string: #8fb47a;
+	--color-syntax-comment: #626878;
+	--color-syntax-number: #c29a6e;
+	--color-syntax-function: #7aa5d4;
+	--color-syntax-variable: #c87a82;
+	--color-syntax-symbol: #6aabb4;
+	--color-syntax-addition-bg: rgba(143, 180, 122, 0.1);
+	--color-syntax-deletion-bg: rgba(200, 122, 130, 0.1);
 
-	/* Tokyo Night Theme - For specialized editors and terminal-like UIs */
-	--color-tokyo-bg: #1a1b26;
-	--color-tokyo-fg: #a9b1d6;
-	--color-tokyo-selection: #33467c;
-	--color-tokyo-comment: #565f89;
-	--color-tokyo-cyan: #7dcfff;
-	--color-tokyo-blue: #7aa2f7;
-	--color-tokyo-magenta: #bb9af7;
-	--color-tokyo-green: #9ece6a;
-	--color-tokyo-yellow: #e0af68;
-	--color-tokyo-orange: #ff9e64;
-	--color-tokyo-red: #f7768e;
+	/* Editor Palette - Desaturated tones for code UIs */
+	--color-editor-bg: #0b0b0a;
+	--color-editor-fg: #e6e5e0;
+	--color-editor-selection: #282726;
+	--color-editor-comment: #626878;
+	--color-editor-cyan: #6aabb4;
+	--color-editor-blue: #7aa5d4;
+	--color-editor-magenta: #b099c4;
+	--color-editor-green: #8fb47a;
+	--color-editor-yellow: #c29a6e;
+	--color-editor-orange: #c29a6e;
+	--color-editor-red: #c87a82;
 
 	/* Role-based message colors - subtle differentiation */
 	--color-role-user-bg: var(--color-surface-hover);
@@ -246,11 +247,11 @@
 	--item-gap: var(--space-2); /* 8px - Standard gap between items in a list */
 	--micro-gap: var(--space-1); /* 4px - Smallest gap for tightly coupled elements */
 
-	/* Typography Alignment */
+	/* Typography Alignment - slightly elevated weights for light-background legibility */
 	--text-line-height: var(--leading-normal);
-	--text-primary-weight: var(--font-normal);
+	--text-primary-weight: 420;
 	--text-label-weight: var(--font-medium);
-	--text-metadata-weight: var(--font-normal);
+	--text-metadata-weight: 420;
 	--text-metadata-color: var(--color-text-muted);
 
 	/* =====================
@@ -277,9 +278,9 @@
 	--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
 
 	/* Glow shadows for interactive elements - very subtle */
-	--shadow-glow-sm: 0 0 8px rgb(99 102 241 / 0.08);
-	--shadow-glow-md: 0 0 16px rgb(99 102 241 / 0.1);
-	--shadow-glow-lg: 0 0 24px rgb(99 102 241 / 0.12);
+	--shadow-glow-sm: 0 0 8px rgb(92 97 120 / 0.08);
+	--shadow-glow-md: 0 0 16px rgb(92 97 120 / 0.1);
+	--shadow-glow-lg: 0 0 24px rgb(92 97 120 / 0.12);
 
 	/* =====================
      Transitions
@@ -297,10 +298,10 @@
 	/* =====================
      Opacity
      ===================== */
-	--opacity-disabled: 0.4;
-	--opacity-muted: 0.6;
-	--opacity-subtle: 0.8;
-	--opacity-hover: 0.9;
+	--opacity-disabled: 0.38;
+	--opacity-muted: 0.55;
+	--opacity-subtle: 0.75;
+	--opacity-hover: 0.88;
 
 	/* =====================
      Z-Index Scale
@@ -465,12 +466,12 @@
 	/* Button state shadows */
 	--shadow-btn-rest: 0 1px 2px rgba(0, 0, 0, 0.05);
 	--shadow-btn-hover: 0 2px 4px rgba(0, 0, 0, 0.1);
-	--shadow-btn-focus: 0 0 0 3px rgba(99, 102, 241, 0.25);
+	--shadow-btn-focus: 0 0 0 3px rgba(92, 97, 120, 0.2);
 
 	/* Intent-based glow shadows */
-	--shadow-glow-success: 0 0 8px rgba(16, 185, 129, 0.15);
-	--shadow-glow-warning: 0 0 8px rgba(245, 158, 11, 0.15);
-	--shadow-glow-danger: 0 0 8px rgba(239, 68, 68, 0.2);
+	--shadow-glow-success: 0 0 8px rgba(61, 153, 112, 0.12);
+	--shadow-glow-warning: 0 0 8px rgba(212, 147, 13, 0.12);
+	--shadow-glow-danger: 0 0 8px rgba(201, 74, 74, 0.15);
 
 	/* =====================
 	     Card Sweep Highlight Effects
@@ -508,120 +509,212 @@
 	--shadow-btn-ripple: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Dark Mode Theme - Subtle, low-contrast design */
+/* Dark Mode Theme - Refined, warm-neutral low-contrast design */
 [data-theme='dark'] {
-	/* Background colors - minimal differentiation for cohesive look */
+	/* Background colors - warm dark layers with subtle tonal steps */
 	--color-bg-base: var(--color-neutral-950);
 	--color-bg-primary: var(--color-neutral-950);
 	--color-bg-secondary: var(--color-neutral-925);
-	--color-bg-tertiary: var(--color-neutral-925);
-	--color-bg-elevated: var(--color-neutral-900);
-	--color-bg-overlay: rgba(0, 0, 0, 0.6);
+	--color-bg-tertiary: var(--color-neutral-900);
+	--color-bg-elevated: var(--color-neutral-850);
+	--color-bg-overlay: rgba(8, 8, 6, 0.55);
 
-	/* Surface colors - for cards and panels, minimal contrast */
+	/* Surface colors - warmer dark surfaces */
 	--color-surface: var(--color-neutral-925);
 	--color-surface-hover: var(--color-neutral-900);
 	--color-surface-active: var(--color-neutral-850);
 	--color-surface-elevated: var(--color-neutral-900);
+	--color-surface-secondary: var(--color-neutral-925);
 
-	/* Text colors - soft, non-fatiguing contrast */
-	--color-text-primary: var(--color-neutral-200);
+	/* Text colors - warm, non-fatiguing contrast */
+	--color-text-primary: #e6e5e0;
 	--color-text-secondary: var(--color-neutral-400);
 	--color-text-tertiary: var(--color-neutral-500);
 	--color-text-muted: var(--color-neutral-600);
 	--color-text-disabled: var(--color-neutral-700);
 
-	/* Border colors - very subtle, almost invisible */
-	--color-border-subtle: rgba(255, 255, 255, 0.04);
-	--color-border-primary: rgba(255, 255, 255, 0.06);
-	--color-border-secondary: rgba(255, 255, 255, 0.08);
-	--color-border-focus: var(--color-primary-500);
+	/* Border colors - very subtle, warm-tinted */
+	--color-border-subtle: rgba(255, 252, 245, 0.04);
+	--color-border-primary: rgba(255, 252, 245, 0.07);
+	--color-border-secondary: rgba(255, 252, 245, 0.1);
+	--color-border-focus: var(--color-primary-400);
 
-	/* Interactive states - subtle feedback */
-	--color-interactive-hover: rgba(255, 255, 255, 0.03);
-	--color-interactive-active: rgba(255, 255, 255, 0.06);
-	--color-interactive-selected: rgba(99, 102, 241, 0.08);
-	--color-interactive-selected-hover: rgba(99, 102, 241, 0.12);
+	/* Interactive states - warm subtle feedback */
+	--color-interactive-hover: rgba(255, 252, 245, 0.03);
+	--color-interactive-active: rgba(255, 252, 245, 0.06);
+	--color-interactive-selected: rgba(92, 97, 120, 0.1);
+	--color-interactive-selected-hover: rgba(92, 97, 120, 0.15);
 
-	/* Primary accent for dark mode - muted intensity */
+	/* Primary accent for dark mode - muted, desaturated */
 	--color-accent-primary: var(--color-primary-400);
 	--color-accent-primary-hover: var(--color-primary-300);
-	--color-accent-primary-muted: rgba(99, 102, 241, 0.12);
-	--color-accent-primary-transparent: rgba(99, 102, 241, 0.15);
-	--color-accent-primary-glow: rgba(99, 102, 241, 0.2);
-
-	--color-accent-primary-glow-strong: rgba(99, 102, 241, 0.3);
-
-	--color-accent-primary-glow-light: rgba(99, 102, 241, 0.08);
+	--color-accent-primary-muted: rgba(92, 97, 120, 0.12);
+	--color-accent-primary-transparent: rgba(92, 97, 120, 0.15);
+	--color-accent-primary-glow: rgba(92, 97, 120, 0.2);
+	--color-accent-primary-glow-strong: rgba(92, 97, 120, 0.3);
+	--color-accent-primary-glow-light: rgba(92, 97, 120, 0.08);
 
 	/* Status badge colors */
-	--color-status-open-bg: rgba(255, 255, 255, 0.04);
+	--color-status-open-bg: rgba(255, 252, 245, 0.04);
 	--color-status-open-text: var(--color-text-tertiary);
-	--color-status-resolved-bg: rgba(16, 185, 129, 0.08);
-	--color-status-resolved-text: rgba(16, 185, 129, 0.9);
+	--color-status-resolved-bg: rgba(61, 153, 112, 0.08);
+	--color-status-resolved-text: rgba(61, 153, 112, 0.9);
 }
 
-/* Light Mode Theme */
+/* Light Mode Theme - Pale, refined, softly layered */
 [data-theme='light'] {
-	/* Background colors */
-	--color-bg-base: var(--color-neutral-50);
-	--color-bg-primary: var(--color-neutral-0);
-	--color-bg-secondary: var(--color-neutral-50);
-	--color-bg-tertiary: var(--color-neutral-100);
-	--color-bg-elevated: var(--color-neutral-0);
-	--color-bg-overlay: rgba(0, 0, 0, 0.5);
+	/* Background colors - warm pale layers with controlled tonal steps */
+	--color-bg-base: #f7f6f3;
+	--color-bg-primary: #fdfcfa;
+	--color-bg-secondary: #f2f1ed;
+	--color-bg-tertiary: #eae9e4;
+	--color-bg-elevated: #ffffff;
+	--color-bg-overlay: rgba(20, 20, 18, 0.32);
 
-	/* Surface colors */
-	--color-surface: var(--color-neutral-0);
-	--color-surface-hover: var(--color-neutral-100);
-	--color-surface-active: var(--color-neutral-200);
-	--color-surface-elevated: var(--color-neutral-0);
+	/* Surface colors - subtle warmth, distinguishable layers */
+	--color-surface: #fdfcfa;
+	--color-surface-hover: #f4f3ef;
+	--color-surface-active: #eceae5;
+	--color-surface-elevated: #ffffff;
+	--color-surface-secondary: #f7f6f3;
 
-	/* Text colors */
-	--color-text-primary: var(--color-neutral-900);
-	--color-text-secondary: var(--color-neutral-700);
-	--color-text-tertiary: var(--color-neutral-500);
-	--color-text-muted: var(--color-neutral-400);
-	--color-text-disabled: var(--color-neutral-300);
+	/* Text colors - warm near-blacks with clear hierarchy */
+	--color-text-primary: #1c1c1a;
+	--color-text-secondary: #5a5955;
+	--color-text-tertiary: #8a8984;
+	--color-text-muted: #b5b4ae;
+	--color-text-disabled: #d0cfca;
 
-	/* Border colors */
-	--color-border-subtle: var(--color-neutral-100);
-	--color-border-primary: var(--color-neutral-200);
-	--color-border-secondary: var(--color-neutral-300);
-	--color-border-focus: var(--color-primary-500);
+	/* Border colors - warm, barely-there dividers */
+	--color-border-subtle: #edece6;
+	--color-border-primary: #e0dfda;
+	--color-border-secondary: #d2d1cb;
+	--color-border-focus: #4b5068;
 
-	/* Interactive states */
-	--color-interactive-hover: rgba(0, 0, 0, 0.03);
-	--color-interactive-active: rgba(0, 0, 0, 0.05);
-	--color-interactive-selected: rgba(99, 102, 241, 0.1);
-	--color-interactive-selected-hover: rgba(99, 102, 241, 0.15);
+	/* Interactive states - very gentle feedback */
+	--color-interactive-hover: rgba(28, 28, 26, 0.03);
+	--color-interactive-active: rgba(28, 28, 26, 0.055);
+	--color-interactive-selected: rgba(92, 97, 120, 0.07);
+	--color-interactive-selected-hover: rgba(92, 97, 120, 0.11);
 
-	/* Primary accent for light mode */
-	--color-accent-primary: var(--color-primary-600);
-	--color-accent-primary-hover: var(--color-primary-700);
-	--color-accent-primary-muted: rgba(99, 102, 241, 0.1);
+	/* Primary accent - desaturated slate-blue, calm and precise */
+	--color-accent-primary: #4b5068;
+	--color-accent-primary-hover: #3e4259;
+	--color-accent-primary-muted: rgba(75, 80, 104, 0.08);
+	--color-accent-primary-transparent: rgba(75, 80, 104, 0.1);
+	--color-accent-primary-glow: rgba(75, 80, 104, 0.1);
+	--color-accent-primary-glow-strong: rgba(75, 80, 104, 0.16);
+	--color-accent-primary-glow-light: rgba(75, 80, 104, 0.05);
 
 	/* Status badge colors */
-	--color-status-open-bg: var(--color-neutral-100);
-	--color-status-open-text: var(--color-text-tertiary);
-	--color-status-resolved-bg: var(--color-success-light);
-	--color-status-resolved-text: var(--color-success);
+	--color-status-open-bg: #f2f1ed;
+	--color-status-open-text: #8a8984;
+	--color-status-resolved-bg: rgba(45, 148, 104, 0.08);
+	--color-status-resolved-text: #2d9468;
+
+	/* Role-based message colors - refined for pale system */
+	--color-role-user-bg: #f2f1ed;
+	--color-role-user-bg-hover: #eceae5;
+	--color-role-assistant-bg: transparent;
+	--color-role-assistant-bg-hover: transparent;
+
+	/* Semantic colors - softer, desaturated for pale harmony */
+	--color-success: #2d9468;
+	--color-success-light: rgba(45, 148, 104, 0.08);
+	--color-success-subtle: rgba(45, 148, 104, 0.04);
+	--color-success-border: rgba(45, 148, 104, 0.15);
+	--color-success-dark: #24795a;
+	--color-warning: #c4880a;
+	--color-warning-light: rgba(196, 136, 10, 0.08);
+	--color-warning-border: rgba(196, 136, 10, 0.15);
+	--color-warning-dark: #a87308;
+	--color-error: #d44040;
+	--color-error-light: rgba(212, 64, 64, 0.08);
+	--color-error-border: rgba(212, 64, 64, 0.15);
+	--color-error-dark: #b93333;
+	--color-info: #3d8ec4;
+	--color-info-light: rgba(61, 142, 196, 0.08);
+	--color-info-border: rgba(61, 142, 196, 0.15);
+
+	/* Primary opacity variants - tuned for pale backgrounds */
+	--color-primary-light: rgba(75, 80, 104, 0.07);
+	--color-primary-lighter: rgba(75, 80, 104, 0.12);
+	--color-primary-border: rgba(75, 80, 104, 0.18);
+	--color-primary-subtle: rgba(75, 80, 104, 0.04);
+	--color-primary-glow: rgba(75, 80, 104, 0.08);
+
+	/* Syntax highlighting - desaturated warm light theme */
+	--color-syntax-keyword: #6e5494;
+	--color-syntax-string: #4d7a3e;
+	--color-syntax-comment: #9a9da8;
+	--color-syntax-number: #a87830;
+	--color-syntax-function: #3b6ba5;
+	--color-syntax-variable: #a0424a;
+	--color-syntax-symbol: #3a7a7e;
+	--color-syntax-addition-bg: rgba(77, 122, 62, 0.08);
+	--color-syntax-deletion-bg: rgba(160, 66, 74, 0.07);
+
+	/* Editor Palette - Light theme equivalents */
+	--color-editor-bg: #fdfcfa;
+	--color-editor-fg: #1c1c1a;
+	--color-editor-selection: #e0dfda;
+	--color-editor-comment: #9a9da8;
+	--color-editor-cyan: #3a7a7e;
+	--color-editor-blue: #3b6ba5;
+	--color-editor-magenta: #6e5494;
+	--color-editor-green: #4d7a3e;
+	--color-editor-yellow: #a87830;
+	--color-editor-orange: #a87830;
+	--color-editor-red: #a0424a;
+
+	/* Shadows - warmer, softer for pale surfaces */
+	--shadow-xs: 0 1px 2px 0 rgba(28, 28, 26, 0.04);
+	--shadow-sm: 0 1px 3px 0 rgba(28, 28, 26, 0.06), 0 1px 2px -1px rgba(28, 28, 26, 0.04);
+	--shadow-md: 0 4px 6px -1px rgba(28, 28, 26, 0.06), 0 2px 4px -2px rgba(28, 28, 26, 0.04);
+	--shadow-lg: 0 10px 15px -3px rgba(28, 28, 26, 0.06), 0 4px 6px -4px rgba(28, 28, 26, 0.04);
+	--shadow-xl: 0 20px 25px -5px rgba(28, 28, 26, 0.06), 0 8px 10px -6px rgba(28, 28, 26, 0.04);
+	--shadow-2xl: 0 25px 50px -12px rgba(28, 28, 26, 0.14);
+
+	/* Glow shadows - gentler for light surfaces */
+	--shadow-glow-sm: 0 0 8px rgba(75, 80, 104, 0.06);
+	--shadow-glow-md: 0 0 16px rgba(75, 80, 104, 0.08);
+	--shadow-glow-lg: 0 0 24px rgba(75, 80, 104, 0.1);
+
+	/* Button state shadows - warm tones */
+	--shadow-btn-rest: 0 1px 2px rgba(28, 28, 26, 0.04);
+	--shadow-btn-hover: 0 2px 6px rgba(28, 28, 26, 0.08);
+	--shadow-btn-focus: 0 0 0 3px rgba(75, 80, 104, 0.16);
+
+	/* Intent-based glow shadows */
+	--shadow-glow-success: 0 0 8px rgba(45, 148, 104, 0.12);
+	--shadow-glow-warning: 0 0 8px rgba(196, 136, 10, 0.12);
+	--shadow-glow-danger: 0 0 8px rgba(212, 64, 64, 0.14);
+
+	/* Provider colors - softer for pale backgrounds */
+	--color-provider-anthropic-light: rgba(217, 119, 6, 0.08);
+	--color-provider-openai-light: rgba(16, 163, 127, 0.08);
+	--color-provider-google-light: rgba(59, 130, 246, 0.08);
+	--color-provider-custom-light: rgba(75, 80, 104, 0.06);
+	--color-provider-anthropic-border: rgba(217, 119, 6, 0.14);
+	--color-provider-openai-border: rgba(16, 163, 127, 0.14);
+	--color-provider-google-border: rgba(59, 130, 246, 0.14);
+	--color-provider-custom-border: rgba(75, 80, 104, 0.14);
 }
 
 /* Fallback for legacy variables - maps to new system */
 [data-theme='dark'] {
 	--color-bg-primary: var(--color-neutral-950);
 	--color-bg-secondary: var(--color-neutral-925);
-	--color-bg-tertiary: var(--color-neutral-925);
-	--color-bg-elevated: var(--color-neutral-900);
+	--color-bg-tertiary: var(--color-neutral-900);
+	--color-bg-elevated: var(--color-neutral-850);
 
-	--color-text-primary: var(--color-neutral-200);
+	--color-text-primary: #e6e5e0;
 	--color-text-secondary: var(--color-neutral-400);
 	--color-text-tertiary: var(--color-neutral-500);
 	--color-text-muted: var(--color-neutral-600);
 
-	--color-border-primary: rgba(255, 255, 255, 0.06);
-	--color-border-secondary: rgba(255, 255, 255, 0.08);
+	--color-border-primary: rgba(255, 252, 245, 0.07);
+	--color-border-secondary: rgba(255, 252, 245, 0.1);
 
 	--color-surface: var(--color-neutral-925);
 	--color-surface-hover: var(--color-neutral-900);
@@ -629,20 +722,20 @@
 }
 
 [data-theme='light'] {
-	--color-bg-primary: var(--color-neutral-0);
-	--color-bg-secondary: var(--color-neutral-50);
-	--color-bg-tertiary: var(--color-neutral-100);
-	--color-bg-elevated: var(--color-neutral-0);
+	--color-bg-primary: #fdfcfa;
+	--color-bg-secondary: #f2f1ed;
+	--color-bg-tertiary: #eae9e4;
+	--color-bg-elevated: #ffffff;
 
-	--color-text-primary: var(--color-neutral-900);
-	--color-text-secondary: var(--color-neutral-600);
-	--color-text-tertiary: var(--color-neutral-500);
-	--color-text-muted: var(--color-neutral-400);
+	--color-text-primary: #1c1c1a;
+	--color-text-secondary: #5a5955;
+	--color-text-tertiary: #8a8984;
+	--color-text-muted: #b5b4ae;
 
-	--color-border-primary: var(--color-neutral-200);
-	--color-border-secondary: var(--color-neutral-300);
+	--color-border-primary: #e0dfda;
+	--color-border-secondary: #d2d1cb;
 
-	--color-surface: var(--color-neutral-0);
-	--color-surface-hover: var(--color-neutral-100);
-	--color-surface-active: var(--color-neutral-200);
+	--color-surface: #fdfcfa;
+	--color-surface-hover: #f4f3ef;
+	--color-surface-active: #eceae5;
 }

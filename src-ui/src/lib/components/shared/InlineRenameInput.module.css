@@ -154,7 +154,7 @@
 	background: linear-gradient(
 		90deg,
 		transparent 0%,
-		var(--color-success-subtle, rgba(16, 185, 129, 0.1)) 50%,
+		var(--color-success-subtle, rgba(61, 153, 112, 0.08)) 50%,
 		transparent 100%
 	);
 	animation: sweep var(--edit-sweep-duration) var(--edit-sweep-ease) forwards;

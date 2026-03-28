@@ -63,7 +63,7 @@
 	outline: none;
 	box-shadow:
 	0 0 0 2px var(--color-primary-500),
-	0 0 0 4px var(--color-primary-300);
+	0 0 0 4px var(--color-primary-200);
 }
 
 /* Error focus - for destructive actions */

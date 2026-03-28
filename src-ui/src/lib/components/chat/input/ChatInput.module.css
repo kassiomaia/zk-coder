@@ -29,7 +29,7 @@
 
 .container:focus-within {
 	background: var(--depth-bg-2);
-	border-color: var(--color-primary-500);
+	border-color: var(--color-border-focus);
 }
 
 .container.shake {
@@ -266,7 +266,7 @@
 
 .sendButton.canSubmit {
 	background: var(--color-primary-500);
-	color: white;
+	color: var(--color-neutral-0);
 	border-color: var(--color-primary-600);
 }
 

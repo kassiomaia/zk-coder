@@ -233,7 +233,7 @@
 
 .warning.solid {
 	background: var(--color-warning);
-	color: var(--color-neutral-900);
+	color: var(--color-neutral-0);
 }
 
 .warning.solid::before {

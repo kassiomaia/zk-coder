@@ -10,7 +10,12 @@
 </script>
 
 <svelte:head>
-	<title>{filePath ? filePath.split('/').pop() : 'File Diff'}</title>
+	<title>{filePath ? filePath.split('/').pop() : 'Code Viewer'}</title>
+	<style>
+		html, body {
+			background: transparent !important;
+		}
+	</style>
 </svelte:head>
 
 {#if hasAllParams}

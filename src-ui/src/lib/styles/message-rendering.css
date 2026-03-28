@@ -191,11 +191,11 @@
 	margin-bottom: 0;
 }
 
-/* Code blocks */
+/* Code blocks - theme-aware background */
 .message-content :global(.code-block) {
 	position: relative;
-	background: var(--color-neutral-900);
-	border: 1px solid var(--color-border-secondary);
+	background: var(--color-bg-tertiary);
+	border: 1px solid var(--color-border-subtle);
 	border-radius: var(--radius-lg);
 	padding: var(--space-3);
 	margin: var(--space-3) 0;
@@ -207,9 +207,19 @@
 	font-family: var(--font-mono);
 	font-size: var(--text-xs);
 	line-height: var(--leading-relaxed);
-	color: var(--color-neutral-100);
+	color: var(--color-text-primary);
 	background: transparent;
 	padding: 0;
+}
+
+/* Dark mode code blocks keep darker background */
+:global([data-theme='dark']) .message-content :global(.code-block) {
+	background: var(--color-neutral-900);
+	border-color: var(--color-border-secondary);
+}
+
+:global([data-theme='dark']) .message-content :global(.code-block code) {
+	color: var(--color-neutral-100);
 }
 
 /* Inline code */
@@ -295,7 +305,7 @@
 
 /* Mark/highlight */
 .message-content :global(mark) {
-	background: rgba(245, 158, 11, 0.15);
+	background: var(--color-warning-light);
 	color: var(--color-text-primary);
 	padding: var(--space-0-5) var(--space-1);
 	border-radius: var(--radius-sm);
@@ -486,14 +496,14 @@
 	position: relative;
 }
 
-/* Anticipatory shimmer for generating content */
+/* Anticipatory shimmer for generating content - theme-aware */
 .generating-shimmer {
 	position: absolute;
 	inset: 0;
 	background: linear-gradient(
 		90deg,
 		transparent 0%,
-		rgba(255, 255, 255, 0.03) 50%,
+		var(--color-interactive-hover) 50%,
 		transparent 100%
 	);
 	background-size: 200% 100%;

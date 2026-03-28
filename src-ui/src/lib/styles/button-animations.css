@@ -93,10 +93,10 @@
 
 @keyframes successRipple {
 	0% {
-		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+		box-shadow: 0 0 0 0 rgba(61, 153, 112, 0.3);
 	}
 	100% {
-		box-shadow: 0 0 0 12px rgba(16, 185, 129, 0);
+		box-shadow: 0 0 0 12px rgba(61, 153, 112, 0);
 	}
 }
 
@@ -136,10 +136,10 @@
 @keyframes hoverGlow {
 	0%,
 	100% {
-		box-shadow: 0 0 4px rgba(99, 102, 241, 0.1);
+		box-shadow: 0 0 4px rgba(92, 97, 120, 0.1);
 	}
 	50% {
-		box-shadow: 0 0 8px rgba(99, 102, 241, 0.2);
+		box-shadow: 0 0 8px rgba(92, 97, 120, 0.15);
 	}
 }
 

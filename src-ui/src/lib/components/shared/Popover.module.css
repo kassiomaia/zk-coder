@@ -116,7 +116,7 @@
 .item:focus-visible {
 	outline: none;
 	background: var(--color-surface-hover, var(--color-neutral-900));
-	box-shadow: inset 0 0 0 1px var(--color-border-focus, #6366f1);
+	box-shadow: inset 0 0 0 1px var(--color-border-focus, #4b5068);
 }
 
 .item:disabled {

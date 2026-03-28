@@ -80,7 +80,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: var(--color-primary-500);
+	color: var(--color-accent-primary);
 	flex-shrink: 0;
 }
 

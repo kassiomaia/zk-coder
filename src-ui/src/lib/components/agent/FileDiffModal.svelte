@@ -1,28 +1,19 @@
 <script lang="ts">
 	/**
 	 * FileDiffModal Component
-	 * Enterprise-grade code review workspace with Monaco Editor.
-	 * Features structured control bar, precise layout, and high-quality interaction.
+	 * Code review modal using the standard Modal chrome.
+	 * Matches the visual style of ConfigModal and other app modals.
 	 */
 	import Modal from '$lib/components/shared/Modal.svelte';
-	import IconButton from '$lib/components/shared/IconButton.svelte';
 	import DiffViewer from './DiffViewer.svelte';
-	import { 
-		FileText, 
-		FilePlus, 
-		FileX, 
-		X, 
-		Copy, 
-		Maximize2, 
-		Columns, 
-		Rows, 
+	import {
+		Columns,
+		Rows,
 		Code2,
 		GitCompare
 	} from 'lucide-svelte';
 	import { type FileContentResponse, getFileContent } from '$lib/api/file';
-	import { fade, fly } from 'svelte/transition';
-	import { quintOut } from 'svelte/easing';
-	import Check from 'lucide-svelte/icons/check';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		/** Whether the modal is open */
@@ -51,8 +42,7 @@
 	let fileData = $state<FileContentResponse | null>(null);
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
-	let isCopied = $state(false);
-	
+
 	// Review View Options
 	let viewMode = $state<'diff' | 'full'>('diff');
 	let diffStyle = $state<'side-by-side' | 'inline'>('side-by-side');
@@ -61,10 +51,6 @@
 	// Derived UI state
 	let fileName = $derived(filePath.split('/').pop() ?? filePath);
 	let fileDir = $derived(filePath.split('/').slice(0, -1).join('/') || './');
-	let status = $derived(
-		fileData?.is_new ? 'new' : 
-		(!fileData?.exists ? 'deleted' : 'modified')
-	);
 
 	// Fetch file content when modal opens
 	$effect(() => {
@@ -92,330 +78,150 @@
 			error = null;
 			viewMode = 'diff';
 			diffStyle = 'side-by-side';
-			isCopied = false;
 		}
 	});
-
-	async function copyToClipboard(text: string) {
-		try {
-			await navigator.clipboard.writeText(text);
-			isCopied = true;
-			setTimeout(() => {
-				isCopied = false;
-			}, 2000);
-		} catch (err) {
-			console.error('Failed to copy text: ', err);
-		}
-	}
 </script>
 
-<Modal 
-	open={open} 
-	onclose={onclose} 
-	size="full" 
-	showClose={false} 
+<Modal
+	title={fileName}
+	open={open}
+	onclose={onclose}
+	size="full"
 	contentClass="no-padding-body"
 >
-	<div 
-		class="review-workspace" 
-		in:fly={{ y: 20, duration: 400, easing: quintOut }}
-	>
-		<header class="workspace-header">
-			<div class="header-content">
-				<!-- Left Zone: File Identity -->
-				<div class="header-zone left">
-					<div 
-						class="file-icon-badge" 
-						class:new={status === 'new'} 
-						class:deleted={status === 'deleted'}
-						class:modified={status === 'modified'}
-					>
-						{#if status === 'new'}
-							<FilePlus size={14} />
-						{:else if status === 'deleted'}
-							<FileX size={14} />
-						{:else}
-							<FileText size={14} />
-						{/if}
-					</div>
-					
-					<div class="file-identity">
-						<h3 class="file-name">{fileName}</h3>
-						<span class="file-path">{fileDir}/</span>
-						<span class="status-pill {status}">{status}</span>
-					</div>
+	{#snippet children()}
+		<div class="diff-content">
+			<!-- File info + toolbar -->
+			<div class="toolbar">
+				<div class="toolbar-left">
+					<span class="file-path">{fileDir}/</span>
 				</div>
 
-				<!-- Center Zone: Spacer/Flexible Area -->
-				<div class="header-zone center"></div>
+				<div class="toolbar-right">
+					<div class="segmented-control">
+						<button
+							class="segment-item"
+							class:active={viewMode === 'diff'}
+							onclick={() => viewMode = 'diff'}
+							title="Show changes"
+						>
+							<GitCompare size={14} />
+							<span>Changes</span>
+						</button>
+						<button
+							class="segment-item"
+							class:active={viewMode === 'full'}
+							onclick={() => viewMode = 'full'}
+							title="Show final result"
+						>
+							<Code2 size={14} />
+							<span>Final Result</span>
+						</button>
+					</div>
 
-				<!-- Right Zone: Actions -->
-				<div class="header-zone right">
-					<div class="action-group">
-						<!-- View Mode Toggles -->
+					{#if viewMode === 'diff'}
+						<div class="vertical-divider"></div>
 						<div class="segmented-control">
-							<button 
-								class="segment-item" 
-								class:active={viewMode === 'diff'} 
-								onclick={() => viewMode = 'diff'}
-								title="Show changes"
+							<button
+								class="segment-item icon-only"
+								class:active={diffStyle === 'side-by-side'}
+								onclick={() => diffStyle = 'side-by-side'}
+								title="Side by Side"
 							>
-								<GitCompare size={14} />
-								<span>Changes</span>
+								<Columns size={14} />
 							</button>
-							<button 
-								class="segment-item" 
-								class:active={viewMode === 'full'} 
-								onclick={() => viewMode = 'full'}
-								title="Show final result"
+							<button
+								class="segment-item icon-only"
+								class:active={diffStyle === 'inline'}
+								onclick={() => diffStyle = 'inline'}
+								title="Unified View"
 							>
-								<Code2 size={14} />
-								<span>Final Result</span>
+								<Rows size={14} />
 							</button>
 						</div>
-
-						{#if viewMode === 'diff'}
-							<div class="vertical-divider"></div>
-							<div class="segmented-control">
-								<button 
-									class="segment-item icon-only" 
-									class:active={diffStyle === 'side-by-side'} 
-									onclick={() => diffStyle = 'side-by-side'}
-									title="Side by Side"
-								>
-									<Columns size={14} />
-								</button>
-								<button 
-									class="segment-item icon-only" 
-									class:active={diffStyle === 'inline'} 
-									onclick={() => diffStyle = 'inline'}
-									title="Unified View"
-								>
-									<Rows size={14} />
-								</button>
-							</div>
-						{/if}
-					</div>
-
-					<div class="vertical-divider"></div>
-
-					<div class="utility-group">
-						<IconButton 
-							icon={closeIcon} 
-							size="sm" 
-							variant="ghost" 
-							label="Close" 
-							onclick={onclose}
-							class="close-action"
-						/>
-					</div>
+					{/if}
 				</div>
 			</div>
-		</header>
 
-		<main class="workspace-body">
-			{#if isLoading}
-				<div class="state-overlay" in:fade={{ duration: 150 }}>
-					<div class="spinner"></div>
-					<p class="loading-text">Analyzing workspace changes...</p>
-				</div>
-			{:else if error}
-				<div class="state-overlay error" in:fade={{ duration: 150 }}>
-					<p>{error}</p>
-				</div>
-			{:else if fileData}
-				<div 
-					class="editor-container" 
-					in:fade={{ duration: 300, delay: 100 }}
-				>
-					<DiffViewer 
-						originalContent={fileData.original_content || ''}
-						modifiedContent={fileData.current_content || ''}
-						filePath={filePath}
-						mode={viewMode}
-						diffStyle={diffStyle}
-						minimap={showMinimap}
-					/>
-				</div>
-			{:else}
-				<div class="state-overlay">
-					<p>File content unavailable</p>
-				</div>
-			{/if}
-		</main>
-	</div>
+			<!-- Editor area -->
+			<div class="editor-area">
+				{#if isLoading}
+					<div class="state-overlay" in:fade={{ duration: 150 }}>
+						<div class="spinner"></div>
+						<p class="loading-text">Analyzing workspace changes...</p>
+					</div>
+				{:else if error}
+					<div class="state-overlay error" in:fade={{ duration: 150 }}>
+						<p>{error}</p>
+					</div>
+				{:else if fileData}
+					<div class="editor-container" in:fade={{ duration: 300, delay: 100 }}>
+						<DiffViewer
+							originalContent={fileData.original_content || ''}
+							modifiedContent={fileData.current_content || ''}
+							filePath={filePath}
+							mode={viewMode}
+							diffStyle={diffStyle}
+							minimap={showMinimap}
+						/>
+					</div>
+				{:else}
+					<div class="state-overlay">
+						<p>File content unavailable</p>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/snippet}
 </Modal>
 
-{#snippet copyIcon()}
-	<Copy size={16} />
-{/snippet}
-
-{#snippet copySuccessIcon()}
-	<Check size={16} class="text-success" />
-{/snippet}
-
-{#snippet maximizeIcon()}
-	<Maximize2 size={16} />
-{/snippet}
-
-{#snippet closeIcon()}
-	<X size={18} />
-{/snippet}
-
 <style>
-	.review-workspace {
+	.diff-content {
 		display: flex;
 		flex-direction: column;
-		height: 94vh;
-		max-height: 94vh;
-		min-height: 700px;
-		background: var(--color-bg-primary);
+		height: 85vh;
+		max-height: 85vh;
 		overflow: hidden;
-		border-radius: var(--radius-xl);
-		margin: 0 auto;
-		width: 100%;
 	}
 
-	.workspace-header {
-		height: 48px;
-		min-height: 48px;
+	/* Toolbar - matches ConfigModal .header pattern */
+	.toolbar {
 		display: flex;
 		align-items: center;
-		padding: 0 var(--space-4);
-		background: var(--color-bg-primary);
-		border-bottom: 1px solid var(--color-border-subtle);
-		z-index: var(--z-above);
-		flex-shrink: 0;
-	}
-
-	.header-content {
-		display: flex;
-		align-items: center;
-		width: 100%;
-		height: 100%;
-	}
-
-	.header-zone {
-		display: flex;
-		align-items: center;
-		min-width: 0;
-	}
-
-	.header-zone.left {
-		flex: 1;
+		justify-content: space-between;
 		gap: var(--space-3);
-	}
-
-	.header-zone.center {
-		display: none;
-	}
-
-	.header-zone.right {
+		padding: var(--space-3) var(--space-6);
+		background: var(--color-surface);
+		border-bottom: 1px solid var(--color-border-subtle);
 		flex-shrink: 0;
-		gap: var(--space-2);
 	}
 
-	.file-identity {
+	.toolbar-left {
 		display: flex;
 		align-items: center;
-		min-width: 0;
 		gap: var(--space-2);
+		min-width: 0;
 	}
 
-	.file-name {
-		font-size: var(--text-sm);
-		font-weight: var(--font-semibold);
-		color: var(--color-text-primary);
-		margin: 0;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		line-height: 1;
+	.toolbar-right {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		flex-shrink: 0;
 	}
 
 	.file-path {
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
 		font-family: var(--font-mono);
-		opacity: 0.7;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		margin-top: 1px;
-	}
-
-	.file-icon-badge {
-		width: 28px;
-		height: 28px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: var(--radius-md);
-		background: var(--color-surface-hover);
-		color: var(--color-text-secondary);
-		border: 1px solid var(--color-border-subtle);
-		transition: all var(--transition-normal);
-		flex-shrink: 0;
-	}
-
-	.file-icon-badge.new {
-		background: var(--color-success-subtle);
-		color: var(--color-success);
-		border-color: var(--color-success-border);
-	}
-
-	.file-icon-badge.deleted {
-		background: var(--color-error-light);
-		color: var(--color-error);
-		border-color: var(--color-error-border);
-		opacity: 0.9;
-	}
-
-	.file-icon-badge.modified {
-		background: var(--color-warning-light);
-		color: var(--color-warning);
-		border-color: var(--color-warning-border);
-	}
-
-	.status-pill {
-		font-size: 10px;
-		padding: 1px 6px;
-		border-radius: var(--radius-sm);
-		font-weight: var(--font-bold);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		flex-shrink: 0;
-		border: 1px solid transparent;
-		line-height: 1.4;
-	}
-
-	.status-pill.new {
-		background: var(--color-success-subtle);
-		color: var(--color-success);
-		border-color: var(--color-success-border);
-	}
-
-	.status-pill.deleted {
-		background: var(--color-error-light);
-		color: var(--color-error);
-		border-color: var(--color-error-border);
-	}
-
-	.status-pill.modified {
-		background: var(--color-warning-light);
-		color: var(--color-warning);
-		border-color: var(--color-warning-border);
-	}
-
-	.action-group {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
 	}
 
 	.segmented-control {
 		display: flex;
-		background: var(--color-surface-hover);
+		background: var(--color-bg-tertiary);
 		padding: 2px;
 		border-radius: var(--radius-md);
 		border: 1px solid var(--color-border-subtle);
@@ -449,8 +255,8 @@
 	}
 
 	.segment-item.active {
-		background: var(--color-bg-primary);
-		color: var(--color-primary-500);
+		background: var(--color-surface);
+		color: var(--color-text-primary);
 		box-shadow: var(--shadow-sm);
 	}
 
@@ -461,36 +267,13 @@
 		margin: 0 var(--space-0-5);
 	}
 
-	.vertical-divider-soft {
-		width: 1px;
-		height: 14px;
-		background: var(--color-border-subtle);
-		margin: 0 var(--space-0-5);
-		opacity: 0.5;
-	}
-
-	.utility-group {
-		display: flex;
-		align-items: center;
-		gap: 0;
-	}
-
-	:global(.utility-group .close-action) {
-		color: var(--color-text-muted);
-		transition: color var(--transition-fast);
-	}
-
-	:global(.utility-group .close-action:hover) {
-		color: var(--color-error);
-		background: var(--color-error-light) !important;
-	}
-
-	.workspace-body {
+	/* Editor area */
+	.editor-area {
 		flex: 1;
 		min-height: 0;
 		position: relative;
 		background: var(--color-bg-secondary);
-		padding: var(--layout-padding);
+		padding: var(--space-3);
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
@@ -502,8 +285,9 @@
 		border-radius: var(--radius-lg);
 		overflow: hidden;
 		border: 1px solid var(--color-border-subtle);
-		background: var(--color-bg-primary);
-		box-shadow: var(--shadow-xl);
+		background: var(--color-editor-bg);
+		box-shadow: var(--shadow-sm);
+		position: relative;
 	}
 
 	.state-overlay {
@@ -536,9 +320,5 @@
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
-	}
-
-	.text-success {
-		color: var(--color-success);
 	}
 </style>

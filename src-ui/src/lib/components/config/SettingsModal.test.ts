@@ -72,14 +72,14 @@ vi.mock('$lib/types/config', () => ({
 			name: 'Search',
 			description: 'Search and retrieve information',
 			icon: 'search',
-			color: '#6366f1'
+			color: '#5c6178'
 		},
 		{
 			id: 'code',
 			name: 'Code',
 			description: 'Generate and analyze code',
 			icon: 'code',
-			color: '#10b981'
+			color: '#2d9468'
 		},
 		{
 			id: 'eye',

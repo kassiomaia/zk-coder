@@ -19,10 +19,20 @@
 		mode?: 'diff' | 'full';
 		/** Diff style: 'side-by-side' or 'inline' (unified) */
 		diffStyle?: 'side-by-side' | 'inline';
-		/** Preferred editor theme */
-		theme?: 'vs-dark' | 'vs-light' | 'tokyo-night';
+		/** Preferred editor theme — auto-detects from app theme if omitted */
+		theme?: 'vs-dark' | 'vs-light' | 'tokyo-night' | 'coder-dark' | 'coder-light';
 		/** Whether to show the minimap */
 		minimap?: boolean;
+	}
+
+	/** Detect the current app theme from the DOM, with localStorage fallback */
+	function detectTheme(): 'coder-dark' | 'coder-light' {
+		const attr = document.documentElement.getAttribute('data-theme');
+		if (attr) return attr === 'dark' ? 'coder-dark' : 'coder-light';
+		// Fallback: layout may not have set the attribute yet (child onMount fires first)
+		const saved = localStorage.getItem('theme');
+		if (saved) return saved === 'dark' ? 'coder-dark' : 'coder-light';
+		return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'coder-dark' : 'coder-light';
 	}
 
 	let {
@@ -31,9 +41,11 @@
 		filePath,
 		mode = 'diff',
 		diffStyle = 'side-by-side',
-		theme = 'vs-dark',
+		theme: themeProp,
 		minimap = true
 	}: Props = $props();
+
+	let resolvedTheme = $state<string>(themeProp ?? 'coder-light');
 
 	let container = $state<HTMLDivElement | null>(null);
 	let diffEditor = $state<monaco.editor.IStandaloneDiffEditor | null>(null);
@@ -136,10 +148,15 @@
 		}
 	});
 
-	// Effect for theme changes
+	// Update resolved theme when prop changes or auto-detect
+	$effect(() => {
+		resolvedTheme = themeProp ?? detectTheme();
+	});
+
+	// Apply theme to editor when it changes
 	$effect(() => {
 		if (monaco.editor) {
-			monaco.editor.setTheme(theme);
+			monaco.editor.setTheme(resolvedTheme);
 		}
 	});
 
@@ -155,7 +172,7 @@
 	function initDiffEditor() {
 		if (!container) return;
 		diffEditor = monaco.editor.createDiffEditor(container, {
-			theme,
+			theme: resolvedTheme,
 			automaticLayout: true,
 			renderSideBySide: diffStyle === 'side-by-side',
 			readOnly: true,
@@ -203,7 +220,7 @@
 	function initCodeEditor() {
 		if (!container) return;
 		codeEditor = monaco.editor.create(container, {
-			theme,
+			theme: resolvedTheme,
 			automaticLayout: true,
 			readOnly: true,
 			minimap: { enabled: minimap },
@@ -257,6 +274,23 @@
 
 	onMount(() => {
 		registerCustomThemes();
+
+		// Auto-detect theme on mount if no explicit prop
+		if (!themeProp) {
+			resolvedTheme = detectTheme();
+		}
+
+		// Observe app theme changes on the DOM
+		const observer = new MutationObserver(() => {
+			if (!themeProp) {
+				resolvedTheme = detectTheme();
+			}
+		});
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+		return () => {
+			observer.disconnect();
+		};
 	});
 
 	onDestroy(() => {
@@ -277,7 +311,7 @@
 		height: 100%;
 		width: 100%;
 		min-height: 0;
-		background: var(--color-bg-primary);
+		background: var(--color-editor-bg);
 		overflow: hidden;
 		position: absolute;
 		top: 0;
@@ -294,7 +328,7 @@
 		position: relative;
 	}
 
-	/* Monaco System Normalization */
+	/* Monaco System Normalization - let the wrapper control the base background */
 	:global(.monaco-editor),
 	:global(.monaco-editor-background),
 	:global(.monaco-editor .margin) {
@@ -305,11 +339,11 @@
 		display: none !important;
 	}
 
-	/* Refined scrollbars */
+	/* Refined scrollbars - theme-aware */
 	:global(.monaco-scrollable-element > .scrollbar > .slider) {
-		background: var(--color-neutral-700) !important;
+		background: var(--color-border-secondary) !important;
 		border-radius: var(--radius-full) !important;
-		opacity: 0.4;
+		opacity: 0.5;
 		transition: opacity var(--transition-fast);
 	}
 
@@ -321,33 +355,12 @@
 		opacity: 1;
 	}
 
-	/* Subtle diff highlights - Precise line-level accents */
-	:global(.monaco-editor .line-insert),
-	:global(.monaco-editor .char-insert) {
-		background-color: var(--color-success-subtle) !important;
-	}
-
-	:global(.monaco-editor .line-delete),
-	:global(.monaco-editor .char-delete) {
-		background-color: var(--color-error-light) !important;
-		opacity: 0.1;
-	}
-
-	/* Gutter indicators - Sharp 2px accents */
-	:global(.monaco-diff-editor .ced-1-diff-line-insert) {
-		border-left: 2px solid var(--color-success) !important;
-	}
-
-	:global(.monaco-diff-editor .ced-1-diff-line-delete) {
-		border-left: 2px solid var(--color-error) !important;
-	}
-
-	/* Hide default overview ruler as it adds noise */
+	/* Hide gradient shadows */
 	:global(.monaco-editor .vertical-gradient-shadow) {
 		display: none !important;
 	}
 
-	/* Refine glyph margin for diff markers */
+	/* Subtle line numbers - reveal on hover */
 	:global(.monaco-editor .margin-view-overlays .line-numbers) {
 		opacity: 0.5;
 		transition: opacity var(--transition-fast);

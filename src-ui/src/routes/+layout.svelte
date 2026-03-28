@@ -12,22 +12,22 @@
 	 * These match the CSS variables in design-system.css.
 	 */
 	const THEME_COLORS = {
-		dark: '#09090b', // --color-neutral-950
-		light: '#fafafa' // --color-neutral-50
+		dark: '#0b0b0a', // --color-neutral-950 (warm)
+		light: '#f7f6f3' // --color-bg-base (pale warm)
 	} as const;
 
 	let { children } = $props();
 
 	// Theme handling
-	let theme = $state<'light' | 'dark'>('dark');
+	let theme = $state<'light' | 'dark'>('light');
 
 	onMount(() => {
 		// Check for saved theme preference
 		const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
 		if (savedTheme) {
 			theme = savedTheme;
-		} else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
-			theme = 'light';
+		} else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+			theme = 'dark';
 		}
 
 		// Apply theme

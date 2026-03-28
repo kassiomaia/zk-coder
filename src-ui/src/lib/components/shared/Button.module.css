@@ -79,7 +79,7 @@
 }
 
 .primary:active:not(:disabled)::before {
-	background: var(--color-neutral-700);
+	background: var(--color-surface-active);
 }
 
 /* Accent variant - use for main CTAs only */

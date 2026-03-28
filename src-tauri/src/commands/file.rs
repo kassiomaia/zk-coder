@@ -175,10 +175,11 @@ pub async fn open_file_diff_window(
         FILE_DIFF_WINDOW_LABEL,
         WebviewUrl::App(path.into()),
     )
-    .title("File Diff")
+    .title("Code Viewer")
     .inner_size(1200.0, 800.0)
     .min_inner_size(600.0, 400.0)
     .decorations(false)
+    .transparent(true)
     .maximized(true)
     .devtools(false)
     .build()

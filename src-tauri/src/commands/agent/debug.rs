@@ -44,6 +44,8 @@ pub async fn open_agent_trace_window(
     .title("Agent Trace")
     .inner_size(1400.0, 920.0)
     .min_inner_size(900.0, 600.0)
+    .decorations(false)
+    .transparent(true)
     .build()
     .map_err(|e| e.to_string())?;
 

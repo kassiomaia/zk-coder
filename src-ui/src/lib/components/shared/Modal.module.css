@@ -41,7 +41,7 @@
 	border: 1px solid var(--color-border-subtle);
 	border-radius: var(--radius-xl);
 	box-shadow:
-		0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+		0 0 0 1px var(--color-border-subtle) inset,
 		var(--shadow-2xl);
 	width: 90%;
 	max-width: 520px;

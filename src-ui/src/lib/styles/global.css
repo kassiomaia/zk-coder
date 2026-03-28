@@ -2,9 +2,9 @@
  * Global Styles for Coder Application
  *
  * Design Principles:
- * - High contrast for accessibility
- * - Clear visual hierarchy
- * - Consistent interactive states
+ * - Calm, refined pale surfaces with warm neutral tones
+ * - Clear visual hierarchy through tonal layering
+ * - Accessible contrast with soft, non-fatiguing aesthetics
  * - Smooth, purposeful animations
  */
 
@@ -38,9 +38,9 @@ html {
 	width: 100%;
 }
 
-/* Default to dark theme */
+/* Default to light theme - pale, refined aesthetic */
 :root {
-	data-theme: 'dark';
+	data-theme: 'light';
 }
 
 body {
@@ -149,7 +149,7 @@ pre code {
 }
 
 /* Scrollbar styling - see scrollbar.css for shared scrollbar classes */
-/* Global scrollbar using standard styles */
+/* Global scrollbar using theme-aware colors */
 ::-webkit-scrollbar {
 	width: 10px;
 	height: 10px;
@@ -160,14 +160,14 @@ pre code {
 }
 
 ::-webkit-scrollbar-thumb {
-	background: var(--color-neutral-700);
+	background: var(--color-border-secondary);
 	border-radius: var(--radius-full);
 	border: 2px solid transparent;
 	background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-	background: var(--color-neutral-600);
+	background: var(--color-text-muted);
 	border: 2px solid transparent;
 	background-clip: padding-box;
 }
@@ -176,9 +176,14 @@ pre code {
 	background: transparent;
 }
 
-/* Selection */
+/* Selection - soft accent highlight */
 ::selection {
-	background-color: var(--color-primary-500);
+	background-color: rgba(75, 80, 104, 0.15);
+	color: var(--color-text-primary);
+}
+
+[data-theme='dark'] ::selection {
+	background-color: rgba(122, 127, 150, 0.35);
 	color: var(--color-neutral-0);
 }
 
@@ -313,8 +318,13 @@ select:disabled {
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
-	:root {
-		--color-border-primary: var(--color-neutral-600);
+	[data-theme='light'] {
+		--color-border-primary: #8a8984;
+		--color-text-secondary: #1c1c1a;
+	}
+
+	[data-theme='dark'] {
+		--color-border-primary: var(--color-neutral-500);
 		--color-text-secondary: var(--color-neutral-100);
 	}
 

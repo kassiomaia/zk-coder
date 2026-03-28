@@ -19,14 +19,14 @@
 }
 
 .standard-scrollbar::-webkit-scrollbar-thumb {
-	background: var(--color-neutral-700);
+	background: var(--color-border-secondary);
 	border-radius: var(--radius-full);
 	border: 2px solid transparent;
 	background-clip: padding-box;
 }
 
 .standard-scrollbar::-webkit-scrollbar-thumb:hover {
-	background: var(--color-neutral-600);
+	background: var(--color-text-muted);
 	border: 2px solid transparent;
 	background-clip: padding-box;
 }
@@ -124,7 +124,7 @@
 
 .standard-scrollbar {
 	scrollbar-width: auto;
-	scrollbar-color: var(--color-neutral-700) transparent;
+	scrollbar-color: var(--color-border-secondary) transparent;
 }
 
 .thin-scrollbar {

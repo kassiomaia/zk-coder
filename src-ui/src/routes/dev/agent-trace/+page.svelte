@@ -24,6 +24,7 @@
 		buildRow
 	} from './traceTable';
 	import TracePlanTable from './TracePlanTable.svelte';
+	import WindowHeader from '$lib/components/shared/WindowHeader.svelte';
 	import shell from './AgentTraceShell.module.css';
 
 	type DebugResponse = {
@@ -426,53 +427,50 @@
 
 <svelte:head>
 	<title>Agent Trace</title>
+	<style>
+		html, body {
+			background: transparent !important;
+		}
+	</style>
 </svelte:head>
 
 {#if !isDev}
 	<div class={shell.warningSurface}>Agent trace is available only in development mode.</div>
 {:else}
 	<div class={shell.page} data-tone={headerTone}>
-		<header class={shell.header}>
-			<div class={shell.headerMain}>
-				<div class={shell.titleBlock}>
-					<h1 class={shell.title}>
-						<Activity size={18} />
-						Agent Trace
-					</h1>
-					<p class={shell.subtitle}>
-						<code>{sessionId || 'waiting...'}</code>
-					</p>
-				</div>
+		<WindowHeader title="Agent Trace" subtitle={sessionId || 'waiting...'}>
+			{#snippet icon()}
+				<Activity size={18} />
+			{/snippet}
+		</WindowHeader>
+
+		<div class={shell.systemStrip} data-state={transportState}>
+			<div class={shell.liveBadge}>
+				<div class={shell.liveIndicator}></div>
+				<span>{listeningLabel}</span>
 			</div>
 
-			<div class={shell.systemStrip} data-state={transportState}>
-				<div class={shell.liveBadge}>
-					<div class={shell.liveIndicator}></div>
-					<span>{listeningLabel}</span>
+			<div class={shell.snapshotGrid}>
+				<div class={shell.snapshotCell}>
+					<span class={shell.snapshotLabel}>Phase</span>
+					<strong class={shell.snapshotValue}>{snapshot?.phase ?? '-'}</strong>
 				</div>
-
-				<div class={shell.snapshotGrid}>
-					<div class={shell.snapshotCell}>
-						<span class={shell.snapshotLabel}>Phase</span>
-						<strong class={shell.snapshotValue}>{snapshot?.phase ?? '-'}</strong>
-					</div>
-					<div class={shell.snapshotCell}>
-						<span class={shell.snapshotLabel}>Step</span>
-						<strong class={shell.snapshotValue}>{snapshot?.stepNumber ?? 0}</strong>
-					</div>
-					<div class={shell.snapshotCell}>
-						<span class={shell.snapshotLabel}>Tokens</span>
-						<strong class={shell.snapshotValue}>
-							{snapshot ? `${snapshot.totalInputTokens}/${snapshot.totalOutputTokens}` : '-'}
-						</strong>
-					</div>
-					<div class={shell.snapshotCell}>
-						<span class={shell.snapshotLabel}>Model</span>
-						<strong class={shell.snapshotValue}>{snapshot?.lastModel ?? '-'}</strong>
-					</div>
+				<div class={shell.snapshotCell}>
+					<span class={shell.snapshotLabel}>Step</span>
+					<strong class={shell.snapshotValue}>{snapshot?.stepNumber ?? 0}</strong>
+				</div>
+				<div class={shell.snapshotCell}>
+					<span class={shell.snapshotLabel}>Tokens</span>
+					<strong class={shell.snapshotValue}>
+						{snapshot ? `${snapshot.totalInputTokens}/${snapshot.totalOutputTokens}` : '-'}
+					</strong>
+				</div>
+				<div class={shell.snapshotCell}>
+					<span class={shell.snapshotLabel}>Model</span>
+					<strong class={shell.snapshotValue}>{snapshot?.lastModel ?? '-'}</strong>
 				</div>
 			</div>
-		</header>
+		</div>
 
 		{#if error}
 			<div class={shell.warningSurface}>
@@ -570,7 +568,6 @@
 							value={JSON.stringify(selectedTrace, null, 2)}
 							language="json"
 							readOnly={true}
-							theme="tokyo-night"
 							minimap={true}
 							class="flex-1"
 						/>
