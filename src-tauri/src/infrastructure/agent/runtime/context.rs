@@ -19,27 +19,40 @@ pub const KEEP_RECENT_TAIL_MESSAGES: usize = 12;
 
 /// Hard token budgets for ContextPolicyV2 blocks.
 pub const BUDGET_TASK_SUMMARY_TOKENS: usize = 180;
+/// Hard token budgets for ContextPolicyV2 blocks.
 pub const BUDGET_ACTIVE_SUBTASK_TOKENS: usize = 120;
+/// Hard token budgets for ContextPolicyV2 blocks.
 pub const BUDGET_FILE_RELEVANCE_TOKENS: usize = 800;
+/// Hard token budgets for ContextPolicyV2 blocks.
 pub const BUDGET_FAILURE_MEMORY_TOKENS: usize = 140;
+/// Hard token budgets for ContextPolicyV2 blocks.
 pub const BUDGET_RECENT_DIALOGUE_TOKENS: usize = 1600;
 
 /// Details about context compaction.
 #[derive(Debug, Clone)]
 pub struct CompactionDetails {
+    /// Number of messages before compaction.
     pub before_count: usize,
+    /// Number of messages after compaction.
     pub after_count: usize,
+    /// Estimated tokens before compaction.
     pub before_tokens: usize,
+    /// Estimated tokens after compaction.
     pub after_tokens: usize,
+    /// Whether reinjection of context is needed.
     pub needs_reinjection: bool,
 }
 
 /// Inputs for ContextPolicyV2 deterministic packing.
 #[derive(Debug, Clone, Default)]
 pub struct ContextPolicyInput {
+    /// Force packing even if below threshold.
     pub force_pack: bool,
+    /// The overall task goal.
     pub task_goal: Option<String>,
+    /// The currently active subtask.
     pub active_subtask: Option<String>,
+    /// Retrieved context snippets.
     pub retrieval_snippets: Vec<String>,
 }
 

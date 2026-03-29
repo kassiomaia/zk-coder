@@ -4,12 +4,19 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Re-exports for agent-related commands.
 pub mod agent;
+/// Re-exports for chat-related commands.
 pub mod chat;
+/// Re-exports for configuration-related commands.
 pub mod config;
+/// Re-exports for document-related commands.
 pub mod documents;
+/// Re-exports for file-related commands.
 pub mod file;
+/// Re-exports for LLM-related commands.
 pub mod llm;
+/// Re-exports for NLP-related commands.
 pub mod nlp;
 
 // Re-export state types for convenience

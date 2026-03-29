@@ -18,6 +18,10 @@ use crate::infrastructure::tools::ToolRegistry;
 
 use super::AgentRuntimeError;
 
+/// Execute an agent request.
+///
+/// This is an infrastructure entrypoint that delegates execution ownership
+/// to application services.
 #[allow(clippy::too_many_arguments)]
 pub async fn execute(
     session: &AgentSession,

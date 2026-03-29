@@ -19,10 +19,26 @@ const APPROVAL_TIMEOUT_MINUTES: i64 = 5;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ApprovalEvent {
-    ActionQueued { action: PendingAction },
-    ActionApproved { action_id: String },
-    ActionDenied { action_id: String },
-    ActionTimeout { action_id: String },
+    /// A new action was queued for approval.
+    ActionQueued {
+        /// The pending action.
+        action: PendingAction
+    },
+    /// An action was approved by the user.
+    ActionApproved {
+        /// The ID of the approved action.
+        action_id: String
+    },
+    /// An action was denied by the user.
+    ActionDenied {
+        /// The ID of the denied action.
+        action_id: String
+    },
+    /// An action timed out waiting for approval.
+    ActionTimeout {
+        /// The ID of the timed out action.
+        action_id: String
+    },
 }
 
 /// Manages pending actions awaiting user approval.
@@ -34,6 +50,7 @@ pub struct ApprovalQueue {
 }
 
 impl ApprovalQueue {
+    /// Creates a new approval queue.
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel::<ApprovalEvent>(64);
         Self {
@@ -43,6 +60,10 @@ impl ApprovalQueue {
     }
 
     /// Add an action to the approval queue.
+    ///
+    /// # Arguments
+    ///
+    /// * `action` - The pending action to queue for approval
     pub async fn queue(&self, action: PendingAction) {
         let mut pending = self.pending.write().await;
         pending.insert(action.id.clone(), action.clone());
@@ -50,6 +71,10 @@ impl ApprovalQueue {
     }
 
     /// Approve a pending action and return it for execution.
+    ///
+    /// # Arguments
+    ///
+    /// * `action_id` - The ID of the action to approve
     pub async fn approve(&self, action_id: &str) -> Option<PendingAction> {
         let mut pending = self.pending.write().await;
         if let Some(action) = pending.remove(action_id) {
@@ -63,6 +88,10 @@ impl ApprovalQueue {
     }
 
     /// Deny a pending action.
+    ///
+    /// # Arguments
+    ///
+    /// * `action_id` - The ID of the action to deny
     pub async fn deny(&self, action_id: &str) -> bool {
         let mut pending = self.pending.write().await;
         let removed = pending.remove(action_id).is_some();
@@ -121,6 +150,10 @@ impl ApprovalQueue {
     }
 
     /// Remove all pending actions for a session (e.g., on cancellation).
+    ///
+    /// # Arguments
+    ///
+    /// * `session_id` - The ID of the session to clear
     pub async fn clear_session(&self, session_id: &str) {
         let mut pending = self.pending.write().await;
         let to_remove: Vec<String> = pending

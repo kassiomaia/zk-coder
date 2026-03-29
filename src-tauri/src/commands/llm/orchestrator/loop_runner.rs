@@ -26,11 +26,15 @@ pub const ORCHESTRATOR_LLM_RETRY_BASE_MS: u64 = 500;
 
 /// Final output from one orchestrated bounded loop execution.
 pub struct OrchestratedLoopOutput {
+    /// The content of the final response.
     pub content: String,
+    /// The model that generated the response.
     pub model: String,
+    /// Usage statistics for the request.
     pub usage: Option<UsageStats>,
 }
 
+/// Build core LLM messages from chat history.
 pub(crate) fn build_core_messages(
     history: &[ChatMessage],
     request_content: &str,

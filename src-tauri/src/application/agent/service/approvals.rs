@@ -4,6 +4,11 @@ use crate::core::agent::repositories::RepositoryResult;
 use super::AgentServiceImpl;
 
 impl AgentServiceImpl {
+    /// Approves a pending action asynchronously.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the action is not found.
     pub async fn approve_action_async(&self, action_id: &str) -> RepositoryResult<()> {
         self.approval_queue
             .approve(action_id)
@@ -14,6 +19,11 @@ impl AgentServiceImpl {
         Ok(())
     }
 
+    /// Denies a pending action asynchronously.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the action is not found.
     pub async fn deny_action_async(&self, action_id: &str) -> RepositoryResult<()> {
         let denied = self.approval_queue.deny(action_id).await;
         if !denied {

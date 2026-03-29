@@ -187,10 +187,12 @@ impl AgentServiceImpl {
         agent.into()
     }
 
+    /// Converts a core task status to an application task status.
     pub fn to_core_task_status(&self, status: CoreTaskStatus) -> TaskStatus {
         status.into()
     }
 
+    /// Converts an application task status to a core task status.
     pub fn from_core_task_status(status: TaskStatus) -> CoreTaskStatus {
         status.into()
     }

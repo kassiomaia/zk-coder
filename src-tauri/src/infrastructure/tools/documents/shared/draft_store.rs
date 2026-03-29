@@ -450,17 +450,21 @@ pub enum SlideContent {
         items: Vec<String>,
         level: u8,
     },
+    /// A numbered list with ordered items.
     NumberedList {
         items: Vec<String>,
     },
+    /// A table with headers and rows.
     Table {
         headers: Vec<String>,
         rows: Vec<Vec<String>>,
     },
+    /// An image with optional caption.
     Image {
         path: String,
         caption: Option<String>,
     },
+    /// A placeholder for a chart with specified data type.
     ChartPlaceholder {
         title: String,
         data_type: String,
@@ -471,16 +475,16 @@ pub enum SlideContent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum PdfPageContent {
-    Markdown {
-        content: String,
-    },
+    /// Markdown formatted content.
+    Markdown { content: String },
+    /// HTML formatted content with optional styles.
     Html {
         content: String,
         styles: Option<String>,
     },
-    Text {
-        content: String,
-    },
+    /// Plain text content.
+    Text { content: String },
+    /// An image with optional caption.
     Image {
         path: String,
         caption: Option<String>,
@@ -490,10 +494,14 @@ pub enum PdfPageContent {
 /// PDF page sizes.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq)]
 pub enum PdfPageSize {
+    /// A4 size (210 x 297 mm).
     #[default]
     A4,
+    /// Letter size (8.5 x 11 inches).
     Letter,
+    /// Legal size (8.5 x 14 inches).
     Legal,
+    /// A3 size (297 x 420 mm).
     A3,
 }
 
@@ -521,11 +529,17 @@ pub enum DraftError {
 /// Counts of drafts by type and status.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DraftCounts {
+    /// Number of DOCX drafts currently being built.
     pub docx_building: usize,
+    /// Number of DOCX drafts currently being finalized.
     pub docx_finalizing: usize,
+    /// Number of PPTX drafts currently being built.
     pub pptx_building: usize,
+    /// Number of PPTX drafts currently being finalized.
     pub pptx_finalizing: usize,
+    /// Number of PDF drafts currently being built.
     pub pdf_building: usize,
+    /// Number of PDF drafts currently being finalized.
     pub pdf_finalizing: usize,
 }
 

@@ -13,6 +13,7 @@ use crate::infrastructure::sqlite::repositories::agent::{
 
 /// Runtime telemetry access required by the agent layer.
 pub trait AgentTelemetryRepository: Send + Sync {
+    /// Create an execution step record.
     fn create_execution_step(
         &self,
         step: &ExecutionStep,
@@ -21,16 +22,19 @@ pub trait AgentTelemetryRepository: Send + Sync {
         subtask_id: Option<&str>,
     ) -> Result<(), SessionRepositoryError>;
 
+    /// Get a session by ID.
     fn get_session(
         &self,
         session_id: &SessionId,
     ) -> Result<Option<AgentSession>, SessionRepositoryError>;
 
+    /// Get execution steps for a session.
     fn get_session_execution_steps(
         &self,
         session_id: &SessionId,
     ) -> Result<Vec<ExecutionStep>, SessionRepositoryError>;
 
+    /// Record a file touched event.
     fn add_file_touched(
         &self,
         session_id: &SessionId,
@@ -39,11 +43,13 @@ pub trait AgentTelemetryRepository: Send + Sync {
         diff: Option<&str>,
     ) -> Result<(), SessionRepositoryError>;
 
+    /// Get files touched in a session.
     fn get_session_files(
         &self,
         session_id: &SessionId,
     ) -> Result<Vec<TouchedFileEntry>, SessionRepositoryError>;
 
+    /// Add a terminal output line.
     fn add_terminal_line(
         &self,
         session_id: &SessionId,
@@ -51,27 +57,32 @@ pub trait AgentTelemetryRepository: Send + Sync {
         content: &str,
     ) -> Result<(), SessionRepositoryError>;
 
+    /// Get terminal output for a session.
     fn get_session_terminal_output(
         &self,
         session_id: &SessionId,
     ) -> Result<Vec<TerminalLineEntry>, SessionRepositoryError>;
 
+    /// Add a status phrase.
     fn add_status_phrase(
         &self,
         session_id: &SessionId,
         phrase: &str,
     ) -> Result<(), SessionRepositoryError>;
 
+    /// Get status phrases for a session.
     fn get_session_status_phrases(
         &self,
         session_id: &SessionId,
     ) -> Result<Vec<String>, SessionRepositoryError>;
 
+    /// Clear runtime data for a session.
     fn clear_session_runtime_data(
         &self,
         session_id: &SessionId,
     ) -> Result<(), SessionRepositoryError>;
 
+    /// Insert a tool call record.
     fn insert_tool_call(
         &self,
         session_id: &SessionId,
@@ -81,6 +92,7 @@ pub trait AgentTelemetryRepository: Send + Sync {
         subtask_id: Option<&str>,
     ) -> Result<(), SessionRepositoryError>;
 
+    /// Update tool call result.
     fn update_tool_call_result(
         &self,
         tool_call_id: &str,
@@ -89,6 +101,7 @@ pub trait AgentTelemetryRepository: Send + Sync {
         duration_ms: Option<i64>,
     ) -> Result<(), SessionRepositoryError>;
 
+    /// Get tool calls for a session.
     fn get_tool_calls_for_session(
         &self,
         session_id: &SessionId,
@@ -96,6 +109,7 @@ pub trait AgentTelemetryRepository: Send + Sync {
 }
 
 impl AgentTelemetryRepository for SqliteSessionRepository {
+    /// Create an execution step record.
     fn create_execution_step(
         &self,
         step: &ExecutionStep,
@@ -106,6 +120,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         SqliteSessionRepository::create_execution_step(self, step, session_id, task_id, subtask_id)
     }
 
+    /// Get a session by ID.
     fn get_session(
         &self,
         session_id: &SessionId,
@@ -113,6 +128,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         SqliteSessionRepository::get_session(self, session_id)
     }
 
+    /// Get execution steps for a session.
     fn get_session_execution_steps(
         &self,
         session_id: &SessionId,
@@ -120,6 +136,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         SqliteSessionRepository::get_session_execution_steps(self, session_id)
     }
 
+    /// Record a file touched event.
     fn add_file_touched(
         &self,
         session_id: &SessionId,
@@ -130,6 +147,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         SqliteSessionRepository::add_file_touched(self, session_id, file_path, action, diff)
     }
 
+    /// Get files touched in a session.
     fn get_session_files(
         &self,
         session_id: &SessionId,
@@ -137,6 +155,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         SqliteSessionRepository::get_session_files(self, session_id)
     }
 
+    /// Add a terminal output line.
     fn add_terminal_line(
         &self,
         session_id: &SessionId,
@@ -146,6 +165,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         SqliteSessionRepository::add_terminal_line(self, session_id, line_type, content)
     }
 
+    /// Get terminal output for a session.
     fn get_session_terminal_output(
         &self,
         session_id: &SessionId,
@@ -153,6 +173,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         SqliteSessionRepository::get_session_terminal_output(self, session_id)
     }
 
+    /// Add a status phrase.
     fn add_status_phrase(
         &self,
         session_id: &SessionId,
@@ -161,6 +182,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         SqliteSessionRepository::add_status_phrase(self, session_id, phrase)
     }
 
+    /// Get status phrases for a session.
     fn get_session_status_phrases(
         &self,
         session_id: &SessionId,
@@ -168,6 +190,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         SqliteSessionRepository::get_session_status_phrases(self, session_id)
     }
 
+    /// Clear runtime data for a session.
     fn clear_session_runtime_data(
         &self,
         session_id: &SessionId,
@@ -175,6 +198,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         SqliteSessionRepository::clear_session_runtime_data(self, session_id)
     }
 
+    /// Insert a tool call record.
     fn insert_tool_call(
         &self,
         session_id: &SessionId,
@@ -193,6 +217,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         )
     }
 
+    /// Update tool call result.
     fn update_tool_call_result(
         &self,
         tool_call_id: &str,
@@ -209,6 +234,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         )
     }
 
+    /// Get tool calls for a session.
     fn get_tool_calls_for_session(
         &self,
         session_id: &SessionId,

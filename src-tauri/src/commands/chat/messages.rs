@@ -3,6 +3,7 @@ use crate::core::chat::services::SendMessageRequest;
 
 use super::state::ChatState;
 
+/// Load all messages for a conversation.
 #[tauri::command]
 pub async fn load_messages(
     conversation_id: String,
@@ -14,6 +15,7 @@ pub async fn load_messages(
         .map_err(|e| e.to_string())
 }
 
+/// Load all messages for a thread.
 #[tauri::command]
 pub async fn load_thread_messages(
     thread_id: String,
@@ -25,6 +27,7 @@ pub async fn load_thread_messages(
         .map_err(|e| e.to_string())
 }
 
+/// Send a new message in a conversation or thread.
 #[tauri::command]
 pub async fn send_message(
     conversation_id: String,
@@ -45,11 +48,13 @@ pub async fn send_message(
         .map_err(|e| e.to_string())
 }
 
+/// Delete a message by ID.
 #[tauri::command]
 pub async fn delete_message(id: String, state: tauri::State<'_, ChatState>) -> Result<(), String> {
     state.service.delete_message(&id).map_err(|e| e.to_string())
 }
 
+/// Update the status of a message.
 #[tauri::command]
 pub async fn update_message_status(
     id: String,
@@ -68,6 +73,7 @@ pub async fn update_message_status(
         .map_err(|e| e.to_string())
 }
 
+/// Update the feedback (like/dislike) on a message.
 #[tauri::command]
 pub async fn update_message_feedback(
     id: String,

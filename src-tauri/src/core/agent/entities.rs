@@ -89,32 +89,48 @@ pub enum AgentTrustMode {
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum SessionState {
     /// Session created, waiting for first request
-    WaitForRequest { last_action_at: DateTime<Utc> },
+    WaitForRequest {
+        /// When the last action was performed.
+        last_action_at: DateTime<Utc>,
+    },
     /// Processing a request
-    Processing { started_at: DateTime<Utc> },
+    Processing {
+        /// When processing started.
+        started_at: DateTime<Utc>,
+    },
     /// Waiting for user approval on an action
     AwaitingApproval {
+        /// ID of the action waiting for approval.
         action_id: String,
+        /// When approval was requested.
         requested_at: DateTime<Utc>,
     },
     /// Session completed successfully
     Finished {
+        /// When the session completed.
         completed_at: DateTime<Utc>,
+        /// The result of the session.
         result: String,
     },
     /// Session encountered an error
     Error {
+        /// When the error occurred.
         error_at: DateTime<Utc>,
+        /// The error message.
         error: String,
     },
     /// Session paused - work was saved and can be continued
     Paused {
+        /// When the session was paused.
         paused_at: DateTime<Utc>,
+        /// Message explaining why paused.
         message: String,
     },
     /// Session was cancelled
     Cancelled {
+        /// When the session was cancelled.
         cancelled_at: DateTime<Utc>,
+        /// Reason for cancellation.
         reason: String,
     },
 }
@@ -238,7 +254,9 @@ pub enum ApprovalStatus {
 /// User's decision on an approval action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApprovalAction {
+    /// Approve the action.
     Approve,
+    /// Deny the action.
     Deny,
 }
 
@@ -287,13 +305,18 @@ pub enum TaskStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskMode {
+    /// Read-only mode.
     Read,
+    /// Write mode (read and write files).
     Write,
+    /// Execute mode (read files and run commands).
     Execute,
+    /// Full access mode (read, write, and execute).
     FullAccess,
 }
 
 impl TaskMode {
+    /// Get the list of allowed tools for this mode.
     pub fn allowed_tools(&self) -> Vec<&'static str> {
         match self {
             TaskMode::Read => vec![
@@ -332,6 +355,7 @@ impl TaskMode {
         }
     }
 
+    /// Get the instruction text for this mode.
     pub fn instruction_text(&self) -> &'static str {
         match self {
             TaskMode::Read => {
@@ -381,15 +405,30 @@ pub struct UsageStats {
 #[derive(Debug, Clone, PartialEq)]
 pub enum AgentDomainError {
     /// Session not found
-    SessionNotFound { id: String },
+    SessionNotFound {
+        /// The session ID that was not found.
+        id: String,
+    },
     /// Agent not found
-    AgentNotFound { id: String },
+    AgentNotFound {
+        /// The agent ID that was not found.
+        id: String,
+    },
     /// Session is in invalid state for operation
-    InvalidSessionState { state: SessionState },
+    InvalidSessionState {
+        /// The invalid state.
+        state: SessionState,
+    },
     /// Action not found
-    ActionNotFound { id: String },
+    ActionNotFound {
+        /// The action ID that was not found.
+        id: String,
+    },
     /// Invalid input
-    InvalidInput { reason: String },
+    InvalidInput {
+        /// The reason for the invalid input.
+        reason: String,
+    },
 }
 
 impl std::fmt::Display for AgentDomainError {

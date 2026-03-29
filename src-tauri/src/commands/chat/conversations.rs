@@ -2,6 +2,7 @@ use crate::core::chat::entities::{Conversation, ConversationSettings};
 
 use super::state::ChatState;
 
+/// Load all conversations for the current user.
 #[tauri::command]
 pub async fn load_conversations(
     state: tauri::State<'_, ChatState>,
@@ -12,6 +13,7 @@ pub async fn load_conversations(
         .map_err(|e| e.to_string())
 }
 
+/// Create a new conversation with the given title.
 #[tauri::command]
 pub async fn create_conversation(
     title: String,
@@ -23,6 +25,7 @@ pub async fn create_conversation(
         .map_err(|e| e.to_string())
 }
 
+/// Load a specific conversation by ID.
 #[tauri::command]
 pub async fn load_conversation(
     id: String,
@@ -34,6 +37,7 @@ pub async fn load_conversation(
         .map_err(|e| e.to_string())
 }
 
+/// Rename a conversation.
 #[tauri::command]
 pub async fn rename_conversation(
     id: String,
@@ -46,6 +50,7 @@ pub async fn rename_conversation(
         .map_err(|e| e.to_string())
 }
 
+/// Delete a conversation by ID.
 #[tauri::command]
 pub async fn delete_conversation(
     id: String,
@@ -57,6 +62,7 @@ pub async fn delete_conversation(
         .map_err(|e| e.to_string())
 }
 
+/// Update the settings for a conversation.
 #[tauri::command]
 pub async fn update_conversation_settings(
     id: String,
@@ -69,6 +75,7 @@ pub async fn update_conversation_settings(
         .map_err(|e| e.to_string())
 }
 
+/// Set the workspace root directory for a conversation.
 #[tauri::command]
 pub async fn set_conversation_workspace(
     id: String,
@@ -81,6 +88,7 @@ pub async fn set_conversation_workspace(
         .map_err(|e| e.to_string())
 }
 
+/// Archive or unarchive a conversation.
 #[tauri::command]
 pub async fn archive_conversation(
     id: String,

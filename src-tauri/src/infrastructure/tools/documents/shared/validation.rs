@@ -194,8 +194,11 @@ pub fn validate_magic_bytes(content: &[u8], expected_type: DocumentFileType) -> 
 /// Document file type for validation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DocumentFileType {
+    /// Microsoft Word document.
     Docx,
+    /// Microsoft `PowerPoint` presentation.
     Pptx,
+    /// Portable Document Format (PDF) file.
     Pdf,
 }
 
@@ -213,15 +216,12 @@ pub fn validate_file_size(size: u64, max_size: u64) -> Result<(), String> {
 /// Calculate estimated page count from content size.
 ///
 /// This is a rough estimate based on typical content density.
-pub fn estimate_page_count(
-    file_type: DocumentFileType,
-    size_bytes: u64,
-) -> Result<usize, String> {
+pub fn estimate_page_count(file_type: DocumentFileType, size_bytes: u64) -> Result<usize, String> {
     // Rough estimates: average content per page
     let bytes_per_page = match file_type {
-        DocumentFileType::Docx => 25_000,   // ~25KB per page with formatting
-        DocumentFileType::Pptx => 100_000,  // ~100KB per slide with images
-        DocumentFileType::Pdf => 50_000,    // ~50KB per page
+        DocumentFileType::Docx => 25_000,  // ~25KB per page with formatting
+        DocumentFileType::Pptx => 100_000, // ~100KB per slide with images
+        DocumentFileType::Pdf => 50_000,   // ~50KB per page
     };
 
     if size_bytes == 0 {

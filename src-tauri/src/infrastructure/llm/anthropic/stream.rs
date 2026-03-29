@@ -13,26 +13,42 @@ use super::types::AnthropicUsage;
 #[serde(tag = "type", rename_all = "snake_case")]
 #[allow(dead_code)]
 pub enum AnthropicStreamEvent {
+    /// Message start event - contains the initial message metadata.
     MessageStart {
+        /// The message start data.
         message: AnthropicMessageStart,
     },
+    /// Content block start event - signals the beginning of a content block.
     ContentBlockStart {
+        /// Index of the content block.
         index: u32,
+        /// The content block start data.
         content_block: AnthropicContentBlockStart,
     },
+    /// Content block delta event - contains incremental text updates.
     ContentBlockDelta {
+        /// Index of the content block.
         index: u32,
+        /// The content delta data.
         delta: AnthropicContentDelta,
     },
+    /// Content block stop event - signals the end of a content block.
     ContentBlockStop {
+        /// Index of the content block.
         index: u32,
     },
+    /// Message delta event - contains final message metadata and usage.
     MessageDelta {
+        /// The message delta data.
         delta: AnthropicMessageDelta,
+        /// Usage statistics for the delta.
         usage: Option<AnthropicDeltaUsage>,
     },
+    /// Message stop event - signals the end of the streaming response.
     MessageStop,
+    /// Error event - contains error information from the API.
     Error {
+        /// The error data.
         error: AnthropicError,
     },
 }
@@ -40,12 +56,17 @@ pub enum AnthropicStreamEvent {
 /// Message start event data.
 #[derive(Debug, Deserialize)]
 pub struct AnthropicMessageStart {
+    /// Unique message identifier.
     pub id: String,
+    /// Model used for the request.
     pub model: String,
+    /// Role of the message sender.
     #[allow(dead_code)]
     pub role: String,
+    /// Content of the message.
     #[allow(dead_code)]
     pub content: Vec<serde_json::Value>,
+    /// Usage statistics for the request.
     #[serde(default)]
     pub usage: Option<AnthropicUsage>,
 }
@@ -53,9 +74,11 @@ pub struct AnthropicMessageStart {
 /// Content block start event data.
 #[derive(Debug, Deserialize)]
 pub struct AnthropicContentBlockStart {
+    /// Type of the content block.
     #[serde(rename = "type")]
     #[allow(dead_code)]
     pub content_type: String,
+    /// Text content, if applicable.
     #[allow(dead_code)]
     pub text: Option<String>,
 }
@@ -63,29 +86,35 @@ pub struct AnthropicContentBlockStart {
 /// Content delta event data.
 #[derive(Debug, Deserialize)]
 pub struct AnthropicContentDelta {
+    /// Type of the delta.
     #[serde(rename = "type")]
     #[allow(dead_code)]
     pub delta_type: String,
+    /// Text content delta.
     pub text: Option<String>,
 }
 
 /// Message delta event data.
 #[derive(Debug, Deserialize)]
 pub struct AnthropicMessageDelta {
+    /// Reason why the message stopped.
     pub stop_reason: Option<String>,
 }
 
 /// Delta usage statistics.
 #[derive(Debug, Deserialize)]
 pub struct AnthropicDeltaUsage {
+    /// Number of output tokens in this delta.
     pub output_tokens: u32,
 }
 
 /// Anthropic error.
 #[derive(Debug, Deserialize)]
 pub struct AnthropicError {
+    /// Type of the error.
     #[serde(rename = "type")]
     pub error_type: String,
+    /// Error message.
     pub message: String,
 }
 
@@ -118,10 +147,15 @@ pub fn parse_sse_line(line: &str) -> Option<Result<AnthropicStreamEvent, LlmErro
 /// Streaming state for Anthropic chat stream.
 #[derive(Debug, Default)]
 pub struct StreamState {
+    /// The message ID.
     pub message_id: String,
+    /// The model being used.
     pub model: String,
+    /// Number of input tokens.
     pub input_tokens: u32,
+    /// Number of output tokens.
     pub output_tokens: u32,
+    /// The final stop reason.
     pub final_stop_reason: Option<String>,
 }
 

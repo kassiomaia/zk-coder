@@ -3,6 +3,7 @@ use crate::core::chat::services::CreateThreadRequest;
 
 use super::state::ChatState;
 
+/// Load all threads for a conversation.
 #[tauri::command]
 pub async fn load_threads(
     conversation_id: String,
@@ -14,6 +15,7 @@ pub async fn load_threads(
         .map_err(|e| e.to_string())
 }
 
+/// Create a new thread in a conversation.
 #[tauri::command]
 pub async fn create_thread(
     conversation_id: String,
@@ -30,6 +32,7 @@ pub async fn create_thread(
         .map_err(|e| e.to_string())
 }
 
+/// Mark a thread as resolved or unresolved.
 #[tauri::command]
 pub async fn resolve_thread(
     id: String,
@@ -42,6 +45,7 @@ pub async fn resolve_thread(
         .map_err(|e| e.to_string())
 }
 
+/// Archive or unarchive a thread.
 #[tauri::command]
 pub async fn archive_thread(
     id: String,
@@ -54,11 +58,13 @@ pub async fn archive_thread(
         .map_err(|e| e.to_string())
 }
 
+/// Delete a thread by ID.
 #[tauri::command]
 pub async fn delete_thread(id: String, state: tauri::State<'_, ChatState>) -> Result<(), String> {
     state.service.delete_thread(&id).map_err(|e| e.to_string())
 }
 
+/// Rename a thread.
 #[tauri::command]
 pub async fn rename_thread(
     id: String,
@@ -71,6 +77,7 @@ pub async fn rename_thread(
         .map_err(|e| e.to_string())
 }
 
+/// Associate an agent session with a thread.
 #[tauri::command]
 pub async fn set_thread_agent_session(
     id: String,

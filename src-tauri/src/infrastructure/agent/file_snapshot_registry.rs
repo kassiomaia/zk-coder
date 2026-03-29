@@ -14,9 +14,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileSnapshot {
+    /// Path to the file.
     pub path: PathBuf,
+    /// Original file content (None if file didn't exist).
     pub original_content: Option<String>,
+    /// When the snapshot was created.
     pub created_at: DateTime<Utc>,
+    /// Whether the file has been rolled back.
     pub rolled_back: bool,
 }
 
@@ -28,19 +32,30 @@ pub struct FileSnapshotRegistry {
 /// Best-effort snapshot stats for workspace capture.
 #[derive(Debug, Clone, Copy)]
 pub struct WorkspaceSnapshotStats {
+    /// Number of files scanned.
     pub scanned_files: usize,
+    /// Number of files captured.
     pub captured_files: usize,
+    /// Number of files skipped due to size.
     pub skipped_large_files: usize,
+    /// Whether the capture was truncated due to limits.
     pub truncated: bool,
 }
 
 impl FileSnapshotRegistry {
+    /// Creates a new file snapshot registry.
     pub fn new() -> Self {
         Self {
             snapshots: Mutex::new(HashMap::new()),
         }
     }
 
+    /// Capture a snapshot of a file before modification.
+    ///
+    /// # Arguments
+    ///
+    /// * `session_id` - The session ID
+    /// * `path` - Path to the file to capture
     pub fn capture(&self, session_id: &str, path: &Path) {
         let mut snapshots = self.snapshots.lock().unwrap_or_else(|e| e.into_inner());
         let session_map = snapshots.entry(session_id.to_string()).or_default();
@@ -64,6 +79,11 @@ impl FileSnapshotRegistry {
     ///
     /// This is intentionally bounded to avoid large memory usage. It skips large
     /// files and stops after reaching the file or total byte limits.
+    ///
+    /// # Arguments
+    ///
+    /// * `session_id` - The session ID
+    /// * `workspace_root` - Root directory of the workspace
     pub fn capture_workspace_best_effort(
         &self,
         session_id: &str,
@@ -130,6 +150,12 @@ impl FileSnapshotRegistry {
         stats
     }
 
+    /// Rollback a single file to its original state.
+    ///
+    /// # Arguments
+    ///
+    /// * `session_id` - The session ID
+    /// * `path` - Path to the file to rollback
     pub fn rollback_file(&self, session_id: &str, path: &Path) -> Result<bool, RollbackError> {
         let mut snapshots = self.snapshots.lock().unwrap_or_else(|e| e.into_inner());
         let session_map = snapshots
@@ -167,6 +193,11 @@ impl FileSnapshotRegistry {
         Ok(true)
     }
 
+    /// Rollback all files in a session to their original state.
+    ///
+    /// # Arguments
+    ///
+    /// * `session_id` - The session ID
     pub fn rollback_session(&self, session_id: &str) -> Result<Vec<PathBuf>, RollbackError> {
         let mut snapshots = self.snapshots.lock().unwrap_or_else(|e| e.into_inner());
         let session_map = snapshots
@@ -199,6 +230,11 @@ impl FileSnapshotRegistry {
         Ok(reverted)
     }
 
+    /// Get all snapshots for a session.
+    ///
+    /// # Arguments
+    ///
+    /// * `session_id` - The session ID
     pub fn get_session_snapshots(&self, session_id: &str) -> Vec<FileSnapshot> {
         let snapshots = self.snapshots.lock().unwrap_or_else(|e| e.into_inner());
         snapshots
@@ -207,11 +243,22 @@ impl FileSnapshotRegistry {
             .unwrap_or_default()
     }
 
+    /// Clear all snapshots for a session.
+    ///
+    /// # Arguments
+    ///
+    /// * `session_id` - The session ID
     pub fn clear_session(&self, session_id: &str) {
         let mut snapshots = self.snapshots.lock().unwrap_or_else(|e| e.into_inner());
         snapshots.remove(session_id);
     }
 
+    /// Get the original content of a snapshot.
+    ///
+    /// # Arguments
+    ///
+    /// * `session_id` - The session ID
+    /// * `path` - Path to the file (exact match or filename)
     pub fn get_snapshot_content(&self, session_id: &str, path: &str) -> Option<String> {
         let snapshots = self.snapshots.lock().ok()?;
         let session_map = snapshots.get(session_id)?;
@@ -236,12 +283,16 @@ impl Default for FileSnapshotRegistry {
     }
 }
 
+/// Errors that can occur during rollback operations.
 #[derive(Debug, thiserror::Error)]
 pub enum RollbackError {
+    /// Session was not found.
     #[error("Session not found: {0}")]
     SessionNotFound(String),
+    /// File is not being tracked.
     #[error("File not tracked: {0}")]
     FileNotTracked(String),
+    /// I/O error occurred during rollback.
     #[error("I/O error: {0}")]
     IoError(String),
 }

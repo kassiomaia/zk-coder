@@ -7,9 +7,14 @@ use crate::infrastructure::tools::{OrchestratorToolResult, ToolRegistry};
 pub const ORCHESTRATOR_TOOL_REGISTRY_ENV: &str = "CODER_LLM_TOOL_REGISTRY";
 
 /// Tool execution abstraction for orchestrated turns.
+///
+/// This trait defines the interface for executing tools during an orchestrated
+/// LLM conversation loop.
 pub trait ToolExecutor: Send + Sync {
+    /// Returns the list of tool definitions available for this executor.
     fn definitions(&self) -> Vec<ToolDefinition>;
 
+    /// Execute a tool call and return the result.
     fn execute<'a>(
         &'a self,
         call: ToolCall,
@@ -24,6 +29,7 @@ pub struct RegistryToolExecutor {
 }
 
 impl RegistryToolExecutor {
+    /// Creates a new RegistryToolExecutor with the given registry and conversation ID.
     pub fn new(registry: ToolRegistry, conversation_id: String) -> Self {
         Self {
             registry,
@@ -57,7 +63,9 @@ impl ToolExecutor for RegistryToolExecutor {
     }
 }
 
-/// Default executor placeholder.
+/// Default executor placeholder that returns an error for all tool calls.
+///
+/// This is used when tool execution is not enabled via environment configuration.
 pub struct NoopToolExecutor;
 
 impl ToolExecutor for NoopToolExecutor {

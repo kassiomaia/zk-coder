@@ -45,6 +45,7 @@ pub struct GrepOutput {
     pub matches: Vec<GrepMatch>,
 }
 
+/// Tool for searching text in workspace files using regex.
 pub struct GrepTool;
 
 impl Tool for GrepTool {

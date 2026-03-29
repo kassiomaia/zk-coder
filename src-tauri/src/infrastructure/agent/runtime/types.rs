@@ -6,22 +6,31 @@ use crate::core::agent::entities::TaskStatus;
 /// Agent runtime errors.
 #[derive(Debug, thiserror::Error)]
 pub enum AgentRuntimeError {
+    /// Agent was not found.
     #[error("Agent not found: {0}")]
     AgentNotFound(String),
+    /// Session was not found.
     #[error("Session not found: {0}")]
     SessionNotFound(String),
+    /// LLM error occurred.
     #[error("LLM error: {0}")]
     Llm(String),
+    /// Detected repetitive action loop.
     #[error("Detected repetitive action loop")]
     LoopDetected,
+    /// Action was denied by user.
     #[error("Action denied by user")]
     ActionDenied,
+    /// Approval timeout - action timed out waiting for approval.
     #[error("Approval timeout - action timed out waiting for approval")]
     ApprovalTimeout,
+    /// Execution was cancelled.
     #[error("Execution cancelled")]
     Cancelled,
+    /// Repository error occurred.
     #[error("Repository error: {0}")]
     Repository(String),
+    /// Configuration error.
     #[error("Config error: {0}")]
     Config(String),
 }
@@ -29,13 +38,22 @@ pub enum AgentRuntimeError {
 /// Summary of subtask data needed for prompt derivation and tracking.
 #[derive(Debug, Clone)]
 pub struct SubtaskSummary {
+    /// Title of the subtask.
     pub title: String,
+    /// Execution mode for the subtask.
     pub mode: CoreTaskMode,
+    /// Current status of the subtask.
     pub status: TaskStatus,
+    /// Order of the subtask in the task list.
     pub order: i32,
 }
 
 impl SubtaskSummary {
+    /// Creates a subtask summary from a full agent task.
+    ///
+    /// # Arguments
+    ///
+    /// * `subtask` - The agent task to create a summary from.
     pub fn from_subtask(subtask: &crate::core::agent::entities::AgentTask) -> Self {
         Self {
             title: subtask.title.clone(),

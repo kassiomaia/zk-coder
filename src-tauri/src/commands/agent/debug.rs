@@ -4,6 +4,7 @@ use super::AgentState;
 
 const TRACE_WINDOW_LABEL: &str = "agent-trace-dev";
 
+/// Response containing execution debug data for the trace window.
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionDebugResponse {
