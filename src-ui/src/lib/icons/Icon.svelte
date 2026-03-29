@@ -11,38 +11,38 @@
     import type {SVGAttributes} from 'svelte/elements';
 
     interface Props {
-		/** Icon width in pixels */
-		size?: number;
-		/** Additional CSS classes */
-		class?: string;
-		/** SVG stroke width (default: 2) */
-		strokeWidth?: number;
-		/** Whether to apply currentColor (default: true) */
-		colored?: boolean;
-		/** ARIA label for accessibility */
-		'aria-label'?: string;
-		/** ARIA hidden attribute */
-		'aria-hidden'?: SVGAttributes<SVGSVGElement>['aria-hidden'];
-		/** HTML id attribute */
-		id?: string;
-		/** Children snippet for SVG content */
-		children?: import('svelte').Snippet;
-	}
+    /** Icon width in pixels */
+    size?: number;
+    /** Additional CSS classes */
+    class?: string;
+    /** SVG stroke width (default: 2) */
+    strokeWidth?: number;
+    /** Whether to apply currentColor (default: true) */
+    colored?: boolean;
+    /** ARIA label for accessibility */
+    'aria-label'?: string;
+    /** ARIA hidden attribute */
+    'aria-hidden'?: SVGAttributes<SVGSVGElement>['aria-hidden'];
+    /** HTML id attribute */
+    id?: string;
+    /** Children snippet for SVG content */
+    children?: import('svelte').Snippet;
+  }
 
-	let {
-		size = 24,
-		class: className = '',
-		strokeWidth = 2,
-		colored = true,
-		'aria-label': ariaLabel,
-		'aria-hidden': ariaHidden,
-		id,
-		children
-	}: Props = $props();
+  let {
+    size = 24,
+    class: className = '',
+    strokeWidth = 2,
+    colored = true,
+    'aria-label': ariaLabel,
+    'aria-hidden': ariaHidden,
+    id,
+    children
+  }: Props = $props();
 
-	let stroke = $derived(colored ? 'currentColor' : 'none');
+  let stroke = $derived(colored ? 'currentColor' : 'none');
 </script>
 
 {#if children}
-	{@render children()}
+  {@render children()}
 {/if}

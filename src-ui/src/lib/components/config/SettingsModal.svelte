@@ -9,189 +9,189 @@
     import {availableModelsByOperation, configStore} from '$lib/stores/configStore';
     import {OPERATION_CONFIGS, type OperationType} from '$lib/types/config';
     import ModelCard from './ModelCard.svelte';
-	import ProviderIcon from './ProviderIcon.svelte';
-	import OperationIcon from './OperationIcon.svelte';
-	import Select from '../shared/Select.svelte';
-	import {AlertCircleIcon, BoxIcon, CheckIcon, UserIcon} from '$lib/icons';
+  import ProviderIcon from './ProviderIcon.svelte';
+  import OperationIcon from './OperationIcon.svelte';
+  import Select from '../shared/Select.svelte';
+  import {AlertCircleIcon, BoxIcon, CheckIcon, UserIcon} from '$lib/icons';
 
     import {createLogger} from '$lib/utils/logger';
 
     const log = createLogger('SettingsModal');
 
-	interface Props {
-		open: boolean;
-		onclose: () => void;
-		onconfigure: (providerId: string) => void;
-		onaddcustom: () => void;
-		onremoveprovider?: (providerId: string) => void;
-	}
+  interface Props {
+    open: boolean;
+    onclose: () => void;
+    onconfigure: (providerId: string) => void;
+    onaddcustom: () => void;
+    onremoveprovider?: (providerId: string) => void;
+  }
 
-	let { open, onclose, onconfigure, onaddcustom, onremoveprovider }: Props = $props();
+  let { open, onclose, onconfigure, onaddcustom, onremoveprovider }: Props = $props();
 
-	// Derived reactive map of selected model IDs by operation
-	// Using $derived ensures Svelte 5 properly tracks $configStore.operationDefaults changes
-	let selectedModelIds = $derived.by(() => {
-		const map = new Map<OperationType, string | null>();
-		for (const d of $configStore.operationDefaults) {
-			map.set(d.operation, d.modelId);
-		}
-		return map;
-	});
+  // Derived reactive map of selected model IDs by operation
+  // Using $derived ensures Svelte 5 properly tracks $configStore.operationDefaults changes
+  let selectedModelIds = $derived.by(() => {
+    const map = new Map<OperationType, string | null>();
+    for (const d of $configStore.operationDefaults) {
+      map.set(d.operation, d.modelId);
+    }
+    return map;
+  });
 
-	// Helper to get short name for selected model badge
-	function getSelectedModelShortName(operation: OperationType, modelId: string | null): string | null {
-		if (!modelId) return null;
+  // Helper to get short name for selected model badge
+  function getSelectedModelShortName(operation: OperationType, modelId: string | null): string | null {
+    if (!modelId) return null;
 
-		// Find the model in available models
-		const models = $availableModelsByOperation[operation];
-		const model = models.find((m) => m.id === modelId);
-		if (!model) return null;
+    // Find the model in available models
+    const models = $availableModelsByOperation[operation];
+    const model = models.find((m) => m.id === modelId);
+    if (!model) return null;
 
-		// Return shortened name (e.g., "Claude Opus" -> "Opus")
-		const shortNames: Record<string, string> = {
-			'claude opus': 'Opus',
-			'claude sonnet': 'Sonnet',
-			'claude haiku': 'Haiku',
-			'gpt-4 turbo': 'GPT-4T',
-			'gpt-4': 'GPT-4',
-			'gemini ultra': 'GemU',
-			'gemini pro': 'GemP'
-		};
-		return shortNames[model.name.toLowerCase()] ?? model.name.split(' ').pop();
-	}
+    // Return shortened name (e.g., "Claude Opus" -> "Opus")
+    const shortNames: Record<string, string> = {
+      'claude opus': 'Opus',
+      'claude sonnet': 'Sonnet',
+      'claude haiku': 'Haiku',
+      'gpt-4 turbo': 'GPT-4T',
+      'gpt-4': 'GPT-4',
+      'gemini ultra': 'GemU',
+      'gemini pro': 'GemP'
+    };
+    return shortNames[model.name.toLowerCase()] ?? model.name.split(' ').pop();
+  }
 
-	async function handleSelectModel(operation: OperationType, modelId: string) {
-		try {
-			await configStore.setOperationDefault(operation, modelId);
-		} catch (error) {
-			log.error('Failed to set operation default:', error);
-		}
-	}
+  async function handleSelectModel(operation: OperationType, modelId: string) {
+    try {
+      await configStore.setOperationDefault(operation, modelId);
+    } catch (error) {
+      log.error('Failed to set operation default:', error);
+    }
+  }
 
-	async function handleRemoveProvider(providerId: string) {
-		if (onremoveprovider) {
-			onremoveprovider(providerId);
-		} else {
-			try {
-				await configStore.removeProvider(providerId);
-			} catch (error) {
-				log.error('Failed to remove provider:', error);
-			}
-		}
-	}
+  async function handleRemoveProvider(providerId: string) {
+    if (onremoveprovider) {
+      onremoveprovider(providerId);
+    } else {
+      try {
+        await configStore.removeProvider(providerId);
+      } catch (error) {
+        log.error('Failed to remove provider:', error);
+      }
+    }
+  }
 
-	// Debug logging when modal opens (only in development)
-	$effect(() => {
-		if (open) {
-			log.debug('Modal opened');
-			log.debug('Providers in store:', $configStore.providers);
-			log.debug('Providers count:', $configStore.providers.length);
-			log.debug(
-				'Provider IDs:',
-				$configStore.providers.map((p) => p.id)
-			);
-		}
-	});
+  // Debug logging when modal opens (only in development)
+  $effect(() => {
+    if (open) {
+      log.debug('Modal opened');
+      log.debug('Providers in store:', $configStore.providers);
+      log.debug('Providers count:', $configStore.providers.length);
+      log.debug(
+        'Provider IDs:',
+        $configStore.providers.map((p) => p.id)
+      );
+    }
+  });
 </script>
 
 <Modal title="Settings" {open} size="xl" {onclose}>
-	{#snippet children()}
-		<div class={styles.sections}>
-			<!-- Providers Section -->
-			<section class="modal-section {styles.section}">
-				<header class={styles.sectionHeader}>
-					<div class={styles.sectionTitleGroup}>
-						<div class={styles.sectionIcon}>
-							<UserIcon size={16} />
-						</div>
-						<h3 class={styles.sectionTitle}>Providers</h3>
-					</div>
-					<Button variant="ghost" size="sm" onclick={onaddcustom}>Add Provider</Button>
-				</header>
+  {#snippet children()}
+    <div class={styles.sections}>
+      <!-- Providers Section -->
+      <section class="modal-section {styles.section}">
+        <header class={styles.sectionHeader}>
+          <div class={styles.sectionTitleGroup}>
+            <div class={styles.sectionIcon}>
+              <UserIcon size={16} />
+            </div>
+            <h3 class={styles.sectionTitle}>Providers</h3>
+          </div>
+          <Button variant="ghost" size="sm" onclick={onaddcustom}>Add Provider</Button>
+        </header>
 
-				<div class={styles.providersList}>
-					{#each $configStore.providers.filter(p => p.isConfigured) as provider (provider.id)}
-						<div class={styles.providerItem}>
-							<div class={styles.providerInfo}>
-								<div class={styles.providerIconWrapper}>
-									<ProviderIcon {provider} size={20} />
-								</div>
-								<div class={styles.providerDetails}>
-									<div class={styles.providerName}>{provider.name}</div>
-									<div class={styles.apiType}>{provider.apiType}</div>
-								</div>
-							</div>
-							<div class={styles.providerActions}>
-								<span class={styles.configuredBadge}>
-									<CheckIcon size={14} />
-									Connected
-								</span>
-								<Button variant="ghost" size="sm" onclick={() => onconfigure(provider.id)}>
-									Edit
-								</Button>
-								{#if provider.isCustom}
-									<Button
-										variant="ghost"
-										size="sm"
-										onclick={() => handleRemoveProvider(provider.id)}
-									>
-										Remove
-									</Button>
-								{/if}
-							</div>
-						</div>
-					{/each}
+        <div class={styles.providersList}>
+          {#each $configStore.providers.filter(p => p.isConfigured) as provider (provider.id)}
+            <div class={styles.providerItem}>
+              <div class={styles.providerInfo}>
+                <div class={styles.providerIconWrapper}>
+                  <ProviderIcon {provider} size={20} />
+                </div>
+                <div class={styles.providerDetails}>
+                  <div class={styles.providerName}>{provider.name}</div>
+                  <div class={styles.apiType}>{provider.apiType}</div>
+                </div>
+              </div>
+              <div class={styles.providerActions}>
+                <span class={styles.configuredBadge}>
+                  <CheckIcon size={14} />
+                  Connected
+                </span>
+                <Button variant="ghost" size="sm" onclick={() => onconfigure(provider.id)}>
+                  Edit
+                </Button>
+                {#if provider.isCustom}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onclick={() => handleRemoveProvider(provider.id)}
+                  >
+                    Remove
+                  </Button>
+                {/if}
+              </div>
+            </div>
+          {/each}
 
-					{#if $configStore.providers.filter(p => p.isConfigured).length === 0}
-						<div class={styles.emptyState}>
-							<span>No providers configured. Add a provider to get started.</span>
-						</div>
-					{/if}
-				</div>
+          {#if $configStore.providers.filter(p => p.isConfigured).length === 0}
+            <div class={styles.emptyState}>
+              <span>No providers configured. Add a provider to get started.</span>
+            </div>
+          {/if}
+        </div>
 
-			</section>
+      </section>
 
-			<!-- Models Section -->
-			<section class="modal-section {styles.section}">
-				<header class={styles.sectionHeader}>
-					<div class={styles.sectionTitleGroup}>
-						<div class={styles.sectionIcon}>
-							<BoxIcon size={16} />
-						</div>
-						<h3 class={styles.sectionTitle}>Default Models</h3>
-					</div>
-				</header>
+      <!-- Models Section -->
+      <section class="modal-section {styles.section}">
+        <header class={styles.sectionHeader}>
+          <div class={styles.sectionTitleGroup}>
+            <div class={styles.sectionIcon}>
+              <BoxIcon size={16} />
+            </div>
+            <h3 class={styles.sectionTitle}>Default Models</h3>
+          </div>
+        </header>
 
-				{#each OPERATION_CONFIGS as op (op.id)}
-					{@const availableModels = $availableModelsByOperation[op.id]}
-					{@const selectedModelId = selectedModelIds.get(op.id)}
-					{@const options = availableModels.map((m) => ({value: m.id, label: m.name}))}
+        {#each OPERATION_CONFIGS as op (op.id)}
+          {@const availableModels = $availableModelsByOperation[op.id]}
+          {@const selectedModelId = selectedModelIds.get(op.id)}
+          {@const options = availableModels.map((m) => ({value: m.id, label: m.name}))}
 
-					<div class={styles.operationGroup}>
-						<div class={styles.operationHeader}>
-							<div class={styles.operationIcon}>
-								<OperationIcon type={op.id} size={16} color={op.color} />
-							</div>
-							<div class={styles.operationInfo}>
-								<span class={styles.operationName}>{op.name}</span>
-								<span class={styles.operationDesc}>{op.description}</span>
-							</div>
-						</div>
+          <div class={styles.operationGroup}>
+            <div class={styles.operationHeader}>
+              <div class={styles.operationIcon}>
+                <OperationIcon type={op.id} size={16} color={op.color} />
+              </div>
+              <div class={styles.operationInfo}>
+                <span class={styles.operationName}>{op.name}</span>
+                <span class={styles.operationDesc}>{op.description}</span>
+              </div>
+            </div>
 
-						<div class={styles.modelSelectWrapper}>
-							<Select
-								value={selectedModelId ?? ''}
-								{options}
-								placeholder={availableModels.length === 0 ? "No models available - configure provider" : "Select a model"}
-								disabled={availableModels.length === 0}
-								onchange={(val) => handleSelectModel(op.id, val)}
-							/>
-						</div>
-					</div>
-				{/each}
+            <div class={styles.modelSelectWrapper}>
+              <Select
+                value={selectedModelId ?? ''}
+                {options}
+                placeholder={availableModels.length === 0 ? "No models available - configure provider" : "Select a model"}
+                disabled={availableModels.length === 0}
+                onchange={(val) => handleSelectModel(op.id, val)}
+              />
+            </div>
+          </div>
+        {/each}
 
-			</section>
+      </section>
 
-		</div>
-	{/snippet}
+    </div>
+  {/snippet}
 </Modal>

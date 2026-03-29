@@ -12,7 +12,7 @@ import styles from './ThinkingMessage.module.css';
 import {CheckCircle, ChevronDown, ChevronUp} from 'lucide-svelte';
 
 interface Props {
-	message: Message;
+  message: Message;
 }
 
 let { message }: Props = $props();
@@ -29,75 +29,75 @@ let collapsed = $state(false);
 
 // Auto-expand when we have reasoning content and are streaming
 $effect(() => {
-	if (isStreaming && reasoning) {
-		collapsed = false;
-	}
+  if (isStreaming && reasoning) {
+    collapsed = false;
+  }
 });
 
 function toggleCollapse() {
-	collapsed = !collapsed;
+  collapsed = !collapsed;
 }
 </script>
 
 <div class={[styles.thinkingMessage, collapsed && styles.collapsed, isComplete && styles.isComplete].filter(Boolean).join(' ')}>
-	<button
-		class={styles.header}
-		onclick={toggleCollapse}
-		type="button"
-		aria-label={collapsed ? 'Expand thinking' : 'Collapse thinking'}
-		aria-expanded={!collapsed}
-	>
-		<span class={styles.iconContainer}>
-			{#if isComplete}
-				<CheckCircle size={12} class={styles.checkIcon} />
-			{:else}
-				<span class={styles.spinner}></span>
-			{/if}
-		</span>
-		<span class={styles.label}>{isComplete ? 'Thought for a few seconds' : content}</span>
+  <button
+    class={styles.header}
+    onclick={toggleCollapse}
+    type="button"
+    aria-label={collapsed ? 'Expand thinking' : 'Collapse thinking'}
+    aria-expanded={!collapsed}
+  >
+    <span class={styles.iconContainer}>
+      {#if isComplete}
+        <CheckCircle size={12} class={styles.checkIcon} />
+      {:else}
+        <span class={styles.spinner}></span>
+      {/if}
+    </span>
+    <span class={styles.label}>{isComplete ? 'Thought for a few seconds' : content}</span>
 
-		{#if modelName}
-			<span class={styles.modelTag}>{modelName}</span>
-		{/if}
+    {#if modelName}
+      <span class={styles.modelTag}>{modelName}</span>
+    {/if}
 
-		<span class={styles.toggle}>
-			{#if collapsed}
-				<ChevronDown size={14} />
-			{:else}
-				<ChevronUp size={14} />
-			{/if}
-		</span>
-	</button>
+    <span class={styles.toggle}>
+      {#if collapsed}
+        <ChevronDown size={14} />
+      {:else}
+        <ChevronUp size={14} />
+      {/if}
+    </span>
+  </button>
 
-	{#if !collapsed && (reasoning || isStreaming)}
-		<div class={styles.content}>
-			{#if reasoning}
-				<div class={styles.reasoning}>
-					{reasoning}
-				</div>
-			{:else if isStreaming}
-				<div class={styles.streamingIndicator}>
-					<span class={styles.streamingText}>Thinking...</span>
-				</div>
-			{/if}
-		</div>
-	{/if}
+  {#if !collapsed && (reasoning || isStreaming)}
+    <div class={styles.content}>
+      {#if reasoning}
+        <div class={styles.reasoning}>
+          {reasoning}
+        </div>
+      {:else if isStreaming}
+        <div class={styles.streamingIndicator}>
+          <span class={styles.streamingText}>Thinking...</span>
+        </div>
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <style>
-	:global(.lucide-cpu) {
-		animation: pulse 2s ease-in-out infinite;
-	}
+  :global(.lucide-cpu) {
+    animation: pulse 2s ease-in-out infinite;
+  }
 
-	@keyframes pulse {
-		0%,
-		100% {
-			opacity: 1;
-			transform: scale(1);
-		}
-		50% {
-			opacity: 0.7;
-			transform: scale(1.1);
-		}
-	}
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.1);
+    }
+  }
 </style>
