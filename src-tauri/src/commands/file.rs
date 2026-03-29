@@ -12,11 +12,17 @@ const FILE_DIFF_WINDOW_LABEL: &str = "file-diff";
 /// Response containing file content and diff information.
 #[derive(Debug, serde::Serialize)]
 pub struct FileContentResponse {
+    /// The file path.
     pub path: String,
+    /// Whether the file exists.
     pub exists: bool,
+    /// The current content of the file (if it exists).
     pub current_content: Option<String>,
+    /// The original content before agent modifications.
     pub original_content: Option<String>,
+    /// The diff between original and current content.
     pub diff: Option<String>,
+    /// Whether this is a new file (no original content).
     pub is_new: bool,
 }
 

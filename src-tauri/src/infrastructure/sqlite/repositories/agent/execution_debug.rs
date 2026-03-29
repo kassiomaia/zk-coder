@@ -8,6 +8,7 @@ use crate::core::agent::execution::{
     ExecutionPhase, ExecutionSnapshot, RuntimeTrace, RuntimeTraceType,
 };
 
+/// Converts an [`ExecutionPhase`] to a string representation for storage.
 fn phase_to_string(phase: ExecutionPhase) -> &'static str {
     match phase {
         ExecutionPhase::Bootstrapping => "bootstrapping",
@@ -22,6 +23,7 @@ fn phase_to_string(phase: ExecutionPhase) -> &'static str {
     }
 }
 
+/// Converts a stored string representation back to an [`ExecutionPhase`].
 fn string_to_phase(value: &str) -> ExecutionPhase {
     match value {
         "bootstrapping" => ExecutionPhase::Bootstrapping,
@@ -37,6 +39,7 @@ fn string_to_phase(value: &str) -> ExecutionPhase {
     }
 }
 
+/// Converts a [`RuntimeTraceType`] to a string representation for storage.
 fn trace_type_to_string(trace_type: &RuntimeTraceType) -> &'static str {
     match trace_type {
         RuntimeTraceType::ExecutionStarted => "execution_started",
@@ -61,6 +64,7 @@ fn trace_type_to_string(trace_type: &RuntimeTraceType) -> &'static str {
     }
 }
 
+/// Converts a stored string representation back to a [`RuntimeTraceType`].
 fn string_to_trace_type(value: &str) -> RuntimeTraceType {
     match value {
         "execution_started" => RuntimeTraceType::ExecutionStarted,
@@ -86,6 +90,11 @@ fn string_to_trace_type(value: &str) -> RuntimeTraceType {
     }
 }
 
+/// Saves an execution snapshot to the database.
+///
+/// # Errors
+///
+/// Returns an error if the database operation fails.
 pub fn save_execution_snapshot(
     conn: &Connection,
     snapshot: &ExecutionSnapshot,
@@ -124,6 +133,11 @@ pub fn save_execution_snapshot(
     Ok(())
 }
 
+/// Retrieves an execution snapshot by session ID.
+///
+/// # Errors
+///
+/// Returns an error if the database query fails.
 pub fn get_execution_snapshot(
     conn: &Connection,
     session_id: &str,
@@ -158,6 +172,11 @@ pub fn get_execution_snapshot(
     }))
 }
 
+/// Clears an execution snapshot from the database.
+///
+/// # Errors
+///
+/// Returns an error if the database operation fails.
 pub fn clear_execution_snapshot(
     conn: &Connection,
     session_id: &str,
@@ -169,6 +188,11 @@ pub fn clear_execution_snapshot(
     Ok(())
 }
 
+/// Appends a runtime trace entry to the database.
+///
+/// # Errors
+///
+/// Returns an error if the database operation fails.
 pub fn append_runtime_trace(
     conn: &Connection,
     trace: &RuntimeTrace,
@@ -191,6 +215,11 @@ pub fn append_runtime_trace(
     Ok(())
 }
 
+/// Retrieves runtime traces for a session, optionally limited to a specific count.
+///
+/// # Errors
+///
+/// Returns an error if the database query fails.
 pub fn get_runtime_traces(
     conn: &Connection,
     session_id: &str,
@@ -214,9 +243,8 @@ pub fn get_runtime_traces(
             subtask_id: row.get(3)?,
             step_number: row.get::<_, i64>(4)? as u32,
             trace_type: string_to_trace_type(&row.get::<_, String>(5)?),
-            payload_json: serde_json::from_str(&payload_json).map_err(|e| {
-                rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-            })?,
+            payload_json: serde_json::from_str(&payload_json)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             created_at: DateTime::parse_from_rfc3339(&created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),

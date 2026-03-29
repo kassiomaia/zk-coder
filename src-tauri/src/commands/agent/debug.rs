@@ -8,7 +8,9 @@ const TRACE_WINDOW_LABEL: &str = "agent-trace-dev";
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionDebugResponse {
+    /// Execution snapshot at the current point in time.
     pub snapshot: Option<crate::core::agent::execution::ExecutionSnapshot>,
+    /// Runtime trace events for the session.
     pub traces: Vec<crate::core::agent::execution::RuntimeTrace>,
 }
 

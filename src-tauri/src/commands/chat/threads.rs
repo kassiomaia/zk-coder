@@ -94,10 +94,13 @@ pub async fn set_thread_agent_session(
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadWithMessageResponse {
+    /// The created thread.
     pub thread: Thread,
+    /// The created message.
     pub message: ChatMessage,
 }
 
+/// Create a new thread with an initial message.
 #[tauri::command]
 pub async fn create_thread_with_message(
     conversation_id: String,

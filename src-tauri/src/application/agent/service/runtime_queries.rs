@@ -20,6 +20,7 @@ use super::store_error_to_domain;
 use super::AgentServiceImpl;
 
 impl AgentServiceImpl {
+    /// Spawn a new agent execution for a session.
     pub async fn spawn_execution(
         &self,
         session_id: String,
@@ -125,6 +126,7 @@ impl AgentServiceImpl {
         Ok(sid.0)
     }
 
+    /// Get pending approval actions for a session.
     pub async fn pending_actions_view(&self, session_id: &str) -> PendingActionsView {
         PendingActionsView {
             actions: self
@@ -134,16 +136,19 @@ impl AgentServiceImpl {
         }
     }
 
+    /// Get the catalog of available agents.
     pub async fn agent_catalog(&self) -> AgentCatalog {
         AgentCatalog {
             agents: self.registry.list().await,
         }
     }
 
+    /// Find a runtime agent by its ID.
     pub async fn find_runtime_agent(&self, agent_id: &str) -> Option<Agent> {
         self.registry.get(&self.to_agents_agent_id(agent_id)).await
     }
 
+    /// Load complete runtime details for a session including tasks, tool calls, and execution steps.
     pub fn load_session_runtime_details(
         &self,
         session_id: &str,
@@ -248,16 +253,19 @@ impl AgentServiceImpl {
         })
     }
 
+    /// Get file snapshots for a session.
     pub fn runtime_session_snapshots(&self, session_id: &str) -> Vec<FileSnapshot> {
         self.file_snapshot_registry
             .get_session_snapshots(session_id)
     }
 
+    /// Get the content of a file snapshot for a session.
     pub fn snapshot_content(&self, session_id: &str, path: &str) -> Option<String> {
         self.file_snapshot_registry
             .get_snapshot_content(session_id, path)
     }
 
+    /// Append a terminal output line for a session.
     pub fn append_terminal_line(
         &self,
         session_id: &str,
@@ -269,6 +277,7 @@ impl AgentServiceImpl {
             .map_err(store_error_to_domain)
     }
 
+    /// Load execution debug details including snapshots and runtime traces.
     pub fn load_execution_debug_details(
         &self,
         session_id: &str,

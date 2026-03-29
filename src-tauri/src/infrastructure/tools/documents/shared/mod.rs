@@ -28,6 +28,7 @@ pub type GlobalArtifactStore = Arc<Mutex<ArtifactStore>>;
 
 /// Extension trait to make draft store accessible from tools.
 pub trait DraftStoreExt {
+    /// Get the global draft store instance.
     fn get_draft_store() -> GlobalDraftStore;
 }
 

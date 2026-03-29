@@ -1,7 +1,8 @@
 //! SQLite storage for agent sessions and tasks.
 //!
-//! Persists agent sessions across app restarts so users can
-//! resume incomplete tasks.
+//! Persists agent sessions, tasks, subtasks, execution steps,
+//! runtime data, tool calls, and execution traces across app restarts
+//! so users can resume incomplete tasks.
 
 use std::sync::Mutex;
 
@@ -10,7 +11,8 @@ use rusqlite::Connection;
 
 use crate::core::agent::entities as core_entities;
 use crate::core::agent::repositories::{
-    ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository, TaskRepository,
+    ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
+    TaskRepository,
 };
 
 pub mod execution_debug;
@@ -25,12 +27,16 @@ pub use tool_calls::ToolCallEntry;
 /// Errors from the SQLite agent repositories.
 #[derive(Debug, thiserror::Error)]
 pub enum SessionRepositoryError {
+    /// SQLite database error.
     #[error("SQLite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
+    /// Session not found for the given ID.
     #[error("Session not found: {0}")]
     NotFound(String),
+    /// Failed to acquire database lock.
     #[error("Lock error: {0}")]
     LockError(String),
+    /// JSON serialization/deserialization error.
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 }
@@ -137,12 +143,12 @@ fn session_state_to_core(
             error_at: chrono::Utc::now(),
             error: message.clone(),
         },
-        AgentSessionState::Paused { paused_at, message, .. } => {
-            core_entities::SessionState::Paused {
-                paused_at: *paused_at,
-                message: message.clone(),
-            }
-        }
+        AgentSessionState::Paused {
+            paused_at, message, ..
+        } => core_entities::SessionState::Paused {
+            paused_at: *paused_at,
+            message: message.clone(),
+        },
     }
 }
 
@@ -677,7 +683,8 @@ impl SqliteSessionRepository {
     pub fn get_execution_snapshot(
         &self,
         session_id: &str,
-    ) -> Result<Option<crate::core::agent::execution::ExecutionSnapshot>, SessionRepositoryError> {
+    ) -> Result<Option<crate::core::agent::execution::ExecutionSnapshot>, SessionRepositoryError>
+    {
         let conn = self
             .conn
             .lock()

@@ -18,7 +18,9 @@ pub fn list_artifacts(
 
 /// List all artifacts across all sessions.
 #[tauri::command]
-pub fn list_all_artifacts(store: State<'_, Mutex<ArtifactStore>>) -> Result<Vec<ArtifactRef>, String> {
+pub fn list_all_artifacts(
+    store: State<'_, Mutex<ArtifactStore>>,
+) -> Result<Vec<ArtifactRef>, String> {
     let store = store.lock().map_err(|e| e.to_string())?;
     Ok(store.list_all_artifacts())
 }
@@ -34,7 +36,9 @@ pub fn download_artifact(
         .get_artifact_ref(&artifact_id)
         .ok_or_else(|| format!("Artifact not found: {}", artifact_id))?;
 
-    let content = store.get_artifact_content(&artifact_id).map_err(|e| e.to_string())?;
+    let content = store
+        .get_artifact_content(&artifact_id)
+        .map_err(|e| e.to_string())?;
 
     Ok((reference.filename.clone(), content))
 }
@@ -55,10 +59,15 @@ pub fn get_artifact(
 /// Arguments for saving an artifact.
 #[derive(Debug, serde::Deserialize)]
 pub struct SaveArtifactArgs {
+    /// The session ID associated with the artifact.
     pub session_id: String,
+    /// The type of artifact being saved.
     pub artifact_type: ArtifactType,
+    /// The filename for the artifact.
     pub filename: String,
+    /// The binary content of the artifact.
     pub content: Vec<u8>,
+    /// Optional metadata for the artifact.
     #[serde(default)]
     pub metadata: ArtifactMetadata,
 }
@@ -85,7 +94,9 @@ pub fn save_artifact(
 /// Arguments for updating artifact metadata.
 #[derive(Debug, serde::Deserialize)]
 pub struct UpdateMetadataArgs {
+    /// The ID of the artifact to update.
     pub artifact_id: String,
+    /// The new metadata to apply.
     pub metadata: ArtifactMetadata,
 }
 

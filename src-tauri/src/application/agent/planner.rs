@@ -14,8 +14,10 @@ use crate::core::agent::task::{Complexity, Plan, PlanStep};
 /// Planner errors.
 #[derive(Debug, thiserror::Error)]
 pub enum PlannerError {
+    /// LLM-related error during planning.
     #[error("LLM error: {0}")]
     Llm(String),
+    /// Failed to parse the generated plan.
     #[error("Failed to parse plan: {0}")]
     Parse(String),
 }

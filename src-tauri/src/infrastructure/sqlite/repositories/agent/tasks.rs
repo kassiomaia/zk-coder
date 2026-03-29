@@ -846,8 +846,14 @@ mod tests {
 
         // Check subtask status
         let subtasks = get_subtasks(&conn, &task.id).unwrap();
-        let completed = subtasks.iter().filter(|st| matches!(st.status, TaskStatus::Completed)).count();
-        let pending = subtasks.iter().filter(|st| matches!(st.status, TaskStatus::Pending | TaskStatus::InProgress)).count();
+        let completed = subtasks
+            .iter()
+            .filter(|st| matches!(st.status, TaskStatus::Completed))
+            .count();
+        let pending = subtasks
+            .iter()
+            .filter(|st| matches!(st.status, TaskStatus::Pending | TaskStatus::InProgress))
+            .count();
 
         assert_eq!(completed, 1);
         assert_eq!(pending, 2);
@@ -855,6 +861,9 @@ mod tests {
         // Task should still be incomplete (has pending subtasks)
         let tasks = get_session_tasks(&conn, &session_id).unwrap();
         let root_task = &tasks[0];
-        assert!(matches!(root_task.status, TaskStatus::Pending | TaskStatus::InProgress));
+        assert!(matches!(
+            root_task.status,
+            TaskStatus::Pending | TaskStatus::InProgress
+        ));
     }
 }

@@ -323,58 +323,86 @@ pub enum DraftStatus {
 /// A DOCX draft being incrementally built.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DocxDraft {
+    /// Unique identifier for the document.
     pub document_id: String,
+    /// The filename for the document.
     pub filename: String,
+    /// Sections contained in the document.
     pub sections: Vec<DraftSection>,
+    /// Current status of the draft.
     pub status: DraftStatus,
+    /// Timestamp when the draft was created.
     pub created_at: DateTime<Utc>,
+    /// Timestamp when the draft was last updated.
     pub updated_at: DateTime<Utc>,
 }
 
 /// A PPTX draft being incrementally built.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PptxDraft {
+    /// Unique identifier for the presentation deck.
     pub deck_id: String,
+    /// The filename for the presentation.
     pub filename: String,
+    /// Slides contained in the presentation.
     pub slides: Vec<DraftSlide>,
+    /// Current status of the draft.
     pub status: DraftStatus,
+    /// Timestamp when the draft was created.
     pub created_at: DateTime<Utc>,
+    /// Timestamp when the draft was last updated.
     pub updated_at: DateTime<Utc>,
 }
 
 /// A PDF draft being incrementally built.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PdfDraft {
+    /// Unique identifier for the PDF.
     pub pdf_id: String,
+    /// The filename for the PDF.
     pub filename: String,
+    /// Pages contained in the PDF.
     pub pages: Vec<DraftPage>,
+    /// The page size for the PDF.
     pub page_size: PdfPageSize,
+    /// Current status of the draft.
     pub status: DraftStatus,
+    /// Timestamp when the draft was created.
     pub created_at: DateTime<Utc>,
+    /// Timestamp when the draft was last updated.
     pub updated_at: DateTime<Utc>,
 }
 
 /// A section within a DOCX draft.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DraftSection {
+    /// Unique identifier for the section.
     pub id: String,
+    /// Index of the section in the document.
     pub index: usize,
+    /// Content of the section.
     pub content: DocxContent,
 }
 
 /// A slide within a PPTX draft.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DraftSlide {
+    /// Unique identifier for the slide.
     pub id: String,
+    /// Index of the slide in the presentation.
     pub index: usize,
+    /// The slide content.
     pub slide: PptxSlide,
 }
 
 /// A page within a PDF draft.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DraftPage {
+    /// Unique identifier for the page.
     pub id: String,
+    /// Index of the page in the PDF.
     pub index: usize,
+    /// Content of the page.
     pub content: PdfPageContent,
 }
 
@@ -384,55 +412,89 @@ pub struct DraftPage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum DocxContent {
+    /// A heading with a specified level.
     Heading {
+        /// The heading level (1-9).
         level: u8,
+        /// The heading text.
         text: String,
+        /// Whether to insert a page break before this heading.
         page_break_before: bool,
     },
+    /// A paragraph of text.
     Paragraph {
+        /// The paragraph text.
         text: String,
+        /// Optional paragraph style.
         style: Option<String>,
     },
+    /// A bullet list.
     BulletList {
+        /// List items.
         items: Vec<String>,
     },
+    /// A numbered list.
     NumberedList {
+        /// List items.
         items: Vec<String>,
+        /// Number to start counting from.
         start_at: Option<u32>,
     },
+    /// A table with headers and rows.
     Table {
+        /// Column headers.
         headers: Vec<String>,
+        /// Table rows.
         rows: Vec<Vec<String>>,
+        /// Optional table caption.
         caption: Option<String>,
     },
+    /// An image.
     Image {
+        /// Path to the image file.
         path: String,
+        /// Optional image caption.
         caption: Option<String>,
+        /// Optional image width.
         width: Option<String>,
     },
+    /// A page break.
     PageBreak,
+    /// A horizontal rule.
     HorizontalRule,
 }
 
 /// A slide in a PPTX presentation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PptxSlide {
+    /// The layout type for the slide.
     pub layout: SlideLayout,
+    /// The title of the slide.
     pub title: String,
+    /// Content elements on the slide.
     pub content: Vec<SlideContent>,
+    /// Speaker notes for the slide.
     pub notes: Option<String>,
 }
 
 /// Slide layout types.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SlideLayout {
+    /// Title slide layout.
     TitleSlide,
+    /// Title and content layout.
     TitleAndContent,
+    /// Section header layout.
     SectionHeader,
+    /// Two column layout.
     TwoColumn,
+    /// Two content areas layout.
     TwoContent,
+    /// Comparison layout.
     Comparison,
+    /// Content with caption layout.
     ContentWithCaption,
+    /// Blank layout.
     Blank,
 }
 
@@ -440,33 +502,48 @@ pub enum SlideLayout {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum SlideContent {
+    /// Title content element.
     Title,
+    /// Subtitle content element.
     Subtitle,
+    /// A text box with content.
     TextBox {
+        /// The text content.
         text: String,
+        /// Optional position on the slide.
         position: Option<String>,
     },
+    /// A bullet list.
     BulletList {
+        /// List items.
         items: Vec<String>,
+        /// Nesting level of the list.
         level: u8,
     },
     /// A numbered list with ordered items.
     NumberedList {
+        /// List items.
         items: Vec<String>,
     },
     /// A table with headers and rows.
     Table {
+        /// Column headers.
         headers: Vec<String>,
+        /// Table rows.
         rows: Vec<Vec<String>>,
     },
     /// An image with optional caption.
     Image {
+        /// Path to the image file.
         path: String,
+        /// Optional image caption.
         caption: Option<String>,
     },
     /// A placeholder for a chart with specified data type.
     ChartPlaceholder {
+        /// Title for the chart.
         title: String,
+        /// Type of chart data.
         data_type: String,
     },
 }
@@ -476,17 +553,27 @@ pub enum SlideContent {
 #[serde(tag = "type")]
 pub enum PdfPageContent {
     /// Markdown formatted content.
-    Markdown { content: String },
+    Markdown {
+        /// The markdown content.
+        content: String,
+    },
     /// HTML formatted content with optional styles.
     Html {
+        /// The HTML content.
         content: String,
+        /// Optional CSS styles.
         styles: Option<String>,
     },
     /// Plain text content.
-    Text { content: String },
+    Text {
+        /// The text content.
+        content: String,
+    },
     /// An image with optional caption.
     Image {
+        /// Path to the image file.
         path: String,
+        /// Optional image caption.
         caption: Option<String>,
     },
 }
@@ -510,18 +597,23 @@ pub enum PdfPageSize {
 /// Errors that can occur in draft operations.
 #[derive(Debug, thiserror::Error)]
 pub enum DraftError {
+    /// The requested draft was not found.
     #[error("Draft not found: {0}")]
     DraftNotFound(String),
 
+    /// The draft is not in Building status and cannot be modified.
     #[error("Draft is not in Building status, current status: {0:?}")]
     NotBuilding(DraftStatus),
 
+    /// The requested section was not found.
     #[error("Section not found: {0}")]
     SectionNotFound(String),
 
+    /// The requested slide was not found.
     #[error("Slide not found: {0}")]
     SlideNotFound(String),
 
+    /// The requested page was not found.
     #[error("Page not found: {0}")]
     PageNotFound(String),
 }

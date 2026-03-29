@@ -8,13 +8,21 @@ use crate::core::agent::session::SessionId;
 /// Database entry for a tool call.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ToolCallEntry {
+    /// Unique identifier for the tool call.
     pub id: String,
+    /// Session identifier.
     pub session_id: String,
+    /// Name of the tool that was called.
     pub tool_name: String,
+    /// Arguments passed to the tool.
     pub arguments: serde_json::Value,
+    /// Result returned by the tool, if available.
     pub result: Option<serde_json::Value>,
+    /// Whether the tool call resulted in an error.
     pub is_error: bool,
+    /// Duration of the tool call in milliseconds.
     pub duration_ms: Option<i64>,
+    /// Optional subtask identifier if this call was made within a subtask.
     pub subtask_id: Option<String>,
 }
 

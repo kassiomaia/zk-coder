@@ -12,6 +12,7 @@ use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
 
 /// Application state for agent commands.
 pub struct AgentState {
+    /// The agent service implementation.
     pub service: Arc<AgentServiceImpl>,
 }
 

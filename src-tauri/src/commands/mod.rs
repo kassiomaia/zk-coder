@@ -44,6 +44,8 @@ pub fn get_app_info() -> AppInfo {
 /// Application information structure.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppInfo {
+    /// The application name.
     pub name: String,
+    /// The application version.
     pub version: String,
 }

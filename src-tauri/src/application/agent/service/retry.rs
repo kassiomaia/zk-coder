@@ -54,10 +54,14 @@ impl AgentServiceImpl {
         Ok(content)
     }
 
+    /// Check if an error message indicates a recoverable error.
+    ///
+    /// Recoverable errors are prefixed with `[recoverable]`.
     pub fn is_recoverable_error_message(message: &str) -> bool {
         message.starts_with("[recoverable]")
     }
 
+    /// Remove the `[recoverable]` prefix from an error message if present.
     pub fn strip_recoverable_prefix(message: &str) -> String {
         message
             .strip_prefix("[recoverable]")

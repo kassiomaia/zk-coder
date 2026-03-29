@@ -12,21 +12,32 @@ use crate::core::agent::session::SessionId;
 /// Database entry for a file touched during a session.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct TouchedFileEntry {
+    /// Unique identifier for the file touch entry.
     pub id: String,
+    /// Session identifier.
     pub session_id: String,
+    /// Path to the file that was touched.
     pub file_path: String,
+    /// Action performed on the file (e.g., "read", "write", "delete").
     pub action: String,
+    /// Optional diff of changes made to the file.
     pub diff: Option<String>,
+    /// Timestamp when the file was touched.
     pub timestamp: String,
 }
 
 /// Database entry for a terminal output line.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct TerminalLineEntry {
+    /// Unique identifier for the terminal line entry.
     pub id: String,
+    /// Session identifier.
     pub session_id: String,
+    /// Type of line (e.g., "stdout", "stderr").
     pub line_type: String,
+    /// Content of the terminal line.
     pub content: String,
+    /// Timestamp when the line was output.
     pub timestamp: String,
 }
 

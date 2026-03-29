@@ -16,29 +16,42 @@ use uuid::Uuid;
 /// Errors that can occur during artifact operations.
 #[derive(Debug, Error)]
 pub enum ArtifactError {
+    /// IO error during file operations.
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
 
+    /// Artifact was not found in the store.
     #[error("Artifact not found: {0}")]
     NotFound(String),
 
+    /// Path validation failed for security reasons.
     #[error("Path validation failed: {0}")]
     PathValidation(String),
 
+    /// The artifact data is invalid or corrupted.
     #[error("Invalid artifact data")]
     InvalidData,
 
+    /// The artifact exceeds the allowed size limit.
     #[error("Size limit exceeded: {size} bytes (max: {max} bytes)")]
-    SizeLimitExceeded { size: u64, max: u64 },
+    SizeLimitExceeded {
+        /// The actual size of the artifact in bytes.
+        size: u64,
+        /// The maximum allowed size in bytes.
+        max: u64,
+    },
 }
 
 /// Type of document artifact.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ArtifactType {
+    /// Microsoft Word document.
     #[serde(rename = "Docx")]
     Docx,
+    /// Microsoft PowerPoint presentation.
     #[serde(rename = "Pptx")]
     Pptx,
+    /// PDF document.
     #[serde(rename = "Pdf")]
     Pdf,
 }
@@ -110,22 +123,22 @@ impl Default for ArtifactMetadata {
 /// Reference to an artifact (lightweight, for listing).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtifactRef {
-    /// Unique artifact ID
+    /// Unique artifact ID.
     pub id: String,
-    /// Session ID this artifact belongs to
+    /// Session ID this artifact belongs to.
     pub session_id: String,
-    /// Type of artifact
+    /// Type of artifact.
     pub artifact_type: ArtifactType,
-    /// Filename
+    /// Filename.
     pub filename: String,
-    /// Size in bytes
+    /// Size in bytes.
     pub size_bytes: u64,
-    /// Creation timestamp
+    /// Creation timestamp.
     pub created_at: DateTime<Utc>,
-    /// Optional metadata
+    /// Optional metadata.
     #[serde(default)]
     pub metadata: ArtifactMetadata,
-    /// Path to the artifact file
+    /// Path to the artifact file.
     pub path: PathBuf,
 }
 
@@ -206,9 +219,7 @@ impl ArtifactStore {
 
     /// Validate that a path is within the allowed base directory.
     fn validate_path(&self, path: &Path) -> Result<(), ArtifactError> {
-        let canonical = path
-            .canonicalize()
-            .unwrap_or_else(|_| path.to_path_buf());
+        let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
         let base = self
             .base_path
             .canonicalize()
@@ -224,7 +235,10 @@ impl ArtifactStore {
     }
 
     /// Validate file magic bytes for the given type.
-    fn validate_magic_bytes(content: &[u8], artifact_type: &ArtifactType) -> Result<(), ArtifactError> {
+    fn validate_magic_bytes(
+        content: &[u8],
+        artifact_type: &ArtifactType,
+    ) -> Result<(), ArtifactError> {
         if content.len() < 4 {
             return Err(ArtifactError::InvalidData);
         }
@@ -423,14 +437,16 @@ impl ArtifactStore {
         // Remove session directory
         let count = if session_path.exists() {
             fs::remove_dir_all(&session_path)?;
-            self.session_artifacts.remove(session_id).map(|v| v.len()).unwrap_or(0)
+            self.session_artifacts
+                .remove(session_id)
+                .map(|v| v.len())
+                .unwrap_or(0)
         } else {
             0
         };
 
         // Remove artifacts from index
-        self.artifacts
-            .retain(|_, r| r.session_id != session_id);
+        self.artifacts.retain(|_, r| r.session_id != session_id);
 
         Ok(count)
     }

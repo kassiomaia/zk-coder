@@ -4,6 +4,14 @@ use rusqlite::Connection;
 
 use crate::infrastructure::sqlite::repositories::nlp_context::ContextRepositoryError;
 
+/// Initializes the database schema for NLP context persistence.
+///
+/// Creates tables for context windows and context messages.
+/// This should be called once when the database is first created.
+///
+/// # Errors
+///
+/// Returns an error if the SQL statements fail to execute.
 pub fn init_schema(conn: &Connection) -> Result<(), ContextRepositoryError> {
     conn.execute_batch(
         r#"

@@ -30,9 +30,13 @@ pub use self::traits::{Tool, ToolCategory, ToolFuture};
 /// Orchestrator tool result (internal type).
 #[derive(Debug, Clone)]
 pub struct OrchestratorToolResult {
+    /// The unique identifier for this tool call.
     pub call_id: String,
+    /// The name of the tool that was called.
     pub name: String,
+    /// The JSON output from the tool execution.
     pub output: serde_json::Value,
+    /// Whether the tool execution resulted in an error.
     pub is_error: bool,
 }
 

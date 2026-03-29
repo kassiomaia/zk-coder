@@ -1,4 +1,7 @@
 //! SQLite repository for conversation context windows.
+//!
+//! This module provides persistence for NLP context windows using SQLite.
+//! It stores conversation messages and metadata for context-aware AI interactions.
 
 use std::sync::Mutex;
 
@@ -220,12 +223,16 @@ fn parse_datetime(s: &str) -> DateTime<Utc> {
 /// Errors from the context repository.
 #[derive(Debug, Error)]
 pub enum ContextRepositoryError {
+    /// SQLite database error.
     #[error("SQLite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
+    /// Context window not found for the given conversation ID.
     #[error("Context not found: {0}")]
     NotFound(String),
+    /// Failed to acquire database lock.
     #[error("Lock error: {0}")]
     LockError(String),
+    /// JSON serialization/deserialization error.
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 }
