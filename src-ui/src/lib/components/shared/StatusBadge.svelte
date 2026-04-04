@@ -1,7 +1,9 @@
 <script lang="ts">
+	type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'default' | 'mono' | 'tag';
+
 	interface Props {
 		/** Badge variant */
-		variant?: 'success' | 'warning' | 'error' | 'info' | 'default' | 'mono';
+		variant?: BadgeVariant;
 		/** Badge text */
 		text: string;
 		/** Optional size */
