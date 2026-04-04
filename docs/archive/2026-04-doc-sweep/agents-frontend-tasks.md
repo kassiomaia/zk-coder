@@ -1,5 +1,7 @@
 # Frontend Implementation Tasks
 
+> **ARCHIVED (2026-04-04)**: Historical implementation checklist. Some component names and flows no longer match the current frontend structure.
+
 > **Parent**: [Implementation Plan](./IMPLEMENTATION-PLAN.md)
 > **Focus**: Svelte 5 + TypeScript changes in `src-ui/src/`
 
@@ -41,7 +43,7 @@
   import { fly, slide } from 'svelte/transition';
   import AgentPanel from '$lib/components/agent/AgentPanel.svelte';
   import type { AgentSession, PendingAction } from '$lib/types/agent';
-  
+
   interface Props {
     session: AgentSession | null;
     pendingActions: PendingAction[];
@@ -50,7 +52,7 @@
     panelOpen: boolean;
     onTogglePanel: () => void;
   }
-  
+
   let { session, pendingActions, onApprove, onDeny, panelOpen, onTogglePanel }: Props = $props();
 </script>
 
@@ -77,11 +79,11 @@
     overflow: hidden;
     border-left: 1px solid var(--color-border-primary);
   }
-  
+
   .agent-panel-wrapper.open {
     width: var(--agent-panel-width, 320px);
   }
-  
+
   .empty-panel {
     display: flex;
     align-items: center;
@@ -100,10 +102,10 @@ Add agent panel slot:
 <div class={styles.main}>
   <!-- Sidebar -->
   <div class={styles.sidebarWrapper}>...</div>
-  
+
   <!-- Chat content -->
   <div class={styles.content}>...</div>
-  
+
   <!-- NEW: Agent Panel -->
   <slot name="agent-panel" />
 </div>
@@ -121,7 +123,7 @@ Add agent panel slot:
   import TerminalView from './TerminalView.svelte';
   import ApprovalDialog from './ApprovalDialog.svelte';
   import type { AgentSession, PendingAction, ExecutionStep } from '$lib/types/agent';
-  
+
   interface Props {
     session: AgentSession;
     pendingActions: PendingAction[];
@@ -129,14 +131,14 @@ Add agent panel slot:
     onDeny: (actionId: string) => void;
     onclose: () => void;
   }
-  
+
   let { session, pendingActions, onApprove, onDeny, onclose }: Props = $props();
-  
+
   // Collapsible sections
   let tasksExpanded = $state(true);
   let filesExpanded = $state(true);
   let terminalExpanded = $state(false);
-  
+
   // Show approval dialog if pending actions exist
   let showApprovalDialog = $derived(pendingActions.length > 0);
   let currentApproval = $derived(pendingActions[0]);
@@ -149,7 +151,7 @@ Add agent panel slot:
       <ChevronDown size={16} />
     </button>
   </header>
-  
+
   <!-- Session state indicator -->
   <div class="session-state" class:waiting={session.state.type === 'user_input_required'}>
     {#if session.state.type === 'running'}
@@ -166,11 +168,11 @@ Add agent panel slot:
       <span>{session.state.type}</span>
     {/if}
   </div>
-  
+
   <!-- Task list -->
   <section class="panel-section">
-    <button 
-      class="section-header" 
+    <button
+      class="section-header"
       onclick={() => tasksExpanded = !tasksExpanded}
       type="button"
     >
@@ -184,11 +186,11 @@ Add agent panel slot:
       <TaskList tasks={session.tasks} />
     {/if}
   </section>
-  
+
   <!-- File tree -->
   <section class="panel-section">
-    <button 
-      class="section-header" 
+    <button
+      class="section-header"
       onclick={() => filesExpanded = !filesExpanded}
       type="button"
     >
@@ -200,17 +202,17 @@ Add agent panel slot:
       {/if}
     </button>
     {#if filesExpanded}
-      <FileTree 
-        files={session.filesTouched} 
+      <FileTree
+        files={session.filesTouched}
         onfileclick={(path) => console.log('Open file:', path)}
       />
     {/if}
   </section>
-  
+
   <!-- Terminal output -->
   <section class="panel-section terminal-section">
-    <button 
-      class="section-header" 
+    <button
+      class="section-header"
       onclick={() => terminalExpanded = !terminalExpanded}
       type="button"
     >
@@ -241,7 +243,7 @@ Add agent panel slot:
     background: var(--color-bg-secondary);
     font-size: var(--text-sm);
   }
-  
+
   .panel-header {
     display: flex;
     justify-content: space-between;
@@ -249,24 +251,24 @@ Add agent panel slot:
     padding: var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--color-border-primary);
   }
-  
+
   .panel-header h3 {
     font-size: var(--text-sm);
     font-weight: var(--font-medium);
     color: var(--color-text-primary);
   }
-  
+
   .close-btn {
     padding: var(--space-1);
     border-radius: var(--radius-sm);
     color: var(--color-text-muted);
   }
-  
+
   .close-btn:hover {
     background: var(--color-interactive-hover);
     color: var(--color-text-primary);
   }
-  
+
   .session-state {
     display: flex;
     align-items: center;
@@ -276,41 +278,41 @@ Add agent panel slot:
     font-size: var(--text-xs);
     color: var(--color-text-secondary);
   }
-  
+
   .session-state.waiting {
     background: var(--color-warning-light);
     color: var(--color-warning-dark);
   }
-  
+
   .status-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     background: var(--color-text-muted);
   }
-  
+
   .status-dot.running {
     background: var(--color-primary-400);
     animation: pulse 1.5s ease-in-out infinite;
   }
-  
+
   .status-dot.waiting {
     background: var(--color-warning);
   }
-  
+
   .status-dot.complete {
     background: var(--color-success);
   }
-  
+
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
   }
-  
+
   .panel-section {
     border-bottom: 1px solid var(--color-border-subtle);
   }
-  
+
   .section-header {
     display: flex;
     align-items: center;
@@ -324,11 +326,11 @@ Add agent panel slot:
     text-transform: uppercase;
     letter-spacing: var(--tracking-wide);
   }
-  
+
   .section-header:hover {
     background: var(--color-interactive-hover);
   }
-  
+
   .badge {
     margin-left: auto;
     padding: 0 var(--space-1-5);
@@ -337,7 +339,7 @@ Add agent panel slot:
     font-size: var(--text-2xs);
     color: var(--color-text-muted);
   }
-  
+
   .terminal-section {
     flex: 1;
     min-height: 0;
@@ -355,14 +357,14 @@ Add agent panel slot:
 <script lang="ts">
   import { CheckCircle, Circle, Loader2, XCircle } from 'lucide-svelte';
   import type { AgentTask, TaskStatus } from '$lib/types/agent';
-  
+
   interface Props {
     tasks: AgentTask[];
     ontaskclick?: (task: AgentTask) => void;
   }
-  
+
   let { tasks, ontaskclick }: Props = $props();
-  
+
   function getStatusIcon(status: TaskStatus) {
     switch (status) {
       case 'completed': return CheckCircle;
@@ -371,7 +373,7 @@ Add agent panel slot:
       default: return Circle;
     }
   }
-  
+
   function getStatusClass(status: TaskStatus): string {
     switch (status) {
       case 'completed': return 'completed';
@@ -384,7 +386,7 @@ Add agent panel slot:
 
 <div class="task-list">
   {#each tasks as task (task.id)}
-    <button 
+    <button
       class="task-item"
       class:selected={task.selected}
       onclick={() => ontaskclick?.(task)}
@@ -418,7 +420,7 @@ Add agent panel slot:
     gap: var(--space-1);
     padding: var(--space-2) var(--space-4);
   }
-  
+
   .task-item {
     display: flex;
     align-items: flex-start;
@@ -428,15 +430,15 @@ Add agent panel slot:
     text-align: left;
     width: 100%;
   }
-  
+
   .task-item:hover {
     background: var(--color-interactive-hover);
   }
-  
+
   .task-item.selected {
     background: var(--color-interactive-selected);
   }
-  
+
   .status-icon {
     flex-shrink: 0;
     display: flex;
@@ -444,35 +446,35 @@ Add agent panel slot:
     justify-content: center;
     color: var(--color-text-muted);
   }
-  
+
   .status-icon.completed {
     color: var(--color-success);
   }
-  
+
   .status-icon.running {
     color: var(--color-primary-400);
   }
-  
+
   .status-icon.failed {
     color: var(--color-error);
   }
-  
+
   .spinning {
     animation: spin 1s linear infinite;
   }
-  
+
   @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
-  
+
   .task-content {
     display: flex;
     flex-direction: column;
     gap: var(--space-0-5);
     min-width: 0;
   }
-  
+
   .task-title {
     font-size: var(--text-sm);
     color: var(--color-text-primary);
@@ -480,7 +482,7 @@ Add agent panel slot:
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  
+
   .task-description {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
@@ -488,7 +490,7 @@ Add agent panel slot:
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  
+
   .empty-state {
     padding: var(--space-4);
     text-align: center;
@@ -508,30 +510,30 @@ Add agent panel slot:
 <script lang="ts">
   import { File, FileCode, FileText, Folder, FolderOpen, ChevronRight, ChevronDown } from 'lucide-svelte';
   import type { TouchedFile } from '$lib/types/agent';
-  
+
   interface Props {
     files: TouchedFile[];
     onfileclick?: (path: string) => void;
   }
-  
+
   let { files, onfileclick }: Props = $props();
-  
+
   // Group files by directory
   let fileTree = $derived(buildFileTree(files));
-  
+
   function buildFileTree(files: TouchedFile[]): FileTreeNode {
     const root: FileTreeNode = { name: '', path: '', type: 'directory', children: [] };
-    
+
     for (const file of files) {
       const parts = file.path.split('/');
       let current = root;
-      
+
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
         const isFile = i === parts.length - 1;
-        
+
         let child = current.children?.find(c => c.name === part);
-        
+
         if (!child) {
           child = {
             name: part,
@@ -542,16 +544,16 @@ Add agent panel slot:
           };
           current.children?.push(child);
         }
-        
+
         if (!isFile) {
           current = child;
         }
       }
     }
-    
+
     return root;
   }
-  
+
   function getFileIcon(file: TouchedFile) {
     const ext = file.path.split('.').pop()?.toLowerCase();
     switch (ext) {
@@ -587,9 +589,9 @@ Add agent panel slot:
 
 {#snippet TreeNode(node: FileTreeNode, onfileclick: ((path: string) => void) | undefined, getFileIcon: (f: TouchedFile) => typeof File, depth: number)}
   {@const [expanded, setExpanded] = $state(node.type === 'directory' ? false : undefined)}
-  
+
   {#if node.type === 'directory'}
-    <button 
+    <button
       class="tree-node directory"
       style="padding-left: {12 + depth * 12}px"
       onclick={() => setExpanded(!expanded)}
@@ -604,14 +606,14 @@ Add agent panel slot:
       {/if}
       <span>{node.name}</span>
     </button>
-    
+
     {#if expanded && node.children}
       {#each node.children as child (child.path)}
         {@render TreeNode(child, onfileclick, getFileIcon, depth + 1)}
       {/each}
     {/if}
   {:else if node.file}
-    <button 
+    <button
       class="tree-node file"
       class:modified={node.file.modified}
       style="padding-left: {12 + depth * 12}px"
@@ -631,7 +633,7 @@ Add agent panel slot:
   .file-tree {
     padding: var(--space-2) var(--space-4);
   }
-  
+
   .tree-node {
     display: flex;
     align-items: center;
@@ -643,16 +645,16 @@ Add agent panel slot:
     border-radius: var(--radius-sm);
     text-align: left;
   }
-  
+
   .tree-node:hover {
     background: var(--color-interactive-hover);
     color: var(--color-text-primary);
   }
-  
+
   .tree-node.file.modified {
     color: var(--color-warning);
   }
-  
+
   .change-indicator {
     margin-left: auto;
     font-size: var(--text-2xs);
@@ -672,14 +674,14 @@ Add agent panel slot:
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { TerminalLine } from '$lib/types/agent';
-  
+
   interface Props {
     output: TerminalLine[];
   }
-  
+
   let { output }: Props = $props();
   let container: HTMLDivElement;
-  
+
   // Auto-scroll to bottom on new output
   $effect(() => {
     if (output.length > 0 && container) {
@@ -705,11 +707,11 @@ Add agent panel slot:
 
 <script lang="ts">
   function formatTime(date: Date): string {
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      hour12: false 
+      hour12: false
     });
   }
 </script>
@@ -727,41 +729,41 @@ Add agent panel slot:
     font-size: var(--text-xs);
     line-height: var(--leading-relaxed);
   }
-  
+
   .terminal-line {
     display: flex;
     gap: var(--space-2);
     padding: var(--space-0-5) 0;
   }
-  
+
   .terminal-line.stdout {
     color: var(--color-text-primary);
   }
-  
+
   .terminal-line.stderr {
     color: var(--color-error);
   }
-  
+
   .terminal-line.command {
     color: var(--color-primary-400);
   }
-  
+
   .terminal-line.info {
     color: var(--color-text-muted);
     font-style: italic;
   }
-  
+
   .timestamp {
     flex-shrink: 0;
     color: var(--color-text-muted);
     opacity: 0.6;
   }
-  
+
   .content {
     white-space: pre-wrap;
     word-break: break-all;
   }
-  
+
   .empty-terminal {
     display: flex;
     align-items: center;
@@ -785,17 +787,17 @@ Add agent panel slot:
   import Button from '$lib/components/shared/Button.svelte';
   import { AlertTriangle, FileEdit, Trash2, Terminal, Globe } from 'lucide-svelte';
   import type { PendingAction, ActionType } from '$lib/types/agent';
-  
+
   interface Props {
     action: PendingAction;
     onapprove: () => void;
     ondeny: () => void;
   }
-  
+
   let { action, onapprove, ondeny }: Props = $props();
-  
+
   let isLoading = $state(false);
-  
+
   async function handleApprove() {
     isLoading = true;
     try {
@@ -804,7 +806,7 @@ Add agent panel slot:
       isLoading = false;
     }
   }
-  
+
   function getActionIcon(type: ActionType) {
     switch (type.type) {
       case 'write_file': return FileEdit;
@@ -814,7 +816,7 @@ Add agent panel slot:
       default: return AlertTriangle;
     }
   }
-  
+
   function getActionLabel(type: ActionType): string {
     switch (type.type) {
       case 'write_file': return 'Write File';
@@ -838,10 +840,10 @@ Add agent panel slot:
         <p class="tool-name">Tool: {action.tool_name}</p>
       </div>
     </div>
-    
+
     <div class="dialog-content">
       <p class="description">{action.description}</p>
-      
+
       {#if action.preview}
         <div class="preview-section">
           <div class="preview-header">
@@ -851,7 +853,7 @@ Add agent panel slot:
         </div>
       {/if}
     </div>
-    
+
     <div class="dialog-actions">
       <Button variant="ghost" onclick={ondeny} disabled={isLoading}>
         Deny
@@ -872,13 +874,13 @@ Add agent panel slot:
     min-width: 400px;
     max-width: 600px;
   }
-  
+
   .dialog-header {
     display: flex;
     align-items: center;
     gap: var(--space-3);
   }
-  
+
   .icon-wrapper {
     display: flex;
     align-items: center;
@@ -889,31 +891,31 @@ Add agent panel slot:
     background: var(--color-warning-light);
     color: var(--color-warning);
   }
-  
+
   .header-text h3 {
     font-size: var(--text-lg);
     font-weight: var(--font-semibold);
     color: var(--color-text-primary);
   }
-  
+
   .tool-name {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
   }
-  
+
   .description {
     color: var(--color-text-secondary);
     line-height: var(--leading-relaxed);
   }
-  
+
   .preview-section {
     margin-top: var(--space-2);
     border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-md);
     overflow: hidden;
   }
-  
+
   .preview-header {
     padding: var(--space-2) var(--space-3);
     background: var(--color-surface);
@@ -922,7 +924,7 @@ Add agent panel slot:
     color: var(--color-text-secondary);
     border-bottom: 1px solid var(--color-border-subtle);
   }
-  
+
   .preview-content {
     padding: var(--space-3);
     margin: 0;
@@ -933,7 +935,7 @@ Add agent panel slot:
     font-size: var(--text-xs);
     color: var(--color-text-primary);
   }
-  
+
   .dialog-actions {
     display: flex;
     justify-content: flex-end;
@@ -1134,11 +1136,11 @@ export interface ExecutionResult {
 import { writable, derived, get } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { 
-  AgentSession, 
-  PendingAction, 
+import type {
+  AgentSession,
+  PendingAction,
   AgentEvent,
-  SessionState 
+  SessionState
 } from '$lib/types/agent';
 
 interface AgentState {
@@ -1306,7 +1308,7 @@ Add workspace selector to new conversation flow:
 <!-- In create conversation handler -->
 <script lang="ts">
   import { open } from '@tauri-apps/plugin-dialog';
-  
+
   async function handleCreateConversation() {
     // Optionally select workspace
     const workspace = await open({
@@ -1314,7 +1316,7 @@ Add workspace selector to new conversation flow:
       multiple: false,
       title: 'Select Workspace Folder',
     });
-    
+
     const conversation = await chatStore.createConversation(
       'New Conversation',
       workspace as string | undefined
@@ -1450,3 +1452,4 @@ src-ui/src/lib/components/agent/
 ├── AgentConfig.svelte         # Agent selection ✅ (bonus)
 └── index.ts                   # Exports ✅
 ```
+

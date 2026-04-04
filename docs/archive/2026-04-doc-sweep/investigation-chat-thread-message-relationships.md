@@ -1,5 +1,7 @@
 # Investigation: Chat, Thread, and Message Relationships
 
+> **ARCHIVED (2026-04-04)**: Investigation snapshot retained for bug-history context. Some file references predate backend module refactors.
+
 **Date:** 2026-03-02
 **Status:** Investigation Complete
 
@@ -426,3 +428,4 @@ Both bugs are **frontend state management issues**, not backend problems:
 2. **Bug #2** is caused by incomplete state updates when creating threads
 
 The backend correctly stores and retrieves data, but the frontend's state management needs improvement to properly isolate contexts and maintain consistent state across all derived data structures.
+

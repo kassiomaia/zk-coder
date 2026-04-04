@@ -1,5 +1,9 @@
 # Architecture Documentation
 
+**Status**: ACTIVE
+**Last reviewed**: 2026-04-04
+**Purpose**: Current architecture reference for backend/frontend module boundaries and data flow
+
 ## Overview
 
 Coder is built using a **layered architecture** with clear separation between the core domain, application services, and infrastructure layers.
@@ -50,38 +54,43 @@ The core layer contains foundational domain entities and interfaces with no depe
 **Modules:**
 - `chat/` - Chat domain entities (Conversation, Thread, Message)
 - `agent/` - Agent domain entities (Session, Task, Action)
+- `config/` - Provider/model configuration domain contracts
 - `llm/` - LLM domain entities (Provider, Model, Message)
+- `nlp/` - NLP domain contracts and context entities
 
 ### Application Layer (`src-tauri/src/application/`)
 
 Service implementations that coordinate business logic.
 
 **Modules:**
-- `llm/` - LLM service implementation
-- (Additional services to be added)
+- `agent/` - Agent planning, execution orchestration, and conversions
+- `chat/` - Chat orchestration and service logic
+- `llm/` - Provider-agnostic LLM service implementation
+- `nlp/` - NLP orchestration and service logic
 
 ### Commands Layer (`src-tauri/src/commands/`)
 
 Tauri commands expose backend functionality to the frontend via IPC.
 
 **Modules:**
-- `agent.rs` - Agent-related commands
-- `chat.rs` - Chat-related commands
-- `config.rs` - Configuration commands
-- `file.rs` - File operations
-- `llm.rs` - LLM interaction commands
-- `nlp.rs` - NLP commands
+- `agent/` - Session lifecycle, approvals, rollback, subtasks, debug/history
+- `chat/` - Conversations, threads, and messages commands
+- `config/` - Provider, API key, model, and defaults commands
+- `documents/` - Session artifact/document lifecycle commands
+- `file/` - Read-only file viewing and diff window commands
+- `llm/` - Chat request, streaming, and cancellation commands
+- `nlp/` - Intent analysis and context commands
 
 ### Infrastructure Modules
 
 | Module | Purpose |
 |--------|---------|
-| `agents/` | Agent orchestration runtime, planning, approvals |
-| `llm/` | LLM provider integrations (OpenAI, Anthropic) |
-| `nlp/` | Natural language processing utilities |
-| `storage/` | SQLite database access (config, context, chat) |
-| `tools/` | Agent tool implementations (file operations, etc.) |
-| `utils/` | Shared utilities |
+| `infrastructure/agent/` | Agent runtime, approval/event handling, registry, telemetry |
+| `infrastructure/api/` | External API adapters and transport-level integrations |
+| `infrastructure/llm/` | Provider implementations (OpenAI, Anthropic), streaming, mocks |
+| `infrastructure/nlp/` | NLP infra services and adapters |
+| `infrastructure/sqlite/` | SQLite migrations and repository implementations |
+| `infrastructure/tools/` | Tool execution, file operations, and document artifacts |
 
 ## Frontend Structure
 
@@ -89,23 +98,13 @@ Tauri commands expose backend functionality to the frontend via IPC.
 
 ```
 src-ui/src/lib/components/
-├── chat/           # Chat interface components
-│   ├── ChatArea.svelte
-│   ├── ChatInput.svelte
-│   ├── ChatMessage.svelte
-│   └── ...
-├── config/         # Configuration UI components
-│   ├── ProvidersModal.svelte
-│   ├── ModelSelector.svelte
-│   └── ...
-├── layout/         # Layout components
-│   ├── Sidebar.svelte
-│   ├── Header.svelte
-│   └── ...
-└── shared/         # Reusable components
-    ├── Button.svelte
-    ├── Modal.svelte
-    └── ...
+├── agent/          # Agent panel, approvals, task/tool progress, workspace selectors
+├── chat/           # Conversation/thread/message rendering and chat input surfaces
+├── config/         # Provider/model setup and configuration flows
+├── layout/         # App shell layout primitives
+├── markdown/       # Markdown rendering and rich-content display components
+├── shell/          # Higher-level shell components wiring app sections
+└── shared/         # Reusable primitives used across feature modules
 ```
 
 ### State Management
@@ -116,7 +115,7 @@ Svelte 5 runes are used for reactive state management:
 - `$derived` - Computed values
 - `$effect` - Side effects
 
-Global stores are in `src/lib/stores/` for cross-component state sharing.
+Global stores are in `src-ui/src/lib/stores/` for cross-component state sharing.
 
 ## Data Flow
 
@@ -132,10 +131,10 @@ ChatInput Component
 invoke('send_message', {...})
     │
     ▼
-commands::chat::send_message (Backend)
+commands::chat::messages::send_message (Backend)
     │
-    ├─▶ ChatStore.save_message()
-    ├─▶ AgentService.process()
+    ├─▶ Chat repositories persist conversation/thread/message state
+    ├─▶ Agent service/runtime executes follow-up actions when requested
     │       │
     │       ├─▶ LLMProvider.chat()
     │       │       │
@@ -161,7 +160,7 @@ Settings UI (Frontend)
 invoke('save_provider', {...})
     │
     ▼
-commands::config::save_provider (Backend)
+commands::config::providers::save_provider (Backend)
     │
     ├─▶ Validate API key
     ├─▶ ConfigStore.save_provider()
@@ -192,11 +191,11 @@ The agent system orchestrates multi-step AI tasks:
 3. **Approval** - User can approve/deny actions
 4. **Rollback** - Revert changes if needed
 
-Key files:
-- `agents/runtime/` - Agent execution runtime
-- `agents/planner.rs` - Task planning
-- `agents/approval.rs` - Action approval flow
-- `agents/rollback.rs` - File rollback system
+Key files/directories:
+- `src-tauri/src/application/agent/` - Agent planning/execution service orchestration
+- `src-tauri/src/infrastructure/agent/runtime/` - Runtime loop and execution coordination
+- `src-tauri/src/commands/agent/approvals.rs` - User approval/denial command handlers
+- `src-tauri/src/commands/agent/rollback.rs` - Session/file rollback command handlers
 
 ## LLM Integration
 
@@ -215,8 +214,12 @@ The LLM layer is provider-agnostic:
 ```
 
 Provider implementations:
-- `llm/openai/` - OpenAI API client
-- `llm/anthropic/` - Anthropic API client
+- `src-tauri/src/infrastructure/llm/openai/` - OpenAI API client
+- `src-tauri/src/infrastructure/llm/anthropic/` - Anthropic API client
+
+## Additional References
+
+- `docs/tools-and-agent-integration.md` - Detailed tool registry, tool catalog, parameters, and agent interaction flow
 
 ## Key Design Principles
 

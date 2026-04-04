@@ -1,5 +1,7 @@
 # LLM Configuration Flow - Implementation Progress
 
+> **ARCHIVED (2026-04-04)**: Completed progress tracker with pre-refactor path references.
+
 > **Started:** 2026-03-01
 > **Status:** COMPLETED (Backend + Frontend)
 
@@ -266,3 +268,4 @@ Implementation of the LLM provider and model configuration flow for Coder AI des
 ## Blockers & Issues
 
 *None*
+

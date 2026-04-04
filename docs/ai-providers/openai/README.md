@@ -84,10 +84,10 @@ In all cases, users are guided to manually configure their models.
 
 ### Key Files
 
-- `src-tauri/src/llm/openai.rs` - OpenAI client implementation
-- `src-tauri/src/api/mod.rs` - Model fetching and validation
-- `src-tauri/src/storage/config_store.rs` - Model persistence
-- `src-tauri/src/commands/config.rs` - Tauri IPC commands
+- `src-tauri/src/infrastructure/llm/openai/client.rs` - OpenAI client implementation
+- `src-tauri/src/commands/config/api_keys.rs` - API key validation and model fetching commands
+- `src-tauri/src/commands/config/models.rs` - Manual model and provider model-source commands
+- `src-tauri/src/infrastructure/sqlite/repositories/config/` - SQLite persistence for providers, models, and defaults
 
 ### Data Storage
 

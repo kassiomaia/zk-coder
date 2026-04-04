@@ -1,5 +1,9 @@
 # Design System Synthesis
 
+**Status**: ACTIVE
+**Last reviewed**: 2026-04-04
+**Purpose**: Consolidated reference for design-token and component-level design decisions
+
 ## Overview
 
 This document synthesizes three design sources into a unified design system for the Coder AI Code Agent:

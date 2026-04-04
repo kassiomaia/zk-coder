@@ -1,5 +1,7 @@
 # NLP LLM Unification Plan
 
+> **ARCHIVED (2026-04-04)**: Implemented plan retained for history. It references pre-refactor module paths in several sections.
+
 Date: March 17, 2026
 Status: Implemented (March 17, 2026)
 Owner: Backend
@@ -328,3 +330,4 @@ One commit per task is recommended to preserve reviewability and rollback granul
 13. `test(nlp): add integration coverage for config and fallback scenarios` (`T5.1`)
 14. `chore: run fmt clippy test and resolve regressions after nlp unification` (`T5.2`)
 15. `docs: document nlp llm unification migration and operational notes` (`T5.3`)
+

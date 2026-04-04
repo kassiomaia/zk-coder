@@ -1,5 +1,7 @@
 # Architecture Analysis & Restructure Plan
 
+> **ARCHIVED (2026-04-04)**: Historical analysis captured before the current layered module layout. Paths and size data may be outdated.
+
 ## Executive Summary
 
 This document analyzes the current architecture of the Coder application and proposes a restructure to improve separation of concerns, reduce coupling, and increase scalability.
@@ -560,3 +562,4 @@ Proposed:
 │  └─────────┘    └─────────┘    └─────────┘    └─────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
+

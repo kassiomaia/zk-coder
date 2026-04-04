@@ -1,5 +1,7 @@
 # Chat Interface Implementation Plan
 
+> **ARCHIVED (2026-04-04)**: This plan predates the current chat/agent integration and includes outdated implementation assumptions.
+
 **Project**: Coder AI Desktop Application
 **Date**: 2026-02-28
 **Status**: Ready for Implementation
@@ -1127,3 +1129,4 @@ Use this checklist when implementing each component:
 This plan provides a comprehensive roadmap for implementing the chat interface features. All components follow the established design system and maintain consistency with the existing codebase.
 
 Would you like me to begin implementing any specific phase or component from this plan?
+

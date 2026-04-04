@@ -1,5 +1,7 @@
 # Thread Feature Fix Plan
 
+> **ARCHIVED (2026-04-04)**: Completed fix plan retained for history. Related progress docs are archived in the same folder.
+
 **Created**: 2026-03-01
 **Last Updated**: 2026-03-01
 **Status**: Phase 1 COMPLETE
@@ -304,3 +306,4 @@ Load threads when loading conversations and embed them.
 - [Chat Interface Implementation Plan](./chat-interface-implementation-plan.md)
 - [Backend Progress](./backend-progress.md)
 - [Frontend Progress](./progress.md)
+

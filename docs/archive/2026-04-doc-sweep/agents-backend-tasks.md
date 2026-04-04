@@ -1,5 +1,7 @@
 # Backend Implementation Tasks
 
+> **ARCHIVED (2026-04-04)**: Planning/task checklist from a pre-refactor phase. Contains legacy paths and should not be used as current implementation guidance.
+
 > **Parent**: [Implementation Plan](./IMPLEMENTATION-PLAN.md)
 > **Focus**: Rust backend changes in `src-tauri/src/`
 
@@ -239,7 +241,7 @@ impl PermissionResolver {
             category_permissions: Self::default_category_permissions(),
         }
     }
-    
+
     pub fn check_permission(&self, tool: &ToolId, action: &ActionType) -> PermissionLevel {
         // Trust mode overrides
         match self.trust_mode {
@@ -250,18 +252,18 @@ impl PermissionResolver {
                 if let Some(level) = self.tool_permissions.get(tool) {
                     return *level;
                 }
-                
+
                 // Check category permission
                 if let Some(level) = self.category_permissions.get(tool.category) {
                     return *level;
                 }
-                
+
                 // Default based on action type
                 self.default_for_action(action)
             }
         }
     }
-    
+
     fn default_for_action(&self, action: &ActionType) -> PermissionLevel {
         match action {
             ActionType::ReadFile { .. } => PermissionLevel::AutoRun,
@@ -271,11 +273,11 @@ impl PermissionResolver {
             ActionType::WebRequest { .. } => PermissionLevel::AutoRun,
         }
     }
-    
+
     fn default_tool_permissions() -> HashMap<ToolId, PermissionLevel> {
         HashMap::new()  // Start empty, add overrides
     }
-    
+
     fn default_category_permissions() -> HashMap<String, PermissionLevel> {
         HashMap::new()  // Start empty, add overrides
     }
@@ -291,7 +293,7 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock, broadcast};
 
 // Approval queue manages pending actions
-// 
+//
 // Design decisions:
 // - Sessions persist in SQLite across app restarts
 // - Single session per thread (no concurrent sessions)
@@ -322,59 +324,59 @@ impl ApprovalQueue {
             tx,
         }
     }
-    
+
     pub async fn queue(&self, action: PendingAction) {
         let mut pending = self.pending.write().await;
         pending.insert(action.id.clone(), action.clone());
         let _ = self.tx.send(ApprovalEvent::ActionQueued { action });
     }
-    
+
     pub async fn approve(&self, action_id: &str) -> Option<PendingAction> {
         let mut pending = self.pending.write().await;
         if let Some(action) = pending.remove(action_id) {
-            let _ = self.tx.send(ApprovalEvent::ActionApproved { 
-                action_id: action_id.to_string() 
+            let _ = self.tx.send(ApprovalEvent::ActionApproved {
+                action_id: action_id.to_string()
             });
             return Some(action);
         }
         None
     }
-    
+
     pub async fn deny(&self, action_id: &str) {
         let mut pending = self.pending.write().await;
         pending.remove(action_id);
-        let _ = self.tx.send(ApprovalEvent::ActionDenied { 
-            action_id: action_id.to_string() 
+        let _ = self.tx.send(ApprovalEvent::ActionDenied {
+            action_id: action_id.to_string()
         });
     }
-    
+
     /// Check for timed-out actions and auto-deny them.
     /// Should be called periodically by a background task.
     pub async fn check_timeouts(&self) -> Vec<String> {
         let mut pending = self.pending.write().await;
         let now = Utc::now();
         let timeout = chrono::Duration::minutes(APPROVAL_TIMEOUT_MINUTES as i64);
-        
+
         let timed_out: Vec<String> = pending
             .iter()
             .filter(|(_, action)| now.signed_duration_since(action.created_at) > timeout)
             .map(|(id, _)| id.clone())
             .collect();
-        
+
         for id in &timed_out {
             pending.remove(id);
-            let _ = self.tx.send(ApprovalEvent::ActionTimeout { 
-                action_id: id.clone() 
+            let _ = self.tx.send(ApprovalEvent::ActionTimeout {
+                action_id: id.clone()
             });
         }
-        
+
         timed_out
     }
-    
+
     pub fn subscribe(&self) -> broadcast::Receiver<ApprovalEvent> {
         self.tx.subscribe()
     }
-    
+
     pub async fn get_pending(&self) -> Vec<PendingAction> {
         let pending = self.pending.read().await;
         pending.values().cloned().collect()
@@ -422,7 +424,7 @@ impl AgentRuntime {
             max_steps: 6,
         }
     }
-    
+
     pub async fn execute(
         &self,
         session: &AgentSession,
@@ -430,14 +432,14 @@ impl AgentRuntime {
     ) -> Result<AgentExecutionResult, AgentError> {
         let mut context = self.build_context(session, &request).await?;
         let mut steps = Vec::new();
-        
+
         for step in 1..=self.max_steps {
             // Build request with tools
             let chat_request = self.build_chat_request(&context, session);
-            
+
             // Send to LLM
             let response = self.client.chat(chat_request).await?;
-            
+
             // Check for tool calls
             if response.tool_calls.is_empty() {
                 return Ok(AgentExecutionResult {
@@ -446,20 +448,20 @@ impl AgentRuntime {
                     usage: response.usage,
                 });
             }
-            
+
             // Process tool calls
             let tool_results = self.process_tool_calls(
                 &response.tool_calls,
                 session,
             ).await?;
-            
+
             // Append to context
             context.push(Message::assistant_with_tool_calls(
                 response.content,
                 response.tool_calls,
             ));
             self.append_tool_results(&mut context, &tool_results);
-            
+
             steps.push(ExecutionStep {
                 step_number: step,
                 action: StepAction::ToolCall { /* ... */ },
@@ -467,24 +469,24 @@ impl AgentRuntime {
                 timestamp: Utc::now(),
             });
         }
-        
+
         Err(AgentError::MaxStepsExceeded)
     }
-    
+
     async fn process_tool_calls(
         &self,
         tool_calls: &[ToolCall],
         session: &AgentSession,
     ) -> Result<Vec<ToolResult>, AgentError> {
         let mut results = Vec::new();
-        
+
         for call in tool_calls {
             let action_type = self.infer_action_type(&call.name, &call.arguments);
             let permission = self.permission_resolver.check_permission(
                 &ToolId::from_name(&call.name),
                 &action_type,
             );
-            
+
             match permission {
                 PermissionLevel::AutoRun => {
                     let result = self.tool_registry.execute(call.clone()).await?;
@@ -493,7 +495,7 @@ impl AgentRuntime {
                 PermissionLevel::ApprovalRequired => {
                     let pending = PendingAction::from_tool_call(call, &action_type);
                     self.approval_queue.queue(pending.clone()).await;
-                    
+
                     // Wait for approval (with timeout)
                     let result = self.wait_for_approval(&pending.id).await?;
                     results.push(result);
@@ -507,24 +509,24 @@ impl AgentRuntime {
                 }
             }
         }
-        
+
         Ok(results)
     }
-    
+
     async fn wait_for_approval(&self, action_id: &str) -> Result<ToolResult, AgentError> {
         let mut rx = self.approval_queue.subscribe();
-        
+
         loop {
             match rx.recv().await {
-                Ok(ApprovalEvent::ActionApproved { action_id: approved_id }) 
-                    if approved_id == action_id => 
+                Ok(ApprovalEvent::ActionApproved { action_id: approved_id })
+                    if approved_id == action_id =>
                 {
                     // Execute the approved action
                     let pending = self.approval_queue.get_pending().await;
                     // ... execute and return result
                 }
-                Ok(ApprovalEvent::ActionDenied { action_id: denied_id }) 
-                    if denied_id == action_id => 
+                Ok(ApprovalEvent::ActionDenied { action_id: denied_id })
+                    if denied_id == action_id =>
                 {
                     return Ok(ToolResult {
                         call_id: action_id.to_string(),
@@ -561,23 +563,23 @@ pub struct AgentRegistry {
 impl AgentRegistry {
     pub fn new() -> Self {
         let mut agents = HashMap::new();
-        
+
         // Register built-in agents
         agents.insert(
             AgentId("code-agent".to_string()),
             Agent::code_agent(),
         );
-        
+
         Self {
             agents: Arc::new(RwLock::new(agents)),
         }
     }
-    
+
     pub async fn get(&self, id: &AgentId) -> Option<Agent> {
         let agents = self.agents.read().await;
         agents.get(id).cloned()
     }
-    
+
     pub async fn list(&self) -> Vec<Agent> {
         let agents = self.agents.read().await;
         agents.values().cloned().collect()
@@ -743,17 +745,17 @@ pub async fn create_agent_session(
 ) -> Result<AgentSession, String> {
     let agent = state.registry.get(&AgentId(agent_id)).await
         .ok_or("Agent not found")?;
-    
+
     let session = AgentSession::new(
         agent.id.clone(),
         conversation_id,
         thread_id,
         workspace_root.map(PathBuf::from),
     );
-    
+
     state.session_store.create(&session).await
         .map_err(|e| e.to_string())?;
-    
+
     Ok(session)
 }
 
@@ -769,24 +771,24 @@ pub async fn send_agent_request(
         .await
         .map_err(|e| e.to_string())?
         .ok_or("Session not found")?;
-    
+
     let agent = state.registry.get(&session.agent_id).await
         .ok_or("Agent not found")?;
-    
+
     let request = AgentRequest {
         content,
         attachments: vec![],
         context: None,
     };
-    
+
     // Spawn execution task
     let runtime = state.runtime.clone();
     let session_clone = session.clone();
     let app_handle_clone = app_handle.clone();
-    
+
     tokio::spawn(async move {
         let result = runtime.execute(&session_clone, request).await;
-        
+
         match result {
             Ok(execution_result) => {
                 // Emit completion event
@@ -797,7 +799,7 @@ pub async fn send_agent_request(
             }
         }
     });
-    
+
     Ok(session_id)
 }
 
@@ -843,7 +845,7 @@ pub async fn get_session_state(
         .await
         .map_err(|e| e.to_string())?
         .ok_or("Session not found")?;
-    
+
     Ok(session.state)
 }
 
@@ -919,7 +921,7 @@ impl SessionStore {
             db: Arc::new(Mutex::new(conn)),
         })
     }
-    
+
     fn create_tables(conn: &Connection) -> Result<(), StoreError> {
         conn.execute_batch("
             CREATE TABLE IF NOT EXISTS agent_sessions (
@@ -933,7 +935,7 @@ impl SessionStore {
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
-            
+
             CREATE TABLE IF NOT EXISTS agent_tasks (
                 id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
@@ -944,15 +946,15 @@ impl SessionStore {
                 completed_at TEXT,
                 FOREIGN KEY (session_id) REFERENCES agent_sessions(id)
             );
-            
-            CREATE INDEX IF NOT EXISTS idx_sessions_conversation 
+
+            CREATE INDEX IF NOT EXISTS idx_sessions_conversation
                 ON agent_sessions(conversation_id);
-            CREATE INDEX IF NOT EXISTS idx_sessions_thread 
+            CREATE INDEX IF NOT EXISTS idx_sessions_thread
                 ON agent_sessions(thread_id);
         ")?;
         Ok(())
     }
-    
+
     pub async fn create(&self, session: &AgentSession) -> Result<(), StoreError> {
         let db = self.db.lock().await;
         db.execute(
@@ -972,17 +974,17 @@ impl SessionStore {
         )?;
         Ok(())
     }
-    
+
     pub async fn get(&self, id: &SessionId) -> Result<Option<AgentSession>, StoreError> {
         let db = self.db.lock().await;
         let mut stmt = db.prepare(
             "SELECT id, agent_id, conversation_id, thread_id, state, workspace_root, parent_session_id, created_at, updated_at
              FROM agent_sessions WHERE id = ?1"
         )?;
-        
+
         // ... query and parse
     }
-    
+
     pub async fn update_state(&self, id: &SessionId, state: SessionState) -> Result<(), StoreError> {
         let db = self.db.lock().await;
         db.execute(
@@ -1014,16 +1016,16 @@ use serde::{Serialize, Deserialize};
 pub enum AgentEvent {
     SessionCreated { session_id: String, agent_id: String },
     SessionStateChanged { session_id: String, state: SessionState },
-    
+
     ExecutionStarted { session_id: String, request_id: String },
     ExecutionStep { session_id: String, step: ExecutionStep },
     ExecutionComplete { session_id: String, result: AgentExecutionResult },
     ExecutionError { session_id: String, error: String },
-    
+
     ApprovalRequired { session_id: String, action: PendingAction },
     ApprovalApproved { session_id: String, action_id: String },
     ApprovalDenied { session_id: String, action_id: String },
-    
+
     ToolCall { session_id: String, tool: String, arguments: serde_json::Value },
     ToolResult { session_id: String, tool: String, result: serde_json::Value },
 }
@@ -1121,3 +1123,4 @@ let _ = app_handle.emit("agent:approval", &AgentEvent::ApprovalRequired {
 - Create session, send request, see steps
 - Trigger approval, approve/deny
 - Cancel mid-execution
+

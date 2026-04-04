@@ -34,37 +34,50 @@ cargo tauri build
 
 ```
 coder/
-├── src-tauri/           # Rust backend
+├── src-tauri/                 # Rust backend (Tauri app)
 │   ├── src/
-│   │   ├── agents/      # AI agent orchestration
-│   │   ├── commands/    # Tauri commands (API layer)
-│   │   ├── core/        # Core domain entities
-│   │   ├── llm/         # LLM provider integrations
-│   │   ├── nlp/         # Natural language processing
-│   │   ├── storage/     # Database layer
-│   │   └── tools/       # Agent tool implementations
-│   └── Cargo.toml
-├── src-ui/              # Svelte frontend
-│   └── src/
-│       ├── lib/
-│       │   ├── components/    # UI components
-│       │   ├── stores/        # Svelte stores
-│       │   ├── styles/        # Design system
-│       │   └── utils/         # Utilities
-│       └── routes/            # SvelteKit routes
-├── docs/                # Documentation
-├── CLAUDE.md            # Project instructions
-└── CHANGELOG.md         # Version history
+│   │   ├── core/              # Domain module: entities + repository/service interfaces
+│   │   ├── application/       # Use-case module: business services and orchestration
+│   │   ├── infrastructure/    # Adapter module: SQLite, external APIs, providers, tools
+│   │   ├── commands/          # IPC module: Tauri command handlers used by the frontend
+│   │   ├── lib.rs             # Composition root: app state wiring + command registration
+│   │   └── main.rs            # Binary entrypoint
+│   ├── capabilities/          # Tauri capability/permission definitions
+│   └── Cargo.toml             # Backend dependencies and crate metadata
+├── src-ui/                    # SvelteKit frontend
+│   ├── src/
+│   │   ├── routes/            # Route-level shells/pages (+layout, +page, feature routes)
+│   │   ├── lib/
+│   │   │   ├── components/    # UI module components (chat, config, layout, shell, shared)
+│   │   │   ├── stores/        # State modules (chat, agents, config, document generation)
+│   │   │   ├── api/           # Typed frontend clients for backend/Tauri commands
+│   │   │   ├── types/         # Shared TypeScript models/contracts
+│   │   │   ├── utils/         # Cross-cutting frontend utilities (scrolling, streaming, validation)
+│   │   │   └── styles/        # Design tokens and shared styling system
+│   │   └── mocks/             # Frontend test/dev fixtures
+│   └── package.json           # Frontend dependencies and scripts
+├── docs/                      # Architecture, feature specs, design, investigations, and plans
+├── prototypes/                # Isolated prototypes/experiments
+├── scripts/                   # Automation and maintenance scripts
+├── AGENTS.md                  # Development workflow, architecture context, and process
+├── RULES.md                   # Mandatory coding, UX, architecture, and documentation rules
+└── CHANGELOG.md               # Version history of significant features and fixes
 ```
+
+**Module documentation pointers:**
+- Backend layered modules (`core`, `application`, `infrastructure`, `commands`): `docs/architecture.md`
+- Thread locking module behavior and UX contract: `docs/features/thread-locking.md`
+- SQLite database files, schema, and debugging workflow: `docs/database-reference.md`
+- Agent and provider related implementation notes: `docs/agents/` and `docs/ai-providers/`
 
 ## Key Features
 
-- **AI Agent Integration**: Seamlessly integrate AI agents for code generation and task automation
-- **Multi-Provider Support**: Works with OpenAI, Anthropic, and custom LLM providers
-- **Workspace Management**: Manage multiple workspaces with file tracking
-- **Agent Orchestration**: Plan, execute, and track complex multi-step tasks
-- **Thread-Based Chat**: Organize conversations into threads with resolution states
-- **File Operations**: Safe file editing with rollback capabilities
+- **Threaded Conversations**: Chat organized by conversations and threads with resolve/archive controls
+- **Agent Sessions with Approvals**: Long-running agent execution with user approval checkpoints
+- **Safe File Changes and Rollback**: Session-level snapshots and rollback commands for edited files
+- **Streaming LLM Responses**: Token streaming, cancel support, and provider/model selection flows
+- **Document Artifacts**: Save, list, download, and manage generated artifacts per session
+- **Multi-Provider LLM Integration**: OpenAI and Anthropic provider infrastructure with extensible adapters
 
 ## Development
 

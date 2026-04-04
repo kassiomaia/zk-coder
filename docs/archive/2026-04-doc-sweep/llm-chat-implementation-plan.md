@@ -1,5 +1,7 @@
 # LLM Chat Implementation Plan
 
+> **ARCHIVED (2026-04-04)**: Historical plan from before command/module restructuring. References may include legacy file paths.
+
 ## Overview
 
 This document outlines the phased implementation plan for connecting the chat interface to LLM providers using the "Code generation" operation configuration.
@@ -490,3 +492,4 @@ cargo run --bin test_llm_connection
 
 **`src/routes/+page.svelte`:**
 - Changed `handleSendMessage()` to call `sendMessageWithLlm()` instead of `sendMessage()`
+

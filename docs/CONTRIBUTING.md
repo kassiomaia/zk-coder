@@ -1,5 +1,9 @@
 # Contributing to Coder
 
+**Status**: ACTIVE
+**Last reviewed**: 2026-04-04
+**Purpose**: Contributor workflow, setup, and review expectations for this repository
+
 Thank you for your interest in contributing to Coder! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents

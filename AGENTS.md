@@ -52,6 +52,8 @@ cargo tauri build        # Build for production
 | Thread Locking | `docs/features/thread-locking.md` | Backend/frontend behavior, user flow, design tokens |
 | Database Access & Debugging | `docs/database-reference.md` | SQLite schema, SQL queries, tracing, tips |
 
+> Note: Files under `docs/archive/` are preserved for historical context and migration traceability. Archived documents may reference legacy paths and do **not** necessarily reflect current architecture or shipped features.
+
 Database is SQLite via `rusqlite` v0.31 (bundled, no ORM). Four DB files in Tauri's app data dir (`~/.local/share/com.coder.app/`): `coder_config.db`, `coder_chat.db`, `coder_context.db`, `coder_agents.db`. Always use `sqlite3 -readonly` while the app is running.
 
 ## Dependencies
