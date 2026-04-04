@@ -10,6 +10,7 @@
 	import { agentStore } from '$lib/stores';
 	import { createLogger } from '$lib/utils/logger';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
+	import StatusBadge from '$lib/components/shared/StatusBadge.svelte';
 
 	const log = createLogger('SessionHistory');
 
@@ -177,9 +178,11 @@
 								<span class="session-title">{formatSessionTitle(session)}</span>
 							</div>
 							{#if completedAt && session.createdAt}
-								<span class="session-duration-badge">
-									{formatDuration(session.createdAt, completedAt)}
-								</span>
+								<StatusBadge
+									variant="mono"
+									size="sm"
+									text={formatDuration(session.createdAt, completedAt)}
+								/>
 							{/if}
 							<div class="chevron" class:is-expanded={isExpanded}>
 								<ChevronRight size={14} strokeWidth={2.5} />

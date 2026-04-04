@@ -6,6 +6,7 @@
 	import { Check, ChevronDown, ChevronRight, Cpu, Settings, Shield, Wrench } from 'lucide-svelte';
 	import type { Agent, TrustMode } from '$lib/types/agent';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
+	import StatusBadge from '$lib/components/shared/StatusBadge.svelte';
 
 	interface Props {
 		open: boolean;
@@ -203,7 +204,7 @@
 												<span class="detail-label">Allowed Tools</span>
 												<div class="tools-list">
 													{#each agent.allowedTools as tool}
-														<span class="tool-badge">{tool}</span>
+														<StatusBadge variant="tag" size="sm" text={tool} />
 													{/each}
 												</div>
 											</div>
@@ -471,17 +472,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-1);
-	}
-
-	.tool-badge {
-		display: inline-block;
-		padding: var(--space-0-5) var(--space-2);
-		background: var(--color-bg-tertiary);
-		border: 1px solid var(--color-border-subtle);
-		border-radius: var(--radius-sm);
-		font-size: var(--text-xs);
-		color: var(--color-text-secondary);
-		font-family: monospace;
 	}
 
 	.system-prompt {
