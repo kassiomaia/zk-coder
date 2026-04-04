@@ -37,15 +37,15 @@ pub struct GlobFilesArgs {
     pub respect_ignore_files: bool,
 }
 
-fn default_max_depth() -> usize {
+const fn default_max_depth() -> usize {
     8
 }
 
-fn default_limit() -> usize {
+const fn default_limit() -> usize {
     200
 }
 
-fn default_respect_ignore_files() -> bool {
+const fn default_respect_ignore_files() -> bool {
     true
 }
 
@@ -154,9 +154,9 @@ fn resolve_workspace_path(workspace_root: &Path, raw_path: &str) -> Result<PathB
         workspace_root.join(trimmed)
     };
 
-    let canonical = candidate.canonicalize().map_err(|e| {
-        ToolError::failed(format!("Failed to resolve path '{}': {}", trimmed, e))
-    })?;
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|e| ToolError::failed(format!("Failed to resolve path '{trimmed}': {e}")))?;
 
     if !canonical.starts_with(workspace_root) {
         return Err(ToolError::path_traversal(&canonical, workspace_root));
@@ -284,14 +284,14 @@ fn compile_glob_set(patterns: &[String]) -> Result<GlobSet, ToolError> {
         }
 
         let glob = Glob::new(trimmed).map_err(|e| {
-            ToolError::invalid_args(format!("Invalid glob pattern '{}': {}", trimmed, e))
+            ToolError::invalid_args(format!("Invalid glob pattern '{trimmed}': {e}"))
         })?;
         builder.add(glob);
     }
 
-    builder.build().map_err(|e| {
-        ToolError::invalid_args(format!("Failed to compile glob patterns: {}", e))
-    })
+    builder
+        .build()
+        .map_err(|e| ToolError::invalid_args(format!("Failed to compile glob patterns: {e}")))
 }
 
 #[cfg(test)]

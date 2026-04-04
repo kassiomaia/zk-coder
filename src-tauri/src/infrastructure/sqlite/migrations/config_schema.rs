@@ -7,7 +7,7 @@ use crate::infrastructure::sqlite::repositories::config::ConfigRepositoryError;
 /// Initializes the database schema for the config store.
 pub fn init_schema(conn: &Connection) -> Result<(), ConfigRepositoryError> {
     conn.execute_batch(
-        r#"
+        r"
         -- Providers table
         CREATE TABLE IF NOT EXISTS providers (
             id             TEXT PRIMARY KEY,
@@ -76,7 +76,7 @@ pub fn init_schema(conn: &Connection) -> Result<(), ConfigRepositoryError> {
 
         CREATE INDEX IF NOT EXISTS idx_manual_models_provider
         ON manual_models(provider_id);
-        "#,
+        ",
     )?;
     Ok(())
 }

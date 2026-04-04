@@ -53,6 +53,7 @@ impl ExecutionContext {
     /// # Returns
     ///
     /// An `ExecutionSnapshot` representing the current state.
+    #[must_use] 
     pub fn snapshot(
         &self,
         phase: ExecutionPhase,

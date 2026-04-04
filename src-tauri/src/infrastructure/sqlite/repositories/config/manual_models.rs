@@ -77,7 +77,7 @@ pub fn remove_manual_model(
     if rows_affected == 0 {
         return Err(ConfigRepositoryError::NotFound(
             "Manual model",
-            format!("{} for provider {}", model_name, provider_id),
+            format!("{model_name} for provider {provider_id}"),
         ));
     }
 

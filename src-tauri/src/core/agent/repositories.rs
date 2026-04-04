@@ -109,7 +109,10 @@ pub trait ExecutionRepository: Send + Sync {
     fn save_execution_snapshot(&self, snapshot: &ExecutionSnapshot) -> RepositoryResult<()>;
 
     /// Retrieves the current execution snapshot for a session, if it exists.
-    fn get_execution_snapshot(&self, session_id: &str) -> RepositoryResult<Option<ExecutionSnapshot>>;
+    fn get_execution_snapshot(
+        &self,
+        session_id: &str,
+    ) -> RepositoryResult<Option<ExecutionSnapshot>>;
 
     /// Clears the execution snapshot for a session.
     fn clear_execution_snapshot(&self, session_id: &str) -> RepositoryResult<()>;

@@ -42,7 +42,7 @@ pub fn get_models(
 
 /// Saves a single model to the database.
 /// Note: This is for internal use; for replacing all models for a provider,
-/// use the transaction-based method in ConfigStore::save_models.
+/// use the transaction-based method in `ConfigStore::save_models`.
 pub fn save_single_model(conn: &Connection, model: &Model) -> Result<(), ConfigRepositoryError> {
     conn.execute(
         "INSERT OR REPLACE INTO models (id, provider_id, name, supports_analysis, supports_code,
@@ -79,7 +79,7 @@ pub fn delete_provider_models(
 
 /// Saves models for a provider (replaces existing).
 /// Note: This is a helper for tests. For production code, use the
-/// transaction-based ConfigStore::save_models method.
+/// transaction-based `ConfigStore::save_models` method.
 pub fn save_models(
     conn: &Connection,
     provider_id: &str,

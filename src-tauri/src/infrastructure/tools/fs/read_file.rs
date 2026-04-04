@@ -16,12 +16,12 @@ use tauri::AppHandle;
 pub struct ReadFileArgs {
     /// Relative or absolute path to the file.
     pub path: String,
-    /// Maximum bytes to read (default: 16_000, max: 200_000).
+    /// Maximum bytes to read (default: `16_000`, max: `200_000`).
     #[serde(default = "default_max_bytes")]
     pub max_bytes: usize,
 }
 
-fn default_max_bytes() -> usize {
+const fn default_max_bytes() -> usize {
     DEFAULT_READ_MAX_BYTES
 }
 
@@ -84,7 +84,7 @@ impl Tool for ReadFileTool {
             let args: ReadFileArgs =
                 crate::infrastructure::tools::error::parse_args("fs_read_file", arguments)?;
 
-            let absolute_path = ReadFileTool::resolve_workspace_path(&workspace, &args.path)?;
+            let absolute_path = Self::resolve_workspace_path(&workspace, &args.path)?;
 
             if !absolute_path.is_file() {
                 return Err(ToolError::failed(format!(
@@ -131,7 +131,7 @@ impl ReadFileTool {
         };
 
         let canonical = candidate.canonicalize().map_err(|e| {
-            ToolError::failed(format!("Failed to resolve path '{}': {}", trimmed, e))
+            ToolError::failed(format!("Failed to resolve path '{trimmed}': {e}"))
         })?;
 
         // Path traversal protection

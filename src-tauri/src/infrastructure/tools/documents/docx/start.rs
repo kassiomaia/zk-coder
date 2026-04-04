@@ -93,7 +93,7 @@ impl Tool for DocxStartTool {
 
             // Create the draft
             let mut store = draft_store.lock().map_err(|e| {
-                ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
             })?;
 
             let document_id = store.create_docx_draft(filename.clone());

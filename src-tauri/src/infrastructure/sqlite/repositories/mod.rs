@@ -1,4 +1,4 @@
-//! Concrete SQLite repository adapters.
+//! Concrete `SQLite` repository adapters.
 
 pub mod agent;
 pub mod chat;

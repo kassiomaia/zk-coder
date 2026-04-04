@@ -35,7 +35,7 @@ impl AgentServiceImpl {
         self.file_snapshot_registry
             .rollback_file(session_id, Path::new(path))
             .map_err(|e| AgentDomainError::InvalidInput {
-                reason: format!("Failed to rollback file: {}", e),
+                reason: format!("Failed to rollback file: {e}"),
             })
     }
 
@@ -44,7 +44,7 @@ impl AgentServiceImpl {
             .file_snapshot_registry
             .rollback_session(session_id)
             .map_err(|e| AgentDomainError::InvalidInput {
-                reason: format!("Failed to rollback session: {}", e),
+                reason: format!("Failed to rollback session: {e}"),
             })?;
 
         Ok(paths

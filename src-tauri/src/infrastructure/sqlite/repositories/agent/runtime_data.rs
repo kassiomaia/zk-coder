@@ -85,7 +85,7 @@ pub fn get_session_files(
                 timestamp: row.get(5)?,
             })
         })?
-        .filter_map(|r| r.ok())
+        .filter_map(std::result::Result::ok)
         .collect();
 
     Ok(files)
@@ -132,7 +132,7 @@ pub fn get_session_terminal_output(
                 timestamp: row.get(4)?,
             })
         })?
-        .filter_map(|r| r.ok())
+        .filter_map(std::result::Result::ok)
         .collect();
 
     Ok(lines)

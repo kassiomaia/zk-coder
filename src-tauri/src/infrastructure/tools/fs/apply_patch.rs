@@ -96,18 +96,16 @@ impl Tool for ApplyPatchTool {
                 ToolError::failed(format!("Failed to read file '{}': {}", args.path, e))
             })?;
 
-            let patch = diffy::Patch::from_str(&args.patch).map_err(|e| {
-                ToolError::invalid_args(format!("Invalid patch format: {e}"))
-            })?;
+            let patch = diffy::Patch::from_str(&args.patch)
+                .map_err(|e| ToolError::invalid_args(format!("Invalid patch format: {e}")))?;
 
             let hunks_applied = patch.hunks().len();
             if hunks_applied == 0 {
                 return Err(ToolError::invalid_args("Patch contains no hunks"));
             }
 
-            let patched = diffy::apply(&original, &patch).map_err(|e| {
-                ToolError::failed(format!("Patch did not apply cleanly: {e}"))
-            })?;
+            let patched = diffy::apply(&original, &patch)
+                .map_err(|e| ToolError::failed(format!("Patch did not apply cleanly: {e}")))?;
 
             let bytes_written = if args.dry_run {
                 0
@@ -137,9 +135,8 @@ pub fn generate_preview_diff(
     let args: ApplyPatchArgs =
         crate::infrastructure::tools::error::parse_args("fs_apply_patch", arguments.clone())?;
     let target_path = resolve_existing_workspace_file(workspace_root, &args.path)?;
-    let original = std::fs::read_to_string(&target_path).map_err(|e| {
-        ToolError::failed(format!("Failed to read file '{}': {}", args.path, e))
-    })?;
+    let original = std::fs::read_to_string(&target_path)
+        .map_err(|e| ToolError::failed(format!("Failed to read file '{}': {}", args.path, e)))?;
     let patch = diffy::Patch::from_str(&args.patch)
         .map_err(|e| ToolError::invalid_args(format!("Invalid patch format: {e}")))?;
     let patched = diffy::apply(&original, &patch)
@@ -167,16 +164,18 @@ fn resolve_existing_workspace_file(
         workspace_root.join(trimmed)
     };
 
-    let canonical = candidate.canonicalize().map_err(|e| {
-        ToolError::failed(format!("Failed to resolve path '{}': {}", trimmed, e))
-    })?;
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|e| ToolError::failed(format!("Failed to resolve path '{trimmed}': {e}")))?;
 
     if !canonical.starts_with(workspace_root) {
         return Err(ToolError::path_traversal(&canonical, workspace_root));
     }
 
     if !canonical.is_file() {
-        return Err(ToolError::failed(format!("Path is not a file: {}", trimmed)));
+        return Err(ToolError::failed(format!(
+            "Path is not a file: {trimmed}"
+        )));
     }
 
     Ok(canonical)
@@ -224,15 +223,15 @@ mod tests {
             "path": "sample.txt",
             "patch": ""
         });
-        let args: ApplyPatchArgs =
-            serde_json::from_value(args_value).unwrap();
+        let args: ApplyPatchArgs = serde_json::from_value(args_value).unwrap();
         assert!(args.patch.trim().is_empty());
     }
 
     #[test]
     fn test_apply_invalid_patch_hunk_header_fails() {
         // A malformed hunk header (bad line range syntax) must fail to parse.
-        let result = diffy::Patch::from_str("--- a/file.txt\n+++ b/file.txt\n@@ bad header @@\n line\n");
+        let result =
+            diffy::Patch::from_str("--- a/file.txt\n+++ b/file.txt\n@@ bad header @@\n line\n");
         assert!(result.is_err());
     }
 
@@ -273,18 +272,19 @@ mod tests {
         let outside_file = outside.path().join("secret.txt");
         std::fs::write(&outside_file, "secret").unwrap();
 
-        let err = resolve_existing_workspace_file(
-            temp.path(),
-            &outside_file.to_string_lossy(),
-        )
-        .unwrap_err();
+        let err = resolve_existing_workspace_file(temp.path(), &outside_file.to_string_lossy())
+            .unwrap_err();
         assert!(err.to_string().contains("Path traversal"));
     }
 
     #[test]
     fn test_generate_preview_diff_returns_some() {
         let temp = TempDir::new().unwrap();
-        std::fs::write(temp.path().join("sample.txt"), "line one\nline two\nline three\n").unwrap();
+        std::fs::write(
+            temp.path().join("sample.txt"),
+            "line one\nline two\nline three\n",
+        )
+        .unwrap();
 
         let patch_text = "--- a/sample.txt\n+++ b/sample.txt\n@@ -1,3 +1,3 @@\n line one\n-line two\n+line 2\n line three\n";
         let preview = generate_preview_diff(

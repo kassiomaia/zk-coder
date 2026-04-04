@@ -33,6 +33,7 @@ pub struct Planner {
 
 impl Planner {
     /// Create a new planner with default configuration.
+    #[must_use] 
     pub fn new(model_name: String) -> Self {
         Self {
             model_name,
@@ -41,6 +42,7 @@ impl Planner {
     }
 
     /// Create a planner with a custom system prompt.
+    #[must_use] 
     pub fn with_prompt(mut self, prompt: String) -> Self {
         self.system_prompt = prompt;
         self
@@ -53,7 +55,7 @@ impl Planner {
         user_request: &str,
         workspace_context: Option<&str>,
     ) -> PlannerResult<Plan> {
-        info!("[Planner] Generating plan for request: {}", user_request);
+        info!("[Planner] Generating plan for request: {user_request}");
 
         // Build messages
         let mut messages = vec![Message::system(&self.system_prompt)];
@@ -61,11 +63,10 @@ impl Planner {
         // Add workspace context if available
         if let Some(ctx) = workspace_context {
             messages.push(Message::user(format!(
-                "Workspace Context:\n{}\n\nUser Request: {}",
-                ctx, user_request
+                "Workspace Context:\n{ctx}\n\nUser Request: {user_request}"
             )));
         } else {
-            messages.push(Message::user(format!("User Request: {}", user_request)));
+            messages.push(Message::user(format!("User Request: {user_request}")));
         }
 
         // Call LLM
@@ -82,7 +83,7 @@ impl Planner {
         };
 
         let response = client.chat(request).await.map_err(|e| {
-            error!("[Planner] LLM call failed: {}", e);
+            error!("[Planner] LLM call failed: {e}");
             PlannerError::Llm(e.to_string())
         })?;
 
@@ -95,8 +96,8 @@ impl Planner {
 
         // Parse the plan from JSON
         let plan_response: PlanResponse = serde_json::from_str(&content).map_err(|e| {
-            error!("[Planner] Failed to parse plan JSON: {}", e);
-            PlannerError::Parse(format!("Invalid JSON: {}", e))
+            error!("[Planner] Failed to parse plan JSON: {e}");
+            PlannerError::Parse(format!("Invalid JSON: {e}"))
         })?;
 
         let plan = plan_response.to_plan();

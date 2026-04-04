@@ -27,11 +27,11 @@ pub struct ListFilesArgs {
     pub limit: usize,
 }
 
-fn default_depth() -> usize {
+const fn default_depth() -> usize {
     DEFAULT_LIST_DEPTH
 }
 
-fn default_limit() -> usize {
+const fn default_limit() -> usize {
     DEFAULT_LIST_LIMIT
 }
 
@@ -107,8 +107,7 @@ impl Tool for ListFilesTool {
 
             if !absolute_path.is_dir() {
                 return Err(ToolError::failed(format!(
-                    "Path is not a directory: {}",
-                    base_path
+                    "Path is not a directory: {base_path}"
                 )));
             }
 
@@ -125,7 +124,7 @@ impl Tool for ListFilesTool {
 
             let output = ListFilesOutput {
                 root: workspace.to_string_lossy().to_string(),
-                path: ListFilesTool::workspace_relative_path(&workspace, &absolute_path),
+                path: Self::workspace_relative_path(&workspace, &absolute_path),
                 count: files.len(),
                 files,
             };
@@ -150,7 +149,7 @@ impl ListFilesTool {
         };
 
         let canonical = candidate.canonicalize().map_err(|e| {
-            ToolError::failed(format!("Failed to resolve path '{}': {}", trimmed, e))
+            ToolError::failed(format!("Failed to resolve path '{trimmed}': {e}"))
         })?;
 
         // Path traversal protection

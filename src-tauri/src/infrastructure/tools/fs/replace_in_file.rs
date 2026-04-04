@@ -171,16 +171,18 @@ fn resolve_existing_workspace_file(
         workspace_root.join(trimmed)
     };
 
-    let canonical = candidate.canonicalize().map_err(|e| {
-        ToolError::failed(format!("Failed to resolve path '{}': {}", trimmed, e))
-    })?;
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|e| ToolError::failed(format!("Failed to resolve path '{trimmed}': {e}")))?;
 
     if !canonical.starts_with(workspace_root) {
         return Err(ToolError::path_traversal(&canonical, workspace_root));
     }
 
     if !canonical.is_file() {
-        return Err(ToolError::failed(format!("Path is not a file: {}", trimmed)));
+        return Err(ToolError::failed(format!(
+            "Path is not a file: {trimmed}"
+        )));
     }
 
     Ok(canonical)
@@ -240,8 +242,7 @@ fn build_replacement_plan(
     if let Some(expected) = args.expected_replacements {
         if applied_replacements != expected {
             return Err(ToolError::failed(format!(
-                "Expected {} replacement(s), but applied {}",
-                expected, applied_replacements
+                "Expected {expected} replacement(s), but applied {applied_replacements}"
             )));
         }
     }

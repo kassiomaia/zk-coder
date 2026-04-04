@@ -1,8 +1,8 @@
-//! OpenAI API types.
+//! `OpenAI` API types.
 
 use serde::{Deserialize, Serialize};
 
-/// OpenAI chat completion request.
+/// `OpenAI` chat completion request.
 #[derive(Debug, Serialize)]
 pub struct OpenAiRequest {
     /// Model identifier to use for the request.
@@ -34,7 +34,7 @@ pub struct OpenAiRequest {
     pub tool_choice: Option<String>,
 }
 
-/// OpenAI tool definition in chat completion requests.
+/// `OpenAI` tool definition in chat completion requests.
 #[derive(Debug, Serialize)]
 pub struct OpenAiRequestTool {
     /// Type of the tool (currently only "function").
@@ -44,7 +44,7 @@ pub struct OpenAiRequestTool {
     pub function: OpenAiRequestFunction,
 }
 
-/// OpenAI function definition in request tools.
+/// `OpenAI` function definition in request tools.
 #[derive(Debug, Serialize)]
 pub struct OpenAiRequestFunction {
     /// Name of the function.
@@ -55,7 +55,7 @@ pub struct OpenAiRequestFunction {
     pub parameters: serde_json::Value,
 }
 
-/// OpenAI message format.
+/// `OpenAI` message format.
 #[derive(Debug, Serialize)]
 pub struct OpenAiMessage {
     /// Role of the message sender (e.g., "system", "user", "assistant").
@@ -71,7 +71,7 @@ pub struct OpenAiMessage {
     pub tool_calls: Option<Vec<OpenAiRequestMessageToolCall>>,
 }
 
-/// OpenAI assistant tool-call payload in request messages.
+/// `OpenAI` assistant tool-call payload in request messages.
 #[derive(Debug, Serialize)]
 pub struct OpenAiRequestMessageToolCall {
     /// Unique identifier for the tool call.
@@ -83,7 +83,7 @@ pub struct OpenAiRequestMessageToolCall {
     pub function: OpenAiRequestMessageToolFunction,
 }
 
-/// OpenAI assistant function payload in request messages.
+/// `OpenAI` assistant function payload in request messages.
 #[derive(Debug, Serialize)]
 pub struct OpenAiRequestMessageToolFunction {
     /// Name of the function to call.
@@ -92,7 +92,7 @@ pub struct OpenAiRequestMessageToolFunction {
     pub arguments: String,
 }
 
-/// OpenAI chat completion response.
+/// `OpenAI` chat completion response.
 #[derive(Debug, Deserialize)]
 pub struct OpenAiResponse {
     /// Unique response identifier.
@@ -106,7 +106,7 @@ pub struct OpenAiResponse {
     pub usage: Option<OpenAiUsage>,
 }
 
-/// OpenAI response choice.
+/// `OpenAI` response choice.
 #[derive(Debug, Deserialize)]
 pub struct OpenAiChoice {
     /// Index of this choice.
@@ -121,7 +121,7 @@ pub struct OpenAiChoice {
     pub finish_reason: Option<String>,
 }
 
-/// OpenAI response message.
+/// `OpenAI` response message.
 #[derive(Debug, Deserialize)]
 pub struct OpenAiResponseMessage {
     /// Role of the message sender.
@@ -139,7 +139,7 @@ pub struct OpenAiResponseMessage {
     pub tool_calls: Option<Vec<OpenAiToolCall>>,
 }
 
-/// OpenAI tool-call payload in chat completion responses.
+/// `OpenAI` tool-call payload in chat completion responses.
 #[derive(Debug, Deserialize)]
 pub struct OpenAiToolCall {
     /// Unique identifier for the tool call.
@@ -152,7 +152,7 @@ pub struct OpenAiToolCall {
     pub function: OpenAiToolFunction,
 }
 
-/// OpenAI function payload for a tool call.
+/// `OpenAI` function payload for a tool call.
 #[derive(Debug, Deserialize)]
 pub struct OpenAiToolFunction {
     /// Name of the function to call.
@@ -161,7 +161,7 @@ pub struct OpenAiToolFunction {
     pub arguments: String,
 }
 
-/// OpenAI streaming delta.
+/// `OpenAI` streaming delta.
 #[derive(Debug, Deserialize)]
 pub struct OpenAiDelta {
     /// Role of the message sender.
@@ -175,7 +175,7 @@ pub struct OpenAiDelta {
     pub reasoning_content: Option<String>,
 }
 
-/// OpenAI usage statistics.
+/// `OpenAI` usage statistics.
 #[derive(Debug, Deserialize)]
 pub struct OpenAiUsage {
     /// Number of tokens in the prompt.
@@ -187,7 +187,7 @@ pub struct OpenAiUsage {
     pub total_tokens: u32,
 }
 
-/// OpenAI streaming response.
+/// `OpenAI` streaming response.
 #[derive(Debug, Deserialize)]
 pub struct OpenAiStreamResponse {
     /// Unique response identifier.

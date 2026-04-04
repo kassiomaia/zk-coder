@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub type LlmResult<T> = Result<T, LlmError>;
 
 /// Represents errors that can occur during LLM operations.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LlmError {
     /// An error indicating that authentication with the LLM provider failed.
     AuthenticationFailed,
@@ -42,7 +42,8 @@ impl LlmError {
     /// Checks if the error is retryable.
     ///
     /// `RateLimited`, `Network`, and `Timeout` errors are considered retryable.
-    pub fn is_retryable(&self) -> bool {
+    #[must_use] 
+    pub const fn is_retryable(&self) -> bool {
         matches!(
             self,
             Self::RateLimited { .. } | Self::Network(_) | Self::Timeout
@@ -90,6 +91,7 @@ pub enum MessageRole {
 
 impl MessageRole {
     /// Converts the `MessageRole` to a string slice.
+    #[must_use] 
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::System => "system",
@@ -217,7 +219,8 @@ impl ChatMessage {
     }
 
     /// Creates a new message with multi-modal content.
-    pub fn multimodal(role: MessageRole, blocks: Vec<ContentBlock>) -> Self {
+    #[must_use] 
+    pub const fn multimodal(role: MessageRole, blocks: Vec<ContentBlock>) -> Self {
         Self {
             role,
             content: MessageContent::Blocks(blocks),
@@ -258,6 +261,7 @@ impl ChatMessage {
     }
 
     /// Returns the text content of the message if it is a simple text message.
+    #[must_use] 
     pub fn as_text(&self) -> Option<&str> {
         match &self.content {
             MessageContent::Text(text) => Some(text),
@@ -267,7 +271,7 @@ impl ChatMessage {
 }
 
 /// The structured result of a tool call.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ToolResult {
     /// The ID of the tool call this result corresponds to.
     pub call_id: String,
@@ -331,24 +335,28 @@ impl ChatRequest {
     }
 
     /// Sets the temperature for the request.
-    pub fn with_temperature(mut self, temperature: f32) -> Self {
+    #[must_use] 
+    pub const fn with_temperature(mut self, temperature: f32) -> Self {
         self.temperature = Some(temperature);
         self
     }
 
     /// Sets the maximum number of tokens for the request.
-    pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+    #[must_use] 
+    pub const fn with_max_tokens(mut self, max_tokens: u32) -> Self {
         self.max_tokens = Some(max_tokens);
         self
     }
 
     /// Enables streaming mode for the request.
-    pub fn with_stream(mut self) -> Self {
+    #[must_use] 
+    pub const fn with_stream(mut self) -> Self {
         self.stream = true;
         self
     }
 
     /// Sets the available tool definitions for the request.
+    #[must_use] 
     pub fn with_tools(mut self, tools: Vec<ToolDefinition>) -> Self {
         self.tools = tools;
         self
@@ -356,7 +364,7 @@ impl ChatRequest {
 }
 
 /// A provider-agnostic definition of a tool.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ToolDefinition {
     /// The name of the tool.
     pub name: String,
@@ -385,7 +393,7 @@ pub struct ChatResponse {
 }
 
 /// A provider-agnostic representation of a tool call.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ToolCall {
     /// A unique identifier for the tool call.
     pub id: String,

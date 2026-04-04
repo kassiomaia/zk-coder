@@ -25,7 +25,7 @@ pub async fn set_operation_default(
     let model = store
         .get_model(&model_id)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Model {} not found", model_id))?;
+        .ok_or_else(|| format!("Model {model_id} not found"))?;
 
     let supports = match operation {
         OperationType::Analysis => model.capabilities.analysis,

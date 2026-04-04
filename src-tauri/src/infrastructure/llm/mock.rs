@@ -42,7 +42,7 @@ impl MockLlmClient {
         Self::new(ApiType::Anthropic, model_name)
     }
 
-    /// Creates a mock client with OpenAI provider.
+    /// Creates a mock client with `OpenAI` provider.
     pub fn openai(model_name: impl Into<String>) -> Self {
         Self::new(ApiType::OpenAI, model_name)
     }
@@ -72,16 +72,19 @@ impl MockLlmClient {
     }
 
     /// Returns the number of pending responses.
+    #[must_use] 
     pub fn response_count(&self) -> usize {
         self.responses.lock().unwrap().len()
     }
 
     /// Returns the number of pending errors.
+    #[must_use] 
     pub fn error_count(&self) -> usize {
         self.errors.lock().unwrap().len()
     }
 
-    /// Creates a successful ChatResponse from JSON content.
+    /// Creates a successful `ChatResponse` from JSON content.
+    #[must_use] 
     pub fn success_response(&self, content: String) -> ChatResponse {
         ChatResponse {
             id: uuid::Uuid::new_v4().to_string(),
@@ -96,10 +99,10 @@ impl MockLlmClient {
     /// Checks for pending errors and returns one if available.
     fn take_error(&self) -> Option<LlmError> {
         let mut errors = self.errors.lock().unwrap();
-        if !errors.is_empty() {
-            Some(errors.remove(0))
-        } else {
+        if errors.is_empty() {
             None
+        } else {
+            Some(errors.remove(0))
         }
     }
 
@@ -108,9 +111,7 @@ impl MockLlmClient {
     /// Returns a default JSON response if queue is empty.
     fn take_response(&self) -> String {
         let mut responses = self.responses.lock().unwrap();
-        if !responses.is_empty() {
-            responses.remove(0)
-        } else {
+        if responses.is_empty() {
             // Default response
             serde_json::json!({
                 "title": "Mock Task",
@@ -119,6 +120,8 @@ impl MockLlmClient {
                 "subtasks": []
             })
             .to_string()
+        } else {
+            responses.remove(0)
         }
     }
 }
@@ -128,7 +131,7 @@ impl LlmClient for MockLlmClient {
         self.provider_type
     }
 
-    fn chat<'a>(&'a self, _request: ChatRequest) -> BoxFuture<'a, LlmResult<ChatResponse>> {
+    fn chat(&self, _request: ChatRequest) -> BoxFuture<'_, LlmResult<ChatResponse>> {
         Box::pin(async move {
             // Check for pending error first
             if let Some(err) = self.take_error() {
@@ -220,10 +223,7 @@ mod tests {
 
         let response1 = rt.block_on(client.chat(ChatRequest::new("test-model", vec![])));
         assert!(response1.is_err());
-        assert!(matches!(
-            response1.unwrap_err(),
-            LlmError::RateLimit { .. }
-        ));
+        assert!(matches!(response1.unwrap_err(), LlmError::RateLimit { .. }));
 
         let response2 = rt.block_on(client.chat(ChatRequest::new("test-model", vec![])));
         assert!(response2.is_ok());

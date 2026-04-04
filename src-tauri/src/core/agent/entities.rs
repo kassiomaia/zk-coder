@@ -35,6 +35,7 @@ pub struct SessionId(pub String);
 
 impl SessionId {
     /// Creates a new session ID.
+    #[must_use] 
     pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
@@ -85,7 +86,7 @@ pub enum AgentTrustMode {
 }
 
 /// State of an agent session.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum SessionState {
     /// Session created, waiting for first request
@@ -150,7 +151,7 @@ pub struct AgentSession {
     pub thread_id: String,
     /// Workspace root for file operations
     pub workspace_root: Option<PathBuf>,
-    /// Cached model_id from conversation settings
+    /// Cached `model_id` from conversation settings
     pub model_id: Option<String>,
     /// Current session state
     #[serde(flatten)]
@@ -161,6 +162,7 @@ pub struct AgentSession {
 
 impl AgentSession {
     /// Creates a new agent session.
+    #[must_use] 
     pub fn new(
         agent_id: AgentId,
         agent_name: String,
@@ -185,7 +187,8 @@ impl AgentSession {
     }
 
     /// Checks if the session is in a terminal state.
-    pub fn is_finished(&self) -> bool {
+    #[must_use] 
+    pub const fn is_finished(&self) -> bool {
         matches!(
             self.state,
             SessionState::Finished { .. }
@@ -195,7 +198,8 @@ impl AgentSession {
     }
 
     /// Checks if the session is currently processing.
-    pub fn is_processing(&self) -> bool {
+    #[must_use] 
+    pub const fn is_processing(&self) -> bool {
         matches!(self.state, SessionState::Processing { .. })
     }
 }
@@ -227,7 +231,7 @@ pub struct PendingAction {
     pub id: String,
     /// Session this action belongs to
     pub session_id: String,
-    /// Action type (e.g., "write_file", "run_command")
+    /// Action type (e.g., "`write_file`", "`run_command`")
     pub action_type: String,
     /// Action description for user
     pub description: String,
@@ -317,9 +321,10 @@ pub enum TaskMode {
 
 impl TaskMode {
     /// Get the list of allowed tools for this mode.
+    #[must_use] 
     pub fn allowed_tools(&self) -> Vec<&'static str> {
         match self {
-            TaskMode::Read => vec![
+            Self::Read => vec![
                 "fs_read_file",
                 "fs_stat_path",
                 "fs_glob_files",
@@ -329,7 +334,7 @@ impl TaskMode {
                 "agent_emit_status",
                 "agent_advance_to_next_subtask",
             ],
-            TaskMode::Write => vec![
+            Self::Write => vec![
                 "fs_read_file",
                 "fs_stat_path",
                 "fs_glob_files",
@@ -342,7 +347,7 @@ impl TaskMode {
                 "agent_emit_status",
                 "agent_advance_to_next_subtask",
             ],
-            TaskMode::Execute => vec![
+            Self::Execute => vec![
                 "fs_read_file",
                 "fs_stat_path",
                 "fs_glob_files",
@@ -353,7 +358,7 @@ impl TaskMode {
                 "agent_emit_status",
                 "agent_advance_to_next_subtask",
             ],
-            TaskMode::FullAccess => vec![
+            Self::FullAccess => vec![
                 "fs_read_file",
                 "fs_stat_path",
                 "fs_glob_files",
@@ -372,21 +377,22 @@ impl TaskMode {
     }
 
     /// Get the instruction text for this mode.
-    pub fn instruction_text(&self) -> &'static str {
+    #[must_use] 
+    pub const fn instruction_text(&self) -> &'static str {
         match self {
-            TaskMode::Read => {
+            Self::Read => {
                 "READ-ONLY: You may only read files and search code. \
                 DO NOT create new plans, write files, delete files, or execute commands."
             }
-            TaskMode::Write => {
+            Self::Write => {
                 "WRITE: You may read and write files. \
                 DO NOT create new plans or execute commands."
             }
-            TaskMode::Execute => {
+            Self::Execute => {
                 "EXECUTE: You may read files and execute commands. \
                 DO NOT create new plans or write files."
             }
-            TaskMode::FullAccess => {
+            Self::FullAccess => {
                 "FULL ACCESS: You may read files, write files, and execute commands."
             }
         }
@@ -418,7 +424,7 @@ pub struct UsageStats {
 }
 
 /// Error type for agent domain operations.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AgentDomainError {
     /// Session not found
     SessionNotFound {

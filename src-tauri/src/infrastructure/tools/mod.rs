@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use tauri::AppHandle;
 
-use self::constants::*;
+use self::constants::{is_env_enabled, ENV_WORKSPACE_ROOT};
 use self::context::ToolExecutionContext;
 use crate::core::llm::entities::{ToolCall, ToolDefinition, ToolResult};
 
@@ -68,6 +68,7 @@ impl ToolRegistry {
     }
 
     /// Set workspace root for tools that require it.
+    #[must_use] 
     pub fn with_workspace(mut self, root: PathBuf) -> Self {
         self.workspace_root = Some(root);
         self
@@ -83,6 +84,7 @@ impl ToolRegistry {
     }
 
     /// Get all tool definitions for the LLM.
+    #[must_use] 
     pub fn definitions(&self) -> Vec<ToolDefinition> {
         self.tools
             .values()
@@ -92,7 +94,7 @@ impl ToolRegistry {
                 ToolDefinition {
                     name: meta.id.full_name(),
                     description: meta.description.to_string(),
-                    input_schema: meta.input_schema.clone(),
+                    input_schema: meta.input_schema,
                 }
             })
             .collect()
@@ -186,8 +188,7 @@ fn resolve_workspace_root() -> Result<Option<PathBuf>, ToolError> {
     if let Ok(path) = std::env::var(ENV_WORKSPACE_ROOT) {
         let absolute = PathBuf::from(&path).canonicalize().map_err(|e| {
             ToolError::failed(format!(
-                "Failed to resolve workspace root '{}': {}",
-                path, e
+                "Failed to resolve workspace root '{path}': {e}"
             ))
         })?;
 

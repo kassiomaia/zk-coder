@@ -2,7 +2,7 @@
 
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{get_draft_store, DraftStoreExt},
+    documents::shared::get_draft_store,
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -14,9 +14,9 @@ use tauri::AppHandle;
 /// Arguments for deleting a page.
 #[derive(Debug, Deserialize)]
 pub struct PdfDeletePageArgs {
-    /// PDF ID from pdf_start
+    /// PDF ID from `pdf_start`
     pub pdf_id: String,
-    /// Page number (1-based) or page_id
+    /// Page number (1-based) or `page_id`
     pub page: String,
 }
 
@@ -75,7 +75,7 @@ impl Tool for PdfDeletePageTool {
             let draft_store = get_draft_store();
             let (deleted_page_number, new_page_count, content_type) = {
                 let mut store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
                 let draft = store
@@ -87,11 +87,12 @@ impl Tool for PdfDeletePageTool {
                     // 1-based index
                     let index = num.saturating_sub(1);
                     if index >= draft.pages.len() {
-                        return Err(ToolError::failed(format!("Page number {} not found", num)));
+                        return Err(ToolError::failed(format!("Page number {num} not found")));
                     }
                     index
                 } else {
-                    draft.pages
+                    draft
+                        .pages
                         .iter()
                         .position(|p| p.id == args.page)
                         .ok_or_else(|| {
@@ -123,8 +124,7 @@ impl Tool for PdfDeletePageTool {
                 deleted_page_number,
                 new_page_count,
                 message: format!(
-                    "Page {} ({}) deleted. {} pages remain.",
-                    deleted_page_number, content_type, new_page_count
+                    "Page {deleted_page_number} ({content_type}) deleted. {new_page_count} pages remain."
                 ),
             };
 
@@ -138,7 +138,9 @@ fn get_content_type_name(
     content: &crate::infrastructure::tools::documents::shared::PdfPageContent,
 ) -> String {
     match content {
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Markdown { .. } => "markdown",
+        crate::infrastructure::tools::documents::shared::PdfPageContent::Markdown { .. } => {
+            "markdown"
+        }
         crate::infrastructure::tools::documents::shared::PdfPageContent::Html { .. } => "html",
         crate::infrastructure::tools::documents::shared::PdfPageContent::Text { .. } => "text",
         crate::infrastructure::tools::documents::shared::PdfPageContent::Image { .. } => "image",

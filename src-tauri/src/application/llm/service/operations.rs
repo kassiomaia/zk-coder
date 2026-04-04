@@ -20,7 +20,7 @@ where
         Ok(tokio::task::block_in_place(|| handle.block_on(future)))
     } else {
         let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| LlmError::Unknown(format!("Failed to create runtime: {}", e)))?;
+            .map_err(|e| LlmError::Unknown(format!("Failed to create runtime: {e}")))?;
         Ok(rt.block_on(future))
     }
 }
@@ -31,10 +31,10 @@ impl LlmService for LlmServiceImpl {
         let client = self.create_client(provider_id)?;
         let llm_request = Self::convert_request(request);
 
-        info!("Sending chat request to provider {}", provider_id);
+        info!("Sending chat request to provider {provider_id}");
 
         let response = block_on_runtime_safe(client.chat(llm_request))?
-            .map_err(|e| LlmError::Unknown(format!("Chat request failed: {}", e)))?;
+            .map_err(|e| LlmError::Unknown(format!("Chat request failed: {e}")))?;
 
         Ok(Self::convert_to_core_response(response))
     }
@@ -43,14 +43,13 @@ impl LlmService for LlmServiceImpl {
         let api_type = Self::convert_provider(provider);
         let client = Self::create_ephemeral_client(api_type, api_key);
 
-        info!("Validating API key for provider {:?}", api_type);
+        info!("Validating API key for provider {api_type:?}");
 
         let result = block_on_runtime_safe(client.validate_api_key())?
-            .map_err(|e| LlmError::Unknown(format!("Validation failed: {}", e)))?;
+            .map_err(|e| LlmError::Unknown(format!("Validation failed: {e}")))?;
 
         info!(
-            "API key validation for provider {:?} result: {}",
-            api_type, result
+            "API key validation for provider {api_type:?} result: {result}"
         );
 
         Ok(result)
@@ -60,10 +59,10 @@ impl LlmService for LlmServiceImpl {
         let api_type = Self::convert_provider(provider);
         let client = Self::create_ephemeral_client(api_type, api_key);
 
-        info!("Fetching models for provider {:?}", api_type);
+        info!("Fetching models for provider {api_type:?}");
 
         let models = block_on_runtime_safe(client.fetch_models())?
-            .map_err(|e| LlmError::Unknown(format!("Fetch models failed: {}", e)))?;
+            .map_err(|e| LlmError::Unknown(format!("Fetch models failed: {e}")))?;
 
         info!(
             "Fetched {} models for provider {:?}",
@@ -81,7 +80,7 @@ impl LlmService for LlmServiceImpl {
 }
 
 /// Infers the provider ID from the model name.
-pub(crate) fn infer_provider_from_model(model: &str) -> &'static str {
+pub fn infer_provider_from_model(model: &str) -> &'static str {
     let model_lower = model.to_lowercase();
 
     if model_lower.starts_with("claude") || model_lower.starts_with("glm") {

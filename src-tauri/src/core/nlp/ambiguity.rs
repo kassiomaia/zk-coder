@@ -31,12 +31,12 @@ impl AmbiguityType {
     #[must_use]
     pub const fn label(&self) -> &'static str {
         match self {
-            AmbiguityType::MissingFile => "Missing File",
-            AmbiguityType::MissingSymbol => "Missing Symbol",
-            AmbiguityType::AmbiguousReference => "Ambiguous Reference",
-            AmbiguityType::MultipleMatches => "Multiple Matches",
-            AmbiguityType::UnclearScope => "Unclear Scope",
-            AmbiguityType::MissingParameter => "Missing Parameter",
+            Self::MissingFile => "Missing File",
+            Self::MissingSymbol => "Missing Symbol",
+            Self::AmbiguousReference => "Ambiguous Reference",
+            Self::MultipleMatches => "Multiple Matches",
+            Self::UnclearScope => "Unclear Scope",
+            Self::MissingParameter => "Missing Parameter",
         }
     }
 }
@@ -98,7 +98,7 @@ impl Ambiguity {
 
     /// Creates a new `Ambiguity` with a specific ID, for testing or reconstruction.
     #[must_use]
-    pub fn with_id(
+    pub const fn with_id(
         id: String,
         ambiguity_type: AmbiguityType,
         span: TextSpan,
@@ -134,9 +134,9 @@ impl AmbiguitySeverity {
     #[must_use]
     pub const fn css_class(&self) -> &'static str {
         match self {
-            AmbiguitySeverity::Low => "low",
-            AmbiguitySeverity::Medium => "medium",
-            AmbiguitySeverity::High => "high",
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
         }
     }
 }
@@ -261,9 +261,9 @@ impl ResolutionType {
     #[must_use]
     pub const fn label(&self) -> &'static str {
         match self {
-            ResolutionType::Selected => "Selected",
-            ResolutionType::Custom => "Custom",
-            ResolutionType::Dismissed => "Dismissed",
+            Self::Selected => "Selected",
+            Self::Custom => "Custom",
+            Self::Dismissed => "Dismissed",
         }
     }
 }
@@ -284,7 +284,7 @@ pub struct ResolvedAmbiguity {
 impl ResolvedAmbiguity {
     /// Creates a new `ResolvedAmbiguity`.
     #[must_use]
-    pub fn new(
+    pub const fn new(
         id: String,
         original_text: String,
         resolution: String,

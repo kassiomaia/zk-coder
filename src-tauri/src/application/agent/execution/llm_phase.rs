@@ -4,6 +4,7 @@
 //! to the LLM with retry logic, and tracing the request and response for
 //! observability.
 
+use log::error;
 use std::time::Instant;
 
 use serde_json::json;
@@ -122,7 +123,15 @@ pub async fn call_llm(
     );
 
     let start = Instant::now();
-    let response = chat_with_retry(client, &chat_request, &retry_config).await?;
+    let response = chat_with_retry(client, &chat_request, &retry_config)
+        .await
+        .map_err(|e| {
+            error!(
+                "[LLM Phase] LLM call failed for session '{}', task '{}', step {}: {}",
+                ctx.session_id, ctx.task_id, ctx.step_number, e
+            );
+            e
+        })?;
     let duration_ms = start.elapsed().as_millis() as u64;
     if let Some(usage) = &response.usage {
         ctx.total_input_tokens += usage.input_tokens;

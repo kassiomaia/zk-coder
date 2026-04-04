@@ -1,6 +1,9 @@
 //! PPTX tool category registration.
 
-use super::{PptxAddSlideTool, PptxDeleteSlideTool, PptxFinalizeTool, PptxGetSlideTool, PptxListSlidesTool, PptxSearchSlidesTool, PptxStartTool, PptxUpdateSlideTool};
+use super::{
+    PptxAddSlideTool, PptxDeleteSlideTool, PptxFinalizeTool, PptxGetSlideTool, PptxListSlidesTool,
+    PptxSearchSlidesTool, PptxStartTool, PptxUpdateSlideTool,
+};
 use crate::infrastructure::tools::traits::ToolCategory;
 
 /// PPTX document tools category.

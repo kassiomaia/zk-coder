@@ -39,11 +39,11 @@ fn get_app_data_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
     let data_dir = app_handle
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+        .map_err(|e| format!("Failed to get app data directory: {e}"))?;
 
     // Create the directory if it doesn't exist
     std::fs::create_dir_all(&data_dir)
-        .map_err(|e| format!("Failed to create data directory: {}", e))?;
+        .map_err(|e| format!("Failed to create data directory: {e}"))?;
 
     Ok(data_dir)
 }
@@ -82,7 +82,7 @@ pub fn run() {
                 SqliteConfigRepository::new(&config_db.to_string_lossy())
                     .expect("Failed to initialize SqliteConfigRepository"),
             );
-            let llm_service = Arc::new(LlmServiceImpl::new(config_repository.clone()))
+            let llm_service = Arc::new(LlmServiceImpl::new(config_repository))
                 as Arc<dyn crate::core::llm::services::LlmService>;
 
             // Initialize LLM state

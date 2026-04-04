@@ -3,12 +3,13 @@
 //! This module decouples NLP components from provider-specific clients.
 
 use futures::future::BoxFuture;
+use log::error;
 use std::sync::Arc;
 
 use crate::application::nlp::gateway::{NlpLlmError, NlpLlmGateway};
 use crate::core::config::{ConfigRepository, Model, OperationType, Provider};
 use crate::core::llm::entities::{ChatMessage, ChatRequest};
-use crate::infrastructure::llm::{create_client, LlmError};
+use crate::infrastructure::llm::create_client;
 use crate::infrastructure::sqlite::repositories::config::SqliteConfigRepository;
 
 /// Config-backed NLP LLM gateway.
@@ -59,20 +60,40 @@ impl ConfigBackedNlpLlmGateway {
     }
 
     async fn resolve_completion_target(&self) -> Result<CompletionTarget, NlpLlmError> {
-        let model = resolve_nlp_operation_model(self.config_repository.as_ref())?;
+        let model = resolve_nlp_operation_model(self.config_repository.as_ref()).map_err(|e| {
+            error!("[NLP LLM Gateway] Failed to resolve NLP model: {e}");
+            e
+        })?;
 
         let provider = self
             .config_repository
             .get_provider(&model.provider_id)
-            .map_err(|e| NlpLlmError::Repository(e.to_string()))?
+            .map_err(|e| {
+                error!(
+                    "[NLP LLM Gateway] Failed to get provider '{}': {}",
+                    model.provider_id, e
+                );
+                NlpLlmError::Repository(e.to_string())
+            })?
             .ok_or_else(|| {
-                NlpLlmError::ProviderConfig(format!("Provider '{}' not found", model.provider_id))
+                let err = NlpLlmError::ProviderConfig(format!(
+                    "Provider '{}' not found",
+                    model.provider_id
+                ));
+                error!("[NLP LLM Gateway] {err}");
+                err
             })?;
 
         let api_key = self
             .config_repository
             .retrieve_api_key(&provider.id)
-            .map_err(|e| NlpLlmError::ApiKey(e.to_string()))?;
+            .map_err(|e| {
+                error!(
+                    "[NLP LLM Gateway] Failed to retrieve API key for provider '{}': {}",
+                    provider.id, e
+                );
+                NlpLlmError::ApiKey(e.to_string())
+            })?;
 
         Ok(CompletionTarget {
             model,
@@ -90,28 +111,33 @@ impl NlpLlmGateway for ConfigBackedNlpLlmGateway {
     ) -> BoxFuture<'a, Result<String, NlpLlmError>> {
         Box::pin(async move {
             let target = self.resolve_completion_target().await?;
+            let model_name = target.model.name.clone();
+            let provider_type = target.provider.api_type;
             let client = create_client(
                 target.provider.api_type,
                 target.api_key,
                 target.provider.base_url,
             );
 
-            let request = ChatRequest::new(target.model.name, vec![ChatMessage::user(user)])
+            let request = ChatRequest::new(model_name.clone(), vec![ChatMessage::user(user)])
                 .with_system(system);
 
-            let response = client
-                .chat(request)
-                .await
-                .map_err(|error| NlpLlmError::Llm(error.to_string()))?;
+            let response = client.chat(request).await.map_err(|error| {
+                error!(
+                    "[NLP LLM Gateway] LLM call failed: provider={provider_type:?}, model={model_name}, error={error}"
+                );
+                NlpLlmError::Llm(error.to_string())
+            })?;
             Ok(response.content)
         })
     }
 }
 
 fn resolve_nlp_operation_model(repository: &dyn ConfigRepository) -> Result<Model, NlpLlmError> {
-    let defaults = repository
-        .get_operation_defaults()
-        .map_err(|e| NlpLlmError::Repository(e.to_string()))?;
+    let defaults = repository.get_operation_defaults().map_err(|e| {
+        error!("[NLP LLM Gateway] Failed to get operation defaults: {e}");
+        NlpLlmError::Repository(e.to_string())
+    })?;
 
     let analysis_default = defaults
         .into_iter()
@@ -119,35 +145,61 @@ fn resolve_nlp_operation_model(repository: &dyn ConfigRepository) -> Result<Mode
 
     if let Some(default) = analysis_default {
         let model_id = default.model_id.ok_or_else(|| {
-            NlpLlmError::ModelConfig("Analysis operation has no configured model".to_string())
+            let err =
+                NlpLlmError::ModelConfig("Analysis operation has no configured model".to_string());
+            error!("[NLP LLM Gateway] {err}");
+            err
         })?;
         return repository
             .get_model(&model_id)
-            .map_err(|e| NlpLlmError::Repository(e.to_string()))?
-            .ok_or_else(|| NlpLlmError::ModelConfig(format!("Model '{}' not found", model_id)));
+            .map_err(|e| {
+                error!(
+                    "[NLP LLM Gateway] Failed to get model '{model_id}': {e}"
+                );
+                NlpLlmError::Repository(e.to_string())
+            })?
+            .ok_or_else(|| {
+                let err = NlpLlmError::ModelConfig(format!("Model '{model_id}' not found"));
+                error!("[NLP LLM Gateway] {err}");
+                err
+            });
     }
 
-    let defaults = repository
-        .get_operation_defaults()
-        .map_err(|e| NlpLlmError::Repository(e.to_string()))?;
+    let defaults = repository.get_operation_defaults().map_err(|e| {
+        error!("[NLP LLM Gateway] Failed to get operation defaults: {e}");
+        NlpLlmError::Repository(e.to_string())
+    })?;
     let code_default = defaults
         .into_iter()
         .find(|d| d.operation == OperationType::Code)
         .ok_or_else(|| {
-            NlpLlmError::ModelConfig(
+            let err = NlpLlmError::ModelConfig(
                 "No model configured for NLP operations. Configure an 'analysis' or 'code' default model."
                     .to_string(),
-            )
+            );
+            error!("[NLP LLM Gateway] {err}");
+            err
         })?;
 
     let model_id = code_default.model_id.ok_or_else(|| {
-        NlpLlmError::ModelConfig("Code operation has no configured model".to_string())
+        let err = NlpLlmError::ModelConfig("Code operation has no configured model".to_string());
+        error!("[NLP LLM Gateway] {err}");
+        err
     })?;
 
     repository
         .get_model(&model_id)
-        .map_err(|e| NlpLlmError::Repository(e.to_string()))?
-        .ok_or_else(|| NlpLlmError::ModelConfig(format!("Model '{}' not found", model_id)))
+        .map_err(|e| {
+            error!(
+                "[NLP LLM Gateway] Failed to get model '{model_id}': {e}"
+            );
+            NlpLlmError::Repository(e.to_string())
+        })?
+        .ok_or_else(|| {
+            let err = NlpLlmError::ModelConfig(format!("Model '{model_id}' not found"));
+            error!("[NLP LLM Gateway] {err}");
+            err
+        })
 }
 
 #[cfg(test)]

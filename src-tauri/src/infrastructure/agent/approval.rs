@@ -22,22 +22,22 @@ pub enum ApprovalEvent {
     /// A new action was queued for approval.
     ActionQueued {
         /// The pending action.
-        action: PendingAction
+        action: PendingAction,
     },
     /// An action was approved by the user.
     ActionApproved {
         /// The ID of the approved action.
-        action_id: String
+        action_id: String,
     },
     /// An action was denied by the user.
     ActionDenied {
         /// The ID of the denied action.
-        action_id: String
+        action_id: String,
     },
     /// An action timed out waiting for approval.
     ActionTimeout {
         /// The ID of the timed out action.
-        action_id: String
+        action_id: String,
     },
 }
 
@@ -51,6 +51,7 @@ pub struct ApprovalQueue {
 
 impl ApprovalQueue {
     /// Creates a new approval queue.
+    #[must_use] 
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel::<ApprovalEvent>(64);
         Self {
@@ -129,6 +130,7 @@ impl ApprovalQueue {
     }
 
     /// Subscribe to approval events.
+    #[must_use] 
     pub fn subscribe(&self) -> broadcast::Receiver<ApprovalEvent> {
         self.tx.subscribe()
     }

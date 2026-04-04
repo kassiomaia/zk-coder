@@ -215,10 +215,7 @@ pub(super) async fn emit_streaming_message(
         );
 
         if index != last_index {
-            tokio::time::sleep(std::time::Duration::from_millis(
-                STREAMING_CHUNK_DELAY_MS,
-            ))
-            .await;
+            tokio::time::sleep(std::time::Duration::from_millis(STREAMING_CHUNK_DELAY_MS)).await;
         }
     }
 }
@@ -348,7 +345,10 @@ mod tests {
         let events = build_streaming_events("hello world", true);
 
         assert!(!events.is_empty());
-        assert!(events.iter().take(events.len().saturating_sub(1)).all(|(_, is_final)| !is_final));
+        assert!(events
+            .iter()
+            .take(events.len().saturating_sub(1))
+            .all(|(_, is_final)| !is_final));
         assert_eq!(events.last().map(|(_, is_final)| *is_final), Some(true));
     }
 
@@ -376,9 +376,9 @@ mod tests {
 mod subtask_autocompletion_tests {
     use crate::core::agent::entities::{AgentTask as CoreAgentTask, TaskMode, TaskStatus};
     use crate::core::agent::repositories::TaskRepository;
+    use crate::core::agent::session::AgentSession;
     use crate::core::agent::task::{SubTask, SubTaskMode, TaskStatus as TaskTaskStatus};
     use crate::core::agent::types::AgentId;
-    use crate::core::agent::session::AgentSession;
     use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
 
     /// Test scenario: Agent completes work but doesn't call advance for final subtask.
@@ -611,7 +611,10 @@ mod subtask_autocompletion_tests {
             .iter()
             .find(|st| st.status == TaskTaskStatus::InProgress);
 
-        assert!(in_progress.is_none(), "Should not find any InProgress subtask");
+        assert!(
+            in_progress.is_none(),
+            "Should not find any InProgress subtask"
+        );
 
         // No auto-completion needed, all are already Completed
         let subtasks_after = store.get_subtasks("task-1").unwrap();

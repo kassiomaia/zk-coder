@@ -2,7 +2,7 @@
 
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{get_draft_store, DraftStoreExt},
+    documents::shared::get_draft_store,
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -14,9 +14,9 @@ use tauri::AppHandle;
 /// Arguments for deleting a slide.
 #[derive(Debug, Deserialize)]
 pub struct PptxDeleteSlideArgs {
-    /// Deck ID from pptx_start
+    /// Deck ID from `pptx_start`
     pub deck_id: String,
-    /// Slide number (1-based) or slide_id
+    /// Slide number (1-based) or `slide_id`
     pub slide: String,
 }
 
@@ -75,7 +75,7 @@ impl Tool for PptxDeleteSlideTool {
             let draft_store = get_draft_store();
             let (deleted_slide_number, new_slide_count, slide_title) = {
                 let mut store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
                 let deck = store.get_pptx_draft_mut(&args.deck_id).ok_or_else(|| {
@@ -87,7 +87,7 @@ impl Tool for PptxDeleteSlideTool {
                     // 1-based index
                     let index = num.saturating_sub(1);
                     if index >= deck.slides.len() {
-                        return Err(ToolError::failed(format!("Slide number {} not found", num)));
+                        return Err(ToolError::failed(format!("Slide number {num} not found")));
                     }
                     index
                 } else {
@@ -122,8 +122,7 @@ impl Tool for PptxDeleteSlideTool {
                 deleted_slide_number,
                 new_slide_count,
                 message: format!(
-                    "Slide {} (\"{}\") deleted. {} slides remain.",
-                    deleted_slide_number, slide_title, new_slide_count
+                    "Slide {deleted_slide_number} (\"{slide_title}\") deleted. {new_slide_count} slides remain."
                 ),
             };
 

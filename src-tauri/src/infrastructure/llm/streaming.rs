@@ -11,7 +11,7 @@ use async_stream::stream;
 use futures::Stream;
 use std::pin::Pin;
 
-use crate::core::llm::entities::{StreamChunk, StreamDelta};
+use crate::core::llm::entities::StreamChunk;
 use crate::core::llm::services::LlmEvent;
 use crate::infrastructure::llm::LlmError;
 
@@ -20,6 +20,7 @@ use crate::infrastructure::llm::LlmError;
 /// This function batches chunks to reduce IPC overhead:
 /// - Chunks are accumulated and sent based on the batching config
 /// - This reduces ~150 IPC calls to ~20-30 per response
+#[must_use] 
 pub fn stream_to_events(
     request_id: String,
     model: String,
@@ -29,6 +30,7 @@ pub fn stream_to_events(
 }
 
 /// Creates a streaming helper with custom batching configuration.
+#[must_use] 
 pub fn stream_to_events_with_config(
     request_id: String,
     model: String,
@@ -39,6 +41,7 @@ pub fn stream_to_events_with_config(
 }
 
 /// Creates a streaming helper with custom batching configuration and thread ID.
+#[must_use] 
 pub fn stream_to_events_with_thread(
     request_id: String,
     model: String,

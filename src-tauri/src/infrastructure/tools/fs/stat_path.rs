@@ -21,7 +21,7 @@ pub struct StatPathArgs {
     pub follow_symlinks: bool,
 }
 
-fn default_follow_symlinks() -> bool {
+const fn default_follow_symlinks() -> bool {
     true
 }
 
@@ -163,9 +163,9 @@ fn resolve_workspace_path(workspace_root: &Path, raw_path: &str) -> Result<PathB
         workspace_root.join(trimmed)
     };
 
-    let canonical = candidate.canonicalize().map_err(|e| {
-        ToolError::failed(format!("Failed to resolve path '{}': {}", trimmed, e))
-    })?;
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|e| ToolError::failed(format!("Failed to resolve path '{trimmed}': {e}")))?;
 
     if !canonical.starts_with(workspace_root) {
         return Err(ToolError::path_traversal(&canonical, workspace_root));
@@ -352,7 +352,10 @@ mod tests {
             ));
 
             assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("Failed to inspect path"));
+            assert!(result
+                .unwrap_err()
+                .to_string()
+                .contains("Failed to inspect path"));
         }
 
         #[test]

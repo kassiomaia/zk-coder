@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -48,7 +47,7 @@ pub enum ArtifactType {
     /// Microsoft Word document.
     #[serde(rename = "Docx")]
     Docx,
-    /// Microsoft PowerPoint presentation.
+    /// Microsoft `PowerPoint` presentation.
     #[serde(rename = "Pptx")]
     Pptx,
     /// PDF document.
@@ -58,39 +57,43 @@ pub enum ArtifactType {
 
 impl ArtifactType {
     /// Get the file extension for this artifact type.
-    pub fn extension(&self) -> &str {
+    #[must_use] 
+    pub const fn extension(&self) -> &str {
         match self {
-            ArtifactType::Docx => ".docx",
-            ArtifactType::Pptx => ".pptx",
-            ArtifactType::Pdf => ".pdf",
+            Self::Docx => ".docx",
+            Self::Pptx => ".pptx",
+            Self::Pdf => ".pdf",
         }
     }
 
     /// Get the MIME type for this artifact type.
-    pub fn mime_type(&self) -> &str {
+    #[must_use] 
+    pub const fn mime_type(&self) -> &str {
         match self {
-            ArtifactType::Docx => {
+            Self::Docx => {
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             }
-            ArtifactType::Pptx => {
+            Self::Pptx => {
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation"
             }
-            ArtifactType::Pdf => "application/pdf",
+            Self::Pdf => "application/pdf",
         }
     }
 
     /// Get the maximum allowed size in bytes.
-    pub fn max_size(&self) -> u64 {
+    #[must_use] 
+    pub const fn max_size(&self) -> u64 {
         match self {
-            ArtifactType::Docx => 50 * 1024 * 1024,  // 50MB
-            ArtifactType::Pptx => 100 * 1024 * 1024, // 100MB
-            ArtifactType::Pdf => 100 * 1024 * 1024,  // 100MB
+            Self::Docx => 50 * 1024 * 1024,  // 50MB
+            Self::Pptx => 100 * 1024 * 1024, // 100MB
+            Self::Pdf => 100 * 1024 * 1024,  // 100MB
         }
     }
 }
 
 /// Metadata about an artifact.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct ArtifactMetadata {
     /// Optional title
     pub title: Option<String>,
@@ -107,18 +110,6 @@ pub struct ArtifactMetadata {
     pub tags: Vec<String>,
 }
 
-impl Default for ArtifactMetadata {
-    fn default() -> Self {
-        Self {
-            title: None,
-            description: None,
-            generated_by: None,
-            source_prompt: None,
-            template: None,
-            tags: Vec::new(),
-        }
-    }
-}
 
 /// Reference to an artifact (lightweight, for listing).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -169,12 +160,14 @@ impl Default for ArtifactStore {
 
 impl ArtifactStore {
     /// Create a new artifact store with default path.
+    #[must_use] 
     pub fn new() -> Self {
         let base_path = Self::default_base_path();
         Self::with_path(base_path)
     }
 
     /// Create a new artifact store with a custom base path.
+    #[must_use] 
     pub fn with_path(base_path: PathBuf) -> Self {
         // Ensure base directory exists
         fs::create_dir_all(&base_path).ok();
@@ -318,13 +311,14 @@ impl ArtifactStore {
         self.artifacts.insert(id.clone(), reference.clone());
         self.session_artifacts
             .entry(session_id.to_string())
-            .or_insert_with(Vec::new)
-            .push(id.clone());
+            .or_default()
+            .push(id);
 
         Ok(reference)
     }
 
     /// Get an artifact reference by ID.
+    #[must_use] 
     pub fn get_artifact_ref(&self, id: &str) -> Option<&ArtifactRef> {
         self.artifacts.get(id)
     }
@@ -362,6 +356,7 @@ impl ArtifactStore {
     }
 
     /// List all artifacts for a session.
+    #[must_use] 
     pub fn list_session_artifacts(&self, session_id: &str) -> Vec<ArtifactRef> {
         if let Some(ids) = self.session_artifacts.get(session_id) {
             ids.iter()
@@ -373,6 +368,7 @@ impl ArtifactStore {
     }
 
     /// List all artifacts across all sessions.
+    #[must_use] 
     pub fn list_all_artifacts(&self) -> Vec<ArtifactRef> {
         self.artifacts.values().cloned().collect()
     }
@@ -439,8 +435,7 @@ impl ArtifactStore {
             fs::remove_dir_all(&session_path)?;
             self.session_artifacts
                 .remove(session_id)
-                .map(|v| v.len())
-                .unwrap_or(0)
+                .map_or(0, |v| v.len())
         } else {
             0
         };
@@ -452,21 +447,23 @@ impl ArtifactStore {
     }
 
     /// Get the base path.
+    #[must_use] 
     pub fn base_path(&self) -> &Path {
         &self.base_path
     }
 
     /// Get total artifact count.
+    #[must_use] 
     pub fn count(&self) -> usize {
         self.artifacts.len()
     }
 
     /// Get artifact count for a session.
+    #[must_use] 
     pub fn session_count(&self, session_id: &str) -> usize {
         self.session_artifacts
             .get(session_id)
-            .map(|v| v.len())
-            .unwrap_or(0)
+            .map_or(0, std::vec::Vec::len)
     }
 }
 

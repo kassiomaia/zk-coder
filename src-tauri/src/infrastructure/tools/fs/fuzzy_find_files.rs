@@ -36,11 +36,11 @@ pub struct FuzzyFindFilesArgs {
     pub include_directories: bool,
 }
 
-fn default_limit() -> usize {
+const fn default_limit() -> usize {
     20
 }
 
-fn default_respect_ignore_files() -> bool {
+const fn default_respect_ignore_files() -> bool {
     true
 }
 
@@ -151,9 +151,9 @@ fn resolve_workspace_path(workspace_root: &Path, raw_path: &str) -> Result<PathB
         workspace_root.join(trimmed)
     };
 
-    let canonical = candidate.canonicalize().map_err(|e| {
-        ToolError::failed(format!("Failed to resolve path '{}': {}", trimmed, e))
-    })?;
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|e| ToolError::failed(format!("Failed to resolve path '{trimmed}': {e}")))?;
 
     if !canonical.starts_with(workspace_root) {
         return Err(ToolError::path_traversal(&canonical, workspace_root));
@@ -238,7 +238,9 @@ fn fuzzy_search(
         .filter_map(|path| {
             let mut buf = Vec::new();
             let haystack = Utf32Str::new(&path, &mut buf);
-            pattern.score(haystack, &mut matcher).map(|score| FuzzyMatch { path, score })
+            pattern
+                .score(haystack, &mut matcher)
+                .map(|score| FuzzyMatch { path, score })
         })
         .collect();
 
@@ -382,8 +384,16 @@ mod tests {
 
         // Verify that equal-score paths are in alphabetical order
         for window in paths.windows(2) {
-            if output.matches.iter().find(|m| m.path == window[0]).map(|m| m.score)
-                == output.matches.iter().find(|m| m.path == window[1]).map(|m| m.score)
+            if output
+                .matches
+                .iter()
+                .find(|m| m.path == window[0])
+                .map(|m| m.score)
+                == output
+                    .matches
+                    .iter()
+                    .find(|m| m.path == window[1])
+                    .map(|m| m.score)
             {
                 assert!(window[0] <= window[1]);
             }

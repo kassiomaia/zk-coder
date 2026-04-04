@@ -1,4 +1,4 @@
-//! SQLite schema for NLP context persistence.
+//! `SQLite` schema for NLP context persistence.
 
 use rusqlite::Connection;
 
@@ -14,7 +14,7 @@ use crate::infrastructure::sqlite::repositories::nlp_context::ContextRepositoryE
 /// Returns an error if the SQL statements fail to execute.
 pub fn init_schema(conn: &Connection) -> Result<(), ContextRepositoryError> {
     conn.execute_batch(
-        r#"
+        r"
         CREATE TABLE IF NOT EXISTS context_windows (
             id TEXT PRIMARY KEY,
             conversation_id TEXT NOT NULL UNIQUE,
@@ -39,7 +39,7 @@ pub fn init_schema(conn: &Connection) -> Result<(), ContextRepositoryError> {
 
         CREATE INDEX IF NOT EXISTS idx_conversation_id
         ON context_windows(conversation_id);
-        "#,
+        ",
     )?;
     Ok(())
 }

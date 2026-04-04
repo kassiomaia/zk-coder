@@ -44,7 +44,7 @@ pub async fn add_manual_model(
         .capabilities
         .unwrap_or_else(|| ModelCapabilities::infer_from_name(name));
 
-    let model = ManualModelEntry::new(name.clone(), capabilities.clone());
+    let model = ManualModelEntry::new(name, capabilities.clone());
 
     store
         .add_manual_model(&request.provider_id, &model)

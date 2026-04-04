@@ -30,7 +30,7 @@ impl AgentState {
         let task_repository: Arc<dyn TaskRepository> = sqlite_repository.clone();
         let telemetry_repository: Arc<dyn AgentTelemetryRepository> = sqlite_repository.clone();
         let execution_repository: Arc<dyn ExecutionRepository> = sqlite_repository.clone();
-        let trace_repository: Arc<dyn RuntimeTraceRepository> = sqlite_repository.clone();
+        let trace_repository: Arc<dyn RuntimeTraceRepository> = sqlite_repository;
         let approval_queue = Arc::new(ApprovalQueue::new());
         let tool_registry = Arc::new(
             crate::infrastructure::tools::ToolRegistry::new()

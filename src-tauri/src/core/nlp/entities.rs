@@ -63,8 +63,7 @@ impl ContextWindow {
                 .metadata
                 .summary
                 .as_ref()
-                .map(|s| s.len() / 4)
-                .unwrap_or(0)
+                .map_or(0, |s| s.len() / 4)
     }
 
     /// Returns a summary of the context window.

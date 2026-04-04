@@ -5,7 +5,7 @@
 //! agent-related operations.
 
 use super::entities::{
-    Agent, AgentExecutionResult, AgentSession, AgentTask, PendingAction, SessionId, TaskStatus,
+    Agent, AgentSession, AgentTask, PendingAction, SessionId, TaskStatus,
 };
 use super::repositories::RepositoryResult;
 
@@ -87,11 +87,11 @@ pub struct TerminalLine {
 pub struct ExecutionStep {
     /// A unique identifier for the step.
     pub id: String,
-    /// The type of the step (e.g., "tool_call", "llm_request").
+    /// The type of the step (e.g., "`tool_call`", "`llm_request`").
     pub step_type: String,
     /// A description of the step.
     pub description: String,
-    /// The status of the step (e.g., "in_progress", "completed").
+    /// The status of the step (e.g., "`in_progress`", "completed").
     pub status: String,
     /// The timestamp of when the step was recorded.
     pub timestamp: chrono::DateTime<chrono::Utc>,
@@ -123,7 +123,6 @@ pub trait AgentService: Send + Sync {
 
     /// Deletes an agent session.
     fn delete_session(&self, session_id: &str) -> RepositoryResult<()>;
-
 
     /// Updates the workspace for an agent session.
     fn update_session_workspace(
@@ -158,7 +157,6 @@ pub trait AgentService: Send + Sync {
 
     /// Lists all available agents.
     fn list_agents(&self) -> RepositoryResult<Vec<Agent>>;
-
 
     /// Retrieves a specific agent by its ID.
     fn get_agent(&self, agent_id: &str) -> RepositoryResult<Agent>;

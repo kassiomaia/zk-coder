@@ -2,7 +2,7 @@
 
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{get_draft_store, DraftStoreExt},
+    documents::shared::get_draft_store,
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -18,7 +18,7 @@ use tauri::AppHandle;
 /// Arguments for listing slides.
 #[derive(Debug, Deserialize)]
 pub struct PptxListSlidesArgs {
-    /// Deck ID from pptx_start
+    /// Deck ID from `pptx_start`
     pub deck_id: String,
     /// Whether to include full content (default: false)
     #[serde(default)]
@@ -97,12 +97,12 @@ impl Tool for PptxListSlidesTool {
             let draft_store = get_draft_store();
             let slides: Vec<SlideSummary> = {
                 let store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
-                let deck = store
-                    .get_pptx_draft(&args.deck_id)
-                    .ok_or_else(|| ToolError::failed(format!("Deck not found: {}", args.deck_id)))?;
+                let deck = store.get_pptx_draft(&args.deck_id).ok_or_else(|| {
+                    ToolError::failed(format!("Deck not found: {}", args.deck_id))
+                })?;
 
                 deck.slides
                     .iter()
@@ -135,7 +135,9 @@ impl Tool for PptxListSlidesTool {
 }
 
 /// Format a preview of slide content.
-fn format_content_preview(content: &[crate::infrastructure::tools::documents::shared::SlideContent]) -> String {
+fn format_content_preview(
+    content: &[crate::infrastructure::tools::documents::shared::SlideContent],
+) -> String {
     let mut preview = String::new();
     for item in content.iter().take(5) {
         match item {
@@ -145,19 +147,31 @@ fn format_content_preview(content: &[crate::infrastructure::tools::documents::sh
             crate::infrastructure::tools::documents::shared::SlideContent::Subtitle => {
                 preview.push_str("[Subtitle] ");
             }
-            crate::infrastructure::tools::documents::shared::SlideContent::TextBox { text, .. } => {
+            crate::infrastructure::tools::documents::shared::SlideContent::TextBox {
+                text, ..
+            } => {
                 preview.push_str(&format!("Text: {} ", truncate(text, 30)));
             }
-            crate::infrastructure::tools::documents::shared::SlideContent::BulletList { items, .. } => {
+            crate::infrastructure::tools::documents::shared::SlideContent::BulletList {
+                items,
+                ..
+            } => {
                 preview.push_str(&format!("Bullets: {} ", items.len()));
             }
-            crate::infrastructure::tools::documents::shared::SlideContent::NumberedList { items } => {
+            crate::infrastructure::tools::documents::shared::SlideContent::NumberedList {
+                items,
+            } => {
                 preview.push_str(&format!("Numbered: {} ", items.len()));
             }
-            crate::infrastructure::tools::documents::shared::SlideContent::Table { headers, .. } => {
+            crate::infrastructure::tools::documents::shared::SlideContent::Table {
+                headers,
+                ..
+            } => {
                 preview.push_str(&format!("Table: {} cols ", headers.len()));
             }
-            crate::infrastructure::tools::documents::shared::SlideContent::Image { path, .. } => {
+            crate::infrastructure::tools::documents::shared::SlideContent::Image {
+                path, ..
+            } => {
                 preview.push_str(&format!("[Image: {}] ", truncate(path, 20)));
             }
             crate::infrastructure::tools::documents::shared::SlideContent::ChartPlaceholder {
@@ -190,9 +204,9 @@ fn truncate(s: &str, max_len: usize) -> String {
 /// Arguments for getting a slide.
 #[derive(Debug, Deserialize)]
 pub struct PptxGetSlideArgs {
-    /// Deck ID from pptx_start
+    /// Deck ID from `pptx_start`
     pub deck_id: String,
-    /// Slide number (1-based) or slide_id
+    /// Slide number (1-based) or `slide_id`
     pub slide: String,
     /// Whether to include notes
     #[serde(default)]
@@ -264,19 +278,19 @@ impl Tool for PptxGetSlideTool {
             let draft_store = get_draft_store();
             let output = {
                 let store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
-                let deck = store
-                    .get_pptx_draft(&args.deck_id)
-                    .ok_or_else(|| ToolError::failed(format!("Deck not found: {}", args.deck_id)))?;
+                let deck = store.get_pptx_draft(&args.deck_id).ok_or_else(|| {
+                    ToolError::failed(format!("Deck not found: {}", args.deck_id))
+                })?;
 
                 // Find slide by number or ID
                 let draft_slide = if let Ok(num) = args.slide.parse::<usize>() {
                     // 1-based index
                     let index = num.saturating_sub(1);
                     deck.slides.get(index).ok_or_else(|| {
-                        ToolError::failed(format!("Slide number {} not found", num))
+                        ToolError::failed(format!("Slide number {num} not found"))
                     })?
                 } else {
                     deck.slides
@@ -321,7 +335,7 @@ impl Tool for PptxGetSlideTool {
 /// Arguments for searching slides.
 #[derive(Debug, Deserialize)]
 pub struct PptxSearchSlidesArgs {
-    /// Deck ID from pptx_start
+    /// Deck ID from `pptx_start`
     pub deck_id: String,
     /// Search query
     pub query: String,
@@ -402,12 +416,12 @@ impl Tool for PptxSearchSlidesTool {
             let draft_store = get_draft_store();
             let matches: Vec<SlideMatch> = {
                 let store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
-                let deck = store
-                    .get_pptx_draft(&args.deck_id)
-                    .ok_or_else(|| ToolError::failed(format!("Deck not found: {}", args.deck_id)))?;
+                let deck = store.get_pptx_draft(&args.deck_id).ok_or_else(|| {
+                    ToolError::failed(format!("Deck not found: {}", args.deck_id))
+                })?;
 
                 deck.slides
                     .iter()
@@ -496,23 +510,24 @@ fn content_contains_query(
         crate::infrastructure::tools::documents::shared::SlideContent::TextBox { text, .. } => {
             text.to_lowercase().contains(query)
         }
-        crate::infrastructure::tools::documents::shared::SlideContent::BulletList { items, .. } => {
-            items.iter().any(|i| i.to_lowercase().contains(query))
-        }
+        crate::infrastructure::tools::documents::shared::SlideContent::BulletList {
+            items, ..
+        } => items.iter().any(|i| i.to_lowercase().contains(query)),
         crate::infrastructure::tools::documents::shared::SlideContent::NumberedList { items } => {
             items.iter().any(|i| i.to_lowercase().contains(query))
         }
         crate::infrastructure::tools::documents::shared::SlideContent::Table { headers, rows } => {
             headers.iter().any(|h| h.to_lowercase().contains(query))
-                || rows.iter().any(|row| {
-                    row.iter().any(|cell| cell.to_lowercase().contains(query))
-                })
+                || rows
+                    .iter()
+                    .any(|row| row.iter().any(|cell| cell.to_lowercase().contains(query)))
         }
         crate::infrastructure::tools::documents::shared::SlideContent::Image { path, .. } => {
             path.to_lowercase().contains(query)
         }
         crate::infrastructure::tools::documents::shared::SlideContent::ChartPlaceholder {
-            title, ..
+            title,
+            ..
         } => title.to_lowercase().contains(query),
     }
 }

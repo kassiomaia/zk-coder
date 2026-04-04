@@ -13,7 +13,7 @@ use std::time::Duration;
 use tauri::AppHandle;
 
 /// Arguments for Google web search.
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct GoogleSearchArgs {
     /// Search query string.
     pub query: String,
@@ -25,7 +25,7 @@ pub struct GoogleSearchArgs {
     pub language: Option<String>,
 }
 
-fn default_num_results() -> usize {
+const fn default_num_results() -> usize {
     5
 }
 
@@ -101,8 +101,7 @@ impl Tool for GoogleScrapeTool {
             // Check feature flag
             if !crate::infrastructure::tools::constants::is_env_enabled(ENV_GOOGLE_SCRAPE_ENABLED) {
                 return Err(ToolError::Disabled(format!(
-                    "{}=1 is required for dev/test use",
-                    ENV_GOOGLE_SCRAPE_ENABLED
+                    "{ENV_GOOGLE_SCRAPE_ENABLED}=1 is required for dev/test use"
                 )));
             }
 
@@ -133,7 +132,7 @@ impl Tool for GoogleScrapeTool {
                      (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
                 )
                 .build()
-                .map_err(|e| ToolError::failed(format!("Failed to build HTTP client: {}", e)))?;
+                .map_err(|e| ToolError::failed(format!("Failed to build HTTP client: {e}")))?;
 
             // Execute search
             let response = client
@@ -141,7 +140,7 @@ impl Tool for GoogleScrapeTool {
                 .query(&query_params)
                 .send()
                 .await
-                .map_err(|e| ToolError::from_reqwest(e))?;
+                .map_err(ToolError::from_reqwest)?;
 
             let status = response.status();
             if !status.is_success() {
@@ -157,9 +156,9 @@ impl Tool for GoogleScrapeTool {
             let html = response
                 .text()
                 .await
-                .map_err(|e| ToolError::failed(format!("Failed to read response body: {}", e)))?;
+                .map_err(|e| ToolError::failed(format!("Failed to read response body: {e}")))?;
 
-            let results = GoogleScrapeTool::parse_google_search_results(&html, num_results);
+            let results = Self::parse_google_search_results(&html, num_results);
 
             let output = GoogleSearchOutput {
                 query,
@@ -201,9 +200,9 @@ impl GoogleScrapeTool {
         let query = if decoded.starts_with("q=") {
             decoded
         } else {
-            format!("q={}", decoded)
+            format!("q={decoded}")
         };
-        let url = reqwest::Url::parse(&format!("https://www.google.com/url?{}", query)).ok()?;
+        let url = reqwest::Url::parse(&format!("https://www.google.com/url?{query}")).ok()?;
         for (key, value) in url.query_pairs() {
             if key == "q" && (value.starts_with("http://") || value.starts_with("https://")) {
                 return Some(value.into_owned());

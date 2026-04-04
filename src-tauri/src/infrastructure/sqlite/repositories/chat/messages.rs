@@ -2,7 +2,7 @@
 
 use chrono::Utc;
 use log::warn;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 
 use super::helpers::{parse_datetime, parse_status, status_to_str};
 use super::ChatRepositoryError;
@@ -15,7 +15,7 @@ pub fn add_message(conn: &Connection, message: &ChatMessage) -> Result<(), ChatR
     let metadata_json = message
         .metadata
         .as_ref()
-        .map(|m| serde_json::to_string(m))
+        .map(serde_json::to_string)
         .transpose()?;
 
     conn.execute(

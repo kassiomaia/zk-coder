@@ -3,7 +3,7 @@
 //! This module contains the `LlmServiceImpl`, which is the concrete implementation
 //! of the `LlmService` trait from the core layer. It is responsible for
 //! coordinating between the domain entities and the underlying infrastructure,
-//! such as clients for OpenAI and Anthropic.
+//! such as clients for `OpenAI` and Anthropic.
 
 mod client_factory;
 mod conversions;
@@ -29,7 +29,6 @@ impl LlmServiceImpl {
         Self { config_repository }
     }
 }
-pub(crate) use operations::infer_provider_from_model;
 
 #[cfg(test)]
 mod tests {

@@ -42,8 +42,9 @@ pub struct ExecutionDeps<'a> {
     pub all_tool_definitions: &'a [ToolDefinition],
 }
 
-impl<'a> ExecutionDeps<'a> {
+impl ExecutionDeps<'_> {
     /// Returns a `RuntimeTraceService` for recording execution traces.
+    #[must_use] 
     pub fn tracer(&self) -> RuntimeTraceService<'_> {
         RuntimeTraceService::new(self.execution_repo, self.trace_repo, self.app_handle)
     }

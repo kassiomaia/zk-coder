@@ -58,16 +58,16 @@ impl LlmState {
 /// Abstraction for conversation execution strategy.
 pub trait ConversationRunner: Send + Sync {
     /// Handles a non-streaming chat request.
-    fn send_chat_message<'a>(
-        &'a self,
+    fn send_chat_message(
+        &self,
         request: SendChatRequest,
         app_handle: tauri::AppHandle,
-    ) -> futures::future::BoxFuture<'a, Result<SendChatResponse, String>>;
+    ) -> futures::future::BoxFuture<'_, Result<SendChatResponse, String>>;
 
     /// Handles a streaming chat request.
-    fn send_chat_message_streaming<'a>(
-        &'a self,
+    fn send_chat_message_streaming(
+        &self,
         request: SendChatRequest,
         app_handle: tauri::AppHandle,
-    ) -> futures::future::BoxFuture<'a, Result<String, String>>;
+    ) -> futures::future::BoxFuture<'_, Result<String, String>>;
 }

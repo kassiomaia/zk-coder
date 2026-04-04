@@ -22,19 +22,20 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 use crate::core::agent::entities::{
-    Agent as CoreAgent, AgentDomainError, AgentSession as CoreAgentSession,
+    Agent as CoreAgent, AgentSession as CoreAgentSession,
     AgentTask as CoreAgentTask, PendingAction as CorePendingAction, SessionId as CoreSessionId,
     TaskStatus as CoreTaskStatus,
 };
 use crate::core::agent::repositories::{
-    ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository, TaskRepository,
+    ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
+    TaskRepository,
 };
 use crate::core::agent::services::{
     AgentService, CreateSessionRequest, FileChange, SendAgentRequestRequest, SessionDetails,
 };
 use crate::core::agent::session::SessionId;
 use crate::core::agent::task::TaskStatus;
-use crate::core::agent::types::{Agent, AgentId};
+use crate::core::agent::types::AgentId;
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
 use crate::infrastructure::agent::registry::AgentRegistry;
@@ -101,7 +102,7 @@ impl AgentServiceImpl {
         &self.approval_queue
     }
 
-    pub(crate) fn runtime(&self) -> &Arc<AgentRuntime> {
+    pub(crate) const fn runtime(&self) -> &Arc<AgentRuntime> {
         &self.runtime
     }
 
@@ -193,6 +194,7 @@ impl AgentServiceImpl {
     }
 
     /// Converts an application task status to a core task status.
+    #[must_use] 
     pub fn from_core_task_status(status: TaskStatus) -> CoreTaskStatus {
         status.into()
     }

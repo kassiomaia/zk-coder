@@ -2,7 +2,7 @@
 
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{DocxDraft, DraftStore, DraftStoreExt},
+    documents::shared::{DraftStore, DraftStoreExt},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -13,14 +13,14 @@ use tauri::AppHandle;
 /// Arguments for listing sections in a DOCX document.
 #[derive(Debug, Deserialize)]
 pub struct DocxListSectionsArgs {
-    /// Document ID from docx_start
+    /// Document ID from `docx_start`
     pub document_id: String,
     /// Whether to include full content (false = headings/structure only)
     #[serde(default = "default_include_content")]
     pub include_content: bool,
 }
 
-fn default_include_content() -> bool {
+const fn default_include_content() -> bool {
     false
 }
 
@@ -92,7 +92,7 @@ impl Tool for DocxListSectionsTool {
 
             let draft_store = DraftStore::get_draft_store();
             let store = draft_store.lock().map_err(|e| {
-                ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
             })?;
 
             let draft = store.get_docx_draft(&args.document_id).ok_or_else(|| {

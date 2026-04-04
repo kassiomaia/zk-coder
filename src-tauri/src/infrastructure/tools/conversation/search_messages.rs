@@ -1,7 +1,6 @@
 //! Search conversation messages tool.
 
 use crate::commands::chat::ChatState;
-use crate::core::chat::repositories::MessageRepository;
 use crate::infrastructure::tools::constants::{
     DEFAULT_MESSAGE_SEARCH_LIMIT, MAX_MESSAGE_SEARCH_LIMIT,
 };
@@ -24,7 +23,7 @@ pub struct SearchMessagesArgs {
     pub limit: usize,
 }
 
-fn default_limit() -> usize {
+const fn default_limit() -> usize {
     DEFAULT_MESSAGE_SEARCH_LIMIT
 }
 
@@ -111,7 +110,7 @@ impl Tool for SearchMessagesTool {
             let history = chat_state
                 .service
                 .load_messages(&context.conversation_id)
-                .map_err(|e| ToolError::failed(format!("Failed to load messages: {}", e)))?;
+                .map_err(|e| ToolError::failed(format!("Failed to load messages: {e}")))?;
 
             let mut matches = Vec::new();
             for message in history {

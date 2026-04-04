@@ -103,13 +103,13 @@ impl LlmError {
 
     /// Creates a rate limit error.
     #[must_use]
-    pub fn rate_limit(retry_after: Option<u64>) -> Self {
+    pub const fn rate_limit(retry_after: Option<u64>) -> Self {
         Self::RateLimit { retry_after }
     }
 
     /// Creates a timeout error.
     #[must_use]
-    pub fn timeout(seconds: u64) -> Self {
+    pub const fn timeout(seconds: u64) -> Self {
         Self::Timeout { seconds }
     }
 
@@ -127,13 +127,13 @@ impl LlmError {
 
     /// Returns true if the error is due to rate limiting.
     #[must_use]
-    pub fn is_rate_limit(&self) -> bool {
+    pub const fn is_rate_limit(&self) -> bool {
         matches!(self, Self::RateLimit { .. })
     }
 
     /// Returns true if the error is due to authentication.
     #[must_use]
-    pub fn is_auth_error(&self) -> bool {
+    pub const fn is_auth_error(&self) -> bool {
         match self {
             Self::ApiKey(_) => true,
             Self::Api { status, .. } => *status == 401 || *status == 403,

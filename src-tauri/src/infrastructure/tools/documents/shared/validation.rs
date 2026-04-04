@@ -55,7 +55,8 @@ pub struct ValidationReport {
 
 impl ValidationReport {
     /// Create a new empty validation report.
-    pub fn new() -> Self {
+    #[must_use] 
+    pub const fn new() -> Self {
         Self {
             passed: true,
             checks: Vec::new(),
@@ -126,6 +127,7 @@ impl ValidationReport {
     }
 
     /// Get all errors from the report.
+    #[must_use] 
     pub fn errors(&self) -> Vec<&ValidationCheck> {
         self.checks
             .iter()
@@ -134,6 +136,7 @@ impl ValidationReport {
     }
 
     /// Get all warnings from the report.
+    #[must_use] 
     pub fn warnings(&self) -> Vec<&ValidationCheck> {
         self.checks
             .iter()
@@ -183,8 +186,7 @@ pub fn validate_magic_bytes(content: &[u8], expected_type: DocumentFileType) -> 
 
     if !valid {
         return Err(format!(
-            "File does not have correct magic bytes for {:?}",
-            expected_type
+            "File does not have correct magic bytes for {expected_type:?}"
         ));
     }
 
@@ -206,8 +208,7 @@ pub enum DocumentFileType {
 pub fn validate_file_size(size: u64, max_size: u64) -> Result<(), String> {
     if size > max_size {
         return Err(format!(
-            "File size {} bytes exceeds maximum {} bytes",
-            size, max_size
+            "File size {size} bytes exceeds maximum {max_size} bytes"
         ));
     }
     Ok(())
@@ -216,7 +217,7 @@ pub fn validate_file_size(size: u64, max_size: u64) -> Result<(), String> {
 /// Calculate estimated page count from content size.
 ///
 /// This is a rough estimate based on typical content density.
-pub fn estimate_page_count(file_type: DocumentFileType, size_bytes: u64) -> Result<usize, String> {
+pub const fn estimate_page_count(file_type: DocumentFileType, size_bytes: u64) -> Result<usize, String> {
     // Rough estimates: average content per page
     let bytes_per_page = match file_type {
         DocumentFileType::Docx => 25_000,  // ~25KB per page with formatting

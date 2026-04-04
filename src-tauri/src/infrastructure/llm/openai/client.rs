@@ -7,14 +7,14 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::pin::Pin;
 
-use super::types::*;
+use super::types::{OpenAiRequest, OpenAiMessage, OpenAiRequestMessageToolCall, OpenAiRequestMessageToolFunction, OpenAiStreamResponse, OpenAiResponse};
 use crate::core::config::ApiType;
 use crate::infrastructure::llm::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, MessageContent,
-    MessageRole, StreamChunk, StreamDelta, ToolCall, ToolDefinition, UsageStats,
+    MessageRole, StreamChunk, StreamDelta, ToolCall, UsageStats,
 };
 
-/// Default base URL for OpenAI API.
+/// Default base URL for `OpenAI` API.
 pub const OPENAI_BASE_URL: &str = "https://api.openai.com/v1";
 
 /// Default base URL for Google OpenAI-compatible API.
@@ -28,12 +28,12 @@ pub struct OpenAiClient {
     api_key: String,
     /// Base URL for API requests
     base_url: String,
-    /// Provider type (OpenAI or Google)
+    /// Provider type (`OpenAI` or Google)
     provider_type: ApiType,
 }
 
 impl OpenAiClient {
-    /// Creates a new OpenAI client.
+    /// Creates a new `OpenAI` client.
     #[must_use]
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
         let client = Client::builder()
@@ -70,9 +70,8 @@ impl OpenAiClient {
         ];
 
         for endpoint in endpoints_to_strip {
-            if url.ends_with(endpoint) {
-                let normalized = &url[..url.len() - endpoint.len()];
-                info!("Normalized base URL from '{}' to '{}'", url, normalized);
+            if let Some(normalized) = url.strip_suffix(endpoint) {
+                info!("Normalized base URL from '{url}' to '{normalized}'");
                 return normalized.to_string();
             }
         }
@@ -100,7 +99,7 @@ impl OpenAiClient {
         format!("Bearer {}", self.api_key)
     }
 
-    /// Converts a ChatRequest to OpenAI format.
+    /// Converts a `ChatRequest` to `OpenAI` format.
     fn convert_request(&self, request: ChatRequest) -> OpenAiRequest {
         self.convert_request_with_tool_choice(request, true)
     }
@@ -222,6 +221,7 @@ impl OpenAiClient {
     }
 
     /// Parses a SSE line from the stream.
+    #[must_use] 
     pub fn parse_sse_line(line: &str) -> Option<Result<OpenAiStreamResponse, LlmError>> {
         let line = line.trim();
 
@@ -253,14 +253,12 @@ impl OpenAiClient {
                     ) {
                         Ok(response) => Some(Ok(response)),
                         Err(_) => Some(Err(LlmError::parse(format!(
-                            "Failed to parse stream chunk: {} | Line: {}",
-                            e, line
+                            "Failed to parse stream chunk: {e} | Line: {line}"
                         )))),
                     }
                 } else {
                     Some(Err(LlmError::parse(format!(
-                        "Failed to parse stream chunk: {} | Line: {}",
-                        e, line
+                        "Failed to parse stream chunk: {e} | Line: {line}"
                     ))))
                 }
             }
@@ -307,7 +305,7 @@ impl OpenAiClient {
             break response
                 .json()
                 .await
-                .map_err(|e| LlmError::parse(format!("Failed to parse response: {}", e)))?;
+                .map_err(|e| LlmError::parse(format!("Failed to parse response: {e}")))?;
         };
 
         // Extract content and structured tool calls from first choice.
@@ -384,6 +382,7 @@ impl OpenAiClient {
     }
 
     /// Makes a streaming chat request.
+    #[must_use] 
     pub fn chat_stream_internal(
         &self,
         request: ChatRequest,
@@ -392,9 +391,9 @@ impl OpenAiClient {
         let base_url = self.base_url.clone();
         let auth_header = self.auth_header();
         let openai_request = self.convert_request(request);
-        let url = format!("{}/chat/completions", base_url);
+        let url = format!("{base_url}/chat/completions");
 
-        info!("openai::chat_stream: starting request to {}", url);
+        info!("openai::chat_stream: starting request to {url}");
 
         Box::pin(stream! {
             info!("openai::chat_stream: sending POST request");
@@ -412,7 +411,7 @@ impl OpenAiClient {
                     r
                 }
                 Err(e) => {
-                    error!("openai::chat_stream: request failed: {}", e);
+                    error!("openai::chat_stream: request failed: {e}");
                     yield Err(LlmError::from(e));
                     return;
                 }
@@ -425,11 +424,11 @@ impl OpenAiClient {
 
                 // Special handling for 404 on z.ai endpoint
                 if status.as_u16() == 404 && url.contains("api.z.ai") {
-                    error!("openai::chat_stream: GLM provider endpoint not found. The z.ai endpoint {} does not exist. Please check your GLM provider configuration.", url);
+                    error!("openai::chat_stream: GLM provider endpoint not found. The z.ai endpoint {url} does not exist. Please check your GLM provider configuration.");
                     yield Err(LlmError::api(status.as_u16(),
                         "GLM provider endpoint not found. Please check your provider configuration. The z.ai API endpoint structure may have changed.".to_string()));
                 } else {
-                    error!("openai::chat_stream: API error status={}, body={}", status, error_text);
+                    error!("openai::chat_stream: API error status={status}, body={error_text}");
                     yield Err(LlmError::api(status.as_u16(), error_text));
                 }
                 return;
@@ -449,7 +448,7 @@ impl OpenAiClient {
                 let chunk = match chunk_result {
                     Ok(c) => c,
                     Err(e) => {
-                        error!("openai::chat_stream: error reading from stream: {}", e);
+                        error!("openai::chat_stream: error reading from stream: {e}");
                         yield Err(LlmError::streaming(e.to_string()));
                         continue;
                     }
@@ -477,7 +476,7 @@ impl OpenAiClient {
                         buffer.push_str(&text);
                     }
                     Err(e) => {
-                        error!("openai::chat_stream: failed to convert chunk to utf8: {}", e);
+                        error!("openai::chat_stream: failed to convert chunk to utf8: {e}");
                         continue;
                     }
                 }
@@ -552,20 +551,18 @@ impl OpenAiClient {
                             }
                             Err(e) => {
                                 error!(
-                                    "openai::chat_stream: failed to parse SSE line {}: {}",
-                                    line_count, e
+                                    "openai::chat_stream: failed to parse SSE line {line_count}: {e}"
                                 );
                                 yield Err(e);
                             }
                         }
-                    } else if !line.trim().is_empty() {
-                        if line_count <= 10 {
+                    } else if !line.trim().is_empty()
+                        && line_count <= 10 {
                             info!(
                                 "openai::chat_stream: skipping unparsable line (not SSE format): {:?}",
                                 &line[..line.len().min(100)]
                             );
                         }
-                    }
                 }
             }
 
@@ -586,7 +583,7 @@ impl OpenAiClient {
                     buffer.len()
                 );
                 if buffer.len() < 200 {
-                    info!("openai::chat_stream: remaining buffer content: {:?}", buffer);
+                    info!("openai::chat_stream: remaining buffer content: {buffer:?}");
                 }
             }
         })
@@ -635,7 +632,7 @@ impl OpenAiClient {
         let models_response: ModelsResponse = response
             .json()
             .await
-            .map_err(|e| LlmError::parse(format!("Failed to parse models response: {}", e)))?;
+            .map_err(|e| LlmError::parse(format!("Failed to parse models response: {e}")))?;
 
         Ok(models_response.data.into_iter().map(|m| m.id).collect())
     }
@@ -646,10 +643,10 @@ impl LlmClient for OpenAiClient {
         self.provider_type
     }
 
-    fn chat<'a>(
-        &'a self,
+    fn chat(
+        &self,
         request: ChatRequest,
-    ) -> futures::future::BoxFuture<'a, LlmResult<ChatResponse>> {
+    ) -> futures::future::BoxFuture<'_, LlmResult<ChatResponse>> {
         Box::pin(async move { self.chat_internal(request).await })
     }
 

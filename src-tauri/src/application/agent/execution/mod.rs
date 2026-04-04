@@ -5,8 +5,8 @@
 //! runtime behavior of the agent.
 
 pub mod bootstrap;
-pub mod coordinator;
 pub mod context_phase;
+pub mod coordinator;
 pub mod deps;
 pub mod llm_phase;
 pub mod response_phase;

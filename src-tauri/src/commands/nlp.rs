@@ -243,7 +243,7 @@ pub async fn resolve_ambiguity(
         "selected" => ResolutionType::Selected,
         "custom" => ResolutionType::Custom,
         "dismissed" => ResolutionType::Dismissed,
-        _ => return Err(format!("Invalid resolution type: {}", resolution_type)),
+        _ => return Err(format!("Invalid resolution type: {resolution_type}")),
     };
 
     Ok(ResolvedAmbiguity::new(

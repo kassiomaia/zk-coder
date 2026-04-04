@@ -4,7 +4,7 @@ use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
     documents::shared::{
-        get_draft_store, DraftStoreExt, PptxDraft, PptxSlide, SlideContent, SlideLayout,
+        get_draft_store, PptxDraft, PptxSlide, SlideContent, SlideLayout,
     },
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
@@ -20,14 +20,14 @@ use pptx::{BulletFormat, Emu, Inches, Presentation, ShapeId, ShapeTree, TextFram
 /// Arguments for finalizing a PPTX presentation.
 #[derive(Debug, Deserialize)]
 pub struct PptxFinalizeArgs {
-    /// Deck ID from pptx_start
+    /// Deck ID from `pptx_start`
     pub deck_id: String,
     /// Whether to automatically save to artifact store
     #[serde(default = "default_auto_save")]
     pub auto_save: bool,
 }
 
-fn default_auto_save() -> bool {
+const fn default_auto_save() -> bool {
     true
 }
 
@@ -49,7 +49,7 @@ pub struct PptxFinalizeOutput {
     pub deck_id: String,
     /// Filename
     pub filename: String,
-    /// Artifact ID (if auto_saved)
+    /// Artifact ID (if `auto_saved`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub artifact_id: Option<String>,
     /// Full path to the generated file
@@ -107,13 +107,13 @@ impl Tool for PptxFinalizeTool {
             let draft_store = get_draft_store();
             let draft = {
                 let mut store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
                 // Get and remove the draft (finalizing removes it from active drafts)
-                store.remove_pptx_draft(&args.deck_id).ok_or_else(|| {
-                    ToolError::failed(format!("Deck not found: {}", args.deck_id))
-                })?
+                store
+                    .remove_pptx_draft(&args.deck_id)
+                    .ok_or_else(|| ToolError::failed(format!("Deck not found: {}", args.deck_id)))?
             };
 
             // Clone needed data before async call
@@ -139,7 +139,7 @@ impl Tool for PptxFinalizeTool {
             let output = PptxFinalizeOutput {
                 deck_id: args.deck_id,
                 filename,
-                artifact_id: artifact_id.clone(),
+                artifact_id,
                 path: path.to_str().unwrap().to_string(),
                 validation,
                 slide_count,
@@ -253,7 +253,7 @@ fn validate_pptx_draft(draft: &PptxDraft) -> ValidationReport {
 /// Estimate presentation duration from draft.
 fn estimate_duration(draft: &PptxDraft) -> usize {
     // Estimate 1.5 minutes per slide
-    (draft.slides.len() * 3 + 1) / 2
+    (draft.slides.len() * 3).div_ceil(2)
 }
 
 /// Generate a PPTX file from the draft using the pptx crate.
@@ -266,19 +266,19 @@ async fn generate_pptx(draft: PptxDraft) -> Result<(PathBuf, u64), ToolError> {
     // Create artifacts directory in home/.coder/artifacts
     let artifacts_dir = PathBuf::from(home).join(".coder").join("artifacts");
     std::fs::create_dir_all(&artifacts_dir)
-        .map_err(|e| ToolError::failed(format!("Failed to create artifacts directory: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to create artifacts directory: {e}")))?;
 
     // Create output file path
     let output_path = artifacts_dir.join(&draft.filename);
 
     // Create a new presentation
     let mut prs = Presentation::new()
-        .map_err(|e| ToolError::failed(format!("Failed to create presentation: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to create presentation: {e}")))?;
 
     // Get slide layouts
     let layouts = prs
         .slide_layouts()
-        .map_err(|e| ToolError::failed(format!("Failed to get slide layouts: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to get slide layouts: {e}")))?;
 
     // Use the first layout as default
     let default_layout = layouts
@@ -291,22 +291,22 @@ async fn generate_pptx(draft: PptxDraft) -> Result<(PathBuf, u64), ToolError> {
 
         let slide_ref = prs
             .add_slide(layout)
-            .map_err(|e| ToolError::failed(format!("Failed to add slide: {}", e)))?;
+            .map_err(|e| ToolError::failed(format!("Failed to add slide: {e}")))?;
 
         render_slide_content(&mut prs, &slide_ref, &draft_slide.slide)
-            .map_err(|e| ToolError::failed(format!("Failed to render slide content: {}", e)))?;
+            .map_err(|e| ToolError::failed(format!("Failed to render slide content: {e}")))?;
     }
 
     // If no slides were added, add a title slide
     if draft.slides.is_empty() {
         let _ = prs
             .add_slide(default_layout)
-            .map_err(|e| ToolError::failed(format!("Failed to add title slide: {}", e)))?;
+            .map_err(|e| ToolError::failed(format!("Failed to add title slide: {e}")))?;
     }
 
     // Save the presentation
     prs.save(&output_path)
-        .map_err(|e| ToolError::failed(format!("Failed to save presentation: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to save presentation: {e}")))?;
 
     let size_bytes = std::fs::metadata(&output_path)
         .map(|m| m.len())
@@ -380,16 +380,10 @@ fn render_slide_content(
                 ));
             }
             SlideContent::Image { path, .. } => {
-                body_paragraphs.push(BodyParagraph::Plain(format!(
-                    "[Image: {}]",
-                    path.trim()
-                )));
+                body_paragraphs.push(BodyParagraph::Plain(format!("[Image: {}]", path.trim())));
             }
             SlideContent::ChartPlaceholder { title, .. } => {
-                body_paragraphs.push(BodyParagraph::Plain(format!(
-                    "[Chart: {}]",
-                    title.trim()
-                )));
+                body_paragraphs.push(BodyParagraph::Plain(format!("[Chart: {}]", title.trim())));
             }
             SlideContent::Title | SlideContent::Subtitle | SlideContent::TextBox { .. } => {}
         }
@@ -491,17 +485,18 @@ fn append_shapes_to_slide(
 
     let slide_xml = presentation
         .slide_xml_mut(slide_ref)
-        .map_err(|e| ToolError::failed(format!("Failed to get mutable slide XML: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to get mutable slide XML: {e}")))?;
 
     let xml_string = String::from_utf8(slide_xml.clone())
-        .map_err(|e| ToolError::failed(format!("Slide XML is not valid UTF-8: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Slide XML is not valid UTF-8: {e}")))?;
 
     let marker = "</p:spTree>";
     let marker_index = xml_string
         .find(marker)
         .ok_or_else(|| ToolError::failed("Slide XML missing </p:spTree> marker".to_string()))?;
 
-    let mut updated = String::with_capacity(xml_string.len() + shapes.iter().map(String::len).sum::<usize>());
+    let mut updated =
+        String::with_capacity(xml_string.len() + shapes.iter().map(String::len).sum::<usize>());
     updated.push_str(&xml_string[..marker_index]);
     for shape in shapes {
         updated.push_str(shape);

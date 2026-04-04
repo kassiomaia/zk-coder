@@ -35,7 +35,7 @@ pub struct OrchestratedLoopOutput {
 }
 
 /// Build core LLM messages from chat history.
-pub(crate) fn build_core_messages(
+pub fn build_core_messages(
     history: &[ChatMessage],
     request_content: &str,
     history_includes_request: bool,
@@ -88,9 +88,9 @@ pub async fn run_orchestrated_loop(
                 config_repository
                     .get_model_by_name(provider_id, model_name)
                     .map_err(|e| e.to_string())?
-                    .ok_or_else(|| format!("Model '{}' not found", model_id))?
+                    .ok_or_else(|| format!("Model '{model_id}' not found"))?
             } else {
-                return Err(format!("Model '{}' not found", model_id));
+                return Err(format!("Model '{model_id}' not found"));
             }
         }
         Err(e) => return Err(e.to_string()),
@@ -129,7 +129,8 @@ pub async fn run_orchestrated_loop(
             .map_err(|e| e.to_string())?;
     }
 
-    let mut core_messages = build_core_messages(&history, &request.content, history_includes_request);
+    let mut core_messages =
+        build_core_messages(&history, &request.content, history_includes_request);
 
     let system_prompt = request.system_prompt.clone().unwrap_or_default();
     let temperature = request.temperature;
@@ -138,9 +139,7 @@ pub async fn run_orchestrated_loop(
 
     for step in 1..=ORCHESTRATOR_MAX_STEPS {
         log::info!(
-            "[LLM] Orchestrator step {}/{}",
-            step,
-            ORCHESTRATOR_MAX_STEPS
+            "[LLM] Orchestrator step {step}/{ORCHESTRATOR_MAX_STEPS}"
         );
 
         let core_tools: Vec<crate::core::llm::entities::ToolDefinition> = tool_definitions
@@ -169,10 +168,9 @@ pub async fn run_orchestrated_loop(
                 .await
                 .map_err(|e| {
                     log::error!(
-                        "send_chat_message_orchestrated_non_stream: LLM error: {}",
-                        e
+                        "send_chat_message_orchestrated_non_stream: LLM error: {e}"
                     );
-                    e.to_string()
+                    e
                 })?;
 
         let tool_calls = response.tool_calls.clone();
@@ -187,11 +185,7 @@ Enable a model/provider with native tool-calling support for orchestrated execut
             return Ok(OrchestratedLoopOutput {
                 content: response.content,
                 model: response.model,
-                usage: response.usage.map(|u| UsageStats {
-                    input_tokens: u.input_tokens,
-                    output_tokens: u.output_tokens,
-                    total_tokens: u.total_tokens,
-                }),
+                usage: response.usage,
             });
         }
 
@@ -235,8 +229,7 @@ Enable a model/provider with native tool-calling support for orchestrated execut
     }
 
     Err(format!(
-        "Orchestrator exceeded max steps ({}) without final response",
-        ORCHESTRATOR_MAX_STEPS
+        "Orchestrator exceeded max steps ({ORCHESTRATOR_MAX_STEPS}) without final response"
     ))
 }
 

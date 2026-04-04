@@ -2,7 +2,7 @@
 
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{get_draft_store, DraftStoreExt, PptxSlide, SlideContent, SlideLayout},
+    documents::shared::{get_draft_store, SlideLayout},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -17,9 +17,9 @@ use super::add_slide::SlideContentItem;
 /// Arguments for updating a slide.
 #[derive(Debug, Deserialize)]
 pub struct PptxUpdateSlideArgs {
-    /// Deck ID from pptx_start
+    /// Deck ID from `pptx_start`
     pub deck_id: String,
-    /// Slide number (1-based) or slide_id
+    /// Slide number (1-based) or `slide_id`
     pub slide: String,
     /// New slide layout (optional)
     #[serde(default)]
@@ -102,16 +102,20 @@ impl Tool for PptxUpdateSlideTool {
             let args: PptxUpdateSlideArgs = parse_args("pptx_update_slide", arguments)?;
 
             // Check if nothing to update
-            if args.layout.is_none() && args.title.is_none() && args.content.is_none() && args.notes.is_none() {
+            if args.layout.is_none()
+                && args.title.is_none()
+                && args.content.is_none()
+                && args.notes.is_none()
+            {
                 return Err(ToolError::failed(
-                    "No updates specified. Provide at least one field to update.".to_string()
+                    "No updates specified. Provide at least one field to update.".to_string(),
                 ));
             }
 
             let draft_store = get_draft_store();
             let (slide_id, slide_number, slide_title) = {
                 let mut store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
                 let deck = store.get_pptx_draft_mut(&args.deck_id).ok_or_else(|| {
@@ -123,7 +127,7 @@ impl Tool for PptxUpdateSlideTool {
                     // 1-based index
                     let index = num.saturating_sub(1);
                     if index >= deck.slides.len() {
-                        return Err(ToolError::failed(format!("Slide number {} not found", num)));
+                        return Err(ToolError::failed(format!("Slide number {num} not found")));
                     }
                     index
                 } else {
@@ -169,7 +173,7 @@ impl Tool for PptxUpdateSlideTool {
             let output = PptxUpdateSlideOutput {
                 slide_id,
                 slide_number,
-                message: format!("Slide \"{}\" updated successfully", slide_title),
+                message: format!("Slide \"{slide_title}\" updated successfully"),
             };
 
             Ok(serde_json::to_value(output)?)
@@ -177,7 +181,7 @@ impl Tool for PptxUpdateSlideTool {
     }
 }
 
-/// Parse layout string to SlideLayout enum.
+/// Parse layout string to `SlideLayout` enum.
 fn parse_layout(s: &str) -> SlideLayout {
     match s.to_lowercase().as_str() {
         "title" | "titleslide" => SlideLayout::TitleSlide,

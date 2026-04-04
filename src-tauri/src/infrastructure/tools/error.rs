@@ -91,5 +91,5 @@ where
     T: serde::de::DeserializeOwned,
 {
     serde_json::from_value(args)
-        .map_err(|e| ToolError::InvalidArguments(format!("{}: {}", tool_name, e)))
+        .map_err(|e| ToolError::InvalidArguments(format!("{tool_name}: {e}")))
 }

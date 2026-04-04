@@ -195,7 +195,7 @@ pub async fn replan_agent_execution(
 /// This command should be called when the app starts to:
 /// 1. Detect any unterminated sessions from previous runs
 /// 2. Move them to Paused state
-/// 3. Emit SessionPaused events so the frontend can show recovery UI
+/// 3. Emit `SessionPaused` events so the frontend can show recovery UI
 #[tauri::command]
 pub async fn initialize_agent_recovery(
     state: tauri::State<'_, AgentState>,

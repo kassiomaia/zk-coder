@@ -133,7 +133,13 @@ pub async fn handle_response(
                 tool_call.name,
                 repeat_count + 1
             );
-            fail_execution(deps, ctx, &msg, "loop_detected", Some(response.model.clone()))?;
+            fail_execution(
+                deps,
+                ctx,
+                &msg,
+                "loop_detected",
+                Some(response.model.clone()),
+            )?;
             return Err(AgentRuntimeError::LoopDetected);
         }
     }

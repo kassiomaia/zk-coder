@@ -107,7 +107,7 @@ impl ChatService for ChatServiceImpl {
 
         if thread.is_resolved() {
             return Err(ChatDomainError::ThreadResolved {
-                thread_title: thread.title.clone(),
+                thread_title: thread.title,
             });
         }
 
@@ -116,7 +116,7 @@ impl ChatService for ChatServiceImpl {
             conversation_id: request.conversation_id.clone(),
             thread_id: Some(request.thread_id.clone()),
             role: request.role,
-            content: request.content.clone(),
+            content: request.content,
             timestamp: chrono::Utc::now(),
             status: MessageStatus::Sent,
             metadata: None,

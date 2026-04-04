@@ -1,7 +1,7 @@
-//! SQLite storage for chat conversations and threads.
+//! `SQLite` storage for chat conversations and threads.
 //!
 //! This module provides persistence for conversations, threads, and messages
-//! using SQLite.
+//! using `SQLite`.
 
 pub(crate) mod conversations;
 mod helpers;
@@ -32,18 +32,18 @@ pub use messages::{
 };
 
 use crate::core::chat::entities::{
-    ChatDomainError, ChatMessage, Conversation, ConversationSettings, MessageFeedback,
-    MessageMetadata, MessageRole, MessageStatus, Thread, ThreadMetadata,
+    ChatDomainError, ChatMessage, Conversation, ConversationSettings, MessageFeedback, MessageRole,
+    MessageStatus, Thread,
 };
 
 use crate::core::chat::repositories::{
     ChatRepository, MessageRepository, RepositoryResult, ThreadRepository,
 };
 
-/// Errors from the SQLite chat repository.
+/// Errors from the `SQLite` chat repository.
 #[derive(Debug, Error)]
 pub enum ChatRepositoryError {
-    /// SQLite error
+    /// `SQLite` error
     #[error("SQLite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
     /// Not found error
@@ -63,31 +63,30 @@ pub enum ChatRepositoryError {
 impl From<ChatRepositoryError> for ChatDomainError {
     fn from(err: ChatRepositoryError) -> Self {
         match err {
-            ChatRepositoryError::Sqlite(e) => ChatDomainError::InvalidInput {
+            ChatRepositoryError::Sqlite(e) => Self::InvalidInput {
                 reason: format!("Database error: {e}"),
             },
             ChatRepositoryError::NotFound(entity, id) => match entity {
-                "Conversation" => ChatDomainError::ConversationNotFound { id },
-                "Thread" => ChatDomainError::ThreadNotFound { id },
-                "Message" => ChatDomainError::MessageNotFound { id },
-                _ => ChatDomainError::InvalidInput {
+                "Conversation" => Self::ConversationNotFound { id },
+                "Thread" => Self::ThreadNotFound { id },
+                "Message" => Self::MessageNotFound { id },
+                _ => Self::InvalidInput {
                     reason: format!("{entity} not found: {id}"),
                 },
             },
-            ChatRepositoryError::LockError(e) => ChatDomainError::InvalidInput {
+            ChatRepositoryError::LockError(e) => Self::InvalidInput {
                 reason: format!("Lock error: {e}"),
             },
-            ChatRepositoryError::Json(e) => ChatDomainError::InvalidInput {
+            ChatRepositoryError::Json(e) => Self::InvalidInput {
                 reason: format!("JSON error: {e}"),
             },
             ChatRepositoryError::ThreadResolved(thread_title) => {
-                ChatDomainError::ThreadResolved { thread_title }
+                Self::ThreadResolved { thread_title }
             }
         }
     }
 }
 
-#[allow(dead_code)]
 #[allow(dead_code)]
 /// SQLite-backed chat repository.
 pub struct SqliteChatRepository {
@@ -616,7 +615,9 @@ mod tests {
                 .update_thread_archived(&thread.id, true)
                 .expect("Failed to archive thread");
 
-            let threads = store.load_threads(&conv.id).expect("Failed to load threads");
+            let threads = store
+                .load_threads(&conv.id)
+                .expect("Failed to load threads");
             assert!(threads.is_empty());
         }
 
@@ -632,7 +633,9 @@ mod tests {
                 .id
                 .clone();
 
-            let threads = reopened.load_threads(&conv_id).expect("Failed to load threads");
+            let threads = reopened
+                .load_threads(&conv_id)
+                .expect("Failed to load threads");
             assert!(
                 threads.is_empty(),
                 "Archived thread should not reappear after reopening the repository"

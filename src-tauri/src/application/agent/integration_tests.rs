@@ -3,14 +3,14 @@
 //! These tests validate the complete flow from user message to task creation
 //! with subtasks, ensuring the planning improvements work as expected.
 
-use futures::future::BoxFuture;
-use crate::core::agent::entities::{AgentTask, TaskMode, TaskStatus};
 use crate::application::agent::service::planner::{
-    TaskPlan, SubtaskPlan, subtask_plan_to_agent_task, build_planning_system_prompt,
+    build_planning_system_prompt, subtask_plan_to_agent_task, SubtaskPlan, TaskPlan,
 };
+use crate::core::agent::entities::{AgentTask, TaskMode, TaskStatus};
+use crate::core::llm::entities::{ChatMessage, ChatRequest, MessageContent, MessageRole};
 use crate::infrastructure::llm::mock::MockLlmClient;
 use crate::infrastructure::llm::LlmClient;
-use crate::core::llm::entities::{ChatMessage, ChatRequest, MessageContent, MessageRole};
+use futures::future::BoxFuture;
 
 // ========================================================================
 // End-to-End Planning Tests
@@ -72,7 +72,10 @@ async fn test_full_flow_complex_message_creates_task_with_clean_title() {
     let plan: TaskPlan = serde_json::from_str(&response.content).unwrap();
 
     // VALIDATE: Task title is from LLM, not truncated user message
-    assert_eq!(plan.title, "Authentication system security and performance audit");
+    assert_eq!(
+        plan.title,
+        "Authentication system security and performance audit"
+    );
     assert!(plan.title.len() <= 80); // Concise
 
     // The old system would have truncated to 80 chars:
@@ -102,7 +105,7 @@ async fn test_full_flow_complex_message_creates_task_with_clean_title() {
 
     // First subtask should be marked InProgress (done in bootstrap)
     assert_eq!(subtask_entities[0].status, TaskStatus::Pending); // Conversion creates Pending
-    // Bootstrap will update first to InProgress
+                                                                 // Bootstrap will update first to InProgress
 }
 
 #[tokio::test]
@@ -115,12 +118,15 @@ async fn test_regression_task_title_is_not_truncated_first_line() {
     // A message that would be poorly truncated
     let long_message = "Investigate the entire authentication and authorization system across all microservices including the API gateway the user service the permission service and the audit service to find security vulnerabilities and performance bottlenecks and provide recommendations for improvements";
 
-    client.set_response(serde_json::json!({
-        "title": "Auth system security audit",
-        "description": "Security and performance review",
-        "is_non_trivial": false,
-        "subtasks": []
-    }).to_string());
+    client.set_response(
+        serde_json::json!({
+            "title": "Auth system security audit",
+            "description": "Security and performance review",
+            "is_non_trivial": false,
+            "subtasks": []
+        })
+        .to_string(),
+    );
 
     let system_prompt = build_planning_system_prompt();
     let user_prompt = format!(
@@ -156,8 +162,14 @@ async fn test_regression_task_title_is_not_truncated_first_line() {
     // - Much shorter than 80 chars
     // - Not equal to the truncated version
     assert!(plan.title.len() < 80, "LLM title should be concise");
-    assert_ne!(plan.title, truncated, "Should not use truncated user message");
-    assert!(!plan.title.ends_with("acros"), "Should not have truncation artifact");
+    assert_ne!(
+        plan.title, truncated,
+        "Should not use truncated user message"
+    );
+    assert!(
+        !plan.title.ends_with("acros"),
+        "Should not have truncation artifact"
+    );
 }
 
 #[tokio::test]
@@ -219,7 +231,10 @@ async fn test_regression_all_subtasks_created_upfront_not_delayed() {
 
     // Subtasks should be properly ordered
     for (i, subtask) in plan.subtasks.iter().enumerate() {
-        assert_eq!(subtask.order, i as i32, "Subtask order should match position");
+        assert_eq!(
+            subtask.order, i as i32,
+            "Subtask order should match position"
+        );
     }
 }
 
@@ -229,12 +244,15 @@ async fn test_trivial_task_creates_no_subtasks() {
 
     let client = MockLlmClient::anthropic("claude-3-5-sonnet");
 
-    client.set_response(serde_json::json!({
-        "title": "Read README",
-        "description": "Read the project README file",
-        "is_non_trivial": false,
-        "subtasks": []
-    }).to_string());
+    client.set_response(
+        serde_json::json!({
+            "title": "Read README",
+            "description": "Read the project README file",
+            "is_non_trivial": false,
+            "subtasks": []
+        })
+        .to_string(),
+    );
 
     let system_prompt = build_planning_system_prompt();
     let user_prompt = format!(
@@ -276,18 +294,21 @@ async fn test_subtask_titles_are_actionable() {
 
     let client = MockLlmClient::anthropic("claude-3-5-sonnet");
 
-    client.set_response(serde_json::json!({
-        "title": "Feature implementation",
-        "description": "Implement new user profile feature",
-        "is_non_trivial": true,
-        "subtasks": [
-            {"title": "Design database schema", "description": "Create tables", "order": 0},
-            {"title": "Implement API endpoints", "description": "Create REST API", "order": 1},
-            {"title": "Build frontend components", "description": "Create UI", "order": 2},
-            {"title": "Write tests", "description": "Add test coverage", "order": 3},
-            {"title": "Update documentation", "description": "Document changes", "order": 4}
-        ]
-    }).to_string());
+    client.set_response(
+        serde_json::json!({
+            "title": "Feature implementation",
+            "description": "Implement new user profile feature",
+            "is_non_trivial": true,
+            "subtasks": [
+                {"title": "Design database schema", "description": "Create tables", "order": 0},
+                {"title": "Implement API endpoints", "description": "Create REST API", "order": 1},
+                {"title": "Build frontend components", "description": "Create UI", "order": 2},
+                {"title": "Write tests", "description": "Add test coverage", "order": 3},
+                {"title": "Update documentation", "description": "Document changes", "order": 4}
+            ]
+        })
+        .to_string(),
+    );
 
     let system_prompt = build_planning_system_prompt();
     let user_prompt = format!(
@@ -317,7 +338,18 @@ async fn test_subtask_titles_are_actionable() {
     let plan: TaskPlan = serde_json::from_str(&response.content).unwrap();
 
     // Subtask titles should be actionable (start with verbs)
-    let action_verbs = ["Design", "Implement", "Build", "Write", "Update", "Create", "Add", "Fix", "Refactor", "Test"];
+    let action_verbs = [
+        "Design",
+        "Implement",
+        "Build",
+        "Write",
+        "Update",
+        "Create",
+        "Add",
+        "Fix",
+        "Refactor",
+        "Test",
+    ];
     let mut has_actionable_titles = 0;
 
     for subtask in &plan.subtasks {
@@ -328,5 +360,8 @@ async fn test_subtask_titles_are_actionable() {
     }
 
     // At least some subtasks should start with action verbs
-    assert!(has_actionable_titles > 0, "Subtasks should have actionable titles");
+    assert!(
+        has_actionable_titles > 0,
+        "Subtasks should have actionable titles"
+    );
 }

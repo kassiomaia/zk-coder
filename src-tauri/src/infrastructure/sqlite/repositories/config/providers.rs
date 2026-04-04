@@ -181,7 +181,7 @@ pub fn seed_builtin_providers(conn: &Connection) -> Result<(), ConfigRepositoryE
 
     // Ensure built-in providers always have correct values (fixes any corrupted data)
     conn.execute_batch(
-        r#"
+        r"
         UPDATE providers
         SET is_custom = FALSE, is_configured = FALSE, api_type =
             CASE
@@ -192,7 +192,7 @@ pub fn seed_builtin_providers(conn: &Connection) -> Result<(), ConfigRepositoryE
             END,
             models_source = 'auto'
         WHERE id IN ('anthropic', 'openai', 'google');
-        "#,
+        ",
     )?;
 
     Ok(())

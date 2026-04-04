@@ -15,22 +15,23 @@ pub trait ToolExecutor: Send + Sync {
     fn definitions(&self) -> Vec<ToolDefinition>;
 
     /// Execute a tool call and return the result.
-    fn execute<'a>(
-        &'a self,
+    fn execute(
+        &self,
         call: ToolCall,
         app_handle: AppHandle,
-    ) -> futures::future::BoxFuture<'a, OrchestratorToolResult>;
+    ) -> futures::future::BoxFuture<'_, OrchestratorToolResult>;
 }
 
-/// Adapter that wraps the ToolRegistry to implement ToolExecutor.
+/// Adapter that wraps the `ToolRegistry` to implement `ToolExecutor`.
 pub struct RegistryToolExecutor {
     registry: ToolRegistry,
     conversation_id: String,
 }
 
 impl RegistryToolExecutor {
-    /// Creates a new RegistryToolExecutor with the given registry and conversation ID.
-    pub fn new(registry: ToolRegistry, conversation_id: String) -> Self {
+    /// Creates a new `RegistryToolExecutor` with the given registry and conversation ID.
+    #[must_use] 
+    pub const fn new(registry: ToolRegistry, conversation_id: String) -> Self {
         Self {
             registry,
             conversation_id,
@@ -43,11 +44,11 @@ impl ToolExecutor for RegistryToolExecutor {
         self.registry.definitions()
     }
 
-    fn execute<'a>(
-        &'a self,
+    fn execute(
+        &self,
         call: ToolCall,
         app_handle: AppHandle,
-    ) -> futures::future::BoxFuture<'a, OrchestratorToolResult> {
+    ) -> futures::future::BoxFuture<'_, OrchestratorToolResult> {
         Box::pin(async move {
             let context = crate::infrastructure::tools::context::ToolExecutionContext::new(
                 &self.conversation_id,
@@ -73,11 +74,11 @@ impl ToolExecutor for NoopToolExecutor {
         Vec::new()
     }
 
-    fn execute<'a>(
-        &'a self,
+    fn execute(
+        &self,
         call: ToolCall,
         _app_handle: AppHandle,
-    ) -> futures::future::BoxFuture<'a, OrchestratorToolResult> {
+    ) -> futures::future::BoxFuture<'_, OrchestratorToolResult> {
         Box::pin(async move {
             OrchestratorToolResult {
                 call_id: call.id,
@@ -118,8 +119,7 @@ pub fn select_tool_executor_from_env(conversation_id: &str) -> Box<dyn ToolExecu
         }
         Err(err) => {
             log::warn!(
-                "[LLM] Tool registry initialization failed, using noop executor. error={}",
-                err
+                "[LLM] Tool registry initialization failed, using noop executor. error={err}"
             );
             Box::new(NoopToolExecutor)
         }
@@ -131,7 +131,7 @@ pub fn parse_env_flag(value: Option<&str>) -> bool {
     match value
         .map(str::trim)
         .filter(|v| !v.is_empty())
-        .map(|v| v.to_ascii_lowercase())
+        .map(str::to_ascii_lowercase)
     {
         Some(v) => matches!(v.as_str(), "1" | "true" | "yes" | "on"),
         None => false,
@@ -167,7 +167,7 @@ pub fn is_textual_tool_plan(content: &str) -> bool {
 
         matches!(
             object.get("arguments"),
-            Some(serde_json::Value::Object(_)) | Some(serde_json::Value::String(_))
+            Some(serde_json::Value::Object(_) | serde_json::Value::String(_))
         )
     }
 

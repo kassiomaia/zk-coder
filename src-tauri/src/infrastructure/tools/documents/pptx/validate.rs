@@ -1,10 +1,11 @@
 //! PPTX validation utilities.
 
-use crate::infrastructure::tools::documents::shared::draft_store::{PptxDraft, DraftSlide, PptxSlide, SlideLayout};
-use crate::infrastructure::tools::documents::shared::validation::{
-    estimate_page_count, DocumentFileType, ValidationCheck, ValidationLevel, ValidationReport,
+use crate::infrastructure::tools::documents::shared::draft_store::{
+    PptxDraft, SlideLayout,
 };
-use chrono::Utc;
+use crate::infrastructure::tools::documents::shared::validation::{
+    ValidationCheck, ValidationLevel, ValidationReport,
+};
 use std::path::Path;
 
 /// PPTX presentation validator.
@@ -12,6 +13,7 @@ pub struct PptxValidator;
 
 impl PptxValidator {
     /// Validate a PPTX draft before finalization.
+    #[must_use] 
     pub fn validate_draft(draft: &PptxDraft) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -37,6 +39,7 @@ impl PptxValidator {
     }
 
     /// Validate a finalized PPTX file.
+    #[must_use] 
     pub fn validate_file(path: &Path) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -61,7 +64,10 @@ impl PptxValidator {
         let metadata = match std::fs::metadata(path) {
             Ok(m) => m,
             Err(e) => {
-                report.add_error("File Metadata", &format!("Cannot read file metadata: {}", e));
+                report.add_error(
+                    "File Metadata",
+                    format!("Cannot read file metadata: {e}"),
+                );
                 return report;
             }
         };
@@ -71,7 +77,7 @@ impl PptxValidator {
             name: "File Size".to_string(),
             passed: size > 0,
             level: ValidationLevel::Error,
-            message: format!("File size: {} bytes", size),
+            message: format!("File size: {size} bytes"),
             suggestion: if size == 0 {
                 Some("File is empty and cannot be a valid presentation".to_string())
             } else {
@@ -83,7 +89,7 @@ impl PptxValidator {
         let content = match std::fs::read(path) {
             Ok(c) => c,
             Err(e) => {
-                report.add_error("File Read", &format!("Cannot read file: {}", e));
+                report.add_error("File Read", format!("Cannot read file: {e}"));
                 return report;
             }
         };
@@ -117,6 +123,7 @@ impl PptxValidator {
     }
 
     /// Validate that required slide types exist.
+    #[must_use] 
     pub fn validate_required_slides(
         draft: &PptxDraft,
         required_slides: &[SlideLayout],
@@ -127,18 +134,18 @@ impl PptxValidator {
             let found = draft.slides.iter().any(|s| s.slide.layout == *layout);
 
             report.add_check(ValidationCheck {
-                name: format!("Required Slide: {:?}", layout),
+                name: format!("Required Slide: {layout:?}"),
                 passed: found,
                 level: ValidationLevel::Warning,
                 message: if found {
-                    format!("Found required slide type: {:?}", layout)
+                    format!("Found required slide type: {layout:?}")
                 } else {
-                    format!("Missing recommended slide type: {:?}", layout)
+                    format!("Missing recommended slide type: {layout:?}")
                 },
-                suggestion: if !found {
-                    Some(format!("Add a slide with layout '{:?}'", layout))
-                } else {
+                suggestion: if found {
                     None
+                } else {
+                    Some(format!("Add a slide with layout '{layout:?}'"))
                 },
             });
         }
@@ -147,6 +154,7 @@ impl PptxValidator {
     }
 
     /// Validate maximum slide count.
+    #[must_use] 
     pub fn validate_max_slides(draft: &PptxDraft, max_slides: usize) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -156,7 +164,9 @@ impl PptxValidator {
             name: "Slide Limit".to_string(),
             passed: slide_count <= max_slides,
             level: ValidationLevel::Warning,
-            message: format!("Presentation has {} slides (max recommended: {})", slide_count, max_slides),
+            message: format!(
+                "Presentation has {slide_count} slides (max recommended: {max_slides})"
+            ),
             suggestion: if slide_count > max_slides {
                 Some("Consider splitting into multiple presentations".to_string())
             } else {
@@ -176,16 +186,19 @@ impl PptxValidator {
             passed: has_slides,
             level: ValidationLevel::Error,
             message: format!("Presentation has {} slide(s)", draft.slides.len()),
-            suggestion: if !has_slides {
-                Some("Add at least one slide to the presentation".to_string())
-            } else {
+            suggestion: if has_slides {
                 None
+            } else {
+                Some("Add at least one slide to the presentation".to_string())
             },
         });
     }
 
     fn validate_title_slide(report: &mut ValidationReport, draft: &PptxDraft) {
-        let has_title_slide = draft.slides.first().map(|s| s.slide.layout == SlideLayout::TitleSlide).unwrap_or(false);
+        let has_title_slide = draft
+            .slides
+            .first()
+            .is_some_and(|s| s.slide.layout == SlideLayout::TitleSlide);
 
         report.add_check(ValidationCheck {
             name: "Has Title Slide".to_string(),
@@ -197,7 +210,10 @@ impl PptxValidator {
                 "First slide is not a title slide".to_string()
             },
             suggestion: if !has_title_slide && !draft.slides.is_empty() {
-                Some("Make the first slide a TitleSlide layout for better presentation structure".to_string())
+                Some(
+                    "Make the first slide a TitleSlide layout for better presentation structure"
+                        .to_string(),
+                )
             } else {
                 None
             },
@@ -218,7 +234,7 @@ impl PptxValidator {
             message: if empty_count == 0 {
                 "No empty slides found".to_string()
             } else {
-                format!("Found {} empty slide(s)", empty_count)
+                format!("Found {empty_count} empty slide(s)")
             },
             suggestion: if empty_count > 0 {
                 Some("Add content to empty slides or remove them".to_string())
@@ -234,24 +250,35 @@ impl PptxValidator {
             name: "Slide Count".to_string(),
             passed: count > 0,
             level: ValidationLevel::Info,
-            message: format!("Presentation has {} slides", count),
+            message: format!("Presentation has {count} slides"),
             suggestion: None,
         });
     }
 
     fn validate_layout_consistency(report: &mut ValidationReport, draft: &PptxDraft) {
         // Check that similar content types use consistent layouts
-        let title_slides = draft.slides.iter().filter(|s| s.slide.layout == SlideLayout::TitleSlide).count();
-        let blank_slides = draft.slides.iter().filter(|s| s.slide.layout == SlideLayout::Blank).count();
+        let title_slides = draft
+            .slides
+            .iter()
+            .filter(|s| s.slide.layout == SlideLayout::TitleSlide)
+            .count();
+        let blank_slides = draft
+            .slides
+            .iter()
+            .filter(|s| s.slide.layout == SlideLayout::Blank)
+            .count();
 
         let mut issues = Vec::new();
 
         if title_slides > 1 {
-            issues.push("Multiple title slides detected (typically only one is needed)".to_string());
+            issues
+                .push("Multiple title slides detected (typically only one is needed)".to_string());
         }
 
         if blank_slides > 0 {
-            issues.push(format!("{} blank slide(s) detected - consider using specific layouts", blank_slides));
+            issues.push(format!(
+                "{blank_slides} blank slide(s) detected - consider using specific layouts"
+            ));
         }
 
         report.add_check(ValidationCheck {
@@ -263,10 +290,10 @@ impl PptxValidator {
             } else {
                 issues.join("; ")
             },
-            suggestion: if !issues.is_empty() {
-                Some("Review slide layouts for better presentation flow".to_string())
-            } else {
+            suggestion: if issues.is_empty() {
                 None
+            } else {
+                Some("Review slide layouts for better presentation flow".to_string())
             },
         });
     }
@@ -281,7 +308,9 @@ impl PptxValidator {
             name: "Estimated Duration".to_string(),
             passed: true,
             level: ValidationLevel::Info,
-            message: format!("Estimated duration: {}-{} minutes", min_minutes, max_minutes),
+            message: format!(
+                "Estimated duration: {min_minutes}-{max_minutes} minutes"
+            ),
             suggestion: None,
         });
     }

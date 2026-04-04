@@ -18,7 +18,6 @@ pub use validation::{
 };
 
 use std::sync::{Arc, Mutex};
-use tauri::AppHandle;
 
 /// Global draft store instance type.
 pub type GlobalDraftStore = Arc<Mutex<DraftStore>>;

@@ -168,17 +168,17 @@ impl AmbiguityResolver {
         match ambiguity.ambiguity_type {
             AmbiguityType::MissingFile | AmbiguityType::MultipleMatches => {
                 // Check if file was mentioned in conversation
-                context.metadata.current_file.as_ref().map(|f| {
-                    AmbiguitySuggestion::new(&f.path, 0.8, "from conversation context")
-                })
-            }
-            AmbiguityType::UnclearScope => {
                 context
                     .metadata
                     .current_file
                     .as_ref()
-                    .map(|f| AmbiguitySuggestion::new(&f.path, 0.9, "currently active file"))
+                    .map(|f| AmbiguitySuggestion::new(&f.path, 0.8, "from conversation context"))
             }
+            AmbiguityType::UnclearScope => context
+                .metadata
+                .current_file
+                .as_ref()
+                .map(|f| AmbiguitySuggestion::new(&f.path, 0.9, "currently active file")),
             _ => None,
         }
     }

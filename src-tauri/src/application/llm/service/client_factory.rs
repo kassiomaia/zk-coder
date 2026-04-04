@@ -11,8 +11,8 @@ impl LlmServiceImpl {
     pub(crate) fn get_provider_config(&self, provider_id: &str) -> LlmResult<Provider> {
         self.config_repository
             .get_provider(provider_id)
-            .map_err(|e| LlmError::Unknown(format!("Failed to get provider: {}", e)))?
-            .ok_or_else(|| LlmError::Unknown(format!("Provider not found: {}", provider_id)))
+            .map_err(|e| LlmError::Unknown(format!("Failed to get provider: {e}")))?
+            .ok_or_else(|| LlmError::Unknown(format!("Provider not found: {provider_id}")))
     }
 
     /// Creates an LLM client for the given provider ID.
@@ -21,7 +21,7 @@ impl LlmServiceImpl {
         let api_key = self
             .config_repository
             .retrieve_api_key(provider_id)
-            .map_err(|e| LlmError::Unknown(format!("Failed to get API key: {}", e)))?;
+            .map_err(|e| LlmError::Unknown(format!("Failed to get API key: {e}")))?;
 
         let client: Box<dyn LlmClient> = match provider.api_type {
             ApiType::OpenAI => Box::new(OpenAiClient::new(api_key, provider.base_url)),

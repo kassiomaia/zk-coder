@@ -15,7 +15,9 @@ pub use fuzzy_find_files::FuzzyFindFilesTool;
 pub use glob_files::GlobFilesTool;
 pub use list_files::ListFilesTool;
 pub use read_file::ReadFileTool;
-pub use replace_in_file::{generate_preview_diff as generate_replace_preview_diff, ReplaceInFileTool};
+pub use replace_in_file::{
+    generate_preview_diff as generate_replace_preview_diff, ReplaceInFileTool,
+};
 pub use stat_path::StatPathTool;
 pub use write_file::WriteFileTool;
 

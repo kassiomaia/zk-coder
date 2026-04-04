@@ -10,7 +10,9 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::core::agent::execution::{
     ExecutionPhase, ExecutionSnapshot, ExecutionTransition, RuntimeTrace, RuntimeTraceType,
 };
-use crate::core::agent::repositories::{ExecutionRepository, RepositoryResult, RuntimeTraceRepository};
+use crate::core::agent::repositories::{
+    ExecutionRepository, RepositoryResult, RuntimeTraceRepository,
+};
 use crate::infrastructure::agent::events::{AgentTraceEvent, AGENT_TRACE_EVENT_NAME};
 
 const TRACE_WINDOW_LABEL: &str = "agent-trace-dev";

@@ -230,7 +230,7 @@ struct ConceptMapping {
 }
 
 /// A code concept extracted from natural language.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CodeConcept {
     /// A data type (array, object, etc.)
     DataType(String),
@@ -247,10 +247,10 @@ impl CodeConcept {
     #[must_use]
     pub fn label(&self) -> &str {
         match self {
-            CodeConcept::DataType(s) => s,
-            CodeConcept::DesignPattern(s) => s,
-            CodeConcept::Algorithm(s) => s,
-            CodeConcept::Framework(s) => s,
+            Self::DataType(s) => s,
+            Self::DesignPattern(s) => s,
+            Self::Algorithm(s) => s,
+            Self::Framework(s) => s,
         }
     }
 
@@ -258,10 +258,10 @@ impl CodeConcept {
     #[must_use]
     pub const fn type_name(&self) -> &'static str {
         match self {
-            CodeConcept::DataType(_) => "Data Type",
-            CodeConcept::DesignPattern(_) => "Design Pattern",
-            CodeConcept::Algorithm(_) => "Algorithm",
-            CodeConcept::Framework(_) => "Framework",
+            Self::DataType(_) => "Data Type",
+            Self::DesignPattern(_) => "Design Pattern",
+            Self::Algorithm(_) => "Algorithm",
+            Self::Framework(_) => "Framework",
         }
     }
 }

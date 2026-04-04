@@ -1,10 +1,11 @@
 //! DOCX validation utilities.
 
-use crate::infrastructure::tools::documents::shared::draft_store::{DocxDraft, DraftSection, DocxContent};
+use crate::infrastructure::tools::documents::shared::draft_store::{
+    DocxContent, DocxDraft, DraftSection,
+};
 use crate::infrastructure::tools::documents::shared::validation::{
     estimate_page_count, DocumentFileType, ValidationCheck, ValidationLevel, ValidationReport,
 };
-use chrono::Utc;
 use std::fs;
 use std::path::Path;
 
@@ -13,6 +14,7 @@ pub struct DocxValidator;
 
 impl DocxValidator {
     /// Validate a DOCX draft before finalization.
+    #[must_use] 
     pub fn validate_draft(draft: &DocxDraft) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -35,6 +37,7 @@ impl DocxValidator {
     }
 
     /// Validate a finalized DOCX file.
+    #[must_use] 
     pub fn validate_file(path: &Path) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -59,7 +62,10 @@ impl DocxValidator {
         let metadata = match fs::metadata(path) {
             Ok(m) => m,
             Err(e) => {
-                report.add_error("File Metadata", &format!("Cannot read file metadata: {}", e));
+                report.add_error(
+                    "File Metadata",
+                    format!("Cannot read file metadata: {e}"),
+                );
                 return report;
             }
         };
@@ -69,7 +75,7 @@ impl DocxValidator {
             name: "File Size".to_string(),
             passed: size > 0,
             level: ValidationLevel::Error,
-            message: format!("File size: {} bytes", size),
+            message: format!("File size: {size} bytes"),
             suggestion: if size == 0 {
                 Some("File is empty and cannot be a valid document".to_string())
             } else {
@@ -81,7 +87,7 @@ impl DocxValidator {
         let content = match fs::read(path) {
             Ok(c) => c,
             Err(e) => {
-                report.add_error("File Read", &format!("Cannot read file: {}", e));
+                report.add_error("File Read", format!("Cannot read file: {e}"));
                 return report;
             }
         };
@@ -104,7 +110,7 @@ impl DocxValidator {
                 name: "Page Count Estimate".to_string(),
                 passed: true,
                 level: ValidationLevel::Info,
-                message: format!("Estimated {} pages", pages),
+                message: format!("Estimated {pages} pages"),
                 suggestion: None,
             });
         }
@@ -126,10 +132,8 @@ impl DocxValidator {
     }
 
     /// Validate a draft against required sections.
-    pub fn validate_required_sections(
-        draft: &DocxDraft,
-        required: &[&str],
-    ) -> ValidationReport {
+    #[must_use] 
+    pub fn validate_required_sections(draft: &DocxDraft, required: &[&str]) -> ValidationReport {
         let mut report = ValidationReport::new();
 
         for section_title in required {
@@ -139,18 +143,20 @@ impl DocxValidator {
             });
 
             report.add_check(ValidationCheck {
-                name: format!("Required Section: {}", section_title),
+                name: format!("Required Section: {section_title}"),
                 passed: found,
                 level: ValidationLevel::Error,
                 message: if found {
-                    format!("Found required section: {}", section_title)
+                    format!("Found required section: {section_title}")
                 } else {
-                    format!("Missing required section: {}", section_title)
+                    format!("Missing required section: {section_title}")
                 },
-                suggestion: if !found {
-                    Some(format!("Add a heading section with title containing '{}'", section_title))
-                } else {
+                suggestion: if found {
                     None
+                } else {
+                    Some(format!(
+                        "Add a heading section with title containing '{section_title}'"
+                    ))
                 },
             });
         }
@@ -159,6 +165,7 @@ impl DocxValidator {
     }
 
     /// Validate maximum page count.
+    #[must_use] 
     pub fn validate_max_pages(draft: &DocxDraft, max_pages: usize) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -169,9 +176,11 @@ impl DocxValidator {
             name: "Page Limit".to_string(),
             passed: estimated_pages <= max_pages,
             level: ValidationLevel::Error,
-            message: format!("Estimated {} pages (max: {})", estimated_pages, max_pages),
+            message: format!("Estimated {estimated_pages} pages (max: {max_pages})"),
             suggestion: if estimated_pages > max_pages {
-                Some(format!("Reduce content or split into multiple documents (max {} pages)", max_pages))
+                Some(format!(
+                    "Reduce content or split into multiple documents (max {max_pages} pages)"
+                ))
             } else {
                 None
             },
@@ -189,10 +198,10 @@ impl DocxValidator {
             passed: has_sections,
             level: ValidationLevel::Error,
             message: format!("Document has {} sections", draft.sections.len()),
-            suggestion: if !has_sections {
-                Some("Add at least one section to the document".to_string())
-            } else {
+            suggestion: if has_sections {
                 None
+            } else {
+                Some("Add at least one section to the document".to_string())
             },
         });
     }
@@ -212,10 +221,10 @@ impl DocxValidator {
             } else {
                 "Document is missing a title (H1 heading)".to_string()
             },
-            suggestion: if !has_title {
-                Some("Add a level 1 heading at the beginning of the document".to_string())
-            } else {
+            suggestion: if has_title {
                 None
+            } else {
+                Some("Add a level 1 heading at the beginning of the document".to_string())
             },
         });
     }
@@ -230,7 +239,9 @@ impl DocxValidator {
                 if prev_level > 0 && *level > prev_level + 1 {
                     issues.push(format!(
                         "Skipped heading level: H{} -> H{} (should be H{})",
-                        prev_level, level, prev_level + 1
+                        prev_level,
+                        level,
+                        prev_level + 1
                     ));
                 }
                 prev_level = *level;
@@ -246,10 +257,10 @@ impl DocxValidator {
             } else {
                 format!("Heading hierarchy issues: {}", issues.join(", "))
             },
-            suggestion: if !issues.is_empty() {
-                Some("Use sequential heading levels (H1 -> H2 -> H3)".to_string())
-            } else {
+            suggestion: if issues.is_empty() {
                 None
+            } else {
+                Some("Use sequential heading levels (H1 -> H2 -> H3)".to_string())
             },
         });
     }
@@ -271,7 +282,7 @@ impl DocxValidator {
             message: if empty_count == 0 {
                 "No empty paragraphs found".to_string()
             } else {
-                format!("Found {} empty paragraph(s)", empty_count)
+                format!("Found {empty_count} empty paragraph(s)")
             },
             suggestion: if empty_count > 0 {
                 Some("Remove empty paragraphs or add content".to_string())
@@ -287,7 +298,7 @@ impl DocxValidator {
             name: "Section Count".to_string(),
             passed: count > 0,
             level: ValidationLevel::Info,
-            message: format!("Document has {} sections", count),
+            message: format!("Document has {count} sections"),
             suggestion: None,
         });
     }
@@ -298,7 +309,7 @@ impl DocxValidator {
         content.windows(4).any(|w| w == end_sig)
     }
 
-    fn estimate_pages_from_sections(sections: &[DraftSection]) -> usize {
+    const fn estimate_pages_from_sections(sections: &[DraftSection]) -> usize {
         // Rough estimate: 15 sections per page on average
         (sections.len() / 15) + 1
     }

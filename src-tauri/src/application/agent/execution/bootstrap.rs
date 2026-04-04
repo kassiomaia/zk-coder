@@ -9,8 +9,8 @@ use crate::core::agent::session::{AgentSession, SessionState};
 use crate::core::agent::task::{AgentRequest, AgentTask};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::client::{build_llm_context, create_llm_client};
-use crate::infrastructure::agent::runtime::AgentRuntimeError;
 use crate::infrastructure::agent::runtime::permissions::core_task_to_event_subtask;
+use crate::infrastructure::agent::runtime::AgentRuntimeError;
 use chrono::Utc;
 use tauri::Emitter;
 
@@ -18,9 +18,7 @@ use super::deps::ExecutionDeps;
 use super::state::ExecutionContext;
 use super::termination::update_session_state;
 use super::utils::truncate_text;
-use crate::application::agent::service::planner::{
-    plan_new_task, subtask_plan_to_agent_task,
-};
+use crate::application::agent::service::planner::{plan_new_task, subtask_plan_to_agent_task};
 
 /// The result of a successful bootstrap process.
 pub struct BootstrapResult {
@@ -79,9 +77,13 @@ pub async fn start_execution(
     );
 
     // Step 1: Single-shot LLM planning to generate title, description, and subtasks
-    let plan = plan_new_task(deps.app_handle, &request.content, session.model_id.as_deref())
-        .await
-        .map_err(|e| AgentRuntimeError::Repository(format!("Planning failed: {}", e)))?;
+    let plan = plan_new_task(
+        deps.app_handle,
+        &request.content,
+        session.model_id.as_deref(),
+    )
+    .await
+    .map_err(|e| AgentRuntimeError::Repository(format!("Planning failed: {e}")))?;
 
     // Step 2: Create root task with LLM-generated title and description
     let task = AgentTask::new(session.id.clone(), request.clone());
@@ -104,11 +106,8 @@ pub async fn start_execution(
     let mut first_subtask_id: Option<String> = None;
     if plan.is_non_trivial && !plan.subtasks.is_empty() {
         for subtask_plan in &plan.subtasks {
-            let mut subtask = subtask_plan_to_agent_task(
-                subtask_plan,
-                &core_task.session_id,
-                &core_task.id,
-            );
+            let mut subtask =
+                subtask_plan_to_agent_task(subtask_plan, &core_task.session_id, &core_task.id);
 
             // Mark first subtask as InProgress, others as Pending
             if subtask_plan.order == 0 {
@@ -147,11 +146,7 @@ pub async fn start_execution(
         step_number: 0,
         recent_tool_calls: Vec::new(),
         current_subtask_id: first_subtask_id,
-        last_injected_subtask_order: if plan.is_non_trivial {
-            Some(0)
-        } else {
-            None
-        },
+        last_injected_subtask_order: if plan.is_non_trivial { Some(0) } else { None },
         current_phase: ExecutionPhase::Bootstrapping,
         context_usage_percent: 0.0,
     };

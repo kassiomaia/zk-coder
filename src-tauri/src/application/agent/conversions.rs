@@ -202,6 +202,7 @@ impl From<AgentSession> for CoreAgentSession {
 }
 
 /// Converts a core agent session into the runtime session representation used by the UI.
+#[must_use] 
 pub fn core_session_to_agent_session(session: CoreAgentSession) -> AgentSession {
     AgentSession {
         id: SessionId(session.id.0),
@@ -265,7 +266,9 @@ impl From<PendingAction> for CorePendingAction {
                 ActionType::WebRequest { url } => format!("web_request:{url}"),
                 ActionType::CreateDocx { filename } => format!("create_docx:{filename}"),
                 ActionType::MutateDocxDraft { document_id } => format!("mutate_docx:{document_id}"),
-                ActionType::InspectDocxDraft { document_id } => format!("inspect_docx:{document_id}"),
+                ActionType::InspectDocxDraft { document_id } => {
+                    format!("inspect_docx:{document_id}")
+                }
                 ActionType::CreatePptx { filename } => format!("create_pptx:{filename}"),
                 ActionType::MutatePptxDraft { deck_id } => format!("mutate_pptx:{deck_id}"),
                 ActionType::InspectPptxDraft { deck_id } => format!("inspect_pptx:{deck_id}"),
@@ -285,6 +288,7 @@ impl From<PendingAction> for CorePendingAction {
 }
 
 /// Converts a core agent task into the runtime task representation used by the UI.
+#[must_use] 
 pub fn core_task_to_runtime_task(task: CoreAgentTask) -> AgentTask {
     AgentTask {
         id: task.id,
@@ -356,6 +360,7 @@ impl From<SubTask> for CoreAgentTask {
 }
 
 /// Converts a core agent task into the public subtask representation used by IPC commands.
+#[must_use] 
 pub fn core_task_to_subtask(task: CoreAgentTask) -> SubTask {
     use crate::core::agent::entities::TaskMode;
 

@@ -262,7 +262,7 @@ pub enum AgentEvent {
     },
 
     /// Agent narration for persistent display in the chat thread.
-    /// Unlike StatusPhrase (transient spinner text), narrations survive execution cleanup.
+    /// Unlike `StatusPhrase` (transient spinner text), narrations survive execution cleanup.
     AgentNarration {
         /// The session ID.
         #[serde(rename = "sessionId")]

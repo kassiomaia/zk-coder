@@ -7,12 +7,12 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::pin::Pin;
 
-use super::stream::{parse_sse_line, AnthropicStreamEvent, StreamState};
-use super::types::*;
+use super::stream::{parse_sse_line, StreamState};
+use super::types::{AnthropicRequest, AnthropicMessage, AnthropicContent, AnthropicContentBlock, AnthropicImageSource, AnthropicToolChoice, AnthropicResponse};
 use crate::core::config::ApiType;
 use crate::infrastructure::llm::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, MessageContent,
-    MessageRole, StreamChunk, ToolCall, ToolDefinition, UsageStats,
+    MessageRole, StreamChunk, ToolCall, UsageStats,
 };
 
 /// Default base URL for Anthropic API.
@@ -51,6 +51,7 @@ impl AnthropicClient {
 
     /// Returns default models for when API fetch is not available.
     /// Returns GLM models for z.ai provider, Claude models for native Anthropic.
+    #[must_use] 
     pub fn get_default_models(&self) -> Vec<String> {
         // Check if this is a z.ai endpoint (GLM models)
         if self.base_url.contains("z.ai") {
@@ -82,7 +83,7 @@ impl AnthropicClient {
         }
     }
 
-    /// Converts a ChatRequest to Anthropic format.
+    /// Converts a `ChatRequest` to Anthropic format.
     fn convert_request(&self, request: ChatRequest) -> AnthropicRequest {
         self.convert_request_with_tool_choice(request, true)
     }
@@ -101,7 +102,7 @@ impl AnthropicClient {
                 MessageRole::System => {
                     // System messages go to the top-level system field
                     if system_prompt.is_none() {
-                        system_prompt = msg.as_text().map(|s| s.to_string());
+                        system_prompt = msg.as_text().map(std::string::ToString::to_string);
                     }
                 }
                 MessageRole::Tool => {
@@ -250,7 +251,7 @@ impl AnthropicClient {
             break response
                 .json()
                 .await
-                .map_err(|e| LlmError::parse(format!("Failed to parse response: {}", e)))?;
+                .map_err(|e| LlmError::parse(format!("Failed to parse response: {e}")))?;
         };
 
         let AnthropicResponse {
@@ -303,6 +304,7 @@ impl AnthropicClient {
     }
 
     /// Makes a streaming chat request.
+    #[must_use] 
     pub fn chat_stream_internal(
         &self,
         request: ChatRequest,
@@ -311,9 +313,9 @@ impl AnthropicClient {
         let base_url = self.base_url.clone();
         let api_key = self.api_key.clone();
         let anthropic_request = self.convert_request(request);
-        let url = format!("{}/messages", base_url);
+        let url = format!("{base_url}/messages");
 
-        info!("anthropic::chat_stream: starting request to {}", url);
+        info!("anthropic::chat_stream: starting request to {url}");
 
         Box::pin(stream! {
             info!("anthropic::chat_stream: sending POST request");
@@ -332,7 +334,7 @@ impl AnthropicClient {
                     r
                 }
                 Err(e) => {
-                    error!("anthropic::chat_stream: request failed: {}", e);
+                    error!("anthropic::chat_stream: request failed: {e}");
                     yield Err(LlmError::from(e));
                     return;
                 }
@@ -343,8 +345,7 @@ impl AnthropicClient {
                 let error_text =
                     response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
                 error!(
-                    "anthropic::chat_stream: API error status={}, body={}",
-                    status, error_text
+                    "anthropic::chat_stream: API error status={status}, body={error_text}"
                 );
                 yield Err(LlmError::api(status.as_u16(), error_text));
                 return;
@@ -364,7 +365,7 @@ impl AnthropicClient {
                 let chunk = match chunk_result {
                     Ok(c) => c,
                     Err(e) => {
-                        error!("anthropic::chat_stream: error reading from stream: {}", e);
+                        error!("anthropic::chat_stream: error reading from stream: {e}");
                         yield Err(LlmError::streaming(e.to_string()));
                         continue;
                     }
@@ -385,7 +386,7 @@ impl AnthropicClient {
                         buffer.push_str(&text);
                     }
                     Err(e) => {
-                        error!("anthropic::chat_stream: failed to convert chunk to utf8: {}", e);
+                        error!("anthropic::chat_stream: failed to convert chunk to utf8: {e}");
                         continue;
                     }
                 }
@@ -413,8 +414,7 @@ impl AnthropicClient {
                             }
                             Err(e) => {
                                 error!(
-                                    "anthropic::chat_stream: failed to parse SSE line {}: {}",
-                                    line_count, e
+                                    "anthropic::chat_stream: failed to parse SSE line {line_count}: {e}"
                                 );
                                 yield Err(e);
                             }
@@ -472,7 +472,7 @@ impl AnthropicClient {
         match response {
             Ok(resp) => {
                 let status = resp.status();
-                info!("anthropic::fetch_models: got response, status={}", status);
+                info!("anthropic::fetch_models: got response, status={status}");
 
                 if status.is_success() {
                     match resp.json::<ModelsResponse>().await {
@@ -488,8 +488,7 @@ impl AnthropicClient {
                         }
                         Err(e) => {
                             error!(
-                                "anthropic::fetch_models: failed to parse models response: {}",
-                                e
+                                "anthropic::fetch_models: failed to parse models response: {e}"
                             );
                             // Return default models if parsing fails
                             let defaults = self.get_default_models();
@@ -501,7 +500,7 @@ impl AnthropicClient {
                         }
                     }
                 } else {
-                    info!("anthropic::fetch_models: API returned non-success status {}, returning default models", status);
+                    info!("anthropic::fetch_models: API returned non-success status {status}, returning default models");
                     // For native Anthropic API, return known models since they don't have a models endpoint
                     let defaults = self.get_default_models();
                     info!(
@@ -512,7 +511,7 @@ impl AnthropicClient {
                 }
             }
             Err(e) => {
-                error!("anthropic::fetch_models: request failed: {}", e);
+                error!("anthropic::fetch_models: request failed: {e}");
                 // Return default models if request fails
                 let defaults = self.get_default_models();
                 info!(
@@ -530,10 +529,10 @@ impl LlmClient for AnthropicClient {
         ApiType::Anthropic
     }
 
-    fn chat<'a>(
-        &'a self,
+    fn chat(
+        &self,
         request: ChatRequest,
-    ) -> futures::future::BoxFuture<'a, LlmResult<ChatResponse>> {
+    ) -> futures::future::BoxFuture<'_, LlmResult<ChatResponse>> {
         Box::pin(async move { self.chat_internal(request).await })
     }
 

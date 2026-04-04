@@ -1,4 +1,4 @@
-//! SQLite infrastructure.
+//! `SQLite` infrastructure.
 
 pub mod migrations;
 pub mod repositories;

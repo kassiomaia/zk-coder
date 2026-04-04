@@ -100,7 +100,8 @@ pub async fn execute(
             StepGateOutcome::Cancelled => return Err(AgentRuntimeError::Cancelled),
         }
 
-        let resolved = resolve_context(&deps, &mut ctx, session, &request, agent_system_prompt).await?;
+        let resolved =
+            resolve_context(&deps, &mut ctx, session, &request, agent_system_prompt).await?;
         let llm_result = call_llm(&deps, &mut ctx, &resolved, client.as_ref()).await?;
 
         match handle_response(&deps, &mut ctx, session, llm_result).await? {

@@ -4,15 +4,13 @@ use chrono::{DateTime, Utc};
 
 use crate::core::chat::entities::MessageStatus;
 
-/// Parses a datetime string, returning Utc::now() on failure.
+/// Parses a datetime string, returning `Utc::now()` on failure.
 pub fn parse_datetime(s: &str) -> DateTime<Utc> {
-    chrono::DateTime::parse_from_rfc3339(s)
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|_| Utc::now())
+    chrono::DateTime::parse_from_rfc3339(s).map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc))
 }
 
 /// Converts status to string for storage.
-pub fn status_to_str(status: &MessageStatus) -> &'static str {
+pub const fn status_to_str(status: &MessageStatus) -> &'static str {
     match status {
         MessageStatus::Sending => "sending",
         MessageStatus::Sent => "sent",

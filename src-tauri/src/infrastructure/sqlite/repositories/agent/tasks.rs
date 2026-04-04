@@ -175,8 +175,7 @@ pub fn update_subtask_status(
                 })
                 .ok()
         })
-        .map(|current| matches!(current, crate::core::agent::task::TaskStatus::Pending))
-        .unwrap_or(false)
+        .is_some_and(|current| matches!(current, crate::core::agent::task::TaskStatus::Pending))
         && matches!(status, crate::core::agent::task::TaskStatus::InProgress);
 
     let completed_at = if matches!(
@@ -322,9 +321,9 @@ pub fn create_execution_step(
     let (input_tokens, output_tokens, total_tokens, duration_ms) =
         if let Some(result) = &step.result {
             (
-                result.input_tokens.map(|t| t as i64),
-                result.output_tokens.map(|t| t as i64),
-                result.tokens_used.map(|t| t as i64),
+                result.input_tokens.map(i64::from),
+                result.output_tokens.map(i64::from),
+                result.tokens_used.map(i64::from),
                 Some(result.duration_ms as i64),
             )
         } else {

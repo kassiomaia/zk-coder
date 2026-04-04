@@ -6,7 +6,7 @@ use crate::core::llm::entities::{
 };
 
 /// System prompt explaining the feedback system.
-pub const FEEDBACK_SYSTEM_PROMPT: &str = r#"The user may provide feedback (like/dislike) on earlier assistant responses. A feedback summary section will be provided, including stable IDs for reference. Use that feedback to improve your response quality and avoid repeating disliked patterns."#;
+pub const FEEDBACK_SYSTEM_PROMPT: &str = r"The user may provide feedback (like/dislike) on earlier assistant responses. A feedback summary section will be provided, including stable IDs for reference. Use that feedback to improve your response quality and avoid repeating disliked patterns.";
 
 /// Maximum number of feedback items to include in context.
 pub const FEEDBACK_LIMIT: usize = 5;
@@ -41,7 +41,7 @@ pub fn convert_messages(messages: &[ChatMessage]) -> Vec<LlmMessage> {
         .collect()
 }
 
-/// Converts storage ChatMessage to core ChatMessage.
+/// Converts storage `ChatMessage` to core `ChatMessage`.
 pub fn convert_to_core_message(msg: ChatMessage) -> crate::core::llm::entities::ChatMessage {
     crate::core::llm::entities::ChatMessage {
         role: match msg.role {
@@ -71,7 +71,7 @@ pub fn build_feedback_summary(
                 MessageFeedback::Like => "LIKED",
                 MessageFeedback::Dislike => "DISLIKED",
             };
-            format!("- [ID:{}] {} by user", short_id, action)
+            format!("- [ID:{short_id}] {action} by user")
         })
         .collect();
 

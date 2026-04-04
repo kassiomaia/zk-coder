@@ -240,7 +240,7 @@ impl IntentPatterns {
             let match_count = patterns.iter().filter(|p| p.is_match(input)).count();
             if match_count > 0 {
                 // More pattern matches = higher confidence
-                let confidence = (0.9_f64).min(0.8 + (match_count as f64 * 0.05));
+                let confidence = (0.9_f64).min((match_count as f64).mul_add(0.05, 0.8));
                 matches.push((intent, confidence));
             }
         }

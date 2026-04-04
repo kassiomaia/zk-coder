@@ -9,7 +9,7 @@ use super::entities::{ChatRequest, ChatResponse, LlmResult};
 /// Represents the type of an LLM provider.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LlmProvider {
-    /// The OpenAI provider.
+    /// The `OpenAI` provider.
     OpenAI,
     /// The Anthropic provider.
     Anthropic,

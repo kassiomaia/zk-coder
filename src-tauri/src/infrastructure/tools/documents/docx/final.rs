@@ -7,7 +7,7 @@ use crate::infrastructure::tools::{
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
-use docx_rust::document::{Break, BreakType, Paragraph, Run, Table, TableRow, TableCell};
+use docx_rust::document::{Break, BreakType, Paragraph, Run, Table, TableCell, TableRow};
 use docx_rust::formatting::ParagraphProperty;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -17,14 +17,14 @@ use tauri::{AppHandle, Emitter};
 /// Arguments for finalizing a DOCX document.
 #[derive(Debug, Deserialize)]
 pub struct DocxFinalizeArgs {
-    /// Document ID from docx_start
+    /// Document ID from `docx_start`
     pub document_id: String,
     /// Whether to automatically save to artifact store
     #[serde(default = "default_auto_save")]
     pub auto_save: bool,
 }
 
-fn default_auto_save() -> bool {
+const fn default_auto_save() -> bool {
     true
 }
 
@@ -46,7 +46,7 @@ pub struct DocxFinalizeOutput {
     pub document_id: String,
     /// Filename
     pub filename: String,
-    /// Artifact ID (if auto_saved)
+    /// Artifact ID (if `auto_saved`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub artifact_id: Option<String>,
     /// Full path to the generated file
@@ -104,7 +104,7 @@ impl Tool for DocxFinalizeTool {
             let draft_store = DraftStore::get_draft_store();
             let draft = {
                 let mut store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
                 // Get and remove the draft (finalizing removes it from active drafts)
@@ -136,7 +136,7 @@ impl Tool for DocxFinalizeTool {
             let output = DocxFinalizeOutput {
                 document_id: args.document_id,
                 filename,
-                artifact_id: artifact_id.clone(),
+                artifact_id,
                 path: path.to_str().unwrap().to_string(),
                 validation,
                 section_count,
@@ -239,7 +239,7 @@ async fn generate_docx(draft: DocxDraft) -> Result<(PathBuf, u64), ToolError> {
     // Create artifacts directory in home/.coder/artifacts
     let artifacts_dir = PathBuf::from(home).join(".coder").join("artifacts");
     std::fs::create_dir_all(&artifacts_dir)
-        .map_err(|e| ToolError::failed(format!("Failed to create artifacts directory: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to create artifacts directory: {e}")))?;
 
     // Create output file path
     let output_path = artifacts_dir.join(&draft.filename);
@@ -250,7 +250,11 @@ async fn generate_docx(draft: DocxDraft) -> Result<(PathBuf, u64), ToolError> {
     // Process each section and add to the document
     for section in &draft.sections {
         match &section.content {
-            DocxContent::Heading { level, text, page_break_before } => {
+            DocxContent::Heading {
+                level,
+                text,
+                page_break_before,
+            } => {
                 // Add page break before heading if requested
                 if *page_break_before {
                     let para = Paragraph::default()
@@ -260,7 +264,7 @@ async fn generate_docx(draft: DocxDraft) -> Result<(PathBuf, u64), ToolError> {
 
                 // Create heading paragraph with appropriate style
                 // docx-rust doesn't have built-in heading styles, so we use bold and larger font
-                let style_name = format!("Heading{}", level);
+                let style_name = format!("Heading{level}");
                 let para = Paragraph::default()
                     .property(ParagraphProperty::default().style_id(style_name))
                     .push_text(text.as_str());
@@ -280,7 +284,7 @@ async fn generate_docx(draft: DocxDraft) -> Result<(PathBuf, u64), ToolError> {
                 // Add bullet list items with bullet characters
                 for item in items {
                     // Create owned string and push as paragraph
-                    let text: String = format!("\u{2022} {}", item);
+                    let text: String = format!("\u{2022} {item}");
                     // Use Run with Text created from owned string
                     let t = docx_rust::document::Text::from(text);
                     let run = Run::default().push(t);
@@ -294,7 +298,7 @@ async fn generate_docx(draft: DocxDraft) -> Result<(PathBuf, u64), ToolError> {
                 let start = start_at.unwrap_or(1);
                 for (i, item) in items.iter().enumerate() {
                     let num = start + i as u32;
-                    let text: String = format!("{}. {}", num, item);
+                    let text: String = format!("{num}. {item}");
                     let t = docx_rust::document::Text::from(text);
                     let run = Run::default().push(t);
                     let para = Paragraph::default().push(run);
@@ -302,7 +306,11 @@ async fn generate_docx(draft: DocxDraft) -> Result<(PathBuf, u64), ToolError> {
                 }
             }
 
-            DocxContent::Table { headers, rows, caption } => {
+            DocxContent::Table {
+                headers,
+                rows,
+                caption,
+            } => {
                 // Create header row
                 let mut header_row = TableRow::default();
                 for header in headers {
@@ -337,7 +345,7 @@ async fn generate_docx(draft: DocxDraft) -> Result<(PathBuf, u64), ToolError> {
 
                 // Add caption if provided
                 if let Some(caption_text) = caption {
-                    let caption_str: String = format!("Table: {}", caption_text);
+                    let caption_str: String = format!("Table: {caption_text}");
                     let t = docx_rust::document::Text::from(caption_str);
                     let run = Run::default().push(t);
                     let caption_para = Paragraph::default().push(run);
@@ -345,18 +353,22 @@ async fn generate_docx(draft: DocxDraft) -> Result<(PathBuf, u64), ToolError> {
                 }
             }
 
-            DocxContent::Image { path, caption, width: _ } => {
+            DocxContent::Image {
+                path,
+                caption,
+                width: _,
+            } => {
                 // For images, we add a placeholder paragraph
                 // Actual image embedding would require more complex handling
                 // with the docx-rust crate's Picture/Blip types
-                let image_text: String = format!("[Image: {}]", path);
+                let image_text: String = format!("[Image: {path}]");
                 let t = docx_rust::document::Text::from(image_text);
                 let run = Run::default().push(t);
                 let para = Paragraph::default().push(run);
                 docx.document.push(para);
 
                 if let Some(caption_text) = caption {
-                    let caption_str: String = format!("Figure: {}", caption_text);
+                    let caption_str: String = format!("Figure: {caption_text}");
                     let t = docx_rust::document::Text::from(caption_str);
                     let run = Run::default().push(t);
                     let caption_para = Paragraph::default().push(run);
@@ -365,8 +377,8 @@ async fn generate_docx(draft: DocxDraft) -> Result<(PathBuf, u64), ToolError> {
             }
 
             DocxContent::PageBreak => {
-                let para = Paragraph::default()
-                    .push(Run::default().push(Break::from(BreakType::Page)));
+                let para =
+                    Paragraph::default().push(Run::default().push(Break::from(BreakType::Page)));
                 docx.document.push(para);
             }
 
@@ -380,7 +392,7 @@ async fn generate_docx(draft: DocxDraft) -> Result<(PathBuf, u64), ToolError> {
 
     // Write the document to file
     docx.write_file(&output_path)
-        .map_err(|e| ToolError::failed(format!("Failed to write DOCX file: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to write DOCX file: {e}")))?;
 
     let size_bytes = std::fs::metadata(&output_path)
         .map(|m| m.len())

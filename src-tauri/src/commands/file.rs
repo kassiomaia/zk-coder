@@ -94,10 +94,10 @@ fn generate_diff_from_content(path: &str, original: &str, new: &str) -> String {
 
     if hunks.is_empty() {
         // No changes - return minimal diff header
-        return format!("--- a/{}\n+++ b/{}\n", path, path);
+        return format!("--- a/{path}\n+++ b/{path}\n");
     }
 
-    let mut output = format!("--- a/{}\n+++ b/{}\n", path, path);
+    let mut output = format!("--- a/{path}\n+++ b/{path}\n");
     for hunk in hunks {
         output.push_str(&hunk);
     }
@@ -109,12 +109,11 @@ fn format_as_new_file_diff(path: &str, content: &str) -> String {
     let line_count = content.lines().count();
     let lines: String = content
         .lines()
-        .map(|line| format!("+{}", line))
+        .map(|line| format!("+{line}"))
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "--- /dev/null\n+++ b/{}\n@@ -0,0 +1,{} @@\n{}",
-        path, line_count, lines
+        "--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{line_count} @@\n{lines}"
     )
 }
 
@@ -123,12 +122,11 @@ fn format_as_deleted_file_diff(path: &str, content: &str) -> String {
     let line_count = content.lines().count();
     let lines: String = content
         .lines()
-        .map(|line| format!("-{}", line))
+        .map(|line| format!("-{line}"))
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "--- a/{}\n+++ /dev/null\n@@ -1,{} +0,0 @@\n{}",
-        path, line_count, lines
+        "--- a/{path}\n+++ /dev/null\n@@ -1,{line_count} +0,0 @@\n{lines}"
     )
 }
 
@@ -142,7 +140,7 @@ fn encode_url(s: &str) -> String {
                 let mut buf = [0; 4];
                 for byte in c.encode_utf8(&mut buf).as_bytes() {
                     encoded.push('%');
-                    encoded.push_str(&format!("{:02X}", byte));
+                    encoded.push_str(&format!("{byte:02X}"));
                 }
             }
         }
@@ -160,16 +158,12 @@ pub async fn open_file_diff_window(
 ) -> Result<(), String> {
     let encoded_path = encode_url(&file_path);
     let path = format!(
-        "/file-diff?filePath={}&workspaceRoot={}&sessionId={}",
-        encoded_path, workspace_root, session_id
+        "/file-diff?filePath={encoded_path}&workspaceRoot={workspace_root}&sessionId={session_id}"
     );
 
     if let Some(window) = app_handle.get_webview_window(FILE_DIFF_WINDOW_LABEL) {
         window
-            .eval(&format!(
-                "window.location.href = '{}'",
-                path
-            ))
+            .eval(format!("window.location.href = '{path}'"))
             .map_err(|e| e.to_string())?;
         let _ = window.show();
         let _ = window.set_focus();

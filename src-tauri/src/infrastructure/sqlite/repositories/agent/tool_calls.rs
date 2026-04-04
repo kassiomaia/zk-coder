@@ -65,7 +65,7 @@ pub fn update_tool_call_result(
         "UPDATE agent_tool_calls SET result = ?1, is_error = ?2, duration_ms = ?3 WHERE id = ?4",
         params![
             serde_json::to_string(result)?,
-            is_error as i32,
+            i32::from(is_error),
             duration_ms,
             tool_call_id
         ],

@@ -3,13 +3,13 @@
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{
-        get_draft_store, PdfDraft, PdfPageContent, PdfPageSize,
-    },
+    documents::shared::{get_draft_store, PdfDraft, PdfPageContent, PdfPageSize},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
-use printpdf::{BuiltinFont, IndirectFontRef, Mm, PdfDocument, PdfDocumentReference, PdfLayerReference};
+use printpdf::{
+    BuiltinFont, IndirectFontRef, Mm, PdfDocument, PdfDocumentReference, PdfLayerReference,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::fs::File;
@@ -20,14 +20,14 @@ use tauri::{AppHandle, Emitter};
 /// Arguments for finalizing a PDF document.
 #[derive(Debug, Deserialize)]
 pub struct PdfFinalizeArgs {
-    /// PDF ID from pdf_start
+    /// PDF ID from `pdf_start`
     pub pdf_id: String,
     /// Whether to automatically save to artifact store
     #[serde(default = "default_auto_save")]
     pub auto_save: bool,
 }
 
-fn default_auto_save() -> bool {
+const fn default_auto_save() -> bool {
     true
 }
 
@@ -38,7 +38,7 @@ pub struct PdfFinalizeOutput {
     pub pdf_id: String,
     /// Filename
     pub filename: String,
-    /// Artifact ID (if auto_saved)
+    /// Artifact ID (if `auto_saved`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub artifact_id: Option<String>,
     /// Full path to the generated file
@@ -94,13 +94,13 @@ impl Tool for PdfFinalizeTool {
             let draft_store = get_draft_store();
             let draft = {
                 let mut store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
                 // Get and remove the draft (finalizing removes it from active drafts)
-                store.remove_pdf_draft(&args.pdf_id).ok_or_else(|| {
-                    ToolError::failed(format!("PDF not found: {}", args.pdf_id))
-                })?
+                store
+                    .remove_pdf_draft(&args.pdf_id)
+                    .ok_or_else(|| ToolError::failed(format!("PDF not found: {}", args.pdf_id)))?
             };
 
             // Clone needed data before async call
@@ -121,10 +121,10 @@ impl Tool for PdfFinalizeTool {
             let output = PdfFinalizeOutput {
                 pdf_id: args.pdf_id,
                 filename,
-                artifact_id: artifact_id.clone(),
+                artifact_id,
                 path: path.to_str().unwrap().to_string(),
                 page_count,
-                page_size: format!("{:?}", page_size),
+                page_size: format!("{page_size:?}"),
                 size_bytes,
             };
 
@@ -158,7 +158,7 @@ async fn generate_pdf(draft: PdfDraft) -> Result<(PathBuf, u64), ToolError> {
     // Create artifacts directory in home/.coder/artifacts
     let artifacts_dir = PathBuf::from(home).join(".coder").join("artifacts");
     std::fs::create_dir_all(&artifacts_dir)
-        .map_err(|e| ToolError::failed(format!("Failed to create artifacts directory: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to create artifacts directory: {e}")))?;
 
     // Create output file path
     let output_path = artifacts_dir.join(&draft.filename);
@@ -168,17 +168,13 @@ async fn generate_pdf(draft: PdfDraft) -> Result<(PathBuf, u64), ToolError> {
 
     // Handle empty draft - create a document with one blank page
     if draft.pages.is_empty() {
-        let (doc, _page1, _layer1) = PdfDocument::new(
-            &draft.filename,
-            page_width,
-            page_height,
-            "Layer 1",
-        );
+        let (doc, _page1, _layer1) =
+            PdfDocument::new(&draft.filename, page_width, page_height, "Layer 1");
         let file = File::create(&output_path)
-            .map_err(|e| ToolError::failed(format!("Failed to create PDF file: {}", e)))?;
+            .map_err(|e| ToolError::failed(format!("Failed to create PDF file: {e}")))?;
         let mut writer = BufWriter::new(file);
         doc.save(&mut writer)
-            .map_err(|e| ToolError::failed(format!("Failed to save PDF: {}", e)))?;
+            .map_err(|e| ToolError::failed(format!("Failed to save PDF: {e}")))?;
 
         let size_bytes = std::fs::metadata(&output_path)
             .map(|m| m.len())
@@ -188,20 +184,16 @@ async fn generate_pdf(draft: PdfDraft) -> Result<(PathBuf, u64), ToolError> {
     }
 
     // Create the PDF document with the first page
-    let (doc, first_page_idx, first_layer_idx) = PdfDocument::new(
-        &draft.filename,
-        page_width,
-        page_height,
-        "Layer 1",
-    );
+    let (doc, first_page_idx, first_layer_idx) =
+        PdfDocument::new(&draft.filename, page_width, page_height, "Layer 1");
 
     // Add fonts once for reuse
     let font_regular = doc
         .add_builtin_font(BuiltinFont::Helvetica)
-        .map_err(|e| ToolError::failed(format!("Failed to add font: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to add font: {e}")))?;
     let font_bold = doc
         .add_builtin_font(BuiltinFont::HelveticaBold)
-        .map_err(|e| ToolError::failed(format!("Failed to add font: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to add font: {e}")))?;
 
     // Process first page
     let first_page = doc.get_page(first_page_idx);
@@ -218,10 +210,11 @@ async fn generate_pdf(draft: PdfDraft) -> Result<(PathBuf, u64), ToolError> {
 
     // Add and render remaining pages
     for page_data in draft.pages.iter().skip(1) {
-        let (page_idx, layer_idx) = doc.add_page(page_width, page_height, &format!(
-            "Layer {}",
-            page_data.index + 1
-        ));
+        let (page_idx, layer_idx) = doc.add_page(
+            page_width,
+            page_height,
+            format!("Layer {}", page_data.index + 1),
+        );
         let page = doc.get_page(page_idx);
         let layer = page.get_layer(layer_idx);
         render_page_content(
@@ -237,10 +230,10 @@ async fn generate_pdf(draft: PdfDraft) -> Result<(PathBuf, u64), ToolError> {
 
     // Save the document
     let file = File::create(&output_path)
-        .map_err(|e| ToolError::failed(format!("Failed to create PDF file: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to create PDF file: {e}")))?;
     let mut writer = BufWriter::new(file);
     doc.save(&mut writer)
-        .map_err(|e| ToolError::failed(format!("Failed to save PDF: {}", e)))?;
+        .map_err(|e| ToolError::failed(format!("Failed to save PDF: {e}")))?;
 
     let size_bytes = std::fs::metadata(&output_path)
         .map(|m| m.len())
@@ -250,7 +243,7 @@ async fn generate_pdf(draft: PdfDraft) -> Result<(PathBuf, u64), ToolError> {
 }
 
 /// Get page dimensions in millimeters for a given page size.
-fn get_page_dimensions(page_size: &PdfPageSize) -> (Mm, Mm) {
+const fn get_page_dimensions(page_size: &PdfPageSize) -> (Mm, Mm) {
     match page_size {
         PdfPageSize::A4 => (Mm(210.0), Mm(297.0)),
         PdfPageSize::Letter => (Mm(216.0), Mm(279.0)),
@@ -290,7 +283,7 @@ fn render_page_content(
     match content {
         PdfPageContent::Text { content } => {
             // Render text content with simple word wrapping
-            for line in wrap_text(content, usable_width.0 as f64, FONT_SIZE_BODY as f64) {
+            for line in wrap_text(content, f64::from(usable_width.0), f64::from(FONT_SIZE_BODY)) {
                 if current_y < margin_bottom {
                     break; // No more space on page
                 }
@@ -337,7 +330,9 @@ fn render_page_content(
                     current_y -= Mm(FONT_SIZE_TITLE - 4.0 + LINE_HEIGHT);
                 } else if !line.is_empty() {
                     // Regular paragraph
-                    for wrapped_line in wrap_text(line, usable_width.0 as f64, FONT_SIZE_BODY as f64) {
+                    for wrapped_line in
+                        wrap_text(line, f64::from(usable_width.0), f64::from(FONT_SIZE_BODY))
+                    {
                         if current_y < margin_bottom {
                             break;
                         }
@@ -359,7 +354,7 @@ fn render_page_content(
         PdfPageContent::Html { content, styles: _ } => {
             // For HTML, strip tags and render as text (basic implementation)
             let text = html_to_plain_text(content);
-            for line in wrap_text(&text, usable_width.0 as f64, FONT_SIZE_BODY as f64) {
+            for line in wrap_text(&text, f64::from(usable_width.0), f64::from(FONT_SIZE_BODY)) {
                 if current_y < margin_bottom {
                     break;
                 }
@@ -370,7 +365,7 @@ fn render_page_content(
         PdfPageContent::Image { path, caption } => {
             // Add a placeholder text for the image
             layer.use_text(
-                format!("[Image: {}]", path),
+                format!("[Image: {path}]"),
                 FONT_SIZE_BODY,
                 margin_left,
                 current_y,
@@ -380,11 +375,7 @@ fn render_page_content(
 
             // Add caption if present
             if let Some(caption_text) = caption {
-                for line in wrap_text(
-                    caption_text,
-                    usable_width.0 as f64,
-                    FONT_SIZE_BODY as f64,
-                ) {
+                for line in wrap_text(caption_text, f64::from(usable_width.0), f64::from(FONT_SIZE_BODY)) {
                     if current_y < margin_bottom {
                         break;
                     }

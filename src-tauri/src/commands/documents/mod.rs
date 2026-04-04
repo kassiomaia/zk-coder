@@ -34,7 +34,7 @@ pub fn download_artifact(
     let store = store.lock().map_err(|e| e.to_string())?;
     let reference = store
         .get_artifact_ref(&artifact_id)
-        .ok_or_else(|| format!("Artifact not found: {}", artifact_id))?;
+        .ok_or_else(|| format!("Artifact not found: {artifact_id}"))?;
 
     let content = store
         .get_artifact_content(&artifact_id)
@@ -52,7 +52,7 @@ pub fn get_artifact(
     let store = store.lock().map_err(|e| e.to_string())?;
     let reference = store
         .get_artifact_ref(&artifact_id)
-        .ok_or_else(|| format!("Artifact not found: {}", artifact_id))?;
+        .ok_or_else(|| format!("Artifact not found: {artifact_id}"))?;
     Ok(reference.clone())
 }
 

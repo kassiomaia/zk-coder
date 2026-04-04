@@ -44,6 +44,7 @@ pub struct WorkspaceSnapshotStats {
 
 impl FileSnapshotRegistry {
     /// Creates a new file snapshot registry.
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             snapshots: Mutex::new(HashMap::new()),
@@ -57,7 +58,7 @@ impl FileSnapshotRegistry {
     /// * `session_id` - The session ID
     /// * `path` - Path to the file to capture
     pub fn capture(&self, session_id: &str, path: &Path) {
-        let mut snapshots = self.snapshots.lock().unwrap_or_else(|e| e.into_inner());
+        let mut snapshots = self.snapshots.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let session_map = snapshots.entry(session_id.to_string()).or_default();
         if session_map.contains_key(path) {
             return;
@@ -157,7 +158,7 @@ impl FileSnapshotRegistry {
     /// * `session_id` - The session ID
     /// * `path` - Path to the file to rollback
     pub fn rollback_file(&self, session_id: &str, path: &Path) -> Result<bool, RollbackError> {
-        let mut snapshots = self.snapshots.lock().unwrap_or_else(|e| e.into_inner());
+        let mut snapshots = self.snapshots.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let session_map = snapshots
             .get_mut(session_id)
             .ok_or_else(|| RollbackError::SessionNotFound(session_id.to_string()))?;
@@ -199,7 +200,7 @@ impl FileSnapshotRegistry {
     ///
     /// * `session_id` - The session ID
     pub fn rollback_session(&self, session_id: &str) -> Result<Vec<PathBuf>, RollbackError> {
-        let mut snapshots = self.snapshots.lock().unwrap_or_else(|e| e.into_inner());
+        let mut snapshots = self.snapshots.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let session_map = snapshots
             .get_mut(session_id)
             .ok_or_else(|| RollbackError::SessionNotFound(session_id.to_string()))?;
@@ -236,7 +237,7 @@ impl FileSnapshotRegistry {
     ///
     /// * `session_id` - The session ID
     pub fn get_session_snapshots(&self, session_id: &str) -> Vec<FileSnapshot> {
-        let snapshots = self.snapshots.lock().unwrap_or_else(|e| e.into_inner());
+        let snapshots = self.snapshots.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         snapshots
             .get(session_id)
             .map(|m| m.values().cloned().collect())
@@ -249,7 +250,7 @@ impl FileSnapshotRegistry {
     ///
     /// * `session_id` - The session ID
     pub fn clear_session(&self, session_id: &str) {
-        let mut snapshots = self.snapshots.lock().unwrap_or_else(|e| e.into_inner());
+        let mut snapshots = self.snapshots.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         snapshots.remove(session_id);
     }
 

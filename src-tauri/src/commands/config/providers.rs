@@ -11,7 +11,7 @@ pub async fn get_providers(state: tauri::State<'_, ConfigState>) -> Result<Vec<P
     info!("get_providers: Starting to fetch providers...");
     let store = &state.repository;
     let providers = store.get_providers().map_err(|e| {
-        error!("get_providers: Failed to get providers: {}", e);
+        error!("get_providers: Failed to get providers: {e}");
         e.to_string()
     })?;
     info!("get_providers: Returning {} providers", providers.len());
@@ -51,8 +51,7 @@ pub async fn save_provider(
         } else {
             if BUILTIN_PROVIDER_IDS.contains(&id.as_str()) {
                 return Err(format!(
-                    "Cannot create custom provider with reserved ID '{}'",
-                    id
+                    "Cannot create custom provider with reserved ID '{id}'"
                 ));
             }
             Provider::custom_with_id(

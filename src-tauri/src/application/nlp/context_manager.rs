@@ -97,7 +97,7 @@ impl ContextManager {
         Ok(ConversationContext {
             recent_messages,
             metadata: window.metadata.clone(),
-            summary: window.metadata.summary.clone(),
+            summary: window.metadata.summary,
         })
     }
 

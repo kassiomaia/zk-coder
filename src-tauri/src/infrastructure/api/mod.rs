@@ -1,7 +1,7 @@
 //! API validation and model fetching for LLM providers.
 //!
 //! This module provides functions to validate API keys and fetch models
-//! from various LLM providers (OpenAI, Anthropic, Google).
+//! from various LLM providers (`OpenAI`, Anthropic, Google).
 
 use reqwest::Client;
 use serde::Deserialize;
@@ -32,9 +32,8 @@ fn normalize_base_url(url: &str) -> &str {
     ];
 
     for endpoint in endpoints_to_strip {
-        if url.ends_with(endpoint) {
-            let normalized = &url[..url.len() - endpoint.len()];
-            log::info!("Normalized base URL from '{}' to '{}'", url, normalized);
+        if let Some(normalized) = url.strip_suffix(endpoint) {
+            log::info!("Normalized base URL from '{url}' to '{normalized}'");
             return normalized;
         }
     }
@@ -47,14 +46,14 @@ fn create_client() -> Result<Client, String> {
     Client::builder()
         .timeout(std::time::Duration::from_secs(DEFAULT_TIMEOUT_SECS))
         .build()
-        .map_err(|e| format!("Failed to create HTTP client: {}", e))
+        .map_err(|e| format!("Failed to create HTTP client: {e}"))
 }
 
 // =============================================================================
 // OpenAI API
 // =============================================================================
 
-/// Validates an OpenAI API key.
+/// Validates an `OpenAI` API key.
 ///
 /// Uses a minimal chat completion request to validate.
 ///
@@ -73,7 +72,7 @@ pub async fn validate_openai_key(
 
     let response = client
         .post(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Authorization", format!("Bearer {api_key}"))
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({
             "model": "gpt-4o-mini",
@@ -82,7 +81,7 @@ pub async fn validate_openai_key(
         }))
         .send()
         .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+        .map_err(|e| format!("Request failed: {e}"))?;
 
     let status = response.status();
 
@@ -118,7 +117,7 @@ pub async fn validate_openai_key(
     )))
 }
 
-/// Fetches available models from OpenAI.
+/// Fetches available models from `OpenAI`.
 ///
 /// # Errors
 ///
@@ -134,24 +133,21 @@ pub async fn fetch_openai_models(
     let url = format!("{}/models", base.trim_end_matches('/'));
 
     log::info!(
-        "fetch_openai_models: base_url={:?}, normalized_base={}, final_url={}",
-        base_url,
-        base,
-        url
+        "fetch_openai_models: base_url={base_url:?}, normalized_base={base}, final_url={url}"
     );
 
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Authorization", format!("Bearer {api_key}"))
         .send()
         .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+        .map_err(|e| format!("Request failed: {e}"))?;
 
     log::info!("fetch_openai_models: response status={}", response.status());
 
     // Handle 404 - models endpoint not available
     if response.status().as_u16() == 404 {
-        log::warn!("Models endpoint not available (404) for URL: {}", url);
+        log::warn!("Models endpoint not available (404) for URL: {url}");
         return Ok(FetchModelsResult::failure(
             "The models endpoint is not available for this provider. \
             Please manually configure the models you want to use in the provider settings.",
@@ -192,7 +188,7 @@ pub async fn fetch_openai_models(
     let api_response = response
         .json::<OpenAiModelsResponse>()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_err(|e| format!("Failed to parse response: {e}"))?;
 
     log::info!("OpenAI API returned {} models", api_response.data.len());
 
@@ -231,8 +227,7 @@ pub async fn fetch_openai_models(
     // If no models matched, return error suggesting manual configuration
     if models.is_empty() {
         log::warn!(
-            "No chat models matched the filter. First 5 model IDs from API: {:?}",
-            sample_ids
+            "No chat models matched the filter. First 5 model IDs from API: {sample_ids:?}"
         );
         return Ok(FetchModelsResult::failure(
             "No chat models found from the API response. \
@@ -278,10 +273,10 @@ pub async fn validate_google_key(
 
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Authorization", format!("Bearer {api_key}"))
         .send()
         .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+        .map_err(|e| format!("Request failed: {e}"))?;
 
     if response.status().is_success() {
         Ok(ValidationResult::success("API key validated successfully"))
@@ -332,18 +327,15 @@ pub async fn fetch_google_models(
     let url = format!("{}/models", base.trim_end_matches('/'));
 
     log::info!(
-        "fetch_google_models: base_url={:?}, normalized_base={}, final_url={}",
-        base_url,
-        base,
-        url
+        "fetch_google_models: base_url={base_url:?}, normalized_base={base}, final_url={url}"
     );
 
     let response = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Authorization", format!("Bearer {api_key}"))
         .send()
         .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+        .map_err(|e| format!("Request failed: {e}"))?;
 
     // Handle 404 - models endpoint not available
     if response.status().as_u16() == 404 {
@@ -384,7 +376,7 @@ pub async fn fetch_google_models(
     let api_response = response
         .json::<OpenAiModelsResponse>()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_err(|e| format!("Failed to parse response: {e}"))?;
 
     log::info!("Google API returned {} models", api_response.data.len());
 
@@ -448,7 +440,7 @@ pub async fn validate_anthropic_key(
         }))
         .send()
         .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+        .map_err(|e| format!("Request failed: {e}"))?;
 
     let status = response.status();
     // 200 or 400 (rate limit) means key is valid
@@ -465,18 +457,17 @@ pub async fn validate_anthropic_key(
 /// # Errors
 ///
 /// Returns an error string if the operation fails.
+#[must_use] 
 pub fn get_anthropic_models() -> FetchModelsResult {
-    let models = vec![
-        "claude-opus-4-20250514",
+    let models = ["claude-opus-4-20250514",
         "claude-sonnet-4-20250514",
         "claude-3-5-sonnet-20241022",
         "claude-3-5-haiku-20241022",
         "claude-3-opus-20240229",
         "claude-3-sonnet-20240229",
-        "claude-3-haiku-20240307",
-    ];
+        "claude-3-haiku-20240307"];
 
-    FetchModelsResult::success(models.iter().map(|s| s.to_string()).collect())
+    FetchModelsResult::success(models.iter().map(|s| (*s).to_string()).collect())
 }
 
 // =============================================================================

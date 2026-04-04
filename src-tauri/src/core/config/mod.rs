@@ -30,7 +30,7 @@ pub enum ApiType {
 impl ApiType {
     /// Converts the `ApiType` to a string slice for database storage.
     #[must_use]
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::OpenAI => "openai",
             Self::Anthropic => "anthropic",
@@ -65,7 +65,7 @@ pub enum ModelsSource {
 impl ModelsSource {
     /// Converts the `ModelsSource` to a string slice for database storage.
     #[must_use]
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::Auto => "auto",
             Self::Manual => "manual",
@@ -322,7 +322,7 @@ pub enum OperationType {
 impl OperationType {
     /// Converts the `OperationType` to a string slice for database storage.
     #[must_use]
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::Analysis => "analysis",
             Self::Code => "code",
@@ -438,7 +438,7 @@ pub struct FetchModelsResult {
 impl FetchModelsResult {
     /// Creates a successful `FetchModelsResult`.
     #[must_use]
-    pub fn success(models: Vec<String>) -> Self {
+    pub const fn success(models: Vec<String>) -> Self {
         Self {
             success: true,
             models,

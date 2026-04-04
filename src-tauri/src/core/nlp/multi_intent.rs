@@ -34,7 +34,7 @@ impl DetectedIntent {
 
     /// Creates with parameters.
     #[must_use]
-    pub fn with_params(
+    pub const fn with_params(
         intent: Intent,
         params: IntentParams,
         span: TextSpan,
@@ -142,10 +142,10 @@ impl IntentRelationship {
     #[must_use]
     pub const fn label(&self) -> &'static str {
         match self {
-            IntentRelationship::Sequential => "then",
-            IntentRelationship::Parallel => "and",
-            IntentRelationship::Dependent => "using",
-            IntentRelationship::Exclusive => "or",
+            Self::Sequential => "then",
+            Self::Parallel => "and",
+            Self::Dependent => "using",
+            Self::Exclusive => "or",
         }
     }
 }

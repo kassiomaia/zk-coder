@@ -6,8 +6,8 @@
 //! 3. First subtask is marked InProgress
 //! 4. Errors during planning are properly handled
 
+use crate::application::agent::service::planner::{SubtaskPlan, TaskPlan};
 use crate::core::agent::entities::{AgentTask, TaskMode, TaskStatus};
-use crate::application::agent::service::planner::{TaskPlan, SubtaskPlan};
 
 // ========================================================================
 // Behavior Documentation Tests
@@ -174,7 +174,11 @@ fn test_task_title_length_is_reasonable() {
         assert!(title.len() <= 80, "Title should be concise: {}", title);
         // All titles should be descriptive (3-8 words typically)
         let word_count = title.split_whitespace().count();
-        assert!(word_count >= 2 && word_count <= 8, "Title word count should be reasonable: {}", title);
+        assert!(
+            word_count >= 2 && word_count <= 8,
+            "Title word count should be reasonable: {}",
+            title
+        );
     }
 }
 
@@ -194,7 +198,8 @@ fn test_task_truncation_is_avoided() {
     //           (clean, semantic title)
 
     // The old truncation would look like:
-    let long_input = "Investigate the entire authentication and authorization system across all microservices";
+    let long_input =
+        "Investigate the entire authentication and authorization system across all microservices";
     let truncated = &long_input[..long_input.chars().take(80).collect::<String>().len()];
     assert!(truncated.len() <= 80);
     // Truncation may cut mid-word - this is what we're avoiding

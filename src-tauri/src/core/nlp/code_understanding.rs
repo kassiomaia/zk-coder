@@ -20,7 +20,7 @@ pub struct CodeUnderstanding {
 impl CodeUnderstanding {
     /// Creates a new `CodeUnderstanding` result.
     #[must_use]
-    pub fn new(
+    pub const fn new(
         language: ProgrammingLanguage,
         structure: CodeStructure,
         complexity: ComplexityMetrics,
@@ -54,11 +54,11 @@ impl ProgrammingLanguage {
     #[must_use]
     pub const fn extension(&self) -> &'static str {
         match self {
-            ProgrammingLanguage::Rust => "rs",
-            ProgrammingLanguage::TypeScript => "ts",
-            ProgrammingLanguage::JavaScript => "js",
-            ProgrammingLanguage::Python => "py",
-            ProgrammingLanguage::Unknown => "",
+            Self::Rust => "rs",
+            Self::TypeScript => "ts",
+            Self::JavaScript => "js",
+            Self::Python => "py",
+            Self::Unknown => "",
         }
     }
 
@@ -66,11 +66,11 @@ impl ProgrammingLanguage {
     #[must_use]
     pub fn from_extension(ext: &str) -> Self {
         match ext.to_lowercase().as_str() {
-            "rs" => ProgrammingLanguage::Rust,
-            "ts" | "tsx" => ProgrammingLanguage::TypeScript,
-            "js" | "jsx" | "mjs" | "cjs" => ProgrammingLanguage::JavaScript,
-            "py" | "pyw" => ProgrammingLanguage::Python,
-            _ => ProgrammingLanguage::Unknown,
+            "rs" => Self::Rust,
+            "ts" | "tsx" => Self::TypeScript,
+            "js" | "jsx" | "mjs" | "cjs" => Self::JavaScript,
+            "py" | "pyw" => Self::Python,
+            _ => Self::Unknown,
         }
     }
 
@@ -78,11 +78,11 @@ impl ProgrammingLanguage {
     #[must_use]
     pub const fn name(&self) -> &'static str {
         match self {
-            ProgrammingLanguage::Rust => "Rust",
-            ProgrammingLanguage::TypeScript => "TypeScript",
-            ProgrammingLanguage::JavaScript => "JavaScript",
-            ProgrammingLanguage::Python => "Python",
-            ProgrammingLanguage::Unknown => "Unknown",
+            Self::Rust => "Rust",
+            Self::TypeScript => "TypeScript",
+            Self::JavaScript => "JavaScript",
+            Self::Python => "Python",
+            Self::Unknown => "Unknown",
         }
     }
 }
@@ -235,10 +235,10 @@ impl ComplexityRating {
     #[must_use]
     pub const fn label(&self) -> &'static str {
         match self {
-            ComplexityRating::Low => "Low",
-            ComplexityRating::Medium => "Medium",
-            ComplexityRating::High => "High",
-            ComplexityRating::VeryHigh => "Very High",
+            Self::Low => "Low",
+            Self::Medium => "Medium",
+            Self::High => "High",
+            Self::VeryHigh => "Very High",
         }
     }
 }

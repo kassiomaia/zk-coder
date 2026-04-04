@@ -2,7 +2,7 @@
 //!
 //! This module contains the concrete implementation of the `LlmService` trait
 //! from the core layer. It is responsible for coordinating between the domain
-//! entities and the underlying infrastructure, such as clients for OpenAI and
+//! entities and the underlying infrastructure, such as clients for `OpenAI` and
 //! Anthropic.
 
 pub mod config;

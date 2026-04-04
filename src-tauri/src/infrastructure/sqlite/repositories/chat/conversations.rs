@@ -23,7 +23,7 @@ pub fn create_conversation(
             &conversation.title,
             &conversation.created_at.to_rfc3339(),
             &conversation.updated_at.to_rfc3339(),
-            conversation.archived as i64,
+            i64::from(conversation.archived),
             &settings_json,
         ],
     )?;
@@ -211,7 +211,7 @@ pub fn update_conversation_archived(
     let now = Utc::now();
     let rows_affected = conn.execute(
         "UPDATE conversations SET archived = ?1, updated_at = ?2 WHERE id = ?3",
-        params![archived as i64, now.to_rfc3339(), id],
+        params![i64::from(archived), now.to_rfc3339(), id],
     )?;
 
     if rows_affected == 0 {

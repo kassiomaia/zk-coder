@@ -107,6 +107,6 @@ impl AgentServiceImpl {
     }
 }
 
-fn is_non_terminal(status: CoreTaskStatus) -> bool {
+const fn is_non_terminal(status: CoreTaskStatus) -> bool {
     matches!(status, CoreTaskStatus::Pending | CoreTaskStatus::InProgress)
 }

@@ -3,7 +3,7 @@
 //! Batches small chunks together to reduce IPC overhead while
 //! maintaining responsive streaming.
 
-use crate::core::llm::entities::{StreamChunk, StreamDelta, UsageStats};
+use crate::core::llm::entities::{StreamChunk, UsageStats};
 use crate::core::llm::services::LlmEvent;
 
 /// Default configuration for chunk batching.
@@ -11,7 +11,7 @@ use crate::core::llm::services::LlmEvent;
 pub struct BatchingConfig {
     /// Batch interval in milliseconds.
     ///
-    /// Chunks are accumulated and sent every interval_ms.
+    /// Chunks are accumulated and sent every `interval_ms`.
     pub interval_ms: u64,
 
     /// Minimum content length to trigger immediate flush.
@@ -31,6 +31,7 @@ impl Default for BatchingConfig {
 
 impl BatchingConfig {
     /// Creates a new batching configuration.
+    #[must_use] 
     pub const fn new(interval_ms: u64, min_flush_length: usize) -> Self {
         Self {
             interval_ms,
@@ -39,6 +40,7 @@ impl BatchingConfig {
     }
 
     /// Creates a configuration for immediate streaming (no batching).
+    #[must_use] 
     pub const fn immediate() -> Self {
         Self {
             interval_ms: 0,
@@ -62,6 +64,7 @@ pub struct ChunkBatcher {
 
 impl ChunkBatcher {
     /// Creates a new chunk batcher.
+    #[must_use] 
     pub fn new(config: BatchingConfig) -> Self {
         Self {
             config,
@@ -108,7 +111,11 @@ impl ChunkBatcher {
     }
 
     /// Checks if batch should be flushed based on config.
-    fn check_flush(&mut self, request_id: &str, thread_id: Option<String>) -> Option<Vec<LlmEvent>> {
+    fn check_flush(
+        &mut self,
+        request_id: &str,
+        thread_id: Option<String>,
+    ) -> Option<Vec<LlmEvent>> {
         let has_content = !self.batch_buffer.is_empty();
         let has_reasoning = !self.reasoning_buffer.is_empty();
 
@@ -141,7 +148,7 @@ impl ChunkBatcher {
                 request_id: request_id.to_string(),
                 delta: self.batch_buffer.clone(),
                 reasoning_delta,
-                thread_id: thread_id.clone(),
+                thread_id,
             }];
             self.batch_buffer.clear();
             self.reasoning_buffer.clear();
@@ -192,17 +199,20 @@ impl ChunkBatcher {
     }
 
     /// Returns the full content (borrowed, doesn't consume).
+    #[must_use] 
     pub fn full_content(&self) -> String {
         self.full_content.clone()
     }
 
     /// Returns the final finish reason.
+    #[must_use] 
     pub fn finish_reason(&self) -> Option<String> {
         self.final_finish_reason.clone()
     }
 
     /// Returns whether the stream is finished.
-    pub fn is_finished(&self) -> bool {
+    #[must_use] 
+    pub const fn is_finished(&self) -> bool {
         self.finished
     }
 }

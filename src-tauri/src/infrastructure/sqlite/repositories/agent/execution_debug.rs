@@ -9,7 +9,7 @@ use crate::core::agent::execution::{
 };
 
 /// Converts an [`ExecutionPhase`] to a string representation for storage.
-fn phase_to_string(phase: ExecutionPhase) -> &'static str {
+const fn phase_to_string(phase: ExecutionPhase) -> &'static str {
     match phase {
         ExecutionPhase::Bootstrapping => "bootstrapping",
         ExecutionPhase::PreparingStep => "preparing_step",
@@ -40,7 +40,7 @@ fn string_to_phase(value: &str) -> ExecutionPhase {
 }
 
 /// Converts a [`RuntimeTraceType`] to a string representation for storage.
-fn trace_type_to_string(trace_type: &RuntimeTraceType) -> &'static str {
+const fn trace_type_to_string(trace_type: &RuntimeTraceType) -> &'static str {
     match trace_type {
         RuntimeTraceType::ExecutionStarted => "execution_started",
         RuntimeTraceType::StepStarted => "step_started",
@@ -123,8 +123,8 @@ pub fn save_execution_snapshot(
             phase_to_string(snapshot.phase),
             snapshot.current_subtask_id,
             snapshot.context_usage_percent,
-            snapshot.total_input_tokens as i64,
-            snapshot.total_output_tokens as i64,
+            i64::from(snapshot.total_input_tokens),
+            i64::from(snapshot.total_output_tokens),
             snapshot.last_model,
             snapshot.last_error,
             snapshot.updated_at.to_rfc3339(),
@@ -166,9 +166,7 @@ pub fn get_execution_snapshot(
         total_output_tokens: row.get::<_, i64>(7)? as u32,
         last_model: row.get(8)?,
         last_error: row.get(9)?,
-        updated_at: DateTime::parse_from_rfc3339(&updated_at)
-            .map(|dt| dt.with_timezone(&Utc))
-            .unwrap_or_else(|_| Utc::now()),
+        updated_at: DateTime::parse_from_rfc3339(&updated_at).map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc)),
     }))
 }
 
@@ -206,7 +204,7 @@ pub fn append_runtime_trace(
             trace.session_id,
             trace.task_id,
             trace.subtask_id,
-            trace.step_number as i64,
+            i64::from(trace.step_number),
             trace_type_to_string(&trace.trace_type),
             serde_json::to_string(&trace.payload_json)?,
             trace.created_at.to_rfc3339(),
@@ -245,9 +243,7 @@ pub fn get_runtime_traces(
             trace_type: string_to_trace_type(&row.get::<_, String>(5)?),
             payload_json: serde_json::from_str(&payload_json)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            created_at: DateTime::parse_from_rfc3339(&created_at)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now()),
+            created_at: DateTime::parse_from_rfc3339(&created_at).map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc)),
         })
     };
 

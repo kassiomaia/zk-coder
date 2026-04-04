@@ -57,6 +57,7 @@ impl AgentServiceImpl {
     /// Check if an error message indicates a recoverable error.
     ///
     /// Recoverable errors are prefixed with `[recoverable]`.
+    #[must_use] 
     pub fn is_recoverable_error_message(message: &str) -> bool {
         message.starts_with("[recoverable]")
     }
@@ -65,8 +66,7 @@ impl AgentServiceImpl {
     pub fn strip_recoverable_prefix(message: &str) -> String {
         message
             .strip_prefix("[recoverable]")
-            .map(str::trim_start)
-            .unwrap_or(message)
+            .map_or(message, str::trim_start)
             .to_string()
     }
 
@@ -90,7 +90,9 @@ impl AgentServiceImpl {
 
         let content = self.latest_request_content(&session_id)?;
 
-        info!("[AgentRecovery] Continuing execution for session {}", session_id);
+        info!(
+            "[AgentRecovery] Continuing execution for session {session_id}"
+        );
 
         let _ = app_handle.emit(
             AGENT_EVENT_NAME,
@@ -124,11 +126,12 @@ impl AgentServiceImpl {
 
         // Prepend replan instruction
         let replan_content = format!(
-            "{}\n\nPlease review all the work that has been done so far and create a fresh plan for completing the remaining tasks.",
-            content
+            "{content}\n\nPlease review all the work that has been done so far and create a fresh plan for completing the remaining tasks."
         );
 
-        info!("[AgentRecovery] Replanning and continuing execution for session {}", session_id);
+        info!(
+            "[AgentRecovery] Replanning and continuing execution for session {session_id}"
+        );
 
         let _ = app_handle.emit(
             AGENT_EVENT_NAME,
@@ -137,6 +140,7 @@ impl AgentServiceImpl {
             },
         );
 
-        self.spawn_execution(session_id, replan_content, app_handle).await
+        self.spawn_execution(session_id, replan_content, app_handle)
+            .await
     }
 }

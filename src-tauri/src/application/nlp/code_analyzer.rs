@@ -258,7 +258,7 @@ impl CodeAnalyzer {
     where
         F: FnMut(Node),
     {
-        f(node.clone());
+        f(*node);
         for i in 0..node.child_count() {
             if let Some(child) = node.child(i) {
                 Self::traverse(&child, f);
@@ -277,7 +277,7 @@ impl CodeAnalyzer {
     where
         F: FnMut(Node, usize),
     {
-        f(node.clone(), depth);
+        f(*node, depth);
         for i in 0..node.child_count() {
             if let Some(child) = node.child(i) {
                 Self::traverse_with_depth_impl(&child, f, depth + 1);

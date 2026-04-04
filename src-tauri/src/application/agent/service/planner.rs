@@ -7,10 +7,9 @@
 use crate::core::agent::entities::{AgentTask, TaskMode, TaskStatus};
 use crate::core::llm::entities::{ChatMessage, ChatRequest, MessageContent, MessageRole};
 use crate::infrastructure::agent::runtime::client::create_llm_client;
-use crate::infrastructure::llm::LlmClient;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
-use log::{info, warn};
 
 /// Result of a single-shot planning operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -144,7 +143,7 @@ pub async fn plan_new_task(
     user_message: &str,
     model_id: Option<&str>,
 ) -> Result<TaskPlan, String> {
-    let (client, actual_model) = create_llm_client(app_handle, model_id.map(|s| s.to_string()))
+    let (client, actual_model) = create_llm_client(app_handle, model_id.map(std::string::ToString::to_string))
         .await
         .map_err(|e| format!("Failed to create LLM client for planning: {e}"))?;
 
@@ -152,8 +151,7 @@ pub async fn plan_new_task(
     let system_prompt = build_planning_system_prompt();
 
     let user_prompt = format!(
-        "User Request: {}\n\nCreate a task plan for this request.",
-        user_message
+        "User Request: {user_message}\n\nCreate a task plan for this request."
     );
 
     let request = ChatRequest::new(
@@ -187,9 +185,7 @@ pub async fn plan_new_task(
 
     // Validate raw response is not empty
     if response.content.trim().is_empty() {
-        return Err(format!(
-            "LLM returned empty response. This may indicate a configuration issue with your LLM provider."
-        ));
+        return Err("LLM returned empty response. This may indicate a configuration issue with your LLM provider.".to_string());
     }
 
     let content = strip_markdown_code_block(&response.content);
@@ -208,8 +204,7 @@ pub async fn plan_new_task(
     // Parse JSON response
     let plan: TaskPlan = serde_json::from_str(&content).map_err(|e| {
         format!(
-            "Failed to parse planning response as JSON: {}\n\nResponse was: {}",
-            e, content
+            "Failed to parse planning response as JSON: {e}\n\nResponse was: {content}"
         )
     })?;
 
@@ -227,7 +222,7 @@ pub async fn review_and_replan(
     progress_summary: &str,
     model_id: Option<&str>,
 ) -> Result<ReplanOutput, String> {
-    let (client, actual_model) = create_llm_client(app_handle, model_id.map(|s| s.to_string()))
+    let (client, actual_model) = create_llm_client(app_handle, model_id.map(std::string::ToString::to_string))
         .await
         .map_err(|e| format!("Failed to create LLM client for replanning: {e}"))?;
 
@@ -283,8 +278,7 @@ pub async fn review_and_replan(
     // Parse JSON response
     let output: ReplanOutput = serde_json::from_str(&content).map_err(|e| {
         format!(
-            "Failed to parse replan response as JSON: {}\n\nResponse was: {}",
-            e, content
+            "Failed to parse replan response as JSON: {e}\n\nResponse was: {content}"
         )
     })?;
 
@@ -292,6 +286,7 @@ pub async fn review_and_replan(
 }
 
 /// Build the system prompt for single-shot task planning.
+#[must_use] 
 pub fn build_planning_system_prompt() -> String {
     r#"You are a task planning assistant. Your job is to analyze a user's request and create a clear, actionable plan.
 
@@ -323,6 +318,7 @@ Return ONLY the JSON object, nothing else."#
 }
 
 /// Build the system prompt for replanning an interrupted task.
+#[must_use] 
 pub fn build_replan_system_prompt() -> String {
     r#"You are reviewing an interrupted agent task. The user has sent a new message while a task was still in progress.
 
@@ -364,7 +360,8 @@ Return ONLY the JSON object, nothing else."#
         .to_string()
 }
 
-/// Convert a SubtaskPlan to an AgentTask entity.
+/// Convert a `SubtaskPlan` to an `AgentTask` entity.
+#[must_use] 
 pub fn subtask_plan_to_agent_task(
     subtask_plan: &SubtaskPlan,
     session_id: &str,
@@ -632,12 +629,15 @@ mod tests {
     #[tokio::test]
     async fn test_plan_new_task_with_simple_request() {
         let client = MockLlmClient::anthropic("test-model");
-        client.set_response(serde_json::json!({
-            "title": "Read README file",
-            "description": "Read the README.md file",
-            "is_non_trivial": false,
-            "subtasks": []
-        }).to_string());
+        client.set_response(
+            serde_json::json!({
+                "title": "Read README file",
+                "description": "Read the README.md file",
+                "is_non_trivial": false,
+                "subtasks": []
+            })
+            .to_string(),
+        );
 
         let plan = plan_new_task_with_mock(&client, "Read the README file")
             .await
@@ -663,9 +663,10 @@ mod tests {
             ]
         }).to_string());
 
-        let plan = plan_new_task_with_mock(&client, "Investigate codebase and suggest improvements")
-            .await
-            .unwrap();
+        let plan =
+            plan_new_task_with_mock(&client, "Investigate codebase and suggest improvements")
+                .await
+                .unwrap();
 
         assert!(plan.title.len() <= 80);
         assert!(plan.is_non_trivial);
@@ -689,13 +690,16 @@ mod tests {
     #[tokio::test]
     async fn test_review_and_replan_abort_decision() {
         let client = MockLlmClient::anthropic("test-model");
-        client.set_response(serde_json::json!({
-            "decision": "abort",
-            "completed_indices": [0],
-            "updated_plan": null,
-            "user_message": "Switching to cooking topic",
-            "next_step_index": null
-        }).to_string());
+        client.set_response(
+            serde_json::json!({
+                "decision": "abort",
+                "completed_indices": [0],
+                "updated_plan": null,
+                "user_message": "Switching to cooking topic",
+                "next_step_index": null
+            })
+            .to_string(),
+        );
 
         let current_task = create_test_task("Investigate Rust code");
         let subtasks = vec![create_test_subtask("Scan files", 0)];
@@ -719,13 +723,16 @@ mod tests {
     #[tokio::test]
     async fn test_review_and_replan_continue_decision() {
         let client = MockLlmClient::anthropic("test-model");
-        client.set_response(serde_json::json!({
-            "decision": "continue",
-            "completed_indices": [],
-            "updated_plan": null,
-            "user_message": "Continuing with clarification",
-            "next_step_index": null
-        }).to_string());
+        client.set_response(
+            serde_json::json!({
+                "decision": "continue",
+                "completed_indices": [],
+                "updated_plan": null,
+                "user_message": "Continuing with clarification",
+                "next_step_index": null
+            })
+            .to_string(),
+        );
 
         let current_task = create_test_task("Fix bug in auth");
         let current_plan = build_plan_from_task(&current_task, &[]);

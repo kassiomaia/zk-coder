@@ -25,7 +25,7 @@ pub struct GrepArgs {
     pub path: Option<String>,
 }
 
-fn default_max_results() -> usize {
+const fn default_max_results() -> usize {
     50
 }
 
@@ -108,7 +108,7 @@ impl Tool for GrepTool {
             let regex = RegexBuilder::new(&query)
                 .case_insensitive(!args.case_sensitive)
                 .build()
-                .map_err(|e| ToolError::invalid_args(&format!("Invalid regex pattern: {}", e)))?;
+                .map_err(|e| ToolError::invalid_args(format!("Invalid regex pattern: {e}")))?;
 
             let root = resolve_search_root(&workspace, args.path.as_deref())?;
             let mut matches = Vec::new();
@@ -144,8 +144,7 @@ fn resolve_search_root(workspace: &Path, path: Option<&str>) -> Result<PathBuf, 
 
     let canonical = candidate.canonicalize().map_err(|e| {
         ToolError::failed(format!(
-            "Failed to resolve search path '{}': {}",
-            trimmed, e
+            "Failed to resolve search path '{trimmed}': {e}"
         ))
     })?;
     if !canonical.starts_with(workspace) {

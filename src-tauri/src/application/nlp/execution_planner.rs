@@ -45,7 +45,37 @@ impl ExecutionPlanner {
         let mut completed = HashSet::new();
 
         // If there's already an execution order, use it
-        if !result.execution_order.is_empty() {
+        if result.execution_order.is_empty() {
+            // No explicit order - use relationships
+            while completed.len() < result.intents.len() {
+                let mut level = Vec::new();
+
+                for (i, _) in result.intents.iter().enumerate() {
+                    if completed.contains(&i) {
+                        continue;
+                    }
+
+                    if Self::can_execute(result, i, &completed) {
+                        level.push(i);
+                        completed.insert(i);
+                    }
+                }
+
+                if level.is_empty() {
+                    // Circular dependency or error - add remaining
+                    for i in 0..result.intents.len() {
+                        if !completed.contains(&i) {
+                            level.push(i);
+                            completed.insert(i);
+                        }
+                    }
+                }
+
+                if !level.is_empty() {
+                    levels.push(level);
+                }
+            }
+        } else {
             // Group by relationships
             let mut current_level = Vec::new();
 
@@ -78,36 +108,6 @@ impl ExecutionPlanner {
 
             if !current_level.is_empty() {
                 levels.push(current_level);
-            }
-        } else {
-            // No explicit order - use relationships
-            while completed.len() < result.intents.len() {
-                let mut level = Vec::new();
-
-                for (i, _) in result.intents.iter().enumerate() {
-                    if completed.contains(&i) {
-                        continue;
-                    }
-
-                    if Self::can_execute(result, i, &completed) {
-                        level.push(i);
-                        completed.insert(i);
-                    }
-                }
-
-                if level.is_empty() {
-                    // Circular dependency or error - add remaining
-                    for i in 0..result.intents.len() {
-                        if !completed.contains(&i) {
-                            level.push(i);
-                            completed.insert(i);
-                        }
-                    }
-                }
-
-                if !level.is_empty() {
-                    levels.push(level);
-                }
             }
         }
 

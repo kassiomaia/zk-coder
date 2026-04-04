@@ -1,7 +1,7 @@
 //! Start a new PPTX presentation.
 
 use crate::infrastructure::tools::{
-    documents::shared::{get_draft_store, DraftStoreExt, PptxSlide, SlideContent, SlideLayout},
+    documents::shared::get_draft_store,
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -102,7 +102,7 @@ impl Tool for PptxStartTool {
             let draft_store = get_draft_store();
             let deck_id = {
                 let mut store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
                 store.create_pptx_draft(filename.clone())
@@ -111,7 +111,7 @@ impl Tool for PptxStartTool {
             let created_at = chrono::Utc::now().to_rfc3339();
 
             let output = PptxStartOutput {
-                deck_id: deck_id.clone(),
+                deck_id,
                 filename,
                 title: args.title,
                 status: "building".to_string(),

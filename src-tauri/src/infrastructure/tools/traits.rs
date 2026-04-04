@@ -18,7 +18,7 @@ use crate::core::llm::entities::ToolDefinition;
 pub struct ToolId {
     /// Category namespace (e.g., "fs", "search", "conversation").
     pub category: &'static str,
-    /// Tool name within the category (e.g., "read_file").
+    /// Tool name within the category (e.g., "`read_file`").
     pub name: &'static str,
 }
 
@@ -29,7 +29,7 @@ impl ToolId {
         Self { category, name }
     }
 
-    /// Full tool name as exposed to LLM (e.g., "fs_read_file").
+    /// Full tool name as exposed to LLM (e.g., "`fs_read_file`").
     #[must_use]
     pub fn full_name(&self) -> String {
         format!("{}_{}", self.category, self.name)
@@ -113,7 +113,7 @@ pub trait Tool: Send + Sync {
     /// * `ctx` - Execution context (conversation ID, workspace root, etc.)
     /// * `arguments` - JSON arguments from the LLM
     /// * `app_handle` - Tauri app handle for state access
-    /// * `workspace_root` - Workspace root path (if requires_workspace is true)
+    /// * `workspace_root` - Workspace root path (if `requires_workspace` is true)
     ///
     /// # Returns
     /// * `Ok(JsonValue)` - Tool output to return to the LLM

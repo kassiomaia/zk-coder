@@ -188,7 +188,10 @@ fn test_build_core_messages_appends_current_request_when_not_in_history() {
             .and_then(|message: &crate::core::llm::entities::ChatMessage| message.as_text()),
         Some("Latest request")
     );
-    assert!(matches!(messages.last().map(|message| message.role), Some(CoreMessageRole::User)));
+    assert!(matches!(
+        messages.last().map(|message| message.role),
+        Some(CoreMessageRole::User)
+    ));
 }
 
 // =========================================================================

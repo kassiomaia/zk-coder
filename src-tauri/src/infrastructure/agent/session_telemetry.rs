@@ -117,7 +117,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         task_id: Option<&str>,
         subtask_id: Option<&str>,
     ) -> Result<(), SessionRepositoryError> {
-        SqliteSessionRepository::create_execution_step(self, step, session_id, task_id, subtask_id)
+        Self::create_execution_step(self, step, session_id, task_id, subtask_id)
     }
 
     /// Get a session by ID.
@@ -125,7 +125,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         &self,
         session_id: &SessionId,
     ) -> Result<Option<AgentSession>, SessionRepositoryError> {
-        SqliteSessionRepository::get_session(self, session_id)
+        Self::get_session(self, session_id)
     }
 
     /// Get execution steps for a session.
@@ -133,7 +133,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         &self,
         session_id: &SessionId,
     ) -> Result<Vec<ExecutionStep>, SessionRepositoryError> {
-        SqliteSessionRepository::get_session_execution_steps(self, session_id)
+        Self::get_session_execution_steps(self, session_id)
     }
 
     /// Record a file touched event.
@@ -144,7 +144,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         action: &str,
         diff: Option<&str>,
     ) -> Result<(), SessionRepositoryError> {
-        SqliteSessionRepository::add_file_touched(self, session_id, file_path, action, diff)
+        Self::add_file_touched(self, session_id, file_path, action, diff)
     }
 
     /// Get files touched in a session.
@@ -152,7 +152,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         &self,
         session_id: &SessionId,
     ) -> Result<Vec<TouchedFileEntry>, SessionRepositoryError> {
-        SqliteSessionRepository::get_session_files(self, session_id)
+        Self::get_session_files(self, session_id)
     }
 
     /// Add a terminal output line.
@@ -162,7 +162,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         line_type: &str,
         content: &str,
     ) -> Result<(), SessionRepositoryError> {
-        SqliteSessionRepository::add_terminal_line(self, session_id, line_type, content)
+        Self::add_terminal_line(self, session_id, line_type, content)
     }
 
     /// Get terminal output for a session.
@@ -170,7 +170,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         &self,
         session_id: &SessionId,
     ) -> Result<Vec<TerminalLineEntry>, SessionRepositoryError> {
-        SqliteSessionRepository::get_session_terminal_output(self, session_id)
+        Self::get_session_terminal_output(self, session_id)
     }
 
     /// Add a status phrase.
@@ -179,7 +179,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         session_id: &SessionId,
         phrase: &str,
     ) -> Result<(), SessionRepositoryError> {
-        SqliteSessionRepository::add_status_phrase(self, session_id, phrase)
+        Self::add_status_phrase(self, session_id, phrase)
     }
 
     /// Get status phrases for a session.
@@ -187,7 +187,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         &self,
         session_id: &SessionId,
     ) -> Result<Vec<String>, SessionRepositoryError> {
-        SqliteSessionRepository::get_session_status_phrases(self, session_id)
+        Self::get_session_status_phrases(self, session_id)
     }
 
     /// Clear runtime data for a session.
@@ -195,7 +195,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         &self,
         session_id: &SessionId,
     ) -> Result<(), SessionRepositoryError> {
-        SqliteSessionRepository::clear_session_runtime_data(self, session_id)
+        Self::clear_session_runtime_data(self, session_id)
     }
 
     /// Insert a tool call record.
@@ -207,7 +207,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         arguments: &serde_json::Value,
         subtask_id: Option<&str>,
     ) -> Result<(), SessionRepositoryError> {
-        SqliteSessionRepository::insert_tool_call(
+        Self::insert_tool_call(
             self,
             session_id,
             tool_call_id,
@@ -225,7 +225,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         is_error: bool,
         duration_ms: Option<i64>,
     ) -> Result<(), SessionRepositoryError> {
-        SqliteSessionRepository::update_tool_call_result(
+        Self::update_tool_call_result(
             self,
             tool_call_id,
             result,
@@ -239,6 +239,6 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         &self,
         session_id: &SessionId,
     ) -> Result<Vec<ToolCallEntry>, SessionRepositoryError> {
-        SqliteSessionRepository::get_tool_calls_for_session(self, session_id)
+        Self::get_tool_calls_for_session(self, session_id)
     }
 }

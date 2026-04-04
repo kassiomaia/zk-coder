@@ -30,7 +30,7 @@ pub trait LlmClient: Send + Sync {
     fn provider_type(&self) -> ApiType;
 
     /// Sends a chat completion request and returns the response.
-    fn chat<'a>(&'a self, request: ChatRequest) -> BoxFuture<'a, LlmResult<ChatResponse>>;
+    fn chat(&self, request: ChatRequest) -> BoxFuture<'_, LlmResult<ChatResponse>>;
 
     /// Sends a streaming chat completion request.
     fn chat_stream(

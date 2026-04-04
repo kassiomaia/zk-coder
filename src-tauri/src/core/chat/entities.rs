@@ -60,7 +60,7 @@ pub enum MessageRole {
 impl MessageRole {
     /// Converts the message role to a string slice for database storage.
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
             Self::User => "user",
             Self::Assistant => "assistant",
@@ -172,7 +172,7 @@ impl ChatMessage {
 
     /// Sets the status for this message.
     #[must_use]
-    pub fn with_status(mut self, status: MessageStatus) -> Self {
+    pub const fn with_status(mut self, status: MessageStatus) -> Self {
         self.status = status;
         self
     }
@@ -239,7 +239,7 @@ impl Thread {
 
     /// Checks if the thread is marked as resolved.
     #[must_use]
-    pub fn is_resolved(&self) -> bool {
+    pub const fn is_resolved(&self) -> bool {
         self.metadata.resolved
     }
 }
@@ -271,12 +271,12 @@ fn default_model() -> String {
 }
 
 /// Returns the default temperature for a conversation.
-fn default_temperature() -> f32 {
+const fn default_temperature() -> f32 {
     0.7
 }
 
 /// Returns the default maximum tokens for a conversation.
-fn default_max_tokens() -> u32 {
+const fn default_max_tokens() -> u32 {
     4096
 }
 
@@ -340,7 +340,7 @@ impl Conversation {
 }
 
 /// Represents an error that can occur during chat domain operations.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChatDomainError {
     /// The thread is resolved and cannot accept new messages.
     ThreadResolved {

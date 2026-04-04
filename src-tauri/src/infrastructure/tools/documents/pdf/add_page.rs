@@ -2,7 +2,7 @@
 
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{get_draft_store, DraftStoreExt, PdfPageContent},
+    documents::shared::{get_draft_store, PdfPageContent},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -14,7 +14,7 @@ use tauri::AppHandle;
 /// Arguments for adding a page to a PDF.
 #[derive(Debug, Deserialize)]
 pub struct PdfAddPageArgs {
-    /// PDF ID from pdf_start
+    /// PDF ID from `pdf_start`
     pub pdf_id: String,
     /// Page content
     pub content: PdfPageContentInput,
@@ -27,13 +27,17 @@ pub struct PdfAddPageArgs {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PdfPageContentInput {
-    Markdown { content: String },
+    Markdown {
+        content: String,
+    },
     Html {
         content: String,
         #[serde(default)]
         styles: Option<String>,
     },
-    Text { content: String },
+    Text {
+        content: String,
+    },
     Image {
         path: String,
         #[serde(default)]
@@ -44,10 +48,12 @@ pub enum PdfPageContentInput {
 impl From<PdfPageContentInput> for PdfPageContent {
     fn from(item: PdfPageContentInput) -> Self {
         match item {
-            PdfPageContentInput::Markdown { content } => PdfPageContent::Markdown { content },
-            PdfPageContentInput::Html { content, styles } => PdfPageContent::Html { content, styles },
-            PdfPageContentInput::Text { content } => PdfPageContent::Text { content },
-            PdfPageContentInput::Image { path, caption } => PdfPageContent::Image { path, caption },
+            PdfPageContentInput::Markdown { content } => Self::Markdown { content },
+            PdfPageContentInput::Html { content, styles } => {
+                Self::Html { content, styles }
+            }
+            PdfPageContentInput::Text { content } => Self::Text { content },
+            PdfPageContentInput::Image { path, caption } => Self::Image { path, caption },
         }
     }
 }
@@ -151,7 +157,7 @@ impl Tool for PdfAddPageTool {
             let draft_store = get_draft_store();
             let (page_id, page_number, total_pages) = {
                 let mut store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
                 let draft = store
@@ -162,7 +168,7 @@ impl Tool for PdfAddPageTool {
 
                 let page_id = store
                     .add_pdf_page(&args.pdf_id, content)
-                    .map_err(|e| ToolError::failed(format!("Failed to add page: {}", e)))?;
+                    .map_err(|e| ToolError::failed(format!("Failed to add page: {e}")))?;
 
                 let draft = store.get_pdf_draft(&args.pdf_id).unwrap();
                 (page_id, draft.pages.len(), total_before + 1)

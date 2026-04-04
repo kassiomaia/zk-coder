@@ -130,7 +130,7 @@ pub enum RuntimeTraceType {
 ///
 /// Each `RuntimeTrace` captures a specific event that occurred during execution,
 /// providing detailed information for debugging and observability.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeTrace {
     /// A unique identifier for the trace entry.

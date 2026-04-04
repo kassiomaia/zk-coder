@@ -4,7 +4,6 @@ use crate::infrastructure::tools::documents::shared::draft_store::{PdfDraft, Pdf
 use crate::infrastructure::tools::documents::shared::validation::{
     estimate_page_count, DocumentFileType, ValidationCheck, ValidationLevel, ValidationReport,
 };
-use chrono::Utc;
 use std::path::Path;
 
 /// PDF document validator.
@@ -12,6 +11,7 @@ pub struct PdfValidator;
 
 impl PdfValidator {
     /// Validate a PDF draft before finalization.
+    #[must_use] 
     pub fn validate_draft(draft: &PdfDraft) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -28,6 +28,7 @@ impl PdfValidator {
     }
 
     /// Validate a finalized PDF file.
+    #[must_use] 
     pub fn validate_file(path: &Path) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -52,7 +53,10 @@ impl PdfValidator {
         let metadata = match std::fs::metadata(path) {
             Ok(m) => m,
             Err(e) => {
-                report.add_error("File Metadata", &format!("Cannot read file metadata: {}", e));
+                report.add_error(
+                    "File Metadata",
+                    format!("Cannot read file metadata: {e}"),
+                );
                 return report;
             }
         };
@@ -62,7 +66,7 @@ impl PdfValidator {
             name: "File Size".to_string(),
             passed: size > 100, // Minimum valid PDF is larger than 100 bytes
             level: ValidationLevel::Error,
-            message: format!("File size: {} bytes", size),
+            message: format!("File size: {size} bytes"),
             suggestion: if size < 100 {
                 Some("File is too small to be a valid PDF".to_string())
             } else {
@@ -74,7 +78,7 @@ impl PdfValidator {
         let content = match std::fs::read(path) {
             Ok(c) => c,
             Err(e) => {
-                report.add_error("File Read", &format!("Cannot read file: {}", e));
+                report.add_error("File Read", format!("Cannot read file: {e}"));
                 return report;
             }
         };
@@ -124,7 +128,7 @@ impl PdfValidator {
                 name: "Page Count Estimate".to_string(),
                 passed: true,
                 level: ValidationLevel::Info,
-                message: format!("Estimated {} pages (based on file size)", pages),
+                message: format!("Estimated {pages} pages (based on file size)"),
                 suggestion: None,
             });
         }
@@ -133,6 +137,7 @@ impl PdfValidator {
     }
 
     /// Validate maximum page count.
+    #[must_use] 
     pub fn validate_max_pages(draft: &PdfDraft, max_pages: usize) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -142,9 +147,11 @@ impl PdfValidator {
             name: "Page Limit".to_string(),
             passed: page_count <= max_pages,
             level: ValidationLevel::Error,
-            message: format!("Document has {} pages (max: {})", page_count, max_pages),
+            message: format!("Document has {page_count} pages (max: {max_pages})"),
             suggestion: if page_count > max_pages {
-                Some(format!("Reduce content to fit within {} page limit", max_pages))
+                Some(format!(
+                    "Reduce content to fit within {max_pages} page limit"
+                ))
             } else {
                 None
             },
@@ -154,6 +161,7 @@ impl PdfValidator {
     }
 
     /// Validate that PDF contains extractable text (not image-only).
+    #[must_use] 
     pub fn validate_extractable_text(draft: &PdfDraft) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -174,10 +182,10 @@ impl PdfValidator {
             } else {
                 "Document may be image-only (no extractable text)".to_string()
             },
-            suggestion: if !has_text {
-                Some("Image-only PDFs cannot be searched or have text extracted".to_string())
-            } else {
+            suggestion: if has_text {
                 None
+            } else {
+                Some("Image-only PDFs cannot be searched or have text extracted".to_string())
             },
         });
 
@@ -193,10 +201,10 @@ impl PdfValidator {
             passed: has_pages,
             level: ValidationLevel::Error,
             message: format!("Document has {} page(s)", draft.pages.len()),
-            suggestion: if !has_pages {
-                Some("Add at least one page to the document".to_string())
-            } else {
+            suggestion: if has_pages {
                 None
+            } else {
+                Some("Add at least one page to the document".to_string())
             },
         });
     }
@@ -220,7 +228,7 @@ impl PdfValidator {
             message: if empty_pages == 0 {
                 "All pages have content".to_string()
             } else {
-                format!("{} page(s) are empty", empty_pages)
+                format!("{empty_pages} page(s) are empty")
             },
             suggestion: if empty_pages > 0 {
                 Some("Consider removing empty pages or adding content".to_string())
@@ -236,7 +244,7 @@ impl PdfValidator {
             name: "Page Count".to_string(),
             passed: count > 0,
             level: ValidationLevel::Info,
-            message: format!("Document has {} pages", count),
+            message: format!("Document has {count} pages"),
             suggestion: None,
         });
     }
@@ -264,15 +272,19 @@ mod tests {
         PdfDraft {
             pdf_id: "test_pdf".to_string(),
             filename: "test.pdf".to_string(),
-            pages: vec![crate::infrastructure::tools::documents::shared::draft_store::DraftPage {
-                id: "page1".to_string(),
-                index: 0,
-                content: PdfPageContent::Text {
-                    content: "Test content".to_string(),
+            pages: vec![
+                crate::infrastructure::tools::documents::shared::draft_store::DraftPage {
+                    id: "page1".to_string(),
+                    index: 0,
+                    content: PdfPageContent::Text {
+                        content: "Test content".to_string(),
+                    },
                 },
-            }],
-            page_size: crate::infrastructure::tools::documents::shared::draft_store::PdfPageSize::A4,
-            status: crate::infrastructure::tools::documents::shared::draft_store::DraftStatus::Building,
+            ],
+            page_size:
+                crate::infrastructure::tools::documents::shared::draft_store::PdfPageSize::A4,
+            status:
+                crate::infrastructure::tools::documents::shared::draft_store::DraftStatus::Building,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
@@ -293,8 +305,10 @@ mod tests {
             pdf_id: "test".to_string(),
             filename: "test.pdf".to_string(),
             pages: Vec::new(),
-            page_size: crate::infrastructure::tools::documents::shared::draft_store::PdfPageSize::A4,
-            status: crate::infrastructure::tools::documents::shared::draft_store::DraftStatus::Building,
+            page_size:
+                crate::infrastructure::tools::documents::shared::draft_store::PdfPageSize::A4,
+            status:
+                crate::infrastructure::tools::documents::shared::draft_store::DraftStatus::Building,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };

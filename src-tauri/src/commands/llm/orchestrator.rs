@@ -43,11 +43,11 @@ impl OrchestratedConversationRunner {
 }
 
 impl super::ConversationRunner for OrchestratedConversationRunner {
-    fn send_chat_message<'a>(
-        &'a self,
+    fn send_chat_message(
+        &self,
         request: SendChatRequest,
         app_handle: AppHandle,
-    ) -> futures::future::BoxFuture<'a, Result<SendChatResponse, String>> {
+    ) -> futures::future::BoxFuture<'_, Result<SendChatResponse, String>> {
         Box::pin(async move {
             log::info!(
                 "[LLM] Orchestrated runner enabled: executing loop skeleton for non-streaming request"
@@ -63,18 +63,18 @@ impl super::ConversationRunner for OrchestratedConversationRunner {
             {
                 Ok(response) => Ok(response),
                 Err(e) => {
-                    log::warn!("[LLM] Orchestrated runner failed: {}", e);
+                    log::warn!("[LLM] Orchestrated runner failed: {e}");
                     Err(e)
                 }
             }
         })
     }
 
-    fn send_chat_message_streaming<'a>(
-        &'a self,
+    fn send_chat_message_streaming(
+        &self,
         request: SendChatRequest,
         app_handle: AppHandle,
-    ) -> futures::future::BoxFuture<'a, Result<String, String>> {
+    ) -> futures::future::BoxFuture<'_, Result<String, String>> {
         Box::pin(async move {
             log::info!(
                 "[LLM] Orchestrated runner enabled: streaming request using orchestrated loop path"

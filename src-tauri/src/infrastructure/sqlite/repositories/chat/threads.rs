@@ -27,7 +27,7 @@ pub fn create_thread(
             &thread.title,
             &thread.created_at.to_rfc3339(),
             &thread.updated_at.to_rfc3339(),
-            thread.metadata.archived as i64,
+            i64::from(thread.metadata.archived),
             thread.message_count as i64,
             &metadata_json,
         ],
@@ -137,7 +137,12 @@ pub fn update_thread_resolved(
 
     conn.execute(
         "UPDATE threads SET metadata = ?1, archived = ?2, updated_at = ?3 WHERE id = ?4",
-        params![new_metadata_json, metadata.archived as i64, now.to_rfc3339(), id],
+        params![
+            new_metadata_json,
+            i64::from(metadata.archived),
+            now.to_rfc3339(),
+            id
+        ],
     )?;
 
     Ok(())
@@ -173,7 +178,7 @@ pub fn update_thread_archived(
     let now = Utc::now();
     let rows_affected = conn.execute(
         "UPDATE threads SET metadata = ?1, archived = ?2, updated_at = ?3 WHERE id = ?4",
-        params![new_metadata_json, archived as i64, now.to_rfc3339(), id],
+        params![new_metadata_json, i64::from(archived), now.to_rfc3339(), id],
     )?;
 
     if rows_affected == 0 {
@@ -214,7 +219,12 @@ pub fn set_thread_agent_session(
 
     conn.execute(
         "UPDATE threads SET metadata = ?1, archived = ?2, updated_at = ?3 WHERE id = ?4",
-        params![new_metadata_json, metadata.archived as i64, now.to_rfc3339(), id],
+        params![
+            new_metadata_json,
+            i64::from(metadata.archived),
+            now.to_rfc3339(),
+            id
+        ],
     )?;
 
     Ok(())
@@ -272,7 +282,7 @@ pub fn create_thread_with_message(
             &thread.title,
             &thread.created_at.to_rfc3339(),
             &thread.updated_at.to_rfc3339(),
-            thread.metadata.archived as i64,
+            i64::from(thread.metadata.archived),
             1i64, // Start with 1 message
             &metadata_json,
         ],

@@ -2,7 +2,7 @@
 
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{get_draft_store, DraftStoreExt},
+    documents::shared::get_draft_store,
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -18,7 +18,7 @@ use tauri::AppHandle;
 /// Arguments for listing pages.
 #[derive(Debug, Deserialize)]
 pub struct PdfListPagesArgs {
-    /// PDF ID from pdf_start
+    /// PDF ID from `pdf_start`
     pub pdf_id: String,
     /// Whether to include full content (default: false)
     #[serde(default)]
@@ -93,14 +93,15 @@ impl Tool for PdfListPagesTool {
             let draft_store = get_draft_store();
             let pages: Vec<PageSummary> = {
                 let store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
                 let draft = store
                     .get_pdf_draft(&args.pdf_id)
                     .ok_or_else(|| ToolError::failed(format!("PDF not found: {}", args.pdf_id)))?;
 
-                draft.pages
+                draft
+                    .pages
                     .iter()
                     .map(|draft_page| {
                         let (content_type, preview) = if args.include_content {
@@ -137,9 +138,13 @@ impl Tool for PdfListPagesTool {
 }
 
 /// Get the content type name.
-fn get_content_type_name(content: &crate::infrastructure::tools::documents::shared::PdfPageContent) -> String {
+fn get_content_type_name(
+    content: &crate::infrastructure::tools::documents::shared::PdfPageContent,
+) -> String {
     match content {
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Markdown { .. } => "markdown",
+        crate::infrastructure::tools::documents::shared::PdfPageContent::Markdown { .. } => {
+            "markdown"
+        }
         crate::infrastructure::tools::documents::shared::PdfPageContent::Html { .. } => "html",
         crate::infrastructure::tools::documents::shared::PdfPageContent::Text { .. } => "text",
         crate::infrastructure::tools::documents::shared::PdfPageContent::Image { .. } => "image",
@@ -155,14 +160,24 @@ fn format_content_content(
         crate::infrastructure::tools::documents::shared::PdfPageContent::Markdown { content } => {
             content.clone()
         }
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Html { content, .. } => {
-            content.clone()
-        }
+        crate::infrastructure::tools::documents::shared::PdfPageContent::Html {
+            content, ..
+        } => content.clone(),
         crate::infrastructure::tools::documents::shared::PdfPageContent::Text { content } => {
             content.clone()
         }
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Image { path, caption } => {
-            format!("[Image: {}]{}", path, caption.as_ref().map(|c| format!(" - {}", c)).unwrap_or_default())
+        crate::infrastructure::tools::documents::shared::PdfPageContent::Image {
+            path,
+            caption,
+        } => {
+            format!(
+                "[Image: {}]{}",
+                path,
+                caption
+                    .as_ref()
+                    .map(|c| format!(" - {c}"))
+                    .unwrap_or_default()
+            )
         }
     }
 }
@@ -175,17 +190,23 @@ fn format_content_preview(
         crate::infrastructure::tools::documents::shared::PdfPageContent::Markdown { content } => {
             truncate(content, 100)
         }
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Html { content, .. } => {
-            truncate(content, 100)
-        }
+        crate::infrastructure::tools::documents::shared::PdfPageContent::Html {
+            content, ..
+        } => truncate(content, 100),
         crate::infrastructure::tools::documents::shared::PdfPageContent::Text { content } => {
             truncate(content, 100)
         }
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Image { path, caption } => {
+        crate::infrastructure::tools::documents::shared::PdfPageContent::Image {
+            path,
+            caption,
+        } => {
             format!(
                 "[Image: {}]{}",
                 truncate(path, 50),
-                caption.as_ref().map(|c| format!(" - {}", c)).unwrap_or_default()
+                caption
+                    .as_ref()
+                    .map(|c| format!(" - {c}"))
+                    .unwrap_or_default()
             )
         }
     }
@@ -207,9 +228,9 @@ fn truncate(s: &str, max_len: usize) -> String {
 /// Arguments for getting a page.
 #[derive(Debug, Deserialize)]
 pub struct PdfGetPageArgs {
-    /// PDF ID from pdf_start
+    /// PDF ID from `pdf_start`
     pub pdf_id: String,
-    /// Page number (1-based) or page_id
+    /// Page number (1-based) or `page_id`
     pub page: String,
 }
 
@@ -268,7 +289,7 @@ impl Tool for PdfGetPageTool {
             let draft_store = get_draft_store();
             let output = {
                 let store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
                 let draft = store
@@ -280,10 +301,11 @@ impl Tool for PdfGetPageTool {
                     // 1-based index
                     let index = num.saturating_sub(1);
                     draft.pages.get(index).ok_or_else(|| {
-                        ToolError::failed(format!("Page number {} not found", num))
+                        ToolError::failed(format!("Page number {num} not found"))
                     })?
                 } else {
-                    draft.pages
+                    draft
+                        .pages
                         .iter()
                         .find(|p| p.id == args.page)
                         .ok_or_else(|| {

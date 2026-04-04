@@ -9,7 +9,7 @@ use crate::infrastructure::sqlite::repositories::chat::ChatRepositoryError;
 
 /// Migrates orphan messages (messages without a thread) to new threads.
 ///
-/// For each conversation that has messages with NULL thread_id:
+/// For each conversation that has messages with NULL `thread_id`:
 /// 1. Creates a new thread using the first message content as the title
 /// 2. Updates all orphan messages in that conversation to reference the new thread
 ///
@@ -82,9 +82,7 @@ pub fn migrate_orphan_messages_to_threads(conn: &Connection) -> Result<(), ChatR
 /// Derives a thread title from message content.
 fn derive_thread_title(content: &str) -> String {
     let cleaned = content
-        .replace('#', "")
-        .replace('*', "")
-        .replace('`', "")
+        .replace(['#', '*', '`'], "")
         .replace('\n', " ")
         .trim()
         .to_string();
@@ -102,10 +100,10 @@ fn derive_thread_title(content: &str) -> String {
         if last_space > 20 {
             format!("{}...", &truncated[..last_space])
         } else {
-            format!("{}...", truncated)
+            format!("{truncated}...")
         }
     } else {
-        format!("{}...", truncated)
+        format!("{truncated}...")
     }
 }
 

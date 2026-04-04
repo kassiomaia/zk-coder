@@ -1,7 +1,7 @@
 //! Start a new PDF document.
 
 use crate::infrastructure::tools::{
-    documents::shared::{get_draft_store, DraftStoreExt, PdfPageSize},
+    documents::shared::{get_draft_store, PdfPageSize},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -102,17 +102,17 @@ impl Tool for PdfStartTool {
             let draft_store = get_draft_store();
             let pdf_id = {
                 let mut store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
                 store.create_pdf_draft(filename.clone(), Some(page_size))
             };
 
             let created_at = chrono::Utc::now().to_rfc3339();
-            let page_size_str = format!("{:?}", page_size);
+            let page_size_str = format!("{page_size:?}");
 
             let output = PdfStartOutput {
-                pdf_id: pdf_id.clone(),
+                pdf_id,
                 filename,
                 title: args.title,
                 page_size: page_size_str,
@@ -126,7 +126,7 @@ impl Tool for PdfStartTool {
     }
 }
 
-/// Parse page size string to PdfPageSize enum.
+/// Parse page size string to `PdfPageSize` enum.
 fn parse_page_size(s: &str) -> PdfPageSize {
     match s.to_uppercase().as_str() {
         "LETTER" => PdfPageSize::Letter,

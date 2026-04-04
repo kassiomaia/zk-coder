@@ -1,7 +1,7 @@
 //! Anthropic Claude API client.
 //!
 //! This module implements the LLM client for Anthropic's Claude API.
-//! Unlike OpenAI, Anthropic uses a different API structure with:
+//! Unlike `OpenAI`, Anthropic uses a different API structure with:
 //! - `x-api-key` header for authentication
 //! - `anthropic-version` header for API versioning
 //! - System prompt as a top-level field
@@ -17,6 +17,7 @@ pub use stream::*;
 pub use types::*;
 
 /// Converts provider-agnostic tool definitions to Anthropic request tools.
+#[must_use] 
 pub fn convert_tools(
     tools: Vec<crate::core::llm::entities::ToolDefinition>,
 ) -> Option<Vec<types::AnthropicTool>> {

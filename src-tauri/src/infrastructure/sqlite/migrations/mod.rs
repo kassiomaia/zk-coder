@@ -1,4 +1,4 @@
-//! Centralized SQLite schema and migration entrypoints.
+//! Centralized `SQLite` schema and migration entrypoints.
 
 pub mod agent;
 pub mod chat;

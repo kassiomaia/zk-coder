@@ -34,12 +34,11 @@ pub async fn cancel_chat_request(request_id: String, app_handle: AppHandle) -> R
     let mut active_requests = llm_state.active_requests.lock().await;
 
     if let Some(handle) = active_requests.remove(&request_id) {
-        info!("[LLM] Cancelling active stream request_id={}", request_id);
+        info!("[LLM] Cancelling active stream request_id={request_id}");
         handle.abort();
     } else {
         info!(
-            "[LLM] cancel_chat_request: no active stream found for request_id={}",
-            request_id
+            "[LLM] cancel_chat_request: no active stream found for request_id={request_id}"
         );
     }
 

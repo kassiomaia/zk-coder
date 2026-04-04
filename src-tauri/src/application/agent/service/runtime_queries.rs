@@ -3,8 +3,8 @@ use tauri::{AppHandle, Emitter};
 
 use crate::application::agent::conversions::core_task_to_runtime_task;
 use crate::application::agent::read_models::{
-    AgentCatalog, AgentExecutionContext, AgentExecutionDebugDetails, AgentSessionRuntimeDetails, FileTouchedView,
-    PendingActionsView, TerminalLineView, ToolCallView,
+    AgentCatalog, AgentExecutionContext, AgentExecutionDebugDetails, AgentSessionRuntimeDetails,
+    FileTouchedView, PendingActionsView, TerminalLineView, ToolCallView,
 };
 use crate::core::agent::entities::{AgentDomainError, SessionState as CoreSessionState};
 use crate::core::agent::repositories::RepositoryResult;
@@ -65,8 +65,7 @@ impl AgentServiceImpl {
         let session_id_for_cleanup = session_id.clone();
 
         info!(
-            "[AgentCommand] Spawning agent execution for session {}",
-            session_id
+            "[AgentCommand] Spawning agent execution for session {session_id}"
         );
 
         let handle = tokio::spawn(async move {
@@ -94,14 +93,12 @@ impl AgentServiceImpl {
                 }
                 Err(crate::infrastructure::agent::runtime::AgentRuntimeError::Cancelled) => {
                     info!(
-                        "[AgentCommand] Agent execution cancelled for session {}",
-                        session_id_for_task
+                        "[AgentCommand] Agent execution cancelled for session {session_id_for_task}"
                     );
                 }
                 Err(error) => {
                     error!(
-                        "[AgentRuntime] Execution failed for session {}: {}",
-                        session_id_for_task, error
+                        "[AgentRuntime] Execution failed for session {session_id_for_task}: {error}"
                     );
                     let _ = app_handle.emit(
                         AGENT_EVENT_NAME,
@@ -413,7 +410,10 @@ mod tests {
             details.tool_calls[0].arguments,
             serde_json::json!({ "path": "/workspace/src/main.rs" })
         );
-        assert_eq!(details.tool_calls[0].result, Some(serde_json::json!({ "ok": true })));
+        assert_eq!(
+            details.tool_calls[0].result,
+            Some(serde_json::json!({ "ok": true }))
+        );
         assert_eq!(details.tool_calls[0].duration_ms, Some(17));
         assert!(!details.tool_calls[0].timestamp.is_empty());
     }

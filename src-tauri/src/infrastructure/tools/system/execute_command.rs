@@ -31,8 +31,13 @@ const COMMAND_TIMEOUT_SECS: u64 = 60;
 const COMMAND_CANCELLATION_POLL_MS: u64 = 250;
 
 enum CommandStreamEvent {
-    Line { stream: &'static str, content: String },
-    StreamClosed { stream: &'static str },
+    Line {
+        stream: &'static str,
+        content: String,
+    },
+    StreamClosed {
+        stream: &'static str,
+    },
 }
 
 /// Arguments for command execution.
@@ -99,8 +104,7 @@ impl Tool for ExecuteCommandTool {
                 let resolved = workspace.join(dir);
                 if !resolved.starts_with(&workspace) {
                     return Err(ToolError::PathTraversal(format!(
-                        "Working directory '{}' is outside workspace",
-                        dir
+                        "Working directory '{dir}' is outside workspace"
                     )));
                 }
                 resolved
@@ -136,7 +140,7 @@ impl Tool for ExecuteCommandTool {
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .spawn()
-                .map_err(|e| ToolError::failed(format!("Failed to spawn command: {}", e)))?;
+                .map_err(|e| ToolError::failed(format!("Failed to spawn command: {e}")))?;
 
             let stdout = child.stdout.take();
             let stderr = child.stderr.take();
@@ -236,10 +240,10 @@ impl Tool for ExecuteCommandTool {
                                     }
                                 }
                             }
-                            _ = tokio::time::sleep(std::time::Duration::from_millis(COMMAND_CANCELLATION_POLL_MS)) => {
+                            () = tokio::time::sleep(std::time::Duration::from_millis(COMMAND_CANCELLATION_POLL_MS)) => {
                                 if exit_status.is_none() {
                                     exit_status = child.try_wait().map_err(|e| {
-                                        ToolError::failed(format!("Failed to wait for command: {}", e))
+                                        ToolError::failed(format!("Failed to wait for command: {e}"))
                                     })?;
                                 }
                                 if let Some(ref service) = agent_service {
@@ -316,8 +320,7 @@ impl Tool for ExecuteCommandTool {
                     );
 
                     Err(ToolError::failed(format!(
-                        "Command timed out after {} seconds",
-                        COMMAND_TIMEOUT_SECS
+                        "Command timed out after {COMMAND_TIMEOUT_SECS} seconds"
                     )))
                 }
             }

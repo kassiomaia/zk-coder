@@ -10,7 +10,7 @@ use crate::infrastructure::sqlite::repositories::chat::ChatRepositoryError;
 /// appropriate indexes for efficient querying.
 pub fn init_schema(conn: &Connection) -> Result<(), ChatRepositoryError> {
     conn.execute_batch(
-        r#"
+        r"
         -- Conversations table
         CREATE TABLE IF NOT EXISTS conversations (
             id TEXT PRIMARY KEY,
@@ -64,7 +64,7 @@ pub fn init_schema(conn: &Connection) -> Result<(), ChatRepositoryError> {
 
         CREATE INDEX IF NOT EXISTS idx_messages_thread
         ON chat_messages(thread_id, timestamp ASC);
-        "#,
+        ",
     )?;
     ensure_column_exists(
         conn,

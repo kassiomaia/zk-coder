@@ -1,7 +1,7 @@
-//! SQLite storage for LLM provider configuration.
+//! `SQLite` storage for LLM provider configuration.
 //!
 //! This module provides persistence for providers, models, and operation defaults
-//! using SQLite.
+//! using `SQLite`.
 
 use std::sync::{Mutex, MutexGuard};
 
@@ -24,10 +24,10 @@ pub(crate) mod models;
 pub(crate) mod operation_defaults;
 pub(crate) mod providers;
 
-/// Errors from the SQLite configuration repository.
+/// Errors from the `SQLite` configuration repository.
 #[derive(Debug, Error)]
 pub enum ConfigRepositoryError {
-    /// SQLite error
+    /// `SQLite` error
     #[error("SQLite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
     /// Not found error
@@ -421,12 +421,12 @@ impl From<ConfigRepositoryError> for ConfigDomainError {
     fn from(err: ConfigRepositoryError) -> Self {
         match err {
             ConfigRepositoryError::NotFound(entity, id) => {
-                ConfigDomainError::NotFound { entity, id }
+                Self::NotFound { entity, id }
             }
-            ConfigRepositoryError::Sqlite(e) => ConfigDomainError::InvalidInput {
+            ConfigRepositoryError::Sqlite(e) => Self::InvalidInput {
                 reason: format!("Database error: {e}"),
             },
-            ConfigRepositoryError::LockError(e) => ConfigDomainError::InvalidInput {
+            ConfigRepositoryError::LockError(e) => Self::InvalidInput {
                 reason: format!("Lock error: {e}"),
             },
         }

@@ -1,6 +1,9 @@
 //! PDF tool category registration.
 
-use super::{PdfAddPageTool, PdfDeletePageTool, PdfFinalizeTool, PdfGetPageTool, PdfListPagesTool, PdfStartTool};
+use super::{
+    PdfAddPageTool, PdfDeletePageTool, PdfFinalizeTool, PdfGetPageTool, PdfListPagesTool,
+    PdfStartTool,
+};
 use crate::infrastructure::tools::traits::ToolCategory;
 
 /// PDF document tools category.

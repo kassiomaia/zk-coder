@@ -2,9 +2,7 @@
 
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{
-        get_draft_store, DraftStoreExt, PptxSlide, SlideContent, SlideLayout,
-    },
+    documents::shared::{get_draft_store, PptxSlide, SlideContent, SlideLayout},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -16,7 +14,7 @@ use tauri::AppHandle;
 /// Arguments for adding a slide to a presentation.
 #[derive(Debug, Deserialize)]
 pub struct PptxAddSlideArgs {
-    /// Deck ID from pptx_start
+    /// Deck ID from `pptx_start`
     pub deck_id: String,
     /// Slide layout
     #[serde(default)]
@@ -71,17 +69,19 @@ pub enum SlideContentItem {
 impl From<SlideContentItem> for SlideContent {
     fn from(item: SlideContentItem) -> Self {
         match item {
-            SlideContentItem::Title => SlideContent::Title,
-            SlideContentItem::Subtitle => SlideContent::Subtitle,
-            SlideContentItem::TextBox { text, position } => SlideContent::TextBox { text, position },
-            SlideContentItem::BulletList { items, level } => {
-                SlideContent::BulletList { items, level }
+            SlideContentItem::Title => Self::Title,
+            SlideContentItem::Subtitle => Self::Subtitle,
+            SlideContentItem::TextBox { text, position } => {
+                Self::TextBox { text, position }
             }
-            SlideContentItem::NumberedList { items } => SlideContent::NumberedList { items },
-            SlideContentItem::Table { headers, rows } => SlideContent::Table { headers, rows },
-            SlideContentItem::Image { path, caption } => SlideContent::Image { path, caption },
+            SlideContentItem::BulletList { items, level } => {
+                Self::BulletList { items, level }
+            }
+            SlideContentItem::NumberedList { items } => Self::NumberedList { items },
+            SlideContentItem::Table { headers, rows } => Self::Table { headers, rows },
+            SlideContentItem::Image { path, caption } => Self::Image { path, caption },
             SlideContentItem::ChartPlaceholder { title, data_type } => {
-                SlideContent::ChartPlaceholder { title, data_type }
+                Self::ChartPlaceholder { title, data_type }
             }
         }
     }
@@ -171,8 +171,7 @@ impl Tool for PptxAddSlideTool {
             let layout = parse_layout(&args.layout);
 
             // Convert content items
-            let content: Vec<SlideContent> =
-                args.content.into_iter().map(Into::into).collect();
+            let content: Vec<SlideContent> = args.content.into_iter().map(Into::into).collect();
 
             let slide = PptxSlide {
                 layout,
@@ -184,18 +183,18 @@ impl Tool for PptxAddSlideTool {
             let draft_store = get_draft_store();
             let (slide_id, slide_number, total_slides) = {
                 let mut store = draft_store.lock().map_err(|e| {
-                    ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
-                let deck = store
-                    .get_pptx_draft(&args.deck_id)
-                    .ok_or_else(|| ToolError::failed(format!("Deck not found: {}", args.deck_id)))?;
+                let deck = store.get_pptx_draft(&args.deck_id).ok_or_else(|| {
+                    ToolError::failed(format!("Deck not found: {}", args.deck_id))
+                })?;
 
                 let total_before = deck.slides.len();
 
                 let slide_id = store
                     .add_pptx_slide(&args.deck_id, slide)
-                    .map_err(|e| ToolError::failed(format!("Failed to add slide: {}", e)))?;
+                    .map_err(|e| ToolError::failed(format!("Failed to add slide: {e}")))?;
 
                 let deck = store.get_pptx_draft(&args.deck_id).unwrap();
                 (slide_id, deck.slides.len(), total_before + 1)
@@ -213,7 +212,7 @@ impl Tool for PptxAddSlideTool {
     }
 }
 
-/// Parse layout string to SlideLayout enum.
+/// Parse layout string to `SlideLayout` enum.
 fn parse_layout(s: &str) -> SlideLayout {
     match s.to_lowercase().as_str() {
         "title" | "titleslide" => SlideLayout::TitleSlide,
@@ -235,7 +234,10 @@ mod tests {
     fn test_parse_layout() {
         assert_eq!(parse_layout("TitleSlide"), SlideLayout::TitleSlide);
         assert_eq!(parse_layout("title"), SlideLayout::TitleSlide);
-        assert_eq!(parse_layout("TitleAndContent"), SlideLayout::TitleAndContent);
+        assert_eq!(
+            parse_layout("TitleAndContent"),
+            SlideLayout::TitleAndContent
+        );
         assert_eq!(parse_layout("TwoColumn"), SlideLayout::TwoColumn);
         assert_eq!(parse_layout("blank"), SlideLayout::Blank);
         assert_eq!(parse_layout("unknown"), SlideLayout::TitleAndContent); // default

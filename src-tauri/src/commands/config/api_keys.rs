@@ -44,8 +44,7 @@ pub async fn fetch_models(
     state: tauri::State<'_, ConfigState>,
 ) -> Result<FetchModelsResult, String> {
     info!(
-        "fetch_models: provider_id={}, api_type={:?}, base_url={:?}",
-        provider_id, api_type, base_url
+        "fetch_models: provider_id={provider_id}, api_type={api_type:?}, base_url={base_url:?}"
     );
 
     if api_key.trim().is_empty() {
@@ -56,7 +55,7 @@ pub async fn fetch_models(
     let provider = store
         .get_provider(&provider_id)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Provider {} not found", provider_id))?;
+        .ok_or_else(|| format!("Provider {provider_id} not found"))?;
 
     info!(
         "fetch_models: provider from DB - base_url={:?}, models_source={:?}",

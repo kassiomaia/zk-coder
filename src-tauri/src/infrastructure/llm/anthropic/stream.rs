@@ -1,10 +1,9 @@
 //! Anthropic streaming types and SSE parsing.
 
 use serde::Deserialize;
-use std::sync::Arc;
 
 use crate::core::llm::entities::{StreamChunk, StreamDelta, UsageStats};
-use crate::infrastructure::llm::{LlmError, LlmResult};
+use crate::infrastructure::llm::LlmError;
 
 use super::types::AnthropicUsage;
 
@@ -119,6 +118,7 @@ pub struct AnthropicError {
 }
 
 /// Parses an SSE line from the Anthropic stream.
+#[must_use] 
 pub fn parse_sse_line(line: &str) -> Option<Result<AnthropicStreamEvent, LlmError>> {
     let line = line.trim();
 
@@ -128,18 +128,13 @@ pub fn parse_sse_line(line: &str) -> Option<Result<AnthropicStreamEvent, LlmErro
     }
 
     // Parse data line
-    let data = if let Some(d) = line.strip_prefix("data: ") {
-        d
-    } else {
-        return None;
-    };
+    let data = line.strip_prefix("data: ")?;
 
     // Parse JSON
     match serde_json::from_str::<AnthropicStreamEvent>(data) {
         Ok(event) => Some(Ok(event)),
         Err(e) => Some(Err(LlmError::parse(format!(
-            "Failed to parse stream event: {} | Data: {}",
-            e, data
+            "Failed to parse stream event: {e} | Data: {data}"
         )))),
     }
 }

@@ -4,13 +4,13 @@ use rusqlite::Connection;
 
 use crate::infrastructure::sqlite::repositories::config::ConfigRepositoryError;
 
-/// Migrates the api_type constraint to include 'google' for existing databases
-/// and fixes is_custom for built-in providers.
+/// Migrates the `api_type` constraint to include 'google' for existing databases
+/// and fixes `is_custom` for built-in providers.
 pub fn migrate_api_type_constraint(conn: &Connection) -> Result<(), ConfigRepositoryError> {
     // First, fix built-in providers that may have incorrect is_custom or api_type values
     // This handles cases where providers were created through the UI before proper seeding
     conn.execute_batch(
-        r#"
+        r"
         -- Fix Anthropic provider
         UPDATE providers
         SET is_custom = FALSE, api_type = 'anthropic'
@@ -25,7 +25,7 @@ pub fn migrate_api_type_constraint(conn: &Connection) -> Result<(), ConfigReposi
         UPDATE providers
         SET is_custom = FALSE, api_type = 'google'
         WHERE id = 'google';
-        "#,
+        ",
     )?;
 
     // Check if migration is needed by trying to insert a google provider
@@ -62,7 +62,7 @@ pub fn migrate_api_type_constraint(conn: &Connection) -> Result<(), ConfigReposi
             // Need to migrate - recreate the table with the new constraint
             // Note: We must drop dependent tables first to avoid breaking foreign keys
             conn.execute_batch(
-                r#"
+                r"
                 -- Save models data before dropping
                 CREATE TABLE IF NOT EXISTS models_backup AS SELECT * FROM models;
 
@@ -137,7 +137,7 @@ pub fn migrate_api_type_constraint(conn: &Connection) -> Result<(), ConfigReposi
 
                 -- Cleanup backup table
                 DROP TABLE IF EXISTS models_backup;
-                "#,
+                ",
             )?;
         }
     }
@@ -145,7 +145,7 @@ pub fn migrate_api_type_constraint(conn: &Connection) -> Result<(), ConfigReposi
     Ok(())
 }
 
-/// Migrates the providers table to add the models_source column for existing databases.
+/// Migrates the providers table to add the `models_source` column for existing databases.
 pub fn migrate_models_source(conn: &Connection) -> Result<(), ConfigRepositoryError> {
     // Check if migration is needed by checking if the column exists
     let has_column: i64 = conn
@@ -176,7 +176,7 @@ pub fn migrate_models_source(conn: &Connection) -> Result<(), ConfigRepositoryEr
 
     if has_table == 0 {
         conn.execute_batch(
-            r#"
+            r"
             CREATE TABLE manual_models (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
                 provider_id     TEXT NOT NULL,
@@ -194,7 +194,7 @@ pub fn migrate_models_source(conn: &Connection) -> Result<(), ConfigRepositoryEr
 
             CREATE INDEX IF NOT EXISTS idx_manual_models_provider
             ON manual_models(provider_id);
-            "#,
+            ",
         )?;
         log::info!("Created manual_models table");
     }
@@ -209,7 +209,7 @@ pub fn migrate_models_source(conn: &Connection) -> Result<(), ConfigRepositoryEr
 pub fn normalize_base_urls(conn: &Connection) -> Result<(), ConfigRepositoryError> {
     // Fix OpenAI base URLs
     conn.execute(
-        r#"UPDATE providers
+        r"UPDATE providers
            SET base_url = REPLACE(REPLACE(REPLACE(base_url,
                '/chat/completions', ''),
                '/completions', ''),
@@ -217,7 +217,7 @@ pub fn normalize_base_urls(conn: &Connection) -> Result<(), ConfigRepositoryErro
            WHERE base_url IS NOT NULL
            AND base_url LIKE '%/chat/completions%'
            OR base_url LIKE '%/completions%'
-           OR base_url LIKE '%/models'"#,
+           OR base_url LIKE '%/models'",
         [],
     )?;
 

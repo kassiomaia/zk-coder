@@ -17,6 +17,7 @@ pub struct AgentRegistry {
 
 impl AgentRegistry {
     /// Create a new registry with built-in agents.
+    #[must_use] 
     pub fn new() -> Self {
         let mut agents = HashMap::<AgentId, Agent>::new();
 
@@ -56,6 +57,7 @@ impl Default for AgentRegistry {
 
 impl Agent {
     /// Built-in Agent configuration.
+    #[must_use] 
     pub fn code_agent() -> Self {
         let now = Utc::now();
         Self {
@@ -107,7 +109,7 @@ impl Agent {
         }
     }
 
-    fn code_agent_system_prompt() -> &'static str {
+    const fn code_agent_system_prompt() -> &'static str {
         "You are a code assistant agent. You can read files, write code, search codebases, \
          and execute commands to help the user with software development tasks.
 
@@ -275,7 +277,9 @@ mod tests {
     async fn test_code_agent_includes_fs_replace_in_file() {
         let registry = AgentRegistry::new();
         let agent = registry.get(&AgentId::new("code-agent")).await.unwrap();
-        assert!(agent.allowed_tools.contains(&"fs_replace_in_file".to_string()));
+        assert!(agent
+            .allowed_tools
+            .contains(&"fs_replace_in_file".to_string()));
     }
 
     #[tokio::test]
@@ -283,10 +287,16 @@ mod tests {
         let registry = AgentRegistry::new();
         let agent = registry.get(&AgentId::new("code-agent")).await.unwrap();
 
-        assert!(agent.allowed_tools.contains(&"conversation_search_messages".to_string()));
-        assert!(agent.allowed_tools.contains(&"fs_fuzzy_find_files".to_string()));
+        assert!(agent
+            .allowed_tools
+            .contains(&"conversation_search_messages".to_string()));
+        assert!(agent
+            .allowed_tools
+            .contains(&"fs_fuzzy_find_files".to_string()));
         assert!(agent.allowed_tools.contains(&"fs_apply_patch".to_string()));
-        assert!(agent.allowed_tools.contains(&"system_get_app_info".to_string()));
+        assert!(agent
+            .allowed_tools
+            .contains(&"system_get_app_info".to_string()));
     }
 
     #[test]

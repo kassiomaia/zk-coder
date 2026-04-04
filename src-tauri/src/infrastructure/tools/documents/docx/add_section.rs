@@ -13,7 +13,7 @@ use tauri::AppHandle;
 /// Arguments for adding a section to a DOCX document.
 #[derive(Debug, Deserialize)]
 pub struct DocxAddSectionArgs {
-    /// Document ID from docx_start
+    /// Document ID from `docx_start`
     pub document_id: String,
     /// Section content to add
     pub content: DocxContent,
@@ -132,12 +132,12 @@ impl Tool for DocxAddSectionTool {
 
             let draft_store = DraftStore::get_draft_store();
             let mut store = draft_store.lock().map_err(|e| {
-                ToolError::failed(format!("Failed to acquire draft store lock: {}", e))
+                ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
             })?;
 
             let section_id = store
                 .add_docx_section(&args.document_id, args.content)
-                .map_err(|e| ToolError::failed(format!("Failed to add section: {}", e)))?;
+                .map_err(|e| ToolError::failed(format!("Failed to add section: {e}")))?;
 
             let draft = store.get_docx_draft(&args.document_id).unwrap();
 

@@ -1,19 +1,19 @@
 use crate::core::config::ApiType;
 use crate::core::llm::entities::{
     ChatMessage, ChatRequest as CoreChatRequest, ChatResponse as CoreChatResponse,
-    ContentBlock as CoreContentBlock, ImageSource as CoreImageSource, MessageContent,
-    MessageRole as CoreMessageRole, ToolCall, UsageStats as CoreUsageStats,
+    ContentBlock as CoreContentBlock, MessageContent,
+    MessageRole as CoreMessageRole,
 };
 use crate::core::llm::repositories::LlmProvider;
 use crate::infrastructure::llm::{
-    ChatRequest, ChatResponse, ContentBlock, ImageSource, Message,
+    ChatRequest, ChatResponse, ContentBlock, Message,
     MessageContent as LlmMessageContent, MessageRole as LlmMessageRole,
 };
 
 use super::LlmServiceImpl;
 
 impl LlmServiceImpl {
-    pub(crate) fn convert_message_role(role: CoreMessageRole) -> LlmMessageRole {
+    pub(crate) const fn convert_message_role(role: CoreMessageRole) -> LlmMessageRole {
         match role {
             CoreMessageRole::System => LlmMessageRole::System,
             CoreMessageRole::User => LlmMessageRole::User,
@@ -22,7 +22,7 @@ impl LlmServiceImpl {
         }
     }
 
-    pub(crate) fn convert_to_core_role(role: LlmMessageRole) -> CoreMessageRole {
+    pub(crate) const fn convert_to_core_role(role: LlmMessageRole) -> CoreMessageRole {
         match role {
             LlmMessageRole::System => CoreMessageRole::System,
             LlmMessageRole::User => CoreMessageRole::User,
@@ -35,11 +35,7 @@ impl LlmServiceImpl {
         match block {
             CoreContentBlock::Text { text } => ContentBlock::Text { text },
             CoreContentBlock::Image { source } => ContentBlock::Image {
-                source: ImageSource {
-                    source_type: source.source_type,
-                    media_type: source.media_type,
-                    data: source.data,
-                },
+                source,
             },
         }
     }
@@ -48,11 +44,7 @@ impl LlmServiceImpl {
         match block {
             ContentBlock::Text { text } => CoreContentBlock::Text { text },
             ContentBlock::Image { source } => CoreContentBlock::Image {
-                source: CoreImageSource {
-                    source_type: source.source_type,
-                    media_type: source.media_type,
-                    data: source.data,
-                },
+                source,
             },
         }
     }
@@ -72,19 +64,9 @@ impl LlmServiceImpl {
             tool_calls: msg
                 .tool_calls
                 .into_iter()
-                .map(|tc| crate::core::llm::entities::ToolCall {
-                    id: tc.id,
-                    name: tc.name,
-                    arguments: tc.arguments,
-                })
                 .collect(),
             tool_result: msg
-                .tool_result
-                .map(|tr| crate::core::llm::entities::ToolResult {
-                    call_id: tr.call_id,
-                    output: tr.output,
-                    is_error: tr.is_error,
-                }),
+                .tool_result,
         }
     }
 
@@ -103,19 +85,9 @@ impl LlmServiceImpl {
             tool_calls: msg
                 .tool_calls
                 .into_iter()
-                .map(|tc| ToolCall {
-                    id: tc.id,
-                    name: tc.name,
-                    arguments: tc.arguments,
-                })
                 .collect(),
             tool_result: msg
-                .tool_result
-                .map(|tr| crate::core::llm::entities::ToolResult {
-                    call_id: tr.call_id,
-                    output: tr.output,
-                    is_error: tr.is_error,
-                }),
+                .tool_result,
         }
     }
 
@@ -136,11 +108,6 @@ impl LlmServiceImpl {
             tools: req
                 .tools
                 .into_iter()
-                .map(|t| crate::core::llm::entities::ToolDefinition {
-                    name: t.name,
-                    description: t.description,
-                    input_schema: t.input_schema,
-                })
                 .collect(),
         }
     }
@@ -150,20 +117,11 @@ impl LlmServiceImpl {
             id: resp.id,
             model: resp.model,
             content: resp.content,
-            usage: resp.usage.map(|u| CoreUsageStats {
-                input_tokens: u.input_tokens,
-                output_tokens: u.output_tokens,
-                total_tokens: u.total_tokens,
-            }),
+            usage: resp.usage,
             finish_reason: resp.finish_reason,
             tool_calls: resp
                 .tool_calls
                 .into_iter()
-                .map(|tc| ToolCall {
-                    id: tc.id,
-                    name: tc.name,
-                    arguments: tc.arguments,
-                })
                 .collect(),
         }
     }

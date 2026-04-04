@@ -1,12 +1,11 @@
 //! Helper functions for the config store.
 
-use chrono::{DateTime, Datelike, Timelike, Utc};
+use chrono::{DateTime, Utc};
 
 /// Parses a datetime string from the database.
+#[must_use] 
 pub fn parse_datetime(s: &str) -> DateTime<Utc> {
-    chrono::DateTime::parse_from_rfc3339(s)
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|_| Utc::now())
+    chrono::DateTime::parse_from_rfc3339(s).map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc))
 }
 
 #[cfg(test)]

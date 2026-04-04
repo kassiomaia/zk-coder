@@ -86,7 +86,7 @@ pub async fn send_chat_message_streaming_orchestrated(
             thread_id: request_for_task.thread_id.clone(),
         };
         if let Err(e) = app_handle_clone.emit("llm:event", &started_event) {
-            log::error!("[LLM] Failed to emit orchestrated started event: {}", e);
+            log::error!("[LLM] Failed to emit orchestrated started event: {e}");
         }
 
         let tool_executor = select_tool_executor_from_env(&request_for_task.conversation_id);
@@ -114,7 +114,7 @@ pub async fn send_chat_message_streaming_orchestrated(
                     thread_id: request_for_task.thread_id.clone(),
                 };
                 if let Err(e) = app_handle_clone.emit("llm:event", &event) {
-                    log::error!("[LLM] Failed to emit orchestrated error event: {}", e);
+                    log::error!("[LLM] Failed to emit orchestrated error event: {e}");
                 }
             }
         }
@@ -127,8 +127,7 @@ pub async fn send_chat_message_streaming_orchestrated(
         let mut active = active_requests.lock().await;
         if let Some(previous) = active.insert(request_id.clone(), handle) {
             log::warn!(
-                "[LLM] Replaced existing streaming task for request_id={}, aborting previous task",
-                request_id
+                "[LLM] Replaced existing streaming task for request_id={request_id}, aborting previous task"
             );
             previous.abort();
         }
@@ -151,7 +150,7 @@ fn emit_success(
             thread_id: request.thread_id.clone(),
         };
         if let Err(e) = app_handle.emit("llm:event", &chunk_event) {
-            log::error!("[LLM] Failed to emit orchestrated chunk event: {}", e);
+            log::error!("[LLM] Failed to emit orchestrated chunk event: {e}");
         }
     }
 
@@ -163,7 +162,7 @@ fn emit_success(
         thread_id: request.thread_id.clone(),
     };
     if let Err(e) = app_handle.emit("llm:event", &complete_event) {
-        log::error!("[LLM] Failed to emit orchestrated complete event: {}", e);
+        log::error!("[LLM] Failed to emit orchestrated complete event: {e}");
     }
 
     if !final_output.content.is_empty() {
@@ -182,7 +181,7 @@ fn emit_success(
 
         let chat_state = app_handle.state::<ChatState>();
         if let Err(e) = chat_state.service.add_message(&assistant_message) {
-            log::error!("[LLM] Failed to save orchestrated assistant message: {}", e);
+            log::error!("[LLM] Failed to save orchestrated assistant message: {e}");
         }
     }
 }

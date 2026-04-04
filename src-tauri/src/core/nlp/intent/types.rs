@@ -78,67 +78,67 @@ pub enum Intent {
 impl Intent {
     /// Returns all intent variants as a slice.
     #[must_use]
-    pub const fn variants() -> &'static [Intent] {
+    pub const fn variants() -> &'static [Self] {
         &[
-            Intent::GenerateCode,
-            Intent::GenerateFunction,
-            Intent::GenerateClass,
-            Intent::GenerateTest,
-            Intent::RefactorCode,
-            Intent::OptimizeCode,
-            Intent::ExplainCode,
-            Intent::AnalyzeCode,
-            Intent::FindBugs,
-            Intent::DocumentCode,
-            Intent::FindFile,
-            Intent::FindSymbol,
-            Intent::GotoDefinition,
-            Intent::FindReferences,
-            Intent::RunTests,
-            Intent::BuildProject,
-            Intent::FormatCode,
-            Intent::LintCode,
-            Intent::GitStatus,
-            Intent::GitCommit,
-            Intent::GitDiff,
-            Intent::GitLog,
-            Intent::StartNewThread,
-            Intent::SwitchContext,
-            Intent::ClearHistory,
-            Intent::Unknown,
+            Self::GenerateCode,
+            Self::GenerateFunction,
+            Self::GenerateClass,
+            Self::GenerateTest,
+            Self::RefactorCode,
+            Self::OptimizeCode,
+            Self::ExplainCode,
+            Self::AnalyzeCode,
+            Self::FindBugs,
+            Self::DocumentCode,
+            Self::FindFile,
+            Self::FindSymbol,
+            Self::GotoDefinition,
+            Self::FindReferences,
+            Self::RunTests,
+            Self::BuildProject,
+            Self::FormatCode,
+            Self::LintCode,
+            Self::GitStatus,
+            Self::GitCommit,
+            Self::GitDiff,
+            Self::GitLog,
+            Self::StartNewThread,
+            Self::SwitchContext,
+            Self::ClearHistory,
+            Self::Unknown,
         ]
     }
 
     /// Returns a human-readable label for the intent.
     #[must_use]
-    pub fn label(&self) -> &'static str {
+    pub const fn label(&self) -> &'static str {
         match self {
-            Intent::GenerateCode => "Generate Code",
-            Intent::GenerateFunction => "Generate Function",
-            Intent::GenerateClass => "Generate Class",
-            Intent::GenerateTest => "Generate Test",
-            Intent::RefactorCode => "Refactor",
-            Intent::OptimizeCode => "Optimize",
-            Intent::ExplainCode => "Explain",
-            Intent::AnalyzeCode => "Analyze",
-            Intent::FindBugs => "Find Bugs",
-            Intent::DocumentCode => "Document",
-            Intent::FindFile => "Find File",
-            Intent::FindSymbol => "Find Symbol",
-            Intent::GotoDefinition => "Go to Definition",
-            Intent::FindReferences => "Find References",
-            Intent::RunTests => "Run Tests",
-            Intent::BuildProject => "Build",
-            Intent::FormatCode => "Format",
-            Intent::LintCode => "Lint",
-            Intent::GitStatus => "Git Status",
-            Intent::GitCommit => "Git Commit",
-            Intent::GitDiff => "Git Diff",
-            Intent::GitLog => "Git Log",
-            Intent::StartNewThread => "New Thread",
-            Intent::SwitchContext => "Switch Context",
-            Intent::ClearHistory => "Clear History",
-            Intent::Unknown => "Unknown",
+            Self::GenerateCode => "Generate Code",
+            Self::GenerateFunction => "Generate Function",
+            Self::GenerateClass => "Generate Class",
+            Self::GenerateTest => "Generate Test",
+            Self::RefactorCode => "Refactor",
+            Self::OptimizeCode => "Optimize",
+            Self::ExplainCode => "Explain",
+            Self::AnalyzeCode => "Analyze",
+            Self::FindBugs => "Find Bugs",
+            Self::DocumentCode => "Document",
+            Self::FindFile => "Find File",
+            Self::FindSymbol => "Find Symbol",
+            Self::GotoDefinition => "Go to Definition",
+            Self::FindReferences => "Find References",
+            Self::RunTests => "Run Tests",
+            Self::BuildProject => "Build",
+            Self::FormatCode => "Format",
+            Self::LintCode => "Lint",
+            Self::GitStatus => "Git Status",
+            Self::GitCommit => "Git Commit",
+            Self::GitDiff => "Git Diff",
+            Self::GitLog => "Git Log",
+            Self::StartNewThread => "New Thread",
+            Self::SwitchContext => "Switch Context",
+            Self::ClearHistory => "Clear History",
+            Self::Unknown => "Unknown",
         }
     }
 }
@@ -157,7 +157,7 @@ pub struct IntentClassification {
 impl IntentClassification {
     /// Creates a new intent classification.
     #[must_use]
-    pub fn new(intent: Intent, confidence: f64) -> Self {
+    pub const fn new(intent: Intent, confidence: f64) -> Self {
         Self {
             intent,
             confidence,
@@ -167,7 +167,7 @@ impl IntentClassification {
 
     /// Creates a classification with alternatives.
     #[must_use]
-    pub fn with_alternatives(
+    pub const fn with_alternatives(
         intent: Intent,
         confidence: f64,
         alternatives: Vec<(Intent, f64)>,
@@ -222,7 +222,7 @@ impl IntentParams {
 
     /// Returns true if any parameter is set.
     #[must_use]
-    pub fn has_any(&self) -> bool {
+    pub const fn has_any(&self) -> bool {
         self.language.is_some()
             || self.file_path.is_some()
             || self.symbol_name.is_some()

@@ -86,8 +86,10 @@ impl IntentClassifier {
         let matches = self.patterns.match_all(input);
         if !matches.is_empty() {
             let (primary, confidence) = matches[0];
-            let alternatives: Vec<(Intent, f64)> =
-                matches[1..].iter().map(|(i, c)| ((*i).clone(), *c)).collect();
+            let alternatives: Vec<(Intent, f64)> = matches[1..]
+                .iter()
+                .map(|(i, c)| ((*i).clone(), *c))
+                .collect();
 
             return Ok(IntentClassification::with_alternatives(
                 primary.clone(),

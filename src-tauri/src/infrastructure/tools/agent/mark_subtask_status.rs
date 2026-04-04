@@ -65,7 +65,7 @@ impl Tool for MarkSubtaskStatusTool {
             // Validate inputs
             let index = arguments
                 .get("index")
-                .and_then(|v| v.as_i64())
+                .and_then(serde_json::Value::as_i64)
                 .ok_or_else(|| ToolError::invalid_args("Missing 'index' parameter"))?;
 
             let status = arguments
@@ -75,9 +75,8 @@ impl Tool for MarkSubtaskStatusTool {
 
             // Validate status enum
             if !matches!(status, "pending" | "in_progress" | "completed" | "failed") {
-                return Err(ToolError::invalid_args(&format!(
-                    "Invalid status: '{}'. Must be one of: pending, in_progress, completed, failed",
-                    status
+                return Err(ToolError::invalid_args(format!(
+                    "Invalid status: '{status}'. Must be one of: pending, in_progress, completed, failed"
                 )));
             }
 

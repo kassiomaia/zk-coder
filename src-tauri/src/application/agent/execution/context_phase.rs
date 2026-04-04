@@ -14,9 +14,7 @@ use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::AgentRequest;
 use crate::core::llm::entities::{ToolCall, ToolDefinition};
-use crate::infrastructure::agent::events::{
-    AgentEvent, ContextCompactionReason, AGENT_EVENT_NAME,
-};
+use crate::infrastructure::agent::events::{AgentEvent, ContextCompactionReason, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::context::{
     apply_context_policy_v2, estimate_context_tokens, maybe_compact_context, ContextPolicyInput,
     COMPRESSION_THRESHOLD, CONTEXT_WINDOW,
@@ -68,7 +66,7 @@ pub async fn resolve_context(
                     .mode
                     .allowed_tools()
                     .into_iter()
-                    .map(|name| name.to_string())
+                    .map(std::string::ToString::to_string)
                     .collect::<Vec<_>>();
                 (Some((summary, total)), Some(current.id.clone()), allowed)
             } else {
@@ -313,7 +311,7 @@ async fn run_retrieval_pass(
                 .take(8)
                 .filter_map(|m| {
                     let path = m.get("path").and_then(|value| value.as_str())?;
-                    let line = m.get("line").and_then(|value| value.as_u64()).unwrap_or(0);
+                    let line = m.get("line").and_then(serde_json::Value::as_u64).unwrap_or(0);
                     let text = m.get("text").and_then(|value| value.as_str()).unwrap_or("");
                     Some(format!("{path}:{line} {text}", text = text.trim()))
                 })
@@ -331,8 +329,8 @@ fn build_retrieval_query(request_content: &str, active_subtask_title: Option<&st
     }
 
     let stop_words = [
-        "the", "and", "for", "with", "this", "that", "from", "into", "about", "please",
-        "would", "should", "could", "must", "task",
+        "the", "and", "for", "with", "this", "that", "from", "into", "about", "please", "would",
+        "should", "could", "must", "task",
     ];
     let mut keywords = Vec::new();
     for token in raw.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '-') {

@@ -1,6 +1,6 @@
-//! SQLite repository for conversation context windows.
+//! `SQLite` repository for conversation context windows.
 //!
-//! This module provides persistence for NLP context windows using SQLite.
+//! This module provides persistence for NLP context windows using `SQLite`.
 //! It stores conversation messages and metadata for context-aware AI interactions.
 
 use std::sync::Mutex;
@@ -213,17 +213,15 @@ impl SqliteContextWindowRepository {
     }
 }
 
-/// Parses a datetime string, returning Utc::now() on failure.
+/// Parses a datetime string, returning `Utc::now()` on failure.
 fn parse_datetime(s: &str) -> DateTime<Utc> {
-    chrono::DateTime::parse_from_rfc3339(s)
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|_| Utc::now())
+    chrono::DateTime::parse_from_rfc3339(s).map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc))
 }
 
 /// Errors from the context repository.
 #[derive(Debug, Error)]
 pub enum ContextRepositoryError {
-    /// SQLite database error.
+    /// `SQLite` database error.
     #[error("SQLite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
     /// Context window not found for the given conversation ID.
@@ -241,13 +239,13 @@ impl From<ContextRepositoryError> for NlpDomainError {
     fn from(err: ContextRepositoryError) -> Self {
         match err {
             ContextRepositoryError::NotFound(conversation_id) => {
-                NlpDomainError::ContextNotFound { conversation_id }
+                Self::ContextNotFound { conversation_id }
             }
-            ContextRepositoryError::Sqlite(e) => NlpDomainError::InvalidInput {
+            ContextRepositoryError::Sqlite(e) => Self::InvalidInput {
                 reason: format!("Database error: {e}"),
             },
-            ContextRepositoryError::LockError(reason) => NlpDomainError::InvalidInput { reason },
-            ContextRepositoryError::Json(e) => NlpDomainError::InvalidInput {
+            ContextRepositoryError::LockError(reason) => Self::InvalidInput { reason },
+            ContextRepositoryError::Json(e) => Self::InvalidInput {
                 reason: format!("JSON error: {e}"),
             },
         }

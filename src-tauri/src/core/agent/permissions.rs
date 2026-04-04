@@ -29,6 +29,7 @@ impl PermissionResolver {
     /// # Arguments
     ///
     /// * `trust_mode` - The trust mode to be used for resolving permissions.
+    #[must_use] 
     pub fn new(trust_mode: TrustMode) -> Self {
         Self {
             trust_mode,
@@ -79,6 +80,7 @@ impl PermissionResolver {
     /// # Returns
     ///
     /// The resolved `PermissionLevel` for the tool call.
+    #[must_use] 
     pub fn check(&self, tool_name: &str, action: &ActionType) -> PermissionLevel {
         // Trust mode takes precedence
         match self.trust_mode {
@@ -107,7 +109,7 @@ impl PermissionResolver {
     ///
     /// By default, read operations are auto-run, while writes, deletes, and commands
     /// require user approval. Document creation and finalization also require approval.
-    fn default_for_action(action: &ActionType) -> PermissionLevel {
+    const fn default_for_action(action: &ActionType) -> PermissionLevel {
         match action {
             ActionType::ReadFile { .. } => PermissionLevel::AutoRun,
             ActionType::WriteFile { .. } => PermissionLevel::ApprovalRequired,
