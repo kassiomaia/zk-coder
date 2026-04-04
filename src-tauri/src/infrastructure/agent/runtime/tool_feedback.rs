@@ -134,7 +134,12 @@ pub(crate) fn build_tool_result_feedback(
             let count = result
                 .get("count")
                 .and_then(Value::as_u64)
-                .or_else(|| result.get("files").and_then(Value::as_array).map(|files| files.len() as u64))
+                .or_else(|| {
+                    result
+                        .get("files")
+                        .and_then(Value::as_array)
+                        .map(|files| files.len() as u64)
+                })
                 .unwrap_or(0);
             format!("I inspected `{path}` and found {count} item(s).")
         }
@@ -228,7 +233,11 @@ pub(crate) fn build_tool_result_feedback(
 }
 
 fn get_string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
-    value.get(key).and_then(Value::as_str).map(str::trim).filter(|s| !s.is_empty())
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
 }
 
 #[cfg(test)]
@@ -267,7 +276,8 @@ mod tests {
 
     #[test]
     fn test_build_tool_feedback_for_stat_path() {
-        let call_feedback = build_tool_call_feedback("fs_stat_path", &json!({"path": "Cargo.toml"}));
+        let call_feedback =
+            build_tool_call_feedback("fs_stat_path", &json!({"path": "Cargo.toml"}));
         assert_eq!(
             call_feedback.as_deref(),
             Some("Let me inspect metadata for `Cargo.toml`.")

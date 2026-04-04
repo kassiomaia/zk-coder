@@ -4,9 +4,7 @@
 //! functionalities for managing agent sessions, handling requests, and other
 //! agent-related operations.
 
-use super::entities::{
-    Agent, AgentSession, AgentTask, PendingAction, SessionId, TaskStatus,
-};
+use super::entities::{Agent, AgentSession, AgentTask, PendingAction, SessionId, TaskStatus};
 use super::repositories::RepositoryResult;
 
 /// A request to create a new agent session.

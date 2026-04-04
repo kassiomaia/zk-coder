@@ -138,9 +138,7 @@ pub async fn run_orchestrated_loop(
     let tool_definitions = tool_executor.definitions();
 
     for step in 1..=ORCHESTRATOR_MAX_STEPS {
-        log::info!(
-            "[LLM] Orchestrator step {step}/{ORCHESTRATOR_MAX_STEPS}"
-        );
+        log::info!("[LLM] Orchestrator step {step}/{ORCHESTRATOR_MAX_STEPS}");
 
         let core_tools: Vec<crate::core::llm::entities::ToolDefinition> = tool_definitions
             .iter()
@@ -167,9 +165,7 @@ pub async fn run_orchestrated_loop(
             run_chat_with_retry(llm_service.clone(), core_request.clone())
                 .await
                 .map_err(|e| {
-                    log::error!(
-                        "send_chat_message_orchestrated_non_stream: LLM error: {e}"
-                    );
+                    log::error!("send_chat_message_orchestrated_non_stream: LLM error: {e}");
                     e
                 })?;
 

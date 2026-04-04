@@ -22,9 +22,8 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 use crate::core::agent::entities::{
-    Agent as CoreAgent, AgentSession as CoreAgentSession,
-    AgentTask as CoreAgentTask, PendingAction as CorePendingAction, SessionId as CoreSessionId,
-    TaskStatus as CoreTaskStatus,
+    Agent as CoreAgent, AgentSession as CoreAgentSession, AgentTask as CoreAgentTask,
+    PendingAction as CorePendingAction, SessionId as CoreSessionId, TaskStatus as CoreTaskStatus,
 };
 use crate::core::agent::repositories::{
     ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
@@ -194,7 +193,7 @@ impl AgentServiceImpl {
     }
 
     /// Converts an application task status to a core task status.
-    #[must_use] 
+    #[must_use]
     pub fn from_core_task_status(status: TaskStatus) -> CoreTaskStatus {
         status.into()
     }

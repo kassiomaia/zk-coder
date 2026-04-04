@@ -18,7 +18,7 @@ pub struct SessionId(pub String);
 
 impl SessionId {
     /// Creates a new, randomly generated `SessionId`.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
     }
@@ -70,7 +70,7 @@ pub struct AgentSession {
 
 impl AgentSession {
     /// Creates a new `AgentSession` for a given agent and conversation.
-    #[must_use] 
+    #[must_use]
     pub fn new(
         agent_id: AgentId,
         agent_name: String,
@@ -190,7 +190,7 @@ pub struct PendingAction {
 
 impl PendingAction {
     /// Creates a new `PendingAction` from a tool call.
-    #[must_use] 
+    #[must_use]
     pub fn new(
         session_id: SessionId,
         tool_name: String,
@@ -211,7 +211,7 @@ impl PendingAction {
     }
 
     /// Attaches a preview to this pending action.
-    #[must_use] 
+    #[must_use]
     pub fn with_preview(mut self, preview: ActionPreview) -> Self {
         self.preview = Some(preview);
         self

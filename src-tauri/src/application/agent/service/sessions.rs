@@ -45,8 +45,7 @@ impl AgentServiceImpl {
         self.session_repo
             .update_state(&CoreSessionId(session.id.0.clone()), &core_state)?;
 
-        self.session_repo
-            .get_session(&CoreSessionId(session.id.0))
+        self.session_repo.get_session(&CoreSessionId(session.id.0))
     }
 
     pub(super) fn get_session_impl(&self, session_id: &str) -> RepositoryResult<CoreAgentSession> {

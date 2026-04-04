@@ -77,7 +77,7 @@ pub const ENV_GOOGLE_SCRAPE_ENABLED: &str = "CODER_LLM_TOOL_GOOGLE_SCRAPE";
 /// Parse a boolean environment variable flag.
 ///
 /// Returns `true` if the env var is set to "1" or "true" (case-insensitive).
-#[must_use] 
+#[must_use]
 pub fn parse_env_flag(value: Option<&str>) -> bool {
     match value {
         Some("1" | "true" | "TRUE" | "True") => true,
@@ -86,7 +86,7 @@ pub fn parse_env_flag(value: Option<&str>) -> bool {
 }
 
 /// Check if an environment variable flag is enabled.
-#[must_use] 
+#[must_use]
 pub fn is_env_enabled(var: &str) -> bool {
     parse_env_flag(std::env::var(var).ok().as_deref())
 }

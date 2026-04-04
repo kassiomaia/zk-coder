@@ -17,7 +17,7 @@ pub use stream::*;
 pub use types::*;
 
 /// Converts provider-agnostic tool definitions to Anthropic request tools.
-#[must_use] 
+#[must_use]
 pub fn convert_tools(
     tools: Vec<crate::core::llm::entities::ToolDefinition>,
 ) -> Option<Vec<types::AnthropicTool>> {

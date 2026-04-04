@@ -173,9 +173,7 @@ fn resolve_existing_workspace_file(
     }
 
     if !canonical.is_file() {
-        return Err(ToolError::failed(format!(
-            "Path is not a file: {trimmed}"
-        )));
+        return Err(ToolError::failed(format!("Path is not a file: {trimmed}")));
     }
 
     Ok(canonical)
@@ -232,6 +230,60 @@ mod tests {
         // A malformed hunk header (bad line range syntax) must fail to parse.
         let result =
             diffy::Patch::from_str("--- a/file.txt\n+++ b/file.txt\n@@ bad header @@\n line\n");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_apply_invalid_patch_hunk_counts_fail() {
+        let patch_text = "\
+--- a/src-tauri/src/lib.rs\n\
++++ b/src-tauri/src/lib.rs\n\
+@@ -28,6 +28,12 @@\n\
+ static TRAY_ICON_IDLE: Mutex<Option<Image<'static>>> = Mutex::new(None);\n\
+ static TRAY_ICON_RECORDING: Mutex<Option<Image<'static>>> = Mutex::new(None);\n\
+ static TRAY_ICON_LISTENING: Mutex<Option<Image<'static>>> = Mutex::new(None);\n\
++/// Generates a microphone icon programmatically by drawing pixels directly.\n\
++/// This creates three icon variants (idle/white, recording/red, listening/green)\n\
++/// without requiring external image assets.\n\
++///\n\
++/// The icon consists of:\n\
++/// - A filled ellipse for the microphone body\n\
++/// - A partial arc for the microphone stand/curve\n\
++/// - Two horizontal lines for the base stand\n\
+ fn create_microphone_icon(color: [u8; 4], size: u32) -> Image<'static> {\n";
+
+        let error = diffy::Patch::from_str(patch_text).unwrap_err();
+        assert!(error.to_string().contains("Hunk header does not match hunk"));
+    }
+
+    #[test]
+    fn test_apply_valid_patch_hunk_counts_succeed() {
+        let patch_text = "\
+--- a/src-tauri/src/lib.rs\n\
++++ b/src-tauri/src/lib.rs\n\
+@@ -28,4 +28,12 @@\n\
+ static TRAY_ICON_IDLE: Mutex<Option<Image<'static>>> = Mutex::new(None);\n\
+ static TRAY_ICON_RECORDING: Mutex<Option<Image<'static>>> = Mutex::new(None);\n\
+ static TRAY_ICON_LISTENING: Mutex<Option<Image<'static>>> = Mutex::new(None);\n\
++/// Generates a microphone icon programmatically by drawing pixels directly.\n\
++/// This creates three icon variants (idle/white, recording/red, listening/green)\n\
++/// without requiring external image assets.\n\
++///\n\
++/// The icon consists of:\n\
++/// - A filled ellipse for the microphone body\n\
++/// - A partial arc for the microphone stand/curve\n\
++/// - Two horizontal lines for the base stand\n\
+ fn create_microphone_icon(color: [u8; 4], size: u32) -> Image<'static> {\n";
+
+        let patch = diffy::Patch::from_str(patch_text).unwrap();
+        assert_eq!(patch.hunks().len(), 1);
+    }
+
+    #[test]
+    fn test_apply_flattened_patch_fails_to_parse() {
+        let patch_text = "--- a/src-tauri/src/lib.rs +++ b/src-tauri/src/lib.rs @@ -28,6 +28,12 @@ static TRAY_ICON_IDLE: Mutex<Option<Image<'static>>> = Mutex::new(None); static TRAY_ICON_RECORDING: Mutex<Option<Image<'static>>> = Mutex::new(None); static TRAY_ICON_LISTENING: Mutex<Option<Image<'static>>> = Mutex::new(None); +/// Generates a microphone icon programmatically by drawing pixels directly. +/// This creates three icon variants (idle/white, recording/red, listening/green) +/// without requiring external image assets. +/// +/// The icon consists of: +/// - A filled ellipse for the microphone body +/// - A partial arc for the microphone stand/curve +/// - Two horizontal lines for the base stand fn create_microphone_icon(color: [u8; 4], size: u32) -> Image<'static> { let mut rgba = vec![0u8; (size * size * 4) as usize];";
+
+        let result = diffy::Patch::from_str(patch_text);
         assert!(result.is_err());
     }
 

@@ -68,7 +68,7 @@ pub struct AgentTask {
 
 impl AgentTask {
     /// Creates a new `AgentTask` for a given session and request.
-    #[must_use] 
+    #[must_use]
     pub fn new(session_id: SessionId, request: AgentRequest) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
@@ -208,7 +208,7 @@ pub enum SubTaskMode {
 
 impl SubTaskMode {
     /// Returns the list of tools that are allowed for this mode.
-    #[must_use] 
+    #[must_use]
     pub fn allowed_tools(&self) -> Vec<&'static str> {
         match self {
             Self::Read => vec![
@@ -263,7 +263,7 @@ impl SubTaskMode {
     }
 
     /// Returns the instruction text that corresponds to this mode.
-    #[must_use] 
+    #[must_use]
     pub const fn instruction_text(&self) -> &'static str {
         match self {
             Self::Read => {
@@ -285,7 +285,7 @@ impl SubTaskMode {
     }
 
     /// Returns the icon that represents this mode in the UI.
-    #[must_use] 
+    #[must_use]
     pub const fn icon(&self) -> &'static str {
         match self {
             Self::Read => "👁️",
@@ -327,7 +327,7 @@ pub struct SubTask {
 
 impl SubTask {
     /// Creates a new `SubTask` with the given parameters.
-    #[must_use] 
+    #[must_use]
     pub fn new(task_id: String, title: String, mode: SubTaskMode, order: i32) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
@@ -344,7 +344,7 @@ impl SubTask {
     }
 
     /// Sets the description for the sub-task.
-    #[must_use] 
+    #[must_use]
     pub fn with_description(mut self, description: String) -> Self {
         self.description = Some(description);
         self
@@ -391,7 +391,7 @@ pub struct PlanStep {
 
 impl PlanStep {
     /// Creates a new `PlanStep` with the given title.
-    #[must_use] 
+    #[must_use]
     pub const fn new(title: String) -> Self {
         Self {
             title,
@@ -401,14 +401,14 @@ impl PlanStep {
     }
 
     /// Sets the description for the plan step.
-    #[must_use] 
+    #[must_use]
     pub fn with_description(mut self, description: String) -> Self {
         self.description = Some(description);
         self
     }
 
     /// Sets the complexity for the plan step.
-    #[must_use] 
+    #[must_use]
     pub const fn with_complexity(mut self, complexity: Complexity) -> Self {
         self.complexity = complexity;
         self
@@ -434,7 +434,7 @@ pub struct Plan {
 
 impl Plan {
     /// Creates a new `Plan` with the given summary and steps.
-    #[must_use] 
+    #[must_use]
     pub fn new(summary: String, steps: Vec<PlanStep>) -> Self {
         let estimated_steps = steps.len();
         Self {
@@ -446,7 +446,7 @@ impl Plan {
     }
 
     /// Converts the plan's steps into a list of `SubTask` objects for a given task.
-    #[must_use] 
+    #[must_use]
     pub fn to_subtasks(&self, task_id: &str) -> Vec<SubTask> {
         self.steps
             .iter()

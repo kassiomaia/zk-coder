@@ -31,7 +31,7 @@ impl Default for BatchingConfig {
 
 impl BatchingConfig {
     /// Creates a new batching configuration.
-    #[must_use] 
+    #[must_use]
     pub const fn new(interval_ms: u64, min_flush_length: usize) -> Self {
         Self {
             interval_ms,
@@ -40,7 +40,7 @@ impl BatchingConfig {
     }
 
     /// Creates a configuration for immediate streaming (no batching).
-    #[must_use] 
+    #[must_use]
     pub const fn immediate() -> Self {
         Self {
             interval_ms: 0,
@@ -64,7 +64,7 @@ pub struct ChunkBatcher {
 
 impl ChunkBatcher {
     /// Creates a new chunk batcher.
-    #[must_use] 
+    #[must_use]
     pub fn new(config: BatchingConfig) -> Self {
         Self {
             config,
@@ -199,19 +199,19 @@ impl ChunkBatcher {
     }
 
     /// Returns the full content (borrowed, doesn't consume).
-    #[must_use] 
+    #[must_use]
     pub fn full_content(&self) -> String {
         self.full_content.clone()
     }
 
     /// Returns the final finish reason.
-    #[must_use] 
+    #[must_use]
     pub fn finish_reason(&self) -> Option<String> {
         self.final_finish_reason.clone()
     }
 
     /// Returns whether the stream is finished.
-    #[must_use] 
+    #[must_use]
     pub const fn is_finished(&self) -> bool {
         self.finished
     }

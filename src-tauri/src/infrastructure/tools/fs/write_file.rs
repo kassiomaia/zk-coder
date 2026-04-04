@@ -110,7 +110,7 @@ impl Tool for WriteFileTool {
 /// Generate a unified diff between existing file content and new content.
 ///
 /// Returns None if the file doesn't exist yet (new file creation).
-#[must_use] 
+#[must_use]
 pub fn generate_diff(workspace_root: &Path, path: &str, new_content: &str) -> Option<String> {
     let target = if Path::new(path).is_absolute() {
         PathBuf::from(path)
@@ -163,9 +163,9 @@ fn resolve_write_path(workspace_root: &Path, raw_path: &str) -> Result<PathBuf, 
         .unwrap_or_else(|_| workspace_root.to_path_buf());
 
     let resolved = if candidate.exists() {
-        let canon = candidate.canonicalize().map_err(|e| {
-            ToolError::failed(format!("Failed to resolve path '{trimmed}': {e}"))
-        })?;
+        let canon = candidate
+            .canonicalize()
+            .map_err(|e| ToolError::failed(format!("Failed to resolve path '{trimmed}': {e}")))?;
         if !canon.starts_with(&workspace_canonical) {
             return Err(ToolError::path_traversal(&canon, workspace_root));
         }

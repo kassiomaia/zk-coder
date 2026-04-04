@@ -44,7 +44,7 @@ pub struct ExecutionDeps<'a> {
 
 impl ExecutionDeps<'_> {
     /// Returns a `RuntimeTraceService` for recording execution traces.
-    #[must_use] 
+    #[must_use]
     pub fn tracer(&self) -> RuntimeTraceService<'_> {
         RuntimeTraceService::new(self.execution_repo, self.trace_repo, self.app_handle)
     }

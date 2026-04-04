@@ -37,9 +37,7 @@ pub async fn cancel_chat_request(request_id: String, app_handle: AppHandle) -> R
         info!("[LLM] Cancelling active stream request_id={request_id}");
         handle.abort();
     } else {
-        info!(
-            "[LLM] cancel_chat_request: no active stream found for request_id={request_id}"
-        );
+        info!("[LLM] cancel_chat_request: no active stream found for request_id={request_id}");
     }
 
     Ok(())

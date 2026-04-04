@@ -45,9 +45,7 @@ pub enum SessionRepositoryError {
 impl From<SessionRepositoryError> for core_entities::AgentDomainError {
     fn from(err: SessionRepositoryError) -> Self {
         match err {
-            SessionRepositoryError::NotFound(id) => {
-                Self::SessionNotFound { id }
-            }
+            SessionRepositoryError::NotFound(id) => Self::SessionNotFound { id },
             SessionRepositoryError::Sqlite(e) => Self::InvalidInput {
                 reason: format!("Database error: {e}"),
             },
@@ -558,16 +556,14 @@ impl SessionRepository for SqliteSessionRepository {
         &self,
         conversation_id: &str,
     ) -> RepositoryResult<Vec<core_entities::AgentSession>> {
-        let sessions =
-            Self::get_sessions_for_conversation(self, conversation_id)
-                .map_err(core_entities::AgentDomainError::from)?;
+        let sessions = Self::get_sessions_for_conversation(self, conversation_id)
+            .map_err(core_entities::AgentDomainError::from)?;
 
         Ok(sessions.into_iter().map(session_to_core).collect())
     }
 
     fn list_sessions(&self) -> RepositoryResult<Vec<core_entities::AgentSession>> {
-        let sessions = Self::list_sessions(self)
-            .map_err(core_entities::AgentDomainError::from)?;
+        let sessions = Self::list_sessions(self).map_err(core_entities::AgentDomainError::from)?;
         Ok(sessions.into_iter().map(session_to_core).collect())
     }
 
@@ -594,8 +590,7 @@ impl SessionRepository for SqliteSessionRepository {
 
     fn delete_session(&self, id: &core_entities::SessionId) -> RepositoryResult<()> {
         let internal_id = crate::core::agent::session::SessionId(id.0.clone());
-        Self::delete_session(self, &internal_id)
-            .map_err(core_entities::AgentDomainError::from)
+        Self::delete_session(self, &internal_id).map_err(core_entities::AgentDomainError::from)
     }
 
     fn record_recovery_event(
@@ -613,8 +608,7 @@ impl SessionRepository for SqliteSessionRepository {
 impl TaskRepository for SqliteSessionRepository {
     fn create_task(&self, task: &core_entities::AgentTask) -> RepositoryResult<()> {
         let internal = core_task_to_agents(task);
-        Self::create_task(self, &internal)
-            .map_err(core_entities::AgentDomainError::from)
+        Self::create_task(self, &internal).map_err(core_entities::AgentDomainError::from)
     }
 
     fn create_subtask(
@@ -627,9 +621,10 @@ impl TaskRepository for SqliteSessionRepository {
             task_id: parent_task_id.to_string(),
             title: task.title.clone(),
             description: task.description.clone(),
-            mode: task
-                .mode
-                .map_or(crate::core::agent::task::SubTaskMode::FullAccess, task_mode_to_agents),
+            mode: task.mode.map_or(
+                crate::core::agent::task::SubTaskMode::FullAccess,
+                task_mode_to_agents,
+            ),
             status: task_status_to_agents(task.status),
             order: task.order,
             created_at: chrono::Utc::now(),
@@ -637,8 +632,7 @@ impl TaskRepository for SqliteSessionRepository {
             completed_at: None,
         };
 
-        Self::create_subtask(self, &internal)
-            .map_err(core_entities::AgentDomainError::from)
+        Self::create_subtask(self, &internal).map_err(core_entities::AgentDomainError::from)
     }
 
     fn get_session_tasks(
@@ -701,8 +695,7 @@ impl ExecutionRepository for SqliteSessionRepository {
         &self,
         snapshot: &crate::core::agent::execution::ExecutionSnapshot,
     ) -> RepositoryResult<()> {
-        Self::save_execution_snapshot(self, snapshot)
-            .map_err(core_entities::AgentDomainError::from)
+        Self::save_execution_snapshot(self, snapshot).map_err(core_entities::AgentDomainError::from)
     }
 
     fn get_execution_snapshot(
@@ -724,8 +717,7 @@ impl RuntimeTraceRepository for SqliteSessionRepository {
         &self,
         trace: &crate::core::agent::execution::RuntimeTrace,
     ) -> RepositoryResult<()> {
-        Self::append_runtime_trace(self, trace)
-            .map_err(core_entities::AgentDomainError::from)
+        Self::append_runtime_trace(self, trace).map_err(core_entities::AgentDomainError::from)
     }
 
     fn get_runtime_traces(

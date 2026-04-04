@@ -112,9 +112,7 @@ fn format_as_new_file_diff(path: &str, content: &str) -> String {
         .map(|line| format!("+{line}"))
         .collect::<Vec<_>>()
         .join("\n");
-    format!(
-        "--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{line_count} @@\n{lines}"
-    )
+    format!("--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{line_count} @@\n{lines}")
 }
 
 /// Format a deleted file's content as a unified diff (all deletions).
@@ -125,9 +123,7 @@ fn format_as_deleted_file_diff(path: &str, content: &str) -> String {
         .map(|line| format!("-{line}"))
         .collect::<Vec<_>>()
         .join("\n");
-    format!(
-        "--- a/{path}\n+++ /dev/null\n@@ -1,{line_count} +0,0 @@\n{lines}"
-    )
+    format!("--- a/{path}\n+++ /dev/null\n@@ -1,{line_count} +0,0 @@\n{lines}")
 }
 
 /// Simple URL encoding function that avoids additional dependencies.

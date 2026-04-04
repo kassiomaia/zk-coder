@@ -72,19 +72,19 @@ impl MockLlmClient {
     }
 
     /// Returns the number of pending responses.
-    #[must_use] 
+    #[must_use]
     pub fn response_count(&self) -> usize {
         self.responses.lock().unwrap().len()
     }
 
     /// Returns the number of pending errors.
-    #[must_use] 
+    #[must_use]
     pub fn error_count(&self) -> usize {
         self.errors.lock().unwrap().len()
     }
 
     /// Creates a successful `ChatResponse` from JSON content.
-    #[must_use] 
+    #[must_use]
     pub fn success_response(&self, content: String) -> ChatResponse {
         ChatResponse {
             id: uuid::Uuid::new_v4().to_string(),

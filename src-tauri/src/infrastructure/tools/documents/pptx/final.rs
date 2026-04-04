@@ -3,9 +3,7 @@
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{
-        get_draft_store, PptxDraft, PptxSlide, SlideContent, SlideLayout,
-    },
+    documents::shared::{get_draft_store, PptxDraft, PptxSlide, SlideContent, SlideLayout},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };

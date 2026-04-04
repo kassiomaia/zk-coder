@@ -57,7 +57,7 @@ pub enum ArtifactType {
 
 impl ArtifactType {
     /// Get the file extension for this artifact type.
-    #[must_use] 
+    #[must_use]
     pub const fn extension(&self) -> &str {
         match self {
             Self::Docx => ".docx",
@@ -67,12 +67,10 @@ impl ArtifactType {
     }
 
     /// Get the MIME type for this artifact type.
-    #[must_use] 
+    #[must_use]
     pub const fn mime_type(&self) -> &str {
         match self {
-            Self::Docx => {
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            }
+            Self::Docx => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             Self::Pptx => {
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation"
             }
@@ -81,7 +79,7 @@ impl ArtifactType {
     }
 
     /// Get the maximum allowed size in bytes.
-    #[must_use] 
+    #[must_use]
     pub const fn max_size(&self) -> u64 {
         match self {
             Self::Docx => 50 * 1024 * 1024,  // 50MB
@@ -92,8 +90,7 @@ impl ArtifactType {
 }
 
 /// Metadata about an artifact.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ArtifactMetadata {
     /// Optional title
     pub title: Option<String>,
@@ -109,7 +106,6 @@ pub struct ArtifactMetadata {
     #[serde(default)]
     pub tags: Vec<String>,
 }
-
 
 /// Reference to an artifact (lightweight, for listing).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -160,14 +156,14 @@ impl Default for ArtifactStore {
 
 impl ArtifactStore {
     /// Create a new artifact store with default path.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         let base_path = Self::default_base_path();
         Self::with_path(base_path)
     }
 
     /// Create a new artifact store with a custom base path.
-    #[must_use] 
+    #[must_use]
     pub fn with_path(base_path: PathBuf) -> Self {
         // Ensure base directory exists
         fs::create_dir_all(&base_path).ok();
@@ -318,7 +314,7 @@ impl ArtifactStore {
     }
 
     /// Get an artifact reference by ID.
-    #[must_use] 
+    #[must_use]
     pub fn get_artifact_ref(&self, id: &str) -> Option<&ArtifactRef> {
         self.artifacts.get(id)
     }
@@ -356,7 +352,7 @@ impl ArtifactStore {
     }
 
     /// List all artifacts for a session.
-    #[must_use] 
+    #[must_use]
     pub fn list_session_artifacts(&self, session_id: &str) -> Vec<ArtifactRef> {
         if let Some(ids) = self.session_artifacts.get(session_id) {
             ids.iter()
@@ -368,7 +364,7 @@ impl ArtifactStore {
     }
 
     /// List all artifacts across all sessions.
-    #[must_use] 
+    #[must_use]
     pub fn list_all_artifacts(&self) -> Vec<ArtifactRef> {
         self.artifacts.values().cloned().collect()
     }
@@ -447,19 +443,19 @@ impl ArtifactStore {
     }
 
     /// Get the base path.
-    #[must_use] 
+    #[must_use]
     pub fn base_path(&self) -> &Path {
         &self.base_path
     }
 
     /// Get total artifact count.
-    #[must_use] 
+    #[must_use]
     pub fn count(&self) -> usize {
         self.artifacts.len()
     }
 
     /// Get artifact count for a session.
-    #[must_use] 
+    #[must_use]
     pub fn session_count(&self, session_id: &str) -> usize {
         self.session_artifacts
             .get(session_id)

@@ -48,9 +48,7 @@ impl LlmService for LlmServiceImpl {
         let result = block_on_runtime_safe(client.validate_api_key())?
             .map_err(|e| LlmError::Unknown(format!("Validation failed: {e}")))?;
 
-        info!(
-            "API key validation for provider {api_type:?} result: {result}"
-        );
+        info!("API key validation for provider {api_type:?} result: {result}");
 
         Ok(result)
     }

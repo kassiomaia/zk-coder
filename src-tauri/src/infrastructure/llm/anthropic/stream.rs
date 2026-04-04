@@ -118,7 +118,7 @@ pub struct AnthropicError {
 }
 
 /// Parses an SSE line from the Anthropic stream.
-#[must_use] 
+#[must_use]
 pub fn parse_sse_line(line: &str) -> Option<Result<AnthropicStreamEvent, LlmError>> {
     let line = line.trim();
 

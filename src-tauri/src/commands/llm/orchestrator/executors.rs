@@ -30,7 +30,7 @@ pub struct RegistryToolExecutor {
 
 impl RegistryToolExecutor {
     /// Creates a new `RegistryToolExecutor` with the given registry and conversation ID.
-    #[must_use] 
+    #[must_use]
     pub const fn new(registry: ToolRegistry, conversation_id: String) -> Self {
         Self {
             registry,

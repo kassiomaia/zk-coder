@@ -64,9 +64,7 @@ impl AgentServiceImpl {
         let session_id_for_task = session_id.clone();
         let session_id_for_cleanup = session_id.clone();
 
-        info!(
-            "[AgentCommand] Spawning agent execution for session {session_id}"
-        );
+        info!("[AgentCommand] Spawning agent execution for session {session_id}");
 
         let handle = tokio::spawn(async move {
             let result = runtime

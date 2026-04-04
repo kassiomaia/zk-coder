@@ -143,9 +143,7 @@ fn resolve_search_root(workspace: &Path, path: Option<&str>) -> Result<PathBuf, 
     };
 
     let canonical = candidate.canonicalize().map_err(|e| {
-        ToolError::failed(format!(
-            "Failed to resolve search path '{trimmed}': {e}"
-        ))
+        ToolError::failed(format!("Failed to resolve search path '{trimmed}': {e}"))
     })?;
     if !canonical.starts_with(workspace) {
         return Err(ToolError::path_traversal(&canonical, workspace));

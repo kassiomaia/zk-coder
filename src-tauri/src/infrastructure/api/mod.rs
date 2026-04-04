@@ -226,9 +226,7 @@ pub async fn fetch_openai_models(
 
     // If no models matched, return error suggesting manual configuration
     if models.is_empty() {
-        log::warn!(
-            "No chat models matched the filter. First 5 model IDs from API: {sample_ids:?}"
-        );
+        log::warn!("No chat models matched the filter. First 5 model IDs from API: {sample_ids:?}");
         return Ok(FetchModelsResult::failure(
             "No chat models found from the API response. \
             The provider may use non-standard model naming. \
@@ -457,15 +455,17 @@ pub async fn validate_anthropic_key(
 /// # Errors
 ///
 /// Returns an error string if the operation fails.
-#[must_use] 
+#[must_use]
 pub fn get_anthropic_models() -> FetchModelsResult {
-    let models = ["claude-opus-4-20250514",
+    let models = [
+        "claude-opus-4-20250514",
         "claude-sonnet-4-20250514",
         "claude-3-5-sonnet-20241022",
         "claude-3-5-haiku-20241022",
         "claude-3-opus-20240229",
         "claude-3-sonnet-20240229",
-        "claude-3-haiku-20240307"];
+        "claude-3-haiku-20240307",
+    ];
 
     FetchModelsResult::success(models.iter().map(|s| (*s).to_string()).collect())
 }

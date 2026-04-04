@@ -17,7 +17,7 @@ pub struct AgentRegistry {
 
 impl AgentRegistry {
     /// Create a new registry with built-in agents.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         let mut agents = HashMap::<AgentId, Agent>::new();
 
@@ -57,7 +57,7 @@ impl Default for AgentRegistry {
 
 impl Agent {
     /// Built-in Agent configuration.
-    #[must_use] 
+    #[must_use]
     pub fn code_agent() -> Self {
         let now = Utc::now();
         Self {

@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 
 /// Parses a datetime string from the database.
-#[must_use] 
+#[must_use]
 pub fn parse_datetime(s: &str) -> DateTime<Utc> {
     chrono::DateTime::parse_from_rfc3339(s).map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc))
 }

@@ -57,7 +57,7 @@ impl AgentServiceImpl {
     /// Check if an error message indicates a recoverable error.
     ///
     /// Recoverable errors are prefixed with `[recoverable]`.
-    #[must_use] 
+    #[must_use]
     pub fn is_recoverable_error_message(message: &str) -> bool {
         message.starts_with("[recoverable]")
     }
@@ -90,9 +90,7 @@ impl AgentServiceImpl {
 
         let content = self.latest_request_content(&session_id)?;
 
-        info!(
-            "[AgentRecovery] Continuing execution for session {session_id}"
-        );
+        info!("[AgentRecovery] Continuing execution for session {session_id}");
 
         let _ = app_handle.emit(
             AGENT_EVENT_NAME,
@@ -129,9 +127,7 @@ impl AgentServiceImpl {
             "{content}\n\nPlease review all the work that has been done so far and create a fresh plan for completing the remaining tasks."
         );
 
-        info!(
-            "[AgentRecovery] Replanning and continuing execution for session {session_id}"
-        );
+        info!("[AgentRecovery] Replanning and continuing execution for session {session_id}");
 
         let _ = app_handle.emit(
             AGENT_EVENT_NAME,

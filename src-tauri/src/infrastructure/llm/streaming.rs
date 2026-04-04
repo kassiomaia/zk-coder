@@ -20,7 +20,7 @@ use crate::infrastructure::llm::LlmError;
 /// This function batches chunks to reduce IPC overhead:
 /// - Chunks are accumulated and sent based on the batching config
 /// - This reduces ~150 IPC calls to ~20-30 per response
-#[must_use] 
+#[must_use]
 pub fn stream_to_events(
     request_id: String,
     model: String,
@@ -30,7 +30,7 @@ pub fn stream_to_events(
 }
 
 /// Creates a streaming helper with custom batching configuration.
-#[must_use] 
+#[must_use]
 pub fn stream_to_events_with_config(
     request_id: String,
     model: String,
@@ -41,7 +41,7 @@ pub fn stream_to_events_with_config(
 }
 
 /// Creates a streaming helper with custom batching configuration and thread ID.
-#[must_use] 
+#[must_use]
 pub fn stream_to_events_with_thread(
     request_id: String,
     model: String,

@@ -130,9 +130,9 @@ impl ReadFileTool {
             workspace_root.join(trimmed)
         };
 
-        let canonical = candidate.canonicalize().map_err(|e| {
-            ToolError::failed(format!("Failed to resolve path '{trimmed}': {e}"))
-        })?;
+        let canonical = candidate
+            .canonicalize()
+            .map_err(|e| ToolError::failed(format!("Failed to resolve path '{trimmed}': {e}")))?;
 
         // Path traversal protection
         if !canonical.starts_with(workspace_root) {

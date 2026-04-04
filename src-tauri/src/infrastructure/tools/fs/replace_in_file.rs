@@ -180,9 +180,7 @@ fn resolve_existing_workspace_file(
     }
 
     if !canonical.is_file() {
-        return Err(ToolError::failed(format!(
-            "Path is not a file: {trimmed}"
-        )));
+        return Err(ToolError::failed(format!("Path is not a file: {trimmed}")));
     }
 
     Ok(canonical)

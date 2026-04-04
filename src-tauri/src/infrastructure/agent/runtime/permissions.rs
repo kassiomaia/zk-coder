@@ -8,9 +8,9 @@ use chrono::Utc;
 use log::{info, warn};
 use tauri::{AppHandle, Emitter};
 
+use super::tool_feedback::{build_tool_call_feedback, build_tool_result_feedback};
 use super::types::AgentRuntimeError;
 use super::{generate_diff_from_content, infer_action_type};
-use super::tool_feedback::{build_tool_call_feedback, build_tool_result_feedback};
 use crate::core::agent::repositories::{SessionRepository, TaskRepository};
 use crate::core::agent::session::{AgentSession, PendingAction};
 use crate::core::agent::types::ActionPreview;
@@ -225,7 +225,8 @@ pub async fn process_tool_calls_with_permissions(
             warn!("[AgentRuntime] Failed to persist tool result: {e}");
         }
 
-        if let Some(content) = build_tool_result_feedback(&call.name, &result.output, result.is_error)
+        if let Some(content) =
+            build_tool_result_feedback(&call.name, &result.output, result.is_error)
         {
             emit_persisted_streaming_message(
                 app_handle,
@@ -356,7 +357,9 @@ async fn execute_with_approval(
 ) -> Result<OrchestratorToolResult, AgentRuntimeError> {
     let action_type = infer_action_type(&call.name, &call.arguments);
     let resume_core_state = session_repo
-        .get_session(&crate::core::agent::entities::SessionId(session.id.0.clone()))
+        .get_session(&crate::core::agent::entities::SessionId(
+            session.id.0.clone(),
+        ))
         .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?
         .state;
     let mut pending = PendingAction::new(
@@ -392,12 +395,10 @@ async fn execute_with_approval(
         }
     } else if call.name == "fs_replace_in_file" {
         if let Some(ref workspace) = session.workspace_root {
-            if let Ok(Some(diff)) =
-                crate::infrastructure::tools::fs::generate_replace_preview_diff(
-                    workspace,
-                    &call.arguments,
-                )
-            {
+            if let Ok(Some(diff)) = crate::infrastructure::tools::fs::generate_replace_preview_diff(
+                workspace,
+                &call.arguments,
+            ) {
                 let path = call
                     .arguments
                     .get("path")

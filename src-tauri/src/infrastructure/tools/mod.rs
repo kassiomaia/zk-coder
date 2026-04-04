@@ -68,7 +68,7 @@ impl ToolRegistry {
     }
 
     /// Set workspace root for tools that require it.
-    #[must_use] 
+    #[must_use]
     pub fn with_workspace(mut self, root: PathBuf) -> Self {
         self.workspace_root = Some(root);
         self
@@ -84,7 +84,7 @@ impl ToolRegistry {
     }
 
     /// Get all tool definitions for the LLM.
-    #[must_use] 
+    #[must_use]
     pub fn definitions(&self) -> Vec<ToolDefinition> {
         self.tools
             .values()
@@ -187,9 +187,7 @@ fn resolve_workspace_root() -> Result<Option<PathBuf>, ToolError> {
     // Check for override environment variable
     if let Ok(path) = std::env::var(ENV_WORKSPACE_ROOT) {
         let absolute = PathBuf::from(&path).canonicalize().map_err(|e| {
-            ToolError::failed(format!(
-                "Failed to resolve workspace root '{path}': {e}"
-            ))
+            ToolError::failed(format!("Failed to resolve workspace root '{path}': {e}"))
         })?;
 
         if !absolute.is_dir() {

@@ -14,7 +14,7 @@ pub struct DocxValidator;
 
 impl DocxValidator {
     /// Validate a DOCX draft before finalization.
-    #[must_use] 
+    #[must_use]
     pub fn validate_draft(draft: &DocxDraft) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -37,7 +37,7 @@ impl DocxValidator {
     }
 
     /// Validate a finalized DOCX file.
-    #[must_use] 
+    #[must_use]
     pub fn validate_file(path: &Path) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -62,10 +62,7 @@ impl DocxValidator {
         let metadata = match fs::metadata(path) {
             Ok(m) => m,
             Err(e) => {
-                report.add_error(
-                    "File Metadata",
-                    format!("Cannot read file metadata: {e}"),
-                );
+                report.add_error("File Metadata", format!("Cannot read file metadata: {e}"));
                 return report;
             }
         };
@@ -132,7 +129,7 @@ impl DocxValidator {
     }
 
     /// Validate a draft against required sections.
-    #[must_use] 
+    #[must_use]
     pub fn validate_required_sections(draft: &DocxDraft, required: &[&str]) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -165,7 +162,7 @@ impl DocxValidator {
     }
 
     /// Validate maximum page count.
-    #[must_use] 
+    #[must_use]
     pub fn validate_max_pages(draft: &DocxDraft, max_pages: usize) -> ValidationReport {
         let mut report = ValidationReport::new();
 

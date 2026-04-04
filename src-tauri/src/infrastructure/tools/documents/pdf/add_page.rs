@@ -49,9 +49,7 @@ impl From<PdfPageContentInput> for PdfPageContent {
     fn from(item: PdfPageContentInput) -> Self {
         match item {
             PdfPageContentInput::Markdown { content } => Self::Markdown { content },
-            PdfPageContentInput::Html { content, styles } => {
-                Self::Html { content, styles }
-            }
+            PdfPageContentInput::Html { content, styles } => Self::Html { content, styles },
             PdfPageContentInput::Text { content } => Self::Text { content },
             PdfPageContentInput::Image { path, caption } => Self::Image { path, caption },
         }

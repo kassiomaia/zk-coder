@@ -59,11 +59,7 @@ impl ContextWindow {
             .iter()
             .map(|m| m.content.len() / 4)
             .sum::<usize>()
-            + self
-                .metadata
-                .summary
-                .as_ref()
-                .map_or(0, |s| s.len() / 4)
+            + self.metadata.summary.as_ref().map_or(0, |s| s.len() / 4)
     }
 
     /// Returns a summary of the context window.

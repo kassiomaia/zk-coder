@@ -38,7 +38,7 @@ impl Default for DraftStore {
 
 impl DraftStore {
     /// Create a new empty draft store.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             docx_drafts: HashMap::new(),
@@ -70,7 +70,7 @@ impl DraftStore {
     }
 
     /// Get an immutable reference to a DOCX draft.
-    #[must_use] 
+    #[must_use]
     pub fn get_docx_draft(&self, doc_id: &str) -> Option<&DocxDraft> {
         self.docx_drafts.get(doc_id)
     }
@@ -129,7 +129,7 @@ impl DraftStore {
     }
 
     /// Get an immutable reference to a PPTX draft.
-    #[must_use] 
+    #[must_use]
     pub fn get_pptx_draft(&self, deck_id: &str) -> Option<&PptxDraft> {
         self.pptx_drafts.get(deck_id)
     }
@@ -189,7 +189,7 @@ impl DraftStore {
     }
 
     /// Get an immutable reference to a PDF draft.
-    #[must_use] 
+    #[must_use]
     pub fn get_pdf_draft(&self, pdf_id: &str) -> Option<&PdfDraft> {
         self.pdf_drafts.get(pdf_id)
     }
@@ -272,7 +272,7 @@ impl DraftStore {
     }
 
     /// Get counts of all drafts by status.
-    #[must_use] 
+    #[must_use]
     pub fn get_counts(&self) -> DraftCounts {
         let mut counts = DraftCounts::default();
         counts.docx_building = self

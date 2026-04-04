@@ -311,7 +311,10 @@ async fn run_retrieval_pass(
                 .take(8)
                 .filter_map(|m| {
                     let path = m.get("path").and_then(|value| value.as_str())?;
-                    let line = m.get("line").and_then(serde_json::Value::as_u64).unwrap_or(0);
+                    let line = m
+                        .get("line")
+                        .and_then(serde_json::Value::as_u64)
+                        .unwrap_or(0);
                     let text = m.get("text").and_then(|value| value.as_str()).unwrap_or("");
                     Some(format!("{path}:{line} {text}", text = text.trim()))
                 })

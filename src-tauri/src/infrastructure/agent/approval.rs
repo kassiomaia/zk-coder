@@ -51,7 +51,7 @@ pub struct ApprovalQueue {
 
 impl ApprovalQueue {
     /// Creates a new approval queue.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel::<ApprovalEvent>(64);
         Self {
@@ -130,7 +130,7 @@ impl ApprovalQueue {
     }
 
     /// Subscribe to approval events.
-    #[must_use] 
+    #[must_use]
     pub fn subscribe(&self) -> broadcast::Receiver<ApprovalEvent> {
         self.tx.subscribe()
     }

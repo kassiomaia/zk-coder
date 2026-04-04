@@ -33,7 +33,7 @@ pub struct Planner {
 
 impl Planner {
     /// Create a new planner with default configuration.
-    #[must_use] 
+    #[must_use]
     pub fn new(model_name: String) -> Self {
         Self {
             model_name,
@@ -42,7 +42,7 @@ impl Planner {
     }
 
     /// Create a planner with a custom system prompt.
-    #[must_use] 
+    #[must_use]
     pub fn with_prompt(mut self, prompt: String) -> Self {
         self.system_prompt = prompt;
         self

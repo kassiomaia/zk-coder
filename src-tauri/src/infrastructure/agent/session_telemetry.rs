@@ -225,13 +225,7 @@ impl AgentTelemetryRepository for SqliteSessionRepository {
         is_error: bool,
         duration_ms: Option<i64>,
     ) -> Result<(), SessionRepositoryError> {
-        Self::update_tool_call_result(
-            self,
-            tool_call_id,
-            result,
-            is_error,
-            duration_ms,
-        )
+        Self::update_tool_call_result(self, tool_call_id, result, is_error, duration_ms)
     }
 
     /// Get tool calls for a session.

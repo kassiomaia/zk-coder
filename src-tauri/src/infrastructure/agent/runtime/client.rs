@@ -51,14 +51,21 @@ pub async fn create_llm_client(
         match config_repository.get_model(&mid) {
             Ok(Some(m)) => m,
             Ok(None) => {
-                log::warn!("[AgentRuntime] Model '{}' not found, falling back to default", mid);
+                log::warn!(
+                    "[AgentRuntime] Model '{}' not found, falling back to default",
+                    mid
+                );
                 get_code_operation_model(config_repository.as_ref()).map_err(|e| {
                     log::error!("[AgentRuntime] Failed to get code operation model: {}", e);
                     AgentRuntimeError::Config(e.to_string())
                 })?
             }
             Err(e) => {
-                log::warn!("[AgentRuntime] Failed to get model '{}', falling back to default: {}", mid, e);
+                log::warn!(
+                    "[AgentRuntime] Failed to get model '{}', falling back to default: {}",
+                    mid,
+                    e
+                );
                 get_code_operation_model(config_repository.as_ref()).map_err(|e| {
                     log::error!("[AgentRuntime] Failed to get code operation model: {}", e);
                     AgentRuntimeError::Config(e.to_string())

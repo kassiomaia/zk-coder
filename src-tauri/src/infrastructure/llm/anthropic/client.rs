@@ -8,7 +8,10 @@ use serde::Deserialize;
 use std::pin::Pin;
 
 use super::stream::{parse_sse_line, StreamState};
-use super::types::{AnthropicRequest, AnthropicMessage, AnthropicContent, AnthropicContentBlock, AnthropicImageSource, AnthropicToolChoice, AnthropicResponse};
+use super::types::{
+    AnthropicContent, AnthropicContentBlock, AnthropicImageSource, AnthropicMessage,
+    AnthropicRequest, AnthropicResponse, AnthropicToolChoice,
+};
 use crate::core::config::ApiType;
 use crate::infrastructure::llm::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, MessageContent,
@@ -51,7 +54,7 @@ impl AnthropicClient {
 
     /// Returns default models for when API fetch is not available.
     /// Returns GLM models for z.ai provider, Claude models for native Anthropic.
-    #[must_use] 
+    #[must_use]
     pub fn get_default_models(&self) -> Vec<String> {
         // Check if this is a z.ai endpoint (GLM models)
         if self.base_url.contains("z.ai") {
@@ -304,7 +307,7 @@ impl AnthropicClient {
     }
 
     /// Makes a streaming chat request.
-    #[must_use] 
+    #[must_use]
     pub fn chat_stream_internal(
         &self,
         request: ChatRequest,
@@ -487,9 +490,7 @@ impl AnthropicClient {
                             Ok(models)
                         }
                         Err(e) => {
-                            error!(
-                                "anthropic::fetch_models: failed to parse models response: {e}"
-                            );
+                            error!("anthropic::fetch_models: failed to parse models response: {e}");
                             // Return default models if parsing fails
                             let defaults = self.get_default_models();
                             info!(

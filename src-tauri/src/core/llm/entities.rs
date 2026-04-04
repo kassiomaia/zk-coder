@@ -42,7 +42,7 @@ impl LlmError {
     /// Checks if the error is retryable.
     ///
     /// `RateLimited`, `Network`, and `Timeout` errors are considered retryable.
-    #[must_use] 
+    #[must_use]
     pub const fn is_retryable(&self) -> bool {
         matches!(
             self,
@@ -91,7 +91,7 @@ pub enum MessageRole {
 
 impl MessageRole {
     /// Converts the `MessageRole` to a string slice.
-    #[must_use] 
+    #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::System => "system",
@@ -219,7 +219,7 @@ impl ChatMessage {
     }
 
     /// Creates a new message with multi-modal content.
-    #[must_use] 
+    #[must_use]
     pub const fn multimodal(role: MessageRole, blocks: Vec<ContentBlock>) -> Self {
         Self {
             role,
@@ -261,7 +261,7 @@ impl ChatMessage {
     }
 
     /// Returns the text content of the message if it is a simple text message.
-    #[must_use] 
+    #[must_use]
     pub fn as_text(&self) -> Option<&str> {
         match &self.content {
             MessageContent::Text(text) => Some(text),
@@ -335,28 +335,28 @@ impl ChatRequest {
     }
 
     /// Sets the temperature for the request.
-    #[must_use] 
+    #[must_use]
     pub const fn with_temperature(mut self, temperature: f32) -> Self {
         self.temperature = Some(temperature);
         self
     }
 
     /// Sets the maximum number of tokens for the request.
-    #[must_use] 
+    #[must_use]
     pub const fn with_max_tokens(mut self, max_tokens: u32) -> Self {
         self.max_tokens = Some(max_tokens);
         self
     }
 
     /// Enables streaming mode for the request.
-    #[must_use] 
+    #[must_use]
     pub const fn with_stream(mut self) -> Self {
         self.stream = true;
         self
     }
 
     /// Sets the available tool definitions for the request.
-    #[must_use] 
+    #[must_use]
     pub fn with_tools(mut self, tools: Vec<ToolDefinition>) -> Self {
         self.tools = tools;
         self

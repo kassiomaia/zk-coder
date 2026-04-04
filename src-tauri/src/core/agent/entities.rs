@@ -35,7 +35,7 @@ pub struct SessionId(pub String);
 
 impl SessionId {
     /// Creates a new session ID.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
@@ -162,7 +162,7 @@ pub struct AgentSession {
 
 impl AgentSession {
     /// Creates a new agent session.
-    #[must_use] 
+    #[must_use]
     pub fn new(
         agent_id: AgentId,
         agent_name: String,
@@ -187,7 +187,7 @@ impl AgentSession {
     }
 
     /// Checks if the session is in a terminal state.
-    #[must_use] 
+    #[must_use]
     pub const fn is_finished(&self) -> bool {
         matches!(
             self.state,
@@ -198,7 +198,7 @@ impl AgentSession {
     }
 
     /// Checks if the session is currently processing.
-    #[must_use] 
+    #[must_use]
     pub const fn is_processing(&self) -> bool {
         matches!(self.state, SessionState::Processing { .. })
     }
@@ -321,7 +321,7 @@ pub enum TaskMode {
 
 impl TaskMode {
     /// Get the list of allowed tools for this mode.
-    #[must_use] 
+    #[must_use]
     pub fn allowed_tools(&self) -> Vec<&'static str> {
         match self {
             Self::Read => vec![
@@ -377,7 +377,7 @@ impl TaskMode {
     }
 
     /// Get the instruction text for this mode.
-    #[must_use] 
+    #[must_use]
     pub const fn instruction_text(&self) -> &'static str {
         match self {
             Self::Read => {

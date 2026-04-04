@@ -135,6 +135,109 @@ fn strip_markdown_code_block(content: &str) -> String {
     content.to_string()
 }
 
+/// Removes leading `<think>...</think>` blocks from an LLM response.
+///
+/// Some providers prepend reasoning wrapped in XML-like tags even when the user
+/// requested plain JSON output. For planning, that reasoning is transport noise.
+fn strip_leading_think_blocks(content: &str) -> String {
+    let mut remaining = content.trim();
+
+    loop {
+        if !remaining.starts_with("<think>") {
+            break;
+        }
+
+        let Some(end_tag_index) = remaining.find("</think>") else {
+            warn!("[Planner] Unterminated <think> block found in planner response");
+            break;
+        };
+
+        remaining = remaining[end_tag_index + "</think>".len()..].trim_start();
+    }
+
+    remaining.to_string()
+}
+
+/// Extracts the first complete top-level JSON object from a response string.
+///
+/// This tolerates explanatory text before or after the JSON body while avoiding
+/// partial-object parsing. It only returns object-shaped JSON because planner
+/// responses are required to be objects.
+fn extract_first_json_object(content: &str) -> Option<String> {
+    let bytes = content.as_bytes();
+    let mut start_index = None;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escape = false;
+
+    for (index, byte) in bytes.iter().enumerate() {
+        match byte {
+            b'\\' if in_string => {
+                escape = !escape;
+            }
+            b'"' if !escape => {
+                in_string = !in_string;
+            }
+            _ => {
+                escape = false;
+
+                if in_string {
+                    continue;
+                }
+
+                match byte {
+                    b'{' => {
+                        if start_index.is_none() {
+                            start_index = Some(index);
+                        }
+                        depth += 1;
+                    }
+                    b'}' if depth > 0 => {
+                        depth -= 1;
+                        if depth == 0 {
+                            let start = start_index?;
+                            return Some(content[start..=index].trim().to_string());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Normalizes an LLM response into the JSON object expected by the planner.
+///
+/// The planner accepts provider-specific wrappers such as `<think>` blocks,
+/// fenced code blocks, or prose surrounding the JSON payload.
+fn normalize_planning_json(content: &str) -> Result<String, String> {
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return Err("LLM returned empty response. This may indicate a configuration issue with your LLM provider.".to_string());
+    }
+
+    let without_think = strip_leading_think_blocks(trimmed);
+    let without_markdown = strip_markdown_code_block(&without_think);
+
+    if without_markdown.trim().is_empty() {
+        return Err(format!(
+            "LLM returned empty response after normalization. Raw response was: '{}'",
+            content
+        ));
+    }
+
+    if let Some(json) = extract_first_json_object(&without_markdown) {
+        return Ok(json);
+    }
+
+    Err(format!(
+        "Could not locate a JSON object in planner response. Normalized response was: '{}'",
+        without_markdown
+    ))
+}
+
 /// Create a task plan using single-shot LLM planning.
 ///
 /// This generates a title, description, and optionally subtasks all in one LLM call.
@@ -143,16 +246,16 @@ pub async fn plan_new_task(
     user_message: &str,
     model_id: Option<&str>,
 ) -> Result<TaskPlan, String> {
-    let (client, actual_model) = create_llm_client(app_handle, model_id.map(std::string::ToString::to_string))
-        .await
-        .map_err(|e| format!("Failed to create LLM client for planning: {e}"))?;
+    let (client, actual_model) =
+        create_llm_client(app_handle, model_id.map(std::string::ToString::to_string))
+            .await
+            .map_err(|e| format!("Failed to create LLM client for planning: {e}"))?;
 
     // Build the planning prompt
     let system_prompt = build_planning_system_prompt();
 
-    let user_prompt = format!(
-        "User Request: {user_message}\n\nCreate a task plan for this request."
-    );
+    let user_prompt =
+        format!("User Request: {user_message}\n\nCreate a task plan for this request.");
 
     let request = ChatRequest::new(
         actual_model,
@@ -183,29 +286,14 @@ pub async fn plan_new_task(
     // Log raw response for debugging
     info!("[Planner] Raw LLM response: {}", &response.content);
 
-    // Validate raw response is not empty
-    if response.content.trim().is_empty() {
-        return Err("LLM returned empty response. This may indicate a configuration issue with your LLM provider.".to_string());
-    }
-
-    let content = strip_markdown_code_block(&response.content);
+    let content = normalize_planning_json(&response.content)?;
 
     // Log stripped content for debugging
     info!("[Planner] Stripped content: {}", &content);
 
-    // Validate stripped content is not empty
-    if content.trim().is_empty() {
-        return Err(format!(
-            "LLM returned empty response after markdown stripping. Raw response was: '{}'",
-            response.content
-        ));
-    }
-
     // Parse JSON response
     let plan: TaskPlan = serde_json::from_str(&content).map_err(|e| {
-        format!(
-            "Failed to parse planning response as JSON: {e}\n\nResponse was: {content}"
-        )
+        format!("Failed to parse planning response as JSON: {e}\n\nResponse was: {content}")
     })?;
 
     Ok(plan)
@@ -222,9 +310,10 @@ pub async fn review_and_replan(
     progress_summary: &str,
     model_id: Option<&str>,
 ) -> Result<ReplanOutput, String> {
-    let (client, actual_model) = create_llm_client(app_handle, model_id.map(std::string::ToString::to_string))
-        .await
-        .map_err(|e| format!("Failed to create LLM client for replanning: {e}"))?;
+    let (client, actual_model) =
+        create_llm_client(app_handle, model_id.map(std::string::ToString::to_string))
+            .await
+            .map_err(|e| format!("Failed to create LLM client for replanning: {e}"))?;
 
     // Build current plan summary
     let current_plan = TaskPlan {
@@ -273,20 +362,18 @@ pub async fn review_and_replan(
         .await
         .map_err(|e| format!("LLM replan failed: {e}"))?;
 
-    let content = strip_markdown_code_block(&response.content);
+    let content = normalize_planning_json(&response.content)?;
 
     // Parse JSON response
     let output: ReplanOutput = serde_json::from_str(&content).map_err(|e| {
-        format!(
-            "Failed to parse replan response as JSON: {e}\n\nResponse was: {content}"
-        )
+        format!("Failed to parse replan response as JSON: {e}\n\nResponse was: {content}")
     })?;
 
     Ok(output)
 }
 
 /// Build the system prompt for single-shot task planning.
-#[must_use] 
+#[must_use]
 pub fn build_planning_system_prompt() -> String {
     r#"You are a task planning assistant. Your job is to analyze a user's request and create a clear, actionable plan.
 
@@ -313,12 +400,12 @@ Rules:
 - Order subtasks logically (0, 1, 2, ...)
 - Keep subtask titles actionable (start with verbs)
 
-Return ONLY the JSON object, nothing else."#
+Return ONLY the JSON object, nothing else. Do not include reasoning tags like <think> or markdown fences."#
         .to_string()
 }
 
 /// Build the system prompt for replanning an interrupted task.
-#[must_use] 
+#[must_use]
 pub fn build_replan_system_prompt() -> String {
     r#"You are reviewing an interrupted agent task. The user has sent a new message while a task was still in progress.
 
@@ -356,12 +443,12 @@ For ABORT or CONTINUE:
 - updated_plan can be null
 - Set next_step_index to null
 
-Return ONLY the JSON object, nothing else."#
+Return ONLY the JSON object, nothing else. Do not include reasoning tags like <think> or markdown fences."#
         .to_string()
 }
 
 /// Convert a `SubtaskPlan` to an `AgentTask` entity.
-#[must_use] 
+#[must_use]
 pub fn subtask_plan_to_agent_task(
     subtask_plan: &SubtaskPlan,
     session_id: &str,
@@ -384,6 +471,7 @@ pub fn subtask_plan_to_agent_task(
 mod tests {
     use super::*;
     use crate::infrastructure::llm::mock::MockLlmClient;
+    use crate::infrastructure::llm::LlmClient;
 
     // ========================================================================
     // Serialization Tests (existing)
@@ -453,7 +541,7 @@ mod tests {
     }
 
     // ========================================================================
-    // Markdown Stripping Tests
+    // Response Normalization Tests
     // ========================================================================
 
     #[test]
@@ -530,6 +618,57 @@ mod tests {
         assert_eq!(parsed["title"], "Test");
     }
 
+    #[test]
+    fn test_strip_leading_think_blocks_removes_reasoning_preamble() {
+        let wrapped = r#"<think>Reasoning goes here</think>
+
+{"title":"Test"}"#;
+
+        let stripped = strip_leading_think_blocks(wrapped);
+
+        assert_eq!(stripped, r#"{"title":"Test"}"#);
+    }
+
+    #[test]
+    fn test_extract_first_json_object_ignores_prefix_and_suffix_text() {
+        let content = r#"Some prose before
+{"title":"Test","description":"Example","is_non_trivial":false,"subtasks":[]}
+Some prose after"#;
+
+        let extracted = extract_first_json_object(content).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&extracted).unwrap();
+
+        assert_eq!(parsed["title"], "Test");
+        assert_eq!(parsed["is_non_trivial"], false);
+    }
+
+    #[test]
+    fn test_normalize_planning_json_handles_think_and_fenced_json() {
+        let wrapped = r#"<think>The user said hi, so this is trivial.</think>
+
+```json
+{
+  "title": "Greeting Response",
+  "description": "Acknowledge the user's greeting",
+  "is_non_trivial": false,
+  "subtasks": []
+}
+```"#;
+
+        let normalized = normalize_planning_json(wrapped).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&normalized).unwrap();
+
+        assert_eq!(parsed["title"], "Greeting Response");
+        assert_eq!(parsed["is_non_trivial"], false);
+    }
+
+    #[test]
+    fn test_normalize_planning_json_rejects_missing_json() {
+        let error = normalize_planning_json("<think>Only reasoning, no plan.</think>").unwrap_err();
+
+        assert!(error.contains("Could not locate a JSON object"));
+    }
+
     // ========================================================================
     // Behavior Tests with Mock LLM
     // ========================================================================
@@ -568,10 +707,12 @@ mod tests {
             .await
             .map_err(|e| format!("LLM error: {e}"))?;
 
-        let plan: TaskPlan = serde_json::from_str(&response.content).map_err(|e| {
+        let content = normalize_planning_json(&response.content)?;
+
+        let plan: TaskPlan = serde_json::from_str(&content).map_err(|e| {
             format!(
                 "Failed to parse planning response as JSON: {}\n\nResponse was: {}",
-                e, response.content
+                e, content
             )
         })?;
 
@@ -616,10 +757,12 @@ mod tests {
             .await
             .map_err(|e| format!("LLM error: {e}"))?;
 
-        let output: ReplanOutput = serde_json::from_str(&response.content).map_err(|e| {
+        let content = normalize_planning_json(&response.content)?;
+
+        let output: ReplanOutput = serde_json::from_str(&content).map_err(|e| {
             format!(
                 "Failed to parse replan response as JSON: {}\n\nResponse was: {}",
-                e, response.content
+                e, content
             )
         })?;
 
@@ -674,6 +817,30 @@ mod tests {
         assert_eq!(plan.subtasks[0].order, 0);
         assert_eq!(plan.subtasks[1].order, 1);
         assert_eq!(plan.subtasks[2].order, 2);
+    }
+
+    #[tokio::test]
+    async fn test_plan_new_task_handles_reasoning_wrapped_json() {
+        let client = MockLlmClient::anthropic("test-model");
+        client.set_response(
+            r#"<think>The user just said hi, so this task is trivial.</think>
+
+```json
+{
+  "title": "Respond to Greeting",
+  "description": "Acknowledge the user's simple greeting with a friendly response",
+  "is_non_trivial": false,
+  "subtasks": []
+}
+```"#
+                .to_string(),
+        );
+
+        let plan = plan_new_task_with_mock(&client, "Hi").await.unwrap();
+
+        assert_eq!(plan.title, "Respond to Greeting");
+        assert!(!plan.is_non_trivial);
+        assert!(plan.subtasks.is_empty());
     }
 
     #[tokio::test]
@@ -788,6 +955,54 @@ mod tests {
         assert_eq!(output.completed_indices, vec![0, 1]);
         assert_eq!(output.next_step_index, Some(0));
         assert!(output.user_message.contains("performance"));
+    }
+
+    #[tokio::test]
+    async fn test_review_and_replan_handles_reasoning_wrapped_json() {
+        let client = MockLlmClient::anthropic("test-model");
+        client.set_response(
+            r#"<think>The request is related, so replanning is appropriate.</think>
+
+{
+  "decision": "replan",
+  "completed_indices": [0],
+  "updated_plan": {
+    "title": "Investigate planner parsing",
+    "description": "Harden planner parsing against reasoning wrappers",
+    "is_non_trivial": true,
+    "subtasks": [
+      {
+        "title": "Add parser normalization",
+        "description": "Strip wrapper content before JSON parsing",
+        "order": 0
+      }
+    ]
+  },
+  "user_message": "Replanning around the parsing failure",
+  "next_step_index": 0
+}"#
+            .to_string(),
+        );
+
+        let current_task = create_test_task("Investigate planner");
+        let current_plan = build_plan_from_task(&current_task, &[]);
+
+        let output = review_and_replan_with_mock(
+            &client,
+            &current_plan,
+            "Captured the failing provider response",
+            "Focus on parsing wrappers first",
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(output.decision, ReplanAction::Replan);
+        assert_eq!(output.completed_indices, vec![0]);
+        assert_eq!(output.next_step_index, Some(0));
+        assert_eq!(
+            output.updated_plan.as_ref().map(|plan| plan.title.as_str()),
+            Some("Investigate planner parsing")
+        );
     }
 
     // ========================================================================

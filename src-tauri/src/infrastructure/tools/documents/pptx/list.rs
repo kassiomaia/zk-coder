@@ -289,9 +289,9 @@ impl Tool for PptxGetSlideTool {
                 let draft_slide = if let Ok(num) = args.slide.parse::<usize>() {
                     // 1-based index
                     let index = num.saturating_sub(1);
-                    deck.slides.get(index).ok_or_else(|| {
-                        ToolError::failed(format!("Slide number {num} not found"))
-                    })?
+                    deck.slides
+                        .get(index)
+                        .ok_or_else(|| ToolError::failed(format!("Slide number {num} not found")))?
                 } else {
                     deck.slides
                         .iter()

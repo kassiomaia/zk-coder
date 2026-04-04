@@ -28,14 +28,14 @@ pub use nlp::NlpState;
 
 /// Simple health check command to verify the backend is running.
 #[tauri::command]
-#[must_use] 
+#[must_use]
 pub fn health_check() -> String {
     "Coder backend is running!".to_string()
 }
 
 /// Example command that returns application info.
 #[tauri::command]
-#[must_use] 
+#[must_use]
 pub fn get_app_info() -> AppInfo {
     AppInfo {
         name: env!("CARGO_PKG_NAME").to_string(),

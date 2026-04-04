@@ -420,9 +420,7 @@ impl SqliteConfigRepository {
 impl From<ConfigRepositoryError> for ConfigDomainError {
     fn from(err: ConfigRepositoryError) -> Self {
         match err {
-            ConfigRepositoryError::NotFound(entity, id) => {
-                Self::NotFound { entity, id }
-            }
+            ConfigRepositoryError::NotFound(entity, id) => Self::NotFound { entity, id },
             ConfigRepositoryError::Sqlite(e) => Self::InvalidInput {
                 reason: format!("Database error: {e}"),
             },

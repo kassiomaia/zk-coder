@@ -153,9 +153,7 @@ fn resolve_nlp_operation_model(repository: &dyn ConfigRepository) -> Result<Mode
         return repository
             .get_model(&model_id)
             .map_err(|e| {
-                error!(
-                    "[NLP LLM Gateway] Failed to get model '{model_id}': {e}"
-                );
+                error!("[NLP LLM Gateway] Failed to get model '{model_id}': {e}");
                 NlpLlmError::Repository(e.to_string())
             })?
             .ok_or_else(|| {
@@ -190,9 +188,7 @@ fn resolve_nlp_operation_model(repository: &dyn ConfigRepository) -> Result<Mode
     repository
         .get_model(&model_id)
         .map_err(|e| {
-            error!(
-                "[NLP LLM Gateway] Failed to get model '{model_id}': {e}"
-            );
+            error!("[NLP LLM Gateway] Failed to get model '{model_id}': {e}");
             NlpLlmError::Repository(e.to_string())
         })?
         .ok_or_else(|| {

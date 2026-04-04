@@ -166,7 +166,8 @@ pub fn get_execution_snapshot(
         total_output_tokens: row.get::<_, i64>(7)? as u32,
         last_model: row.get(8)?,
         last_error: row.get(9)?,
-        updated_at: DateTime::parse_from_rfc3339(&updated_at).map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc)),
+        updated_at: DateTime::parse_from_rfc3339(&updated_at)
+            .map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc)),
     }))
 }
 
@@ -243,7 +244,8 @@ pub fn get_runtime_traces(
             trace_type: string_to_trace_type(&row.get::<_, String>(5)?),
             payload_json: serde_json::from_str(&payload_json)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            created_at: DateTime::parse_from_rfc3339(&created_at).map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc)),
+            created_at: DateTime::parse_from_rfc3339(&created_at)
+                .map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc)),
         })
     };
 

@@ -283,7 +283,11 @@ fn render_page_content(
     match content {
         PdfPageContent::Text { content } => {
             // Render text content with simple word wrapping
-            for line in wrap_text(content, f64::from(usable_width.0), f64::from(FONT_SIZE_BODY)) {
+            for line in wrap_text(
+                content,
+                f64::from(usable_width.0),
+                f64::from(FONT_SIZE_BODY),
+            ) {
                 if current_y < margin_bottom {
                     break; // No more space on page
                 }
@@ -375,7 +379,11 @@ fn render_page_content(
 
             // Add caption if present
             if let Some(caption_text) = caption {
-                for line in wrap_text(caption_text, f64::from(usable_width.0), f64::from(FONT_SIZE_BODY)) {
+                for line in wrap_text(
+                    caption_text,
+                    f64::from(usable_width.0),
+                    f64::from(FONT_SIZE_BODY),
+                ) {
                     if current_y < margin_bottom {
                         break;
                     }

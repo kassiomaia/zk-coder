@@ -1,8 +1,6 @@
 //! PPTX validation utilities.
 
-use crate::infrastructure::tools::documents::shared::draft_store::{
-    PptxDraft, SlideLayout,
-};
+use crate::infrastructure::tools::documents::shared::draft_store::{PptxDraft, SlideLayout};
 use crate::infrastructure::tools::documents::shared::validation::{
     ValidationCheck, ValidationLevel, ValidationReport,
 };
@@ -13,7 +11,7 @@ pub struct PptxValidator;
 
 impl PptxValidator {
     /// Validate a PPTX draft before finalization.
-    #[must_use] 
+    #[must_use]
     pub fn validate_draft(draft: &PptxDraft) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -39,7 +37,7 @@ impl PptxValidator {
     }
 
     /// Validate a finalized PPTX file.
-    #[must_use] 
+    #[must_use]
     pub fn validate_file(path: &Path) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -64,10 +62,7 @@ impl PptxValidator {
         let metadata = match std::fs::metadata(path) {
             Ok(m) => m,
             Err(e) => {
-                report.add_error(
-                    "File Metadata",
-                    format!("Cannot read file metadata: {e}"),
-                );
+                report.add_error("File Metadata", format!("Cannot read file metadata: {e}"));
                 return report;
             }
         };
@@ -123,7 +118,7 @@ impl PptxValidator {
     }
 
     /// Validate that required slide types exist.
-    #[must_use] 
+    #[must_use]
     pub fn validate_required_slides(
         draft: &PptxDraft,
         required_slides: &[SlideLayout],
@@ -154,7 +149,7 @@ impl PptxValidator {
     }
 
     /// Validate maximum slide count.
-    #[must_use] 
+    #[must_use]
     pub fn validate_max_slides(draft: &PptxDraft, max_slides: usize) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -308,9 +303,7 @@ impl PptxValidator {
             name: "Estimated Duration".to_string(),
             passed: true,
             level: ValidationLevel::Info,
-            message: format!(
-                "Estimated duration: {min_minutes}-{max_minutes} minutes"
-            ),
+            message: format!("Estimated duration: {min_minutes}-{max_minutes} minutes"),
             suggestion: None,
         });
     }

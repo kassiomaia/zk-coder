@@ -8,7 +8,7 @@
 use crate::core::agent::entities as core_entities;
 
 /// Convert core session state to agents session state.
-#[must_use] 
+#[must_use]
 pub fn session_state_to_agents(
     state: &core_entities::SessionState,
 ) -> crate::core::agent::session::SessionState {
@@ -53,7 +53,7 @@ pub fn session_state_to_agents(
 }
 
 /// Convert agents session state to core session state.
-#[must_use] 
+#[must_use]
 pub fn session_state_to_core(
     state: &crate::core::agent::session::SessionState,
 ) -> core_entities::SessionState {
@@ -99,7 +99,7 @@ pub fn session_state_to_core(
 }
 
 /// Convert agents session to core session.
-#[must_use] 
+#[must_use]
 pub fn session_to_core(
     session: crate::core::agent::session::AgentSession,
 ) -> core_entities::AgentSession {
@@ -117,7 +117,7 @@ pub fn session_to_core(
 }
 
 /// Convert core session to agents session.
-#[must_use] 
+#[must_use]
 pub fn session_from_core(
     session: &core_entities::AgentSession,
 ) -> crate::core::agent::session::AgentSession {
@@ -137,7 +137,7 @@ pub fn session_from_core(
 }
 
 /// Convert core task status to agents task status.
-#[must_use] 
+#[must_use]
 pub const fn task_status_to_agents(
     status: core_entities::TaskStatus,
 ) -> crate::core::agent::task::TaskStatus {
@@ -152,8 +152,10 @@ pub const fn task_status_to_agents(
 }
 
 /// Convert core task mode to agents subtask mode.
-#[must_use] 
-pub const fn task_mode_to_agents(mode: core_entities::TaskMode) -> crate::core::agent::task::SubTaskMode {
+#[must_use]
+pub const fn task_mode_to_agents(
+    mode: core_entities::TaskMode,
+) -> crate::core::agent::task::SubTaskMode {
     match mode {
         core_entities::TaskMode::Read => crate::core::agent::task::SubTaskMode::Read,
         core_entities::TaskMode::Write => crate::core::agent::task::SubTaskMode::Write,
@@ -163,8 +165,10 @@ pub const fn task_mode_to_agents(mode: core_entities::TaskMode) -> crate::core::
 }
 
 /// Convert agents subtask mode to core task mode.
-#[must_use] 
-pub const fn task_mode_to_core(mode: crate::core::agent::task::SubTaskMode) -> core_entities::TaskMode {
+#[must_use]
+pub const fn task_mode_to_core(
+    mode: crate::core::agent::task::SubTaskMode,
+) -> core_entities::TaskMode {
     match mode {
         crate::core::agent::task::SubTaskMode::Read => core_entities::TaskMode::Read,
         crate::core::agent::task::SubTaskMode::Write => core_entities::TaskMode::Write,
@@ -174,7 +178,7 @@ pub const fn task_mode_to_core(mode: crate::core::agent::task::SubTaskMode) -> c
 }
 
 /// Convert agents task status to core task status.
-#[must_use] 
+#[must_use]
 pub const fn task_status_to_core(
     status: crate::core::agent::task::TaskStatus,
 ) -> core_entities::TaskStatus {
@@ -189,7 +193,7 @@ pub const fn task_status_to_core(
 }
 
 /// Convert core task to agents task.
-#[must_use] 
+#[must_use]
 pub fn core_task_to_agents(task: &core_entities::AgentTask) -> crate::core::agent::task::AgentTask {
     crate::core::agent::task::AgentTask {
         id: task.id.clone(),
@@ -213,7 +217,7 @@ pub fn core_task_to_agents(task: &core_entities::AgentTask) -> crate::core::agen
 }
 
 /// Convert agents task to core task.
-#[must_use] 
+#[must_use]
 pub fn agents_task_to_core(task: &crate::core::agent::task::AgentTask) -> core_entities::AgentTask {
     core_entities::AgentTask {
         id: task.id.clone(),

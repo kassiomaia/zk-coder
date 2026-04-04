@@ -300,9 +300,10 @@ impl Tool for PdfGetPageTool {
                 let draft_page = if let Ok(num) = args.page.parse::<usize>() {
                     // 1-based index
                     let index = num.saturating_sub(1);
-                    draft.pages.get(index).ok_or_else(|| {
-                        ToolError::failed(format!("Page number {num} not found"))
-                    })?
+                    draft
+                        .pages
+                        .get(index)
+                        .ok_or_else(|| ToolError::failed(format!("Page number {num} not found")))?
                 } else {
                     draft
                         .pages

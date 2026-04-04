@@ -100,9 +100,7 @@ impl AgentServiceImpl {
                             ),
                             StepAction::ToolCall { tool, arguments } => {
                                 let arg_count = if arguments.is_object() {
-                                    arguments
-                                        .as_object()
-                                        .map_or(0, serde_json::Map::len)
+                                    arguments.as_object().map_or(0, serde_json::Map::len)
                                 } else if arguments.is_array() {
                                     arguments.as_array().map_or(0, std::vec::Vec::len)
                                 } else {

@@ -29,7 +29,7 @@ impl PermissionResolver {
     /// # Arguments
     ///
     /// * `trust_mode` - The trust mode to be used for resolving permissions.
-    #[must_use] 
+    #[must_use]
     pub fn new(trust_mode: TrustMode) -> Self {
         Self {
             trust_mode,
@@ -80,7 +80,7 @@ impl PermissionResolver {
     /// # Returns
     ///
     /// The resolved `PermissionLevel` for the tool call.
-    #[must_use] 
+    #[must_use]
     pub fn check(&self, tool_name: &str, action: &ActionType) -> PermissionLevel {
         // Trust mode takes precedence
         match self.trust_mode {

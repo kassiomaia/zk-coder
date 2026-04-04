@@ -7,7 +7,10 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::pin::Pin;
 
-use super::types::{OpenAiRequest, OpenAiMessage, OpenAiRequestMessageToolCall, OpenAiRequestMessageToolFunction, OpenAiStreamResponse, OpenAiResponse};
+use super::types::{
+    OpenAiMessage, OpenAiRequest, OpenAiRequestMessageToolCall, OpenAiRequestMessageToolFunction,
+    OpenAiResponse, OpenAiStreamResponse,
+};
 use crate::core::config::ApiType;
 use crate::infrastructure::llm::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, MessageContent,
@@ -221,7 +224,7 @@ impl OpenAiClient {
     }
 
     /// Parses a SSE line from the stream.
-    #[must_use] 
+    #[must_use]
     pub fn parse_sse_line(line: &str) -> Option<Result<OpenAiStreamResponse, LlmError>> {
         let line = line.trim();
 
@@ -382,7 +385,7 @@ impl OpenAiClient {
     }
 
     /// Makes a streaming chat request.
-    #[must_use] 
+    #[must_use]
     pub fn chat_stream_internal(
         &self,
         request: ChatRequest,

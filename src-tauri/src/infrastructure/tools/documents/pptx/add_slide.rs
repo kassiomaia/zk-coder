@@ -71,12 +71,8 @@ impl From<SlideContentItem> for SlideContent {
         match item {
             SlideContentItem::Title => Self::Title,
             SlideContentItem::Subtitle => Self::Subtitle,
-            SlideContentItem::TextBox { text, position } => {
-                Self::TextBox { text, position }
-            }
-            SlideContentItem::BulletList { items, level } => {
-                Self::BulletList { items, level }
-            }
+            SlideContentItem::TextBox { text, position } => Self::TextBox { text, position },
+            SlideContentItem::BulletList { items, level } => Self::BulletList { items, level },
             SlideContentItem::NumberedList { items } => Self::NumberedList { items },
             SlideContentItem::Table { headers, rows } => Self::Table { headers, rows },
             SlideContentItem::Image { path, caption } => Self::Image { path, caption },

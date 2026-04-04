@@ -43,9 +43,7 @@ pub async fn fetch_models(
     base_url: Option<String>,
     state: tauri::State<'_, ConfigState>,
 ) -> Result<FetchModelsResult, String> {
-    info!(
-        "fetch_models: provider_id={provider_id}, api_type={api_type:?}, base_url={base_url:?}"
-    );
+    info!("fetch_models: provider_id={provider_id}, api_type={api_type:?}, base_url={base_url:?}");
 
     if api_key.trim().is_empty() {
         return Ok(FetchModelsResult::failure("Please enter an API key first"));

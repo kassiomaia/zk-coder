@@ -11,7 +11,7 @@ pub struct PdfValidator;
 
 impl PdfValidator {
     /// Validate a PDF draft before finalization.
-    #[must_use] 
+    #[must_use]
     pub fn validate_draft(draft: &PdfDraft) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -28,7 +28,7 @@ impl PdfValidator {
     }
 
     /// Validate a finalized PDF file.
-    #[must_use] 
+    #[must_use]
     pub fn validate_file(path: &Path) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -53,10 +53,7 @@ impl PdfValidator {
         let metadata = match std::fs::metadata(path) {
             Ok(m) => m,
             Err(e) => {
-                report.add_error(
-                    "File Metadata",
-                    format!("Cannot read file metadata: {e}"),
-                );
+                report.add_error("File Metadata", format!("Cannot read file metadata: {e}"));
                 return report;
             }
         };
@@ -137,7 +134,7 @@ impl PdfValidator {
     }
 
     /// Validate maximum page count.
-    #[must_use] 
+    #[must_use]
     pub fn validate_max_pages(draft: &PdfDraft, max_pages: usize) -> ValidationReport {
         let mut report = ValidationReport::new();
 
@@ -161,7 +158,7 @@ impl PdfValidator {
     }
 
     /// Validate that PDF contains extractable text (not image-only).
-    #[must_use] 
+    #[must_use]
     pub fn validate_extractable_text(draft: &PdfDraft) -> ValidationReport {
         let mut report = ValidationReport::new();
 

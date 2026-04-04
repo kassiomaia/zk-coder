@@ -1,13 +1,12 @@
 use crate::core::config::ApiType;
 use crate::core::llm::entities::{
     ChatMessage, ChatRequest as CoreChatRequest, ChatResponse as CoreChatResponse,
-    ContentBlock as CoreContentBlock, MessageContent,
-    MessageRole as CoreMessageRole,
+    ContentBlock as CoreContentBlock, MessageContent, MessageRole as CoreMessageRole,
 };
 use crate::core::llm::repositories::LlmProvider;
 use crate::infrastructure::llm::{
-    ChatRequest, ChatResponse, ContentBlock, Message,
-    MessageContent as LlmMessageContent, MessageRole as LlmMessageRole,
+    ChatRequest, ChatResponse, ContentBlock, Message, MessageContent as LlmMessageContent,
+    MessageRole as LlmMessageRole,
 };
 
 use super::LlmServiceImpl;
@@ -34,18 +33,14 @@ impl LlmServiceImpl {
     pub(crate) fn convert_content_block(block: CoreContentBlock) -> ContentBlock {
         match block {
             CoreContentBlock::Text { text } => ContentBlock::Text { text },
-            CoreContentBlock::Image { source } => ContentBlock::Image {
-                source,
-            },
+            CoreContentBlock::Image { source } => ContentBlock::Image { source },
         }
     }
 
     pub(crate) fn convert_to_core_content_block(block: ContentBlock) -> CoreContentBlock {
         match block {
             ContentBlock::Text { text } => CoreContentBlock::Text { text },
-            ContentBlock::Image { source } => CoreContentBlock::Image {
-                source,
-            },
+            ContentBlock::Image { source } => CoreContentBlock::Image { source },
         }
     }
 
@@ -61,12 +56,8 @@ impl LlmServiceImpl {
                         .collect(),
                 ),
             },
-            tool_calls: msg
-                .tool_calls
-                .into_iter()
-                .collect(),
-            tool_result: msg
-                .tool_result,
+            tool_calls: msg.tool_calls.into_iter().collect(),
+            tool_result: msg.tool_result,
         }
     }
 
@@ -82,12 +73,8 @@ impl LlmServiceImpl {
                         .collect(),
                 ),
             },
-            tool_calls: msg
-                .tool_calls
-                .into_iter()
-                .collect(),
-            tool_result: msg
-                .tool_result,
+            tool_calls: msg.tool_calls.into_iter().collect(),
+            tool_result: msg.tool_result,
         }
     }
 
@@ -105,10 +92,7 @@ impl LlmServiceImpl {
             top_p: req.top_p,
             stop: req.stop,
             stream: req.stream,
-            tools: req
-                .tools
-                .into_iter()
-                .collect(),
+            tools: req.tools.into_iter().collect(),
         }
     }
 
@@ -119,10 +103,7 @@ impl LlmServiceImpl {
             content: resp.content,
             usage: resp.usage,
             finish_reason: resp.finish_reason,
-            tool_calls: resp
-                .tool_calls
-                .into_iter()
-                .collect(),
+            tool_calls: resp.tool_calls.into_iter().collect(),
         }
     }
 
