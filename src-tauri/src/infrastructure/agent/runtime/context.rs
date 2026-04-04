@@ -3,6 +3,7 @@
 //! Provides context compaction and token estimation for managing
 //! LLM context window during agent execution.
 
+#[allow(unused_imports)]
 use crate::core::llm::entities::{ChatMessage as Message, MessageRole, ToolCall};
 use serde_json::Value as JsonValue;
 

@@ -2,6 +2,7 @@
 
 use crate::core::agent::entities::TaskStatus;
 use crate::core::agent::types::ActionType;
+#[allow(unused_imports)]
 use serde_json::json;
 
 /// Derives the system prompt with optional subtask context.
@@ -80,9 +81,7 @@ pub fn infer_action_type(tool_name: &str, arguments: &serde_json::Value) -> Acti
         "pdf_add_page" | "pdf_delete_page" => ActionType::MutatePdfDraft { pdf_id },
         "pdf_list_pages" | "pdf_get_page" => ActionType::InspectPdfDraft { pdf_id },
         "pdf_finalize" => ActionType::FinalizePdf { pdf_id },
-        "fs_stat_path" | "fs_glob_files" | "fs_fuzzy_find_files" => {
-            ActionType::ReadFile { path }
-        }
+        "fs_stat_path" | "fs_glob_files" | "fs_fuzzy_find_files" => ActionType::ReadFile { path },
         "fs_replace_in_file" | "fs_apply_patch" => ActionType::WriteFile {
             path,
             size_bytes: 0,
@@ -522,7 +521,10 @@ mod tests {
                 (ActionType::WebRequest { url: a }, ActionType::WebRequest { url: b }) => {
                     assert_eq!(a, b);
                 }
-                (ActionType::CreateDocx { filename: a }, ActionType::CreateDocx { filename: b }) => {
+                (
+                    ActionType::CreateDocx { filename: a },
+                    ActionType::CreateDocx { filename: b },
+                ) => {
                     assert_eq!(a, b);
                 }
                 (
@@ -533,7 +535,10 @@ mod tests {
                     ActionType::InspectDocxDraft { document_id: a },
                     ActionType::InspectDocxDraft { document_id: b },
                 ) => assert_eq!(a, b),
-                (ActionType::CreatePptx { filename: a }, ActionType::CreatePptx { filename: b }) => {
+                (
+                    ActionType::CreatePptx { filename: a },
+                    ActionType::CreatePptx { filename: b },
+                ) => {
                     assert_eq!(a, b);
                 }
                 (
@@ -567,10 +572,7 @@ mod tests {
                 ) => {
                     assert_eq!(a, b);
                 }
-                (
-                    ActionType::FinalizePdf { pdf_id: a },
-                    ActionType::FinalizePdf { pdf_id: b },
-                ) => {
+                (ActionType::FinalizePdf { pdf_id: a }, ActionType::FinalizePdf { pdf_id: b }) => {
                     assert_eq!(a, b);
                 }
                 _ => panic!("Action types don't match"),
@@ -604,10 +606,7 @@ mod tests {
 
     #[test]
     fn test_infer_action_type_pptx_start() {
-        let action = infer_action_type(
-            "pptx_start",
-            &serde_json::json!({"filename": "deck.pptx"}),
-        );
+        let action = infer_action_type("pptx_start", &serde_json::json!({"filename": "deck.pptx"}));
         match action {
             ActionType::CreatePptx { filename } => assert_eq!(filename, "deck.pptx"),
             _ => panic!("Expected CreatePptx"),
@@ -616,10 +615,7 @@ mod tests {
 
     #[test]
     fn test_infer_action_type_pdf_finalize() {
-        let action = infer_action_type(
-            "pdf_finalize",
-            &serde_json::json!({"pdf_id": "pdf_123"}),
-        );
+        let action = infer_action_type("pdf_finalize", &serde_json::json!({"pdf_id": "pdf_123"}));
         match action {
             ActionType::FinalizePdf { pdf_id } => assert_eq!(pdf_id, "pdf_123"),
             _ => panic!("Expected FinalizePdf"),
@@ -652,10 +648,7 @@ mod tests {
 
     #[test]
     fn test_infer_action_type_pdf_add_page_is_mutation() {
-        let action = infer_action_type(
-            "pdf_add_page",
-            &serde_json::json!({"pdf_id": "pdf_123"}),
-        );
+        let action = infer_action_type("pdf_add_page", &serde_json::json!({"pdf_id": "pdf_123"}));
         match action {
             ActionType::MutatePdfDraft { pdf_id } => assert_eq!(pdf_id, "pdf_123"),
             _ => panic!("Expected MutatePdfDraft"),

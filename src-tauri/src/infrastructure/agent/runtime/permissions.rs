@@ -13,7 +13,10 @@ use super::{generate_diff_from_content, infer_action_type};
 use super::tool_feedback::{build_tool_call_feedback, build_tool_result_feedback};
 use crate::core::agent::repositories::{SessionRepository, TaskRepository};
 use crate::core::agent::session::{AgentSession, PendingAction};
-use crate::core::agent::types::{ActionPreview, ActionType};
+use crate::core::agent::types::ActionPreview;
+#[allow(unused_imports)]
+use crate::core::agent::types::ActionType;
+#[allow(unused_imports)]
 use crate::core::llm::entities::{ToolCall, ToolResult};
 use crate::infrastructure::agent::approval::{ApprovalEvent, ApprovalQueue};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};

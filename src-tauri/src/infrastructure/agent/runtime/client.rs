@@ -10,6 +10,7 @@ use crate::commands::{ChatState, LlmState};
 use crate::core::chat::entities::MessageRole;
 use crate::core::config::ConfigRepository;
 use crate::core::llm::entities::{ChatMessage as Message, ChatRequest, ChatResponse, UsageStats};
+#[allow(unused_imports)]
 use crate::infrastructure::llm::{create_client, LlmClient, LlmError, LlmResult, StreamChunk};
 
 use super::types::AgentRuntimeError;
