@@ -1,5 +1,5 @@
-import {fireEvent, render} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ChatScrollButton from './ChatScrollButton.svelte';
 
 describe('ChatScrollButton', () => {

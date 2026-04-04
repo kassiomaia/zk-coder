@@ -1,8 +1,8 @@
-import {beforeEach, describe, expect, it, vi} from 'vitest';
-import {createInitialState} from '../state';
-import type {AgentSession} from '$lib/types/agent';
-import type {AgentState} from '../state';
-import {handleStreamingContent} from './streamingEvents';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createInitialState } from '../state';
+import type { AgentSession } from '$lib/types/agent';
+import type { AgentState } from '../state';
+import { handleStreamingContent } from './streamingEvents';
 
 const streamingMocks = vi.hoisted(() => ({
 	clearStreamingUpdates: vi.fn(),
@@ -28,7 +28,7 @@ function makeSession(): AgentSession {
 		agentName: 'Code Agent',
 		conversationId: 'conv-1',
 		threadId: 'thread-1',
-		state: {type: 'running', currentStep: 1, contextUsage: 0},
+		state: { type: 'running', currentStep: 1, contextUsage: 0 },
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString()
 	};
@@ -158,7 +158,7 @@ describe('handleStreamingContent', () => {
 		vi.mocked(callbacks.getOnAgentActivity).mockReturnValue(onAgentActivity);
 		const state = makeState();
 
-		const {handleStatusPhrase} = await import('./streamingEvents');
+		const { handleStatusPhrase } = await import('./streamingEvents');
 		handleStatusPhrase(state, {
 			type: 'status_phrase',
 			sessionId: 'session-1',

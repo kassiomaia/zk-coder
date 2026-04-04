@@ -3,6 +3,10 @@
  * Provides validation and sanitization for markdown content to prevent XSS and DoS attacks.
  */
 
+import { createLogger } from './logger';
+
+const log = createLogger('contentValidation');
+
 /**
  * Configuration options for content validation
  */
@@ -224,7 +228,7 @@ export function sanitizeUrl(url: string, allowedProtocols: string[] = []): strin
 
 		// Check for dangerous protocols
 		if (DANGEROUS_PROTOCOLS.includes(urlObj.protocol.toLowerCase())) {
-			console.warn(`[Security] Blocked dangerous protocol: ${urlObj.protocol}`);
+			log.warn(`[Security] Blocked dangerous protocol: ${urlObj.protocol}`);
 			return '#';
 		}
 
@@ -233,14 +237,14 @@ export function sanitizeUrl(url: string, allowedProtocols: string[] = []): strin
 			allowedProtocols.length > 0 ? allowedProtocols : defaultValidationConfig.allowedProtocols!;
 
 		if (!protocolsToCheck.includes(urlObj.protocol.toLowerCase())) {
-			console.warn(`[Security] Blocked disallowed protocol: ${urlObj.protocol}`);
+			log.warn(`[Security] Blocked disallowed protocol: ${urlObj.protocol}`);
 			return '#';
 		}
 
 		return trimmedUrl;
 	} catch {
 		// Invalid URL format
-		console.warn(`[Security] Invalid URL format: ${trimmedUrl.substring(0, 50)}`);
+		log.warn(`[Security] Invalid URL format: ${trimmedUrl.substring(0, 50)}`);
 		return '#';
 	}
 }

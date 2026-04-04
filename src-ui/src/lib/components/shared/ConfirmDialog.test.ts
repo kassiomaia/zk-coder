@@ -1,5 +1,5 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ConfirmDialog from './ConfirmDialog.svelte';
 
 describe('ConfirmDialog', () => {

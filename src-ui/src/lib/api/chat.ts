@@ -3,10 +3,10 @@
  * TypeScript wrappers for Tauri IPC commands to the chat persistence backend.
  */
 
-import {invoke} from '@tauri-apps/api/core';
-import type {Conversation, Thread} from '$lib/types/thread';
-import type {Message} from '$lib/types/message';
-import {parseSystemNoticeFromMessage} from '$lib/utils/systemNotices';
+import { invoke } from '@tauri-apps/api/core';
+import type { Conversation, Thread } from '$lib/types/thread';
+import type { Message } from '$lib/types/message';
+import { parseSystemNoticeFromMessage } from '$lib/utils/systemNotices';
 
 // ============================================================================
 // Error Handling

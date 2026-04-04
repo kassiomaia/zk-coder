@@ -2,22 +2,22 @@
  * Tests for scrollPriorityQueue
  */
 
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    cancel,
-    cancelThread,
-    clearAll,
-    complete,
-    enqueue,
-    getDebugInfo,
-    getExecuting,
-    getHighestPriority,
-    getNext,
-    getPendingCount,
-    hasPending,
-    isExecuting,
-    onPriorityChange,
-    wouldPreempt
+	cancel,
+	cancelThread,
+	clearAll,
+	complete,
+	enqueue,
+	getDebugInfo,
+	getExecuting,
+	getHighestPriority,
+	getNext,
+	getPendingCount,
+	hasPending,
+	isExecuting,
+	onPriorityChange,
+	wouldPreempt
 } from './scrollPriorityQueue';
 
 describe('scrollPriorityQueue', () => {
@@ -229,10 +229,13 @@ describe('scrollPriorityQueue', () => {
 
 			enqueue(vi.fn(), { threadId, priority: 'user' });
 
-			expect(listener).toHaveBeenCalledWith(threadId, expect.objectContaining({
-				id: expect.any(String),
-				priority: 'user'
-			}));
+			expect(listener).toHaveBeenCalledWith(
+				threadId,
+				expect.objectContaining({
+					id: expect.any(String),
+					priority: 'user'
+				})
+			);
 		});
 
 		it('should not notify listeners for non-user priority operations', () => {

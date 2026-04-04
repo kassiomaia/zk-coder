@@ -30,8 +30,12 @@
 }
 
 @keyframes fade-in {
-	from { opacity: 0; }
-	to { opacity: 1; }
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }
 
 @keyframes scale-in {
@@ -138,7 +142,8 @@
 
 /* Pulse for loading indicators */
 @keyframes pulse-subtle {
-	0%, 100% {
+	0%,
+	100% {
 		opacity: 1;
 	}
 	50% {
@@ -242,13 +247,21 @@
 
 /* Crossfade for content replacement */
 @keyframes crossfade-out {
-	from { opacity: 1; }
-	to { opacity: 0; }
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
 }
 
 @keyframes crossfade-in {
-	from { opacity: 0; }
-	to { opacity: 1; }
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }
 
 .crossfade-out {
@@ -265,11 +278,21 @@
    ===================== */
 
 /* Staggered delay for list items */
-.stagger-item-1 { animation-delay: var(--stagger-fast); }
-.stagger-item-2 { animation-delay: calc(var(--stagger-fast) * 2); }
-.stagger-item-3 { animation-delay: calc(var(--stagger-fast) * 3); }
-.stagger-item-4 { animation-delay: calc(var(--stagger-fast) * 4); }
-.stagger-item-5 { animation-delay: calc(var(--stagger-fast) * 5); }
+.stagger-item-1 {
+	animation-delay: var(--stagger-fast);
+}
+.stagger-item-2 {
+	animation-delay: calc(var(--stagger-fast) * 2);
+}
+.stagger-item-3 {
+	animation-delay: calc(var(--stagger-fast) * 3);
+}
+.stagger-item-4 {
+	animation-delay: calc(var(--stagger-fast) * 4);
+}
+.stagger-item-5 {
+	animation-delay: calc(var(--stagger-fast) * 5);
+}
 
 /* Apply entrance animation */
 .entrance-fade {
@@ -310,9 +333,16 @@
    ===================== */
 
 @keyframes shake-once {
-	0%, 100% { transform: translateX(0); }
-	25% { transform: translateX(-4px); }
-	75% { transform: translateX(4px); }
+	0%,
+	100% {
+		transform: translateX(0);
+	}
+	25% {
+		transform: translateX(-4px);
+	}
+	75% {
+		transform: translateX(4px);
+	}
 }
 
 .shake {
@@ -387,7 +417,9 @@
 
 /* Typing indicator dots */
 @keyframes typing-dot {
-	0%, 60%, 100% {
+	0%,
+	60%,
+	100% {
 		transform: translateY(0);
 	}
 	30% {
@@ -425,8 +457,12 @@
 
 /* Modal backdrop */
 @keyframes backdrop-fade {
-	from { opacity: 0; }
-	to { opacity: 1; }
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }
 
 .backdrop-fade {
@@ -451,7 +487,8 @@
 
 /* Status indicator pulse */
 @keyframes status-pulse-glow {
-	0%, 100% {
+	0%,
+	100% {
 		box-shadow: 0 0 0 0 currentColor;
 		opacity: 1;
 	}
@@ -467,7 +504,8 @@
 
 /* Scroll indicator fade */
 @keyframes scroll-indicator {
-	0%, 100% {
+	0%,
+	100% {
 		opacity: 0.4;
 		transform: translateY(0);
 	}

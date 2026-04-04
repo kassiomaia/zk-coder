@@ -3,9 +3,9 @@
  * Handles tool call and tool result events.
  */
 
-import type {AgentEvent} from '$lib/types/agent';
-import {getOnAgentActivity} from '../callbacks';
-import type {AgentState} from '../state';
+import type { AgentEvent } from '$lib/types/agent';
+import { getOnAgentActivity } from '../callbacks';
+import type { AgentState } from '../state';
 
 function getToolMessageId(sessionId: string, toolCallId: string): string {
 	return `tool-call-${sessionId}-${toolCallId}`;
@@ -14,7 +14,10 @@ function getToolMessageId(sessionId: string, toolCallId: string): string {
 /**
  * Handle tool_call event.
  */
-export function handleToolCall(state: AgentState, event: Extract<AgentEvent, { type: 'tool_call' }>) {
+export function handleToolCall(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'tool_call' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		const record: import('$lib/types/agent').ToolCallRecord = {
@@ -54,7 +57,10 @@ export function handleToolCall(state: AgentState, event: Extract<AgentEvent, { t
 /**
  * Handle tool_result event.
  */
-export function handleToolResult(state: AgentState, event: Extract<AgentEvent, { type: 'tool_result' }>) {
+export function handleToolResult(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'tool_result' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		const toolCallId = event.toolCallId;

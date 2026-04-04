@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ChatMessage from './ChatMessage.svelte';
-import type {MessageStatus} from '$lib/types/message';
+import type { MessageStatus } from '$lib/types/message';
 
 describe('ChatMessage', () => {
 	const defaultProps = {

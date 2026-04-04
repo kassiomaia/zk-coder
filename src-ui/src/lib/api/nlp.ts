@@ -3,16 +3,16 @@
  * TypeScript wrappers for Tauri IPC commands to the NLP backend.
  */
 
-import {invoke} from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import type {
-    Ambiguity,
-    CodeUnderstanding,
-    ConversationContext,
-    IntentClassification,
-    MultiIntentResult,
-    ProgrammingLanguage,
-    ResolutionType,
-    ResolvedAmbiguity
+	Ambiguity,
+	CodeUnderstanding,
+	ConversationContext,
+	IntentClassification,
+	MultiIntentResult,
+	ProgrammingLanguage,
+	ResolutionType,
+	ResolvedAmbiguity
 } from '$lib/types/nlp';
 
 // ============================================================================

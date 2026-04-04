@@ -1,5 +1,5 @@
-import {fireEvent, render, screen, waitFor} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Tooltip from './Tooltip.svelte';
 
 describe('Tooltip', () => {

@@ -14,7 +14,13 @@ export type AgentId = string;
 export type TrustMode = 'trusted' | 'untrusted' | 'restricted';
 
 /** Task execution status */
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'aborted';
+export type TaskStatus =
+	| 'pending'
+	| 'in_progress'
+	| 'completed'
+	| 'failed'
+	| 'cancelled'
+	| 'aborted';
 
 /** Permission level for tools */
 export type PermissionLevel = 'auto_run' | 'approval_required' | 'disabled';
@@ -123,8 +129,8 @@ export interface RuntimeTrace {
 }
 
 export type AgentTraceEvent =
-	| {type: 'runtime_trace'; trace: RuntimeTrace}
-	| {type: 'snapshot_updated'; snapshot: ExecutionSnapshot};
+	| { type: 'runtime_trace'; trace: RuntimeTrace }
+	| { type: 'snapshot_updated'; snapshot: ExecutionSnapshot };
 
 /**
  * Session lifecycle state (discriminated union)
@@ -302,7 +308,13 @@ export interface ActionPreview {
 export type AgentEvent =
 	| { type: 'session_created'; sessionId: string; agentId: string }
 	| { type: 'session_state_changed'; sessionId: string; state: SessionState }
-	| { type: 'session_paused'; sessionId: string; message: string; pausedAt: string; currentSubtaskId?: string }
+	| {
+			type: 'session_paused';
+			sessionId: string;
+			message: string;
+			pausedAt: string;
+			currentSubtaskId?: string;
+	  }
 	| { type: 'recovery_continue'; sessionId: string }
 	| { type: 'recovery_replan'; sessionId: string }
 	| { type: 'execution_started'; sessionId: string; requestId: string }
@@ -359,35 +371,35 @@ export type AgentEvent =
 			timestamp: string;
 	  }
 	| {
-		type: 'streaming_content';
-		sessionId: string;
-		conversationId: string;
-		threadId: string;
-		chunk: string;
-		isFinal: boolean;
-		messageId?: string;
-		persistMessage?: boolean;
+			type: 'streaming_content';
+			sessionId: string;
+			conversationId: string;
+			threadId: string;
+			chunk: string;
+			isFinal: boolean;
+			messageId?: string;
+			persistMessage?: boolean;
 	  }
 	| {
-		type: 'context_compacted';
-		sessionId: string;
-		conversationId: string;
-		reason: 'token_limit' | 'subtask_transition';
-		beforeCount: number;
-		afterCount: number;
-		beforeTokens: number;
-		afterTokens: number;
-		timestamp: string;
-	}
+			type: 'context_compacted';
+			sessionId: string;
+			conversationId: string;
+			reason: 'token_limit' | 'subtask_transition';
+			beforeCount: number;
+			afterCount: number;
+			beforeTokens: number;
+			afterTokens: number;
+			timestamp: string;
+	  }
 	| {
-		type: 'artifact_created';
-		sessionId: string;
-		artifactId: string;
-		artifactType: string; // 'Docx' | 'Pptx' | 'Pdf'
-		filename: string;
-		sizeBytes: number;
-		path: string;
-	};
+			type: 'artifact_created';
+			sessionId: string;
+			artifactId: string;
+			artifactType: string; // 'Docx' | 'Pptx' | 'Pdf'
+			filename: string;
+			sizeBytes: number;
+			path: string;
+	  };
 
 /** Action performed on a file */
 export type FileAction = 'read' | 'write' | 'delete';
@@ -445,9 +457,7 @@ export function hasIncompleteTasks(session: AgentSession): boolean {
 		return false;
 	}
 	// Only check root tasks (no parent), not subtasks
-	return session.tasks.some(
-		(task) => task.subtasks === undefined && isTaskIncomplete(task)
-	);
+	return session.tasks.some((task) => task.subtasks === undefined && isTaskIncomplete(task));
 }
 
 /**
@@ -457,9 +467,7 @@ export function getIncompleteTask(session: AgentSession): AgentTask | undefined 
 	if (!session.tasks || session.tasks.length === 0) {
 		return undefined;
 	}
-	return session.tasks.find(
-		(task) => task.subtasks === undefined && isTaskIncomplete(task)
-	);
+	return session.tasks.find((task) => task.subtasks === undefined && isTaskIncomplete(task));
 }
 
 /**
@@ -494,4 +502,3 @@ export function getSubtaskProgress(task: AgentTask): {
 		failed: task.subtasks.filter((st) => st.status === 'failed').length
 	};
 }
-

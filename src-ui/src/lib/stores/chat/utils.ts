@@ -2,8 +2,8 @@
  * Chat Store Utility Functions
  */
 
-import type {Conversation, Thread} from '$lib/types/thread';
-import type {Message} from '$lib/types/message';
+import type { Conversation, Thread } from '$lib/types/thread';
+import type { Message } from '$lib/types/message';
 
 // ============================================================================
 // ID Generation

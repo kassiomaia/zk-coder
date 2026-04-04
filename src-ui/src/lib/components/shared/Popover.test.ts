@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Popover from './Popover.svelte';
-import type {PopoverItem, PopoverOrigin} from './popover.types';
+import type { PopoverItem, PopoverOrigin } from './popover.types';
 
 describe('Popover', () => {
 	let anchorEl: HTMLElement;
@@ -97,10 +97,7 @@ describe('Popover', () => {
 		});
 
 		it('does not call onSelect for disabled items', async () => {
-			const itemsWithDisabled = [
-				...mockItems,
-				{ id: '4', label: 'Disabled Item', disabled: true }
-			];
+			const itemsWithDisabled = [...mockItems, { id: '4', label: 'Disabled Item', disabled: true }];
 
 			render(Popover, {
 				open: true,
@@ -116,9 +113,7 @@ describe('Popover', () => {
 		});
 
 		it('disables button for disabled items', () => {
-			const itemsWithDisabled = [
-				{ id: '1', label: 'Disabled Item', disabled: true }
-			];
+			const itemsWithDisabled = [{ id: '1', label: 'Disabled Item', disabled: true }];
 
 			render(Popover, {
 				open: true,
@@ -245,9 +240,7 @@ describe('Popover', () => {
 
 			render(Popover, {
 				open: true,
-				items: [
-					{ id: '1', label: 'Full Item', iconHtml, shortcut: '⌘K' }
-				],
+				items: [{ id: '1', label: 'Full Item', iconHtml, shortcut: '⌘K' }],
 				onSelect: mockOnSelect,
 				onClose: mockOnClose
 			});

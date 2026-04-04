@@ -107,30 +107,72 @@
    ===================== */
 
 /* Vertical spacing utilities */
-.vr-tight { gap: var(--space-2); }
-.vr-normal { gap: var(--space-3); }
-.vr-relaxed { gap: var(--space-4); }
-.vr-loose { gap: var(--space-6); }
-.vr-x-loose { gap: var(--space-8); }
+.vr-tight {
+	gap: var(--space-2);
+}
+.vr-normal {
+	gap: var(--space-3);
+}
+.vr-relaxed {
+	gap: var(--space-4);
+}
+.vr-loose {
+	gap: var(--space-6);
+}
+.vr-x-loose {
+	gap: var(--space-8);
+}
 
 /* Vertical margin utilities */
-.vmt-0 { margin-top: 0; }
-.vmt-1 { margin-top: var(--space-1); }
-.vmt-2 { margin-top: var(--space-2); }
-.vmt-3 { margin-top: var(--space-3); }
-.vmt-4 { margin-top: var(--space-4); }
-.vmt-5 { margin-top: var(--space-5); }
-.vmt-6 { margin-top: var(--space-6); }
-.vmt-8 { margin-top: var(--space-8); }
+.vmt-0 {
+	margin-top: 0;
+}
+.vmt-1 {
+	margin-top: var(--space-1);
+}
+.vmt-2 {
+	margin-top: var(--space-2);
+}
+.vmt-3 {
+	margin-top: var(--space-3);
+}
+.vmt-4 {
+	margin-top: var(--space-4);
+}
+.vmt-5 {
+	margin-top: var(--space-5);
+}
+.vmt-6 {
+	margin-top: var(--space-6);
+}
+.vmt-8 {
+	margin-top: var(--space-8);
+}
 
-.vmb-0 { margin-bottom: 0; }
-.vmb-1 { margin-bottom: var(--space-1); }
-.vmb-2 { margin-bottom: var(--space-2); }
-.vmb-3 { margin-bottom: var(--space-3); }
-.vmb-4 { margin-bottom: var(--space-4); }
-.vmb-5 { margin-bottom: var(--space-5); }
-.vmb-6 { margin-bottom: var(--space-6); }
-.vmb-8 { margin-bottom: var(--space-8); }
+.vmb-0 {
+	margin-bottom: 0;
+}
+.vmb-1 {
+	margin-bottom: var(--space-1);
+}
+.vmb-2 {
+	margin-bottom: var(--space-2);
+}
+.vmb-3 {
+	margin-bottom: var(--space-3);
+}
+.vmb-4 {
+	margin-bottom: var(--space-4);
+}
+.vmb-5 {
+	margin-bottom: var(--space-5);
+}
+.vmb-6 {
+	margin-bottom: var(--space-6);
+}
+.vmb-8 {
+	margin-bottom: var(--space-8);
+}
 
 /* =====================
    WORKSPACE SECTIONS
@@ -258,11 +300,7 @@
 	left: 0;
 	right: 0;
 	height: 1px;
-	background: linear-gradient(
-		to bottom,
-		var(--color-border-subtle) 0%,
-		transparent 100%
-	);
+	background: linear-gradient(to bottom, var(--color-border-subtle) 0%, transparent 100%);
 	opacity: 0.5;
 	pointer-events: none;
 }
@@ -273,11 +311,7 @@
 	left: 0;
 	right: 0;
 	height: 1px;
-	background: linear-gradient(
-		to top,
-		var(--color-border-subtle) 0%,
-		transparent 100%
-	);
+	background: linear-gradient(to top, var(--color-border-subtle) 0%, transparent 100%);
 	opacity: 0.5;
 	pointer-events: none;
 }

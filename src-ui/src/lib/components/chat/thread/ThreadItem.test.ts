@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ThreadItem from './ThreadItem.svelte';
-import type {Thread} from '$lib/types/thread';
+import type { Thread } from '$lib/types/thread';
 
 // Mock child components
 vi.mock('$lib/components/shared/ListItemActions.svelte', () => ({

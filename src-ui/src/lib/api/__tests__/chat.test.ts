@@ -1,31 +1,31 @@
 /**
  * Tests for Chat API Client
  */
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    ChatApiError,
-    createConversation,
-    createThread,
-    createThreadWithMessage,
-    deleteConversation,
-    deleteMessage,
-    deleteThread,
-    loadConversation,
-    loadConversations,
-    loadMessages,
-    loadThreadMessages,
-    loadThreads,
-    renameConversation,
-    renameThread,
-    resolveThread,
-    sendMessage,
-    setConversationWorkspace,
-    setThreadAgentSession,
-    updateConversationSettings,
-    updateMessageFeedback,
-    updateMessageStatus
+	ChatApiError,
+	createConversation,
+	createThread,
+	createThreadWithMessage,
+	deleteConversation,
+	deleteMessage,
+	deleteThread,
+	loadConversation,
+	loadConversations,
+	loadMessages,
+	loadThreadMessages,
+	loadThreads,
+	renameConversation,
+	renameThread,
+	resolveThread,
+	sendMessage,
+	setConversationWorkspace,
+	setThreadAgentSession,
+	updateConversationSettings,
+	updateMessageFeedback,
+	updateMessageStatus
 } from '../chat';
-import {invoke} from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({

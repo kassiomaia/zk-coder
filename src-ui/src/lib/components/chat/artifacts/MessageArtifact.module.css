@@ -90,30 +90,30 @@
 	transition: all var(--transition-fast);
 }
 
-/* Type-specific icon colors */
+/* Type-specific icon colors - using semantic neutral colors for artifact types */
 .artifact.table .icon {
-	background: rgba(59, 130, 246, 0.12);
-	color: #3b82f6;
+	background: var(--color-provider-google-light);
+	color: var(--color-provider-google);
 }
 
 .artifact.code .icon {
-	background: rgba(139, 92, 246, 0.12);
-	color: #8b5cf6;
+	background: var(--color-artifact-code-light);
+	color: var(--color-artifact-code);
 }
 
 .artifact.report .icon {
-	background: rgba(16, 185, 129, 0.12);
-	color: #10b981;
+	background: var(--color-primary-light);
+	color: var(--color-primary-500);
 }
 
 .artifact.file .icon {
-	background: rgba(245, 158, 11, 0.12);
-	color: #f59e0b;
+	background: var(--color-neutral-700);
+	color: var(--color-neutral-300);
 }
 
 .artifact.diagnostic .icon {
-	background: rgba(239, 68, 68, 0.12);
-	color: #ef4444;
+	background: var(--color-info-light);
+	color: var(--color-info);
 }
 
 .headerInfo {

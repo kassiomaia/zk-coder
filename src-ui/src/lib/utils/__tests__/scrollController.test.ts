@@ -1,12 +1,12 @@
-import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-    clearAll,
-    getThreadScrollState,
-    handleContentUpdate,
-    handleStreamingStart,
-    handleUserScroll,
-    isAutoScrollEnabled,
-    registerThreadElement
+	clearAll,
+	getThreadScrollState,
+	handleContentUpdate,
+	handleStreamingStart,
+	handleUserScroll,
+	isAutoScrollEnabled,
+	registerThreadElement
 } from '../scrollController';
 
 interface ScrollMetrics {

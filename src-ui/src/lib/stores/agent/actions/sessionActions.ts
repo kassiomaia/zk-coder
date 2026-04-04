@@ -3,9 +3,12 @@
  * Session management functions for the agent store.
  */
 
-import type {AgentSession, BackendAgentTask} from '$lib/types/agent';
-import {toAgentTask} from '$lib/types/agent';
-import type {AgentState} from '../state';
+import type { AgentSession, BackendAgentTask } from '$lib/types/agent';
+import { toAgentTask } from '$lib/types/agent';
+import type { AgentState } from '../state';
+import { createLogger } from '$lib/utils/logger';
+
+const log = createLogger('agentStore');
 
 function isHydratedSession(session: AgentSession): boolean {
 	return (
@@ -46,28 +49,35 @@ function isValidAgentSession(obj: unknown): obj is AgentSession {
 	const session = obj as Record<string, unknown>;
 
 	// Check required string fields
-	const requiredStringFields = ['id', 'agentId', 'conversationId', 'threadId', 'createdAt', 'updatedAt'];
+	const requiredStringFields = [
+		'id',
+		'agentId',
+		'conversationId',
+		'threadId',
+		'createdAt',
+		'updatedAt'
+	];
 	for (const field of requiredStringFields) {
 		if (typeof session[field] !== 'string') {
-			console.warn('[agentStore] Invalid session: missing or invalid string field:', field);
+			log.warn('Invalid session: missing or invalid string field:', field);
 			return false;
 		}
 	}
 
 	// Check state field
 	if (typeof session.state !== 'object' || session.state === null) {
-		console.warn('[agentStore] Invalid session: missing or invalid state field');
+		log.warn('Invalid session: missing or invalid state field');
 		return false;
 	}
 
 	// Optional fields validation
 	if (session.tasks !== undefined && !Array.isArray(session.tasks)) {
-		console.warn('[agentStore] Invalid session: tasks must be an array');
+		log.warn('Invalid session: tasks must be an array');
 		return false;
 	}
 
 	if (session.toolCalls !== undefined && !Array.isArray(session.toolCalls)) {
-		console.warn('[agentStore] Invalid session: toolCalls must be an array');
+		log.warn('Invalid session: toolCalls must be an array');
 		return false;
 	}
 
@@ -85,7 +95,7 @@ export async function createSession(
 	threadId: string,
 	workspaceRoot?: string
 ): Promise<AgentSession | null> {
-	console.debug('[agentStore] createSession called:', {
+	log.debug('[agentStore] createSession called:', {
 		agentId,
 		conversationId,
 		threadId,
@@ -105,19 +115,19 @@ export async function createSession(
 		// Validate session structure before using it
 		const validatedSession = session as unknown as AgentSession;
 		if (!isValidAgentSession(validatedSession)) {
-			console.error('[agentStore] Invalid session data received from backend:', session);
+			log.error('[agentStore] Invalid session data received from backend:', session);
 			update((s) => ({ ...s, loading: false, error: 'Invalid session data received' }));
 			return null;
 		}
 
-		console.debug('[agentStore] Session created by backend:', {
+		log.debug('[agentStore] Session created by backend:', {
 			sessionId: validatedSession.id,
 			workspaceRoot: validatedSession.workspaceRoot
 		});
 
 		update((state) => {
 			state.sessions.set(validatedSession.id, validatedSession);
-			console.debug('[agentStore] Session stored:', {
+			log.debug('[agentStore] Session stored:', {
 				sessionId: validatedSession.id,
 				totalSessions: state.sessions.size,
 				conversationId: validatedSession.conversationId,
@@ -148,13 +158,13 @@ export async function sendRequest(
 	sessionId: string,
 	content: string
 ): Promise<void> {
-	console.debug('[agentStore] sendRequest called:', { sessionId, contentLength: content.length });
+	log.debug('[agentStore] sendRequest called:', { sessionId, contentLength: content.length });
 	try {
 		const { invoke } = await import('@tauri-apps/api/core');
 		await invoke('send_agent_request', { sessionId, content });
-		console.debug('[agentStore] sendRequest succeeded');
+		log.debug('[agentStore] sendRequest succeeded');
 	} catch (error) {
-		console.error('[agentStore] sendRequest failed:', error);
+		log.error('[agentStore] sendRequest failed:', error);
 		update((s) => ({ ...s, error: String(error) }));
 	}
 }
@@ -264,14 +274,14 @@ export async function updateSessionWorkspace(
 	sessionId: string,
 	workspacePath: string
 ): Promise<void> {
-	console.debug('[agentStore] updateSessionWorkspace called:', { sessionId, workspacePath });
+	log.debug('[agentStore] updateSessionWorkspace called:', { sessionId, workspacePath });
 	try {
 		const { invoke } = await import('@tauri-apps/api/core');
 		await invoke('update_agent_session_workspace', {
 			sessionId,
 			workspaceRoot: workspacePath
 		});
-		console.debug('[agentStore] Backend update successful');
+		log.debug('[agentStore] Backend update successful');
 		// Update local state after successful backend update
 		update((state) => {
 			const session = state.sessions.get(sessionId);
@@ -280,15 +290,15 @@ export async function updateSessionWorkspace(
 					...session,
 					workspaceRoot: workspacePath
 				});
-				console.debug('[agentStore] Local state updated');
+				log.debug('[agentStore] Local state updated');
 			} else {
-				console.warn('[agentStore] Session not found in local state:', sessionId);
+				log.warn('[agentStore] Session not found in local state:', sessionId);
 			}
 			return { ...state, sessions: new Map(state.sessions) };
 		});
-		console.debug('[agentStore] Workspace updated successfully');
+		log.debug('[agentStore] Workspace updated successfully');
 	} catch (error) {
-		console.error('[agentStore] Failed to update workspace:', error);
+		log.error('[agentStore] Failed to update workspace:', error);
 		update((s) => ({ ...s, error: String(error) }));
 	}
 }
@@ -331,11 +341,9 @@ export async function getSessionDetails(sessionId: string): Promise<AgentSession
 				let parsedArgs;
 				try {
 					parsedArgs =
-						typeof tc.arguments === 'string'
-							? JSON.parse(tc.arguments as string)
-							: tc.arguments;
+						typeof tc.arguments === 'string' ? JSON.parse(tc.arguments as string) : tc.arguments;
 				} catch (e) {
-					console.error('[agentStore] Failed to parse tool call arguments:', e);
+					log.error('[agentStore] Failed to parse tool call arguments:', e);
 					parsedArgs = tc.arguments;
 				}
 
@@ -344,11 +352,9 @@ export async function getSessionDetails(sessionId: string): Promise<AgentSession
 				if (tc.result) {
 					try {
 						parsedResult =
-							typeof tc.result === 'string'
-								? JSON.parse(tc.result as string)
-								: tc.result;
+							typeof tc.result === 'string' ? JSON.parse(tc.result as string) : tc.result;
 					} catch (e) {
-						console.error('[agentStore] Failed to parse tool call result:', e);
+						log.error('[agentStore] Failed to parse tool call result:', e);
 						parsedResult = tc.result;
 					}
 				} else {
@@ -361,7 +367,8 @@ export async function getSessionDetails(sessionId: string): Promise<AgentSession
 					arguments: parsedArgs,
 					result: parsedResult,
 					isError: (tc.isError as boolean) ?? false,
-					durationMs: (tc.durationMs as number | undefined) ?? (tc.duration_ms as number | undefined),
+					durationMs:
+						(tc.durationMs as number | undefined) ?? (tc.duration_ms as number | undefined),
 					timestamp: (tc.timestamp as string) ?? new Date().toISOString()
 				};
 			});
@@ -369,12 +376,12 @@ export async function getSessionDetails(sessionId: string): Promise<AgentSession
 		// Validate the session structure before returning
 		const session = raw as unknown as AgentSession;
 		if (!isValidAgentSession(session)) {
-			console.error('[agentStore] Invalid session data received from backend:', session);
+			log.error('[agentStore] Invalid session data received from backend:', session);
 			return null;
 		}
 		return session;
 	} catch (error) {
-		console.error('[agentStore] Failed to fetch session details:', error);
+		log.error('[agentStore] Failed to fetch session details:', error);
 		return null;
 	}
 }
@@ -387,10 +394,10 @@ export async function loadSession(
 	update: (fn: (state: AgentState) => AgentState) => void,
 	sessionId: string
 ): Promise<AgentSession | null> {
-	console.debug('[agentStore] loadSession called:', sessionId);
+	log.debug('[agentStore] loadSession called:', sessionId);
 	const existingSession = state.sessions.get(sessionId) ?? null;
 	if (existingSession && isHydratedSession(existingSession)) {
-		console.debug('[agentStore] Session already hydrated:', sessionId);
+		log.debug('[agentStore] Session already hydrated:', sessionId);
 		return existingSession;
 	}
 
@@ -401,10 +408,10 @@ export async function loadSession(
 			state.sessions.set(mergedSession.id, mergedSession);
 			return { ...state, sessions: new Map(state.sessions) };
 		});
-		console.debug('[agentStore] Session loaded and added to store:', sessionId);
+		log.debug('[agentStore] Session loaded and added to store:', sessionId);
 		return mergedSession;
 	} else {
-		console.warn('[agentStore] Failed to load session or invalid session data:', sessionId);
+		log.warn('[agentStore] Failed to load session or invalid session data:', sessionId);
 	}
 	return existingSession;
 }

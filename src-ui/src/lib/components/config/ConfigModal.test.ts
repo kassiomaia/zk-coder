@@ -1,7 +1,7 @@
-import {fireEvent, render, screen, waitFor} from '@testing-library/svelte';
-import {describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { describe, expect, it, vi } from 'vitest';
 import ConfigModal from './ConfigModal.svelte';
-import {configStore} from '$lib/stores/configStore';
+import { configStore } from '$lib/stores/configStore';
 
 // Mock the configStore
 vi.mock('$lib/stores/configStore', () => ({
@@ -162,12 +162,7 @@ describe('ConfigModal', () => {
 			const validateButton = screen.getByRole('button', { name: 'Validate' });
 			await fireEvent.click(validateButton);
 
-			expect(validateSpy).toHaveBeenCalledWith(
-				'anthropic',
-				'sk-ant-test',
-				'anthropic',
-				undefined
-			);
+			expect(validateSpy).toHaveBeenCalledWith('anthropic', 'sk-ant-test', 'anthropic', undefined);
 		});
 
 		it('shows success message when validation succeeds', async () => {
@@ -238,9 +233,9 @@ describe('ConfigModal', () => {
 
 		it('stores API key when saving with valid key', async () => {
 			const storeSpy = vi.fn().mockResolvedValue(undefined);
-			const fetchSpy = vi.fn().mockResolvedValue([
-				{ id: 'claude-3-opus', name: 'Claude Opus', providerId: 'anthropic' }
-			]);
+			const fetchSpy = vi
+				.fn()
+				.mockResolvedValue([{ id: 'claude-3-opus', name: 'Claude Opus', providerId: 'anthropic' }]);
 			vi.mocked(configStore).storeApiKey = storeSpy;
 			vi.mocked(configStore).fetchModels = fetchSpy;
 
@@ -259,9 +254,9 @@ describe('ConfigModal', () => {
 
 		it('fetches models after storing API key', async () => {
 			const storeSpy = vi.fn().mockResolvedValue(undefined);
-			const fetchSpy = vi.fn().mockResolvedValue([
-				{ id: 'claude-3-opus', name: 'Claude Opus', providerId: 'anthropic' }
-			]);
+			const fetchSpy = vi
+				.fn()
+				.mockResolvedValue([{ id: 'claude-3-opus', name: 'Claude Opus', providerId: 'anthropic' }]);
 			vi.mocked(configStore).storeApiKey = storeSpy;
 			vi.mocked(configStore).fetchModels = fetchSpy;
 
@@ -316,9 +311,9 @@ describe('ConfigModal', () => {
 
 		it('calls onsaved and closes modal on successful save', async () => {
 			const storeSpy = vi.fn().mockResolvedValue(undefined);
-			const fetchSpy = vi.fn().mockResolvedValue([
-				{ id: 'claude-3-opus', name: 'Claude Opus', providerId: 'anthropic' }
-			]);
+			const fetchSpy = vi
+				.fn()
+				.mockResolvedValue([{ id: 'claude-3-opus', name: 'Claude Opus', providerId: 'anthropic' }]);
 			vi.mocked(configStore).storeApiKey = storeSpy;
 			vi.mocked(configStore).fetchModels = fetchSpy;
 

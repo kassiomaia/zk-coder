@@ -3,20 +3,19 @@
  * Handles streaming content, status phrase, and context compaction events.
  */
 
-import type {AgentEvent} from '$lib/types/agent';
-import type {AgentState} from '../state';
-import {clearStreamingUpdates, scheduleStreamingUpdate} from '../streaming';
-import {
-	getOnAgentActivity,
-	getOnPersistAssistantMessage,
-	getOnSystemMessage
-} from '../callbacks';
-import {buildContextNoticeContent} from '$lib/utils/systemNotices';
+import type { AgentEvent } from '$lib/types/agent';
+import type { AgentState } from '../state';
+import { clearStreamingUpdates, scheduleStreamingUpdate } from '../streaming';
+import { getOnAgentActivity, getOnPersistAssistantMessage, getOnSystemMessage } from '../callbacks';
+import { buildContextNoticeContent } from '$lib/utils/systemNotices';
 
 /**
  * Handle streaming_content event.
  */
-export function handleStreamingContent(state: AgentState, event: Extract<AgentEvent, { type: 'streaming_content' }>) {
+export function handleStreamingContent(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'streaming_content' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		const assistantMessageId = event.messageId ?? `streaming-assistant-${event.sessionId}`;
@@ -42,14 +41,12 @@ export function handleStreamingContent(state: AgentState, event: Extract<AgentEv
 				newContent,
 				'sending'
 			);
-		}
-		else {
+		} else {
 			clearStreamingUpdates(streamingKey);
-			const {[assistantMessageId]: _removed, ...remainingMessages} = existingMessages;
+			const { [assistantMessageId]: _removed, ...remainingMessages } = existingMessages;
 			state.sessions.set(event.sessionId, {
 				...session,
-				streamingMessages:
-					Object.keys(remainingMessages).length > 0 ? remainingMessages : undefined
+				streamingMessages: Object.keys(remainingMessages).length > 0 ? remainingMessages : undefined
 			});
 
 			if (newContent.length > 0) {
@@ -83,7 +80,10 @@ export function handleStreamingContent(state: AgentState, event: Extract<AgentEv
 /**
  * Handle status_phrase event.
  */
-export function handleStatusPhrase(state: AgentState, event: Extract<AgentEvent, { type: 'status_phrase' }>) {
+export function handleStatusPhrase(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'status_phrase' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		// Accumulate status phrases for rotation (keep last 10)
@@ -118,7 +118,10 @@ export function handleStatusPhrase(state: AgentState, event: Extract<AgentEvent,
 /**
  * Handle context_compacted event.
  */
-export function handleContextCompacted(state: AgentState, event: Extract<AgentEvent, { type: 'context_compacted' }>) {
+export function handleContextCompacted(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'context_compacted' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	const onSystemMessage = getOnSystemMessage();
 	if (onSystemMessage && session) {
@@ -143,7 +146,10 @@ export function handleContextCompacted(state: AgentState, event: Extract<AgentEv
  * Handle agent_narration event.
  * Narrations are persistent natural-language updates that appear in the chat.
  */
-export function handleAgentNarration(state: AgentState, event: Extract<AgentEvent, { type: 'agent_narration' }>) {
+export function handleAgentNarration(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'agent_narration' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (!session) return;
 

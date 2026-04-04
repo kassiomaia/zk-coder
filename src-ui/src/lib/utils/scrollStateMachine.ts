@@ -22,6 +22,10 @@
  * @module scrollStateMachine
  */
 
+import { createLogger } from './logger';
+
+const log = createLogger('ScrollStateMachine');
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -183,7 +187,7 @@ function notifyListeners(state: ScrollState, previousState: ScrollState, event: 
 		try {
 			listener(state, previousState, event);
 		} catch (error) {
-			console.error('[ScrollStateMachine] Listener error:', error);
+			log.error('[ScrollStateMachine] Listener error:', error);
 		}
 	});
 }

@@ -3,10 +3,10 @@
  * Derived Svelte stores for the agent store.
  */
 
-import type {Readable} from 'svelte/store';
-import {derived} from 'svelte/store';
-import type {AgentStore} from './store';
-import type {CoreAgentState} from './state';
+import type { Readable } from 'svelte/store';
+import { derived } from 'svelte/store';
+import type { AgentStore } from './store';
+import type { CoreAgentState } from './state';
 
 /**
  * Create derived stores from the agent store.

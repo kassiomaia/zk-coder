@@ -3,7 +3,7 @@
  * Action approval functions for the agent store.
  */
 
-import type {AgentState} from '../state';
+import type { AgentState } from '../state';
 
 /**
  * Approve a pending action.

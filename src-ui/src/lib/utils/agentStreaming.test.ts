@@ -1,5 +1,5 @@
-import {describe, expect, it} from 'vitest';
-import {resolvePersistedAgentContent} from './agentStreaming';
+import { describe, expect, it } from 'vitest';
+import { resolvePersistedAgentContent } from './agentStreaming';
 
 describe('resolvePersistedAgentContent', () => {
 	it('prefers the streamed assistant content when available', () => {

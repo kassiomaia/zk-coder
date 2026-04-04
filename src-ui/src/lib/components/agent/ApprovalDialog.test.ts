@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ApprovalDialog from './ApprovalDialog.svelte';
-import type {PendingAction} from '$lib/types/agent';
+import type { PendingAction } from '$lib/types/agent';
 
 // Mock child components
 vi.mock('../shared/Modal.svelte', () => ({
@@ -31,9 +31,11 @@ vi.mock('../shared/Button.svelte', () => ({
 }));
 
 vi.mock('./DiffViewer.svelte', () => ({
-	default: vi.fn(({ diff }) => `
+	default: vi.fn(
+		({ diff }) => `
 		<div class="mock-diff-viewer" data-diff-length="${diff?.length || 0}">Diff Viewer</div>
-	`)
+	`
+	)
 }));
 
 describe('ApprovalDialog', () => {
@@ -384,7 +386,9 @@ describe('ApprovalDialog', () => {
 
 		it('handles very long description text', () => {
 			const longDesc =
-				'This is a very long description that spans multiple lines and contains a lot of text. '.repeat(10);
+				'This is a very long description that spans multiple lines and contains a lot of text. '.repeat(
+					10
+				);
 			const longDescAction: PendingAction = {
 				...mockWriteFileAction,
 				description: longDesc

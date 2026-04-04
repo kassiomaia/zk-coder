@@ -1,5 +1,5 @@
-import {render, screen} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import MarkdownPreview from './MarkdownPreview.svelte';
 
 describe('MarkdownPreview', () => {

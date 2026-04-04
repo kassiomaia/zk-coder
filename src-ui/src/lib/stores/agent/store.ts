@@ -3,16 +3,19 @@
  * Main store module that ties together all agent functionality.
  */
 
-import {get, writable} from 'svelte/store';
-import type {AgentEvent} from '$lib/types/agent';
-import type {AgentState as CoreAgentState} from './state';
-import {createInitialState} from './state';
+import { get, writable } from 'svelte/store';
+import type { AgentEvent } from '$lib/types/agent';
+import type { AgentState as CoreAgentState } from './state';
+import { createInitialState } from './state';
 import * as Actions from './actions';
 import * as Events from './events';
 import * as Streaming from './streaming';
 import * as Callbacks from './callbacks';
 import * as UiState from './uiState';
-import type {SystemMessagePayload} from './callbacks';
+import type { SystemMessagePayload } from './callbacks';
+import { createLogger } from '$lib/utils/logger';
+
+const log = createLogger('agentStore');
 
 /**
  * Agent store interface.
@@ -121,14 +124,14 @@ function createAgentStore(): AgentStore {
 			try {
 				const recoveredCount = await invoke<number>('initialize_agent_recovery');
 				if (recoveredCount > 0) {
-					console.log(`[agentStore] Recovered ${recoveredCount} session(s)`);
+					log.info(`Recovered ${recoveredCount} session(s)`);
 				}
 			} catch (error) {
-				console.warn('[agentStore] Failed to initialize agent recovery:', error);
+				log.warn('Failed to initialize agent recovery:', error);
 			}
 		} catch {
 			// Tauri not available (running in browser dev mode)
-			console.debug('[agentStore] Tauri event listener not available');
+			log.debug('Tauri event listener not available');
 		}
 	}
 
@@ -234,7 +237,12 @@ function createAgentStore(): AgentStore {
 	/**
 	 * Create a new subtask for task decomposition.
 	 */
-	async function createSubtask(taskId: string, title: string, description?: string, order?: number) {
+	async function createSubtask(
+		taskId: string,
+		title: string,
+		description?: string,
+		order?: number
+	) {
 		const state = get({ subscribe });
 		return Actions.createSubtask(state, update, taskId, title, description, order);
 	}

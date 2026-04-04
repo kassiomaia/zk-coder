@@ -1,7 +1,7 @@
-import {fireEvent, render, screen, waitFor} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import TaskList from './TaskList.svelte';
-import type {AgentTask} from '$lib/types/agent';
+import type { AgentTask } from '$lib/types/agent';
 
 describe('TaskList', () => {
 	const mockTasks: AgentTask[] = [
@@ -74,9 +74,7 @@ describe('TaskList', () => {
 		it('renders task descriptions when present', () => {
 			render(TaskList, { ...defaultProps });
 
-			expect(
-				screen.getByText('Add login and logout functionality')
-			).toBeInTheDocument();
+			expect(screen.getByText('Add login and logout functionality')).toBeInTheDocument();
 		});
 
 		it('renders empty state when no tasks', () => {
@@ -459,15 +457,14 @@ describe('TaskList', () => {
 		it('handles very long task titles', () => {
 			const longTitleTask: AgentTask = {
 				id: 'task-8',
-				title: 'This is a very long task title that goes on and on and should be truncated with ellipsis',
+				title:
+					'This is a very long task title that goes on and on and should be truncated with ellipsis',
 				status: 'pending'
 			};
 			render(TaskList, { tasks: [longTitleTask] });
 
 			expect(
-				screen.getByText((content) =>
-					content.startsWith('This is a very long task title')
-				)
+				screen.getByText((content) => content.startsWith('This is a very long task title'))
 			).toBeInTheDocument();
 		});
 

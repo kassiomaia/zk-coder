@@ -5,7 +5,7 @@
  * separate from agent tool execution. They don't consume LLM tokens.
  */
 
-import {invoke} from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 
 /**
  * Response containing file content and diff information.

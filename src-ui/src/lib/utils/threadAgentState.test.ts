@@ -1,7 +1,7 @@
-import {describe, expect, it} from 'vitest';
-import type {AgentSession} from '$lib/types/agent';
-import type {Thread} from '$lib/types/thread';
-import {getThreadAgentState} from './threadAgentState';
+import { describe, expect, it } from 'vitest';
+import type { AgentSession } from '$lib/types/agent';
+import type { Thread } from '$lib/types/thread';
+import { getThreadAgentState } from './threadAgentState';
 
 describe('getThreadAgentState', () => {
 	const thread: Thread = {

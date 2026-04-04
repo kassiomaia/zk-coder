@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
-	import ArtifactCard, { type ArtifactRef } from './ArtifactCard.svelte';
+import ArtifactCard, { type ArtifactRef } from './ArtifactCard.svelte';
 
 describe('ArtifactCard', () => {
 	const mockArtifact: ArtifactRef = {
@@ -37,13 +37,21 @@ describe('ArtifactCard', () => {
 		});
 
 		it('should display the PowerPoint badge for PPTX files', () => {
-			const pptxArtifact: ArtifactRef = { ...mockArtifact, artifactType: 'Pptx', filename: 'deck.pptx' };
+			const pptxArtifact: ArtifactRef = {
+				...mockArtifact,
+				artifactType: 'Pptx',
+				filename: 'deck.pptx'
+			};
 			render(ArtifactCard, { artifact: pptxArtifact });
 			expect(screen.getByText('PowerPoint')).toBeInTheDocument();
 		});
 
 		it('should display the PDF badge for PDF files', () => {
-			const pdfArtifact: ArtifactRef = { ...mockArtifact, artifactType: 'Pdf', filename: 'doc.pdf' };
+			const pdfArtifact: ArtifactRef = {
+				...mockArtifact,
+				artifactType: 'Pdf',
+				filename: 'doc.pdf'
+			};
 			render(ArtifactCard, { artifact: pdfArtifact });
 			expect(screen.getByText('PDF')).toBeInTheDocument();
 		});
@@ -98,7 +106,7 @@ describe('ArtifactCard', () => {
 			const button = getByRole('button', { name: /download/i });
 			button.click();
 
-			await new Promise(resolve => setTimeout(resolve, 0));
+			await new Promise((resolve) => setTimeout(resolve, 0));
 			expect(onDownload).toHaveBeenCalledWith(mockArtifact);
 		});
 
@@ -116,11 +124,11 @@ describe('ArtifactCard', () => {
 			const button = screen.getByRole('button', { name: /download/i });
 			button.click();
 
-			await new Promise(resolve => setTimeout(resolve, 0));
+			await new Promise((resolve) => setTimeout(resolve, 0));
 			expect(screen.getByText('Downloading...')).toBeInTheDocument();
 
 			resolveDownload!();
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 		});
 	});
 });

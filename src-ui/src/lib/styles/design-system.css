@@ -76,6 +76,20 @@
 	--color-lang-kotlin: #7f52ff;
 	--color-lang-default: var(--color-text-muted);
 
+	/* Artifact Type Colors - for artifact type icons */
+	/* Code - purple */
+	--color-artifact-code: #8b5cf6;
+	--color-artifact-code-light: rgba(139, 92, 246, 0.12);
+	/* Docx - blue */
+	--color-artifact-docx: #2b579a;
+	--color-artifact-docx-light: rgba(43, 87, 154, 0.12);
+	/* PDF - red */
+	--color-artifact-pdf: #f40f02;
+	--color-artifact-pdf-light: rgba(244, 15, 2, 0.12);
+	/* PPTX - orange */
+	--color-artifact-pptx: #d24726;
+	--color-artifact-pptx-light: rgba(210, 71, 38, 0.12);
+
 	/* Neutral Colors - Warm stone palette for refined, calm surfaces */
 	--color-neutral-0: #ffffff;
 	--color-neutral-50: #faf9f7;
@@ -235,7 +249,9 @@
      ===================== */
 	--depth-bg-1: var(--color-bg-base); /* Main application background */
 	--depth-bg-2: var(--color-bg-secondary); /* Sidebars, sidebar panels, and secondary panels */
-	--depth-bg-3: var(--color-bg-tertiary); /* Embedded components like message code blocks or sub-panels */
+	--depth-bg-3: var(
+		--color-bg-tertiary
+	); /* Embedded components like message code blocks or sub-panels */
 	--depth-surface: var(--color-surface); /* Cards and interactive surface elements */
 
 	/* =====================

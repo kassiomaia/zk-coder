@@ -3,14 +3,17 @@
  * Handles task and subtask events.
  */
 
-import type {AgentEvent} from '$lib/types/agent';
-import {toAgentTask} from '$lib/types/agent';
-import type {AgentState} from '../state';
+import type { AgentEvent } from '$lib/types/agent';
+import { toAgentTask } from '$lib/types/agent';
+import type { AgentState } from '../state';
 
 /**
  * Handle task_created event.
  */
-export function handleTaskCreated(state: AgentState, event: Extract<AgentEvent, { type: 'task_created' }>) {
+export function handleTaskCreated(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'task_created' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		const newTask = toAgentTask(event.task);
@@ -25,7 +28,10 @@ export function handleTaskCreated(state: AgentState, event: Extract<AgentEvent, 
 /**
  * Handle task_updated event.
  */
-export function handleTaskUpdated(state: AgentState, event: Extract<AgentEvent, { type: 'task_updated' }>) {
+export function handleTaskUpdated(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'task_updated' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session && session.tasks) {
 		const updatedTasks = session.tasks.map((task) =>
@@ -41,21 +47,30 @@ export function handleTaskUpdated(state: AgentState, event: Extract<AgentEvent, 
 /**
  * Handle subtask_created event.
  */
-export function handleSubtaskCreated(state: AgentState, event: Extract<AgentEvent, { type: 'subtask_created' }>) {
+export function handleSubtaskCreated(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'subtask_created' }>
+) {
 	handleSubtaskUpdate(state, event);
 }
 
 /**
  * Handle subtask_updated event.
  */
-export function handleSubtaskUpdated(state: AgentState, event: Extract<AgentEvent, { type: 'subtask_updated' }>) {
+export function handleSubtaskUpdated(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'subtask_updated' }>
+) {
 	handleSubtaskUpdate(state, event);
 }
 
 /**
  * Common handler for subtask events.
  */
-function handleSubtaskUpdate(state: AgentState, event: Extract<AgentEvent, { type: 'subtask_created' | 'subtask_updated' }>) {
+function handleSubtaskUpdate(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'subtask_created' | 'subtask_updated' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		const tasks = session.tasks ?? [];

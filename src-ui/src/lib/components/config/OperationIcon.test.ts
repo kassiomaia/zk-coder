@@ -1,7 +1,7 @@
-import {render} from '@testing-library/svelte';
-import {describe, expect, it} from 'vitest';
+import { render } from '@testing-library/svelte';
+import { describe, expect, it } from 'vitest';
 import OperationIcon from './OperationIcon.svelte';
-import type {OperationType} from '$lib/types/config';
+import type { OperationType } from '$lib/types/config';
 
 describe('OperationIcon', () => {
 	const iconTypes: OperationType[] = ['analysis', 'code', 'vision', 'audio', 'tips', 'review'];

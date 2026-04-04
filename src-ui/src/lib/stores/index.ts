@@ -57,9 +57,9 @@ export {
 } from './documentGenerationStore.js';
 
 // Cross-store derived: sessions filtered to current conversation
-import {derived} from 'svelte/store';
-import {chatStore} from './chat.js';
-import {agentStore as _agentStore} from './agentStore.js';
+import { derived } from 'svelte/store';
+import { chatStore } from './chat.js';
+import { agentStore as _agentStore } from './agentStore.js';
 
 export const conversationSessions = derived(
 	[_agentStore, chatStore],

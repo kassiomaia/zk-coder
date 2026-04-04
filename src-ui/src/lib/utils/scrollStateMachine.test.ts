@@ -2,25 +2,25 @@
  * Tests for scrollStateMachine
  */
 
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    describeEvent,
-    describeState,
-    getAllEvents,
-    getAllStates,
-    getDebugInfo,
-    getEventCount,
-    getHistory,
-    getState,
-    getValidTransitions,
-    isInState,
-    isStreamingActive,
-    isUserPaused,
-    onStateChange,
-    resetAll,
-    resetThread,
-    sendEvent,
-    shouldAutoScroll
+	describeEvent,
+	describeState,
+	getAllEvents,
+	getAllStates,
+	getDebugInfo,
+	getEventCount,
+	getHistory,
+	getState,
+	getValidTransitions,
+	isInState,
+	isStreamingActive,
+	isUserPaused,
+	onStateChange,
+	resetAll,
+	resetThread,
+	sendEvent,
+	shouldAutoScroll
 } from './scrollStateMachine';
 
 describe('scrollStateMachine', () => {
@@ -429,8 +429,12 @@ describe('scrollStateMachine', () => {
 		it('should return description for each state', () => {
 			expect(describeState('idle')).toBe('No streaming active, user can scroll freely');
 			expect(describeState('streaming')).toBe('Content is being streamed, auto-scroll active');
-			expect(describeState('user_paused')).toBe('User scrolled up during streaming, auto-scroll paused');
-			expect(describeState('resuming')).toBe('Transitioning back to streaming, auto-scroll resuming');
+			expect(describeState('user_paused')).toBe(
+				'User scrolled up during streaming, auto-scroll paused'
+			);
+			expect(describeState('resuming')).toBe(
+				'Transitioning back to streaming, auto-scroll resuming'
+			);
 		});
 
 		it('should return description for each event', () => {
@@ -438,7 +442,9 @@ describe('scrollStateMachine', () => {
 			expect(describeEvent('STREAM_END')).toBe('LLM finished streaming');
 			expect(describeEvent('USER_SCROLL_UP')).toBe('User scrolled upward (away from bottom)');
 			expect(describeEvent('USER_SCROLL_TO_BOTTOM')).toBe('User scrolled to bottom manually');
-			expect(describeEvent('USER_CLICK_SCROLL_DOWN')).toBe('User clicked the scroll-to-bottom button');
+			expect(describeEvent('USER_CLICK_SCROLL_DOWN')).toBe(
+				'User clicked the scroll-to-bottom button'
+			);
 			expect(describeEvent('USER_SEND_MESSAGE')).toBe('User sent a new message');
 			expect(describeEvent('THREAD_CHANGE')).toBe('Active thread changed');
 		});

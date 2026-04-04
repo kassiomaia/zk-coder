@@ -3,13 +3,16 @@
  * Handles file touch events.
  */
 
-import type {AgentEvent} from '$lib/types/agent';
-import type {AgentState} from '../state';
+import type { AgentEvent } from '$lib/types/agent';
+import type { AgentState } from '../state';
 
 /**
  * Handle file_touched event.
  */
-export function handleFileTouched(state: AgentState, event: Extract<AgentEvent, { type: 'file_touched' }>) {
+export function handleFileTouched(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'file_touched' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		const existingFiles = session.filesTouched ?? [];

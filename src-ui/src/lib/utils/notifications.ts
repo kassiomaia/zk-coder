@@ -3,7 +3,14 @@
  * Handles OS-level notifications using Tauri's notification plugin.
  */
 
-import {isPermissionGranted, requestPermission, sendNotification} from '@tauri-apps/plugin-notification';
+import {
+	isPermissionGranted,
+	requestPermission,
+	sendNotification
+} from '@tauri-apps/plugin-notification';
+import { createLogger } from './logger';
+
+const log = createLogger('notifications');
 
 /** Track if we've already requested permission */
 let permissionRequested = false;
@@ -25,11 +32,11 @@ export async function initNotifications(): Promise<boolean> {
 	// We use try/catch and check the window label to avoid triggering the Tauri permission error
 	// in secondary windows like "agent-trace-dev".
 	try {
-		const {getCurrentWindow} = await import('@tauri-apps/api/window');
+		const { getCurrentWindow } = await import('@tauri-apps/api/window');
 		const windowLabel = getCurrentWindow().label;
 
 		if (windowLabel !== 'main') {
-			console.log(`Notifications disabled for window: ${windowLabel}`);
+			log.info(`Notifications disabled for window: ${windowLabel}`);
 			permissionRequested = true;
 			hasPermission = false;
 			return false;
@@ -48,7 +55,7 @@ export async function initNotifications(): Promise<boolean> {
 		hasPermission = granted;
 		return granted;
 	} catch (error) {
-		console.error('Failed to initialize notifications:', error);
+		log.error('Failed to initialize notifications:', error);
 		permissionRequested = true;
 		hasPermission = false;
 		return false;
@@ -77,7 +84,7 @@ export async function notifyAssistantComplete(
 	try {
 		const canNotify = await canSendNotifications();
 		if (!canNotify) {
-			console.log('Notifications not permitted, skipping notification');
+			log.info('Notifications not permitted, skipping notification');
 			return;
 		}
 
@@ -86,7 +93,7 @@ export async function notifyAssistantComplete(
 			body
 		});
 	} catch (error) {
-		console.error('Failed to send notification:', error);
+		log.error('Failed to send notification:', error);
 	}
 }
 
@@ -97,7 +104,7 @@ export async function sendCustomNotification(title: string, body: string): Promi
 	try {
 		const canNotify = await canSendNotifications();
 		if (!canNotify) {
-			console.log('Notifications not permitted');
+			log.info('Notifications not permitted');
 			return;
 		}
 
@@ -106,6 +113,6 @@ export async function sendCustomNotification(title: string, body: string): Promi
 			body
 		});
 	} catch (error) {
-		console.error('Failed to send notification:', error);
+		log.error('Failed to send notification:', error);
 	}
 }

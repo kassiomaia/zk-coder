@@ -141,8 +141,12 @@
 	letter-spacing: var(--tracking-wider);
 }
 
-.successIcon { color: var(--color-success); }
-.errorIcon { color: var(--color-error); }
+.successIcon {
+	color: var(--color-success);
+}
+.errorIcon {
+	color: var(--color-error);
+}
 
 /* Zone 3: Disclosure */
 .disclosureZone {
@@ -220,5 +224,7 @@
 }
 
 @keyframes spin {
-	to { transform: rotate(360deg); }
+	to {
+		transform: rotate(360deg);
+	}
 }

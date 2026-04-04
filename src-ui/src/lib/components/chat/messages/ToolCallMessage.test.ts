@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ToolCallMessage from './ToolCallMessage.svelte';
-import type {Message} from '$lib/types/message';
+import type { Message } from '$lib/types/message';
 
 describe('ToolCallMessage', () => {
 	let mockMessage: Message;
@@ -53,7 +53,6 @@ describe('ToolCallMessage', () => {
 			const button = container.querySelector('button');
 			expect(button).toBeInTheDocument();
 		});
-
 	});
 
 	describe('tool icons', () => {

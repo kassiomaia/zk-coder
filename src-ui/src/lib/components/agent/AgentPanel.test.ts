@@ -1,30 +1,34 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AgentPanel from './AgentPanel.svelte';
-import type {AgentSession, PendingAction} from '$lib/types/agent';
+import type { AgentSession, PendingAction } from '$lib/types/agent';
 
 // Mock child components to simplify testing
 vi.mock('./TaskList.svelte', () => ({
 	default: vi.fn(({ tasks }) => ({
-		render: () => `<div class="mock-task-list" data-task-count="${tasks?.length || 0}">Task List</div>`
+		render: () =>
+			`<div class="mock-task-list" data-task-count="${tasks?.length || 0}">Task List</div>`
 	}))
 }));
 
 vi.mock('./RequestsList.svelte', () => ({
 	default: vi.fn(({ steps }) => ({
-		render: () => `<div class="mock-requests-list" data-steps-count="${steps?.length || 0}">Requests List</div>`
+		render: () =>
+			`<div class="mock-requests-list" data-steps-count="${steps?.length || 0}">Requests List</div>`
 	}))
 }));
 
 vi.mock('./FileTree.svelte', () => ({
 	default: vi.fn(({ files }) => ({
-		render: () => `<div class="mock-file-tree" data-files-count="${files?.length || 0}">File Tree</div>`
+		render: () =>
+			`<div class="mock-file-tree" data-files-count="${files?.length || 0}">File Tree</div>`
 	}))
 }));
 
 vi.mock('./ToolCallsView.svelte', () => ({
 	default: vi.fn(({ toolCalls }) => ({
-		render: () => `<div class="mock-tool-calls" data-calls-count="${toolCalls?.length || 0}">Tool Calls</div>`
+		render: () =>
+			`<div class="mock-tool-calls" data-calls-count="${toolCalls?.length || 0}">Tool Calls</div>`
 	}))
 }));
 
@@ -79,12 +83,25 @@ describe('AgentPanel', () => {
 				title: 'Implement feature',
 				status: 'in_progress',
 				subtasks: [
-					{ id: 'sub-1', taskId: 'task-1', title: 'Write tests', mode: 'write', status: 'pending', order: 1, createdAt: '2024-01-01T00:00:00Z' }
+					{
+						id: 'sub-1',
+						taskId: 'task-1',
+						title: 'Write tests',
+						mode: 'write',
+						status: 'pending',
+						order: 1,
+						createdAt: '2024-01-01T00:00:00Z'
+					}
 				]
 			}
 		],
 		filesTouched: [
-			{ path: '/src/test.ts', modified: true, action: 'write', diff: '--- a/test.ts\n+++ b/test.ts' }
+			{
+				path: '/src/test.ts',
+				modified: true,
+				action: 'write',
+				diff: '--- a/test.ts\n+++ b/test.ts'
+			}
 		],
 		toolCalls: [
 			{
@@ -192,9 +209,7 @@ describe('AgentPanel', () => {
 		it('toggles activity section when header clicked', async () => {
 			const { container } = render(AgentPanel, { ...defaultProps });
 
-			const activityHeader = screen
-				.getByText('Activity')
-				.closest('.section-header') as HTMLElement;
+			const activityHeader = screen.getByText('Activity').closest('.section-header') as HTMLElement;
 
 			// Should be expanded by default
 			const taskList = container.querySelector('.mock-task-list');
@@ -211,9 +226,7 @@ describe('AgentPanel', () => {
 		it('toggles requests section when header clicked', async () => {
 			const { container } = render(AgentPanel, { ...defaultProps });
 
-			const requestsHeader = screen
-				.getByText('Requests')
-				.closest('.section-header') as HTMLElement;
+			const requestsHeader = screen.getByText('Requests').closest('.section-header') as HTMLElement;
 
 			// Should be expanded by default
 			const requestsList = container.querySelector('.mock-requests-list');

@@ -1,7 +1,7 @@
-import {render, screen} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { render, screen } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ToolCallsView from './ToolCallsView.svelte';
-import type {ToolCallRecord} from '$lib/types/agent';
+import type { ToolCallRecord } from '$lib/types/agent';
 
 // Mock ToolCallItem component
 vi.mock('./ToolCallItem.svelte', () => ({

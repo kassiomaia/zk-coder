@@ -1,5 +1,5 @@
-import {fireEvent, render, screen, within} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import MentionMenu from './MentionMenu.svelte';
 
 interface MentionItem {
@@ -106,10 +106,12 @@ describe('MentionMenu', () => {
 			const listbox = screen.getByRole('listbox');
 			// Find the hint span specifically
 			const hintSpan = within(listbox).getByText((content, element) => {
-				return element.tagName.toLowerCase() === 'span' && 
-				element.textContent.includes('to navigate') &&
-				element.textContent.includes('to select') &&
-				element.textContent.includes('to close');
+				return (
+					element.tagName.toLowerCase() === 'span' &&
+					element.textContent.includes('to navigate') &&
+					element.textContent.includes('to select') &&
+					element.textContent.includes('to close')
+				);
 			});
 			expect(hintSpan).toBeInTheDocument();
 			// Assert individual kbd elements are present within the found span

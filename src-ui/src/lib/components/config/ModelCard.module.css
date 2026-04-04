@@ -16,7 +16,7 @@
 	cursor: pointer;
 	position: relative;
 	overflow: hidden;
-	transition: 
+	transition:
 		background var(--transition-fast),
 		border-color var(--transition-fast),
 		transform var(--transition-fast);
@@ -108,4 +108,3 @@
 	color: var(--color-primary-500);
 	opacity: 0.8;
 }
-

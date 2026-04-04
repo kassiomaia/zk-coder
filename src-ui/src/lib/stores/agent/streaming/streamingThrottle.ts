@@ -3,7 +3,7 @@
  * Manages throttled streaming updates to prevent UI freezing.
  */
 
-import type {Message} from '$lib/types/message';
+import type { Message } from '$lib/types/message';
 
 // Pending streaming updates waiting to be flushed
 interface PendingStreamingUpdate {

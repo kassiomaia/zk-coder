@@ -1,8 +1,8 @@
-import {fireEvent, render, screen, within} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CommandPalette from './CommandPalette.svelte';
-import type {Command} from '$lib/types/command';
-import {CommandCategory} from '$lib/types/command';
+import type { Command } from '$lib/types/command';
+import { CommandCategory } from '$lib/types/command';
 
 describe('CommandPalette', () => {
 	const mockCommands: Command[] = [

@@ -2,9 +2,9 @@
  * Chat Store Type Definitions
  */
 
-import type {Conversation, Thread} from '$lib/types/thread';
-import type {Message} from '$lib/types/message';
-import type {Ambiguity, IntentClassification, ResolvedAmbiguity} from '$lib/types/nlp';
+import type { Conversation, Thread } from '$lib/types/thread';
+import type { Message } from '$lib/types/message';
+import type { Ambiguity, IntentClassification, ResolvedAmbiguity } from '$lib/types/nlp';
 
 // ============================================================================
 // Loading States

@@ -3,20 +3,23 @@
  * Central event dispatcher for agent events.
  */
 
-import type {AgentEvent} from '$lib/types/agent';
-import type {AgentState} from '../state';
+import type { AgentEvent } from '$lib/types/agent';
+import type { AgentState } from '../state';
 import * as SessionEvents from './sessionEvents';
 import * as ToolEvents from './toolEvents';
 import * as TerminalEvents from './terminalEvents';
 import * as TaskEvents from './taskEvents';
 import * as FileEvents from './fileEvents';
 import * as StreamingEvents from './streamingEvents';
+import { createLogger } from '$lib/utils/logger';
+
+const log = createLogger('agentStore');
 
 /**
  * Handle an agent event from the backend.
  */
 export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentState {
-	console.debug('[agentStore] Received event:', event.type, event);
+	log.debug('Received event:', event.type, event);
 
 	switch (event.type) {
 		case 'session_state_changed':

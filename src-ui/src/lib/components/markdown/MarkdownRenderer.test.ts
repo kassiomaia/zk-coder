@@ -1,5 +1,5 @@
-import {render, screen} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { render, screen } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import MarkdownRenderer from './MarkdownRenderer.svelte';
 
 // Mock the markdown utilities
@@ -140,7 +140,8 @@ describe('MarkdownRenderer', () => {
 		});
 
 		it('renders tables', () => {
-			const tableContent = '| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |';
+			const tableContent =
+				'| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |';
 			render(MarkdownRenderer, { content: tableContent });
 			const container = document.body;
 			expect(container).toBeInTheDocument();

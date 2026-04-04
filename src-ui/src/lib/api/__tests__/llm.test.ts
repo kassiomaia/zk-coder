@@ -1,22 +1,22 @@
 /**
  * Tests for LLM API Client
  */
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    cancelChatRequest,
-    isChunkEvent,
-    isCompleteEvent,
-    isErrorEvent,
-    isStartedEvent,
-    LlmApiError,
-    type LlmEvent,
-    messageResponseToClient,
-    sendChatMessage,
-    type SendChatMessageResponse,
-    sendChatMessageStreaming
+	cancelChatRequest,
+	isChunkEvent,
+	isCompleteEvent,
+	isErrorEvent,
+	isStartedEvent,
+	LlmApiError,
+	type LlmEvent,
+	messageResponseToClient,
+	sendChatMessage,
+	type SendChatMessageResponse,
+	sendChatMessageStreaming
 } from '../llm';
-import {invoke} from '@tauri-apps/api/core';
-import {listen, type UnlistenFn} from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 // Mock Tauri invoke and event
 vi.mock('@tauri-apps/api/core', () => ({

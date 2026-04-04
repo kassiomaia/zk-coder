@@ -8,6 +8,10 @@
  * @module domBatcher
  */
 
+import { createLogger } from './logger';
+
+const log = createLogger('DOMBatcher');
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -95,7 +99,7 @@ function processFrame(): void {
 		try {
 			op.execute();
 		} catch (error) {
-			console.error('[DOMBatcher] Read operation failed:', error);
+			log.error('[DOMBatcher] Read operation failed:', error);
 		}
 	}
 
@@ -105,7 +109,7 @@ function processFrame(): void {
 		try {
 			op.execute();
 		} catch (error) {
-			console.error('[DOMBatcher] Write operation failed:', error);
+			log.error('[DOMBatcher] Write operation failed:', error);
 		}
 	}
 

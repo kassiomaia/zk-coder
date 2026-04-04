@@ -3,17 +3,17 @@
  * TypeScript wrappers for Tauri IPC commands to the configuration backend.
  */
 
-import {invoke} from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import type {
-    ApiType,
-    FetchModelsResult,
-    ManualModelEntry,
-    Model,
-    ModelsSource,
-    OperationDefault,
-    Provider,
-    SaveProviderRequest,
-    ValidationResult
+	ApiType,
+	FetchModelsResult,
+	ManualModelEntry,
+	Model,
+	ModelsSource,
+	OperationDefault,
+	Provider,
+	SaveProviderRequest,
+	ValidationResult
 } from '$lib/types/config';
 
 // ============================================================================

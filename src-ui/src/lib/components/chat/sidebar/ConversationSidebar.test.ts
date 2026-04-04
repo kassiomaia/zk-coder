@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ConversationSidebar from './ConversationSidebar.svelte';
-import type {Conversation, Thread} from '$lib/types/thread';
+import type { Conversation, Thread } from '$lib/types/thread';
 
 describe('ConversationSidebar', () => {
 	const mockConversations: Conversation[] = [

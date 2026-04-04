@@ -1,8 +1,8 @@
-import {render, screen} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ChatArea from './ChatArea.svelte';
-import type {Message} from '$lib/types/message';
-import type {Thread} from '$lib/types/thread';
+import type { Message } from '$lib/types/message';
+import type { Thread } from '$lib/types/thread';
 
 // Mock the stores and utilities
 const mockRegisterThreadElement = vi.fn();

@@ -13,7 +13,14 @@ export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'error';
 export type MessageFeedback = 'like' | 'dislike';
 
 /** Kind of message for specialized rendering */
-export type MessageKind = 'normal' | 'thinking' | 'tool_call' | 'terminal' | 'narration' | 'approval' | 'recovery';
+export type MessageKind =
+	| 'normal'
+	| 'thinking'
+	| 'tool_call'
+	| 'terminal'
+	| 'narration'
+	| 'approval'
+	| 'recovery';
 export type SystemNoticeReason = 'token_limit' | 'subtask_transition';
 
 export interface ContextUpdateNotice {

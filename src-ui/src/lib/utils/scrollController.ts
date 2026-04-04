@@ -13,24 +13,27 @@
  * @module scrollController
  */
 
-import {measureScrollState} from './domBatcher';
-import {cancelThread, hasPending, type ScrollPriority} from './scrollPriorityQueue';
+import { measureScrollState } from './domBatcher';
+import { cancelThread, hasPending, type ScrollPriority } from './scrollPriorityQueue';
+import { createLogger } from './logger';
+
+const log = createLogger('ScrollController');
 import {
-    isRunning as isAnimationRunning,
-    scrollToBottomInstant,
-    startLiveAnimation,
-    stop as stopAnimation,
-    updateLiveTarget
+	isRunning as isAnimationRunning,
+	scrollToBottomInstant,
+	startLiveAnimation,
+	stop as stopAnimation,
+	updateLiveTarget
 } from './liveScrollAnimation';
 import {
-    getState,
-    isStreamingActive,
-    onStateChange,
-    resetThread as resetStateMachine,
-    type ScrollEvent,
-    type ScrollState,
-    sendEvent,
-    shouldAutoScroll
+	getState,
+	isStreamingActive,
+	onStateChange,
+	resetThread as resetStateMachine,
+	type ScrollEvent,
+	type ScrollState,
+	sendEvent,
+	shouldAutoScroll
 } from './scrollStateMachine';
 
 // ============================================================================
@@ -262,7 +265,7 @@ function processUserScroll(threadId: string, element: HTMLElement): void {
 
 	// Ignore scroll events from programmatic scrolls
 	if (context.ignoreScrollEvents) {
-		console.log('[ScrollController] processUserScroll: ignoring (programmatic scroll)');
+		log.debug('[ScrollController] processUserScroll: ignoring (programmatic scroll)');
 		return;
 	}
 
@@ -280,7 +283,7 @@ function processUserScroll(threadId: string, element: HTMLElement): void {
 	// Check distance from bottom
 	const distanceFromBottom = scrollHeight - scrollTop - element.clientHeight;
 
-	console.log('[ScrollController] processUserScroll:', {
+	log.debug('[ScrollController] processUserScroll:', {
 		threadId,
 		currentState,
 		distanceFromBottom,
@@ -300,7 +303,7 @@ function processUserScroll(threadId: string, element: HTMLElement): void {
 		(isScrollingUp || context.isDraggingThumb)
 	) {
 		if (context.autoScrollEnabled) {
-			console.log('[ScrollController] DISABLING auto-scroll - user scrolled up during streaming');
+			log.debug('[ScrollController] DISABLING auto-scroll - user scrolled up during streaming');
 			sendEvent(threadId, 'USER_SCROLL_UP');
 			context.autoScrollEnabled = false;
 			stopAnimation(threadId);
@@ -312,7 +315,7 @@ function processUserScroll(threadId: string, element: HTMLElement): void {
 	if (currentState === 'user_paused') {
 		if (distanceFromBottom <= AT_BOTTOM_THRESHOLD) {
 			// User scrolled back to bottom while paused
-			console.log('[ScrollController] RE-ENABLING auto-scroll - user scrolled to bottom');
+			log.debug('[ScrollController] RE-ENABLING auto-scroll - user scrolled to bottom');
 			sendEvent(threadId, 'USER_SCROLL_TO_BOTTOM');
 			context.autoScrollEnabled = true;
 		}
@@ -371,21 +374,21 @@ export function registerThreadElement(
 
 		if (isOnScrollbar) {
 			context.isDraggingThumb = true;
-			console.log('[ScrollController] User started dragging scroll thumb');
+			log.debug('[ScrollController] User started dragging scroll thumb');
 		}
 	};
 
 	const handleMouseUp = () => {
 		if (context.isDraggingThumb) {
 			context.isDraggingThumb = false;
-			console.log('[ScrollController] User stopped dragging scroll thumb');
+			log.debug('[ScrollController] User stopped dragging scroll thumb');
 		}
 	};
 
 	const handleMouseLeave = () => {
 		if (context.isDraggingThumb) {
 			context.isDraggingThumb = false;
-			console.log('[ScrollController] User left element while dragging');
+			log.debug('[ScrollController] User left element while dragging');
 		}
 	};
 
@@ -439,11 +442,11 @@ export function unregisterThread(threadId: string): void {
 export function handleStreamingStart(threadId: string): void {
 	const context = threadContexts.get(threadId);
 	if (!context) {
-		console.log('[ScrollController] handleStreamingStart: no context for thread', threadId);
+		log.debug('[ScrollController] handleStreamingStart: no context for thread', threadId);
 		return;
 	}
 
-	console.log('[ScrollController] handleStreamingStart:', threadId);
+	log.debug('[ScrollController] handleStreamingStart:', threadId);
 	sendEvent(threadId, 'STREAM_START');
 	context.autoScrollEnabled = true;
 }
@@ -476,7 +479,7 @@ export function handleStreamingEnd(threadId: string): void {
 export function handleContentUpdate(threadId: string): void {
 	const context = threadContexts.get(threadId);
 	if (!context) {
-		console.log('[ScrollController] handleContentUpdate: no context for thread', threadId);
+		log.debug('[ScrollController] handleContentUpdate: no context for thread', threadId);
 		return;
 	}
 
@@ -486,7 +489,7 @@ export function handleContentUpdate(threadId: string): void {
 	const atBottom = isAtBottomSync(element);
 	const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
 
-	console.log('[ScrollController] handleContentUpdate:', {
+	log.debug('[ScrollController] handleContentUpdate:', {
 		threadId,
 		autoScrollEnabled,
 		streamingActive,
@@ -509,18 +512,18 @@ export function handleContentUpdate(threadId: string): void {
 	if (autoScrollEnabled && streamingActive) {
 		if (atBottom) {
 			// Already at bottom, just update position instantly
-			console.log('[ScrollController] scrolling instantly to bottom');
+			log.debug('[ScrollController] scrolling instantly to bottom');
 			// Keep user input responsive during streaming; do not suppress scroll events here.
 			scrollToBottomInstant(element);
 		} else if (!isAnimationRunning(threadId)) {
 			// Not at bottom and no animation running, start one
-			console.log('[ScrollController] starting animation to bottom');
+			log.debug('[ScrollController] starting animation to bottom');
 			scheduleScrollToBottom(threadId, { priority: 'background', animated: true });
 		} else {
-			console.log('[ScrollController] animation already running, target updated');
+			log.debug('[ScrollController] animation already running, target updated');
 		}
 	} else {
-		console.log('[ScrollController] NOT scrolling:', { autoScrollEnabled, streamingActive });
+		log.debug('[ScrollController] NOT scrolling:', { autoScrollEnabled, streamingActive });
 	}
 }
 

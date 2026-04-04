@@ -1,5 +1,5 @@
-import {describe, expect, it} from 'vitest';
-import {shouldForceInitialBottomScroll} from './chatAreaScroll';
+import { describe, expect, it } from 'vitest';
+import { shouldForceInitialBottomScroll } from './chatAreaScroll';
 
 describe('chatAreaScroll', () => {
 	it('returns true when selected thread is pending and messages loaded successfully', () => {

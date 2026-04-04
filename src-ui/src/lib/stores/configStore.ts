@@ -3,34 +3,37 @@
  * Svelte store for managing LLM providers, models, and operation defaults.
  */
 
-import {derived, get, writable} from 'svelte/store';
+import { derived, get, writable } from 'svelte/store';
 import type {
-    ApiType,
-    ManualModelEntry,
-    Model,
-    ModelsSource,
-    OperationDefault,
-    OperationType,
-    Provider,
-    SaveProviderRequest
+	ApiType,
+	ManualModelEntry,
+	Model,
+	ModelsSource,
+	OperationDefault,
+	OperationType,
+	Provider,
+	SaveProviderRequest
 } from '$lib/types/config';
 import {
-    addManualModel as apiAddManualModel,
-    deleteApiKey as apiDeleteApiKey,
-    fetchModels as apiFetchModels,
-    getManualModels as apiGetManualModels,
-    getModels as apiGetModels,
-    getOperationDefaults,
-    getProviders,
-    removeManualModel as apiRemoveManualModel,
-    removeProvider as apiRemoveProvider,
-    retrieveApiKey as apiRetrieveApiKey,
-    saveProvider as apiSaveProvider,
-    setOperationDefault as apiSetOperationDefault,
-    setProviderModelsSource as apiSetProviderModelsSource,
-    storeApiKey as apiStoreApiKey,
-    validateApiKey as apiValidateApiKey
+	addManualModel as apiAddManualModel,
+	deleteApiKey as apiDeleteApiKey,
+	fetchModels as apiFetchModels,
+	getManualModels as apiGetManualModels,
+	getModels as apiGetModels,
+	getOperationDefaults,
+	getProviders,
+	removeManualModel as apiRemoveManualModel,
+	removeProvider as apiRemoveProvider,
+	retrieveApiKey as apiRetrieveApiKey,
+	saveProvider as apiSaveProvider,
+	setOperationDefault as apiSetOperationDefault,
+	setProviderModelsSource as apiSetProviderModelsSource,
+	storeApiKey as apiStoreApiKey,
+	validateApiKey as apiValidateApiKey
 } from '$lib/api/config';
+import { createLogger } from '$lib/utils/logger';
+
+const log = createLogger('ConfigStore');
 
 // ============================================================================
 // Types
@@ -85,13 +88,13 @@ function createConfigStore() {
 			update((state) => ({ ...state, providersLoading: 'loading', error: null }));
 
 			try {
-				console.log('Config store: initializing...');
+				log.info('initializing...');
 				const [providers, defaults] = await Promise.all([getProviders(), getOperationDefaults()]);
 
-				console.log('Config store: loaded providers:', providers);
-				console.log('Config store: loaded defaults:', defaults);
-				console.log(
-					'Config store: provider IDs:',
+				log.info('loaded providers:', providers);
+				log.info('loaded defaults:', defaults);
+				log.info(
+					'provider IDs:',
 					providers.map((p) => ({ id: p.id, name: p.name, isConfigured: p.isConfigured }))
 				);
 
@@ -103,15 +106,15 @@ function createConfigStore() {
 							const models = await apiGetModels(provider.id);
 							if (models.length > 0) {
 								modelsByProvider[provider.id] = models;
-								console.log(`Config store: loaded ${models.length} models for ${provider.id}`);
+								log.info(`loaded ${models.length} models for ${provider.id}`);
 							}
 						} catch (error) {
-							console.warn(`Config store: failed to load models for ${provider.id}:`, error);
+							log.warn(`failed to load models for ${provider.id}:`, error);
 						}
 					}
 				}
 
-				console.log('Config store: loaded models:', modelsByProvider);
+				log.info('loaded models:', modelsByProvider);
 
 				update((state) => ({
 					...state,
@@ -122,7 +125,7 @@ function createConfigStore() {
 					defaultsLoading: 'success'
 				}));
 			} catch (error) {
-				console.error('Config store: initialization failed:', error);
+				log.error('initialization failed:', error);
 				update((state) => ({
 					...state,
 					providersLoading: 'error',
@@ -268,17 +271,12 @@ function createConfigStore() {
 			apiType: ApiType,
 			baseUrl?: string
 		): Promise<string[]> {
-			console.log(
-				'[ConfigStore] fetchModels called for provider:',
-				providerId,
-				'apiType:',
-				apiType
-			);
+			log.info('fetchModels called for provider:', providerId, 'apiType:', apiType);
 			const result = await apiFetchModels(providerId, apiKey, apiType, baseUrl ?? undefined);
-			console.log('[ConfigStore] fetchModels result:', result);
+			log.info('fetchModels result:', result);
 
 			if (result.success) {
-				console.log('[ConfigStore] Fetch successful, models:', result.models);
+				log.info('Fetch successful, models:', result.models);
 
 				// Convert model names to Model objects
 				const models: Model[] = result.models.map((name) => ({
@@ -311,13 +309,11 @@ function createConfigStore() {
 					};
 				});
 
-				console.log(
-					'[ConfigStore] Provider configured successfully, reloading providers from backend...'
-				);
+				log.info('Provider configured successfully, reloading providers from backend...');
 				// Reload providers from backend to ensure synchronization
 				await this.reloadProviders();
 			} else {
-				console.error('[ConfigStore] Fetch failed:', result.message);
+				log.error('Fetch failed:', result.message);
 				// Throw an error with the message from the backend
 				throw new Error(result.message || 'Failed to fetch models');
 			}

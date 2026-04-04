@@ -1,8 +1,8 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ThreadPanel from './ThreadPanel.svelte';
-import type {Thread} from '$lib/types/thread';
-import type {Message} from '$lib/types/message';
+import type { Thread } from '$lib/types/thread';
+import type { Message } from '$lib/types/message';
 
 // Mock the stores
 const mockChatStore = {

@@ -138,8 +138,8 @@
 }
 
 /* Active sort column styling */
-.headerCell.sortable[aria-sort="ascending"] .sortIcon,
-.headerCell.sortable[aria-sort="descending"] .sortIcon {
+.headerCell.sortable[aria-sort='ascending'] .sortIcon,
+.headerCell.sortable[aria-sort='descending'] .sortIcon {
 	opacity: 1;
 	color: var(--color-accent-primary);
 }

@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ThinkingMessage from './ThinkingMessage.svelte';
-import type {Message} from '$lib/types/message';
+import type { Message } from '$lib/types/message';
 
 describe('ThinkingMessage', () => {
 	let mockMessage: Message;
@@ -213,7 +213,9 @@ describe('ThinkingMessage', () => {
 				message: streamingMessage
 			});
 			// Should show the reasoning, not the "Thinking..." placeholder
-			expect(screen.getByText('I need to check the function signature first...')).toBeInTheDocument();
+			expect(
+				screen.getByText('I need to check the function signature first...')
+			).toBeInTheDocument();
 			const thinkingIndicator = screen.queryByText('Thinking...');
 			expect(thinkingIndicator).not.toBeInTheDocument();
 		});
@@ -279,7 +281,7 @@ describe('ThinkingMessage', () => {
 			render(ThinkingMessage, {
 				message: mockMessage
 			});
-			const button = screen.getByRole('button', {name: 'Collapse thinking'});
+			const button = screen.getByRole('button', { name: 'Collapse thinking' });
 			expect(button).toBeInTheDocument();
 		});
 
@@ -299,7 +301,7 @@ describe('ThinkingMessage', () => {
 			const button = screen.getByRole('button');
 			await fireEvent.click(button);
 
-			const collapsedButton = screen.getByRole('button', {name: 'Expand thinking'});
+			const collapsedButton = screen.getByRole('button', { name: 'Expand thinking' });
 			expect(collapsedButton).toHaveAttribute('aria-expanded', 'false');
 		});
 	});
@@ -367,8 +369,6 @@ describe('ThinkingMessage', () => {
 			const container = document.body;
 			expect(container).toBeInTheDocument();
 		});
-
-
 
 		it('handles undefined metadata', () => {
 			const { container } = render(ThinkingMessage, {

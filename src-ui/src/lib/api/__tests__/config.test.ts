@@ -1,28 +1,28 @@
 /**
  * Tests for Config API Client
  */
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    addManualModel,
-    ConfigApiError,
-    deleteApiKey,
-    fetchModels,
-    getManualModels,
-    getModels,
-    getOperationDefaults,
-    getProviders,
-    hasApiKey,
-    removeManualModel,
-    removeProvider,
-    retrieveApiKey,
-    saveProvider,
-    setOperationDefault,
-    setProviderModelsSource,
-    storeApiKey,
-    testConnection,
-    validateApiKey
+	addManualModel,
+	ConfigApiError,
+	deleteApiKey,
+	fetchModels,
+	getManualModels,
+	getModels,
+	getOperationDefaults,
+	getProviders,
+	hasApiKey,
+	removeManualModel,
+	removeProvider,
+	retrieveApiKey,
+	saveProvider,
+	setOperationDefault,
+	setProviderModelsSource,
+	storeApiKey,
+	testConnection,
+	validateApiKey
 } from '../config';
-import {invoke} from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({

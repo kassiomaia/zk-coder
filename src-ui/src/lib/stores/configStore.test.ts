@@ -3,29 +3,29 @@
  * Comprehensive test coverage for all configuration store functionality.
  */
 
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {get} from 'svelte/store';
-import type {Model, OperationDefault, OperationType, Provider} from '$lib/types/config';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { get } from 'svelte/store';
+import type { Model, OperationDefault, OperationType, Provider } from '$lib/types/config';
 import {
-    addManualModel,
-    deleteApiKey,
-    fetchModels,
-    getManualModels,
-    getModels,
-    getOperationDefaults,
-    getProviders,
-    removeManualModel,
-    removeProvider,
-    retrieveApiKey,
-    saveProvider,
-    setOperationDefault,
-    setProviderModelsSource,
-    storeApiKey,
-    validateApiKey
+	addManualModel,
+	deleteApiKey,
+	fetchModels,
+	getManualModels,
+	getModels,
+	getOperationDefaults,
+	getProviders,
+	removeManualModel,
+	removeProvider,
+	retrieveApiKey,
+	saveProvider,
+	setOperationDefault,
+	setProviderModelsSource,
+	storeApiKey,
+	validateApiKey
 } from '$lib/api/config';
 
 // Now import after mocking
-import {configStore} from './configStore';
+import { configStore } from './configStore';
 
 // Create mock functions that will be used in vi.mock
 const mockInvoke = vi.fn();
@@ -278,9 +278,7 @@ describe('configStore', () => {
 		});
 
 		it('getAvailableModels returns models with matching capability', () => {
-		 const mockProviders = [
-				createMockProvider('prov-1', 'Provider 1', true)
-			];
+			const mockProviders = [createMockProvider('prov-1', 'Provider 1', true)];
 			const mockModels = [
 				createMockModel('model-1', 'prov-1', 'Code Model'),
 				createMockModel('model-2', 'prov-1', 'Vision Model')
@@ -402,9 +400,7 @@ describe('configStore', () => {
 				success: true,
 				models: mockModels
 			});
-			vi.mocked(getProviders).mockResolvedValue([
-				createMockProvider('prov-1', 'Provider 1', true)
-			]);
+			vi.mocked(getProviders).mockResolvedValue([createMockProvider('prov-1', 'Provider 1', true)]);
 
 			const result = await configStore.fetchModels('prov-1', 'test-key', 'openai');
 
@@ -438,9 +434,9 @@ describe('configStore', () => {
 				message: 'Invalid API key'
 			});
 
-			await expect(
-				configStore.fetchModels('prov-1', 'invalid-key', 'openai')
-			).rejects.toThrow('Invalid API key');
+			await expect(configStore.fetchModels('prov-1', 'invalid-key', 'openai')).rejects.toThrow(
+				'Invalid API key'
+			);
 		});
 
 		it('fetchModels calls reloadProviders after success', async () => {
@@ -448,9 +444,7 @@ describe('configStore', () => {
 				success: true,
 				models: ['model-1']
 			});
-			vi.mocked(getProviders).mockResolvedValue([
-				createMockProvider('prov-1', 'Provider 1', true)
-			]);
+			vi.mocked(getProviders).mockResolvedValue([createMockProvider('prov-1', 'Provider 1', true)]);
 
 			await configStore.fetchModels('prov-1', 'test-key', 'openai');
 
@@ -469,7 +463,12 @@ describe('configStore', () => {
 		it('validateApiKey passes baseUrl to API', async () => {
 			await configStore.validateApiKey('prov-1', 'test-key', 'openai', 'https://api.example.com');
 
-			expect(validateApiKey).toHaveBeenCalledWith('prov-1', 'test-key', 'openai', 'https://api.example.com');
+			expect(validateApiKey).toHaveBeenCalledWith(
+				'prov-1',
+				'test-key',
+				'openai',
+				'https://api.example.com'
+			);
 		});
 
 		it('storeApiKey stores key in keychain', async () => {
@@ -629,9 +628,9 @@ describe('configStore', () => {
 		it('handles fetchModels API errors', async () => {
 			vi.mocked(fetchModels).mockRejectedValue(new Error('Network error'));
 
-			await expect(
-				configStore.fetchModels('prov-1', 'test-key', 'openai')
-			).rejects.toThrow('Network error');
+			await expect(configStore.fetchModels('prov-1', 'test-key', 'openai')).rejects.toThrow(
+				'Network error'
+			);
 		});
 
 		it('handles storeApiKey errors', async () => {
@@ -655,7 +654,9 @@ describe('configStore', () => {
 		it('handles setOperationDefault errors', async () => {
 			vi.mocked(setOperationDefault).mockRejectedValue(new Error('Update failed'));
 
-			await expect(configStore.setOperationDefault('code', 'model-1')).rejects.toThrow('Update failed');
+			await expect(configStore.setOperationDefault('code', 'model-1')).rejects.toThrow(
+				'Update failed'
+			);
 		});
 	});
 });

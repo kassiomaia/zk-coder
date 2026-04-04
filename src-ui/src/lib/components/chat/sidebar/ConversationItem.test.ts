@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ConversationItem from './ConversationItem.svelte';
-import type {Conversation} from '$lib/types/thread';
+import type { Conversation } from '$lib/types/thread';
 
 describe('ConversationItem', () => {
 	let mockConversation: Conversation;

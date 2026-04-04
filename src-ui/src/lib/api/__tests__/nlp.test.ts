@@ -1,23 +1,23 @@
 /**
  * Tests for NLP API Client
  */
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    addContextMessage,
-    analyzeCode,
-    applyResolutions,
-    classifyIntent,
-    clearConversationContext,
-    createDebouncedClassifier,
-    detectAmbiguities,
-    detectMultiIntent,
-    getConversationContext,
-    isBackendAvailable,
-    NlpApiError,
-    resolveAmbiguity,
-    updateProjectFiles
+	addContextMessage,
+	analyzeCode,
+	applyResolutions,
+	classifyIntent,
+	clearConversationContext,
+	createDebouncedClassifier,
+	detectAmbiguities,
+	detectMultiIntent,
+	getConversationContext,
+	isBackendAvailable,
+	NlpApiError,
+	resolveAmbiguity,
+	updateProjectFiles
 } from '../nlp';
-import {invoke} from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
@@ -261,7 +261,7 @@ describe('nlp API', () => {
 							end: 35,
 							text: 'and test it'
 						},
-						confidence: 0.90
+						confidence: 0.9
 					}
 				],
 				relationships: ['sequential' as const],
@@ -443,9 +443,7 @@ describe('nlp API', () => {
 
 	describe('applyResolutions', () => {
 		it('should apply multiple resolutions to input', async () => {
-			mockInvoke.mockResolvedValueOnce(
-				'Fix the bug in src/main.ts and update src/utils.ts'
-			);
+			mockInvoke.mockResolvedValueOnce('Fix the bug in src/main.ts and update src/utils.ts');
 
 			const result = await applyResolutions({
 				input: 'Fix the bug in that file and update this other file',
@@ -668,11 +666,7 @@ describe('nlp API', () => {
 		it('should update project files', async () => {
 			mockInvoke.mockResolvedValueOnce(undefined);
 
-			await updateProjectFiles([
-				'src/main.ts',
-				'src/utils.ts',
-				'src/app.ts'
-			]);
+			await updateProjectFiles(['src/main.ts', 'src/utils.ts', 'src/app.ts']);
 
 			expect(mockInvoke).toHaveBeenCalledWith('update_project_files', {
 				files: ['src/main.ts', 'src/utils.ts', 'src/app.ts']

@@ -35,9 +35,10 @@ function createDocumentGenerationStore() {
 	// Refresh state from the tracker
 	function refresh() {
 		const jobs = documentGenerationTracker.getActiveJobs();
-		const activeJob = jobs.length > 0
-			? jobs.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0]
-			: null;
+		const activeJob =
+			jobs.length > 0
+				? jobs.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0]
+				: null;
 
 		update((state) => ({
 			...state,
@@ -123,23 +124,14 @@ export const documentGenerationStore = createDocumentGenerationStore();
 /**
  * Store for the currently active document generation job
  */
-export const activeDocGenJob = derived(
-	documentGenerationStore,
-	($state) => $state.activeJob
-);
+export const activeDocGenJob = derived(documentGenerationStore, ($state) => $state.activeJob);
 
 /**
  * Store for whether there's an active document generation job
  */
-export const hasActiveDocGenJob = derived(
-	documentGenerationStore,
-	($state) => $state.hasActiveJob
-);
+export const hasActiveDocGenJob = derived(documentGenerationStore, ($state) => $state.hasActiveJob);
 
 /**
  * Store for all active document generation jobs
  */
-export const activeDocGenJobs = derived(
-	documentGenerationStore,
-	($state) => $state.jobs
-);
+export const activeDocGenJobs = derived(documentGenerationStore, ($state) => $state.jobs);

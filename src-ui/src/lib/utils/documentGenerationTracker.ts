@@ -12,7 +12,11 @@
  */
 
 import type { Message } from '$lib/types/message';
-import type { DocType, GenPhase, ProgressStep } from '$lib/components/chat/messages/DocumentGenerationCard.svelte';
+import type {
+	DocType,
+	GenPhase,
+	ProgressStep
+} from '$lib/components/chat/messages/DocumentGenerationCard.svelte';
 
 /** Document generation job state */
 export interface DocumentGenerationJob {

@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { describe, expect, it, vi } from 'vitest';
 import ProviderCard from './ProviderCard.svelte';
-import type {Provider} from '$lib/types/config';
+import type { Provider } from '$lib/types/config';
 
 describe('ProviderCard', () => {
 	const mockUnconfiguredProvider: Provider = {

@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ThreadView from './ThreadView.svelte';
-import type {Thread} from '$lib/types/thread';
+import type { Thread } from '$lib/types/thread';
 
 describe('ThreadView', () => {
 	const mockThreads: Thread[] = [
@@ -266,9 +266,7 @@ describe('ThreadView', () => {
 				threads: [],
 				onSelect: vi.fn()
 			});
-			expect(
-				screen.getByText('Create a thread to organize your conversation')
-			).toBeInTheDocument();
+			expect(screen.getByText('Create a thread to organize your conversation')).toBeInTheDocument();
 		});
 
 		it('does not show section headers when empty', () => {

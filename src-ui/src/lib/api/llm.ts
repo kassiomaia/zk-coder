@@ -3,9 +3,9 @@
  * TypeScript wrappers for Tauri IPC commands to the LLM backend.
  */
 
-import {invoke} from '@tauri-apps/api/core';
-import {listen, type UnlistenFn} from '@tauri-apps/api/event';
-import type {Message} from '$lib/types/message';
+import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import type { Message } from '$lib/types/message';
 
 // ============================================================================
 // Error Handling

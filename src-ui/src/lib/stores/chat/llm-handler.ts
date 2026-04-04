@@ -5,19 +5,22 @@
  * Extracted from chat.ts for maintainability.
  */
 
-import {type Updater} from 'svelte/store';
-import type {Message} from '$lib/types/message';
+import { type Updater } from 'svelte/store';
+import type { Message } from '$lib/types/message';
 import {
-    isChunkEvent,
-    isCompleteEvent,
-    isErrorEvent,
-    isStartedEvent,
-    type LlmEvent,
-    sendChatMessageStreaming,
-    type StreamChatResult
+	isChunkEvent,
+	isCompleteEvent,
+	isErrorEvent,
+	isStartedEvent,
+	type LlmEvent,
+	sendChatMessageStreaming,
+	type StreamChatResult
 } from '$lib/api/llm';
-import {configStore} from '../configStore';
-import type {ChatState, LlmRequestOptions, StreamingContext, ThreadStreamingState} from './types';
+import { configStore } from '../configStore';
+import type { ChatState, LlmRequestOptions, StreamingContext, ThreadStreamingState } from './types';
+import { createLogger } from '$lib/utils/logger';
+
+const log = createLogger('llmHandler');
 
 // ============================================================================
 // Types
@@ -102,12 +105,24 @@ export class LlmHandler {
 		threadStreaming: Record<string, ThreadStreamingState>
 	): ChatState['llm'] {
 		if (!state.selectedThreadId) {
-			return { isStreaming: false, requestId: null, streamingContent: '', streamingReasoning: '', model: null };
+			return {
+				isStreaming: false,
+				requestId: null,
+				streamingContent: '',
+				streamingReasoning: '',
+				model: null
+			};
 		}
 
 		const selected = threadStreaming[state.selectedThreadId];
 		if (!selected) {
-			return { isStreaming: false, requestId: null, streamingContent: '', streamingReasoning: '', model: null };
+			return {
+				isStreaming: false,
+				requestId: null,
+				streamingContent: '',
+				streamingReasoning: '',
+				model: null
+			};
 		}
 
 		return {
@@ -154,7 +169,7 @@ export class LlmHandler {
 		const stream = this.activeStreams.get(requestId);
 		if (stream) {
 			stream.cancel().catch((error) => {
-				console.error(`Failed to cancel timed out stream ${requestId}:`, error);
+				log.error(`Failed to cancel timed out stream ${requestId}:`, error);
 			});
 			stream.unsubscribe();
 			this.activeStreams.delete(requestId);
@@ -306,7 +321,8 @@ export class LlmHandler {
 					assistantMessageId,
 					isStreaming: true,
 					requestId: null,
-					streamingContent: '', streamingReasoning: '',
+					streamingContent: '',
+					streamingReasoning: '',
 					model: options?.modelId ?? null
 				}
 			};
@@ -408,11 +424,11 @@ export class LlmHandler {
 							? s.messages.map((message) =>
 									message.id === assistantMessageId
 										? {
-														...message,
-														content: contentToUpdate,
-														reasoning: reasoningToUpdate || message.reasoning,
-														status: 'sending' as const
-													}
+												...message,
+												content: contentToUpdate,
+												reasoning: reasoningToUpdate || message.reasoning,
+												status: 'sending' as const
+											}
 										: message
 								)
 							: [
@@ -646,7 +662,7 @@ export class LlmHandler {
 		try {
 			await stream.cancel();
 		} catch (error) {
-			console.error(`Failed to cancel LLM stream for thread ${threadId}:`, error);
+			log.error(`Failed to cancel LLM stream for thread ${threadId}:`, error);
 		} finally {
 			stream.unsubscribe();
 			this.clearStreamTimeout(threadId);
@@ -673,7 +689,7 @@ export class LlmHandler {
 			try {
 				await stream.cancel();
 			} catch (error) {
-				console.error(`Failed to cancel LLM stream ${requestId}:`, error);
+				log.error(`Failed to cancel LLM stream ${requestId}:`, error);
 			} finally {
 				stream.unsubscribe();
 				this.clearStreamTimeout(requestId);
@@ -686,7 +702,13 @@ export class LlmHandler {
 		this.update((s) => ({
 			...s,
 			threadStreaming: {},
-			llm: { isStreaming: false, requestId: null, streamingContent: '', streamingReasoning: '', model: null }
+			llm: {
+				isStreaming: false,
+				requestId: null,
+				streamingContent: '',
+				streamingReasoning: '',
+				model: null
+			}
 		}));
 	}
 
@@ -698,7 +720,7 @@ export class LlmHandler {
 			try {
 				await stream.cancel();
 			} catch (error) {
-				console.error(`Failed to cancel stream ${requestId}:`, error);
+				log.error(`Failed to cancel stream ${requestId}:`, error);
 			} finally {
 				stream.unsubscribe();
 				this.clearStreamTimeout(requestId);
@@ -761,7 +783,7 @@ export class LlmHandler {
 	 */
 	reset(): void {
 		for (const [requestId, stream] of this.activeStreams) {
-			stream.cancel().catch(console.error);
+			stream.cancel().catch((err) => log.error('Stream cancel failed:', err));
 			stream.unsubscribe();
 			this.clearStreamTimeout(requestId);
 		}

@@ -1,5 +1,5 @@
-import {describe, expect, it} from 'vitest';
-import {buildContextNoticeContent, parseSystemNoticeFromMessage} from './systemNotices';
+import { describe, expect, it } from 'vitest';
+import { buildContextNoticeContent, parseSystemNoticeFromMessage } from './systemNotices';
 
 describe('systemNotices', () => {
 	it('builds subtask transition copy without message counts', () => {

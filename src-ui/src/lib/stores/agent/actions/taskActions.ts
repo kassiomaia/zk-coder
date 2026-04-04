@@ -3,7 +3,7 @@
  * Task and subtask management functions for the agent store.
  */
 
-import type {AgentState} from '../state';
+import type { AgentState } from '../state';
 
 /**
  * Create a new subtask for task decomposition.

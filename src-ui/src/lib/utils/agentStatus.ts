@@ -3,7 +3,7 @@
  * Convert agent events and state into user-friendly status messages.
  */
 
-import type {AgentEvent, ExecutionStep, SessionState, SubTask} from '$lib/types/agent';
+import type { AgentEvent, ExecutionStep, SessionState, SubTask } from '$lib/types/agent';
 
 /** Current agent status with icon hint */
 export interface AgentStatus {
@@ -243,7 +243,11 @@ export function getAgentStatus(
 		if (stepStatus) {
 			// Append context usage if > 50%
 			if (usage > 50) {
-				return addStallInfo({ ...stepStatus, text: `${stepStatus.text} (${Math.round(usage)}%)`, contextUsage: usage });
+				return addStallInfo({
+					...stepStatus,
+					text: `${stepStatus.text} (${Math.round(usage)}%)`,
+					contextUsage: usage
+				});
 			}
 			return addStallInfo(stepStatus);
 		}
@@ -255,7 +259,11 @@ export function getAgentStatus(
 		if (subtaskStatus) {
 			// Append context usage if > 50%
 			if (usage > 50) {
-				return addStallInfo({ ...subtaskStatus, text: `${subtaskStatus.text} (${Math.round(usage)}%)`, contextUsage: usage });
+				return addStallInfo({
+					...subtaskStatus,
+					text: `${subtaskStatus.text} (${Math.round(usage)}%)`,
+					contextUsage: usage
+				});
 			}
 			return addStallInfo(subtaskStatus);
 		}
@@ -266,7 +274,11 @@ export function getAgentStatus(
 		const status = stateToStatus(state);
 		// Append context usage if > 50%
 		if (usage > 50) {
-			return addStallInfo({ ...status, text: `${status.text} (${Math.round(usage)}%)`, contextUsage: usage });
+			return addStallInfo({
+				...status,
+				text: `${status.text} (${Math.round(usage)}%)`,
+				contextUsage: usage
+			});
 		}
 		return addStallInfo(status);
 	}

@@ -1,9 +1,9 @@
 /**
  * Tests for File API Client
  */
-import {beforeEach, describe, expect, it, vi} from 'vitest';
-import {type FileContentResponse, getFileContent} from '../file';
-import {invoke} from '@tauri-apps/api/core';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type FileContentResponse, getFileContent } from '../file';
+import { invoke } from '@tauri-apps/api/core';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
@@ -141,7 +141,11 @@ describe('file API', () => {
 			};
 			mockInvoke.mockResolvedValueOnce(mockResponse);
 
-			const result = await getFileContent('/workspace', 'src/path with spaces/file.ts', 'session-123');
+			const result = await getFileContent(
+				'/workspace',
+				'src/path with spaces/file.ts',
+				'session-123'
+			);
 
 			expect(result.path).toBe('src/path with spaces/file.ts');
 		});

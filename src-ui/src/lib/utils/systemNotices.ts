@@ -1,5 +1,5 @@
-import type {AgentEvent} from '$lib/types/agent';
-import type {ContextUpdateNotice, MessageRole, SystemNoticeReason} from '$lib/types/message';
+import type { AgentEvent } from '$lib/types/agent';
+import type { ContextUpdateNotice, MessageRole, SystemNoticeReason } from '$lib/types/message';
 
 type ContextCompactedEvent = Extract<AgentEvent, { type: 'context_compacted' }>;
 

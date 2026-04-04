@@ -13,12 +13,12 @@
 	--card-hover: var(--color-interactive-hover);
 
 	/* File type colors */
-	--docx-color: #2b579a;
-	--docx-light: rgba(43, 87, 154, 0.12);
-	--pdf-color: #f40f02;
-	--pdf-light: rgba(244, 15, 2, 0.12);
-	--pptx-color: #d24726;
-	--pptx-light: rgba(210, 71, 38, 0.12);
+	--docx-color: var(--color-artifact-docx);
+	--docx-light: var(--color-artifact-docx-light);
+	--pdf-color: var(--color-artifact-pdf);
+	--pdf-light: var(--color-artifact-pdf-light);
+	--pptx-color: var(--color-artifact-pptx);
+	--pptx-light: var(--color-artifact-pptx-light);
 
 	background: var(--card-bg);
 	border: 1px solid var(--card-border);
@@ -249,11 +249,7 @@
 
 .progressFill {
 	height: 100%;
-	background: linear-gradient(
-		90deg,
-		var(--color-primary-400) 0%,
-		var(--color-primary-300) 100%
-	);
+	background: linear-gradient(90deg, var(--color-primary-400) 0%, var(--color-primary-300) 100%);
 	border-radius: var(--radius-full);
 	transition: width var(--transition-normal) var(--ease-out);
 	position: relative;
@@ -305,11 +301,7 @@
 
 .indeterminateBar {
 	height: 100%;
-	background: linear-gradient(
-		90deg,
-		var(--color-primary-400) 0%,
-		var(--color-primary-300) 100%
-	);
+	background: linear-gradient(90deg, var(--color-primary-400) 0%, var(--color-primary-300) 100%);
 	border-radius: var(--radius-full);
 	animation: indeterminateSlide 1.5s ease-in-out infinite;
 	width: 40%;

@@ -21,9 +21,7 @@ export function requestPopoverOpen(id: string): void {
  * Callback receives the ID of the popover requesting to open,
  * so listeners can ignore the event if they are the requesting popover.
  */
-export function onPopoverCloseAll(
-	callback: (requestingId: string) => void
-): () => void {
+export function onPopoverCloseAll(callback: (requestingId: string) => void): () => void {
 	const handler = (e: Event) => {
 		const event = e as CustomEvent<{ requestingId: string }>;
 		callback(event.detail.requestingId);

@@ -5,46 +5,49 @@
  * LLM streaming logic extracted to ./chat/llm-handler.ts
  */
 
-import {get, writable} from 'svelte/store';
-import type {Conversation, ConversationSettings, Thread} from '$lib/types/thread';
-import type {Message} from '$lib/types/message';
+import { get, writable } from 'svelte/store';
+import type { Conversation, ConversationSettings, Thread } from '$lib/types/thread';
+import type { Message } from '$lib/types/message';
 import {
-    addContextMessage,
-    applyResolutions,
-    createDebouncedClassifier,
-    detectAmbiguities,
-    isBackendAvailable,
-    resolveAmbiguity
+	addContextMessage,
+	applyResolutions,
+	createDebouncedClassifier,
+	detectAmbiguities,
+	isBackendAvailable,
+	resolveAmbiguity
 } from '$lib/api/nlp';
-import type {ResolutionType} from '$lib/types/nlp';
+import type { ResolutionType } from '$lib/types/nlp';
 import {
-    archiveConversation as apiArchiveConversation,
-    archiveThread as apiArchiveThread,
-    createConversation as apiCreateConversation,
-    createThread as apiCreateThread,
-    createThreadWithMessage as apiCreateThreadWithMessage,
-    deleteConversation as apiDeleteConversation,
-    deleteMessage as apiDeleteMessage,
-    deleteThread as apiDeleteThread,
-    loadConversations,
-    loadThreadMessages,
-    loadThreads,
-    renameConversation as apiRenameConversation,
-    renameThread as apiRenameThread,
-    resolveThread as apiResolveThread,
-    sendMessage as apiSendMessage,
-    setConversationWorkspace as apiSetConversationWorkspace,
-    setThreadAgentSession,
-    updateConversationSettings as apiUpdateConversationSettings,
-    updateMessageFeedback as apiUpdateMessageFeedback,
-    updateMessageStatus as apiUpdateMessageStatus
+	archiveConversation as apiArchiveConversation,
+	archiveThread as apiArchiveThread,
+	createConversation as apiCreateConversation,
+	createThread as apiCreateThread,
+	createThreadWithMessage as apiCreateThreadWithMessage,
+	deleteConversation as apiDeleteConversation,
+	deleteMessage as apiDeleteMessage,
+	deleteThread as apiDeleteThread,
+	loadConversations,
+	loadThreadMessages,
+	loadThreads,
+	renameConversation as apiRenameConversation,
+	renameThread as apiRenameThread,
+	resolveThread as apiResolveThread,
+	sendMessage as apiSendMessage,
+	setConversationWorkspace as apiSetConversationWorkspace,
+	setThreadAgentSession,
+	updateConversationSettings as apiUpdateConversationSettings,
+	updateMessageFeedback as apiUpdateMessageFeedback,
+	updateMessageStatus as apiUpdateMessageStatus
 } from '$lib/api/chat';
-import {LlmHandler} from './chat/llm-handler';
-import type {ChatState, LlmRequestOptions} from './chat/types';
-import {deriveThreadTitle, sortThreadsByRecent} from './chat/utils';
-import {agentStore} from './agentStore';
-import {configStore} from './configStore';
-import {createDerivedStores} from './chat/derived-stores';
+import { LlmHandler } from './chat/llm-handler';
+import type { ChatState, LlmRequestOptions } from './chat/types';
+import { deriveThreadTitle, sortThreadsByRecent } from './chat/utils';
+import { agentStore } from './agentStore';
+import { configStore } from './configStore';
+import { createDerivedStores } from './chat/derived-stores';
+import { createLogger } from '$lib/utils/logger';
+
+const log = createLogger('chatStore');
 
 // ============================================================================
 // Initial State
@@ -443,18 +446,22 @@ function createChatStore() {
 				const thread = get({ subscribe }).threads.find((t) => t.id === id);
 				let pausedSessionRecoveryMessage: Message | null = null;
 
-				console.log('[chatStore] selectThread:', { threadId: id, hasAgentSession: !!thread?.metadata.agentSessionId, agentSessionId: thread?.metadata.agentSessionId });
+				log.info('selectThread:', {
+					threadId: id,
+					hasAgentSession: !!thread?.metadata.agentSessionId,
+					agentSessionId: thread?.metadata.agentSessionId
+				});
 
 				if (thread?.metadata.agentSessionId) {
 					// Load the session from backend before setting as active
 					const session = await agentStore.loadSession(thread.metadata.agentSessionId);
-					console.log('[chatStore] Loaded session:', session ? { id: session.id, state: session.state } : null);
+					log.info('Loaded session:', session ? { id: session.id, state: session.state } : null);
 					if (session) {
 						agentStore.setActiveSession(thread.metadata.agentSessionId);
 
 						// Check if session is paused and create recovery message
 						if (session.state.type === 'paused') {
-							console.log('[chatStore] Creating recovery message for paused session');
+							log.info('Creating recovery message for paused session');
 							pausedSessionRecoveryMessage = {
 								id: `recovery-${session.id}`,
 								conversationId: thread.conversationId,
@@ -582,7 +589,7 @@ function createChatStore() {
 							agentStore.setActiveSession(agentSession.id);
 						}
 					} catch (agentError) {
-						console.warn('[chatStore] Failed to create agent session:', agentError);
+						log.warn('Failed to create agent session:', agentError);
 						// Continue without agent - thread can still work as a regular chat
 					}
 
@@ -666,16 +673,12 @@ function createChatStore() {
 					const shouldClearSelection = archived && state.selectedThreadId === id;
 					return {
 						...state,
-						threads: archived
-							? state.threads.filter((t) => t.id !== id)
-							: state.threads,
+						threads: archived ? state.threads.filter((t) => t.id !== id) : state.threads,
 						conversations: state.conversations.map((c) =>
 							c.id === state.selectedConversationId
 								? {
 										...c,
-										threads: archived
-											? (c.threads || []).filter((t) => t.id !== id)
-											: c.threads
+										threads: archived ? (c.threads || []).filter((t) => t.id !== id) : c.threads
 									}
 								: c
 						),
@@ -774,7 +777,7 @@ function createChatStore() {
 				try {
 					await pendingThreadReady;
 				} catch (error) {
-					console.warn('Pending thread creation failed:', error);
+					log.warn('Pending thread creation failed:', error);
 				}
 				state = get({ subscribe });
 			}
@@ -814,7 +817,7 @@ function createChatStore() {
 								agentStore.setActiveSession(agentSession.id);
 							}
 						} catch (agentError) {
-							console.warn('[chatStore] Failed to create agent session:', agentError);
+							log.warn('Failed to create agent session:', agentError);
 						}
 
 						update((s) => ({
@@ -906,7 +909,11 @@ function createChatStore() {
 		async addMessage(message: Message) {
 			update((state) => {
 				// Only add if message belongs to the current view
-				if (message.threadId && state.selectedThreadId && message.threadId !== state.selectedThreadId) {
+				if (
+					message.threadId &&
+					state.selectedThreadId &&
+					message.threadId !== state.selectedThreadId
+				) {
 					return state; // Message belongs to a different thread
 				}
 				return { ...state, messages: [...state.messages, message] };
@@ -921,7 +928,7 @@ function createChatStore() {
 						content: message.content
 					});
 				} catch (error) {
-					console.error('Failed to sync message with backend:', error);
+					log.error('Failed to sync message with backend:', error);
 				}
 			}
 		},
@@ -976,7 +983,7 @@ function createChatStore() {
 				}));
 				return true;
 			} catch (error) {
-				console.error('Failed to update message status:', error);
+				log.error('Failed to update message status:', error);
 				return false;
 			}
 		},
@@ -1005,7 +1012,7 @@ function createChatStore() {
 				}));
 				return true;
 			} catch (error) {
-				console.error('Failed to update message feedback:', error);
+				log.error('Failed to update message feedback:', error);
 				return false;
 			}
 		},
@@ -1084,7 +1091,7 @@ function createChatStore() {
 					}
 				}));
 			} catch (error) {
-				console.error('Failed to detect ambiguities:', error);
+				log.error('Failed to detect ambiguities:', error);
 			}
 		},
 
@@ -1196,7 +1203,7 @@ function createChatStore() {
 			try {
 				return await applyResolutions({ input, resolutions });
 			} catch (error) {
-				console.error('Failed to apply resolutions:', error);
+				log.error('Failed to apply resolutions:', error);
 				return input;
 			}
 		},
@@ -1233,7 +1240,7 @@ function createChatStore() {
 			// Check if thread has an agent session - route through agent instead
 			const state = get({ subscribe });
 			const thread = state.threads.find((t) => t.id === userMessage.threadId);
-			console.debug('[chatStore] sendMessageWithLlm:', {
+			log.debug('sendMessageWithLlm:', {
 				threadId: userMessage.threadId,
 				hasAgentSession: !!thread?.metadata.agentSessionId,
 				agentSessionId: thread?.metadata.agentSessionId
@@ -1297,17 +1304,17 @@ function createChatStore() {
 					return userMessage;
 				}
 
-				console.debug('[chatStore] Routing to agent:', targetSessionId);
+				log.debug('Routing to agent:', targetSessionId);
 				try {
 					await agentStore.sendRequest(targetSessionId, content);
 				} catch (err) {
-					console.error('[chatStore] Agent request failed:', err);
+					log.error('Agent request failed:', err);
 					update((s) => ({ ...s, error: `Agent request failed: ${err}` }));
 				}
 				return userMessage;
 			}
 
-			console.debug('[chatStore] Using normal LLM flow');
+			log.debug('Using normal LLM flow');
 			// Normal LLM flow (no agent)
 			const validationError = llmHandler.validateCanStream(options);
 			if (validationError) {
@@ -1400,7 +1407,7 @@ function createChatStore() {
 				}));
 				return true;
 			} catch (error) {
-				console.error('Failed to set thread workspace:', error);
+				log.error('Failed to set thread workspace:', error);
 				return false;
 			}
 		},

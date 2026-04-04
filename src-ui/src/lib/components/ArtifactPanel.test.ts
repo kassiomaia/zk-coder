@@ -108,9 +108,7 @@ describe('ArtifactPanel', () => {
 		});
 
 		it('should show empty state for filter with no results', async () => {
-			const onlyWordArtifacts: Artifact[] = [
-				{ ...mockArtifacts[0] }
-			];
+			const onlyWordArtifacts: Artifact[] = [{ ...mockArtifacts[0] }];
 
 			render(ArtifactPanel, { artifacts: onlyWordArtifacts });
 
@@ -152,14 +150,16 @@ describe('ArtifactPanel', () => {
 
 	describe('file size formatting', () => {
 		it('should display size in bytes for small files', () => {
-			const smallArtifact: Artifact[] = [{
-				id: 'art_small',
-				sessionId: 'session_1',
-				artifactType: 'Docx',
-				filename: 'tiny.docx',
-				createdAt: '2024-01-01T12:00:00Z',
-				sizeBytes: 512
-			}];
+			const smallArtifact: Artifact[] = [
+				{
+					id: 'art_small',
+					sessionId: 'session_1',
+					artifactType: 'Docx',
+					filename: 'tiny.docx',
+					createdAt: '2024-01-01T12:00:00Z',
+					sizeBytes: 512
+				}
+			];
 
 			render(ArtifactPanel, { artifacts: smallArtifact });
 

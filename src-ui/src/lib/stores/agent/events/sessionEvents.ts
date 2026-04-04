@@ -3,14 +3,17 @@
  * Handles session-related agent events.
  */
 
-import type {AgentEvent} from '$lib/types/agent';
-import type {AgentState} from '../state';
-import {getOnAgentActivity, getOnCleanupTransients, getOnExecutionComplete} from '../callbacks';
+import type { AgentEvent } from '$lib/types/agent';
+import type { AgentState } from '../state';
+import { getOnAgentActivity, getOnCleanupTransients, getOnExecutionComplete } from '../callbacks';
 
 /**
  * Handle session_state_changed event.
  */
-export function handleSessionStateChanged(state: AgentState, event: Extract<AgentEvent, { type: 'session_state_changed' }>) {
+export function handleSessionStateChanged(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'session_state_changed' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		state.sessions.set(event.sessionId, {
@@ -23,7 +26,10 @@ export function handleSessionStateChanged(state: AgentState, event: Extract<Agen
 /**
  * Handle execution_started event.
  */
-export function handleExecutionStarted(state: AgentState, event: Extract<AgentEvent, { type: 'execution_started' }>) {
+export function handleExecutionStarted(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'execution_started' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		state.sessions.set(event.sessionId, {
@@ -59,7 +65,10 @@ export function handleExecutionStarted(state: AgentState, event: Extract<AgentEv
 /**
  * Handle execution_step event.
  */
-export function handleExecutionStep(state: AgentState, event: Extract<AgentEvent, { type: 'execution_step' }>) {
+export function handleExecutionStep(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'execution_step' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		const existingSteps = session.executionSteps ?? [];
@@ -80,13 +89,22 @@ export function handleExecutionStep(state: AgentState, event: Extract<AgentEvent
 /**
  * Handle execution_complete event.
  */
-export function handleExecutionComplete(state: AgentState, event: Extract<AgentEvent, { type: 'execution_complete' }>) {
+export function handleExecutionComplete(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'execution_complete' }>
+) {
 	// Call the callback with conversation/thread IDs from the event
 	const onExecutionComplete = getOnExecutionComplete();
 	if (onExecutionComplete) {
 		const session = state.sessions.get(event.sessionId);
 		const artifacts = session?.artifacts ?? [];
-		onExecutionComplete(event.sessionId, event.conversationId, event.threadId, event.result.content, artifacts);
+		onExecutionComplete(
+			event.sessionId,
+			event.conversationId,
+			event.threadId,
+			event.result.content,
+			artifacts
+		);
 
 		// Clear artifacts from session state after attaching to message
 		// (prevents accumulation across multiple executions in the same session)
@@ -118,7 +136,10 @@ export function handleExecutionComplete(state: AgentState, event: Extract<AgentE
 /**
  * Handle execution_error event.
  */
-export function handleExecutionError(state: AgentState, event: Extract<AgentEvent, { type: 'execution_error' }>) {
+export function handleExecutionError(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'execution_error' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		state.sessions.set(event.sessionId, {
@@ -137,7 +158,10 @@ export function handleExecutionError(state: AgentState, event: Extract<AgentEven
 /**
  * Handle approval events (required, approved, denied).
  */
-export function handleApprovalRequired(state: AgentState, event: Extract<AgentEvent, { type: 'approval_required' }>) {
+export function handleApprovalRequired(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'approval_required' }>
+) {
 	state.pendingActions = [...state.pendingActions, event.action];
 
 	// Inject approval card into chat
@@ -161,7 +185,10 @@ export function handleApprovalRequired(state: AgentState, event: Extract<AgentEv
 	}
 }
 
-export function handleApprovalApproved(state: AgentState, event: Extract<AgentEvent, { type: 'approval_approved' }>) {
+export function handleApprovalApproved(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'approval_approved' }>
+) {
 	state.pendingActions = state.pendingActions.filter((a) => a.id !== event.actionId);
 
 	// Update approval card to show approved state
@@ -179,7 +206,10 @@ export function handleApprovalApproved(state: AgentState, event: Extract<AgentEv
 	}
 }
 
-export function handleApprovalDenied(state: AgentState, event: Extract<AgentEvent, { type: 'approval_denied' }>) {
+export function handleApprovalDenied(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'approval_denied' }>
+) {
 	state.pendingActions = state.pendingActions.filter((a) => a.id !== event.actionId);
 
 	// Update approval card to show denied state
@@ -201,7 +231,10 @@ export function handleApprovalDenied(state: AgentState, event: Extract<AgentEven
  * Handle artifact_created event.
  * Stores the artifact reference in the session for later attachment to the final message.
  */
-export function handleArtifactCreated(state: AgentState, event: Extract<AgentEvent, { type: 'artifact_created' }>) {
+export function handleArtifactCreated(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'artifact_created' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		const existingArtifacts = session.artifacts ?? [];
@@ -226,7 +259,10 @@ export function handleArtifactCreated(state: AgentState, event: Extract<AgentEve
  * Handle session_paused event.
  * Creates a recovery message in the chat when a session is recovered after app restart.
  */
-export function handleSessionPaused(state: AgentState, event: Extract<AgentEvent, { type: 'session_paused' }>) {
+export function handleSessionPaused(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'session_paused' }>
+) {
 	// Update session state
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
@@ -264,7 +300,10 @@ export function handleSessionPaused(state: AgentState, event: Extract<AgentEvent
  * Handle recovery_continue event.
  * Updates the recovery message to show "resuming..." state.
  */
-export function handleRecoveryContinue(state: AgentState, event: Extract<AgentEvent, { type: 'recovery_continue' }>) {
+export function handleRecoveryContinue(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'recovery_continue' }>
+) {
 	const onAgentActivity = getOnAgentActivity();
 	const session = state.sessions.get(event.sessionId);
 	if (onAgentActivity && session) {
@@ -283,7 +322,10 @@ export function handleRecoveryContinue(state: AgentState, event: Extract<AgentEv
  * Handle recovery_replan event.
  * Updates the recovery message to show "replanning..." state.
  */
-export function handleRecoveryReplan(state: AgentState, event: Extract<AgentEvent, { type: 'recovery_replan' }>) {
+export function handleRecoveryReplan(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'recovery_replan' }>
+) {
 	const onAgentActivity = getOnAgentActivity();
 	const session = state.sessions.get(event.sessionId);
 	if (onAgentActivity && session) {

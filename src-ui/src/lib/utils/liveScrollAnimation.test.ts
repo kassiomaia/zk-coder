@@ -2,18 +2,18 @@
  * Tests for liveScrollAnimation
  */
 
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    getAnimationId,
-    getAnimationPriority,
-    getDebugInfo,
-    scrollToBottomInstant,
-    scrollToBottomLive,
-    startLiveAnimation,
-    stop,
-    stopAll,
-    stopById,
-    updateLiveTarget
+	getAnimationId,
+	getAnimationPriority,
+	getDebugInfo,
+	scrollToBottomInstant,
+	scrollToBottomLive,
+	startLiveAnimation,
+	stop,
+	stopAll,
+	stopById,
+	updateLiveTarget
 } from './liveScrollAnimation';
 
 describe('liveScrollAnimation', () => {
@@ -104,7 +104,7 @@ describe('liveScrollAnimation', () => {
 			});
 
 			const debugInfo = getDebugInfo();
-			const anim = debugInfo.animations.find(a => a.id === result.id);
+			const anim = debugInfo.animations.find((a) => a.id === result.id);
 
 			expect(anim).toBeDefined();
 			expect(anim?.threadId).toBe('test-5');
@@ -252,7 +252,7 @@ describe('liveScrollAnimation', () => {
 			});
 
 			const debugInfo = getDebugInfo();
-			const anim = debugInfo.animations.find(a => a.threadId === 'test-15');
+			const anim = debugInfo.animations.find((a) => a.threadId === 'test-15');
 
 			expect(anim).toMatchObject({
 				id: expect.any(String),
@@ -352,11 +352,7 @@ describe('liveScrollAnimation', () => {
 		it('should return animation ID from scrollToBottomLive', () => {
 			testElement.scrollTop = 0;
 
-			const id = scrollToBottomLive(
-				testElement,
-				'test-21',
-				'background'
-			);
+			const id = scrollToBottomLive(testElement, 'test-21', 'background');
 
 			expect(id).toMatch(/^live-anim-\d+$/);
 		});
@@ -364,11 +360,7 @@ describe('liveScrollAnimation', () => {
 		it('should create animation with correct settings via scrollToBottomLive', () => {
 			testElement.scrollTop = 0;
 
-			scrollToBottomLive(
-				testElement,
-				'test-22',
-				'user'
-			);
+			scrollToBottomLive(testElement, 'test-22', 'user');
 
 			expect(getAnimationPriority('test-22')).toBe('user');
 		});

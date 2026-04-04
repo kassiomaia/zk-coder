@@ -1,8 +1,8 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {tick} from 'svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { tick } from 'svelte';
 import TerminalOutput from './TerminalOutput.svelte';
-import type {Message} from '$lib/types/message';
+import type { Message } from '$lib/types/message';
 
 describe('TerminalOutput', () => {
 	let mockMessage: Message;

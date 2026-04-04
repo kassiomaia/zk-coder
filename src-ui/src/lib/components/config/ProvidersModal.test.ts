@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { describe, expect, it, vi } from 'vitest';
 import ProvidersModal from './ProvidersModal.svelte';
-import {configStore} from '$lib/stores/configStore';
+import { configStore } from '$lib/stores/configStore';
 
 // Mock the configStore
 vi.mock('$lib/stores/configStore', () => ({
@@ -62,9 +62,7 @@ describe('ProvidersModal', () => {
 
 		it('renders description text', () => {
 			render(ProvidersModal, mockProps);
-			expect(
-				screen.getByText(/configure one or more ai providers/i)
-			).toBeInTheDocument();
+			expect(screen.getByText(/configure one or more ai providers/i)).toBeInTheDocument();
 		});
 
 		it('shows configured count when providers are configured', () => {

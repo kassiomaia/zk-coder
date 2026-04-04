@@ -3,13 +3,16 @@
  * Handles terminal output events.
  */
 
-import type {AgentEvent} from '$lib/types/agent';
-import type {AgentState} from '../state';
+import type { AgentEvent } from '$lib/types/agent';
+import type { AgentState } from '../state';
 
 /**
  * Handle command_output event.
  */
-export function handleCommandOutput(state: AgentState, event: Extract<AgentEvent, { type: 'command_output' }>) {
+export function handleCommandOutput(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'command_output' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		const line: import('$lib/types/agent').TerminalLine = {
@@ -28,7 +31,10 @@ export function handleCommandOutput(state: AgentState, event: Extract<AgentEvent
 /**
  * Handle command_finished event.
  */
-export function handleCommandFinished(state: AgentState, event: Extract<AgentEvent, { type: 'command_finished' }>) {
+export function handleCommandFinished(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'command_finished' }>
+) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		const line: import('$lib/types/agent').TerminalLine = {

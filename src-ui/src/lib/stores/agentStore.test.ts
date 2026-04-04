@@ -3,11 +3,11 @@
  * Comprehensive test coverage for all agent store functionality.
  */
 
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {get} from 'svelte/store';
-import type {AgentSession, PendingAction} from '$lib/types/agent';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { get } from 'svelte/store';
+import type { AgentSession, PendingAction } from '$lib/types/agent';
 // Now import after mocking
-import {agentStore} from './agentStore';
+import { agentStore } from './agentStore';
 
 // Create mock functions that will be used in vi.mock
 const mockListen = vi.fn();
@@ -109,12 +109,7 @@ describe('agentStore', () => {
 		it('createSession creates a new session successfully', async () => {
 			mockInvoke.mockResolvedValue(mockSession);
 
-			const result = await agentStore.createSession(
-				'agent-1',
-				'conv-1',
-				'thread-1',
-				'/workspace'
-			);
+			const result = await agentStore.createSession('agent-1', 'conv-1', 'thread-1', '/workspace');
 
 			expect(result).toEqual(mockSession);
 			expect(mockInvoke).toHaveBeenCalledWith('create_agent_session', {

@@ -1,6 +1,6 @@
-import {render, screen} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {tick} from 'svelte';
+import { render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { tick } from 'svelte';
 import ChatInputContainer from './ChatInputContainer.svelte';
 
 describe('ChatInputContainer', () => {

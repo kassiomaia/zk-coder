@@ -3,7 +3,7 @@
  * Core state interface and initial state factory for the agent store.
  */
 
-import type {AgentSession, PendingAction} from '$lib/types/agent';
+import type { AgentSession, PendingAction } from '$lib/types/agent';
 
 /**
  * Core state for the agent store.

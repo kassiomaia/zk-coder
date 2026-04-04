@@ -1,9 +1,9 @@
-import {fireEvent, render, screen, waitFor} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ChatMessagesList from './ChatMessagesList.svelte';
-import type {Message, MessageKind} from '$lib/types/message';
-import type {Thread} from '$lib/types/thread';
-import type {AgentStatus} from '$lib/utils/agentStatus';
+import type { Message, MessageKind } from '$lib/types/message';
+import type { Thread } from '$lib/types/thread';
+import type { AgentStatus } from '$lib/utils/agentStatus';
 
 describe('ChatMessagesList', () => {
 	const mockMessages: Message[] = [

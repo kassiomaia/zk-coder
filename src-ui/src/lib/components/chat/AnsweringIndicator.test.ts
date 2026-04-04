@@ -1,8 +1,8 @@
-import {render, screen} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {tick} from 'svelte';
+import { render, screen } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { tick } from 'svelte';
 import AnsweringIndicator from './AnsweringIndicator.svelte';
-import type {AgentStatus} from '$lib/utils/agentStatus';
+import type { AgentStatus } from '$lib/utils/agentStatus';
 
 describe('AnsweringIndicator', () => {
 	const mockStatus: AgentStatus = {

@@ -2,8 +2,19 @@
  * Markdown rendering utility using marked with highlight.js
  * Supports: syntax highlighting, tables, task lists, and base64 images
  */
-import {marked} from 'marked';
+import { marked } from 'marked';
 import hljs from 'highlight.js';
+import { createLogger } from './logger';
+
+const log = createLogger('Markdown');
+
+// Types for marked tokens - based on marked library structure
+interface MarkedToken {
+	text?: string;
+	href?: string;
+	title?: string | null;
+	lang?: string;
+}
 
 /**
  * Escape HTML special characters comprehensively
@@ -25,7 +36,7 @@ export function escapeHtml(str: string): string {
 
 // Custom renderer for images, links, and code blocks
 const renderer = {
-	image(token: any): string | false {
+	image(token: MarkedToken): string | false {
 		const src = token.href || '';
 		const alt = token.text || '';
 		const title = token.title;
@@ -34,7 +45,7 @@ const renderer = {
 		return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"${titleAttr}${lazyAttr} class="markdown-image" data-zoomable="true" />`;
 	},
 
-	link(token: any): string | false {
+	link(token: MarkedToken): string | false {
 		const url = token.href || '#';
 		const text = token.text || '';
 		const title = token.title;
@@ -42,7 +53,7 @@ const renderer = {
 		return `<a href="${escapeHtml(url)}"${titleAttr} target="_blank" rel="noopener noreferrer" class="markdown-link">${text}</a>`;
 	},
 
-	code(token: any): string | false {
+	code(token: MarkedToken): string | false {
 		const code = token.text || '';
 		const lang = token.lang || '';
 		let highlighted: string;
@@ -52,7 +63,7 @@ const renderer = {
 				highlighted = hljs.highlight(code, { language: lang }).value;
 			} catch (error) {
 				// Log highlighting error with details for debugging
-				console.warn('[Markdown] Code highlighting failed for language:', lang, {
+				log.warn('[Markdown] Code highlighting failed for language:', lang, {
 					error: error instanceof Error ? error.message : String(error),
 					codePreview: code.substring(0, 100) + (code.length > 100 ? '...' : '')
 				});
@@ -63,7 +74,7 @@ const renderer = {
 				highlighted = hljs.highlightAuto(code).value;
 			} catch (error) {
 				// Log auto-detection error for debugging
-				console.warn('[Markdown] Auto-detection highlighting failed:', {
+				log.warn('[Markdown] Auto-detection highlighting failed:', {
 					error: error instanceof Error ? error.message : String(error),
 					codePreview: code.substring(0, 100) + (code.length > 100 ? '...' : '')
 				});

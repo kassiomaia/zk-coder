@@ -13,6 +13,10 @@
  * @module scrollPriorityQueue
  */
 
+import { createLogger } from './logger';
+
+const log = createLogger('ScrollPriorityQueue');
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -161,7 +165,7 @@ function notifyPriorityChange(threadId: string, operation: ScrollOperation): voi
 		try {
 			listener(threadId, operation);
 		} catch (error) {
-			console.error('[ScrollPriorityQueue] Listener error:', error);
+			log.error('[ScrollPriorityQueue] Listener error:', error);
 		}
 	});
 }

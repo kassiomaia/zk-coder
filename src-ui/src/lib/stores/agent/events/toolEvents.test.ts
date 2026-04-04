@@ -1,7 +1,7 @@
-import {beforeEach, describe, expect, it, vi} from 'vitest';
-import {createInitialState} from '../state';
-import type {AgentSession} from '$lib/types/agent';
-import {handleToolCall, handleToolResult} from './toolEvents';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createInitialState } from '../state';
+import type { AgentSession } from '$lib/types/agent';
+import { handleToolCall, handleToolResult } from './toolEvents';
 
 const callbackMocks = vi.hoisted(() => ({
 	getOnAgentActivity: vi.fn()
@@ -18,7 +18,7 @@ function makeSession(): AgentSession {
 		agentName: 'Code Agent',
 		conversationId: 'conv-1',
 		threadId: 'thread-1',
-		state: {type: 'running', currentStep: 1, contextUsage: 0},
+		state: { type: 'running', currentStep: 1, contextUsage: 0 },
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString()
 	};
@@ -40,7 +40,7 @@ describe('toolEvents', () => {
 			sessionId: 'session-1',
 			toolCallId: 'call-1',
 			tool: 'fs_read_file',
-			arguments: {path: 'src/main.ts'},
+			arguments: { path: 'src/main.ts' },
 			content: 'Let me read `src/main.ts` and inspect its contents.'
 		});
 
@@ -56,7 +56,7 @@ describe('toolEvents', () => {
 			agentData: {
 				sessionId: 'session-1',
 				toolName: 'fs_read_file',
-				toolArgs: {path: 'src/main.ts'},
+				toolArgs: { path: 'src/main.ts' },
 				toolCallStatus: 'pending'
 			}
 		});
@@ -73,7 +73,7 @@ describe('toolEvents', () => {
 			sessionId: 'session-1',
 			toolCallId: 'call-1',
 			tool: 'fs_list_files',
-			result: {path: 'src', count: 4},
+			result: { path: 'src', count: 4 },
 			isError: false,
 			content: 'I inspected `src` and found 4 item(s).'
 		});
@@ -84,7 +84,7 @@ describe('toolEvents', () => {
 			agentData: {
 				sessionId: 'session-1',
 				toolName: 'fs_list_files',
-				toolResult: {path: 'src', count: 4},
+				toolResult: { path: 'src', count: 4 },
 				toolError: false,
 				toolCallStatus: 'success'
 			}

@@ -3,7 +3,7 @@
  * Batches terminal output lines to prevent flooding the chat.
  */
 
-import type {Message} from '$lib/types/message';
+import type { Message } from '$lib/types/message';
 
 // Pending terminal output waiting to be batched
 interface PendingTerminalOutput {

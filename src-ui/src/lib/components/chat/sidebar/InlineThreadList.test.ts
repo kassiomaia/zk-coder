@@ -1,7 +1,7 @@
-import {fireEvent, render, screen} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import InlineThreadList from './InlineThreadList.svelte';
-import type {Thread} from '$lib/types/thread';
+import type { Thread } from '$lib/types/thread';
 
 describe('InlineThreadList', () => {
 	const mockThreads: Thread[] = [

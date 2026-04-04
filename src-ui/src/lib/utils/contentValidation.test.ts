@@ -1,11 +1,11 @@
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    type ContentValidationConfig,
-    defaultValidationConfig,
-    mightNeedSanitization,
-    sanitizeLinks,
-    sanitizeUrl,
-    validateContent
+	type ContentValidationConfig,
+	defaultValidationConfig,
+	mightNeedSanitization,
+	sanitizeLinks,
+	sanitizeUrl,
+	validateContent
 } from './contentValidation';
 
 describe('contentValidation', () => {
@@ -507,7 +507,8 @@ describe('contentValidation', () => {
 		});
 
 		it('handles safe markdown with links', () => {
-			const content = '# Welcome\n\nThis is a [link](https://example.com) and ![image](https://example.com/img.png).';
+			const content =
+				'# Welcome\n\nThis is a [link](https://example.com) and ![image](https://example.com/img.png).';
 			const result = validateContent(content);
 			expect(result.isValid).toBe(true);
 			expect(result.sanitizedContent).toBe(content);
@@ -543,7 +544,7 @@ describe('contentValidation', () => {
 			const longUrl = 'javascript:'.repeat(100);
 			const content = `[link](${longUrl})`;
 			const result = validateContent(content);
-			expect(result.warnings.some(w => w.length < 100)).toBe(true);
+			expect(result.warnings.some((w) => w.length < 100)).toBe(true);
 		});
 	});
 });

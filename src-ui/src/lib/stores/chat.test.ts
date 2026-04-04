@@ -3,47 +3,47 @@
  * Comprehensive test coverage for all chat store functionality.
  */
 
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {get} from 'svelte/store';
-import type {Conversation, Thread} from '$lib/types/thread';
-import type {Message} from '$lib/types/message';
-import type {Ambiguity, IntentClassification, ResolvedAmbiguity} from '$lib/types/nlp';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { get } from 'svelte/store';
+import type { Conversation, Thread } from '$lib/types/thread';
+import type { Message } from '$lib/types/message';
+import type { Ambiguity, IntentClassification, ResolvedAmbiguity } from '$lib/types/nlp';
 import {
-    archiveConversation,
-    archiveThread,
-    createConversation,
-    createThread,
-    createThreadWithMessage,
-    deleteConversation,
-    deleteMessage,
-    deleteThread,
-    loadConversations,
-    loadThreadMessages,
-    loadThreads,
-    renameConversation,
-    renameThread,
-    resolveThread,
-    sendMessage,
-    setConversationWorkspace,
-    setThreadAgentSession,
-    updateConversationSettings,
-    updateMessageFeedback,
-    updateMessageStatus
+	archiveConversation,
+	archiveThread,
+	createConversation,
+	createThread,
+	createThreadWithMessage,
+	deleteConversation,
+	deleteMessage,
+	deleteThread,
+	loadConversations,
+	loadThreadMessages,
+	loadThreads,
+	renameConversation,
+	renameThread,
+	resolveThread,
+	sendMessage,
+	setConversationWorkspace,
+	setThreadAgentSession,
+	updateConversationSettings,
+	updateMessageFeedback,
+	updateMessageStatus
 } from '$lib/api/chat';
 
 import {
-    addContextMessage,
-    applyResolutions,
-    createDebouncedClassifier,
-    detectAmbiguities,
-    isBackendAvailable,
-    resolveAmbiguity
+	addContextMessage,
+	applyResolutions,
+	createDebouncedClassifier,
+	detectAmbiguities,
+	isBackendAvailable,
+	resolveAmbiguity
 } from '$lib/api/nlp';
 
-import {agentStore} from './agentStore';
+import { agentStore } from './agentStore';
 
 // Now import after mocking
-import {chatStore} from './chat';
+import { chatStore } from './chat';
 
 // Create mock functions that will be used in vi.mock
 const mockListen = vi.fn();
@@ -1043,7 +1043,13 @@ describe('chatStore', () => {
 
 		it('removeTransientMessages removes tool_call and thinking messages for session', () => {
 			const normalMsg = createMockMessage('msg-1', 'conv-1', 'thread-1', 'user', 'Hello');
-			const toolCallMsg = createMockMessage('msg-2', 'conv-1', 'thread-1', 'assistant', 'Tool call');
+			const toolCallMsg = createMockMessage(
+				'msg-2',
+				'conv-1',
+				'thread-1',
+				'assistant',
+				'Tool call'
+			);
 			toolCallMsg.kind = 'tool_call';
 			toolCallMsg.agentData = { sessionId: 'session-1' };
 			const thinkingMsg = createMockMessage('msg-3', 'conv-1', 'thread-1', 'assistant', 'Thinking');
@@ -1165,7 +1171,15 @@ describe('chatStore', () => {
 		it('clearNlpState clears all NLP state', () => {
 			const state = get(chatStore);
 			state.nlp.detectedIntent = { intent: 'test', confidence: 0.9 };
-			state.nlp.ambiguities = [{ id: 'amb-1', span: { text: 'test', start: 0, end: 4 }, type: 'file_reference', severity: 'high', suggestions: [] }];
+			state.nlp.ambiguities = [
+				{
+					id: 'amb-1',
+					span: { text: 'test', start: 0, end: 4 },
+					type: 'file_reference',
+					severity: 'high',
+					suggestions: []
+				}
+			];
 			state.nlp.pendingAmbiguities = state.nlp.ambiguities;
 			state.nlp.processing = true;
 			state.nlp.error = 'Test error';
@@ -1268,9 +1282,15 @@ describe('chatStore', () => {
 		});
 
 		it('hasBlockingAmbiguities returns true when high severity ambiguities exist', () => {
-		 const state = get(chatStore);
+			const state = get(chatStore);
 			state.nlp.pendingAmbiguities = [
-				{ id: 'amb-1', span: { text: 'test', start: 0, end: 4 }, type: 'file_reference', severity: 'high', suggestions: [] }
+				{
+					id: 'amb-1',
+					span: { text: 'test', start: 0, end: 4 },
+					type: 'file_reference',
+					severity: 'high',
+					suggestions: []
+				}
 			];
 
 			expect(chatStore.hasBlockingAmbiguities()).toBe(true);
@@ -1279,7 +1299,13 @@ describe('chatStore', () => {
 		it('hasBlockingAmbiguities returns false when no high severity ambiguities', () => {
 			const state = get(chatStore);
 			state.nlp.pendingAmbiguities = [
-				{ id: 'amb-1', span: { text: 'test', start: 0, end: 4 }, type: 'file_reference', severity: 'low', suggestions: [] }
+				{
+					id: 'amb-1',
+					span: { text: 'test', start: 0, end: 4 },
+					type: 'file_reference',
+					severity: 'low',
+					suggestions: []
+				}
 			];
 
 			expect(chatStore.hasBlockingAmbiguities()).toBe(false);
@@ -1667,7 +1693,9 @@ describe('chatStore', () => {
 			};
 
 			// Verify the streaming state includes reasoning
-			expect(state.threadStreaming['thread-3'].streamingReasoning).toBe('Let me think about this...');
+			expect(state.threadStreaming['thread-3'].streamingReasoning).toBe(
+				'Let me think about this...'
+			);
 		});
 
 		it('streamingReasoning accumulates during streaming', async () => {
@@ -1675,7 +1703,7 @@ describe('chatStore', () => {
 			state.selectedThreadId = 'thread-4';
 
 			// Simulate progressive reasoning updates
-			let threadState = state.threadStreaming['thread-4'] = {
+			let threadState = (state.threadStreaming['thread-4'] = {
 				isStreaming: true,
 				requestId: 'req-4',
 				streamingContent: '',
@@ -1683,7 +1711,7 @@ describe('chatStore', () => {
 				model: 'glm-5',
 				conversationId: 'conv-1',
 				assistantMessageId: 'assist-4'
-			};
+			});
 
 			// First chunk of reasoning
 			threadState.streamingReasoning = 'Let me analyze';
@@ -1691,7 +1719,9 @@ describe('chatStore', () => {
 
 			// Second chunk accumulates
 			threadState.streamingReasoning = 'Let me analyze the problem';
-			expect(state.threadStreaming['thread-4'].streamingReasoning).toBe('Let me analyze the problem');
+			expect(state.threadStreaming['thread-4'].streamingReasoning).toBe(
+				'Let me analyze the problem'
+			);
 		});
 
 		it('conversationsLoading returns loading state', async () => {

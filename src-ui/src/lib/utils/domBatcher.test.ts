@@ -2,20 +2,20 @@
  * Tests for domBatcher
  */
 
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    applyScrollPosition,
-    cancelOperation,
-    cancelThreadOperations,
-    clearAll,
-    executeImmediate,
-    getPendingCount,
-    hasPendingOperations,
-    measureScrollState,
-    measureScrollStateSync,
-    scheduleRead,
-    scheduleReadThenWrite,
-    scheduleWrite
+	applyScrollPosition,
+	cancelOperation,
+	cancelThreadOperations,
+	clearAll,
+	executeImmediate,
+	getPendingCount,
+	hasPendingOperations,
+	measureScrollState,
+	measureScrollStateSync,
+	scheduleRead,
+	scheduleReadThenWrite,
+	scheduleWrite
 } from './domBatcher';
 
 describe('domBatcher', () => {
@@ -57,7 +57,7 @@ describe('domBatcher', () => {
 
 			expect(readFn).not.toHaveBeenCalled();
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(readFn).toHaveBeenCalled();
 		});
@@ -108,7 +108,7 @@ describe('domBatcher', () => {
 
 			expect(writeFn).not.toHaveBeenCalled();
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(writeFn).toHaveBeenCalled();
 		});
@@ -143,7 +143,7 @@ describe('domBatcher', () => {
 
 			scheduleReadThenWrite(readFn, writeFn);
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(readFn).toHaveBeenCalled();
 			expect(writeFn).toHaveBeenCalledWith(readData);
@@ -170,7 +170,7 @@ describe('domBatcher', () => {
 			scheduleRead(() => executionOrder.push('read2'));
 			scheduleWrite(() => executionOrder.push('write2'));
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			// All operations should execute
 			expect(executionOrder).toContain('read1');
@@ -180,11 +180,11 @@ describe('domBatcher', () => {
 
 			// Find indices of read and write operations
 			const readIndices = executionOrder
-				.map((op, i) => op.includes('read') ? i : -1)
-				.filter(i => i !== -1);
+				.map((op, i) => (op.includes('read') ? i : -1))
+				.filter((i) => i !== -1);
 			const writeIndices = executionOrder
-				.map((op, i) => op.includes('write') ? i : -1)
-				.filter(i => i !== -1);
+				.map((op, i) => (op.includes('write') ? i : -1))
+				.filter((i) => i !== -1);
 
 			// All read indices should be less than all write indices
 			if (readIndices.length > 0 && writeIndices.length > 0) {
@@ -201,7 +201,7 @@ describe('domBatcher', () => {
 			scheduleRead(() => executionOrder.push('read2'));
 			scheduleRead(() => executionOrder.push('read3'));
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(executionOrder).toEqual(['read1', 'read2', 'read3']);
 		});
@@ -213,7 +213,7 @@ describe('domBatcher', () => {
 			scheduleWrite(() => executionOrder.push('write2'));
 			scheduleWrite(() => executionOrder.push('write3'));
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(executionOrder).toEqual(['write1', 'write2', 'write3']);
 		});
@@ -361,7 +361,7 @@ describe('domBatcher', () => {
 			expect(id).toMatch(/^dom-op-\d+$/);
 			expect(getPendingCount().writes).toBe(1);
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(testElement.scrollTop).toBe(targetScroll);
 		});
@@ -522,7 +522,7 @@ describe('domBatcher', () => {
 			scheduleRead(errorFn);
 			scheduleRead(normalFn);
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(consoleSpy).toHaveBeenCalled();
 			expect(normalFn).toHaveBeenCalled(); // Other operations still execute
@@ -541,7 +541,7 @@ describe('domBatcher', () => {
 			scheduleWrite(errorFn);
 			scheduleWrite(normalFn);
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(consoleSpy).toHaveBeenCalled();
 			expect(normalFn).toHaveBeenCalled(); // Other operations still execute
@@ -559,7 +559,7 @@ describe('domBatcher', () => {
 
 			scheduleReadThenWrite(errorReadFn, writeFn);
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(consoleSpy).toHaveBeenCalled();
 
@@ -594,11 +594,15 @@ describe('domBatcher', () => {
 			let readExecuted = false;
 			let writeExecuted = false;
 
-			scheduleRead(() => { readExecuted = true; });
-			scheduleWrite(() => { writeExecuted = true; });
+			scheduleRead(() => {
+				readExecuted = true;
+			});
+			scheduleWrite(() => {
+				writeExecuted = true;
+			});
 
 			// Wait for processing
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(readExecuted).toBe(true);
 			expect(writeExecuted).toBe(true);
@@ -612,7 +616,7 @@ describe('domBatcher', () => {
 
 			scheduleReadThenWrite(readFn, writeFn);
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(readFn).toHaveBeenCalled();
 			expect(writeFn).toHaveBeenCalledWith(undefined);
@@ -622,7 +626,7 @@ describe('domBatcher', () => {
 			const fn = vi.fn();
 			const id = scheduleRead(fn);
 
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			expect(fn).toHaveBeenCalled();
 
@@ -658,7 +662,7 @@ describe('domBatcher', () => {
 			});
 
 			// Wait for write to execute
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			// Now measure
 			const state = await measureScrollState(testElement);

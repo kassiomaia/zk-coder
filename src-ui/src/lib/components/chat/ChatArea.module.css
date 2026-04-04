@@ -83,11 +83,7 @@
 	left: 0;
 	right: 0;
 	height: 1px;
-	background: linear-gradient(
-		to bottom,
-		var(--color-border-subtle),
-		transparent
-	);
+	background: linear-gradient(to bottom, var(--color-border-subtle), transparent);
 	opacity: 0.5;
 	pointer-events: none;
 }

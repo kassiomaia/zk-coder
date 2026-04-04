@@ -3,8 +3,8 @@
  * Manages callbacks for cross-store communication.
  */
 
-import type {Message} from '$lib/types/message';
-import type {ArtifactReference} from '$lib/types/agent';
+import type { Message } from '$lib/types/message';
+import type { ArtifactReference } from '$lib/types/agent';
 
 export interface SystemMessagePayload {
 	role: 'system';
@@ -14,12 +14,23 @@ export interface SystemMessagePayload {
 
 /** Callback for when agent completes execution - returns (conversationId, threadId, content, artifacts) */
 let onExecutionComplete:
-	| ((sessionId: string, conversationId: string, threadId: string, content: string, artifacts: ArtifactReference[]) => void)
+	| ((
+			sessionId: string,
+			conversationId: string,
+			threadId: string,
+			content: string,
+			artifacts: ArtifactReference[]
+	  ) => void)
 	| null = null;
 
 /** Callback for agent system messages (e.g., context compaction) - returns (conversationId, message) */
 let onSystemMessage:
-	| ((sessionId: string, conversationId: string, threadId: string, message: SystemMessagePayload) => void)
+	| ((
+			sessionId: string,
+			conversationId: string,
+			threadId: string,
+			message: SystemMessagePayload
+	  ) => void)
 	| null = null;
 
 /** Callback for agent activity messages (thinking, tool_call, terminal) - adds transient messages to chat */
@@ -34,14 +45,26 @@ let onCleanupTransients:
 
 /** Callback to persist a streamed assistant message into chat history */
 let onPersistAssistantMessage:
-	| ((sessionId: string, conversationId: string, threadId: string, messageId: string, content: string) => void)
+	| ((
+			sessionId: string,
+			conversationId: string,
+			threadId: string,
+			messageId: string,
+			content: string
+	  ) => void)
 	| null = null;
 
 /**
  * Set the execution complete callback.
  */
 export function setExecutionCompleteCallback(
-	callback: (sessionId: string, conversationId: string, threadId: string, content: string, artifacts: ArtifactReference[]) => void
+	callback: (
+		sessionId: string,
+		conversationId: string,
+		threadId: string,
+		content: string,
+		artifacts: ArtifactReference[]
+	) => void
 ) {
 	onExecutionComplete = callback;
 }

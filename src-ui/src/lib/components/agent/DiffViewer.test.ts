@@ -1,5 +1,5 @@
-import {fireEvent, render, screen, waitFor} from '@testing-library/svelte';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DiffViewer from './DiffViewer.svelte';
 
 // Mock the Diff2HtmlUI class
@@ -18,7 +18,9 @@ class MockDiff2HtmlUI {
 }
 
 vi.mock('diff2html/lib/ui/js/diff2html-ui', () => ({
-	Diff2HtmlUI: vi.fn((target: any, diff: string, config: any) => new MockDiff2HtmlUI(target, diff, config))
+	Diff2HtmlUI: vi.fn(
+		(target: any, diff: string, config: any) => new MockDiff2HtmlUI(target, diff, config)
+	)
 }));
 
 // Mock highlight.js
@@ -286,10 +288,7 @@ describe('DiffViewer', () => {
 			const { container } = render(DiffViewer, { diff: sampleDiff });
 
 			const toggleBtn = container.querySelector('.view-toggle') as HTMLButtonElement;
-			expect(toggleBtn).toHaveAttribute(
-				'title',
-				'Switch between unified and side-by-side view'
-			);
+			expect(toggleBtn).toHaveAttribute('title', 'Switch between unified and side-by-side view');
 		});
 
 		it('view toggle button has proper type attribute', () => {

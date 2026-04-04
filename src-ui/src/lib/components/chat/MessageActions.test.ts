@@ -1,5 +1,5 @@
-import {fireEvent, render, screen, waitFor} from '@testing-library/svelte';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import MessageActions from './MessageActions.svelte';
 
 // Mock IconButton component
