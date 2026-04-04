@@ -68,6 +68,9 @@ export type {
 	CodeUnderstanding
 } from './nlp.js';
 
+// Common state types
+export type { LoadingState } from './state.js';
+
 // Agent types
 export type {
 	SessionId,

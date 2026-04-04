@@ -23,7 +23,6 @@ export { createDerivedStores, type DerivedStores } from './derived-stores';
 
 // Utilities
 export {
-	generateId,
 	createNewConversation,
 	createNewThread,
 	createNewMessage,

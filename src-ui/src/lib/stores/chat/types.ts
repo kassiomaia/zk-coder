@@ -5,15 +5,10 @@
 import type { Conversation, Thread } from '$lib/types/thread';
 import type { Message } from '$lib/types/message';
 import type { Ambiguity, IntentClassification, ResolvedAmbiguity } from '$lib/types/nlp';
+import type { LoadingState } from '$lib/types/state';
 
-// ============================================================================
-// Loading States
-// ============================================================================
-
-/**
- * Loading states for async operations.
- */
-export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
+// Re-export LoadingState for external consumers
+export type { LoadingState } from '$lib/types/state';
 
 // ============================================================================
 // NLP State

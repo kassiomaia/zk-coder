@@ -4,6 +4,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { invokeCommand } from './core';
 import type {
 	Ambiguity,
 	CodeUnderstanding,
@@ -15,38 +16,8 @@ import type {
 	ResolvedAmbiguity
 } from '$lib/types/nlp';
 
-// ============================================================================
-// Error Handling
-// ============================================================================
-
-/**
- * Error class for NLP API errors.
- */
-export class NlpApiError extends Error {
-	constructor(
-		message: string,
-		public readonly command: string,
-		public readonly cause?: unknown
-	) {
-		super(message);
-		this.name = 'NlpApiError';
-	}
-}
-
-/**
- * Wraps invoke with error handling.
- */
-async function safeInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-	try {
-		return await invoke<T>(command, args);
-	} catch (error) {
-		throw new NlpApiError(
-			`NLP command '${command}' failed: ${error instanceof Error ? error.message : String(error)}`,
-			command,
-			error
-		);
-	}
-}
+// Re-export error for backwards compatibility
+export { NlpApiError } from './errors';
 
 // ============================================================================
 // Intent Classification
@@ -71,7 +42,7 @@ export interface ClassifyIntentOptions {
 export async function classifyIntent(
 	options: ClassifyIntentOptions
 ): Promise<IntentClassification> {
-	return safeInvoke<IntentClassification>('classify_intent', {
+	return invokeCommand<IntentClassification>('nlp', 'classify_intent', {
 		input: options.input,
 		conversation_id: options.conversationId
 	});
@@ -88,7 +59,7 @@ export async function classifyIntent(
  * @returns The conversation context
  */
 export async function getConversationContext(conversationId: string): Promise<ConversationContext> {
-	return safeInvoke<ConversationContext>('get_conversation_context', {
+	return invokeCommand<ConversationContext>('nlp', 'get_conversation_context', {
 		conversation_id: conversationId
 	});
 }
@@ -111,7 +82,7 @@ export interface AddContextMessageOptions {
  * @param options - Message options
  */
 export async function addContextMessage(options: AddContextMessageOptions): Promise<void> {
-	return safeInvoke<void>('add_context_message', {
+	return invokeCommand<void>('nlp', 'add_context_message', {
 		conversation_id: options.conversationId,
 		role: options.role,
 		content: options.content
@@ -124,7 +95,7 @@ export async function addContextMessage(options: AddContextMessageOptions): Prom
  * @param conversationId - The conversation ID to clear
  */
 export async function clearConversationContext(conversationId: string): Promise<void> {
-	return safeInvoke<void>('clear_conversation_context', {
+	return invokeCommand<void>('nlp', 'clear_conversation_context', {
 		conversation_id: conversationId
 	});
 }
@@ -152,7 +123,7 @@ export interface DetectMultiIntentOptions {
 export async function detectMultiIntent(
 	options: DetectMultiIntentOptions
 ): Promise<MultiIntentResult> {
-	return safeInvoke<MultiIntentResult>('detect_multi_intent', {
+	return invokeCommand<MultiIntentResult>('nlp', 'detect_multi_intent', {
 		input: options.input,
 		conversation_id: options.conversationId
 	});
@@ -179,7 +150,7 @@ export interface DetectAmbiguitiesOptions {
  * @returns Array of detected ambiguities
  */
 export async function detectAmbiguities(options: DetectAmbiguitiesOptions): Promise<Ambiguity[]> {
-	return safeInvoke<Ambiguity[]>('detect_ambiguities', {
+	return invokeCommand<Ambiguity[]>('nlp', 'detect_ambiguities', {
 		input: options.input,
 		conversation_id: options.conversationId
 	});
@@ -212,7 +183,7 @@ export interface ResolveAmbiguityOptions {
 export async function resolveAmbiguity(
 	options: ResolveAmbiguityOptions
 ): Promise<ResolvedAmbiguity> {
-	return safeInvoke<ResolvedAmbiguity>('resolve_ambiguity', {
+	return invokeCommand<ResolvedAmbiguity>('nlp', 'resolve_ambiguity', {
 		ambiguity_id: options.ambiguityId,
 		original_text: options.originalText,
 		resolution: options.resolution,
@@ -237,7 +208,7 @@ export interface ApplyResolutionsOptions {
  * @returns The modified input with all resolutions applied
  */
 export async function applyResolutions(options: ApplyResolutionsOptions): Promise<string> {
-	return safeInvoke<string>('apply_resolutions', {
+	return invokeCommand<string>('nlp', 'apply_resolutions', {
 		input: options.input,
 		resolutions: options.resolutions
 	});
@@ -264,7 +235,7 @@ export interface AnalyzeCodeOptions {
  * @returns Code understanding result
  */
 export async function analyzeCode(options: AnalyzeCodeOptions): Promise<CodeUnderstanding> {
-	return safeInvoke<CodeUnderstanding>('analyze_code', {
+	return invokeCommand<CodeUnderstanding>('nlp', 'analyze_code', {
 		code: options.code,
 		language: options.language
 	});

@@ -42,6 +42,9 @@ import {
 import { LlmHandler } from './chat/llm-handler';
 import type { ChatState, LlmRequestOptions } from './chat/types';
 import { deriveThreadTitle, sortThreadsByRecent } from './chat/utils';
+import { clearUnreadForThread } from '$lib/utils/state';
+import { findById, updateById, removeById, updateNestedById, removeNestedById } from '$lib/utils/collection';
+import { isValidDate } from '$lib/utils/date';
 import { agentStore } from './agentStore';
 import { configStore } from './configStore';
 import { createDerivedStores } from './chat/derived-stores';
@@ -103,12 +106,7 @@ function createChatStore() {
 	let pendingThreadReady: Promise<Thread | null> | null = null;
 	let pendingThreadConversationId: string | null = null;
 
-	const clearUnreadForThread = (unreadThreadIds: string[], threadId: string | null): string[] => {
-		if (!threadId) return unreadThreadIds;
-		return unreadThreadIds.filter((id) => id !== threadId);
-	};
-
-	const touchThreadAndConversation = (
+const touchThreadAndConversation = (
 		state: ChatState,
 		threadId: string,
 		conversationId: string,
@@ -254,7 +252,7 @@ function createChatStore() {
 		updateConversation(id: string, updates: Partial<Conversation>) {
 			update((state) => ({
 				...state,
-				conversations: state.conversations.map((c) => (c.id === id ? { ...c, ...updates } : c))
+				conversations: updateById(state.conversations, id, updates)
 			}));
 		},
 
@@ -266,7 +264,7 @@ function createChatStore() {
 				await apiDeleteConversation(id);
 				update((state) => ({
 					...state,
-					conversations: state.conversations.filter((c) => c.id !== id),
+					conversations: removeById(state.conversations, id),
 					selectedConversationId:
 						state.selectedConversationId === id ? null : state.selectedConversationId,
 					messages: state.selectedConversationId === id ? [] : state.messages,
@@ -673,15 +671,15 @@ function createChatStore() {
 					const shouldClearSelection = archived && state.selectedThreadId === id;
 					return {
 						...state,
-						threads: archived ? state.threads.filter((t) => t.id !== id) : state.threads,
-						conversations: state.conversations.map((c) =>
-							c.id === state.selectedConversationId
-								? {
-										...c,
-										threads: archived ? (c.threads || []).filter((t) => t.id !== id) : c.threads
-									}
-								: c
-						),
+						threads: archived ? removeById(state.threads, id) : state.threads,
+						conversations: state.selectedConversationId
+							? removeNestedById(
+									state.conversations,
+									state.selectedConversationId,
+									'threads',
+									id
+								)
+							: state.conversations,
 						selectedThreadId: shouldClearSelection ? null : state.selectedThreadId,
 						messages: shouldClearSelection ? [] : state.messages,
 						unreadThreadIds: state.unreadThreadIds.filter((threadId) => threadId !== id)
@@ -705,18 +703,21 @@ function createChatStore() {
 				await apiDeleteThread(id);
 				update((state) => ({
 					...state,
-					threads: state.threads.filter((t) => t.id !== id),
+					threads: removeById(state.threads, id),
 					threadStreaming: Object.fromEntries(
 						Object.entries(state.threadStreaming).filter(([threadId]) => threadId !== id)
 					),
 					unreadThreadIds: state.unreadThreadIds.filter((threadId) => threadId !== id),
 					selectedThreadId: state.selectedThreadId === id ? null : state.selectedThreadId,
 					messages: state.selectedThreadId === id ? [] : state.messages,
-					conversations: state.conversations.map((c) =>
-						c.id === state.selectedConversationId
-							? { ...c, threads: (c.threads || []).filter((t) => t.id !== id) }
-							: c
-					)
+					conversations: state.selectedConversationId
+						? removeNestedById(
+								state.conversations,
+								state.selectedConversationId,
+								'threads',
+								id
+							)
+						: state.conversations
 				}));
 				return true;
 			} catch (error) {
@@ -736,12 +737,16 @@ function createChatStore() {
 				const updated = await apiRenameThread(id, title);
 				update((state) => ({
 					...state,
-					threads: state.threads.map((t) => (t.id === id ? updated : t)),
-					conversations: state.conversations.map((c) =>
-						c.id === state.selectedConversationId
-							? { ...c, threads: (c.threads || []).map((t) => (t.id === id ? updated : t)) }
-							: c
-					)
+					threads: updateById(state.threads, id, updated),
+					conversations: state.selectedConversationId
+						? updateNestedById(
+								state.conversations,
+								state.selectedConversationId,
+								'threads',
+								id,
+								updated
+							)
+						: state.conversations
 				}));
 				return true;
 			} catch (error) {
@@ -941,7 +946,7 @@ function createChatStore() {
 				await apiDeleteMessage(id);
 				update((state) => ({
 					...state,
-					messages: state.messages.filter((m) => m.id !== id)
+					messages: removeById(state.messages, id)
 				}));
 				return true;
 			} catch (error) {
@@ -1466,4 +1471,4 @@ export type {
 } from './chat/types';
 
 // Utility functions are in ./chat/utils.ts - re-exported for convenience
-export { generateId, createNewConversation, createNewThread, createNewMessage } from './chat/utils';
+export { createNewConversation, createNewThread, createNewMessage } from './chat/utils';

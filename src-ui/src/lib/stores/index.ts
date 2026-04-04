@@ -20,7 +20,6 @@ export {
 	chatError,
 	isLoading,
 	isLlmStreaming,
-	generateId,
 	createNewConversation,
 	createNewThread,
 	createNewMessage

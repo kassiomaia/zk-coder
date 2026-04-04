@@ -14,8 +14,9 @@ import type {
 	Provider,
 	SaveProviderRequest
 } from '$lib/types/config';
-import {
-	addManualModel as apiAddManualModel,
+import type { LoadingState } from '$lib/types/state';
+import { findById } from '$lib/utils/collection';
+import { addManualModel as apiAddManualModel,
 	deleteApiKey as apiDeleteApiKey,
 	fetchModels as apiFetchModels,
 	getManualModels as apiGetManualModels,
@@ -38,8 +39,6 @@ const log = createLogger('ConfigStore');
 // ============================================================================
 // Types
 // ============================================================================
-
-type LoadingState = 'idle' | 'loading' | 'success' | 'error';
 
 export interface ValidationState {
 	status: 'idle' | 'loading' | 'success' | 'error';
@@ -152,7 +151,7 @@ function createConfigStore() {
 		 * Gets a provider by ID.
 		 */
 		getProvider(id: string): Provider | undefined {
-			return get({ subscribe }).providers.find((p) => p.id === id);
+			return findById(get({ subscribe }).providers, id);
 		},
 
 		/**

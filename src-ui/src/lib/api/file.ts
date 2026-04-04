@@ -5,7 +5,10 @@
  * separate from agent tool execution. They don't consume LLM tokens.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invokeCommand } from './core';
+
+// Re-export error for backwards compatibility
+export { FileApiError } from './errors';
 
 /**
  * Response containing file content and diff information.
@@ -42,7 +45,7 @@ export async function getFileContent(
 	filePath: string,
 	sessionId: string
 ): Promise<FileContentResponse> {
-	return invoke<FileContentResponse>('get_file_content', {
+	return invokeCommand<FileContentResponse>('file', 'get_file_content', {
 		workspaceRoot,
 		filePath,
 		sessionId

@@ -3,7 +3,7 @@
  * TypeScript wrappers for Tauri IPC commands to the configuration backend.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invokeCommand } from './core';
 import type {
 	ApiType,
 	FetchModelsResult,
@@ -19,38 +19,8 @@ import { createLogger } from '$lib/utils/logger';
 
 const log = createLogger('ConfigAPI');
 
-// ============================================================================
-// Error Handling
-// ============================================================================
-
-/**
- * Error class for config API errors.
- */
-export class ConfigApiError extends Error {
-	constructor(
-		message: string,
-		public readonly command: string,
-		public readonly cause?: unknown
-	) {
-		super(message);
-		this.name = 'ConfigApiError';
-	}
-}
-
-/**
- * Wraps invoke with error handling.
- */
-async function safeInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-	try {
-		return await invoke<T>(command, args);
-	} catch (error) {
-		throw new ConfigApiError(
-			`Config command '${command}' failed: ${error instanceof Error ? error.message : String(error)}`,
-			command,
-			error
-		);
-	}
-}
+// Re-export error for backwards compatibility
+export { ConfigApiError } from './errors';
 
 // ============================================================================
 // Backend Response Types
@@ -140,7 +110,7 @@ function operationDefaultToClient(d: OperationDefaultResponse): OperationDefault
  */
 export async function getProviders(): Promise<Provider[]> {
 	log.debug('Getting providers...');
-	const response = await safeInvoke<ProviderResponse[]>('get_providers');
+	const response = await invokeCommand<ProviderResponse[]>('config', 'get_providers');
 	log.debug('Raw response from backend:', response);
 	const providers = response.map(providerToClient);
 	log.debug('Converted providers:', providers);
@@ -151,7 +121,7 @@ export async function getProviders(): Promise<Provider[]> {
  * Saves a provider (create or update).
  */
 export async function saveProvider(request: SaveProviderRequest): Promise<Provider> {
-	const response = await safeInvoke<ProviderResponse>('save_provider', {
+	const response = await invokeCommand<ProviderResponse>('config', 'save_provider', {
 		request: {
 			id: request.id,
 			name: request.name,
@@ -167,14 +137,14 @@ export async function saveProvider(request: SaveProviderRequest): Promise<Provid
  * Removes a custom provider.
  */
 export async function removeProvider(providerId: string): Promise<void> {
-	await safeInvoke<void>('remove_provider', { providerId });
+	await invokeCommand<void>('config', 'remove_provider', { providerId });
 }
 
 /**
  * Gets models for a provider.
  */
 export async function getModels(providerId: string): Promise<Model[]> {
-	const response = await safeInvoke<ModelResponse[]>('get_models', { providerId });
+	const response = await invokeCommand<ModelResponse[]>('config', 'get_models', { providerId });
 	return response.map(modelToClient);
 }
 
@@ -191,7 +161,7 @@ export async function validateApiKey(
 	apiType: ApiType,
 	baseUrl?: string
 ): Promise<ValidationResult> {
-	return safeInvoke<ValidationResult>('validate_api_key', {
+	return invokeCommand<ValidationResult>('config', 'validate_api_key', {
 		providerId,
 		apiKey,
 		apiType,
@@ -207,7 +177,7 @@ export async function testConnection(
 	apiKey: string,
 	apiType: ApiType
 ): Promise<ValidationResult> {
-	return safeInvoke<ValidationResult>('test_connection', {
+	return invokeCommand<ValidationResult>('config', 'test_connection', {
 		baseUrl,
 		apiKey,
 		apiType
@@ -223,7 +193,7 @@ export async function fetchModels(
 	apiType: ApiType,
 	baseUrl?: string
 ): Promise<FetchModelsResult> {
-	return safeInvoke<FetchModelsResult>('fetch_models', {
+	return invokeCommand<FetchModelsResult>('config', 'fetch_models', {
 		providerId,
 		apiKey,
 		apiType,
@@ -239,28 +209,28 @@ export async function fetchModels(
  * Stores an API key in the OS keychain.
  */
 export async function storeApiKey(providerId: string, apiKey: string): Promise<void> {
-	await safeInvoke<void>('store_api_key', { providerId, apiKey });
+	await invokeCommand<void>('config', 'store_api_key', { providerId, apiKey });
 }
 
 /**
  * Retrieves an API key from the OS keychain.
  */
 export async function retrieveApiKey(providerId: string): Promise<string> {
-	return safeInvoke<string>('retrieve_api_key', { providerId });
+	return invokeCommand<string>('config', 'retrieve_api_key', { providerId });
 }
 
 /**
  * Deletes an API key from the OS keychain.
  */
 export async function deleteApiKey(providerId: string): Promise<void> {
-	await safeInvoke<void>('delete_api_key', { providerId });
+	await invokeCommand<void>('config', 'delete_api_key', { providerId });
 }
 
 /**
  * Checks if an API key exists for a provider.
  */
 export async function hasApiKey(providerId: string): Promise<boolean> {
-	return safeInvoke<boolean>('has_api_key', { providerId });
+	return invokeCommand<boolean>('config', 'has_api_key', { providerId });
 }
 
 // ============================================================================
@@ -271,7 +241,7 @@ export async function hasApiKey(providerId: string): Promise<boolean> {
  * Gets all operation defaults.
  */
 export async function getOperationDefaults(): Promise<OperationDefault[]> {
-	const response = await safeInvoke<OperationDefaultResponse[]>('get_operation_defaults');
+	const response = await invokeCommand<OperationDefaultResponse[]>('config', 'get_operation_defaults');
 	return response.map(operationDefaultToClient);
 }
 
@@ -279,7 +249,7 @@ export async function getOperationDefaults(): Promise<OperationDefault[]> {
  * Sets the default model for an operation.
  */
 export async function setOperationDefault(operation: string, modelId: string): Promise<void> {
-	await safeInvoke<void>('set_operation_default', { operation, modelId });
+	await invokeCommand<void>('config', 'set_operation_default', { operation, modelId });
 }
 
 // ============================================================================
@@ -317,7 +287,7 @@ function manualModelToClient(m: ManualModelResponse): ManualModelEntry {
  * Gets all manual models for a provider.
  */
 export async function getManualModels(providerId: string): Promise<ManualModelEntry[]> {
-	const response = await safeInvoke<ManualModelResponse[]>('get_manual_models', { providerId });
+	const response = await invokeCommand<ManualModelResponse[]>('config', 'get_manual_models', { providerId });
 	return response.map(manualModelToClient);
 }
 
@@ -329,7 +299,7 @@ export async function addManualModel(
 	name: string,
 	capabilities?: ManualModelEntry['capabilities']
 ): Promise<void> {
-	await safeInvoke<void>('add_manual_model', {
+	await invokeCommand<void>('config', 'add_manual_model', {
 		request: {
 			providerId,
 			name,
@@ -342,7 +312,7 @@ export async function addManualModel(
  * Removes a manual model for a provider.
  */
 export async function removeManualModel(providerId: string, modelName: string): Promise<void> {
-	await safeInvoke<void>('remove_manual_model', { providerId, modelName });
+	await invokeCommand<void>('config', 'remove_manual_model', { providerId, modelName });
 }
 
 /**
@@ -352,5 +322,5 @@ export async function setProviderModelsSource(
 	providerId: string,
 	modelsSource: ModelsSource
 ): Promise<void> {
-	await safeInvoke<void>('set_provider_models_source', { providerId, modelsSource });
+	await invokeCommand<void>('config', 'set_provider_models_source', { providerId, modelsSource });
 }

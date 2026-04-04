@@ -4,17 +4,7 @@
 
 import type { Conversation, Thread } from '$lib/types/thread';
 import type { Message } from '$lib/types/message';
-
-// ============================================================================
-// ID Generation
-// ============================================================================
-
-/**
- * Generates a unique ID.
- */
-export function generateId(): string {
-	return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
+import { generateUniqueId } from '$lib/utils/idGenerator';
 
 // ============================================================================
 // Factory Functions
@@ -26,7 +16,7 @@ export function generateId(): string {
 export function createNewConversation(title: string = 'New Conversation'): Conversation {
 	const now = new Date();
 	return {
-		id: generateId(),
+		id: generateUniqueId('conv'),
 		title,
 		createdAt: now,
 		updatedAt: now,
@@ -45,7 +35,7 @@ export function createNewConversation(title: string = 'New Conversation'): Conve
 export function createNewThread(conversationId: string, title: string = 'New Thread'): Thread {
 	const now = new Date();
 	return {
-		id: generateId(),
+		id: generateUniqueId('thread'),
 		conversationId,
 		parentId: null,
 		title,
@@ -68,7 +58,7 @@ export function createNewMessage(
 	content: string
 ): Message {
 	return {
-		id: generateId(),
+		id: generateUniqueId('msg'),
 		conversationId,
 		threadId,
 		role,

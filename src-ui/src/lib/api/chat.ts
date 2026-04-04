@@ -3,43 +3,14 @@
  * TypeScript wrappers for Tauri IPC commands to the chat persistence backend.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invokeCommand } from './core';
 import type { Conversation, Thread } from '$lib/types/thread';
 import type { Message } from '$lib/types/message';
 import { parseSystemNoticeFromMessage } from '$lib/utils/systemNotices';
+import { parseDate } from '$lib/utils/date';
 
-// ============================================================================
-// Error Handling
-// ============================================================================
-
-/**
- * Error class for chat API errors.
- */
-export class ChatApiError extends Error {
-	constructor(
-		message: string,
-		public readonly command: string,
-		public readonly cause?: unknown
-	) {
-		super(message);
-		this.name = 'ChatApiError';
-	}
-}
-
-/**
- * Wraps invoke with error handling.
- */
-async function safeInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-	try {
-		return await invoke<T>(command, args);
-	} catch (error) {
-		throw new ChatApiError(
-			`Chat command '${command}' failed: ${error instanceof Error ? error.message : String(error)}`,
-			command,
-			error
-		);
-	}
-}
+// Re-export error for backwards compatibility
+export { ChatApiError } from './errors';
 
 // ============================================================================
 // Types
@@ -115,7 +86,7 @@ export interface ThreadResponse {
  * @returns Array of conversations
  */
 export async function loadConversations(): Promise<Conversation[]> {
-	const response = await safeInvoke<ConversationResponse[]>('load_conversations');
+	const response = await invokeCommand<ConversationResponse[]>('chat', 'load_conversations');
 	return response.map(convToClient);
 }
 
@@ -126,7 +97,7 @@ export async function loadConversations(): Promise<Conversation[]> {
  * @returns The created conversation
  */
 export async function createConversation(title: string): Promise<Conversation> {
-	const response = await safeInvoke<ConversationResponse>('create_conversation', { title });
+	const response = await invokeCommand<ConversationResponse>('chat', 'create_conversation', { title });
 	return convToClient(response);
 }
 
@@ -137,7 +108,7 @@ export async function createConversation(title: string): Promise<Conversation> {
  * @returns The conversation
  */
 export async function loadConversation(id: string): Promise<Conversation> {
-	const response = await safeInvoke<ConversationResponse>('load_conversation', { id });
+	const response = await invokeCommand<ConversationResponse>('chat', 'load_conversation', { id });
 	return convToClient(response);
 }
 
@@ -149,7 +120,7 @@ export async function loadConversation(id: string): Promise<Conversation> {
  * @returns The updated conversation
  */
 export async function renameConversation(id: string, title: string): Promise<Conversation> {
-	const response = await safeInvoke<ConversationResponse>('rename_conversation', { id, title });
+	const response = await invokeCommand<ConversationResponse>('chat', 'rename_conversation', { id, title });
 	return convToClient(response);
 }
 
@@ -159,7 +130,7 @@ export async function renameConversation(id: string, title: string): Promise<Con
  * @param id - Conversation ID
  */
 export async function deleteConversation(id: string): Promise<void> {
-	await safeInvoke<void>('delete_conversation', { id });
+	await invokeCommand<void>('chat', 'delete_conversation', { id });
 }
 
 /**
@@ -169,7 +140,7 @@ export async function deleteConversation(id: string): Promise<void> {
  * @param archived - Whether the conversation should be archived
  */
 export async function archiveConversation(id: string, archived: boolean): Promise<void> {
-	await safeInvoke<void>('archive_conversation', { id, archived });
+	await invokeCommand<void>('chat', 'archive_conversation', { id, archived });
 }
 
 /**
@@ -199,7 +170,7 @@ export async function updateConversationSettings(
 	id: string,
 	settings: ConversationSettingsUpdate
 ): Promise<Conversation> {
-	const response = await safeInvoke<ConversationResponse>('update_conversation_settings', {
+		const response = await invokeCommand<ConversationResponse>('chat', 'update_conversation_settings', {
 		id,
 		settings: {
 			model: settings.model,
@@ -223,7 +194,7 @@ export async function setConversationWorkspace(
 	id: string,
 	workspaceRoot: string
 ): Promise<Conversation> {
-	const response = await safeInvoke<ConversationResponse>('set_conversation_workspace', {
+	const response = await invokeCommand<ConversationResponse>('chat', 'set_conversation_workspace', {
 		id,
 		workspaceRoot
 	});
@@ -241,7 +212,7 @@ export async function setConversationWorkspace(
  * @returns Array of threads
  */
 export async function loadThreads(conversationId: string): Promise<Thread[]> {
-	const response = await safeInvoke<ThreadResponse[]>('load_threads', { conversationId });
+	const response = await invokeCommand<ThreadResponse[]>('chat', 'load_threads', { conversationId });
 	return response.map(threadToClient);
 }
 
@@ -253,7 +224,7 @@ export async function loadThreads(conversationId: string): Promise<Thread[]> {
  * @returns The created thread
  */
 export async function createThread(conversationId: string, title: string): Promise<Thread> {
-	const response = await safeInvoke<ThreadResponse>('create_thread', { conversationId, title });
+	const response = await invokeCommand<ThreadResponse>('chat', 'create_thread', { conversationId, title });
 	return threadToClient(response);
 }
 
@@ -264,7 +235,7 @@ export async function createThread(conversationId: string, title: string): Promi
  * @param resolved - Whether the thread is resolved
  */
 export async function resolveThread(id: string, resolved: boolean): Promise<void> {
-	await safeInvoke<void>('resolve_thread', { id, resolved });
+	await invokeCommand<void>('chat', 'resolve_thread', { id, resolved });
 }
 
 /**
@@ -274,7 +245,7 @@ export async function resolveThread(id: string, resolved: boolean): Promise<void
  * @param archived - Whether the thread should be archived
  */
 export async function archiveThread(id: string, archived: boolean): Promise<void> {
-	await safeInvoke<void>('archive_thread', { id, archived });
+	await invokeCommand<void>('chat', 'archive_thread', { id, archived });
 }
 
 /**
@@ -283,7 +254,7 @@ export async function archiveThread(id: string, archived: boolean): Promise<void
  * @param id - Thread ID
  */
 export async function deleteThread(id: string): Promise<void> {
-	await safeInvoke<void>('delete_thread', { id });
+	await invokeCommand<void>('chat', 'delete_thread', { id });
 }
 
 /**
@@ -294,7 +265,7 @@ export async function deleteThread(id: string): Promise<void> {
  * @returns The updated thread
  */
 export async function renameThread(id: string, title: string): Promise<Thread> {
-	const response = await safeInvoke<ThreadResponse>('rename_thread', { id, title });
+	const response = await invokeCommand<ThreadResponse>('chat', 'rename_thread', { id, title });
 	return threadToClient(response);
 }
 
@@ -308,7 +279,7 @@ export async function setThreadAgentSession(
 	id: string,
 	agentSessionId: string | null
 ): Promise<void> {
-	await safeInvoke<void>('set_thread_agent_session', { id, agentSessionId });
+	await invokeCommand<void>('chat', 'set_thread_agent_session', { id, agentSessionId });
 }
 
 // ============================================================================
@@ -322,7 +293,7 @@ export async function setThreadAgentSession(
  * @returns Array of messages
  */
 export async function loadMessages(conversationId: string): Promise<Message[]> {
-	const response = await safeInvoke<ChatMessageResponse[]>('load_messages', { conversationId });
+	const response = await invokeCommand<ChatMessageResponse[]>('chat', 'load_messages', { conversationId });
 	return response.map(msgToClient);
 }
 
@@ -333,7 +304,7 @@ export async function loadMessages(conversationId: string): Promise<Message[]> {
  * @returns Array of messages
  */
 export async function loadThreadMessages(threadId: string): Promise<Message[]> {
-	const response = await safeInvoke<ChatMessageResponse[]>('load_thread_messages', { threadId });
+	const response = await invokeCommand<ChatMessageResponse[]>('chat', 'load_thread_messages', { threadId });
 	return response.map(msgToClient);
 }
 
@@ -358,7 +329,7 @@ export interface SendMessageOptions {
  * @returns The created message
  */
 export async function sendMessage(options: SendMessageOptions): Promise<Message> {
-	const response = await safeInvoke<ChatMessageResponse>('send_message', {
+	const response = await invokeCommand<ChatMessageResponse>('chat', 'send_message', {
 		conversationId: options.conversationId,
 		content: options.content,
 		role: options.role,
@@ -400,7 +371,7 @@ export interface CreateThreadWithMessageResponse {
 export async function createThreadWithMessage(
 	options: CreateThreadWithMessageOptions
 ): Promise<{ thread: Thread; message: Message }> {
-	const response = await safeInvoke<CreateThreadWithMessageResponse>('create_thread_with_message', {
+	const response = await invokeCommand<CreateThreadWithMessageResponse>('chat', 'create_thread_with_message', {
 		conversationId: options.conversationId,
 		threadTitle: options.threadTitle,
 		content: options.content,
@@ -418,7 +389,7 @@ export async function createThreadWithMessage(
  * @param id - Message ID
  */
 export async function deleteMessage(id: string): Promise<void> {
-	await safeInvoke<void>('delete_message', { id });
+	await invokeCommand<void>('chat', 'delete_message', { id });
 }
 
 /**
@@ -431,7 +402,7 @@ export async function updateMessageStatus(
 	id: string,
 	status: 'sending' | 'sent' | 'delivered' | 'error'
 ): Promise<void> {
-	await safeInvoke<void>('update_message_status', { id, status });
+	await invokeCommand<void>('chat', 'update_message_status', { id, status });
 }
 
 /**
@@ -444,7 +415,7 @@ export async function updateMessageFeedback(
 	id: string,
 	feedback: 'like' | 'dislike' | null
 ): Promise<void> {
-	await safeInvoke<void>('update_message_feedback', { id, feedback });
+	await invokeCommand<void>('chat', 'update_message_feedback', { id, feedback });
 }
 
 // ============================================================================
@@ -458,8 +429,8 @@ function convToClient(conv: ConversationResponse): Conversation {
 	return {
 		id: conv.id,
 		title: conv.title,
-		createdAt: new Date(conv.createdAt),
-		updatedAt: new Date(conv.updatedAt),
+		createdAt: parseDate(conv.createdAt) ?? new Date(),
+		updatedAt: parseDate(conv.updatedAt) ?? new Date(),
 		archived: conv.archived,
 		threads: [],
 		settings: {
@@ -481,8 +452,8 @@ function threadToClient(thread: ThreadResponse): Thread {
 		conversationId: thread.conversationId,
 		parentId: thread.parentId,
 		title: thread.title,
-		createdAt: new Date(thread.createdAt),
-		updatedAt: new Date(thread.updatedAt),
+		createdAt: parseDate(thread.createdAt) ?? new Date(),
+		updatedAt: parseDate(thread.updatedAt) ?? new Date(),
 		messageCount: thread.messageCount,
 		metadata: {
 			resolved: thread.metadata.resolved,
@@ -508,7 +479,7 @@ function msgToClient(msg: ChatMessageResponse): Message {
 		threadId: msg.threadId ?? '',
 		role: msg.role,
 		content: msg.content,
-		timestamp: new Date(msg.timestamp),
+		timestamp: parseDate(msg.timestamp) ?? new Date(),
 		status: msg.status,
 		metadata: msg.metadata
 			? {

@@ -3,42 +3,13 @@
  * TypeScript wrappers for Tauri IPC commands to the LLM backend.
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invokeCommand } from './core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { Message } from '$lib/types/message';
+import { LlmApiError } from './errors';
 
-// ============================================================================
-// Error Handling
-// ============================================================================
-
-/**
- * Error class for LLM API errors.
- */
-export class LlmApiError extends Error {
-	constructor(
-		message: string,
-		public readonly command: string,
-		public readonly cause?: unknown
-	) {
-		super(message);
-		this.name = 'LlmApiError';
-	}
-}
-
-/**
- * Wraps invoke with error handling.
- */
-async function safeInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-	try {
-		return await invoke<T>(command, args);
-	} catch (error) {
-		throw new LlmApiError(
-			`LLM command '${command}' failed: ${error instanceof Error ? error.message : String(error)}`,
-			command,
-			error
-		);
-	}
-}
+// Re-export error for backwards compatibility
+export { LlmApiError } from './errors';
 
 // ============================================================================
 // Types
@@ -185,7 +156,7 @@ export type LlmEventCallback = (event: LlmEvent) => void;
 export async function sendChatMessage(
 	options: SendChatMessageOptions
 ): Promise<SendChatMessageResponse> {
-	return safeInvoke<SendChatMessageResponse>('send_chat_message', {
+	return invokeCommand<SendChatMessageResponse>('llm', 'send_chat_message', {
 		request: {
 			conversationId: options.conversationId,
 			threadId: options.threadId,
@@ -346,7 +317,7 @@ export async function sendChatMessageStreaming(
 	let startTimeout: ReturnType<typeof setTimeout> | null = null;
 	try {
 		const requestId = await Promise.race<string>([
-			safeInvoke<string>('send_chat_message_streaming', {
+			invokeCommand<string>('llm', 'send_chat_message_streaming', {
 				request: {
 					conversationId: options.conversationId,
 					threadId: options.threadId,
@@ -371,7 +342,7 @@ export async function sendChatMessageStreaming(
 			requestId,
 			cancel: async () => {
 				isCancelled = true;
-				await safeInvoke<void>('cancel_chat_request', { requestId });
+				await invokeCommand<void>('llm', 'cancel_chat_request', { requestId });
 			},
 			unsubscribe
 		};
@@ -393,7 +364,7 @@ export async function sendChatMessageStreaming(
  * @param requestId - The request ID to cancel
  */
 export async function cancelChatRequest(requestId: string): Promise<void> {
-	await safeInvoke<void>('cancel_chat_request', { requestId });
+	await invokeCommand<void>('llm', 'cancel_chat_request', { requestId });
 }
 
 // ============================================================================
