@@ -351,6 +351,7 @@ fn extract_recent_file_actions(context: &[Message], limit: usize) -> Vec<String>
         for call in &msg.tool_calls {
             let action = match call.name.as_str() {
                 "fs_write_file" => "write",
+                "fs_replace_in_file" => "edit",
                 "fs_delete_file" => "delete",
                 _ => continue,
             };

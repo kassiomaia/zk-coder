@@ -220,6 +220,11 @@ mod tests {
         assert!(tool_names.contains(&"system_get_app_info".to_string()));
         assert!(tool_names.contains(&"fs_read_file".to_string()));
         assert!(tool_names.contains(&"fs_list_files".to_string()));
+        assert!(tool_names.contains(&"fs_glob_files".to_string()));
+        assert!(tool_names.contains(&"fs_stat_path".to_string()));
+        assert!(tool_names.contains(&"fs_replace_in_file".to_string()));
+        assert!(tool_names.contains(&"fs_fuzzy_find_files".to_string()));
+        assert!(tool_names.contains(&"fs_apply_patch".to_string()));
         assert!(tool_names.contains(&"conversation_search_messages".to_string()));
         assert!(tool_names.contains(&"docx_start".to_string()));
         assert!(tool_names.contains(&"docx_add_section".to_string()));

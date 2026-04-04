@@ -172,6 +172,30 @@ mod tests {
     }
 
     #[test]
+    fn test_untrusted_mode_auto_runs_stat_path() {
+        let resolver = PermissionResolver::new(TrustMode::Untrusted);
+        let action = ActionType::ReadFile {
+            path: "/tmp/test".to_string(),
+        };
+        assert_eq!(
+            resolver.check("fs_stat_path", &action),
+            PermissionLevel::AutoRun
+        );
+    }
+
+    #[test]
+    fn test_untrusted_mode_auto_runs_glob_files() {
+        let resolver = PermissionResolver::new(TrustMode::Untrusted);
+        let action = ActionType::ReadFile {
+            path: "/tmp".to_string(),
+        };
+        assert_eq!(
+            resolver.check("fs_glob_files", &action),
+            PermissionLevel::AutoRun
+        );
+    }
+
+    #[test]
     fn test_untrusted_mode_requires_approval_for_writes() {
         let resolver = PermissionResolver::new(TrustMode::Untrusted);
         let action = ActionType::WriteFile {
@@ -180,6 +204,19 @@ mod tests {
         };
         assert_eq!(
             resolver.check("fs_write_file", &action),
+            PermissionLevel::ApprovalRequired
+        );
+    }
+
+    #[test]
+    fn test_untrusted_mode_requires_approval_for_replace_in_file() {
+        let resolver = PermissionResolver::new(TrustMode::Untrusted);
+        let action = ActionType::WriteFile {
+            path: "/tmp/test".to_string(),
+            size_bytes: 0,
+        };
+        assert_eq!(
+            resolver.check("fs_replace_in_file", &action),
             PermissionLevel::ApprovalRequired
         );
     }

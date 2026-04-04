@@ -47,6 +47,10 @@ async-stream = "0.3"
 
 # Diff generation for file write previews
 similar = "2"
+ignore = "0.4"
+globset = "0.4"
+nucleo-matcher = "0.3"
+diffy = "0.4"
 
 # Code parsing (for Phase 6 - Code Understanding)
 tree-sitter = "0.22"

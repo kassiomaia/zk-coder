@@ -387,6 +387,30 @@ async fn execute_with_approval(
                 }
             }
         }
+    } else if call.name == "fs_replace_in_file" {
+        if let Some(ref workspace) = session.workspace_root {
+            if let Ok(Some(diff)) =
+                crate::infrastructure::tools::fs::generate_replace_preview_diff(
+                    workspace,
+                    &call.arguments,
+                )
+            {
+                let path = call
+                    .arguments
+                    .get("path")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default();
+                let lang = std::path::Path::new(path)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(String::from);
+                pending = pending.with_preview(crate::core::agent::types::ActionPreview {
+                    content_type: "diff".to_string(),
+                    content: diff,
+                    language: lang,
+                });
+            }
+        }
     }
 
     let action_id = pending.id.clone();
@@ -1435,7 +1459,7 @@ fn emit_file_events(
     telemetry_repo: &dyn AgentTelemetryRepository,
 ) {
     match call.name.as_str() {
-        "fs_write_file" => {
+        "fs_write_file" | "fs_replace_in_file" => {
             if let Some(path) = call.arguments.get("path").and_then(|v| v.as_str()) {
                 // Generate diff for post-session review
                 let diff = if let Some(workspace_root) = &session.workspace_root {

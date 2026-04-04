@@ -64,10 +64,17 @@ impl Agent {
             description: "Assists with code reading, writing, and execution".to_string(),
             system_prompt: Self::code_agent_system_prompt().to_string(),
             allowed_tools: vec![
+                "conversation_search_messages".to_string(),
                 "fs_read_file".to_string(),
+                "fs_stat_path".to_string(),
+                "fs_glob_files".to_string(),
+                "fs_fuzzy_find_files".to_string(),
                 "fs_write_file".to_string(),
+                "fs_replace_in_file".to_string(),
+                "fs_apply_patch".to_string(),
                 "fs_list_files".to_string(),
                 "search_grep".to_string(),
+                "system_get_app_info".to_string(),
                 "system_execute_command".to_string(),
                 "agent_emit_status".to_string(),
                 "agent_narrate".to_string(),
@@ -104,6 +111,43 @@ impl Agent {
         "You are a code assistant agent. You can read files, write code, search codebases, \
          and execute commands to help the user with software development tasks.
 
+         ## TOOL USAGE STRATEGY (KEEP CONTEXT CLEAN)
+
+         Work progressively and choose the cheapest tool that can answer the current question.
+         Avoid broad exploration, repeated reads, huge outputs, and unnecessary command execution.
+
+         Preferred discovery order:
+         1. If you already know the likely path, use `fs_stat_path` first to confirm type/size before reading.
+         2. If you know part of a filename or path, use `fs_fuzzy_find_files`.
+         3. If you know a pattern like `*.rs` or `src/**/mod.ts`, use `fs_glob_files`.
+         4. Use `fs_list_files` only for small, scoped directories with tight depth/limit.
+         5. Use `search_grep` for exact text or symbol searches, with a narrow `path` and low `max_results`.
+         6. Use `conversation_search_messages` when past chat context may answer the question without re-reading files.
+
+         Reading rules:
+         - Do NOT read full files by default.
+         - Read only after you have identified a promising target file.
+         - Start with a small `max_bytes` and only read more when the first read is insufficient.
+         - Prefer a few high-signal files over many low-value files.
+         - Avoid reading generated, compiled, vendored, lock, dist, build, or other large low-signal files unless they are directly relevant.
+
+         Editing rules:
+         - Prefer `fs_replace_in_file` for small exact edits.
+         - Prefer `fs_apply_patch` for localized multi-line edits.
+         - Use `fs_write_file` for new files or full rewrites only when patch/replace is not appropriate.
+         - Do NOT rewrite an entire file to make a small change.
+
+         Command rules:
+         - Use `system_execute_command` only when file/search tools cannot answer the question, or when you need validation such as tests/builds.
+         - Keep commands scoped to the relevant directory and task.
+         - Do NOT use shell commands for simple file discovery, file reading, or text search when dedicated tools can do it with less noise.
+
+         Web/app info rules:
+         - Use `system_get_app_info` only if application metadata is specifically needed.
+         - Use web search only as a last resort when the workspace and conversation do not contain the answer and the tool is available.
+
+         Stop exploring as soon as you have enough evidence to act. Summarize findings briefly instead of collecting excessive raw content.
+
          ## DOCUMENT GENERATION (IMPORTANT)
 
          When users ask you to create documents (Word/DOCX, PowerPoint/PPTX, or PDF), \
@@ -133,6 +177,9 @@ impl Agent {
          - Single-step requests that do not require code changes or command execution
 
          Everything else requires a plan first.
+
+         When planning, include only the investigation needed to unblock the task. Do NOT add broad repository exploration unless it is necessary.
+         If a discovery step is needed, state the narrow target and the stopping condition.
 
          If the user input is conversational, DO NOT create a plan. \
          Reply directly in natural language.
@@ -208,5 +255,52 @@ mod tests {
         let registry = AgentRegistry::new();
         let agent = registry.get(&AgentId::new("nonexistent")).await;
         assert!(agent.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_code_agent_includes_fs_stat_path() {
+        let registry = AgentRegistry::new();
+        let agent = registry.get(&AgentId::new("code-agent")).await.unwrap();
+        assert!(agent.allowed_tools.contains(&"fs_stat_path".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_code_agent_includes_fs_glob_files() {
+        let registry = AgentRegistry::new();
+        let agent = registry.get(&AgentId::new("code-agent")).await.unwrap();
+        assert!(agent.allowed_tools.contains(&"fs_glob_files".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_code_agent_includes_fs_replace_in_file() {
+        let registry = AgentRegistry::new();
+        let agent = registry.get(&AgentId::new("code-agent")).await.unwrap();
+        assert!(agent.allowed_tools.contains(&"fs_replace_in_file".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_code_agent_includes_progressive_discovery_tools() {
+        let registry = AgentRegistry::new();
+        let agent = registry.get(&AgentId::new("code-agent")).await.unwrap();
+
+        assert!(agent.allowed_tools.contains(&"conversation_search_messages".to_string()));
+        assert!(agent.allowed_tools.contains(&"fs_fuzzy_find_files".to_string()));
+        assert!(agent.allowed_tools.contains(&"fs_apply_patch".to_string()));
+        assert!(agent.allowed_tools.contains(&"system_get_app_info".to_string()));
+    }
+
+    #[test]
+    fn test_code_agent_prompt_includes_token_efficient_tool_guidance() {
+        let prompt = Agent::code_agent().system_prompt;
+
+        assert!(prompt.contains("TOOL USAGE STRATEGY"));
+        assert!(prompt.contains("fs_stat_path"));
+        assert!(prompt.contains("fs_fuzzy_find_files"));
+        assert!(prompt.contains("search_grep"));
+        assert!(prompt.contains("conversation_search_messages"));
+        assert!(prompt.contains("fs_replace_in_file"));
+        assert!(prompt.contains("fs_apply_patch"));
+        assert!(prompt.contains("system_execute_command"));
+        assert!(prompt.contains("Do NOT read full files by default"));
     }
 }

@@ -211,6 +211,9 @@ impl SubTaskMode {
         match self {
             SubTaskMode::Read => vec![
                 "fs_read_file",
+                "fs_stat_path",
+                "fs_glob_files",
+                "fs_fuzzy_find_files",
                 "search_grep",
                 "fs_list_files",
                 "agent_emit_status",
@@ -218,7 +221,12 @@ impl SubTaskMode {
             ],
             SubTaskMode::Write => vec![
                 "fs_read_file",
+                "fs_stat_path",
+                "fs_glob_files",
+                "fs_fuzzy_find_files",
                 "fs_write_file",
+                "fs_replace_in_file",
+                "fs_apply_patch",
                 "search_grep",
                 "fs_list_files",
                 "agent_emit_status",
@@ -226,6 +234,9 @@ impl SubTaskMode {
             ],
             SubTaskMode::Execute => vec![
                 "fs_read_file",
+                "fs_stat_path",
+                "fs_glob_files",
+                "fs_fuzzy_find_files",
                 "search_grep",
                 "fs_list_files",
                 "system_execute_command",
@@ -234,7 +245,12 @@ impl SubTaskMode {
             ],
             SubTaskMode::FullAccess => vec![
                 "fs_read_file",
+                "fs_stat_path",
+                "fs_glob_files",
+                "fs_fuzzy_find_files",
                 "fs_write_file",
+                "fs_replace_in_file",
+                "fs_apply_patch",
                 "fs_list_files",
                 "search_grep",
                 "system_execute_command",
@@ -487,6 +503,10 @@ mod tests {
             "Write mode should allow fs_write_file"
         );
         assert!(
+            tools.contains(&"fs_replace_in_file"),
+            "Write mode should allow fs_replace_in_file"
+        );
+        assert!(
             !tools.contains(&"system_execute_command"),
             "Write mode should not allow system_execute_command"
         );
@@ -500,12 +520,24 @@ mod tests {
             "Execute mode should allow fs_read_file"
         );
         assert!(
+            tools.contains(&"fs_stat_path"),
+            "Execute mode should allow fs_stat_path"
+        );
+        assert!(
+            tools.contains(&"fs_glob_files"),
+            "Execute mode should allow fs_glob_files"
+        );
+        assert!(
             tools.contains(&"system_execute_command"),
             "Execute mode should allow system_execute_command"
         );
         assert!(
             !tools.contains(&"fs_write_file"),
             "Execute mode should not allow fs_write_file"
+        );
+        assert!(
+            !tools.contains(&"fs_replace_in_file"),
+            "Execute mode should not allow fs_replace_in_file"
         );
     }
 
@@ -517,8 +549,20 @@ mod tests {
             "FullAccess should allow fs_read_file"
         );
         assert!(
+            tools.contains(&"fs_stat_path"),
+            "FullAccess should allow fs_stat_path"
+        );
+        assert!(
+            tools.contains(&"fs_glob_files"),
+            "FullAccess should allow fs_glob_files"
+        );
+        assert!(
             tools.contains(&"fs_write_file"),
             "FullAccess should allow fs_write_file"
+        );
+        assert!(
+            tools.contains(&"fs_replace_in_file"),
+            "FullAccess should allow fs_replace_in_file"
         );
         assert!(
             tools.contains(&"system_execute_command"),

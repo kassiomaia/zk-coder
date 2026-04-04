@@ -14,9 +14,22 @@ pub(crate) fn build_tool_call_feedback(tool_name: &str, arguments: &Value) -> Op
             let path = get_string(arguments, "path").unwrap_or("the requested file");
             format!("Let me read `{path}` and inspect its contents.")
         }
+        "fs_stat_path" => {
+            let path = get_string(arguments, "path").unwrap_or("the requested path");
+            format!("Let me inspect metadata for `{path}`.")
+        }
         "fs_list_files" => {
             let path = get_string(arguments, "path").unwrap_or("the workspace");
             format!("Let me inspect `{path}` to see what files are available.")
+        }
+        "fs_glob_files" => {
+            let pattern = arguments
+                .get("patterns")
+                .and_then(Value::as_array)
+                .and_then(|patterns| patterns.first())
+                .and_then(Value::as_str)
+                .unwrap_or("the requested pattern");
+            format!("Let me scan the workspace for files matching `{pattern}`.")
         }
         "fs_delete_file" | "delete_file" | "remove_file" => {
             let path = get_string(arguments, "path").unwrap_or("the requested file");
@@ -26,9 +39,17 @@ pub(crate) fn build_tool_call_feedback(tool_name: &str, arguments: &Value) -> Op
             let path = get_string(arguments, "path").unwrap_or("the requested file");
             format!("Let me update `{path}`.")
         }
-        "fs_glob" => {
-            let pattern = get_string(arguments, "pattern").unwrap_or("the requested pattern");
-            format!("Let me scan the workspace for files matching `{pattern}`.")
+        "fs_replace_in_file" => {
+            let path = get_string(arguments, "path").unwrap_or("the requested file");
+            format!("Let me update `{path}` with the requested replacement(s).")
+        }
+        "fs_fuzzy_find_files" => {
+            let query = get_string(arguments, "query").unwrap_or("the requested query");
+            format!("Let me search the workspace for files matching `{query}`.")
+        }
+        "fs_apply_patch" => {
+            let path = get_string(arguments, "path").unwrap_or("the requested file");
+            format!("Let me apply the patch to `{path}`.")
         }
         "search_grep" => {
             let query = get_string(arguments, "query").unwrap_or("the requested pattern");
@@ -103,6 +124,11 @@ pub(crate) fn build_tool_result_feedback(
                 format!("I read `{path}` and reviewed the file contents.")
             }
         }
+        "fs_stat_path" => {
+            let path = get_string(result, "path").unwrap_or("the requested path");
+            let file_type = get_string(result, "fileType").unwrap_or("path");
+            format!("I inspected `{path}` and confirmed it is a {file_type}.")
+        }
         "fs_list_files" => {
             let path = get_string(result, "path").unwrap_or("the requested folder");
             let count = result
@@ -112,6 +138,19 @@ pub(crate) fn build_tool_result_feedback(
                 .unwrap_or(0);
             format!("I inspected `{path}` and found {count} item(s).")
         }
+        "fs_glob_files" => {
+            let count = result
+                .get("count")
+                .and_then(Value::as_u64)
+                .or_else(|| {
+                    result
+                        .get("matches")
+                        .and_then(Value::as_array)
+                        .map(|files| files.len() as u64)
+                })
+                .unwrap_or(0);
+            format!("I found {count} matching file(s).")
+        }
         "fs_delete_file" | "delete_file" | "remove_file" => {
             let path = get_string(result, "path").unwrap_or("the requested file");
             format!("I removed `{path}`.")
@@ -120,13 +159,34 @@ pub(crate) fn build_tool_result_feedback(
             let path = get_string(result, "path").unwrap_or("the requested file");
             format!("I updated `{path}`.")
         }
-        "fs_glob" => {
+        "fs_replace_in_file" => {
+            let path = get_string(result, "path").unwrap_or("the requested file");
             let count = result
-                .get("count")
+                .get("appliedReplacements")
                 .and_then(Value::as_u64)
-                .or_else(|| result.get("files").and_then(Value::as_array).map(|files| files.len() as u64))
                 .unwrap_or(0);
-            format!("I found {count} matching file(s).")
+            format!("I updated `{path}` with {count} replacement(s).")
+        }
+        "fs_fuzzy_find_files" => {
+            let count = result.get("count").and_then(Value::as_u64).unwrap_or(0);
+            let query = get_string(result, "query").unwrap_or("the requested query");
+            format!("I found {count} candidate(s) matching `{query}`.")
+        }
+        "fs_apply_patch" => {
+            let path = get_string(result, "path").unwrap_or("the requested file");
+            let hunks = result
+                .get("hunksApplied")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
+            let dry_run = result
+                .get("dryRun")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            if dry_run {
+                format!("I previewed the patch for `{path}` ({hunks} hunk(s)) — no changes were written.")
+            } else {
+                format!("I applied the patch to `{path}` ({hunks} hunk(s)).")
+            }
         }
         "search_grep" => {
             let count = result.get("count").and_then(Value::as_u64).unwrap_or(0);
@@ -202,6 +262,112 @@ mod tests {
         assert_eq!(
             feedback.as_deref(),
             Some("I inspected `src` and found 12 item(s).")
+        );
+    }
+
+    #[test]
+    fn test_build_tool_feedback_for_stat_path() {
+        let call_feedback = build_tool_call_feedback("fs_stat_path", &json!({"path": "Cargo.toml"}));
+        assert_eq!(
+            call_feedback.as_deref(),
+            Some("Let me inspect metadata for `Cargo.toml`.")
+        );
+
+        let result_feedback = build_tool_result_feedback(
+            "fs_stat_path",
+            &json!({"path": "Cargo.toml", "fileType": "file"}),
+            false,
+        );
+        assert_eq!(
+            result_feedback.as_deref(),
+            Some("I inspected `Cargo.toml` and confirmed it is a file.")
+        );
+    }
+
+    #[test]
+    fn test_build_tool_feedback_for_glob_files() {
+        let call_feedback =
+            build_tool_call_feedback("fs_glob_files", &json!({"patterns": ["**/*.rs"]}));
+        assert_eq!(
+            call_feedback.as_deref(),
+            Some("Let me scan the workspace for files matching `**/*.rs`.")
+        );
+
+        let result_feedback =
+            build_tool_result_feedback("fs_glob_files", &json!({"count": 3}), false);
+        assert_eq!(
+            result_feedback.as_deref(),
+            Some("I found 3 matching file(s).")
+        );
+    }
+
+    #[test]
+    fn test_build_tool_feedback_for_replace_in_file() {
+        let call_feedback =
+            build_tool_call_feedback("fs_replace_in_file", &json!({"path": "src/main.rs"}));
+        assert_eq!(
+            call_feedback.as_deref(),
+            Some("Let me update `src/main.rs` with the requested replacement(s).")
+        );
+
+        let result_feedback = build_tool_result_feedback(
+            "fs_replace_in_file",
+            &json!({"path": "src/main.rs", "appliedReplacements": 2}),
+            false,
+        );
+        assert_eq!(
+            result_feedback.as_deref(),
+            Some("I updated `src/main.rs` with 2 replacement(s).")
+        );
+    }
+
+    #[test]
+    fn test_build_tool_feedback_for_fuzzy_find_files() {
+        let call_feedback =
+            build_tool_call_feedback("fs_fuzzy_find_files", &json!({"query": "agent store"}));
+        assert_eq!(
+            call_feedback.as_deref(),
+            Some("Let me search the workspace for files matching `agent store`.")
+        );
+
+        let result_feedback = build_tool_result_feedback(
+            "fs_fuzzy_find_files",
+            &json!({"query": "agent store", "count": 3}),
+            false,
+        );
+        assert_eq!(
+            result_feedback.as_deref(),
+            Some("I found 3 candidate(s) matching `agent store`.")
+        );
+    }
+
+    #[test]
+    fn test_build_tool_feedback_for_apply_patch() {
+        let call_feedback =
+            build_tool_call_feedback("fs_apply_patch", &json!({"path": "src/main.rs"}));
+        assert_eq!(
+            call_feedback.as_deref(),
+            Some("Let me apply the patch to `src/main.rs`.")
+        );
+
+        let result_feedback = build_tool_result_feedback(
+            "fs_apply_patch",
+            &json!({"path": "src/main.rs", "hunksApplied": 2, "dryRun": false}),
+            false,
+        );
+        assert_eq!(
+            result_feedback.as_deref(),
+            Some("I applied the patch to `src/main.rs` (2 hunk(s)).")
+        );
+
+        let dry_run_feedback = build_tool_result_feedback(
+            "fs_apply_patch",
+            &json!({"path": "src/main.rs", "hunksApplied": 1, "dryRun": true}),
+            false,
+        );
+        assert_eq!(
+            dry_run_feedback.as_deref(),
+            Some("I previewed the patch for `src/main.rs` (1 hunk(s)) — no changes were written.")
         );
     }
 

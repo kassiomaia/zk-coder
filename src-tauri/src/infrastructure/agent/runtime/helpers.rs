@@ -80,6 +80,13 @@ pub fn infer_action_type(tool_name: &str, arguments: &serde_json::Value) -> Acti
         "pdf_add_page" | "pdf_delete_page" => ActionType::MutatePdfDraft { pdf_id },
         "pdf_list_pages" | "pdf_get_page" => ActionType::InspectPdfDraft { pdf_id },
         "pdf_finalize" => ActionType::FinalizePdf { pdf_id },
+        "fs_stat_path" | "fs_glob_files" | "fs_fuzzy_find_files" => {
+            ActionType::ReadFile { path }
+        }
+        "fs_replace_in_file" | "fs_apply_patch" => ActionType::WriteFile {
+            path,
+            size_bytes: 0,
+        },
         // Standard file operations
         name if name.contains("read") => ActionType::ReadFile { path },
         name if name.contains("write") || name.contains("create") => {
@@ -158,7 +165,14 @@ mod tests {
 
     #[test]
     fn test_infer_action_type_read_variations() {
-        let tools = vec!["read_file", "read_workspace_file", "fs_read_file"];
+        let tools = vec![
+            "read_file",
+            "read_workspace_file",
+            "fs_read_file",
+            "fs_stat_path",
+            "fs_glob_files",
+            "fs_fuzzy_find_files",
+        ];
 
         for tool in tools {
             let action = infer_action_type(tool, &serde_json::json!({"path": "/test.txt"}));
@@ -186,7 +200,13 @@ mod tests {
 
     #[test]
     fn test_infer_action_type_write_variations() {
-        let tools = vec!["write_file", "fs_write_file", "create_file"];
+        let tools = vec![
+            "write_file",
+            "fs_write_file",
+            "create_file",
+            "fs_replace_in_file",
+            "fs_apply_patch",
+        ];
 
         for tool in tools {
             let action = infer_action_type(
