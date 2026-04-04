@@ -10,6 +10,7 @@
 	import { agentStore } from '$lib/stores';
 	import { createLogger } from '$lib/utils/logger';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
+	import LoadingState from '$lib/components/shared/LoadingState.svelte';
 	import StatusBadge from '$lib/components/shared/StatusBadge.svelte';
 
 	const log = createLogger('SessionHistory');
@@ -156,9 +157,7 @@
 
 {#snippet historyContent()}
 	{#if loading}
-		<div class="loading-state">
-			<p>Loading sessions...</p>
-		</div>
+		<LoadingState class="loading-state" message="Loading sessions..." />
 	{:else if sessions.length === 0}
 		<EmptyState class="empty-state" message="No completed sessions found" />
 	{:else}
@@ -406,7 +405,6 @@
 		font-style: italic;
 	}
 
-	.loading-state,
 	.empty-state {
 		display: flex;
 		flex-direction: column;

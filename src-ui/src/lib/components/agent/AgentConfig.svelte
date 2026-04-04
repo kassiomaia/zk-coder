@@ -6,6 +6,7 @@
 	import { Check, ChevronDown, ChevronRight, Cpu, Settings, Shield, Wrench } from 'lucide-svelte';
 	import type { Agent, TrustMode } from '$lib/types/agent';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
+	import LoadingState from '$lib/components/shared/LoadingState.svelte';
 	import StatusBadge from '$lib/components/shared/StatusBadge.svelte';
 
 	interface Props {
@@ -121,9 +122,7 @@
 
 			<div class="content">
 				{#if loading}
-					<div class="loading-state">
-						<p>Loading agents...</p>
-					</div>
+					<LoadingState class="loading-state" message="Loading agents..." />
 				{:else if agents.length === 0}
 					<EmptyState class="empty-state" message="No agents configured" />
 				{:else}
@@ -303,15 +302,6 @@
 		flex: 1;
 		overflow-y: auto;
 		padding: var(--space-4);
-	}
-
-	.loading-state,
-	.empty-state {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: var(--space-8);
-		color: var(--color-text-muted);
 	}
 
 	.agents-list {
