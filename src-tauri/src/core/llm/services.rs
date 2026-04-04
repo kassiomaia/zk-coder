@@ -17,6 +17,9 @@ pub enum LlmEvent {
         request_id: String,
         /// The model being used for the request.
         model: String,
+        /// The thread ID this request belongs to (for thread isolation).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        thread_id: Option<String>,
     },
     /// A chunk of content has been received.
     Chunk {
@@ -27,6 +30,9 @@ pub enum LlmEvent {
         /// Optional reasoning content from models that provide it.
         #[serde(skip_serializing_if = "Option::is_none")]
         reasoning_delta: Option<String>,
+        /// The thread ID this request belongs to (for thread isolation).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        thread_id: Option<String>,
     },
     /// Indicates that the streaming has completed.
     Complete {
@@ -38,6 +44,9 @@ pub enum LlmEvent {
         usage: Option<super::entities::UsageStats>,
         /// The reason why the model finished generating the response.
         finish_reason: Option<String>,
+        /// The thread ID this request belongs to (for thread isolation).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        thread_id: Option<String>,
     },
     /// An error occurred during the streaming operation.
     Error {
@@ -47,6 +56,9 @@ pub enum LlmEvent {
         error: String,
         /// A flag indicating whether the error is retryable.
         retryable: bool,
+        /// The thread ID this request belongs to (for thread isolation).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        thread_id: Option<String>,
     },
 }
 

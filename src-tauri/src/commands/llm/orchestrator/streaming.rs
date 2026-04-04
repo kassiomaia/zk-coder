@@ -32,10 +32,13 @@ pub async fn send_chat_message_orchestrated_non_stream(
     )
     .await?;
 
-    let assistant_message = crate::core::chat::entities::ChatMessage::assistant(
+    let mut assistant_message = crate::core::chat::entities::ChatMessage::assistant(
         &request.conversation_id,
         &final_output.content,
     );
+    if let Some(thread_id) = &request.thread_id {
+        assistant_message = assistant_message.with_thread(thread_id);
+    }
     let chat_state = app_handle.state::<ChatState>();
     chat_state
         .service
@@ -80,6 +83,7 @@ pub async fn send_chat_message_streaming_orchestrated(
         let started_event = LlmEvent::Started {
             request_id: request_id_clone.clone(),
             model: model_for_started,
+            thread_id: request_for_task.thread_id.clone(),
         };
         if let Err(e) = app_handle_clone.emit("llm:event", &started_event) {
             log::error!("[LLM] Failed to emit orchestrated started event: {}", e);
@@ -107,6 +111,7 @@ pub async fn send_chat_message_streaming_orchestrated(
                     request_id: request_id_clone.clone(),
                     error: err,
                     retryable: false,
+                    thread_id: request_for_task.thread_id.clone(),
                 };
                 if let Err(e) = app_handle_clone.emit("llm:event", &event) {
                     log::error!("[LLM] Failed to emit orchestrated error event: {}", e);
@@ -143,6 +148,7 @@ fn emit_success(
             request_id: request_id.to_string(),
             delta: final_output.content.clone(),
             reasoning_delta: None,
+            thread_id: request.thread_id.clone(),
         };
         if let Err(e) = app_handle.emit("llm:event", &chunk_event) {
             log::error!("[LLM] Failed to emit orchestrated chunk event: {}", e);
@@ -154,6 +160,7 @@ fn emit_success(
         content: final_output.content.clone(),
         usage: final_output.usage.clone(),
         finish_reason: Some("stop".to_string()),
+        thread_id: request.thread_id.clone(),
     };
     if let Err(e) = app_handle.emit("llm:event", &complete_event) {
         log::error!("[LLM] Failed to emit orchestrated complete event: {}", e);

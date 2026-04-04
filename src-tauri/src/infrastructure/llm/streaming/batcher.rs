@@ -81,6 +81,7 @@ impl ChunkBatcher {
         &mut self,
         chunk: &StreamChunk,
         request_id: &str,
+        thread_id: Option<String>,
     ) -> Option<Vec<LlmEvent>> {
         // Accumulate content and reasoning
         if let Some(ref delta) = chunk.delta {
@@ -93,7 +94,7 @@ impl ChunkBatcher {
                 self.reasoning_buffer.push_str(reasoning);
             }
 
-            return self.check_flush(request_id);
+            return self.check_flush(request_id, thread_id);
         }
 
         // Save final usage/finish reason
@@ -107,7 +108,7 @@ impl ChunkBatcher {
     }
 
     /// Checks if batch should be flushed based on config.
-    fn check_flush(&mut self, request_id: &str) -> Option<Vec<LlmEvent>> {
+    fn check_flush(&mut self, request_id: &str, thread_id: Option<String>) -> Option<Vec<LlmEvent>> {
         let has_content = !self.batch_buffer.is_empty();
         let has_reasoning = !self.reasoning_buffer.is_empty();
 
@@ -140,6 +141,7 @@ impl ChunkBatcher {
                 request_id: request_id.to_string(),
                 delta: self.batch_buffer.clone(),
                 reasoning_delta,
+                thread_id: thread_id.clone(),
             }];
             self.batch_buffer.clear();
             self.reasoning_buffer.clear();
@@ -151,7 +153,7 @@ impl ChunkBatcher {
     }
 
     /// Flushes any remaining buffered content.
-    pub fn flush(&mut self, request_id: &str) -> Option<LlmEvent> {
+    pub fn flush(&mut self, request_id: &str, thread_id: Option<String>) -> Option<LlmEvent> {
         let has_content = !self.batch_buffer.is_empty();
         let has_reasoning = !self.reasoning_buffer.is_empty();
 
@@ -169,6 +171,7 @@ impl ChunkBatcher {
             request_id: request_id.to_string(),
             delta: self.batch_buffer.clone(),
             reasoning_delta,
+            thread_id,
         };
         self.batch_buffer.clear();
         self.reasoning_buffer.clear();
@@ -176,8 +179,8 @@ impl ChunkBatcher {
     }
 
     /// Finishes batching and returns the final chunk if any.
-    pub fn finish(&mut self, request_id: &str) -> Option<LlmEvent> {
-        self.flush(request_id)
+    pub fn finish(&mut self, request_id: &str, thread_id: Option<String>) -> Option<LlmEvent> {
+        self.flush(request_id, thread_id)
     }
 
     /// Returns the accumulated full content (consuming the batcher).

@@ -25,7 +25,7 @@ pub fn stream_to_events(
     model: String,
     chunks: Pin<Box<dyn Stream<Item = Result<StreamChunk, LlmError>> + Send>>,
 ) -> Pin<Box<dyn Stream<Item = LlmEvent> + Send>> {
-    stream_to_events_with_config(request_id, model, chunks, BatchingConfig::default())
+    stream_to_events_with_thread(request_id, model, chunks, BatchingConfig::default(), None)
 }
 
 /// Creates a streaming helper with custom batching configuration.
@@ -35,10 +35,22 @@ pub fn stream_to_events_with_config(
     chunks: Pin<Box<dyn Stream<Item = Result<StreamChunk, LlmError>> + Send>>,
     config: BatchingConfig,
 ) -> Pin<Box<dyn Stream<Item = LlmEvent> + Send>> {
+    stream_to_events_with_thread(request_id, model, chunks, config, None)
+}
+
+/// Creates a streaming helper with custom batching configuration and thread ID.
+pub fn stream_to_events_with_thread(
+    request_id: String,
+    model: String,
+    chunks: Pin<Box<dyn Stream<Item = Result<StreamChunk, LlmError>> + Send>>,
+    config: BatchingConfig,
+    thread_id: Option<String>,
+) -> Pin<Box<dyn Stream<Item = LlmEvent> + Send>> {
     Box::pin(stream! {
         yield LlmEvent::Started {
             request_id: request_id.clone(),
             model: model.clone(),
+            thread_id: thread_id.clone(),
         };
 
         let mut batcher = ChunkBatcher::new(config);
@@ -49,7 +61,7 @@ pub fn stream_to_events_with_config(
         while let Some(chunk_result) = futures::StreamExt::next(&mut chunks).await {
             match chunk_result {
                 Ok(chunk) => {
-                    if let Some(events) = batcher.process_chunk(&chunk, &request_id) {
+                    if let Some(events) = batcher.process_chunk(&chunk, &request_id, thread_id.clone()) {
                         for event in events {
                             yield event;
                         }
@@ -57,13 +69,14 @@ pub fn stream_to_events_with_config(
                 }
                 Err(e) => {
                     // Flush any remaining content before error
-                    if let Some(flush_event) = batcher.flush(&request_id) {
+                    if let Some(flush_event) = batcher.flush(&request_id, thread_id.clone()) {
                         yield flush_event;
                     }
                     yield LlmEvent::Error {
                         request_id: request_id.clone(),
                         error: e.to_string(),
                         retryable: e.is_retryable(),
+                        thread_id: thread_id.clone(),
                     };
                     return;
                 }
@@ -71,7 +84,7 @@ pub fn stream_to_events_with_config(
         }
 
         // Flush any remaining buffered content
-        if let Some(_final_event) = batcher.finish(&request_id) {
+        if let Some(_final_event) = batcher.finish(&request_id, thread_id.clone()) {
             // Event yielded
         }
 
@@ -85,6 +98,7 @@ pub fn stream_to_events_with_config(
             content: full_content_owned,
             usage: None, // Will be set by streaming module
             finish_reason,
+            thread_id,
         };
     })
 }

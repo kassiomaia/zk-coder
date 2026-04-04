@@ -904,7 +904,13 @@ function createChatStore() {
 		 * Add a message to the current conversation (local only).
 		 */
 		async addMessage(message: Message) {
-			update((state) => ({ ...state, messages: [...state.messages, message] }));
+			update((state) => {
+				// Only add if message belongs to the current view
+				if (message.threadId && state.selectedThreadId && message.threadId !== state.selectedThreadId) {
+					return state; // Message belongs to a different thread
+				}
+				return { ...state, messages: [...state.messages, message] };
+			});
 
 			const state = get({ subscribe });
 			if (state.nlp.backendAvailable && message.conversationId) {
@@ -1008,10 +1014,17 @@ function createChatStore() {
 		 * Update a message (local only).
 		 */
 		updateMessage(id: string, updates: Partial<Message>) {
-			update((state) => ({
-				...state,
-				messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m))
-			}));
+			update((state) => {
+				// Only update if the message exists in the current view and belongs to the selected thread
+				const messageExists = state.messages.some((m) => m.id === id);
+				if (!messageExists) {
+					return state; // Message not in current view
+				}
+				return {
+					...state,
+					messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m))
+				};
+			});
 		},
 
 		// ====================================================================
@@ -1321,10 +1334,17 @@ function createChatStore() {
 		},
 
 		/**
-		 * Cancel the current LLM streaming request.
+		 * Cancel the current LLM streaming request for the selected thread.
 		 */
 		async cancelLlmStream(): Promise<void> {
-			await llmHandler.cancelStream();
+			const state = get({ subscribe });
+			if (state.selectedThreadId) {
+				// Cancel only the selected thread's stream
+				await llmHandler.cancelThreadStream(state.selectedThreadId);
+			} else {
+				// Fallback: cancel all streams if no thread is selected (shouldn't happen in normal flow)
+				await llmHandler.cancelStream();
+			}
 		},
 
 		/**

@@ -121,6 +121,8 @@ export type LlmEventType = 'started' | 'chunk' | 'complete' | 'error';
 export interface LlmEventBase {
 	type: LlmEventType;
 	requestId: string;
+	/** Thread ID this request belongs to (for thread isolation) */
+	thread_id?: string | null;
 }
 
 /**
@@ -331,6 +333,12 @@ export async function sendChatMessageStreaming(
 
 		const normalized = normalizeLlmEvent(event.payload);
 		if (!normalized) return;
+
+		// Secondary thread isolation filter: drop events from other threads
+		if (normalized.thread_id && options.threadId && normalized.thread_id !== options.threadId) {
+			return;
+		}
+
 		options.onEvent(normalized);
 	});
 

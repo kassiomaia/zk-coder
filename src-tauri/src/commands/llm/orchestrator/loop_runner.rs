@@ -98,18 +98,18 @@ pub async fn run_orchestrated_loop(
 
     let chat_state = app_handle.state::<ChatState>();
 
-    let history = if include_thread_history {
-        if let Some(thread_id) = &request.thread_id {
-            chat_state
-                .service
-                .load_thread_messages(thread_id)
-                .map_err(|e| e.to_string())?
-        } else {
-            chat_state
-                .service
-                .load_messages(&request.conversation_id)
-                .map_err(|e| e.to_string())?
-        }
+    let history = if let Some(thread_id) = &request.thread_id {
+        // Always use thread-scoped history when a thread is specified, regardless of include_thread_history
+        chat_state
+            .service
+            .load_thread_messages(thread_id)
+            .map_err(|e| e.to_string())?
+    } else if include_thread_history {
+        // Fallback to conversation-wide history only if no thread specified
+        chat_state
+            .service
+            .load_messages(&request.conversation_id)
+            .map_err(|e| e.to_string())?
     } else {
         chat_state
             .service
@@ -118,7 +118,10 @@ pub async fn run_orchestrated_loop(
     };
 
     let history_includes_request = include_thread_history;
-    let user_message = ChatMessage::user(&request.conversation_id, &request.content);
+    let mut user_message = ChatMessage::user(&request.conversation_id, &request.content);
+    if let Some(thread_id) = &request.thread_id {
+        user_message = user_message.with_thread(thread_id);
+    }
     if persist_user_message {
         chat_state
             .service

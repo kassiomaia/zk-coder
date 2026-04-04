@@ -637,6 +637,35 @@ export class LlmHandler {
 	}
 
 	/**
+	 * Cancel a stream for a specific thread (does not affect other threads' streams).
+	 */
+	async cancelThreadStream(threadId: string): Promise<void> {
+		const stream = this.activeStreams.get(threadId);
+		if (!stream) return;
+
+		try {
+			await stream.cancel();
+		} catch (error) {
+			console.error(`Failed to cancel LLM stream for thread ${threadId}:`, error);
+		} finally {
+			stream.unsubscribe();
+			this.clearStreamTimeout(threadId);
+			this.activeStreams.delete(threadId);
+		}
+
+		this.update((s) => {
+			const nextThreadStreaming = { ...s.threadStreaming };
+			delete nextThreadStreaming[threadId];
+
+			return {
+				...s,
+				threadStreaming: nextThreadStreaming,
+				llm: this.buildSelectedLlmState(s, nextThreadStreaming)
+			};
+		});
+	}
+
+	/**
 	 * Cancel all active streams.
 	 */
 	async cancelStream(): Promise<void> {
