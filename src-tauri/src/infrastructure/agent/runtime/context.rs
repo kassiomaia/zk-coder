@@ -3,7 +3,7 @@
 //! Provides context compaction and token estimation for managing
 //! LLM context window during agent execution.
 
-use crate::core::llm::entities::{ChatMessage as Message, MessageContent, MessageRole, ToolCall};
+use crate::core::llm::entities::{ChatMessage as Message, MessageRole, ToolCall};
 use serde_json::Value as JsonValue;
 
 /// Approximate context window size for token budgeting (conservative 128k).
