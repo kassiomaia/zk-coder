@@ -24,6 +24,8 @@ pub struct ToolCallEntry {
     pub duration_ms: Option<i64>,
     /// Optional subtask identifier if this call was made within a subtask.
     pub subtask_id: Option<String>,
+    /// Timestamp when the tool call was recorded.
+    pub timestamp: String,
 }
 
 /// Insert a tool call record.
@@ -77,7 +79,7 @@ pub fn get_tool_calls_for_session(
     session_id: &SessionId,
 ) -> Result<Vec<ToolCallEntry>, SessionRepositoryError> {
     let mut stmt = conn.prepare(
-        "SELECT id, session_id, tool_name, arguments, result, is_error, duration_ms, subtask_id
+        "SELECT id, session_id, tool_name, arguments, result, is_error, duration_ms, subtask_id, timestamp
          FROM agent_tool_calls WHERE session_id = ?1 ORDER BY timestamp",
     )?;
 
@@ -112,6 +114,7 @@ pub fn get_tool_calls_for_session(
                 is_error: row.get::<_, i32>(5)? != 0,
                 duration_ms: row.get(6)?,
                 subtask_id: row.get(7)?,
+                timestamp: row.get(8)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -185,6 +188,7 @@ mod tests {
         assert_eq!(tool_calls[0].id, tool_call_id);
         assert_eq!(tool_calls[0].tool_name, "fs_read_file");
         assert_eq!(tool_calls[0].subtask_id, Some(subtask.id));
+        assert!(!tool_calls[0].timestamp.is_empty());
     }
 
     #[test]
@@ -208,6 +212,7 @@ mod tests {
         let tool_calls = get_tool_calls_for_session(&conn, &session_id).unwrap();
         assert_eq!(tool_calls.len(), 1);
         assert_eq!(tool_calls[0].subtask_id, None);
+        assert!(!tool_calls[0].timestamp.is_empty());
     }
 
     #[test]

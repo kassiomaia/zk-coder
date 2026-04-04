@@ -142,18 +142,61 @@ describe('agentStore', () => {
 			expect(state.loading).toBe(false);
 		});
 
-		it('loadSession returns existing session if already loaded', async () => {
-			// First load the session
-			mockInvoke.mockResolvedValue(mockSession);
+		it('loadSession rehydrates cached lightweight sessions with persisted runtime details', async () => {
+			mockInvoke.mockResolvedValueOnce(mockSession);
 			await agentStore.createSession('agent-1', 'conv-1', 'thread-1');
 
-			// Clear the mock
 			mockInvoke.mockClear();
+			mockInvoke.mockResolvedValueOnce({
+				...mockSession,
+				filesTouched: [{ path: '/workspace/src/lib.rs', modified: true, action: 'write' }],
+				terminalOutput: [],
+				tasks: [],
+				toolCalls: [
+					{
+						id: 'tool-1',
+						toolName: 'fs_write_file',
+						arguments: { path: '/workspace/src/lib.rs' },
+						result: { ok: true },
+						isError: false,
+						durationMs: 42,
+						timestamp: '2024-01-01T00:01:00Z'
+					}
+				],
+				executionSteps: [],
+				statusPhrases: []
+			});
 
-			// Second call should use cache
 			const result = await agentStore.loadSession('session-1');
 
-			expect(result).toEqual(mockSession);
+			expect(mockInvoke).toHaveBeenCalledWith('get_session_details', {
+				sessionId: 'session-1'
+			});
+			expect(result?.filesTouched).toHaveLength(1);
+			expect(result?.toolCalls?.[0]).toMatchObject({
+				tool: 'fs_write_file',
+				durationMs: 42,
+				timestamp: '2024-01-01T00:01:00Z'
+			});
+		});
+
+		it('loadSession returns hydrated session from cache without refetching', async () => {
+			mockInvoke.mockResolvedValue({
+				...mockSession,
+				filesTouched: [],
+				terminalOutput: [],
+				tasks: [],
+				toolCalls: [],
+				executionSteps: [],
+				statusPhrases: []
+			});
+
+			await agentStore.loadSession('session-1');
+			mockInvoke.mockClear();
+
+			const result = await agentStore.loadSession('session-1');
+
+			expect(result?.id).toBe('session-1');
 			expect(mockInvoke).not.toHaveBeenCalled();
 		});
 

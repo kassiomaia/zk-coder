@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **LLM tools regression**: Tools like workspace file listing were disabled after the refactor due to environment flag requirements. Now tools work out-of-the-box with graceful fallback to legacy runner if needed.
+- **Agent session runtime persistence**: Thread-linked agent sessions now rehydrate persisted files touched and tool-call history when a thread is reopened, switched back to, or restored after restarting the app. Tool-call IPC payloads now include stable camelCase fields and persisted timestamps.
 
 ### Technical Details
 

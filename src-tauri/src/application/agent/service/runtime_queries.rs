@@ -1,9 +1,7 @@
 use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
-use crate::application::agent::conversions::{
-    core_session_to_agent_session, core_task_to_runtime_task,
-};
+use crate::application::agent::conversions::core_task_to_runtime_task;
 use crate::application::agent::read_models::{
     AgentCatalog, AgentExecutionContext, AgentExecutionDebugDetails, AgentSessionRuntimeDetails, FileTouchedView,
     PendingActionsView, TerminalLineView, ToolCallView,
@@ -248,6 +246,7 @@ impl AgentServiceImpl {
                     is_error: tool_call.is_error,
                     duration_ms: tool_call.duration_ms,
                     subtask_id: tool_call.subtask_id,
+                    timestamp: tool_call.timestamp,
                 })
                 .collect(),
         })
@@ -311,5 +310,111 @@ impl AgentServiceImpl {
             system_prompt: agent.system_prompt,
             trust_mode: agent.trust_mode,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+    use crate::core::agent::services::{AgentService, CreateSessionRequest};
+    use crate::infrastructure::agent::approval::ApprovalQueue;
+    use crate::infrastructure::agent::registry::AgentRegistry;
+    use crate::infrastructure::agent::runtime::AgentRuntime;
+    use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
+    use crate::infrastructure::tools::ToolRegistry;
+
+    fn create_test_service() -> AgentServiceImpl {
+        let registry = Arc::new(AgentRegistry::new());
+        let session_store =
+            Arc::new(SqliteSessionRepository::new(":memory:").expect("Failed to create store"));
+        let approval_queue = Arc::new(ApprovalQueue::new());
+        let tool_registry = Arc::new(ToolRegistry::new().expect("Failed to create tool registry"));
+        let runtime = Arc::new(AgentRuntime::new(
+            session_store.clone(),
+            session_store.clone(),
+            session_store.clone(),
+            session_store.clone(),
+            session_store.clone(),
+            approval_queue.clone(),
+            tool_registry,
+        ));
+
+        AgentServiceImpl::new(
+            registry,
+            session_store.clone(),
+            session_store.clone(),
+            session_store.clone(),
+            session_store.clone(),
+            session_store,
+            approval_queue,
+            runtime,
+        )
+        .expect("Failed to create test service")
+    }
+
+    #[test]
+    fn load_session_runtime_details_includes_persisted_files_and_tool_calls() {
+        let service = create_test_service();
+        let session = service
+            .create_session(CreateSessionRequest {
+                agent_id: "code-agent".to_string(),
+                conversation_id: "conv-runtime".to_string(),
+                thread_id: "thread-runtime".to_string(),
+                workspace_root: Some("/workspace".to_string()),
+                model_id: None,
+            })
+            .expect("failed to create session");
+        let session_id = SessionId(session.id.0.clone());
+
+        service
+            .telemetry_repo()
+            .add_file_touched(
+                &session_id,
+                "/workspace/src/main.rs",
+                "write",
+                Some("@@ -1 +1 @@"),
+            )
+            .expect("failed to store touched file");
+
+        service
+            .telemetry_repo()
+            .insert_tool_call(
+                &session_id,
+                "tool-call-1",
+                "fs_write_file",
+                &serde_json::json!({ "path": "/workspace/src/main.rs" }),
+                None,
+            )
+            .expect("failed to store tool call");
+
+        service
+            .telemetry_repo()
+            .update_tool_call_result(
+                "tool-call-1",
+                &serde_json::json!({ "ok": true }),
+                false,
+                Some(17),
+            )
+            .expect("failed to store tool call result");
+
+        let details = service
+            .load_session_runtime_details(&session.id.0)
+            .expect("failed to load session details");
+
+        assert_eq!(details.files_touched.len(), 1);
+        assert_eq!(details.files_touched[0].path, "/workspace/src/main.rs");
+        assert_eq!(details.files_touched[0].action, "write");
+
+        assert_eq!(details.tool_calls.len(), 1);
+        assert_eq!(details.tool_calls[0].tool_name, "fs_write_file");
+        assert_eq!(
+            details.tool_calls[0].arguments,
+            serde_json::json!({ "path": "/workspace/src/main.rs" })
+        );
+        assert_eq!(details.tool_calls[0].result, Some(serde_json::json!({ "ok": true })));
+        assert_eq!(details.tool_calls[0].duration_ms, Some(17));
+        assert!(!details.tool_calls[0].timestamp.is_empty());
     }
 }

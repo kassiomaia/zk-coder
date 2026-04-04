@@ -94,6 +94,7 @@ pub struct TerminalLineView {
 
 /// Public view of a recorded tool call in a session.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolCallView {
     /// Unique identifier for this tool call.
     pub id: String,
@@ -111,4 +112,6 @@ pub struct ToolCallView {
     pub duration_ms: Option<i64>,
     /// The subtask ID this tool call belongs to (if any).
     pub subtask_id: Option<String>,
+    /// Timestamp when this tool call was recorded.
+    pub timestamp: String,
 }

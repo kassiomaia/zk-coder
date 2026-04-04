@@ -201,6 +201,7 @@ pub enum ResolverError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::nlp::FileInfo;
 
     fn create_test_resolver() -> AmbiguityResolver {
         AmbiguityResolver::new()

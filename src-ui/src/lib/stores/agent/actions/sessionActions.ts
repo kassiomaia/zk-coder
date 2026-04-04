@@ -7,6 +7,33 @@ import type {AgentSession, BackendAgentTask} from '$lib/types/agent';
 import {toAgentTask} from '$lib/types/agent';
 import type {AgentState} from '../state';
 
+function isHydratedSession(session: AgentSession): boolean {
+	return (
+		session.tasks !== undefined &&
+		session.filesTouched !== undefined &&
+		session.terminalOutput !== undefined &&
+		session.toolCalls !== undefined &&
+		session.executionSteps !== undefined &&
+		session.statusPhrases !== undefined
+	);
+}
+
+function mergeSessionDetails(
+	existingSession: AgentSession | null,
+	hydratedSession: AgentSession
+): AgentSession {
+	if (!existingSession) {
+		return hydratedSession;
+	}
+
+	return {
+		...existingSession,
+		...hydratedSession,
+		streamingMessages: existingSession.streamingMessages ?? hydratedSession.streamingMessages,
+		artifacts: existingSession.artifacts ?? hydratedSession.artifacts
+	};
+}
+
 /**
  * Runtime type guard to validate AgentSession structure.
  * Prevents runtime crashes from malformed backend data.
@@ -330,12 +357,12 @@ export async function getSessionDetails(sessionId: string): Promise<AgentSession
 
 				return {
 					id: tc.id,
-					tool: tc.toolName,
+					tool: (tc.toolName as string) ?? (tc.tool_name as string),
 					arguments: parsedArgs,
 					result: parsedResult,
 					isError: (tc.isError as boolean) ?? false,
-					durationMs: tc.durationMs,
-					timestamp: tc.timestamp
+					durationMs: (tc.durationMs as number | undefined) ?? (tc.duration_ms as number | undefined),
+					timestamp: (tc.timestamp as string) ?? new Date().toISOString()
 				};
 			});
 		}
@@ -361,22 +388,23 @@ export async function loadSession(
 	sessionId: string
 ): Promise<AgentSession | null> {
 	console.debug('[agentStore] loadSession called:', sessionId);
-	// First check if already loaded
-	if (state.sessions.has(sessionId)) {
-		console.debug('[agentStore] Session already loaded:', sessionId);
-		return state.sessions.get(sessionId) ?? null;
+	const existingSession = state.sessions.get(sessionId) ?? null;
+	if (existingSession && isHydratedSession(existingSession)) {
+		console.debug('[agentStore] Session already hydrated:', sessionId);
+		return existingSession;
 	}
 
-	// Fetch from backend
-	const session = await getSessionDetails(sessionId);
-	if (session) {
+	const hydratedSession = await getSessionDetails(sessionId);
+	if (hydratedSession) {
+		const mergedSession = mergeSessionDetails(existingSession, hydratedSession);
 		update((state) => {
-			state.sessions.set(session.id, session);
+			state.sessions.set(mergedSession.id, mergedSession);
 			return { ...state, sessions: new Map(state.sessions) };
 		});
 		console.debug('[agentStore] Session loaded and added to store:', sessionId);
+		return mergedSession;
 	} else {
 		console.warn('[agentStore] Failed to load session or invalid session data:', sessionId);
 	}
-	return session;
+	return existingSession;
 }
