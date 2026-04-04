@@ -494,9 +494,16 @@ const touchThreadAndConversation = (
 					}
 					update((state) => {
 						const threadStream = state.threadStreaming[id];
-						if (!threadStream?.isStreaming) {
+						const sessionWasRecovered = !!pausedSessionRecoveryMessage;
+
+						if (!threadStream?.isStreaming || sessionWasRecovered) {
+							const nextThreadStreaming = { ...state.threadStreaming };
+							if (sessionWasRecovered) {
+								delete nextThreadStreaming[id];
+							}
 							return {
 								...state,
+								threadStreaming: nextThreadStreaming,
 								unreadThreadIds: clearUnreadForThread(state.unreadThreadIds, id),
 								messages: loadedMessages,
 								messagesLoading: 'success'

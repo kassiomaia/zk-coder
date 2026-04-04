@@ -124,7 +124,7 @@
 				{#if loading}
 					<LoadingState class="loading-state" message="Loading agents..." />
 				{:else if agents.length === 0}
-					<EmptyState class="empty-state" message="No agents configured" />
+					<EmptyState icon={Cpu} message="No agents available" />
 				{:else}
 					<div class="agents-list">
 						{#each agents as agent (agent.id)}

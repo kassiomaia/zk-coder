@@ -3,7 +3,7 @@
 	 * TaskList Component
 	 * Displays agent tasks with status indicators and subtasks.
 	 */
-	import { CheckCircle, ChevronRight, Circle, Loader2, XCircle } from 'lucide-svelte';
+	import { CheckCircle, ChevronRight, Circle, Loader2, ListTodo, XCircle } from 'lucide-svelte';
 	import type { AgentTask, SubTask, TaskStatus } from '$lib/types/agent';
 	import { SvelteSet } from 'svelte/reactivity';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
@@ -118,7 +118,7 @@
 			{/if}
 		</div>
 	{:else}
-		<EmptyState class="empty-state" message="Awaiting session start" />
+		<EmptyState icon={ListTodo} message="Ready to start" />
 	{/each}
 </div>
 
@@ -257,33 +257,6 @@
 		font-size: var(--text-2xs);
 		color: var(--color-text-secondary);
 		font-weight: var(--font-normal);
-	}
-
-	.empty-state {
-		padding: var(--space-10) var(--space-4);
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		text-align: center;
-		color: var(--color-text-muted);
-		gap: var(--space-3);
-	}
-
-	.empty-state p {
-		margin: 0;
-		font-size: var(--text-xs);
-		font-weight: var(--font-medium);
-		color: var(--color-text-secondary);
-		opacity: 0.9;
-	}
-
-	.empty-state::after {
-		content: 'The agent will list planned and completed activities here once a task begins.';
-		font-size: var(--text-2xs);
-		opacity: 0.5;
-		max-width: var(--space-40);
-		line-height: var(--leading-snug);
 	}
 
 	/* Removed running-indicator shimmer animation */

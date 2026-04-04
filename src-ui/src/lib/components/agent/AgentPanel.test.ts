@@ -32,12 +32,6 @@ vi.mock('./ToolCallsView.svelte', () => ({
 	}))
 }));
 
-vi.mock('./ApprovalDialog.svelte', () => ({
-	default: vi.fn(() => ({
-		render: () => '<div class="mock-approval-dialog">Approval Dialog</div>'
-	}))
-}));
-
 vi.mock('./WorkspaceSelector.svelte', () => ({
 	default: vi.fn(() => ({
 		render: () => '<div class="mock-workspace-selector">Workspace Selector</div>'

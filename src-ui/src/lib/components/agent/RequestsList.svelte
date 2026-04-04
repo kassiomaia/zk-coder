@@ -4,7 +4,7 @@
 	 * Displays recent execution steps (LLM requests and tool calls).
 	 */
 	import type { ExecutionStep } from '$lib/types/agent';
-	import { Activity, Cpu } from 'lucide-svelte';
+	import { Activity, Cpu, ScrollText } from 'lucide-svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 
 	interface Props {
@@ -56,7 +56,7 @@
 		</div>
 	{/each}
 	{#if recentSteps.length === 0}
-		<EmptyState class="empty-state" message="No requests recorded" />
+		<EmptyState icon={ScrollText} message="No requests yet" />
 	{/if}
 </section>
 
@@ -123,16 +123,4 @@
 		margin-left: auto;
 	}
 
-	.empty-state {
-		padding: var(--space-6) var(--space-4);
-		color: var(--color-text-muted);
-		font-size: var(--text-xs);
-		text-align: center;
-		opacity: 0.5;
-	}
-
-	.empty-state p {
-		margin: 0;
-		font-style: italic;
-	}
 </style>

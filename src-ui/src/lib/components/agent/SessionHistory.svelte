@@ -5,7 +5,7 @@
 	 */
 	import { slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { AlertCircle, CheckCircle, ChevronRight, Clock, X, XCircle } from 'lucide-svelte';
+	import { AlertCircle, CheckCircle, ChevronRight, Clock, History, X, XCircle } from 'lucide-svelte';
 	import type { AgentSession } from '$lib/types/agent';
 	import { agentStore } from '$lib/stores';
 	import { createLogger } from '$lib/utils/logger';
@@ -159,7 +159,7 @@
 	{#if loading}
 		<LoadingState class="loading-state" message="Loading sessions..." />
 	{:else if sessions.length === 0}
-		<EmptyState class="empty-state" message="No completed sessions found" />
+		<EmptyState icon={History} message="No sessions yet" />
 	{:else}
 		<div class="timeline-list">
 			{#each sessions as session, i (session.id)}
@@ -403,23 +403,5 @@
 		margin: 0;
 		opacity: 0.7;
 		font-style: italic;
-	}
-
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: var(--space-12) var(--space-4);
-		color: var(--color-text-muted);
-		font-size: 11px;
-		text-align: center;
-		gap: var(--space-3);
-	}
-
-	.empty-state p {
-		margin: 0;
-		font-weight: 500;
-		opacity: 0.8;
 	}
 </style>

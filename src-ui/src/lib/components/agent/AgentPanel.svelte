@@ -2,10 +2,9 @@
 	/**
 	 * AgentPanel Component
 	 * Right-side panel showing agent session state, tasks, files, and terminal output.
-	 * Contains collapsible sections and approval dialog trigger.
+	 * Contains collapsible sections for session management.
 	 */
 	import { invoke } from '@tauri-apps/api/core';
-	import ApprovalDialog from './ApprovalDialog.svelte';
 	import SessionTabs from './SessionTabs.svelte';
 	import SessionHistory from './SessionHistory.svelte';
 	import AgentConfig from './AgentConfig.svelte';
@@ -61,9 +60,6 @@
 
 	let showSessionHistory = $state(false);
 	let showAgentConfig = $state(false);
-
-	let showApprovalDialog = $derived(pendingActions.length > 0);
-	let currentApproval = $derived(pendingActions[0] ?? null);
 
 	let totalTokensUsed = $derived(() => {
 		if (!session.executionSteps || session.executionSteps.length === 0) return 0;
@@ -192,17 +188,6 @@
 		selectedAgentId={session.agentId}
 	/>
 
-	{#if showApprovalDialog && currentApproval}
-		<ApprovalDialog
-			action={currentApproval}
-			onapprove={() => {
-				onApprove(currentApproval.id);
-			}}
-			ondeny={() => {
-				onDeny(currentApproval.id);
-			}}
-		/>
-	{/if}
 </nav>
 
 <style>

@@ -7,4 +7,3 @@ export { default as TaskList } from './TaskList.svelte';
 export { default as FileTree } from './FileTree.svelte';
 export { default as ToolCallsView } from './ToolCallsView.svelte';
 export { default as ToolCallItem } from './ToolCallItem.svelte';
-export { default as ApprovalDialog } from './ApprovalDialog.svelte';

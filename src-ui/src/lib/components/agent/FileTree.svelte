@@ -4,8 +4,9 @@
 	 * Displays files touched by the agent in a hierarchical tree.
 	 * Supports recursive rendering of nested directories.
 	 */
-	import { ChevronRight, File, FileCode, FileText, Folder, FolderOpen } from 'lucide-svelte';
+	import { ChevronRight, File, FileCode, FileText, Folder, FolderOpen, HardDrive } from 'lucide-svelte';
 	import type { TouchedFile } from '$lib/types/agent';
+	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import styles from './FileTree.module.css';
 
 	interface FileTreeNode {
@@ -136,9 +137,7 @@
 	{#if fileTree.children.length > 0}
 		{@render TreeNode(fileTree.children)}
 	{:else}
-		<div class={styles.emptyState}>
-			<p>Filesystem static</p>
-		</div>
+		<EmptyState icon={FileCode} message="No files modified" class={styles.emptyState} />
 	{/if}
 </div>
 
