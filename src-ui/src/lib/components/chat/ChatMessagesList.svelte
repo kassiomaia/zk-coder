@@ -35,6 +35,9 @@
 	import { documentGenerationStore } from '$lib/stores/documentGenerationStore';
 	import messageStyles from './MessageBubbles.module.css';
 	import inputStyles from './ChatInputContainer.module.css';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('ChatMessagesList');
 
 	interface Props {
 		/** Array of messages to display */
@@ -270,7 +273,7 @@
 			try {
 				await navigator.clipboard.writeText(content);
 			} catch (err) {
-				console.error('Failed to copy message:', err);
+				log.error('Failed to copy message:', err);
 			}
 		}
 	}
@@ -278,7 +281,7 @@
 	// Document generation handlers
 	async function handleDownloadDoc(job: DocumentGenerationJob) {
 		// TODO: Implement download via Tauri API
-		console.log('[DocGen] Download:', job.filePath);
+		log.debug('DocGen Download:', job.filePath);
 		if (job.filePath) {
 			// For now, just log - would invoke a download command
 		}
@@ -289,7 +292,7 @@
 			try {
 				await navigator.clipboard.writeText(job.filePath);
 			} catch (err) {
-				console.error('Failed to copy path:', err);
+				log.error('Failed to copy path:', err);
 			}
 		}
 	}

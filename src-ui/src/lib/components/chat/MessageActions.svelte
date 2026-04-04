@@ -15,6 +15,9 @@
 		ThumbsUpIcon
 	} from '$lib/icons';
 	import type { MessageFeedback } from '$lib/types/message';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('MessageActions');
 
 	interface Props {
 		/** Whether to show copy action */
@@ -89,7 +92,7 @@
 					copyTimer = null;
 				}, 2000);
 			} catch (err) {
-				console.error('Failed to copy:', err);
+				log.error('Failed to copy:', err);
 			}
 		}
 	}

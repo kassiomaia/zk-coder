@@ -1,17 +1,12 @@
 <script lang="ts">
-  interface Props {
-    onclick?: () => void;
-    disabled?: boolean;
-  }
+	interface Props {
+		onclick?: () => void;
+		disabled?: boolean;
+	}
 
-  let { onclick, disabled = false }: Props = $props();
+	let { onclick, disabled = false }: Props = $props();
 </script>
 
-<button
-  class="mock-new-thread-button"
-  data-has-click={!!onclick}
-  {disabled}
-  onclick={onclick}
->
-  New Thread
+<button class="mock-new-thread-button" data-has-click={!!onclick} {disabled} {onclick}>
+	New Thread
 </button>

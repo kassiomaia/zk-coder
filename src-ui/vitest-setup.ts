@@ -56,7 +56,7 @@ const createMatchMediaMock = () =>
 		removeListener: vi.fn(),
 		addEventListener: vi.fn(),
 		removeEventListener: vi.fn(),
-		dispatchEvent: vi.fn(),
+		dispatchEvent: vi.fn()
 	}));
 
 // Setup before each test

@@ -6,6 +6,9 @@
 	 */
 	import { FolderClosed, FolderOpen } from 'lucide-svelte';
 	import { open } from '@tauri-apps/plugin-dialog';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('WorkspaceSelector');
 
 	interface Props {
 		workspacePath?: string;
@@ -30,7 +33,7 @@
 				onSelect(result);
 			}
 		} catch (error) {
-			console.error('Failed to open folder picker:', error);
+			log.error('Failed to open folder picker:', error);
 		} finally {
 			selecting = false;
 		}

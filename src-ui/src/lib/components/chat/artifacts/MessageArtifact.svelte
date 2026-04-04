@@ -15,6 +15,9 @@
 	import type { Snippet } from 'svelte';
 	import styles from './MessageArtifact.module.css';
 	import { Copy, Download, ExternalLink, ChevronDown, ChevronRight } from 'lucide-svelte';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('MessageArtifact');
 
 	export type ArtifactType = 'table' | 'code' | 'report' | 'file' | 'diagnostic';
 
@@ -118,7 +121,7 @@
 			const textContent = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
 			await navigator.clipboard.writeText(textContent);
 		} catch (error) {
-			console.warn('[MessageArtifact] Failed to copy:', error);
+			log.warn('Failed to copy:', error);
 		} finally {
 			setTimeout(() => {
 				isCopying = false;

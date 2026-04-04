@@ -2,6 +2,9 @@
 	import { onMount } from 'svelte';
 	import { Copy, Check } from 'lucide-svelte';
 	import styles from './CodeBlock.module.css';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('CodeBlock');
 
 	interface Props {
 		code: string;
@@ -23,7 +26,7 @@
 				copied = false;
 			}, 2000);
 		} catch (err) {
-			console.error('Failed to copy code:', err);
+			log.error('Failed to copy code:', err);
 		}
 	}
 

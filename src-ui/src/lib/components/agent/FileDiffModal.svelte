@@ -9,6 +9,9 @@
 	import { Columns, Rows, Code2, GitCompare } from 'lucide-svelte';
 	import { type FileContentResponse, getFileContent } from '$lib/api/file';
 	import { fade } from 'svelte/transition';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('FileDiffModal');
 
 	interface Props {
 		/** Whether the modal is open */
@@ -51,7 +54,7 @@
 					fileData = data;
 				})
 				.catch((e) => {
-					console.error('Failed to load file content:', e);
+					log.error('Failed to load file content:', e);
 					error = e instanceof Error ? e.message : 'Failed to load file content';
 				})
 				.finally(() => {

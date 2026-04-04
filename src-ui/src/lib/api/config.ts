@@ -15,6 +15,9 @@ import type {
 	SaveProviderRequest,
 	ValidationResult
 } from '$lib/types/config';
+import { createLogger } from '$lib/utils/logger';
+
+const log = createLogger('ConfigAPI');
 
 // ============================================================================
 // Error Handling
@@ -136,11 +139,11 @@ function operationDefaultToClient(d: OperationDefaultResponse): OperationDefault
  * Gets all providers.
  */
 export async function getProviders(): Promise<Provider[]> {
-	console.log('API: Getting providers...');
+	log.debug('Getting providers...');
 	const response = await safeInvoke<ProviderResponse[]>('get_providers');
-	console.log('API: Raw response from backend:', response);
+	log.debug('Raw response from backend:', response);
 	const providers = response.map(providerToClient);
-	console.log('API: Converted providers:', providers);
+	log.debug('Converted providers:', providers);
 	return providers;
 }
 

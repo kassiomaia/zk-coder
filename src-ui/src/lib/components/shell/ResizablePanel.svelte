@@ -8,6 +8,9 @@
 	 */
 	import { onMount, onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('ResizablePanel');
 
 	interface Props {
 		/** Panel position - which side the resize handle is on */
@@ -61,7 +64,7 @@
 					}
 				}
 			} catch (e) {
-				console.warn('Failed to load panel width:', e);
+				log.warn('Failed to load panel width:', e);
 			}
 		}
 	});
@@ -72,7 +75,7 @@
 			try {
 				localStorage.setItem(storageKey, String(width));
 			} catch (e) {
-				console.warn('Failed to save panel width:', e);
+				log.warn('Failed to save panel width:', e);
 			}
 		}
 		onWidthChange?.(width);

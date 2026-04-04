@@ -8,6 +8,9 @@
 	import WindowHeader from '$lib/components/shared/WindowHeader.svelte';
 	import { Columns, Rows, Code2, GitCompare } from 'lucide-svelte';
 	import { type FileContentResponse, getFileContent } from '$lib/api/file';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('FileDiffWorkspace');
 
 	interface Props {
 		filePath: string;
@@ -37,7 +40,7 @@
 					fileData = data;
 				})
 				.catch((e) => {
-					console.error('Failed to load file content:', e);
+					log.error('Failed to load file content:', e);
 					error = e instanceof Error ? e.message : 'Failed to load file content';
 				})
 				.finally(() => {

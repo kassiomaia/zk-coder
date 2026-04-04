@@ -5,6 +5,9 @@
 	 * Shows icon, filename, size, and download link.
 	 */
 	import styles from './ArtifactCard.module.css';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('ArtifactCard');
 
 	/** Artifact types supported */
 	export type ArtifactType = 'Docx' | 'Pptx' | 'Pdf';
@@ -98,7 +101,7 @@
 				URL.revokeObjectURL(url);
 			}
 		} catch (error) {
-			console.error('Download failed:', error);
+			log.error('Download failed:', error);
 			downloadError = error instanceof Error ? error.message : 'Download failed';
 		} finally {
 			isDownloading = false;

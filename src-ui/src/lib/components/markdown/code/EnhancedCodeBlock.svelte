@@ -14,6 +14,9 @@
 	 */
 	import styles from './CodeBlock.module.css';
 	import { Check, Copy, ChevronDown, ChevronRight } from 'lucide-svelte';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('EnhancedCodeBlock');
 
 	interface Props {
 		/** Code content */
@@ -105,7 +108,7 @@
 				copySuccess = false;
 			}, 2000);
 		} catch (error) {
-			console.warn('[CodeBlock] Failed to copy:', error);
+			log.warn('Failed to copy:', error);
 		} finally {
 			isCopying = false;
 		}

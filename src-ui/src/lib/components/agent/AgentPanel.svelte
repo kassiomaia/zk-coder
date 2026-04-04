@@ -18,6 +18,9 @@
 	import RequestsList from './RequestsList.svelte';
 	import FileTree from './FileTree.svelte';
 	import ToolCallsView from './ToolCallsView.svelte';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('AgentPanel');
 
 	interface Props {
 		session: AgentSession;
@@ -77,7 +80,7 @@
 				sessionId: session.id
 			});
 		} catch (error) {
-			console.warn('[AgentPanel] Failed to open file diff window', error);
+			log.warn('Failed to open file diff window', error);
 		}
 	}
 
@@ -86,7 +89,7 @@
 		try {
 			await invoke('open_agent_trace_window', { sessionId: session.id });
 		} catch (error) {
-			console.warn('[AgentPanel] Failed to open trace window', error);
+			log.warn('Failed to open trace window', error);
 		}
 	}
 </script>

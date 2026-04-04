@@ -126,7 +126,9 @@ export function buildRow(
 			: payload?.inputTokens
 				? `${payload.inputTokens}/${payload.outputTokens ?? 0}`
 				: '-',
-		tool: Array.isArray(payload?.toolNames) ? String(payload.toolNames[0] ?? '-') : (payload?.tool ?? '-'),
+		tool: Array.isArray(payload?.toolNames)
+			? String(payload.toolNames[0] ?? '-')
+			: (payload?.tool ?? '-'),
 		model: payload?.model ?? snapshot?.lastModel ?? '-',
 		summary: summarizeTrace(trace)
 	};

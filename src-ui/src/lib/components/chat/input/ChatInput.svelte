@@ -17,6 +17,9 @@
 	import { agentStore, chatStore, isLlmStreaming, nlpState } from '$lib/stores';
 	import { get } from 'svelte/store';
 	import { isValidModelId, sanitizeModelId } from '$lib/utils/validation';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('ChatInput');
 
 	interface FileAttachment {
 		id: string;
@@ -170,7 +173,7 @@
 	// Log warning for invalid model IDs (development aid)
 	$effect(() => {
 		if (modelId !== null && !isValidModelId(modelId)) {
-			console.warn('[ChatInput] Invalid modelId prop received:', modelId);
+			log.warn('Invalid modelId prop received:', modelId);
 		}
 	});
 

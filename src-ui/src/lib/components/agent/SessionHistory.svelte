@@ -8,6 +8,9 @@
 	import { AlertCircle, CheckCircle, ChevronRight, Clock, X, XCircle } from 'lucide-svelte';
 	import type { AgentSession } from '$lib/types/agent';
 	import { agentStore } from '$lib/stores';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('SessionHistory');
 
 	interface Props {
 		/** Whether the history panel is open (if using modal) */
@@ -42,7 +45,7 @@
 					loading = false;
 				})
 				.catch((err) => {
-					console.error(err);
+					log.error('Failed to fetch session history:', err);
 					loading = false;
 				});
 		} else {

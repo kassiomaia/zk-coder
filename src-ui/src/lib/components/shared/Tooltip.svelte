@@ -12,6 +12,9 @@
 	 */
 	import styles from './Tooltip.module.css';
 	import type { Snippet } from 'svelte';
+	import { createLogger } from '$lib/utils/logger';
+
+	const log = createLogger('Tooltip');
 
 	type Position = 'top' | 'bottom' | 'left' | 'right';
 
@@ -52,7 +55,7 @@
 	 */
 	function sanitizeNumericValue(value: number): string {
 		if (!Number.isFinite(value)) {
-			console.warn('Tooltip: Non-finite numeric value detected, using 0');
+			log.warn('Non-finite numeric value detected, using 0');
 			return '0px';
 		}
 		return `${Math.round(value)}px`;
@@ -80,7 +83,7 @@
 		if (isValidTransform(transform, ALLOWED_TRANSFORM_PATTERNS)) {
 			safeStyles.transform = transform;
 		} else {
-			console.warn('Tooltip: Invalid transform value rejected:', transform);
+			log.warn('Invalid transform value rejected:', transform);
 			safeStyles.transform = 'none';
 		}
 
@@ -113,7 +116,7 @@
 		if (isValidTransform(transform, ALLOWED_TRANSFORM_PATTERNS)) {
 			safeStyles.transform = transform;
 		} else {
-			console.warn('Tooltip: Invalid arrow transform rejected:', transform);
+			log.warn('Invalid arrow transform rejected:', transform);
 			safeStyles.transform = 'rotate(45deg)';
 		}
 

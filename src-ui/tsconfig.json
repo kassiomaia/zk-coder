@@ -12,7 +12,14 @@
 		"strict": true,
 		"moduleResolution": "bundler"
 	},
-	"exclude": ["src/lib/components/quarantine/**/*", "src/lib/utils/quarantine/**/*", "**/*.test.ts", "**/*.test.js", "**/*.spec.ts", "**/*.spec.js"]
+	"exclude": [
+		"src/lib/components/quarantine/**/*",
+		"src/lib/utils/quarantine/**/*",
+		"**/*.test.ts",
+		"**/*.test.js",
+		"**/*.spec.ts",
+		"**/*.spec.js"
+	]
 	// Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
 	// except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
 	//

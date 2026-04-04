@@ -67,6 +67,7 @@ src-ui/
 ## Component Conventions
 
 ### File Naming
+
 - **Components**: PascalCase (e.g., `ChatMessage.svelte`)
 - **CSS modules**: Match component name (e.g., `ChatMessage.module.css`)
 - **Utilities**: camelCase (e.g., `formatTimestamp.ts`)
@@ -75,16 +76,16 @@ src-ui/
 
 ```svelte
 <script lang="ts">
-  // Imports
-  // Props/exports
-  // Reactive state
-  // Effects
+	// Imports
+	// Props/exports
+	// Reactive state
+	// Effects
 </script>
 
 <!-- Template -->
 
 <style module>
-  /* Component-scoped styles */
+	/* Component-scoped styles */
 </style>
 ```
 
@@ -131,6 +132,7 @@ State is managed using Svelte 5 runes (`$state`, `$derived`, `$effect`) and Svel
 ### Global Stores
 
 Located in `src/lib/stores/`:
+
 - `chat.ts` - Chat state (conversations, threads, messages)
 - `config.ts` - Configuration state (providers, models, API keys)
 - `agent.ts` - Agent session state
@@ -176,13 +178,13 @@ npm run format
 
 ## Key Dependencies
 
-| Package | Purpose |
-|---------|---------|
-| `@tauri-apps/api` | Tauri API for backend communication |
-| `svelte` | UI framework |
-| `@sveltejs/kit` | Full-stack framework (using static adapter) |
-| `lucide-svelte` | Icon library |
-| `marked` | Markdown parsing |
-| `highlight.js` | Syntax highlighting |
-| `dompurify` | XSS sanitization |
-| `diff2html` | Diff visualization |
+| Package           | Purpose                                     |
+| ----------------- | ------------------------------------------- |
+| `@tauri-apps/api` | Tauri API for backend communication         |
+| `svelte`          | UI framework                                |
+| `@sveltejs/kit`   | Full-stack framework (using static adapter) |
+| `lucide-svelte`   | Icon library                                |
+| `marked`          | Markdown parsing                            |
+| `highlight.js`    | Syntax highlighting                         |
+| `dompurify`       | XSS sanitization                            |
+| `diff2html`       | Diff visualization                          |
