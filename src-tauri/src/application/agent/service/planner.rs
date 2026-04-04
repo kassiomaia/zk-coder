@@ -10,6 +10,7 @@ use crate::infrastructure::agent::runtime::client::create_llm_client;
 use crate::infrastructure::llm::LlmClient;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
+use log::{info, warn};
 
 /// Result of a single-shot planning operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +70,12 @@ pub enum ReplanAction {
 fn strip_markdown_code_block(content: &str) -> String {
     let content = content.trim();
 
+    // If content is empty, return early
+    if content.is_empty() {
+        warn!("[Planner] strip_markdown_code_block called with empty content");
+        return String::new();
+    }
+
     // Check for ```json or ``` at the start
     if content.starts_with("```") {
         // Find the end of the opening fence line
@@ -76,23 +83,41 @@ fn strip_markdown_code_block(content: &str) -> String {
             &content[newline_pos + 1..]
         } else {
             // No newline after opening fence, treat entire thing as fence
+            warn!("[Planner] Markdown fence found but no newline, returning empty");
             return String::new();
         };
 
         // Find the closing fence (```)
         let closing_fence = "\n```";
         if let Some(closing_pos) = after_opening_fence.find(closing_fence) {
-            return after_opening_fence[..closing_pos].trim().to_string();
+            let result = after_opening_fence[..closing_pos].trim().to_string();
+            // Safety check: if we get empty result but had content, log and return original
+            if result.is_empty() && !after_opening_fence.trim().is_empty() {
+                warn!("[Planner] Markdown stripping with newline fence resulted in empty, returning original content");
+                return after_opening_fence.to_string();
+            }
+            return result;
         }
 
         // Also check for closing fence without leading newline
         let closing_fence_no_nl = "```";
         if let Some(closing_pos) = after_opening_fence.find(closing_fence_no_nl) {
-            return after_opening_fence[..closing_pos].trim().to_string();
+            let result = after_opening_fence[..closing_pos].trim().to_string();
+            // Safety check: if we get empty result but had content, log and return original
+            if result.is_empty() && !after_opening_fence.trim().is_empty() {
+                warn!("[Planner] Markdown stripping without newline fence resulted in empty, returning original content");
+                return after_opening_fence.to_string();
+            }
+            return result;
         }
 
         // No closing fence found, return everything after opening fence
-        return after_opening_fence.trim().to_string();
+        let result = after_opening_fence.trim().to_string();
+        if result.is_empty() && !after_opening_fence.trim().is_empty() {
+            warn!("[Planner] No closing fence found but stripping resulted in empty, returning original content");
+            return after_opening_fence.to_string();
+        }
+        return result;
     }
 
     // Check for closing fence at the end (even without opening fence)
@@ -101,11 +126,13 @@ fn strip_markdown_code_block(content: &str) -> String {
         // Only strip if there's meaningful content before it
         let trimmed = possible_content.trim();
         if !trimmed.is_empty() && !trimmed.starts_with("```") {
+            info!("[Planner] Stripped closing fence from end of content");
             return trimmed.to_string();
         }
     }
 
     // No markdown wrapper found, return original
+    info!("[Planner] No markdown wrapper found, returning original content");
     content.to_string()
 }
 
@@ -145,7 +172,9 @@ pub async fn plan_new_task(
                 tool_result: None,
             },
         ],
-    );
+    )
+    .with_max_tokens(2000)
+    .with_temperature(0.3);
 
     // Execute LLM call
     let response = client
@@ -153,7 +182,28 @@ pub async fn plan_new_task(
         .await
         .map_err(|e| format!("LLM planning failed: {e}"))?;
 
+    // Log raw response for debugging
+    info!("[Planner] Raw LLM response: {}", &response.content);
+
+    // Validate raw response is not empty
+    if response.content.trim().is_empty() {
+        return Err(format!(
+            "LLM returned empty response. This may indicate a configuration issue with your LLM provider."
+        ));
+    }
+
     let content = strip_markdown_code_block(&response.content);
+
+    // Log stripped content for debugging
+    info!("[Planner] Stripped content: {}", &content);
+
+    // Validate stripped content is not empty
+    if content.trim().is_empty() {
+        return Err(format!(
+            "LLM returned empty response after markdown stripping. Raw response was: '{}'",
+            response.content
+        ));
+    }
 
     // Parse JSON response
     let plan: TaskPlan = serde_json::from_str(&content).map_err(|e| {
