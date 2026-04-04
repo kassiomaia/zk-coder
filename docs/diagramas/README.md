@@ -1,0 +1,1 @@
+This directory contains Mermaid diagrams and UML documents for the Coder application.
