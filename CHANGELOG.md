@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clippy configuration for Rust code quality
 - Basic Tauri commands (`health_check`, `get_app_info`)
 - AI agent type definitions
+- A mandatory code-quality guideline set under `docs/quality/guidelines/` for Rust backend, TypeScript, Svelte, configuration, and scripts, with `AGENTS.md` enforcing the required reading order.
 
 ### Changed
 

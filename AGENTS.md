@@ -26,6 +26,37 @@ All coding standards are in **`RULES.md`** (project root):
 
 **Read `RULES.md` before making any code changes.**
 
+### Mandatory Code Quality Guidance
+
+`AGENTS.md` is the mandatory entry point for development guidance in this repository.
+
+Before making **any** code change, every agent or contributor must read, in order:
+
+1. `AGENTS.md`
+2. `RULES.md`
+3. `docs/quality/guidelines/README.md`
+4. Every touched-area guide:
+   - `docs/quality/guidelines/rust-backend.md`
+   - `docs/quality/guidelines/typescript.md`
+   - `docs/quality/guidelines/svelte.md`
+   - `docs/quality/guidelines/configuration.md`
+   - `docs/quality/guidelines/scripts.md`
+5. The relevant architecture/feature/database docs for the area being changed
+
+If a task spans multiple layers or technologies, **all applicable guides must be followed**.
+
+These guides are mandatory and define the expected level of quality for this codebase:
+
+- clean, maintainable code with stale references removed
+- strict separation of concerns
+- refactor discipline with behavior protected before restructuring
+- test-first or characterization-first changes whenever practical
+- no acceptance of duplicate logic, dead code, debug leftovers, hardcoded design values, or other avoidable quality drift
+
+Violations are blocking. Work that diverges from `RULES.md` or the applicable files under `docs/quality/guidelines/` is not ready for implementation, review, or merge.
+
+When working in an area with recurring quality issues, consult `docs/issues/README.md` and the relevant issue folder before finalizing the change.
+
 ## Build Commands
 
 ```bash
@@ -75,6 +106,6 @@ Database is SQLite via `rusqlite` v0.31 (bundled, no ORM). Four DB files in Taur
 
 - **Branching**: Feature branches. Merge to main after review and testing.
 - **Planning**: Before any work, create a plan with expected outcome. Review with team if uncertain.
-- **Implementation**: Follow `RULES.md` guidelines. Write clean, tested code.
+- **Implementation**: Follow `RULES.md` and every applicable guide under `docs/quality/guidelines/`. Write clean, tested code and remove stale references in the touched area.
 - **Testing**: Unit tests for new code. Integration tests for critical flows. Manual validation for UX.
 - **Documentation**: Update relevant docs and changelog as part of the work.
