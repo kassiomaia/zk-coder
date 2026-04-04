@@ -6,7 +6,7 @@
 mod client;
 mod types;
 
-pub use client::{OpenAiClient, GOOGLE_BASE_URL, OPENAI_BASE_URL};
+pub use client::{OpenAiClient, OpenAiCompatibility, GOOGLE_BASE_URL, OPENAI_BASE_URL};
 pub use types::*;
 
 /// Converts provider-agnostic tool definitions to `OpenAI` request tools.

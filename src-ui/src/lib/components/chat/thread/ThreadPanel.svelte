@@ -86,11 +86,35 @@
 	// Derive resolved state for styling
 	let isResolved = $derived(thread.metadata.resolved);
 
-	// Any visible thread should clear unread state, including late stream-complete races.
+	// Only clear unread on visible-thread changes or unread transitions to avoid re-entrant store churn.
+	let previousVisibleThreadId = $state<string | null>(null);
+	let previousVisibleThreadUnread = $state(false);
+
 	$effect(() => {
-		if (thread?.id && $unreadThreadIds.includes(thread.id)) {
-			chatStore.markThreadRead(thread.id);
+		const currentThreadId = thread?.id;
+		const isUnread = currentThreadId ? $unreadThreadIds.includes(currentThreadId) : false;
+
+		if (!currentThreadId) {
+			previousVisibleThreadId = null;
+			previousVisibleThreadUnread = false;
+			return;
 		}
+
+		const threadChanged = currentThreadId !== previousVisibleThreadId;
+		const unreadBecameVisible = isUnread && !previousVisibleThreadUnread;
+
+		if (threadChanged || unreadBecameVisible) {
+			previousVisibleThreadId = currentThreadId;
+			previousVisibleThreadUnread = isUnread;
+
+			if (isUnread) {
+				chatStore.markThreadRead(currentThreadId);
+			}
+			return;
+		}
+
+		previousVisibleThreadId = currentThreadId;
+		previousVisibleThreadUnread = isUnread;
 	});
 
 	// Local state for animation

@@ -253,7 +253,9 @@ mod tests {
  fn create_microphone_icon(color: [u8; 4], size: u32) -> Image<'static> {\n";
 
         let error = diffy::Patch::from_str(patch_text).unwrap_err();
-        assert!(error.to_string().contains("Hunk header does not match hunk"));
+        assert!(error
+            .to_string()
+            .contains("Hunk header does not match hunk"));
     }
 
     #[test]

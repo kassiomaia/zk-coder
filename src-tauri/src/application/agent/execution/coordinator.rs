@@ -106,6 +106,7 @@ pub async fn execute(
 
         match handle_response(&deps, &mut ctx, session, llm_result).await? {
             ResponseDecision::Finished(result) => return Ok(result),
+            ResponseDecision::ContinueWithNextSubtask => continue,
             ResponseDecision::ExecuteTools(response) => {
                 match run_tools(&deps, &mut ctx, session, response, &permission_resolver).await? {
                     ToolPhaseOutcome::Continue => {}

@@ -97,10 +97,14 @@ impl AgentServiceImpl {
                     .update_task_status(&task.id, CoreTaskStatus::Failed)?;
             }
 
-            // Note: We don't mark subtasks as failed anymore.
-            // Subtasks that were InProgress should remain InProgress so users can see
-            // what was being worked on. Only the root task is marked as Failed
-            // to indicate the execution didn't complete successfully.
+            if let Ok(subtasks) = self.task_repo.get_subtasks(&task.id) {
+                for subtask in subtasks {
+                    if is_non_terminal(subtask.status) {
+                        self.task_repo
+                            .update_subtask_status(&subtask.id, CoreTaskStatus::Failed)?;
+                    }
+                }
+            }
         }
 
         Ok(())

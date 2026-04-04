@@ -14,7 +14,7 @@ use futures::future::BoxFuture;
 use futures::Stream;
 use std::pin::Pin;
 
-use crate::core::config::ApiType;
+use crate::core::config::{ApiType, Provider};
 
 pub use crate::core::llm::entities::{
     ChatMessage as Message, ChatRequest, ChatResponse, ContentBlock, ImageSource, MessageContent,
@@ -56,6 +56,19 @@ pub fn create_client(
         ApiType::OpenAI => Box::new(openai::OpenAiClient::new(api_key, base_url)),
         ApiType::Google => Box::new(openai::OpenAiClient::new_google(api_key)),
         ApiType::Anthropic => Box::new(anthropic::AnthropicClient::new(api_key, base_url)),
+    }
+}
+
+/// Creates an LLM client from full provider configuration.
+#[must_use]
+pub fn create_client_for_provider(provider: &Provider, api_key: String) -> Box<dyn LlmClient> {
+    match provider.api_type {
+        ApiType::OpenAI => Box::new(openai::OpenAiClient::new_for_provider(api_key, provider)),
+        ApiType::Google => Box::new(openai::OpenAiClient::new_google(api_key)),
+        ApiType::Anthropic => Box::new(anthropic::AnthropicClient::new(
+            api_key,
+            provider.base_url.clone(),
+        )),
     }
 }
 

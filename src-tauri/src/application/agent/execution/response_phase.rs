@@ -10,7 +10,9 @@ use tauri::Emitter;
 
 use super::deps::ExecutionDeps;
 use super::state::{ExecutionContext, LlmCallResult};
-use super::termination::{complete_execution, emit_streaming_message, fail_execution};
+use super::termination::{
+    complete_execution, emit_streaming_content, emit_streaming_message, fail_execution,
+};
 use crate::core::agent::execution::RuntimeTraceType;
 use crate::core::agent::task::{AgentExecutionResult, ExecutionStep, StepAction, StepResult};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
@@ -24,6 +26,9 @@ pub enum ResponseDecision {
     Finished(AgentExecutionResult),
     /// The execution should continue by executing the specified tools.
     ExecuteTools(crate::core::llm::entities::ChatResponse),
+    /// The LLM finished its current work but there are remaining subtasks.
+    /// The execution loop should restart so the next `InProgress` subtask is picked up.
+    ContinueWithNextSubtask,
 }
 
 /// Handles the response from the LLM and determines the next step.
@@ -100,7 +105,7 @@ pub async fn handle_response(
             RuntimeTraceType::LlmResponseClassified,
             json!({"hasToolCalls": false, "willFinalize": true}),
         );
-        let result = complete_execution(
+        let (result, has_remaining) = complete_execution(
             deps,
             ctx,
             &session.conversation_id,
@@ -108,6 +113,20 @@ pub async fn handle_response(
             response.content,
         )
         .await?;
+
+        if has_remaining {
+            emit_streaming_content(
+                deps,
+                &ctx.session_id,
+                &session.conversation_id,
+                &session.thread_id,
+                "\n\nContinuing with next subtask...\n",
+                false,
+            )
+            .await;
+            return Ok(ResponseDecision::ContinueWithNextSubtask);
+        }
+
         return Ok(ResponseDecision::Finished(result));
     }
 

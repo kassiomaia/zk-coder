@@ -2,7 +2,9 @@ use log::debug;
 
 use crate::core::config::{ApiType, Provider};
 use crate::core::llm::entities::{LlmError, LlmResult};
-use crate::infrastructure::llm::{anthropic::AnthropicClient, openai::OpenAiClient, LlmClient};
+use crate::infrastructure::llm::{
+    anthropic::AnthropicClient, create_client_for_provider, openai::OpenAiClient, LlmClient,
+};
 
 use super::LlmServiceImpl;
 
@@ -23,11 +25,7 @@ impl LlmServiceImpl {
             .retrieve_api_key(provider_id)
             .map_err(|e| LlmError::Unknown(format!("Failed to get API key: {e}")))?;
 
-        let client: Box<dyn LlmClient> = match provider.api_type {
-            ApiType::OpenAI => Box::new(OpenAiClient::new(api_key, provider.base_url)),
-            ApiType::Google => Box::new(OpenAiClient::new_google(api_key)),
-            ApiType::Anthropic => Box::new(AnthropicClient::new(api_key, provider.base_url)),
-        };
+        let client = create_client_for_provider(&provider, api_key);
 
         debug!(
             "Created LLM client for provider {} (type: {:?})",

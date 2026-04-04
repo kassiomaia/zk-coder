@@ -11,7 +11,7 @@ use super::types::{
     OpenAiMessage, OpenAiRequest, OpenAiRequestMessageToolCall, OpenAiRequestMessageToolFunction,
     OpenAiResponse, OpenAiStreamResponse,
 };
-use crate::core::config::ApiType;
+use crate::core::config::{ApiType, Provider};
 use crate::infrastructure::llm::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, MessageContent,
     MessageRole, StreamChunk, StreamDelta, ToolCall, UsageStats,
@@ -33,12 +33,72 @@ pub struct OpenAiClient {
     base_url: String,
     /// Provider type (`OpenAI` or Google)
     provider_type: ApiType,
+    /// Provider-specific request compatibility rules.
+    compatibility: OpenAiCompatibility,
+}
+
+/// Request-shaping compatibility for OpenAI-style providers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OpenAiCompatibility {
+    /// Whether the provider accepts `role: "system"` in the chat `messages` array.
+    pub supports_system_role_messages: bool,
+}
+
+impl OpenAiCompatibility {
+    /// Standard OpenAI-compatible behavior.
+    pub const fn standard() -> Self {
+        Self {
+            supports_system_role_messages: true,
+        }
+    }
+
+    /// Compatibility mode for providers that reject `system` in `messages`.
+    pub const fn without_system_role_messages() -> Self {
+        Self {
+            supports_system_role_messages: false,
+        }
+    }
+
+    /// Resolves compatibility requirements from provider configuration.
+    #[must_use]
+    pub fn for_provider(provider: &Provider) -> Self {
+        let provider_id = provider.id.to_ascii_lowercase();
+        let base_url = provider
+            .base_url
+            .as_deref()
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+
+        if provider_id == "minimax" || base_url.contains("minimax.io") {
+            return Self::without_system_role_messages();
+        }
+
+        Self::standard()
+    }
 }
 
 impl OpenAiClient {
     /// Creates a new `OpenAI` client.
     #[must_use]
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
+        Self::new_with_compatibility(api_key, base_url, OpenAiCompatibility::standard())
+    }
+
+    /// Creates a new `OpenAI` client using provider-specific compatibility rules.
+    #[must_use]
+    pub fn new_for_provider(api_key: String, provider: &Provider) -> Self {
+        Self::new_with_compatibility(
+            api_key,
+            provider.base_url.clone(),
+            OpenAiCompatibility::for_provider(provider),
+        )
+    }
+
+    fn new_with_compatibility(
+        api_key: String,
+        base_url: Option<String>,
+        compatibility: OpenAiCompatibility,
+    ) -> Self {
         let client = Client::builder()
             .build()
             .expect("Failed to create HTTP client");
@@ -52,6 +112,7 @@ impl OpenAiClient {
             api_key,
             base_url: normalized_base_url,
             provider_type: ApiType::OpenAI,
+            compatibility,
         }
     }
 
@@ -94,6 +155,7 @@ impl OpenAiClient {
             api_key,
             base_url: GOOGLE_BASE_URL.to_string(),
             provider_type: ApiType::Google,
+            compatibility: OpenAiCompatibility::standard(),
         }
     }
 
@@ -112,20 +174,68 @@ impl OpenAiClient {
         request: ChatRequest,
         include_tool_choice: bool,
     ) -> OpenAiRequest {
+        let ChatRequest {
+            model,
+            messages: request_messages,
+            system,
+            temperature,
+            max_tokens: request_max_tokens,
+            top_p,
+            stop,
+            stream,
+            tools: request_tools,
+        } = request;
         let mut messages = Vec::new();
+        let mut folded_system_segments = Vec::new();
 
-        // Add system message if provided
-        if let Some(system) = &request.system {
-            messages.push(OpenAiMessage {
-                role: "system".to_string(),
-                content: Some(system.clone()),
-                tool_call_id: None,
-                tool_calls: None,
-            });
+        if self.compatibility.supports_system_role_messages {
+            if let Some(system) = &system {
+                messages.push(OpenAiMessage {
+                    role: "system".to_string(),
+                    content: Some(system.clone()),
+                    tool_call_id: None,
+                    tool_calls: None,
+                });
+            }
+        } else if let Some(system) = system {
+            folded_system_segments.push(system);
         }
 
         // Convert messages
-        for msg in request.messages {
+        for msg in request_messages {
+            if msg.role == MessageRole::System {
+                if self.compatibility.supports_system_role_messages {
+                    let content = match &msg.content {
+                        MessageContent::Text(text) => Some(text.clone()),
+                        MessageContent::Blocks(blocks) => Some(
+                            blocks
+                                .iter()
+                                .filter_map(|b| match b {
+                                    crate::core::llm::entities::ContentBlock::Text { text } => {
+                                        Some(text.clone())
+                                    }
+                                    _ => None,
+                                })
+                                .collect::<Vec<_>>()
+                                .join("\n"),
+                        ),
+                    };
+
+                    messages.push(OpenAiMessage {
+                        role: "system".to_string(),
+                        content,
+                        tool_call_id: None,
+                        tool_calls: None,
+                    });
+                } else if let Some(text) = msg.as_text() {
+                    let trimmed = text.trim();
+                    if !trimmed.is_empty() {
+                        folded_system_segments.push(trimmed.to_string());
+                    }
+                }
+                continue;
+            }
+
             if msg.role == MessageRole::Tool {
                 if let Some(tool_result) = &msg.tool_result {
                     let output = serde_json::to_string(&tool_result.output)
@@ -188,21 +298,25 @@ impl OpenAiClient {
             });
         }
 
+        if !self.compatibility.supports_system_role_messages {
+            self.fold_system_segments_into_messages(&mut messages, folded_system_segments);
+        }
+
         // Determine which token parameter to use based on model
         // Newer models (GPT-5, o1, o3 series) require max_completion_tokens
-        let model_lower = request.model.to_lowercase();
+        let model_lower = model.to_lowercase();
         let uses_max_completion_tokens = model_lower.starts_with("gpt-5")
             || model_lower.starts_with("o1")
             || model_lower.starts_with("o3")
             || model_lower.starts_with("gpt-4.1");
 
         let (max_tokens, max_completion_tokens) = if uses_max_completion_tokens {
-            (None, request.max_tokens)
+            (None, request_max_tokens)
         } else {
-            (request.max_tokens, None)
+            (request_max_tokens, None)
         };
 
-        let tools = super::convert_tools(request.tools);
+        let tools = super::convert_tools(request_tools);
         let tool_choice = if include_tool_choice {
             tools.as_ref().map(|_| "auto".to_string())
         } else {
@@ -210,17 +324,57 @@ impl OpenAiClient {
         };
 
         OpenAiRequest {
-            model: request.model,
+            model,
             messages,
-            temperature: request.temperature,
+            temperature,
             max_tokens,
             max_completion_tokens,
-            top_p: request.top_p,
-            stop: request.stop,
-            stream: request.stream,
+            top_p,
+            stop,
+            stream,
             tools,
             tool_choice,
         }
+    }
+
+    fn fold_system_segments_into_messages(
+        &self,
+        messages: &mut Vec<OpenAiMessage>,
+        system_segments: Vec<String>,
+    ) {
+        let system_prompt = system_segments
+            .into_iter()
+            .map(|segment| segment.trim().to_string())
+            .filter(|segment| !segment.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        if system_prompt.is_empty() {
+            return;
+        }
+
+        let folded_content = format!("<system>\n{system_prompt}\n</system>");
+
+        if let Some(first_user_message) = messages.iter_mut().find(|message| message.role == "user")
+        {
+            let existing_content = first_user_message.content.take().unwrap_or_default();
+            first_user_message.content = Some(if existing_content.is_empty() {
+                folded_content
+            } else {
+                format!("{folded_content}\n\n{existing_content}")
+            });
+            return;
+        }
+
+        messages.insert(
+            0,
+            OpenAiMessage {
+                role: "user".to_string(),
+                content: Some(folded_content),
+                tool_call_id: None,
+                tool_calls: None,
+            },
+        );
     }
 
     /// Parses a SSE line from the stream.
@@ -672,12 +826,15 @@ impl LlmClient for OpenAiClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::config::{ApiType, Provider};
+    use crate::infrastructure::llm::ToolDefinition;
 
     #[test]
     fn test_client_creation() {
         let client = OpenAiClient::new("test-key".to_string(), None);
         assert_eq!(client.provider_type(), ApiType::OpenAI);
         assert_eq!(client.base_url, OPENAI_BASE_URL);
+        assert!(client.compatibility.supports_system_role_messages);
     }
 
     #[test]
@@ -706,6 +863,90 @@ mod tests {
         assert_eq!(openai_request.messages[2].role, "user");
         assert!(openai_request.tools.is_none());
         assert!(openai_request.tool_choice.is_none());
+    }
+
+    #[test]
+    fn test_client_creation_for_minimax_provider_disables_system_role_messages() {
+        let provider = Provider::custom_with_id(
+            "minimax",
+            "MiniMax",
+            "MM",
+            ApiType::OpenAI,
+            Some("https://api.minimax.io/v1".to_string()),
+        );
+
+        let client = OpenAiClient::new_for_provider("test-key".to_string(), &provider);
+
+        assert_eq!(client.provider_type(), ApiType::OpenAI);
+        assert_eq!(client.base_url, "https://api.minimax.io/v1");
+        assert!(!client.compatibility.supports_system_role_messages);
+    }
+
+    #[test]
+    fn test_convert_request_folds_system_instructions_for_incompatible_provider() {
+        let provider = Provider::custom_with_id(
+            "minimax",
+            "MiniMax",
+            "MM",
+            ApiType::OpenAI,
+            Some("https://api.minimax.io/v1".to_string()),
+        );
+        let client = OpenAiClient::new_for_provider("test-key".to_string(), &provider);
+        let request = ChatRequest::new(
+            "MiniMax-M2.5",
+            vec![
+                Message::system("Follow repository rules"),
+                Message::user("Review this code"),
+            ],
+        )
+        .with_system("You are a code assistant");
+
+        let openai_request = client.convert_request(request);
+
+        assert_eq!(openai_request.messages.len(), 1);
+        assert_eq!(openai_request.messages[0].role, "user");
+        let content = openai_request.messages[0]
+            .content
+            .as_deref()
+            .expect("content should be present");
+        assert!(content.contains("You are a code assistant"));
+        assert!(content.contains("Follow repository rules"));
+        assert!(content.contains("Review this code"));
+    }
+
+    #[test]
+    fn test_convert_request_inserts_synthetic_user_message_when_needed() {
+        let provider = Provider::custom_with_id(
+            "minimax",
+            "MiniMax",
+            "MM",
+            ApiType::OpenAI,
+            Some("https://api.minimax.io/v1".to_string()),
+        );
+        let client = OpenAiClient::new_for_provider("test-key".to_string(), &provider);
+        let request = ChatRequest::new(
+            "MiniMax-M2.5",
+            vec![Message::assistant_with_tool_calls(
+                "",
+                vec![ToolCall {
+                    id: "call_1".to_string(),
+                    name: "search_code".to_string(),
+                    arguments: serde_json::json!({"query": "runner"}),
+                }],
+            )],
+        )
+        .with_system("You are a code assistant");
+
+        let openai_request = client.convert_request(request);
+
+        assert_eq!(openai_request.messages.len(), 2);
+        assert_eq!(openai_request.messages[0].role, "user");
+        assert_eq!(openai_request.messages[1].role, "assistant");
+        assert!(openai_request.messages[0]
+            .content
+            .as_deref()
+            .expect("synthetic user content should be present")
+            .contains("You are a code assistant"));
     }
 
     #[test]

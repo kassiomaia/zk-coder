@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { writable } from 'svelte/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ThreadPanel from './ThreadPanel.svelte';
 import type { Thread } from '$lib/types/thread';
@@ -9,9 +10,7 @@ const mockChatStore = {
 	markThreadRead: vi.fn()
 };
 
-const mockUnreadThreadIds = {
-	subscribe: vi.fn(() => vi.fn())
-};
+const mockUnreadThreadIds = writable<string[]>([]);
 
 vi.mock('$lib/stores/chat', () => ({
 	chatStore: mockChatStore,
@@ -71,6 +70,7 @@ describe('ThreadPanel', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
+		mockUnreadThreadIds.set([]);
 	});
 
 	afterEach(() => {
@@ -162,7 +162,7 @@ describe('ThreadPanel', () => {
 			expect(resolvedBadge).not.toBeInTheDocument();
 		});
 
-		it('shows resolved message banner when thread is resolved', () => {
+		it('shows resolved message banner when thread is resolved', async () => {
 			const { container } = render(ThreadPanel, {
 				...defaultProps,
 				thread: mockResolvedThread
@@ -317,7 +317,7 @@ describe('ThreadPanel', () => {
 			expect(title).toBeInTheDocument();
 		});
 
-		it('resolved banner has role="alert"', () => {
+		it('resolved banner has role="alert"', async () => {
 			const { container } = render(ThreadPanel, {
 				...defaultProps,
 				thread: mockResolvedThread
@@ -363,6 +363,43 @@ describe('ThreadPanel', () => {
 			});
 			const panel = container.querySelector('.panel, [class*="panel"]');
 			expect(panel).toBeInTheDocument();
+		});
+	});
+
+	describe('unread state', () => {
+		it('marks the visible thread as read when it opens unread', () => {
+			mockUnreadThreadIds.set(['thread1']);
+
+			render(ThreadPanel, { ...defaultProps });
+
+			expect(mockChatStore.markThreadRead).toHaveBeenCalledTimes(1);
+			expect(mockChatStore.markThreadRead).toHaveBeenCalledWith('thread1');
+		});
+
+		it('marks the visible thread as read when it becomes unread later', async () => {
+			render(ThreadPanel, { ...defaultProps });
+			expect(mockChatStore.markThreadRead).not.toHaveBeenCalled();
+
+			mockUnreadThreadIds.set(['thread1']);
+			await vi.runAllTimersAsync();
+
+			expect(mockChatStore.markThreadRead).toHaveBeenCalledTimes(1);
+			expect(mockChatStore.markThreadRead).toHaveBeenCalledWith('thread1');
+		});
+
+		it('does not re-mark the same unread state on unrelated rerenders', async () => {
+			const { rerender } = render(ThreadPanel, { ...defaultProps });
+
+			mockUnreadThreadIds.set(['thread1']);
+			await vi.runAllTimersAsync();
+			expect(mockChatStore.markThreadRead).toHaveBeenCalledTimes(1);
+
+			await rerender({
+				...defaultProps,
+				messages: [...defaultProps.messages]
+			});
+
+			expect(mockChatStore.markThreadRead).toHaveBeenCalledTimes(1);
 		});
 	});
 

@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::application::nlp::gateway::{NlpLlmError, NlpLlmGateway};
 use crate::core::config::{ConfigRepository, Model, OperationType, Provider};
 use crate::core::llm::entities::{ChatMessage, ChatRequest};
-use crate::infrastructure::llm::create_client;
+use crate::infrastructure::llm::create_client_for_provider;
 use crate::infrastructure::sqlite::repositories::config::SqliteConfigRepository;
 
 /// Config-backed NLP LLM gateway.
@@ -113,11 +113,7 @@ impl NlpLlmGateway for ConfigBackedNlpLlmGateway {
             let target = self.resolve_completion_target().await?;
             let model_name = target.model.name.clone();
             let provider_type = target.provider.api_type;
-            let client = create_client(
-                target.provider.api_type,
-                target.api_key,
-                target.provider.base_url,
-            );
+            let client = create_client_for_provider(&target.provider, target.api_key);
 
             let request = ChatRequest::new(model_name.clone(), vec![ChatMessage::user(user)])
                 .with_system(system);

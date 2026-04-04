@@ -9,9 +9,11 @@ use crate::application::llm::get_code_operation_model;
 use crate::commands::{ChatState, LlmState};
 use crate::core::chat::entities::MessageRole;
 use crate::core::config::ConfigRepository;
-use crate::core::llm::entities::{ChatMessage as Message, ChatRequest, ChatResponse, UsageStats};
+use crate::core::llm::entities::{ChatMessage as Message, ChatRequest, ChatResponse};
 #[allow(unused_imports)]
-use crate::infrastructure::llm::{create_client, LlmClient, LlmError, LlmResult, StreamChunk};
+use crate::infrastructure::llm::{
+    create_client_for_provider, LlmClient, LlmError, LlmResult, StreamChunk,
+};
 
 use super::types::AgentRuntimeError;
 
@@ -103,7 +105,7 @@ pub async fn create_llm_client(
         "[AgentRuntime] Creating client with api_type: {:?}",
         provider.api_type
     );
-    let client = create_client(provider.api_type, api_key, provider.base_url);
+    let client = create_client_for_provider(&provider, api_key);
     log::info!("[AgentRuntime] LLM client created successfully");
     Ok((client, model_name))
 }

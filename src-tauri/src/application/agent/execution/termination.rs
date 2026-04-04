@@ -220,22 +220,82 @@ pub(super) async fn emit_streaming_message(
     }
 }
 
+/// Auto-completes all remaining `InProgress` subtasks for the given task.
+///
+/// Emits a `SubtaskUpdated` event for each one so the frontend stays in sync.
+/// Returns the number of subtasks that were auto-completed.
+fn auto_complete_in_progress_subtasks(
+    deps: &ExecutionDeps<'_>,
+    task_id: &str,
+    session_id: &str,
+) -> usize {
+    let Ok(subtasks) = deps.task_repo.get_subtasks(task_id) else {
+        return 0;
+    };
+
+    let in_progress: Vec<_> = subtasks
+        .into_iter()
+        .filter(|st| st.status == crate::core::agent::entities::TaskStatus::InProgress)
+        .collect();
+
+    let count = in_progress.len();
+    for subtask in &in_progress {
+        log::info!(
+            "[AgentExecution] Auto-completing subtask {} ({}) for task {}",
+            subtask.id,
+            subtask.title,
+            task_id
+        );
+        let _ = deps.task_repo.update_subtask_status(
+            &subtask.id,
+            crate::core::agent::entities::TaskStatus::Completed,
+        );
+
+        let mut event_subtask = core_task_to_event_subtask(subtask.clone(), task_id);
+        event_subtask.status = TaskStatus::Completed;
+        event_subtask.completed_at = Some(Utc::now());
+        let _ = deps.app_handle.emit(
+            AGENT_EVENT_NAME,
+            AgentEvent::SubtaskUpdated {
+                session_id: session_id.to_string(),
+                subtask: event_subtask,
+            },
+        );
+    }
+
+    count
+}
+
+/// Returns `true` when there is at least one subtask still in `InProgress` state.
+fn has_remaining_in_progress_subtasks(deps: &ExecutionDeps<'_>, task_id: &str) -> bool {
+    deps.task_repo
+        .get_subtasks(task_id)
+        .map(|subtasks| {
+            subtasks
+                .iter()
+                .any(|st| st.status == crate::core::agent::entities::TaskStatus::InProgress)
+        })
+        .unwrap_or(false)
+}
+
 /// Completes the execution of an agent.
 ///
 /// This function finalizes the execution by:
-/// 1.  Updating the session state to `Finished`.
-/// 2.  Updating the task status to `Completed`.
-/// 3.  Auto-completing any subtask that is still `InProgress`.
-/// 4.  Recording a final snapshot and trace event.
-/// 5.  Emitting `TaskUpdated` and `ExecutionComplete` events.
-/// 6.  Streaming the final content to the frontend.
+/// 1.  Auto-completing any subtask that is still `InProgress`.
+/// 2.  Checking whether more `InProgress` subtasks remain after auto-completion.
+/// 3.  If no remaining work – updating the session state to `Finished`, recording
+///     a final snapshot/trace, emitting events and streaming the final content.
+/// 4.  If remaining work exists – returning `(result, true)` so the caller can
+///     restart the execution loop on the next subtask.
+///
+/// Returns `((result, has_remaining_work))`.
 pub async fn complete_execution(
     deps: &ExecutionDeps<'_>,
     ctx: &ExecutionContext,
     conversation_id: &str,
     thread_id: &str,
     content: String,
-) -> Result<AgentExecutionResult, AgentRuntimeError> {
+) -> Result<(AgentExecutionResult, bool), AgentRuntimeError> {
     let result = AgentExecutionResult {
         content,
         steps: ctx.steps.clone(),
@@ -245,6 +305,56 @@ pub async fn complete_execution(
             total_tokens: ctx.total_input_tokens + ctx.total_output_tokens,
         }),
     };
+
+    let auto_completed =
+        auto_complete_in_progress_subtasks(deps, &ctx.task_id, &ctx.session_id);
+
+    if auto_completed > 0 {
+        log::info!(
+            "[AgentExecution] Auto-completed {} InProgress subtask(s) for task {}",
+            auto_completed,
+            ctx.task_id
+        );
+    }
+
+    let has_remaining = has_remaining_in_progress_subtasks(deps, &ctx.task_id);
+
+    if has_remaining {
+        log::info!(
+            "[AgentExecution] Remaining InProgress subtasks detected for task {} – \
+             session will continue",
+            ctx.task_id
+        );
+
+        let tracer = deps.tracer();
+        let _ = tracer.append_trace(
+            &ctx.session_id,
+            &ctx.task_id,
+            ctx.current_subtask_id.as_deref(),
+            ctx.step_number,
+            RuntimeTraceType::ExecutionCompleted,
+            json!({
+                "responseLength": result.content.len(),
+                "totalSteps": result.steps.len(),
+                "totalInputTokens": ctx.total_input_tokens,
+                "totalOutputTokens": ctx.total_output_tokens,
+                "autoCompletedSubtasks": auto_completed,
+                "hasRemainingWork": true,
+            }),
+        );
+
+        emit_streaming_content(
+            deps,
+            &ctx.session_id,
+            conversation_id,
+            thread_id,
+            &result.content,
+            true,
+        )
+        .await;
+
+        return Ok((result, true));
+    }
 
     update_session_state(
         deps,
@@ -257,38 +367,6 @@ pub async fn complete_execution(
         &ctx.task_id,
         crate::core::agent::entities::TaskStatus::Completed,
     );
-
-    // Auto-complete any remaining InProgress subtask
-    // This handles the case where the agent completes all work but doesn't call
-    // agent_advance_to_next_subtask for the final subtask
-    if let Ok(subtasks) = deps.task_repo.get_subtasks(&ctx.task_id) {
-        if let Some(in_progress) = subtasks
-            .iter()
-            .find(|st| st.status == crate::core::agent::entities::TaskStatus::InProgress)
-        {
-            log::info!(
-                "[AgentExecution] Auto-completing final subtask {} for task {}",
-                in_progress.id,
-                ctx.task_id
-            );
-            let _ = deps.task_repo.update_subtask_status(
-                &in_progress.id,
-                crate::core::agent::entities::TaskStatus::Completed,
-            );
-
-            // Emit SubtaskUpdated event for the completed subtask
-            let mut event_subtask = core_task_to_event_subtask(in_progress.clone(), &ctx.task_id);
-            event_subtask.status = TaskStatus::Completed;
-            event_subtask.completed_at = Some(Utc::now());
-            let _ = deps.app_handle.emit(
-                AGENT_EVENT_NAME,
-                AgentEvent::SubtaskUpdated {
-                    session_id: ctx.session_id.clone(),
-                    subtask: event_subtask,
-                },
-            );
-        }
-    }
 
     let tracer = deps.tracer();
     let _ = tracer.save_snapshot(&ctx.snapshot(ExecutionPhase::Completed, None, None));
@@ -333,7 +411,7 @@ pub async fn complete_execution(
         },
     );
 
-    Ok(result)
+    Ok((result, false))
 }
 
 #[cfg(test)]
