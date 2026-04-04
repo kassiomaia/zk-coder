@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
 
 // PPTX generation library
-use pptx::Presentation;
+use pptx::{BulletFormat, Emu, Inches, Presentation, ShapeId, ShapeTree, TextFrame};
 
 /// Arguments for finalizing a PPTX presentation.
 #[derive(Debug, Deserialize)]
@@ -258,8 +258,6 @@ fn estimate_duration(draft: &PptxDraft) -> usize {
 
 /// Generate a PPTX file from the draft using the pptx crate.
 async fn generate_pptx(draft: PptxDraft) -> Result<(PathBuf, u64), ToolError> {
-    use pptx::Presentation;
-
     // Get the home directory for artifact storage
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
@@ -289,13 +287,14 @@ async fn generate_pptx(draft: PptxDraft) -> Result<(PathBuf, u64), ToolError> {
 
     // Add each slide from the draft
     for draft_slide in &draft.slides {
-        let _slide = prs
-            .add_slide(default_layout)
+        let layout = select_layout(&layouts, &draft_slide.slide.layout).unwrap_or(default_layout);
+
+        let slide_ref = prs
+            .add_slide(layout)
             .map_err(|e| ToolError::failed(format!("Failed to add slide: {}", e)))?;
 
-        // Note: For now, we create basic slides with titles
-        // Full content rendering will be added in a follow-up
-        // The pptx crate v0.1.0 has limited shape manipulation API
+        render_slide_content(&mut prs, &slide_ref, &draft_slide.slide)
+            .map_err(|e| ToolError::failed(format!("Failed to render slide content: {}", e)))?;
     }
 
     // If no slides were added, add a title slide
@@ -316,11 +315,209 @@ async fn generate_pptx(draft: PptxDraft) -> Result<(PathBuf, u64), ToolError> {
     Ok((output_path, size_bytes))
 }
 
+fn select_layout<'a>(
+    layouts: &'a [pptx::slide::SlideLayoutRef],
+    requested: &SlideLayout,
+) -> Option<&'a pptx::slide::SlideLayoutRef> {
+    let names = match requested {
+        SlideLayout::TitleSlide => ["title slide", "title"].as_slice(),
+        SlideLayout::TitleAndContent => ["title and content", "title"].as_slice(),
+        SlideLayout::SectionHeader => ["section header", "section"].as_slice(),
+        SlideLayout::TwoColumn | SlideLayout::TwoContent => ["two content", "two"].as_slice(),
+        SlideLayout::Comparison => ["comparison"].as_slice(),
+        SlideLayout::ContentWithCaption => ["content with caption", "caption"].as_slice(),
+        SlideLayout::Blank => ["blank"].as_slice(),
+    };
+
+    layouts.iter().find(|layout| {
+        let normalized = layout.name.to_lowercase();
+        names.iter().any(|name| normalized.contains(name))
+    })
+}
+
+fn render_slide_content(
+    presentation: &mut Presentation,
+    slide_ref: &pptx::slide::SlideRef,
+    slide: &PptxSlide,
+) -> Result<(), ToolError> {
+    let mut shapes = Vec::new();
+
+    if !slide.title.trim().is_empty() {
+        let title_frame = single_text_paragraph(slide.title.trim());
+        shapes.push(build_textbox_with_text(
+            ShapeId(10),
+            "Title",
+            Inches(0.5).into(),
+            Inches(0.3).into(),
+            Inches(9.0).into(),
+            Inches(1.0).into(),
+            &title_frame,
+        ));
+    }
+
+    let mut body_paragraphs = Vec::new();
+    for content in &slide.content {
+        match content {
+            SlideContent::TextBox { text, .. } if !text.trim().is_empty() => {
+                body_paragraphs.push(BodyParagraph::Plain(text.trim().to_string()));
+            }
+            SlideContent::BulletList { items, level } => {
+                for item in items.iter().filter(|item| !item.trim().is_empty()) {
+                    body_paragraphs.push(BodyParagraph::Bullet {
+                        text: item.trim().to_string(),
+                        level: *level,
+                    });
+                }
+            }
+            SlideContent::NumberedList { items } => {
+                for item in items.iter().filter(|item| !item.trim().is_empty()) {
+                    body_paragraphs.push(BodyParagraph::Numbered(item.trim().to_string()));
+                }
+            }
+            SlideContent::Table { .. } => {
+                body_paragraphs.push(BodyParagraph::Plain(
+                    "[Table content is not yet supported]".to_string(),
+                ));
+            }
+            SlideContent::Image { path, .. } => {
+                body_paragraphs.push(BodyParagraph::Plain(format!(
+                    "[Image: {}]",
+                    path.trim()
+                )));
+            }
+            SlideContent::ChartPlaceholder { title, .. } => {
+                body_paragraphs.push(BodyParagraph::Plain(format!(
+                    "[Chart: {}]",
+                    title.trim()
+                )));
+            }
+            SlideContent::Title | SlideContent::Subtitle | SlideContent::TextBox { .. } => {}
+        }
+    }
+
+    if !body_paragraphs.is_empty() {
+        let body_frame = body_text_frame(&body_paragraphs);
+        shapes.push(build_textbox_with_text(
+            ShapeId(11),
+            "Body",
+            Inches(0.8).into(),
+            Inches(1.5).into(),
+            Inches(8.4).into(),
+            Inches(4.8).into(),
+            &body_frame,
+        ));
+    }
+
+    append_shapes_to_slide(presentation, slide_ref, &shapes)
+}
+
+#[derive(Debug)]
+enum BodyParagraph {
+    Plain(String),
+    Bullet { text: String, level: u8 },
+    Numbered(String),
+}
+
+fn single_text_paragraph(text: &str) -> TextFrame {
+    let mut text_frame = TextFrame::new();
+    text_frame.set_text(text);
+    text_frame
+}
+
+fn body_text_frame(paragraphs: &[BodyParagraph]) -> TextFrame {
+    let mut text_frame = TextFrame::new();
+    text_frame.clear();
+
+    for (index, paragraph) in paragraphs.iter().enumerate() {
+        let target = if index == 0 {
+            &mut text_frame.paragraphs_mut()[0]
+        } else {
+            text_frame.add_paragraph()
+        };
+
+        target.clear();
+
+        match paragraph {
+            BodyParagraph::Plain(text) => {
+                target.add_run().set_text(text);
+            }
+            BodyParagraph::Bullet { text, level } => {
+                target.level = (*level).min(8);
+                target.set_bullet(BulletFormat::Character('•'));
+                target.add_run().set_text(text);
+            }
+            BodyParagraph::Numbered(text) => {
+                target.set_bullet(BulletFormat::AutoNumbered("arabicPeriod".to_string()));
+                target.add_run().set_text(text);
+            }
+        }
+    }
+
+    text_frame
+}
+
+fn build_textbox_with_text(
+    shape_id: ShapeId,
+    name: &str,
+    left: Emu,
+    top: Emu,
+    width: Emu,
+    height: Emu,
+    text_frame: &TextFrame,
+) -> String {
+    let xml = ShapeTree::new_textbox_xml(shape_id, name, left, top, width, height);
+    replace_tx_body(&xml, &text_frame.to_xml_string()).unwrap_or(xml)
+}
+
+fn replace_tx_body(xml: &str, replacement: &str) -> Option<String> {
+    let start = xml.find("<p:txBody")?;
+    let end = xml.find("</p:txBody>")? + "</p:txBody>".len();
+
+    let mut updated = String::with_capacity(xml.len() + replacement.len());
+    updated.push_str(&xml[..start]);
+    updated.push_str(replacement);
+    updated.push_str(&xml[end..]);
+    Some(updated)
+}
+
+fn append_shapes_to_slide(
+    presentation: &mut Presentation,
+    slide_ref: &pptx::slide::SlideRef,
+    shapes: &[String],
+) -> Result<(), ToolError> {
+    if shapes.is_empty() {
+        return Ok(());
+    }
+
+    let slide_xml = presentation
+        .slide_xml_mut(slide_ref)
+        .map_err(|e| ToolError::failed(format!("Failed to get mutable slide XML: {}", e)))?;
+
+    let xml_string = String::from_utf8(slide_xml.clone())
+        .map_err(|e| ToolError::failed(format!("Slide XML is not valid UTF-8: {}", e)))?;
+
+    let marker = "</p:spTree>";
+    let marker_index = xml_string
+        .find(marker)
+        .ok_or_else(|| ToolError::failed("Slide XML missing </p:spTree> marker".to_string()))?;
+
+    let mut updated = String::with_capacity(xml_string.len() + shapes.iter().map(String::len).sum::<usize>());
+    updated.push_str(&xml_string[..marker_index]);
+    for shape in shapes {
+        updated.push_str(shape);
+    }
+    updated.push_str(&xml_string[marker_index..]);
+
+    *slide_xml = updated.into_bytes();
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::infrastructure::tools::documents::shared::{DraftSlide, DraftStatus};
     use chrono::Utc;
+    use std::fs;
 
     fn create_test_draft() -> PptxDraft {
         PptxDraft {
@@ -436,5 +633,27 @@ mod tests {
         let duration = estimate_duration(&draft);
         // 1 slide * 1.5 = 1.5, rounded to (1*3+1)/2 = 2
         assert_eq!(duration, 2);
+    }
+
+    #[test]
+    fn test_generate_pptx_writes_slide_text() {
+        let mut draft = create_test_draft();
+        draft.filename = format!("test-{}.pptx", uuid::Uuid::new_v4());
+
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let (path, _size) = runtime.block_on(generate_pptx(draft)).unwrap();
+
+        let prs = pptx::Presentation::open(&path).unwrap();
+        let slides = prs.slides().unwrap();
+        assert_eq!(slides.len(), 2);
+
+        let slide1_xml = String::from_utf8(prs.slide_xml(&slides[0]).unwrap().to_vec()).unwrap();
+        let slide2_xml = String::from_utf8(prs.slide_xml(&slides[1]).unwrap().to_vec()).unwrap();
+
+        assert!(slide1_xml.contains("Title"));
+        assert!(slide2_xml.contains("Item 1"));
+        assert!(slide2_xml.contains("Item 2"));
+
+        let _ = fs::remove_file(path);
     }
 }
