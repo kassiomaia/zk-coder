@@ -6,6 +6,7 @@
 	import { CheckCircle, ChevronRight, Circle, Loader2, XCircle } from 'lucide-svelte';
 	import type { AgentTask, SubTask, TaskStatus } from '$lib/types/agent';
 	import { SvelteSet } from 'svelte/reactivity';
+	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 
 	interface Props {
 		tasks: AgentTask[];
@@ -117,9 +118,7 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="empty-state">
-			<p>Awaiting session start</p>
-		</div>
+		<EmptyState class="empty-state" message="Awaiting session start" />
 	{/each}
 </div>
 

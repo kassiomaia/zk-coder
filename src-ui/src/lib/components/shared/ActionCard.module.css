@@ -1,4 +1,4 @@
-.recoveryContainer {
+.container {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
@@ -10,7 +10,7 @@
 	position: relative;
 }
 
-.recoveryContainer:hover {
+.container:hover {
 	background: var(--color-interactive-hover);
 }
 
@@ -19,15 +19,6 @@
 	justify-content: space-between;
 	align-items: center;
 	gap: var(--space-4);
-}
-
-/* Zone 1: Icon & Message */
-.messageZone {
-	display: flex;
-	align-items: center;
-	gap: var(--space-3);
-	min-width: 0;
-	flex: 1;
 }
 
 .iconWrapper {
@@ -46,6 +37,7 @@
 	display: flex;
 	flex-direction: column;
 	min-width: 0;
+	flex: 1;
 }
 
 .primaryText {
@@ -66,7 +58,6 @@
 	opacity: 0.8;
 }
 
-/* Zone 2: Action Buttons */
 .actionZone {
 	flex-shrink: 0;
 }

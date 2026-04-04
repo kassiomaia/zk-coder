@@ -6,11 +6,10 @@
 	 * Shows Continue/Replan buttons for the user to choose how to proceed.
 	 * Follows the same pattern as ApprovalMessage for consistency.
 	 */
-	import styles from './RecoveryMessage.module.css';
+	import ActionCard from '$lib/components/shared/ActionCard.svelte';
 	import type { Message } from '$lib/types/message';
-	import { Play } from 'lucide-svelte';
-	import { fade } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { Play, CheckCircle2, XCircle } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		message: Message;
@@ -52,53 +51,114 @@
 	const isReplanned = $derived(recoveryDecision === 'replanned');
 </script>
 
-<div class={styles.recoveryContainer} in:fade={{ duration: 200, easing: cubicOut }}>
-	<div class={styles.contentRow}>
-		<!-- Zone 1: Icon & Message -->
-		<div class={styles.messageZone}>
-			<div class={styles.iconWrapper}>
-				<Play size={16} strokeWidth={2.5} />
-			</div>
-			<div class={styles.textWrapper}>
-				<div class={styles.primaryText}>Your progress is saved</div>
-				<div class={styles.secondaryText}>Great! Pick up where you left off, or start fresh.</div>
-			</div>
-		</div>
+{#snippet icon()}
+	<Play size={16} strokeWidth={2.5} />
+{/snippet}
 
-		<!-- Zone 2: Actions -->
-		<div class={styles.actionZone}>
-			{#if !isResolved}
-				<div class={styles.buttonGroup}>
-					<button
-						type="button"
-						class={[styles.btn, styles.btnSecondary].join(' ')}
-						onclick={handleReplan}
-						disabled={isLoading}
-					>
-						Replan
-					</button>
-					<button
-						type="button"
-						class={[styles.btn, styles.btnPrimary].join(' ')}
-						onclick={handleContinue}
-						disabled={isLoading}
-						aria-busy={isLoading}
-					>
-						{#if isLoading}
-							<div class={styles.spinner}></div>
-						{/if}
-						{isLoading ? 'Continuing...' : 'Continue'}
-					</button>
-				</div>
-			{:else}
-				<div class={styles.resolvedStatus} in:fade>
-					{#if isContinued}
-						<span>Resuming...</span>
-					{:else if isReplanned}
-						<span>Replanning...</span>
-					{/if}
-				</div>
+{#snippet actions()}
+	<div class="button-group">
+		<button type="button" class="btn btn-secondary" onclick={handleReplan} disabled={isLoading}>
+			Replan
+		</button>
+		<button
+			type="button"
+			class="btn btn-primary"
+			onclick={handleContinue}
+			disabled={isLoading}
+			aria-busy={isLoading}
+		>
+			{#if isLoading}
+				<div class="spinner"></div>
 			{/if}
-		</div>
+			{isLoading ? 'Continuing...' : 'Continue'}
+		</button>
 	</div>
-</div>
+{/snippet}
+
+{#snippet resolvedContent()}
+	{#if isContinued}
+		<span>Resuming...</span>
+	{:else if isReplanned}
+		<span>Replanning...</span>
+	{/if}
+{/snippet}
+
+<ActionCard
+	{icon}
+	title="Your progress is saved"
+	description="Great! Pick up where you left off, or start fresh."
+	{actions}
+	resolved={isResolved}
+	{resolvedContent}
+/>
+
+<style>
+	.button-group {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-1-5);
+		height: 32px;
+		padding: 0 var(--space-3);
+		border-radius: var(--radius-md);
+		font-size: var(--text-xs);
+		font-weight: var(--font-semibold);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+		border: 1px solid transparent;
+	}
+
+	.btn-secondary {
+		background: transparent;
+		border-color: var(--color-border-primary);
+		color: var(--color-text-secondary);
+	}
+
+	.btn-secondary:hover:not(:disabled) {
+		background: var(--color-surface-hover);
+		color: var(--color-text-primary);
+		border-color: var(--color-border-secondary);
+	}
+
+	.btn-primary {
+		background: var(--color-primary-500);
+		color: white;
+		box-shadow: var(--shadow-xs);
+	}
+
+	.btn-primary:hover:not(:disabled) {
+		background: var(--color-primary-600);
+		transform: translateY(-1px);
+		box-shadow: var(--shadow-sm);
+	}
+
+	.btn-primary:active:not(:disabled) {
+		transform: translateY(0);
+	}
+
+	.btn:disabled {
+		opacity: var(--opacity-disabled);
+		cursor: not-allowed;
+	}
+
+	.spinner {
+		width: 12px;
+		height: 12px;
+		border: 2px solid var(--color-border-secondary);
+		border-top-color: var(--color-text-primary);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+</style>

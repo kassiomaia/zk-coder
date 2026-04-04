@@ -5,6 +5,7 @@
 	 */
 	import { Check, ChevronDown, ChevronRight, Cpu, Settings, Shield, Wrench } from 'lucide-svelte';
 	import type { Agent, TrustMode } from '$lib/types/agent';
+	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 
 	interface Props {
 		open: boolean;
@@ -123,9 +124,7 @@
 						<p>Loading agents...</p>
 					</div>
 				{:else if agents.length === 0}
-					<div class="empty-state">
-						<p>No agents configured</p>
-					</div>
+					<EmptyState class="empty-state" message="No agents configured" />
 				{:else}
 					<div class="agents-list">
 						{#each agents as agent (agent.id)}

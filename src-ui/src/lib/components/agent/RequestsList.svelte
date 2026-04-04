@@ -5,6 +5,7 @@
 	 */
 	import type { ExecutionStep } from '$lib/types/agent';
 	import { Activity, Cpu } from 'lucide-svelte';
+	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 
 	interface Props {
 		steps: ExecutionStep[];
@@ -55,9 +56,7 @@
 		</div>
 	{/each}
 	{#if recentSteps.length === 0}
-		<div class="empty-state">
-			<p>No requests recorded</p>
-		</div>
+		<EmptyState class="empty-state" message="No requests recorded" />
 	{/if}
 </section>
 

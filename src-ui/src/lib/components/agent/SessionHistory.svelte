@@ -9,6 +9,7 @@
 	import type { AgentSession } from '$lib/types/agent';
 	import { agentStore } from '$lib/stores';
 	import { createLogger } from '$lib/utils/logger';
+	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 
 	const log = createLogger('SessionHistory');
 
@@ -158,9 +159,7 @@
 			<p>Loading sessions...</p>
 		</div>
 	{:else if sessions.length === 0}
-		<div class="empty-state">
-			<p>No completed sessions found</p>
-		</div>
+		<EmptyState class="empty-state" message="No completed sessions found" />
 	{:else}
 		<div class="timeline-list">
 			{#each sessions as session, i (session.id)}
