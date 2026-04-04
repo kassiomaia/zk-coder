@@ -10,7 +10,7 @@
 	import MentionMenu from './MentionMenu.svelte';
 	import ModelSelector from './ModelSelector.svelte';
 	import IconButton from '$lib/components/shared/IconButton.svelte';
-	import { ArrowUpIcon, CloseIcon, CodeIcon, FileIcon, PaperclipIcon } from '$lib/icons';
+	import { ArrowUpIcon, CloseIcon, CodeIcon, FileIcon, PaperclipIcon, ZapIcon } from '$lib/icons';
 	import type { Command } from '$lib/types/command';
 	import { BUILT_IN_COMMANDS, filterCommands } from '$lib/types/command';
 	import type { IntentClassification } from '$lib/types/nlp';
@@ -120,6 +120,7 @@
 	let cursorPosition = $state(0);
 	let isShaking = $state(false);
 	let isSending = $state(false);
+	let yoloMode = $state(false);
 
 	// Note: $nlpState and $isLlmStreaming auto-subscribe to stores from $lib/stores
 
@@ -456,6 +457,19 @@
 			{#if validatedModelId !== null && onModelChange}
 				<ModelSelector selectedModelId={validatedModelId} {onModelChange} {onOpenSettings} />
 			{/if}
+			<IconButton
+				label="YOLO Mode"
+				tooltip={yoloMode ? 'Disable YOLO Mode' : 'Enable YOLO Mode'}
+				variant="ghost"
+				size="sm"
+				disabled={disabled || isWorking}
+				yoloActive={yoloMode}
+				onclick={() => (yoloMode = !yoloMode)}
+			>
+				{#snippet icon()}
+					<ZapIcon size={18} />
+				{/snippet}
+			</IconButton>
 			{#if onattach}
 				<IconButton
 					label="Attach file"

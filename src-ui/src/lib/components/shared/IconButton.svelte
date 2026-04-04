@@ -30,6 +30,8 @@
 		loading?: boolean;
 		/** Active/pressed state */
 		active?: boolean;
+		/** YOLO mode active state with desaturated amber styling */
+		yoloActive?: boolean;
 		/** Whether to show tooltip */
 		showTooltip?: boolean;
 		/** Click handler */
@@ -51,6 +53,7 @@
 		disabled = false,
 		loading = false,
 		active = false,
+		yoloActive = false,
 		showTooltip = true,
 		onclick,
 		type = 'button',
@@ -84,6 +87,7 @@
 			disabled && styles.disabled,
 			loading && styles.loading,
 			active && styles.active,
+			yoloActive && styles.yoloActive,
 			isPressed && styles.pressed,
 			className
 		]

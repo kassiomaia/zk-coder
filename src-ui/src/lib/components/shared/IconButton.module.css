@@ -290,6 +290,15 @@
 	opacity: 0 !important;
 }
 
+.yoloActive {
+	background: var(--color-warning-light) !important;
+	color: var(--color-warning-dark) !important;
+}
+
+.yoloActive::before {
+	opacity: 0 !important;
+}
+
 .pressed:not(:disabled) {
 	transform: scale(var(--btn-press-scale));
 }
