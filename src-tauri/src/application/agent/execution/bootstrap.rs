@@ -98,6 +98,20 @@ pub async fn start_execution(
         mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
         needs_review: false,
     };
+
+    // Emit TaskPlanGenerated event so frontend immediately knows the LLM-generated title
+    let _ = deps.app_handle.emit(
+        AGENT_EVENT_NAME,
+        AgentEvent::TaskPlanGenerated {
+            session_id: session_id.clone(),
+            task_id: task.id.clone(),
+            title: plan.title.clone(),
+            description: plan.description.clone(),
+            is_non_trivial: plan.is_non_trivial,
+            subtasks: plan.subtasks.clone(),
+        },
+    );
+
     deps.task_repo
         .create_task(&core_task)
         .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;

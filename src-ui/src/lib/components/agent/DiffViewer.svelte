@@ -8,6 +8,8 @@
 	import * as monaco from 'monaco-editor';
 	import { registerCustomThemes } from '$lib/utils/monaco-themes';
 
+	registerCustomThemes();
+
 	interface Props {
 		/** Original content for diff */
 		originalContent?: string;
@@ -45,12 +47,7 @@
 		minimap = true
 	}: Props = $props();
 
-	// Initialize theme - will be updated by effect if theme prop changes
-	function getInitialTheme() {
-		return themeProp ?? 'coder-light';
-	}
-
-	let resolvedTheme = $state<string>(getInitialTheme());
+	let resolvedTheme = $state<string>(detectTheme());
 
 	let container = $state<HTMLDivElement | null>(null);
 	let diffEditor = $state<monaco.editor.IStandaloneDiffEditor | null>(null);
@@ -271,14 +268,6 @@
 	}
 
 	onMount(() => {
-		registerCustomThemes();
-
-		// Auto-detect theme on mount if no explicit prop
-		if (!themeProp) {
-			resolvedTheme = detectTheme();
-		}
-
-		// Observe app theme changes on the DOM
 		const observer = new MutationObserver(() => {
 			if (!themeProp) {
 				resolvedTheme = detectTheme();

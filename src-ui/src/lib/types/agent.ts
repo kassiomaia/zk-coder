@@ -155,6 +155,7 @@ export interface AgentTask {
 	status: TaskStatus;
 	selected?: boolean;
 	subtasks?: SubTask[];
+	isNonTrivial?: boolean;
 }
 
 /**
@@ -350,6 +351,15 @@ export type AgentEvent =
 			content?: string;
 	  }
 	| { type: 'task_created'; sessionId: string; task: BackendAgentTask }
+	| {
+			type: 'task_plan_generated';
+			sessionId: string;
+			taskId: string;
+			title: string;
+			description: string;
+			isNonTrivial: boolean;
+			subtasks: SubTask[];
+	  }
 	| { type: 'task_updated'; sessionId: string; taskId: string; status: TaskStatus }
 	| { type: 'subtask_created'; sessionId: string; subtask: SubTask }
 	| { type: 'subtask_updated'; sessionId: string; subtask: SubTask }

@@ -208,6 +208,10 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SessionRepositoryError> {
     // Migration 4: Add model_id column to agent_sessions
     let _ = conn.execute("ALTER TABLE agent_sessions ADD COLUMN model_id TEXT", []); // Ignore error if column exists
 
+    // Migration 5: Add title and description columns to agent_tasks
+    let _ = conn.execute("ALTER TABLE agent_tasks ADD COLUMN title TEXT", []); // Ignore error if column exists
+    let _ = conn.execute("ALTER TABLE agent_tasks ADD COLUMN description TEXT", []); // Ignore error if column exists
+
     Ok(())
 }
 

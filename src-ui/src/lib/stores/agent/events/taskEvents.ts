@@ -26,6 +26,34 @@ export function handleTaskCreated(
 }
 
 /**
+ * Handle task_plan_generated event.
+ * Updates the task with the LLM-generated title and description.
+ */
+export function handleTaskPlanGenerated(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'task_plan_generated' }>
+) {
+	const session = state.sessions.get(event.sessionId);
+	if (session && session.tasks) {
+		const updatedTasks = session.tasks.map((task) =>
+			task.id === event.taskId
+				? {
+						...task,
+						title: event.title,
+						description: event.description,
+						isNonTrivial: event.isNonTrivial,
+						subtasks: event.subtasks ?? task.subtasks
+					}
+				: task
+		);
+		state.sessions.set(event.sessionId, {
+			...session,
+			tasks: updatedTasks
+		});
+	}
+}
+
+/**
  * Handle task_updated event.
  */
 export function handleTaskUpdated(

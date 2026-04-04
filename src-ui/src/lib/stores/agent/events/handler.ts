@@ -46,6 +46,9 @@ export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentSta
 		case 'task_created':
 			TaskEvents.handleTaskCreated(state, event);
 			break;
+		case 'task_plan_generated':
+			TaskEvents.handleTaskPlanGenerated(state, event);
+			break;
 		case 'task_updated':
 			TaskEvents.handleTaskUpdated(state, event);
 			break;

@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::application::agent::service::planner::SubtaskPlan as SubTaskPlan;
 use crate::core::agent::session::{PendingAction, SessionState};
 use crate::core::agent::task::{
     AgentExecutionResult, AgentTask, ExecutionStep, SubTask, TaskStatus,
@@ -202,6 +203,26 @@ pub enum AgentEvent {
         session_id: String,
         /// The created task.
         task: AgentTask,
+    },
+
+    /// LLM-generated task plan with title, description, and subtasks.
+    /// Emitted after initial planning so frontend can display the correct title immediately.
+    TaskPlanGenerated {
+        /// The session ID.
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        /// The task ID.
+        #[serde(rename = "taskId")]
+        task_id: String,
+        /// LLM-generated title.
+        title: String,
+        /// LLM-generated description.
+        description: String,
+        /// Whether this task has subtasks.
+        #[serde(rename = "isNonTrivial")]
+        is_non_trivial: bool,
+        /// Planned subtasks.
+        subtasks: Vec<SubTaskPlan>,
     },
 
     /// A task status was updated.

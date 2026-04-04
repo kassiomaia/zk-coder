@@ -10,10 +10,12 @@ use super::SessionRepositoryError;
 pub fn create_task(
     conn: &Connection,
     task: &crate::core::agent::task::AgentTask,
+    title: Option<&str>,
+    description: Option<&str>,
 ) -> Result<(), SessionRepositoryError> {
     conn.execute(
-        "INSERT INTO agent_tasks (id, session_id, request, status, steps, created_at, completed_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO agent_tasks (id, session_id, request, status, steps, created_at, completed_at, title, description)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             task.id,
             task.session_id.0,
@@ -22,6 +24,8 @@ pub fn create_task(
             serde_json::to_string(&task.steps)?,
             task.created_at.to_rfc3339(),
             task.completed_at.map(|t| t.to_rfc3339()),
+            title,
+            description,
         ],
     )?;
     Ok(())

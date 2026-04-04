@@ -200,12 +200,14 @@ impl SqliteSessionRepository {
     pub fn create_task(
         &self,
         task: &crate::core::agent::task::AgentTask,
+        title: Option<&str>,
+        description: Option<&str>,
     ) -> Result<(), SessionRepositoryError> {
         let conn = self
             .conn
             .lock()
             .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
-        tasks::create_task(&conn, task)
+        tasks::create_task(&conn, task, title, description)
     }
 
     /// Update task status.
@@ -608,7 +610,13 @@ impl SessionRepository for SqliteSessionRepository {
 impl TaskRepository for SqliteSessionRepository {
     fn create_task(&self, task: &core_entities::AgentTask) -> RepositoryResult<()> {
         let internal = core_task_to_agents(task);
-        Self::create_task(self, &internal).map_err(core_entities::AgentDomainError::from)
+        Self::create_task(
+            self,
+            &internal,
+            Some(task.title.as_str()),
+            task.description.as_deref(),
+        )
+        .map_err(core_entities::AgentDomainError::from)
     }
 
     fn create_subtask(
