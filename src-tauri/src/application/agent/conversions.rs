@@ -301,6 +301,7 @@ pub fn core_task_to_runtime_task(task: CoreAgentTask) -> AgentTask {
                 selection: Some(description),
             }),
         },
+        title: None,
         status: task.status.into(),
         steps: vec![],
         subtasks: None,

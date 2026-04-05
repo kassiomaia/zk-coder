@@ -86,7 +86,7 @@ pub async fn start_execution(
     .map_err(|e| AgentRuntimeError::Repository(format!("Planning failed: {e}")))?;
 
     // Step 2: Create root task with LLM-generated title and description
-    let task = AgentTask::new(session.id.clone(), request.clone());
+    let mut task = AgentTask::new(session.id.clone(), request.clone());
     let core_task = crate::core::agent::entities::AgentTask {
         id: task.id.clone(),
         session_id: task.session_id.0.clone(),
@@ -118,6 +118,7 @@ pub async fn start_execution(
 
     // Step 3: Create all subtasks at once if non-trivial
     let mut first_subtask_id: Option<String> = None;
+    let mut collected_subtasks: Vec<crate::core::agent::task::SubTask> = Vec::new();
     if plan.is_non_trivial && !plan.subtasks.is_empty() {
         for subtask_plan in &plan.subtasks {
             let mut subtask =
@@ -133,12 +134,17 @@ pub async fn start_execution(
                 .create_subtask(&core_task.id, &subtask)
                 .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
 
-            // Emit SubtaskCreated event so frontend knows about the subtask
+            // Build event subtask for collection and emission
             let mut event_subtask = core_task_to_event_subtask(subtask, &core_task.id);
             if subtask_plan.order == 0 {
                 event_subtask.status = crate::core::agent::task::TaskStatus::InProgress;
                 event_subtask.started_at = Some(Utc::now());
             }
+
+            // Collect for TaskCreated payload before emitting
+            collected_subtasks.push(event_subtask.clone());
+
+            // Emit SubtaskCreated for status-tracking purposes
             let _ = deps.app_handle.emit(
                 AGENT_EVENT_NAME,
                 AgentEvent::SubtaskCreated {
@@ -147,6 +153,12 @@ pub async fn start_execution(
                 },
             );
         }
+    }
+
+    // Set LLM-generated title and subtasks on the task before emitting TaskCreated
+    task.title = Some(plan.title.clone());
+    if !collected_subtasks.is_empty() {
+        task.subtasks = Some(collected_subtasks);
     }
 
     let mut context = ExecutionContext {

@@ -208,6 +208,7 @@ pub fn core_task_to_agents(task: &core_entities::AgentTask) -> crate::core::agen
                 }
             }),
         },
+        title: None,
         status: task_status_to_agents(task.status),
         steps: vec![],
         subtasks: None,

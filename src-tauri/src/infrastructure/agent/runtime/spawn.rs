@@ -642,7 +642,22 @@ impl SpawnEngine {
                         }),
                     );
                 }
-                Err(err)
+                // Return outcome with success=false instead of error
+                Ok(SpawnOutcome {
+                    spawn_id,
+                    mode: resolved.mode,
+                    program: resolved.program,
+                    args: resolved.args,
+                    command: resolved.command,
+                    pid,
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: err.to_message(),
+                    success: false,
+                    truncated: false,
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    working_dir: cwd.to_string_lossy().to_string(),
+                })
             }
             Err(_) => {
                 let _ = child.kill().await;
@@ -666,7 +681,25 @@ impl SpawnEngine {
                         exit_code: None,
                     },
                 );
-                Err(SpawnError::TimedOut(self.policy.command_timeout.as_secs()))
+                // Return outcome with success=false instead of error
+                Ok(SpawnOutcome {
+                    spawn_id,
+                    mode: resolved.mode,
+                    program: resolved.program,
+                    args: resolved.args,
+                    command: resolved.command,
+                    pid,
+                    exit_code: None,
+                    stdout: String::new(),
+                    stderr: format!(
+                        "Command timed out after {} seconds",
+                        self.policy.command_timeout.as_secs()
+                    ),
+                    success: false,
+                    truncated: false,
+                    duration_ms: start.elapsed().as_millis() as u64,
+                    working_dir: cwd.to_string_lossy().to_string(),
+                })
             }
         }
     }
@@ -1027,7 +1060,7 @@ mod tests {
         });
         let observer = RecordingObserver::new(true);
 
-        let err = engine
+        let outcome = engine
             .execute(
                 SpawnRequest {
                     session_id: "session-cancel".to_string(),
@@ -1041,9 +1074,10 @@ mod tests {
                 Some(&observer),
             )
             .await
-            .expect_err("spawn should be cancelled");
+            .expect("spawn should return outcome");
 
-        assert!(matches!(err, SpawnError::Cancelled));
+        // Cancellation returns outcome with success=false instead of error
+        assert!(!outcome.success);
         let trace_types = observer.trace_types();
         assert!(trace_types.contains(&RuntimeTraceType::SpawnCancelled));
         assert!(trace_types.contains(&RuntimeTraceType::SpawnKilled));

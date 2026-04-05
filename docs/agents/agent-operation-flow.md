@@ -109,7 +109,8 @@ When an agent receives a prompt like "Write a nodejs project for an api to regis
      - Creates a **root task** with the generated title and description
      - Creates all **subtasks** in the database, marking the first one as `InProgress`
      - Initializes the `ExecutionContext` and saves an initial snapshot
-     - Emits `TaskCreated` and `SubtaskCreated` events to frontend
+     - Emits `SubtaskCreated` events for each subtask (for status tracking)
+     - Emits `TaskCreated` event with the LLM-generated title and full subtask list attached
      - Creates the LLM client for subsequent calls
      - Builds the initial LLM context (task info, subtasks, context window)
      - Updates the root task status to `InProgress` and emits `TaskUpdated` event
@@ -504,7 +505,8 @@ Throughout the execution:
 - `ExecutionStarted` - Agent begins working
 - `StatusPhrase` - Status updates (e.g., "Planning task", "Writing files")
 - `AgentNarration` - Persistent text in chat ("I'm creating a Node.js project...")
-- `TaskCreated` / `TaskPlanGenerated` - Task planning
+- `TaskCreated` - Task created with LLM-generated title and full subtask list
+- `TaskPlanGenerated` - LLM-generated plan details (title, description, subtasks)
 - `SubtaskCreated` / `SubtaskUpdated` - Subtask status changes
 - `ToolCall` - Tool execution started (collapsible card)
 - `ToolResult` - Tool execution completed

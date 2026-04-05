@@ -53,6 +53,9 @@ pub struct AgentTask {
     pub session_id: SessionId,
     /// The user's request that initiated this task.
     pub request: AgentRequest,
+    /// LLM-generated title. When present, the frontend uses this instead of request.content.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
     /// The current status of the task.
     pub status: TaskStatus,
     /// A list of execution steps that have been performed for this task.
@@ -74,6 +77,7 @@ impl AgentTask {
             id: Uuid::new_v4().to_string(),
             session_id,
             request,
+            title: None,
             status: TaskStatus::Pending,
             steps: Vec::new(),
             subtasks: None,
@@ -713,6 +717,7 @@ mod tests {
 
         assert_eq!(task.status, TaskStatus::Pending);
         assert!(task.steps.is_empty());
+        assert!(task.title.is_none());
         assert!(task.completed_at.is_none());
     }
 

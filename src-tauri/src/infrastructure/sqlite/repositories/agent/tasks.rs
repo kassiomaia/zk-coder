@@ -115,6 +115,7 @@ pub fn get_session_tasks(
                 id: task_id,
                 session_id: crate::core::agent::session::SessionId(row.get(1)?),
                 request,
+                title: None,
                 status,
                 steps,
                 subtasks: None, // Loaded separately via get_subtasks
