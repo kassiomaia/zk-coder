@@ -4,6 +4,19 @@ use crate::core::agent::repositories::RepositoryResult;
 use super::AgentServiceImpl;
 
 impl AgentServiceImpl {
+    /// Approves all pending actions for a session and returns the count.
+    pub fn auto_approve_pending_for_session(&self, session_id: &str) -> RepositoryResult<usize> {
+        let pending = self.get_pending_actions_impl(session_id)?;
+        let mut approved = 0;
+
+        for action in pending {
+            self.approve_action_impl(&action.id)?;
+            approved += 1;
+        }
+
+        Ok(approved)
+    }
+
     /// Approves a pending action asynchronously.
     ///
     /// # Errors

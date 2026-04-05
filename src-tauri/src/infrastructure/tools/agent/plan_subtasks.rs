@@ -183,7 +183,7 @@ mod tests {
     async fn test_execute_with_valid_subtasks() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -205,7 +205,7 @@ mod tests {
     async fn test_execute_with_single_subtask() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -224,7 +224,7 @@ mod tests {
     async fn test_execute_with_max_subtasks() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let mut subtasks = serde_json::json!([]);
         for i in 0..10 {
@@ -248,7 +248,7 @@ mod tests {
     async fn test_execute_with_subtasks_with_descriptions() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -275,7 +275,7 @@ mod tests {
     async fn test_execute_missing_subtasks() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -290,7 +290,7 @@ mod tests {
     async fn test_execute_empty_subtasks_array() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": []
@@ -307,7 +307,7 @@ mod tests {
     async fn test_execute_subtasks_not_an_array() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": "not an array"
@@ -324,7 +324,7 @@ mod tests {
         // only that the array exists and is not empty
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -343,7 +343,7 @@ mod tests {
     async fn test_output_structure() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -365,7 +365,7 @@ mod tests {
     async fn test_output_message_format() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -390,7 +390,7 @@ mod tests {
     async fn test_output_is_json_serializable() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -414,7 +414,7 @@ mod tests {
     async fn test_execute_with_thread_context() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation").with_thread("thread-123");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -431,7 +431,7 @@ mod tests {
     async fn test_execute_with_session_context() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation").with_session("session-456");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -448,7 +448,7 @@ mod tests {
     async fn test_execute_without_workspace() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -467,7 +467,7 @@ mod tests {
     async fn test_execute_with_extra_fields_ignored() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -485,7 +485,7 @@ mod tests {
     async fn test_execute_subtask_with_empty_title() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -503,7 +503,7 @@ mod tests {
     async fn test_execute_with_unicode_titles() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "subtasks": [
@@ -522,7 +522,7 @@ mod tests {
     async fn test_execute_with_very_long_title() {
         let tool = PlanSubtasksTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let long_title = "A".repeat(1000);
         let args = serde_json::json!({

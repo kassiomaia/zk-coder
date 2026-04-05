@@ -16,6 +16,7 @@ pub mod termination;
 pub mod tool_phase;
 pub mod tracing;
 pub mod utils;
+pub mod yolo;
 
 #[cfg(test)]
 #[path = "bootstrap_tests.rs"]

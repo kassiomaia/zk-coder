@@ -264,6 +264,7 @@ impl PdfValidator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
 
     fn create_test_draft() -> PdfDraft {
         PdfDraft {

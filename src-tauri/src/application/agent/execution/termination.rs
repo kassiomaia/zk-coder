@@ -306,8 +306,7 @@ pub async fn complete_execution(
         }),
     };
 
-    let auto_completed =
-        auto_complete_in_progress_subtasks(deps, &ctx.task_id, &ctx.session_id);
+    let auto_completed = auto_complete_in_progress_subtasks(deps, &ctx.task_id, &ctx.session_id);
 
     if auto_completed > 0 {
         log::info!(

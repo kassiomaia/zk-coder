@@ -152,7 +152,7 @@ mod tests {
             },
         );
         let task_id = task.id.clone();
-        super::super::tasks::create_task(conn, &task).unwrap();
+        super::super::tasks::create_task(conn, &task, None, None).unwrap();
         task_id
     }
 

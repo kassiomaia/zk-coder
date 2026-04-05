@@ -319,6 +319,8 @@ impl PptxValidator {
 mod tests {
     use super::*;
     use crate::infrastructure::tools::documents::shared::draft_store::{DraftStatus, SlideContent};
+    use crate::infrastructure::tools::documents::shared::{DraftSlide, PptxSlide};
+    use chrono::Utc;
 
     fn create_test_draft() -> PptxDraft {
         PptxDraft {

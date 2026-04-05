@@ -13,6 +13,7 @@ mod retry;
 mod rollback;
 mod runtime_queries;
 mod sessions;
+mod spawn;
 mod tasks;
 
 use std::collections::HashMap;
@@ -22,8 +23,9 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 use crate::core::agent::entities::{
-    Agent as CoreAgent, AgentSession as CoreAgentSession, AgentTask as CoreAgentTask,
-    PendingAction as CorePendingAction, SessionId as CoreSessionId, TaskStatus as CoreTaskStatus,
+    Agent as CoreAgent, AgentDomainError, AgentSession as CoreAgentSession,
+    AgentTask as CoreAgentTask, PendingAction as CorePendingAction, SessionId as CoreSessionId,
+    TaskStatus as CoreTaskStatus,
 };
 use crate::core::agent::repositories::{
     ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
@@ -34,7 +36,7 @@ use crate::core::agent::services::{
 };
 use crate::core::agent::session::SessionId;
 use crate::core::agent::task::TaskStatus;
-use crate::core::agent::types::AgentId;
+use crate::core::agent::types::{Agent as AgentEntity, AgentId};
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
 use crate::infrastructure::agent::registry::AgentRegistry;
@@ -183,7 +185,7 @@ impl AgentServiceImpl {
     }
 
     #[cfg(test)]
-    pub(crate) fn to_core_agent(&self, agent: Agent) -> CoreAgent {
+    pub(crate) fn to_core_agent(&self, agent: AgentEntity) -> CoreAgent {
         agent.into()
     }
 

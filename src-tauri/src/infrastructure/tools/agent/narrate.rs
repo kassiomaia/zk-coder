@@ -132,7 +132,7 @@ mod tests {
     async fn test_execute_with_valid_message() {
         let tool = NarrateTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "I found the main entry point and now tracing the data flow."
@@ -150,7 +150,7 @@ mod tests {
     async fn test_execute_missing_message() {
         let tool = NarrateTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -165,7 +165,7 @@ mod tests {
     async fn test_execute_null_message() {
         let tool = NarrateTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": null

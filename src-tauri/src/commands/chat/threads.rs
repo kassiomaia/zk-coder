@@ -1,3 +1,6 @@
+use log::warn;
+
+use crate::commands::AgentState;
 use crate::core::chat::entities::{ChatMessage, MessageRole, Thread};
 use crate::core::chat::services::CreateThreadRequest;
 
@@ -96,19 +99,39 @@ pub async fn set_yolo_mode(
     id: String,
     yolo_mode: bool,
     state: tauri::State<'_, ChatState>,
+    agent_state: tauri::State<'_, AgentState>,
 ) -> Result<(), String> {
     log::info!("set_yolo_mode: id={}, yolo_mode={}", id, yolo_mode);
     if id.is_empty() {
         log::error!("set_yolo_mode: empty thread id");
         return Err("Thread ID cannot be empty".to_string());
     }
-    state
-        .service
-        .set_yolo_mode(&id, yolo_mode)
-        .map_err(|e| {
-            log::error!("set_yolo_mode failed: {}", e);
-            e.to_string()
-        })
+    state.service.set_yolo_mode(&id, yolo_mode).map_err(|e| {
+        log::error!("set_yolo_mode failed: {}", e);
+        e.to_string()
+    })?;
+
+    if yolo_mode {
+        match state.service.load_thread(&id) {
+            Ok(thread) => {
+                if let Some(session_id) = thread.metadata.agent_session_id {
+                    if let Err(error) = agent_state
+                        .service
+                        .auto_approve_pending_for_session(&session_id)
+                    {
+                        warn!(
+                            "set_yolo_mode: failed to auto-approve pending actions for session {session_id}: {error}"
+                        );
+                    }
+                }
+            }
+            Err(error) => {
+                warn!("set_yolo_mode: failed to load thread {id}: {error}");
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Response for creating a thread with a message.

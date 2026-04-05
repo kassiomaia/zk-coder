@@ -782,7 +782,7 @@ mod tests {
                 context: None,
             },
         );
-        repository.create_task(&task).unwrap();
+        repository.create_task(&task, None, None).unwrap();
 
         let tasks = repository.get_session_tasks(&session.id).unwrap();
         assert_eq!(tasks.len(), 1);
@@ -802,7 +802,7 @@ mod tests {
                 context: None,
             },
         );
-        repository.create_task(&task).unwrap();
+        repository.create_task(&task, None, None).unwrap();
 
         let subtask = crate::core::agent::task::SubTask::new(
             task.id.clone(),
@@ -877,7 +877,7 @@ mod tests {
                 context: None,
             },
         );
-        repository.create_task(&task).unwrap();
+        repository.create_task(&task, None, None).unwrap();
 
         let trace = crate::core::agent::execution::RuntimeTrace {
             id: "trace-1".to_string(),

@@ -141,6 +141,8 @@ impl Agent {
 
          Command rules:
          - Use `system_execute_command` only when file/search tools cannot answer the question, or when you need validation such as tests/builds.
+         - Prefer direct `program` + `args` launches for simple executables and scripts; use `command` only when shell syntax is required.
+         - Avoid shell expansion, pipes, redirects, and compound command chains unless they are essential to the task.
          - Keep commands scoped to the relevant directory and task.
          - Do NOT use shell commands for simple file discovery, file reading, or text search when dedicated tools can do it with less noise.
 

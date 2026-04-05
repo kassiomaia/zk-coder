@@ -253,7 +253,7 @@ mod tests {
 
             let tool = StatPathTool;
             let context = ToolExecutionContext::new("conversation");
-            let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+            let app_handle = crate::test_support::mock_app_handle();
             let args = serde_json::json!({
                 "path": "sample.txt"
             });
@@ -282,7 +282,7 @@ mod tests {
 
             let tool = StatPathTool;
             let context = ToolExecutionContext::new("conversation");
-            let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+            let app_handle = crate::test_support::mock_app_handle();
             let args = serde_json::json!({
                 "path": "nested"
             });
@@ -313,7 +313,7 @@ mod tests {
 
             let tool = StatPathTool;
             let context = ToolExecutionContext::new("conversation");
-            let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+            let app_handle = crate::test_support::mock_app_handle();
 
             let followed = futures::executor::block_on(tool.execute(
                 context.clone(),
@@ -342,7 +342,7 @@ mod tests {
             let temp = TempDir::new().unwrap();
             let tool = StatPathTool;
             let context = ToolExecutionContext::new("conversation");
-            let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+            let app_handle = crate::test_support::mock_app_handle();
 
             let result = futures::executor::block_on(tool.execute(
                 context,
@@ -367,7 +367,7 @@ mod tests {
 
             let tool = StatPathTool;
             let context = ToolExecutionContext::new("conversation");
-            let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+            let app_handle = crate::test_support::mock_app_handle();
 
             let result = futures::executor::block_on(tool.execute(
                 context,

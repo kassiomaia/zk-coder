@@ -220,6 +220,7 @@ impl ChunkBatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::llm::entities::StreamDelta;
 
     #[test]
     fn test_batcher_accumulates_content() {
@@ -239,7 +240,7 @@ mod tests {
             is_final: false,
         };
 
-        assert!(batcher.process_chunk(&chunk, "req-1").is_none());
+        assert!(batcher.process_chunk(&chunk, "req-1", None).is_none());
         assert_eq!(batcher.full_content(), "Hello");
     }
 
@@ -261,7 +262,7 @@ mod tests {
             is_final: false,
         };
 
-        let events = batcher.process_chunk(&chunk, "req-1");
+        let events = batcher.process_chunk(&chunk, "req-1", None);
         assert!(events.is_some());
         assert_eq!(events.unwrap().len(), 1);
     }
@@ -271,7 +272,7 @@ mod tests {
         let mut batcher = ChunkBatcher::new(BatchingConfig::default());
         batcher.batch_buffer = "test content".to_string();
 
-        let event = batcher.flush("req-1");
+        let event = batcher.flush("req-1", None);
         assert!(event.is_some());
 
         if let Some(LlmEvent::Chunk { delta, .. }) = event {
@@ -299,7 +300,7 @@ mod tests {
             is_final: false,
         };
 
-        let events = batcher.process_chunk(&chunk, "req-1");
+        let events = batcher.process_chunk(&chunk, "req-1", None);
         assert!(events.is_some());
     }
 
@@ -322,7 +323,7 @@ mod tests {
             is_final: false,
         };
 
-        let events = batcher.process_chunk(&chunk, "req-1");
+        let events = batcher.process_chunk(&chunk, "req-1", None);
         assert!(events.is_some());
 
         if let Some(events_vec) = events {

@@ -12,6 +12,7 @@ use super::tracing::RuntimeTraceService;
 use crate::core::agent::repositories::{
     ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
+use crate::core::chat::services::ChatService;
 use crate::core::llm::entities::ToolDefinition;
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
@@ -24,6 +25,8 @@ pub struct ExecutionDeps<'a> {
     pub app_handle: &'a AppHandle,
     /// The repository for managing agent sessions.
     pub session_repo: &'a dyn SessionRepository,
+    /// The chat service for thread metadata lookups.
+    pub chat_service: &'a dyn ChatService,
     /// The repository for managing agent tasks.
     pub task_repo: &'a dyn TaskRepository,
     /// The repository for agent telemetry.

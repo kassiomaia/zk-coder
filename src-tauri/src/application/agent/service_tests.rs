@@ -19,10 +19,13 @@ use crate::application::agent::AgentServiceImpl;
 use crate::core::agent::entities::TaskStatus as CoreTaskStatus;
 use crate::core::agent::entities::{AgentTrustMode, SessionState as CoreSessionState};
 use crate::core::agent::services::{AgentService, CreateSessionRequest, SendAgentRequestRequest};
+use crate::core::chat::services::ChatService;
+use crate::application::ChatServiceImpl;
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
 use crate::infrastructure::agent::registry::AgentRegistry;
 use crate::infrastructure::agent::runtime::AgentRuntime;
+use crate::infrastructure::sqlite::repositories::chat::SqliteChatRepository;
 use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
 use crate::infrastructure::tools::ToolRegistry;
 
@@ -35,10 +38,14 @@ fn create_test_service() -> AgentServiceImpl {
     let registry = Arc::new(AgentRegistry::new());
     let session_store =
         Arc::new(SqliteSessionRepository::new(":memory:").expect("Failed to create store"));
+    let chat_repository =
+        Arc::new(SqliteChatRepository::in_memory().expect("Failed to create chat repository"));
+    let chat_service = Arc::new(ChatServiceImpl::new(chat_repository)) as Arc<dyn ChatService>;
     let approval_queue = Arc::new(ApprovalQueue::new());
     let tool_registry = Arc::new(ToolRegistry::new().expect("Failed to create tool registry"));
     let runtime = Arc::new(AgentRuntime::new(
         session_store.clone(),
+        chat_service,
         session_store.clone(),
         session_store.clone(),
         session_store.clone(),
@@ -464,6 +471,25 @@ fn test_approve_action_success() {
     assert!(result.is_ok());
 
     // Action should no longer be pending
+    let pending = service.get_pending_actions(&session_id).unwrap();
+    assert!(pending.is_empty());
+}
+
+#[test]
+fn test_auto_approve_pending_actions_for_session() {
+    let service = create_test_service();
+
+    let session = create_test_session(&service, "conv-auto-approve", "thread-auto-approve");
+    let session_id = session.id.0.clone();
+
+    create_test_pending_action(&service, &session_id, "fs_read_file");
+    create_test_pending_action(&service, &session_id, "fs_write_file");
+
+    let approved = service
+        .auto_approve_pending_for_session(&session_id)
+        .expect("Failed to auto-approve pending actions");
+    assert_eq!(approved, 2);
+
     let pending = service.get_pending_actions(&session_id).unwrap();
     assert!(pending.is_empty());
 }
@@ -976,10 +1002,14 @@ fn test_service_handles_runtime_creation_failure() {
     let registry = Arc::new(AgentRegistry::new());
     let session_store =
         Arc::new(SqliteSessionRepository::new(":memory:").expect("Failed to create session store"));
+    let chat_repository =
+        Arc::new(SqliteChatRepository::in_memory().expect("Failed to create chat repository"));
+    let chat_service = Arc::new(ChatServiceImpl::new(chat_repository)) as Arc<dyn ChatService>;
     let approval_queue = Arc::new(ApprovalQueue::new());
     let tool_registry = Arc::new(ToolRegistry::new().expect("Failed to create tool registry"));
     let runtime = Arc::new(AgentRuntime::new(
         session_store.clone(),
+        chat_service,
         session_store.clone(),
         session_store.clone(),
         session_store.clone(),

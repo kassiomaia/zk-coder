@@ -35,6 +35,12 @@ static DECOMPOSED_SUBTASKS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 const APPROVAL_TIMEOUT_SECS: u64 = 300;
 const CANCELLATION_POLL_MS: u64 = 250;
 
+/// Provides dynamic YOLO mode checks for runtime permission overrides.
+pub trait YoloModeProvider: Send + Sync {
+    /// Returns true when YOLO mode is enabled for the given thread.
+    fn is_yolo_enabled(&self, thread_id: &str) -> bool;
+}
+
 /// Extension trait for adding preview to pending actions.
 trait PendingActionExt {
     fn with_preview(self, preview: ActionPreview) -> PendingAction;
@@ -119,6 +125,7 @@ pub async fn process_tool_calls_with_permissions(
     session: &AgentSession,
     task_id: &str,
     permission_resolver: &crate::core::agent::permissions::PermissionResolver,
+    yolo_mode_provider: &dyn YoloModeProvider,
     app_handle: &AppHandle,
     approval_queue: &ApprovalQueue,
     tool_registry: &ToolRegistry,
@@ -131,7 +138,12 @@ pub async fn process_tool_calls_with_permissions(
 
     for call in tool_calls {
         let action_type = infer_action_type(&call.name, &call.arguments);
-        let permission = permission_resolver.check(&call.name, &action_type);
+        let mut permission = permission_resolver.check(&call.name, &action_type);
+        if yolo_mode_provider.is_yolo_enabled(&session.thread_id)
+            && permission != crate::core::agent::types::PermissionLevel::Disabled
+        {
+            permission = crate::core::agent::types::PermissionLevel::AutoRun;
+        }
 
         // Generate unique ID, persist, and emit tool call event
         let tool_call_id = uuid::Uuid::new_v4().to_string();

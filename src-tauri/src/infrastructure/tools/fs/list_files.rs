@@ -245,6 +245,8 @@ impl ListFilesTool {
 #[cfg(all(test, feature = "integration-test"))]
 mod tests {
     use super::*;
+    use std::fs;
+    use tempfile::TempDir;
 
     // === Directory skip tests ===
 
@@ -410,7 +412,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -438,7 +440,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -478,7 +480,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "max_depth": 3
@@ -521,7 +523,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "max_depth": 2
@@ -563,7 +565,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "limit": 5
@@ -596,7 +598,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "max_depth": 3
@@ -630,7 +632,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": "src"
@@ -668,7 +670,7 @@ mod tests {
     async fn test_list_files_no_workspace() {
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -684,7 +686,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": "file.txt"
@@ -710,7 +712,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": "nonexistent"
@@ -737,7 +739,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -773,7 +775,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "max_depth": 0
@@ -813,7 +815,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "max_depth": 3
@@ -843,7 +845,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         // Try to set limit above hard max
         let args = serde_json::json!({
@@ -873,7 +875,7 @@ mod tests {
 
         let tool = ListFilesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         // Try to set depth above hard max
         let args = serde_json::json!({

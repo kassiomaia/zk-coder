@@ -32,6 +32,7 @@ impl LlmServiceImpl {
 
 #[cfg(test)]
 mod tests {
+    use super::operations::infer_provider_from_model;
     use super::*;
     use crate::core::config::{ApiType, Provider};
     use crate::core::llm::entities::{

@@ -13,6 +13,7 @@ use crate::core::agent::repositories::{
 use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::{AgentExecutionResult, AgentRequest};
 use crate::core::agent::types::TrustMode;
+use crate::core::chat::services::ChatService;
 use crate::core::llm::entities::ToolDefinition;
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
@@ -27,6 +28,7 @@ use super::llm_phase::call_llm;
 use super::response_phase::{handle_response, ResponseDecision};
 use super::step_gate::{begin_step, StepGateOutcome};
 use super::tool_phase::{run_tools, ToolPhaseOutcome};
+use super::yolo::ChatYoloModeProvider;
 
 /// The main execution loop for an agent.
 ///
@@ -67,6 +69,7 @@ pub async fn execute(
     trust_mode: TrustMode,
     app_handle: &AppHandle,
     session_repo: &dyn SessionRepository,
+    chat_service: &dyn ChatService,
     task_repo: &dyn TaskRepository,
     telemetry_repo: &dyn AgentTelemetryRepository,
     execution_repo: &dyn ExecutionRepository,
@@ -79,6 +82,7 @@ pub async fn execute(
     let deps = ExecutionDeps {
         app_handle,
         session_repo,
+        chat_service,
         task_repo,
         telemetry_repo,
         execution_repo,
@@ -93,6 +97,7 @@ pub async fn execute(
     let mut ctx = bootstrap.context;
     let client = bootstrap.client;
     let permission_resolver = PermissionResolver::new(trust_mode);
+    let yolo_mode_provider = ChatYoloModeProvider::new(deps.chat_service);
 
     loop {
         match begin_step(&deps, &mut ctx)? {
@@ -108,7 +113,16 @@ pub async fn execute(
             ResponseDecision::Finished(result) => return Ok(result),
             ResponseDecision::ContinueWithNextSubtask => continue,
             ResponseDecision::ExecuteTools(response) => {
-                match run_tools(&deps, &mut ctx, session, response, &permission_resolver).await? {
+                match run_tools(
+                    &deps,
+                    &mut ctx,
+                    session,
+                    response,
+                    &permission_resolver,
+                    &yolo_mode_provider,
+                )
+                .await?
+                {
                     ToolPhaseOutcome::Continue => {}
                     ToolPhaseOutcome::Cancelled => return Err(AgentRuntimeError::Cancelled),
                 }

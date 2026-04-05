@@ -566,6 +566,7 @@ mod tests {
         let event = LlmEvent::Started {
             request_id: "req-123".to_string(),
             model: "gpt-4".to_string(),
+            thread_id: None,
         };
 
         let json = serde_json::to_string(&event).unwrap();
@@ -579,6 +580,7 @@ mod tests {
             request_id: "req-456".to_string(),
             delta: "Hello, world!".to_string(),
             reasoning_delta: None,
+            thread_id: None,
         };
 
         let json = serde_json::to_string(&event).unwrap();
@@ -597,6 +599,7 @@ mod tests {
                 total_tokens: 30,
             }),
             finish_reason: Some("stop".to_string()),
+            thread_id: None,
         };
 
         let json = serde_json::to_string(&event).unwrap();
@@ -610,6 +613,7 @@ mod tests {
             request_id: "req-error".to_string(),
             error: "API key invalid".to_string(),
             retryable: false,
+            thread_id: None,
         };
 
         let json = serde_json::to_string(&event).unwrap();

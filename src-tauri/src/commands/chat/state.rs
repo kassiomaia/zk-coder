@@ -5,6 +5,7 @@ use crate::core::chat::services::ChatService;
 use crate::infrastructure::sqlite::repositories::chat::SqliteChatRepository;
 
 /// Application state for chat commands.
+#[derive(Clone)]
 pub struct ChatState {
     /// Chat service for business logic
     pub service: Arc<dyn ChatService>,

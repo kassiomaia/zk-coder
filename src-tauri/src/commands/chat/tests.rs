@@ -12,6 +12,7 @@ mod tests {
     use super::*;
     use crate::core::chat::entities::ChatDomainError;
     use crate::core::chat::repositories::RepositoryResult;
+    use crate::core::chat::services::SendMessageRequest;
 
     // Mock service for testing commands
     struct MockChatService {
@@ -55,6 +56,7 @@ mod tests {
                 settings: Default::default(),
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
+                archived: false,
             })
         }
 
@@ -68,6 +70,7 @@ mod tests {
                 settings: Default::default(),
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
+                archived: false,
             })
         }
 
@@ -83,6 +86,7 @@ mod tests {
                 settings: Default::default(),
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
+                archived: false,
             }])
         }
 
@@ -96,6 +100,7 @@ mod tests {
                 settings: Default::default(),
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
+                archived: false,
             })
         }
 
@@ -122,6 +127,7 @@ mod tests {
                 settings: settings.clone(),
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
+                archived: false,
             })
         }
 
@@ -141,6 +147,7 @@ mod tests {
                 settings,
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
+                archived: false,
             })
         }
 
@@ -196,10 +203,15 @@ mod tests {
                 id: id.to_string(),
                 conversation_id: "conv-1".to_string(),
                 title: "Test Thread".to_string(),
-                resolved: self.thread_resolved,
-                agent_session_id: None,
+                parent_id: None,
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
+                message_count: 0,
+                metadata: ThreadMetadata {
+                    resolved: self.thread_resolved,
+                    agent_session_id: None,
+                    ..Default::default()
+                },
             })
         }
 
@@ -216,6 +228,10 @@ mod tests {
                     reason: "Mock error".to_string(),
                 });
             }
+            Ok(())
+        }
+
+        fn archive_conversation(&self, _id: &str, _archived: bool) -> RepositoryResult<()> {
             Ok(())
         }
 
@@ -286,10 +302,6 @@ mod tests {
             Ok(())
         }
 
-        fn update_thread_yolo_mode(&self, _id: &str, _yolo_mode: bool) -> RepositoryResult<()> {
-            Ok(())
-        }
-
         fn send_message(&self, request: SendMessageRequest) -> RepositoryResult<ChatMessage> {
             if self.thread_resolved {
                 return Err(ChatDomainError::ThreadResolved {
@@ -355,6 +367,14 @@ mod tests {
         ) -> RepositoryResult<()> {
             Ok(())
         }
+
+        fn archive_thread(&self, _id: &str, _archived: bool) -> RepositoryResult<()> {
+            Ok(())
+        }
+
+        fn set_yolo_mode(&self, _id: &str, _yolo_mode: bool) -> RepositoryResult<()> {
+            Ok(())
+        }
     }
 
     // Helper to create test state
@@ -391,7 +411,7 @@ mod tests {
     #[tokio::test]
     async fn test_load_conversations_success() {
         let state = create_test_state();
-        let result = load_conversations(tauri::State::from(&state)).await;
+        let result = load_conversations(crate::test_support::state(&state)).await;
         assert!(result.is_ok());
         assert!(!result.unwrap().is_empty());
     }
@@ -399,15 +419,18 @@ mod tests {
     #[tokio::test]
     async fn test_load_conversations_error() {
         let state = create_test_state_with_error();
-        let result = load_conversations(tauri::State::from(&state)).await;
+        let result = load_conversations(crate::test_support::state(&state)).await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn test_create_conversation_success() {
         let state = create_test_state();
-        let result =
-            create_conversation("Test Conversation".to_string(), tauri::State::from(&state)).await;
+        let result = create_conversation(
+            "Test Conversation".to_string(),
+            crate::test_support::state(&state),
+        )
+        .await;
         assert!(result.is_ok());
         let conv = result.unwrap();
         assert_eq!(conv.title, "Test Conversation");
@@ -416,7 +439,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_conversation_empty_title() {
         let state = create_test_state();
-        let result = create_conversation("".to_string(), tauri::State::from(&state)).await;
+        let result = create_conversation("".to_string(), crate::test_support::state(&state)).await;
         // Empty title is accepted by the mock
         assert!(result.is_ok());
     }
@@ -424,7 +447,8 @@ mod tests {
     #[tokio::test]
     async fn test_load_conversation_success() {
         let state = create_test_state();
-        let result = load_conversation("conv-123".to_string(), tauri::State::from(&state)).await;
+        let result =
+            load_conversation("conv-123".to_string(), crate::test_support::state(&state)).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap().id, "conv-123");
     }
@@ -432,7 +456,11 @@ mod tests {
     #[tokio::test]
     async fn test_load_conversation_not_found() {
         let state = create_test_state_with_error();
-        let result = load_conversation("nonexistent".to_string(), tauri::State::from(&state)).await;
+        let result = load_conversation(
+            "nonexistent".to_string(),
+            crate::test_support::state(&state),
+        )
+        .await;
         assert!(result.is_err());
     }
 
@@ -442,7 +470,7 @@ mod tests {
         let result = rename_conversation(
             "conv-123".to_string(),
             "New Title".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -452,7 +480,8 @@ mod tests {
     #[tokio::test]
     async fn test_delete_conversation_success() {
         let state = create_test_state();
-        let result = delete_conversation("conv-123".to_string(), tauri::State::from(&state)).await;
+        let result =
+            delete_conversation("conv-123".to_string(), crate::test_support::state(&state)).await;
         assert!(result.is_ok());
     }
 
@@ -469,7 +498,7 @@ mod tests {
         let result = update_conversation_settings(
             "conv-123".to_string(),
             settings,
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -481,7 +510,7 @@ mod tests {
         let result = set_conversation_workspace(
             "conv-123".to_string(),
             "/path/to/workspace".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -494,7 +523,7 @@ mod tests {
     #[tokio::test]
     async fn test_load_threads_success() {
         let state = create_test_state();
-        let result = load_threads("conv-123".to_string(), tauri::State::from(&state)).await;
+        let result = load_threads("conv-123".to_string(), crate::test_support::state(&state)).await;
         assert!(result.is_ok());
         assert!(!result.unwrap().is_empty());
     }
@@ -505,7 +534,7 @@ mod tests {
         let result = create_thread(
             "conv-123".to_string(),
             "Test Thread".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -517,15 +546,20 @@ mod tests {
     #[tokio::test]
     async fn test_resolve_thread_success() {
         let state = create_test_state();
-        let result =
-            resolve_thread("thread-123".to_string(), true, tauri::State::from(&state)).await;
+        let result = resolve_thread(
+            "thread-123".to_string(),
+            true,
+            crate::test_support::state(&state),
+        )
+        .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_delete_thread_success() {
         let state = create_test_state();
-        let result = delete_thread("thread-123".to_string(), tauri::State::from(&state)).await;
+        let result =
+            delete_thread("thread-123".to_string(), crate::test_support::state(&state)).await;
         assert!(result.is_ok());
     }
 
@@ -535,7 +569,7 @@ mod tests {
         let result = rename_thread(
             "thread-123".to_string(),
             "New Thread Title".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -548,7 +582,7 @@ mod tests {
         let result = set_thread_agent_session(
             "thread-123".to_string(),
             Some("session-123".to_string()),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -562,7 +596,7 @@ mod tests {
             "Thread Title".to_string(),
             "Hello, World!".to_string(),
             "user".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -580,7 +614,7 @@ mod tests {
             "Thread Title".to_string(),
             "Assistant response".to_string(),
             "assistant".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -595,7 +629,7 @@ mod tests {
             "Thread Title".to_string(),
             "System message".to_string(),
             "system".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -609,7 +643,8 @@ mod tests {
     #[tokio::test]
     async fn test_load_messages_success() {
         let state = create_test_state();
-        let result = load_messages("conv-123".to_string(), tauri::State::from(&state)).await;
+        let result =
+            load_messages("conv-123".to_string(), crate::test_support::state(&state)).await;
         assert!(result.is_ok());
     }
 
@@ -617,7 +652,8 @@ mod tests {
     async fn test_load_thread_messages_success() {
         let state = create_test_state();
         let result =
-            load_thread_messages("thread-123".to_string(), tauri::State::from(&state)).await;
+            load_thread_messages("thread-123".to_string(), crate::test_support::state(&state))
+                .await;
         assert!(result.is_ok());
     }
 
@@ -629,7 +665,7 @@ mod tests {
             "Hello, World!".to_string(),
             "user".to_string(),
             "thread-123".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -647,7 +683,7 @@ mod tests {
             "Hello, World!".to_string(),
             "user".to_string(),
             "thread-123".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_err());
@@ -662,7 +698,7 @@ mod tests {
             "Assistant response".to_string(),
             "assistant".to_string(),
             "thread-123".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -672,7 +708,8 @@ mod tests {
     #[tokio::test]
     async fn test_delete_message_success() {
         let state = create_test_state();
-        let result = delete_message("msg-123".to_string(), tauri::State::from(&state)).await;
+        let result =
+            delete_message("msg-123".to_string(), crate::test_support::state(&state)).await;
         assert!(result.is_ok());
     }
 
@@ -682,7 +719,7 @@ mod tests {
         let result = update_message_status(
             "msg-123".to_string(),
             "sending".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -694,7 +731,7 @@ mod tests {
         let result = update_message_status(
             "msg-123".to_string(),
             "delivered".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -706,7 +743,7 @@ mod tests {
         let result = update_message_status(
             "msg-123".to_string(),
             "error".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -718,7 +755,7 @@ mod tests {
         let result = update_message_status(
             "msg-123".to_string(),
             "unknown".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -730,7 +767,7 @@ mod tests {
         let result = update_message_feedback(
             "msg-123".to_string(),
             Some("like".to_string()),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -742,7 +779,7 @@ mod tests {
         let result = update_message_feedback(
             "msg-123".to_string(),
             Some("dislike".to_string()),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -751,8 +788,12 @@ mod tests {
     #[tokio::test]
     async fn test_update_message_feedback_none() {
         let state = create_test_state();
-        let result =
-            update_message_feedback("msg-123".to_string(), None, tauri::State::from(&state)).await;
+        let result = update_message_feedback(
+            "msg-123".to_string(),
+            None,
+            crate::test_support::state(&state),
+        )
+        .await;
         assert!(result.is_ok());
     }
 
@@ -762,7 +803,7 @@ mod tests {
         let result = update_message_feedback(
             "msg-123".to_string(),
             Some("invalid".to_string()),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         // Invalid feedback is treated as None
@@ -776,7 +817,7 @@ mod tests {
     #[tokio::test]
     async fn test_empty_conversation_id_handling() {
         let state = create_test_state();
-        let result = load_conversation("".to_string(), tauri::State::from(&state)).await;
+        let result = load_conversation("".to_string(), crate::test_support::state(&state)).await;
         // Empty ID behavior depends on implementation
         assert!(result.is_ok() || result.is_err());
     }
@@ -786,7 +827,7 @@ mod tests {
         let state = create_test_state();
         let result = create_conversation(
             "Test <script>alert('xss')</script>".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         // Special characters are stored as-is
@@ -797,7 +838,7 @@ mod tests {
     async fn test_very_long_title() {
         let state = create_test_state();
         let long_title = "A".repeat(1000);
-        let result = create_conversation(long_title, tauri::State::from(&state)).await;
+        let result = create_conversation(long_title, crate::test_support::state(&state)).await;
         assert!(result.is_ok());
     }
 
@@ -809,7 +850,7 @@ mod tests {
             "Hello 🚀 World 🌍".to_string(),
             "user".to_string(),
             "thread-123".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());

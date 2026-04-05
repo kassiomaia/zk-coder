@@ -632,7 +632,7 @@ mod tests {
     async fn test_execute_missing_query() {
         let tool = GoogleScrapeTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -645,7 +645,7 @@ mod tests {
     async fn test_execute_empty_query() {
         let tool = GoogleScrapeTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "query": "   "
@@ -665,7 +665,7 @@ mod tests {
 
         let tool = GoogleScrapeTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "query": "test"
@@ -688,7 +688,7 @@ mod tests {
 
         let tool = GoogleScrapeTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "query": "test search"
@@ -716,7 +716,7 @@ mod tests {
 
         let tool = GoogleScrapeTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         // Test above max
         let args = serde_json::json!({
@@ -735,7 +735,7 @@ mod tests {
 
         let tool = GoogleScrapeTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "query": "test",

@@ -82,6 +82,19 @@ impl PermissionResolver {
     /// The resolved `PermissionLevel` for the tool call.
     #[must_use]
     pub fn check(&self, tool_name: &str, action: &ActionType) -> PermissionLevel {
+        let tool_override = self.tool_overrides.get(tool_name).copied();
+        let category_override = tool_name
+            .split('_')
+            .next()
+            .and_then(|category| self.category_overrides.get(category))
+            .copied();
+
+        if matches!(tool_override, Some(PermissionLevel::Disabled))
+            || matches!(category_override, Some(PermissionLevel::Disabled))
+        {
+            return PermissionLevel::Disabled;
+        }
+
         // Trust mode takes precedence
         match self.trust_mode {
             TrustMode::Trusted => return PermissionLevel::AutoRun,
@@ -90,15 +103,13 @@ impl PermissionResolver {
         }
 
         // Check tool-specific override
-        if let Some(level) = self.tool_overrides.get(tool_name) {
-            return *level;
+        if let Some(level) = tool_override {
+            return level;
         }
 
         // Check category override (extract category from "category_name" format)
-        if let Some(category) = tool_name.split('_').next() {
-            if let Some(level) = self.category_overrides.get(category) {
-                return *level;
-            }
+        if let Some(level) = category_override {
+            return level;
         }
 
         // Default based on action type
@@ -158,6 +169,20 @@ mod tests {
         assert_eq!(
             resolver.check("fs_read_file", &action),
             PermissionLevel::ApprovalRequired
+        );
+    }
+
+    #[test]
+    fn test_trusted_mode_respects_disabled_tool_override() {
+        let mut resolver = PermissionResolver::new(TrustMode::Trusted);
+        resolver.set_tool_permission("fs_write_file", PermissionLevel::Disabled);
+        let action = ActionType::WriteFile {
+            path: "/tmp/test".to_string(),
+            size_bytes: 10,
+        };
+        assert_eq!(
+            resolver.check("fs_write_file", &action),
+            PermissionLevel::Disabled
         );
     }
 

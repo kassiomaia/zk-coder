@@ -9,6 +9,7 @@
 //! - [`execution`] - Main execution orchestration
 //! - [`permissions`] - Permission handling and tool execution
 //! - [`helpers`] - Utility functions
+//! - [`spawn`] - Process execution with policy and telemetry controls
 
 pub mod client;
 pub mod context;
@@ -16,6 +17,7 @@ pub mod execution;
 pub mod helpers;
 pub mod loop_detection;
 pub mod permissions;
+pub mod spawn;
 mod tool_feedback;
 pub mod types;
 
@@ -29,6 +31,7 @@ use crate::core::agent::repositories::{
 use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::{AgentExecutionResult, AgentRequest};
 use crate::core::agent::types::TrustMode;
+use crate::core::chat::services::ChatService;
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::events::AGENT_EVENT_NAME;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
@@ -48,11 +51,16 @@ pub use loop_detection::{
     MAX_REPETITIONS,
 };
 pub use permissions::process_tool_calls_with_permissions;
+pub use spawn::{
+    SpawnEngine, SpawnError, SpawnInvocation, SpawnMode, SpawnObserver, SpawnOutcome, SpawnPolicy,
+    SpawnRequest,
+};
 pub use types::{AgentRuntimeError, SubtaskSummary};
 
 /// The agent runtime orchestrates LLM + tool execution with permissions.
 pub struct AgentRuntime {
     session_repo: Arc<dyn SessionRepository>,
+    chat_service: Arc<dyn ChatService>,
     task_repo: Arc<dyn TaskRepository>,
     telemetry_repo: Arc<dyn AgentTelemetryRepository>,
     execution_repo: Arc<dyn ExecutionRepository>,
@@ -66,6 +74,7 @@ impl AgentRuntime {
     /// Create a new agent runtime.
     pub fn new(
         session_repo: Arc<dyn SessionRepository>,
+        chat_service: Arc<dyn ChatService>,
         task_repo: Arc<dyn TaskRepository>,
         telemetry_repo: Arc<dyn AgentTelemetryRepository>,
         execution_repo: Arc<dyn ExecutionRepository>,
@@ -75,6 +84,7 @@ impl AgentRuntime {
     ) -> Self {
         Self {
             session_repo,
+            chat_service,
             task_repo,
             telemetry_repo,
             execution_repo,
@@ -115,6 +125,7 @@ impl AgentRuntime {
             trust_mode,
             app_handle,
             self.session_repo.as_ref(),
+            self.chat_service.as_ref(),
             self.task_repo.as_ref(),
             self.telemetry_repo.as_ref(),
             self.execution_repo.as_ref(),

@@ -463,7 +463,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": "test.txt",
@@ -495,7 +495,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": "subdir/nested/file.txt",
@@ -530,7 +530,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": "overwrite.txt",
@@ -559,7 +559,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": "empty.txt",
@@ -589,7 +589,7 @@ mod tests {
     async fn test_write_file_no_workspace() {
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": "test.txt",
@@ -607,7 +607,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": "nonexistent/file.txt",
@@ -633,7 +633,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let utf8_content = "Hello 世界 🌍\nÉmojis: 😀🎉";
 
@@ -664,7 +664,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let large_content = "x".repeat(1_000_000);
 
@@ -692,7 +692,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let content = "line 1\nline 2\r\nline 3\rline 4";
 
@@ -723,7 +723,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let special_content = "\t\n\r\\\"'<>@#$%^&*(){}[]|;:,.?/~`";
 
@@ -755,7 +755,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         // Path with trailing behavior might be unusual
         let args = serde_json::json!({
@@ -782,7 +782,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let absolute_path = temp_dir.path().join("absolute.txt");
 
@@ -810,7 +810,7 @@ mod tests {
 
         let tool = WriteFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         // Try to write outside workspace - should be blocked
         let args = serde_json::json!({

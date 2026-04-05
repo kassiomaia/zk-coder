@@ -118,6 +118,22 @@ pub enum RuntimeTraceType {
     ToolBatchStarted,
     /// Indicates the completion of the execution of a batch of tools.
     ToolBatchCompleted,
+    /// Indicates a spawn request was accepted for execution.
+    SpawnStarted,
+    /// Indicates a spawn request completed successfully or with a non-zero exit code.
+    SpawnFinished,
+    /// Indicates a spawn request was denied by policy or capability checks.
+    SpawnDenied,
+    /// Indicates a spawn request failed before or during execution.
+    SpawnFailed,
+    /// Indicates a spawn request timed out.
+    SpawnTimedOut,
+    /// Indicates a spawn request was cancelled by the session.
+    SpawnCancelled,
+    /// Indicates a spawn request was forcefully terminated.
+    SpawnKilled,
+    /// Indicates a spawn request was blocked because capacity was exhausted.
+    SpawnBusy,
     /// Records that the execution was cancelled.
     ExecutionCancelled,
     /// Records that the execution has failed.

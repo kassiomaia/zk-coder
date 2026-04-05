@@ -185,7 +185,7 @@ mod tests {
     async fn test_execute_valid_status() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         for status in ["pending", "in_progress", "completed", "failed"] {
             let args = serde_json::json!({
@@ -207,7 +207,7 @@ mod tests {
     async fn test_execute_with_zero_index() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "index": 0,
@@ -223,7 +223,7 @@ mod tests {
     async fn test_execute_with_large_index() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "index": 999999,
@@ -241,7 +241,7 @@ mod tests {
     async fn test_execute_missing_index() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "status": "completed"
@@ -258,7 +258,7 @@ mod tests {
     async fn test_execute_missing_status() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "index": 0
@@ -275,7 +275,7 @@ mod tests {
     async fn test_execute_invalid_status() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "index": 0,
@@ -294,7 +294,7 @@ mod tests {
     async fn test_execute_empty_status() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "index": 0,
@@ -310,7 +310,7 @@ mod tests {
     async fn test_execute_mixed_case_status() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         // Status is case-sensitive
         let args = serde_json::json!({
@@ -327,7 +327,7 @@ mod tests {
     async fn test_execute_wrong_type_for_index() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "index": "not_a_number",
@@ -343,7 +343,7 @@ mod tests {
     async fn test_execute_wrong_type_for_status() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "index": 0,
@@ -361,7 +361,7 @@ mod tests {
     async fn test_output_structure() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "index": 2,
@@ -383,7 +383,7 @@ mod tests {
     async fn test_output_is_json_serializable() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "index": 0,
@@ -406,7 +406,7 @@ mod tests {
     async fn test_execute_with_thread_context() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation").with_thread("thread-123");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "index": 0,
@@ -422,7 +422,7 @@ mod tests {
     async fn test_execute_with_session_context() {
         let tool = MarkSubtaskStatusTool;
         let context = ToolExecutionContext::new("test-conversation").with_session("session-456");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "index": 0,

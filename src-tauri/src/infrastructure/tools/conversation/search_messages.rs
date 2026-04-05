@@ -330,7 +330,7 @@ mod tests {
     async fn test_execute_empty_query_fails() {
         let tool = SearchMessagesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "query": "   "
@@ -347,7 +347,7 @@ mod tests {
     async fn test_execute_missing_query_fails() {
         let tool = SearchMessagesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -361,7 +361,7 @@ mod tests {
         // This tool doesn't require workspace
         let tool = SearchMessagesTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "query": "test"

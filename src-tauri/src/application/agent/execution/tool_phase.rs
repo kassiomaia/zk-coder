@@ -11,6 +11,7 @@ use super::termination::cancel_execution;
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::permissions::PermissionResolver;
 use crate::core::llm::entities::{ChatMessage as Message, ChatResponse};
+use crate::infrastructure::agent::runtime::permissions::YoloModeProvider;
 use crate::infrastructure::agent::runtime::{
     add_to_recent_calls, process_tool_calls_with_permissions, AgentRuntimeError,
 };
@@ -50,6 +51,7 @@ pub async fn run_tools(
     session: &crate::core::agent::session::AgentSession,
     response: ChatResponse,
     permission_resolver: &PermissionResolver,
+    yolo_mode_provider: &dyn YoloModeProvider,
 ) -> Result<ToolPhaseOutcome, AgentRuntimeError> {
     let tracer = deps.tracer();
     add_to_recent_calls(&response.tool_calls, &mut ctx.recent_tool_calls, 10);
@@ -81,6 +83,7 @@ pub async fn run_tools(
         session,
         &ctx.task_id,
         permission_resolver,
+        yolo_mode_provider,
         deps.app_handle,
         deps.approval_queue,
         deps.tool_registry,

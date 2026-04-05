@@ -470,7 +470,7 @@
 					tooltip={yoloMode ? 'Disable YOLO Mode' : 'Enable YOLO Mode'}
 					variant="ghost"
 					size="sm"
-					disabled={disabled || isWorking}
+					disabled={disabled}
 					yoloActive={yoloMode}
 					onclick={async () => {
 						const selectedThreadId = $chatStore.selectedThreadId;

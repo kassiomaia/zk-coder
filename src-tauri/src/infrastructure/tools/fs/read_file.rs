@@ -306,7 +306,7 @@ mod tests {
 
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": temp_dir.path().join("test.txt").to_str().unwrap(),
@@ -339,7 +339,7 @@ mod tests {
 
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": temp_dir.path().join("large.txt").to_str().unwrap(),
@@ -368,7 +368,7 @@ mod tests {
 
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": temp_dir.path().join("nonexistent.txt").to_str().unwrap()
@@ -390,7 +390,7 @@ mod tests {
     async fn test_read_file_no_workspace() {
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": "test.txt"
@@ -407,7 +407,7 @@ mod tests {
 
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": temp_dir.path().to_str().unwrap()
@@ -435,7 +435,7 @@ mod tests {
 
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         // Test that max_bytes larger than MAX_READ_MAX_BYTES is clamped
         let args = serde_json::json!({
@@ -467,7 +467,7 @@ mod tests {
 
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         // Use relative path
         let args = serde_json::json!({
@@ -498,7 +498,7 @@ mod tests {
 
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": temp_dir.path().join("utf8.txt").to_str().unwrap()
@@ -527,7 +527,7 @@ mod tests {
 
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": temp_dir.path().join("binary.bin").to_str().unwrap()
@@ -559,7 +559,7 @@ mod tests {
 
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": temp_dir.path().join("empty.txt").to_str().unwrap()
@@ -589,7 +589,7 @@ mod tests {
 
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "path": temp_dir.path().join("test.txt").to_str().unwrap(),
@@ -619,7 +619,7 @@ mod tests {
 
         let tool = ReadFileTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         // serde_json parses numbers as signed, so -1 would be deserialized
         let args = serde_json::json!({

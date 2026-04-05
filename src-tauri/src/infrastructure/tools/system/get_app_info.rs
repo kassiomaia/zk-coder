@@ -94,7 +94,7 @@ mod tests {
     async fn test_execute_with_empty_object() {
         let tool = GetAppInfoTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -110,7 +110,7 @@ mod tests {
     async fn test_execute_with_null() {
         let tool = GetAppInfoTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!(null);
 
@@ -125,7 +125,7 @@ mod tests {
     async fn test_execute_with_extra_args_fails() {
         let tool = GetAppInfoTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "unexpected": "field"
@@ -142,7 +142,7 @@ mod tests {
     async fn test_execute_returns_valid_structure() {
         let tool = GetAppInfoTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -164,7 +164,7 @@ mod tests {
     async fn test_execute_name_is_coder() {
         let tool = GetAppInfoTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -181,7 +181,7 @@ mod tests {
     async fn test_execute_version_format() {
         let tool = GetAppInfoTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -202,7 +202,7 @@ mod tests {
     async fn test_execute_without_workspace() {
         let tool = GetAppInfoTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -215,7 +215,7 @@ mod tests {
     async fn test_execute_with_workspace() {
         let tool = GetAppInfoTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -266,7 +266,7 @@ mod tests {
     async fn test_execute_with_various_invalid_inputs() {
         let tool = GetAppInfoTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         // Test with string instead of object
         let args = serde_json::json!("invalid");

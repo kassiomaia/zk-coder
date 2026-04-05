@@ -556,6 +556,7 @@ impl LlmClient for AnthropicClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::infrastructure::llm::ToolDefinition;
 
     #[test]
     fn test_client_creation() {

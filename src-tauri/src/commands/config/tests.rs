@@ -6,6 +6,7 @@ pub use super::*;
 
 mod tests {
     use super::*;
+    use crate::core::config::ManualModelRequest;
 
     #[tokio::test]
     async fn test_config_state_creation() {
@@ -89,7 +90,8 @@ mod tests {
             .expect("Failed to set operation default");
 
         // Test: Get the code operation model
-        let result = get_code_operation_model(&store).expect("Failed to get code operation model");
+        let result = get_code_operation_model(store.as_ref())
+            .expect("Failed to get code operation model");
 
         assert_eq!(result.name, "gpt-4");
         assert_eq!(result.provider_id, "openai");
@@ -102,7 +104,7 @@ mod tests {
         let store = &state.repository;
 
         // Test: No code operation configured
-        let result = get_code_operation_model(&store);
+        let result = get_code_operation_model(store.as_ref());
 
         assert!(result.is_err());
         assert!(result
@@ -127,7 +129,8 @@ mod tests {
             .expect("Failed to set operation default");
 
         // Test: Get full LLM config
-        let result = get_code_llm_config(&store).expect("Failed to get code LLM config");
+        let result =
+            get_code_llm_config(store.as_ref()).expect("Failed to get code LLM config");
 
         assert_eq!(result.name, "gpt-4-turbo");
         assert_eq!(result.provider_id, "openai");
@@ -143,7 +146,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_providers_command() {
         let state = ConfigState::in_memory().expect("Failed to create state");
-        let providers = get_providers(tauri::State::from(&state))
+        let providers = get_providers(crate::test_support::state(&state))
             .await
             .expect("Failed to get providers");
         assert!(!providers.is_empty());
@@ -160,7 +163,7 @@ mod tests {
             api_type: ApiType::OpenAI,
             base_url: Some("https://custom.example.com".to_string()),
         };
-        let result = save_provider(request, tauri::State::from(&state))
+        let result = save_provider(request, crate::test_support::state(&state))
             .await
             .expect("Failed to save provider");
         assert_eq!(result.name, "Custom Provider");
@@ -177,7 +180,7 @@ mod tests {
             api_type: ApiType::Anthropic,
             base_url: None,
         };
-        let result = save_provider(request, tauri::State::from(&state)).await;
+        let result = save_provider(request, crate::test_support::state(&state)).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("reserved ID"));
     }
@@ -194,7 +197,7 @@ mod tests {
             api_type: ApiType::OpenAI,
             base_url: None,
         };
-        let created = save_provider(create_request, tauri::State::from(&state))
+        let created = save_provider(create_request, crate::test_support::state(&state))
             .await
             .expect("Failed to create provider");
 
@@ -206,7 +209,7 @@ mod tests {
             api_type: ApiType::OpenAI,
             base_url: Some("https://updated.com".to_string()),
         };
-        let result = save_provider(update_request, tauri::State::from(&state))
+        let result = save_provider(update_request, crate::test_support::state(&state))
             .await
             .expect("Failed to update provider");
         assert_eq!(result.name, "Updated Provider");
@@ -225,16 +228,16 @@ mod tests {
             api_type: ApiType::OpenAI,
             base_url: None,
         };
-        let created = save_provider(request, tauri::State::from(&state))
+        let created = save_provider(request, crate::test_support::state(&state))
             .await
             .expect("Failed to create provider");
 
         // Delete it
-        let result = remove_provider(created.id.clone(), tauri::State::from(&state)).await;
+        let result = remove_provider(created.id.clone(), crate::test_support::state(&state)).await;
         assert!(result.is_ok());
 
         // Verify it's gone
-        let providers = get_providers(tauri::State::from(&state))
+        let providers = get_providers(crate::test_support::state(&state))
             .await
             .expect("Failed to get providers");
         assert!(!providers.iter().any(|p| p.id == created.id));
@@ -273,9 +276,9 @@ mod tests {
     async fn test_store_api_key() {
         let state = ConfigState::in_memory().expect("Failed to create state");
         let result = store_api_key(
-            "test-provider".to_string(),
+            "openai".to_string(),
             "sk-test-key-123".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -284,20 +287,20 @@ mod tests {
     #[tokio::test]
     async fn test_retrieve_api_key() {
         let state = ConfigState::in_memory().expect("Failed to create state");
-        let provider_id = "test-provider-retrieve";
+        let provider_id = "openai";
         let api_key = "sk-test-key-456";
 
         // Persist the key
         store_api_key(
             provider_id.to_string(),
             api_key.to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await
         .expect("Failed to store API key");
 
         // Retrieve it
-        let result = retrieve_api_key(provider_id.to_string(), tauri::State::from(&state))
+        let result = retrieve_api_key(provider_id.to_string(), crate::test_support::state(&state))
             .await
             .expect("Failed to retrieve API key");
         assert_eq!(result, api_key);
@@ -306,19 +309,19 @@ mod tests {
     #[tokio::test]
     async fn test_has_api_key_true() {
         let state = ConfigState::in_memory().expect("Failed to create state");
-        let provider_id = "test-provider-has";
+        let provider_id = "openai";
 
         // Persist a key
         store_api_key(
             provider_id.to_string(),
             "sk-test".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await
         .expect("Failed to store API key");
 
         // Check if exists
-        let result = has_api_key(provider_id.to_string(), tauri::State::from(&state))
+        let result = has_api_key(provider_id.to_string(), crate::test_support::state(&state))
             .await
             .expect("Failed to check API key");
         assert!(result);
@@ -329,7 +332,7 @@ mod tests {
         let state = ConfigState::in_memory().expect("Failed to create state");
         let result = has_api_key(
             "nonexistent-provider".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await
         .expect("Failed to check API key");
@@ -339,24 +342,24 @@ mod tests {
     #[tokio::test]
     async fn test_delete_api_key() {
         let state = ConfigState::in_memory().expect("Failed to create state");
-        let provider_id = "test-provider-delete";
+        let provider_id = "openai";
 
         // Persist a key
         store_api_key(
             provider_id.to_string(),
             "sk-test".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await
         .expect("Failed to store API key");
 
         // Delete it
-        delete_api_key(provider_id.to_string(), tauri::State::from(&state))
+        delete_api_key(provider_id.to_string(), crate::test_support::state(&state))
             .await
             .expect("Failed to delete API key");
 
         // Verify it's gone
-        let result = has_api_key(provider_id.to_string(), tauri::State::from(&state))
+        let result = has_api_key(provider_id.to_string(), crate::test_support::state(&state))
             .await
             .expect("Failed to check API key");
         assert!(!result);
@@ -365,7 +368,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_operation_defaults() {
         let state = ConfigState::in_memory().expect("Failed to create state");
-        let result = get_operation_defaults(tauri::State::from(&state))
+        let result = get_operation_defaults(crate::test_support::state(&state))
             .await
             .expect("Failed to get operation defaults");
         assert!(!result.is_empty());
@@ -398,7 +401,7 @@ mod tests {
         let result = set_operation_default(
             OperationType::Code,
             "openai-gpt-4".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -410,7 +413,7 @@ mod tests {
         let result = set_operation_default(
             OperationType::Code,
             "nonexistent-model".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_err());
@@ -440,7 +443,7 @@ mod tests {
         drop(store);
 
         // Get models
-        let result = get_models("openai".to_string(), tauri::State::from(&state))
+        let result = get_models("openai".to_string(), crate::test_support::state(&state))
             .await
             .expect("Failed to get models");
         assert!(!result.is_empty());
@@ -465,7 +468,7 @@ mod tests {
             name: "custom-model".to_string(),
             capabilities: None,
         };
-        let result = add_manual_model(request, tauri::State::from(&state)).await;
+        let result = add_manual_model(request, crate::test_support::state(&state)).await;
         assert!(result.is_ok());
     }
 
@@ -477,7 +480,7 @@ mod tests {
             name: "".to_string(),
             capabilities: None,
         };
-        let result = add_manual_model(request, tauri::State::from(&state)).await;
+        let result = add_manual_model(request, crate::test_support::state(&state)).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("cannot be empty"));
     }
@@ -500,7 +503,7 @@ mod tests {
             name: "custom-model".to_string(),
             capabilities: None,
         };
-        add_manual_model(request, tauri::State::from(&state))
+        add_manual_model(request, crate::test_support::state(&state))
             .await
             .expect("Failed to add manual model");
 
@@ -508,7 +511,7 @@ mod tests {
         let result = remove_manual_model(
             provider.id.clone(),
             "custom-model".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -532,12 +535,12 @@ mod tests {
             name: "custom-model".to_string(),
             capabilities: None,
         };
-        add_manual_model(request, tauri::State::from(&state))
+        add_manual_model(request, crate::test_support::state(&state))
             .await
             .expect("Failed to add manual model");
 
         // Get manual models
-        let result = get_manual_models(provider.id.clone(), tauri::State::from(&state))
+        let result = get_manual_models(provider.id.clone(), crate::test_support::state(&state))
             .await
             .expect("Failed to get manual models");
         assert_eq!(result.len(), 1);
@@ -560,7 +563,7 @@ mod tests {
         let result = set_provider_models_source(
             provider.id.clone(),
             ModelsSource::Manual,
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_ok());
@@ -574,7 +577,7 @@ mod tests {
             "".to_string(),
             ApiType::OpenAI,
             None,
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await
         .expect("Failed to fetch models");
@@ -686,7 +689,7 @@ mod tests {
             api_type: ApiType::OpenAI,
             base_url: None,
         };
-        let result = save_provider(request, tauri::State::from(&state))
+        let result = save_provider(request, crate::test_support::state(&state))
             .await
             .expect("Failed to save provider");
         assert_eq!(result.name, "Test <Provider> & More!");
@@ -703,7 +706,7 @@ mod tests {
             api_type: ApiType::OpenAI,
             base_url: None,
         };
-        let result = save_provider(request, tauri::State::from(&state))
+        let result = save_provider(request, crate::test_support::state(&state))
             .await
             .expect("Failed to save provider");
         assert_eq!(result.name, long_name);
@@ -720,7 +723,7 @@ mod tests {
             base_url: Some("not-a-url".to_string()),
         };
         // Command accepts any string; validation happens at API call time
-        let result = save_provider(request, tauri::State::from(&state)).await;
+        let result = save_provider(request, crate::test_support::state(&state)).await;
         assert!(result.is_ok());
     }
 
@@ -728,9 +731,9 @@ mod tests {
     async fn test_api_key_with_unicode() {
         let state = ConfigState::in_memory().expect("Failed to create state");
         let result = store_api_key(
-            "test".to_string(),
+            "openai".to_string(),
             "sk-test-🔑-key".to_string(),
-            tauri::State::from(&state),
+            crate::test_support::state(&state),
         )
         .await;
         // Unicode in API keys should be accepted
@@ -742,8 +745,13 @@ mod tests {
         let state = ConfigState::in_memory().expect("Failed to create state");
         let store = &state.repository;
 
+        let provider = Provider::custom("Test Provider", "TP", ApiType::OpenAI, None);
+        store
+            .save_provider(&provider)
+            .expect("Failed to save provider");
+
         let model = Model::new(
-            "test-provider",
+            &provider.id,
             "model-with-dashes",
             ModelCapabilities {
                 analysis: true,
@@ -759,9 +767,12 @@ mod tests {
             .expect("Failed to save model");
         drop(store);
 
-        let result = get_models("test-provider".to_string(), tauri::State::from(&state))
-            .await
-            .expect("Failed to get models");
+        let result = get_models(
+            provider.id.clone(),
+            crate::test_support::state(&state),
+        )
+        .await
+        .expect("Failed to get models");
         assert_eq!(result[0].name, "model-with-dashes");
     }
 
@@ -791,20 +802,25 @@ mod tests {
         let state = ConfigState::in_memory().expect("Failed to create state");
         let store = &state.repository;
 
+        let provider = Provider::custom("Test Provider", "TP", ApiType::OpenAI, None);
+        store
+            .save_provider(&provider)
+            .expect("Failed to save provider");
+
         // Create a model without vision capability
         let mut caps = ModelCapabilities::default();
         caps.code = true;
-        let model = Model::new("test", "model", caps);
+        let model = Model::new(&provider.id, "model", caps);
         store
-            .save_models("test", &[model])
+            .save_models(&provider.id, &[model])
             .expect("Failed to save model");
         drop(store);
 
         // Try to set as vision default
         let result = set_operation_default(
             OperationType::Vision,
-            "test-model".to_string(),
-            tauri::State::from(&state),
+            format!("{}-model", provider.id),
+            crate::test_support::state(&state),
         )
         .await;
         assert!(result.is_err());
@@ -815,7 +831,7 @@ mod tests {
     async fn test_models_source_variants() {
         // Test that all ModelsSource variants can be created
         let _manual = ModelsSource::Manual;
-        let _api = ModelsSource::Api;
+        let _api = ModelsSource::Auto;
         let _hybrid = ModelsSource::Hybrid;
     }
 

@@ -151,7 +151,7 @@ mod tests {
     async fn test_execute_with_valid_message() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Scanning codebase..."
@@ -169,7 +169,7 @@ mod tests {
     async fn test_execute_with_brief_message() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Working..."
@@ -184,7 +184,7 @@ mod tests {
     async fn test_execute_with_long_message() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Analyzing the codebase structure and planning the next steps for implementation..."
@@ -200,7 +200,7 @@ mod tests {
     async fn test_execute_with_unicode_message() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Analyzing 分析代码..."
@@ -217,7 +217,7 @@ mod tests {
     async fn test_execute_missing_message() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({});
 
@@ -232,7 +232,7 @@ mod tests {
     async fn test_execute_null_message() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": null
@@ -247,7 +247,7 @@ mod tests {
     async fn test_execute_empty_message() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": ""
@@ -263,7 +263,7 @@ mod tests {
     async fn test_execute_wrong_type_for_message() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": 123
@@ -278,7 +278,7 @@ mod tests {
     async fn test_execute_array_for_message() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": ["Not", "a", "string"]
@@ -295,7 +295,7 @@ mod tests {
     async fn test_output_structure() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Test status"
@@ -314,7 +314,7 @@ mod tests {
     async fn test_output_message_value() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Working..."
@@ -331,7 +331,7 @@ mod tests {
     async fn test_output_is_json_serializable() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Test"
@@ -353,7 +353,7 @@ mod tests {
     async fn test_execute_with_thread_context() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation").with_thread("thread-123");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Working..."
@@ -368,7 +368,7 @@ mod tests {
     async fn test_execute_with_session_context() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation").with_session("session-456");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Working..."
@@ -383,7 +383,7 @@ mod tests {
     async fn test_execute_without_workspace() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Test"
@@ -400,7 +400,7 @@ mod tests {
     async fn test_execute_with_extra_fields_ignored() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Test",
@@ -417,7 +417,7 @@ mod tests {
     async fn test_execute_with_newlines_in_message() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Working\non\nmultiple\nlines"
@@ -433,7 +433,7 @@ mod tests {
     async fn test_execute_with_special_characters() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Working @#$%^&*()..."
@@ -448,7 +448,7 @@ mod tests {
     async fn test_execute_with_emoji() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "Working 🚀..."
@@ -463,7 +463,7 @@ mod tests {
     async fn test_execute_with_whitespace_only_message() {
         let tool = EmitStatusTool;
         let context = ToolExecutionContext::new("test-conversation");
-        let app_handle = tauri::test::mock_app_handle(tauri::test::no_proxy);
+        let app_handle = crate::test_support::mock_app_handle();
 
         let args = serde_json::json!({
             "message": "   "

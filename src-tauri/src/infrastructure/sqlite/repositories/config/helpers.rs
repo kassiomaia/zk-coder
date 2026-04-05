@@ -11,6 +11,7 @@ pub fn parse_datetime(s: &str) -> DateTime<Utc> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{Datelike, Timelike};
 
     #[test]
     fn test_parse_datetime() {

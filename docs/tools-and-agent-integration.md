@@ -213,6 +213,22 @@ Applies to:
 - `search_grep`
 - `system_execute_command` working directory resolution
 
+### Command spawning
+
+`system_execute_command` now routes through the shared backend spawn service in `src-tauri/src/infrastructure/agent/runtime/spawn.rs`.
+
+The service enforces:
+
+1. workspace-bound working directories
+2. per-session single-flight protection unless explicitly allowed
+3. a global concurrency limit
+4. shell execution policy checks
+5. output truncation limits
+6. cancellation and timeout handling
+7. runtime trace events for `SpawnStarted`, `SpawnFinished`, `SpawnDenied`, `SpawnFailed`, `SpawnTimedOut`, `SpawnCancelled`, `SpawnKilled`, and `SpawnBusy`
+
+Prefer direct `program` + `args` launches when the caller does not need shell features. Use `command` only when shell syntax is required.
+
 ### Rollback integration
 
 Before `fs_write_file` and `system_execute_command`, the runtime captures file or workspace snapshots so changes can be inspected or rolled back later.

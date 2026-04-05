@@ -511,7 +511,7 @@ mod tests {
             },
         );
         let task_id = task.id.clone();
-        create_task(conn, &task).unwrap();
+        create_task(conn, &task, None, None).unwrap();
         task_id
     }
 
@@ -542,7 +542,7 @@ mod tests {
                 context: None,
             },
         );
-        create_task(&conn, &task).unwrap();
+        create_task(&conn, &task, None, None).unwrap();
 
         update_task_status(&conn, &task.id, &TaskStatus::Completed).unwrap();
 
@@ -691,7 +691,7 @@ mod tests {
             },
         );
 
-        create_task(&conn, &task).unwrap();
+        create_task(&conn, &task, None, None).unwrap();
 
         // Create subtasks - some completed, some pending
         let subtask1 = SubTask::new(task.id.clone(), "Step 1".to_string(), SubTaskMode::Read, 0);
@@ -730,7 +730,7 @@ mod tests {
             },
         );
 
-        create_task(&conn, &task).unwrap();
+        create_task(&conn, &task, None, None).unwrap();
         update_task_status(&conn, &task.id, &TaskStatus::Completed).unwrap();
 
         // Query for incomplete tasks
@@ -760,7 +760,7 @@ mod tests {
             },
         );
 
-        create_task(&conn, &task).unwrap();
+        create_task(&conn, &task, None, None).unwrap();
         update_task_status(&conn, &task.id, &TaskStatus::Failed).unwrap();
 
         // Query for incomplete tasks
@@ -792,7 +792,7 @@ mod tests {
                 context: None,
             },
         );
-        create_task(&conn, &task1).unwrap();
+        create_task(&conn, &task1, None, None).unwrap();
         update_task_status(&conn, &task1.id, &TaskStatus::Completed).unwrap();
 
         // Create second task - pending (incomplete)
@@ -804,7 +804,7 @@ mod tests {
                 context: None,
             },
         );
-        create_task(&conn, &task2).unwrap();
+        create_task(&conn, &task2, None, None).unwrap();
 
         // Query for incomplete tasks
         let tasks = get_session_tasks(&conn, &session_id).unwrap();
@@ -834,7 +834,7 @@ mod tests {
             },
         );
 
-        create_task(&conn, &task).unwrap();
+        create_task(&conn, &task, None, None).unwrap();
 
         // Create multiple subtasks
         let subtask1 = SubTask::new(task.id.clone(), "Step 1".to_string(), SubTaskMode::Read, 0);

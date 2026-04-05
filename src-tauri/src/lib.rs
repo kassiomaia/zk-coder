@@ -10,6 +10,8 @@ pub mod application;
 
 pub mod commands;
 pub mod infrastructure;
+#[cfg(test)]
+mod test_support;
 
 use commands::{AgentState, ChatState, ConfigState, LlmState, NlpState};
 use infrastructure::tools::documents::shared::ArtifactStore;
@@ -91,8 +93,9 @@ pub fn run() {
 
             // Initialize Agent state
             let agent_db = data_dir.join("coder_agents.db");
-            let agent_state = AgentState::new(&agent_db.to_string_lossy())
-                .expect("Failed to initialize Agent state");
+            let agent_state =
+                AgentState::new(&agent_db.to_string_lossy(), chat_state.service.clone())
+                    .expect("Failed to initialize Agent state");
 
             // Manage states
             app.manage(nlp_state);

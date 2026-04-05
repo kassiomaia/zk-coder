@@ -316,6 +316,7 @@ impl DocxValidator {
 mod tests {
     use super::*;
     use crate::infrastructure::tools::documents::shared::draft_store::DraftStatus;
+    use chrono::Utc;
 
     fn create_test_draft() -> DocxDraft {
         DocxDraft {

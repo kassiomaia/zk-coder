@@ -193,6 +193,7 @@ mod tests {
     use super::*;
     use crate::core::agent::session::SessionId;
     use crate::core::agent::task::AgentRequest;
+    use crate::core::llm::entities::UsageStats;
     use std::sync::{Arc, Mutex};
 
     // Mock LLM client for testing retry logic

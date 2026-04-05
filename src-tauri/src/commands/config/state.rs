@@ -4,6 +4,7 @@ use crate::core::config::ConfigRepository;
 use crate::infrastructure::sqlite::repositories::config::SqliteConfigRepository;
 
 /// Application state for configuration commands.
+#[derive(Clone)]
 pub struct ConfigState {
     /// Configuration repository for persistence
     pub repository: Arc<dyn ConfigRepository>,

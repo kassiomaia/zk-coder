@@ -313,21 +313,28 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
+    use crate::application::ChatServiceImpl;
     use crate::core::agent::services::{AgentService, CreateSessionRequest};
+    use crate::core::chat::services::ChatService;
     use crate::infrastructure::agent::approval::ApprovalQueue;
     use crate::infrastructure::agent::registry::AgentRegistry;
     use crate::infrastructure::agent::runtime::AgentRuntime;
     use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
+    use crate::infrastructure::sqlite::repositories::chat::SqliteChatRepository;
     use crate::infrastructure::tools::ToolRegistry;
 
     fn create_test_service() -> AgentServiceImpl {
         let registry = Arc::new(AgentRegistry::new());
         let session_store =
             Arc::new(SqliteSessionRepository::new(":memory:").expect("Failed to create store"));
+        let chat_repository =
+            Arc::new(SqliteChatRepository::in_memory().expect("Failed to create chat repository"));
+        let chat_service = Arc::new(ChatServiceImpl::new(chat_repository)) as Arc<dyn ChatService>;
         let approval_queue = Arc::new(ApprovalQueue::new());
         let tool_registry = Arc::new(ToolRegistry::new().expect("Failed to create tool registry"));
         let runtime = Arc::new(AgentRuntime::new(
             session_store.clone(),
+            chat_service,
             session_store.clone(),
             session_store.clone(),
             session_store.clone(),

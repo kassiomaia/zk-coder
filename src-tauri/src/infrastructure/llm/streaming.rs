@@ -109,6 +109,7 @@ pub fn stream_to_events_with_thread(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::llm::entities::StreamDelta;
     use futures::StreamExt;
     use std::time::Duration;
 

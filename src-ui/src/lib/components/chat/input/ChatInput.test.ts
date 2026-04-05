@@ -3,11 +3,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ChatInput from './ChatInput.svelte';
 import type { Command } from '$lib/types/command';
 
-const { mockChatStore, mockNlpState, mockIsLlmStreaming, mockAgentStore } = vi.hoisted(() => ({
-	mockChatStore: {
-		classifyInput: vi.fn(),
-		cancelLlmStream: vi.fn()
-	},
+const { mockChatStore, mockNlpState, mockIsLlmStreaming, mockAgentStore, mockChatState } =
+	vi.hoisted(() => ({
+		mockChatState: {
+			selectedThreadId: null as string | null,
+			threads: [] as Array<{ id: string; metadata: { yoloMode?: boolean } }>
+		},
+		mockChatStore: {
+			subscribe: vi.fn((run: (value: unknown) => void) => {
+				run(mockChatState);
+				return () => {};
+			}),
+			classifyInput: vi.fn(),
+			cancelLlmStream: vi.fn(),
+			setYoloMode: vi.fn()
+		},
 	mockNlpState: {
 		subscribe: vi.fn((run: (value: unknown) => void) => {
 			run({
@@ -81,6 +91,8 @@ describe('ChatInput', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
+		mockChatState.selectedThreadId = null;
+		mockChatState.threads = [];
 	});
 
 	afterEach(() => {
@@ -224,6 +236,29 @@ describe('ChatInput', () => {
 			});
 			const containerEl = container.querySelector('.container, [class*="container"]');
 			expect(containerEl).toBeInTheDocument();
+		});
+	});
+
+	describe('yolo mode', () => {
+		it('keeps the YOLO button enabled while the agent is working', async () => {
+			mockChatState.selectedThreadId = 'thread-1';
+			mockChatState.threads = [{ id: 'thread-1', metadata: { yoloMode: false } }];
+
+			render(ChatInput, {
+				...defaultProps,
+				value: 'test',
+				isAgentWorking: true,
+				agentSessionId: 'session-1',
+				onattach: vi.fn()
+			});
+
+			const yoloButton = screen.getByRole('button', { name: /yolo mode/i });
+			expect(yoloButton).toBeEnabled();
+			await fireEvent.click(yoloButton);
+			expect(mockChatStore.setYoloMode).toHaveBeenCalledWith('thread-1', true);
+
+			const attachButton = screen.getByRole('button', { name: /attach file/i });
+			expect(attachButton).toBeDisabled();
 		});
 	});
 
