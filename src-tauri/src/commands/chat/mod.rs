@@ -26,6 +26,7 @@ pub use messages::{
 pub use state::ChatState;
 // Re-exports from threads module
 pub use threads::{
-    create_thread, create_thread_with_message, delete_thread, load_threads, rename_thread,
-    resolve_thread, set_thread_agent_session, ThreadWithMessageResponse,
+    archive_thread, create_thread, create_thread_with_message, delete_thread, load_threads,
+    rename_thread, resolve_thread, set_thread_agent_session, set_yolo_mode,
+    ThreadWithMessageResponse,
 };

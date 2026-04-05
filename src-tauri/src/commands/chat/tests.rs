@@ -286,6 +286,10 @@ mod tests {
             Ok(())
         }
 
+        fn update_thread_yolo_mode(&self, _id: &str, _yolo_mode: bool) -> RepositoryResult<()> {
+            Ok(())
+        }
+
         fn send_message(&self, request: SendMessageRequest) -> RepositoryResult<ChatMessage> {
             if self.thread_resolved {
                 return Err(ChatDomainError::ThreadResolved {

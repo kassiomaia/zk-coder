@@ -264,6 +264,16 @@ impl SqliteChatRepository {
         threads::set_thread_agent_session(&conn, id, agent_session_id)
     }
 
+    /// Updates a thread's YOLO mode status.
+    pub fn update_thread_yolo_mode_impl(
+        &self,
+        id: &str,
+        yolo_mode: bool,
+    ) -> Result<(), ChatRepositoryError> {
+        let conn = self.acquire_lock()?;
+        threads::update_thread_yolo_mode(&conn, id, yolo_mode)
+    }
+
     /// Deletes a thread and all its messages.
     pub fn delete_thread_impl(&self, id: &str) -> Result<(), ChatRepositoryError> {
         let conn = self.acquire_lock()?;
@@ -454,6 +464,11 @@ impl ThreadRepository for SqliteChatRepository {
         agent_session_id: Option<String>,
     ) -> RepositoryResult<()> {
         self.set_thread_agent_session_impl(id, agent_session_id)
+            .map_err(ChatDomainError::from)
+    }
+
+    fn update_thread_yolo_mode(&self, id: &str, yolo_mode: bool) -> RepositoryResult<()> {
+        self.update_thread_yolo_mode_impl(id, yolo_mode)
             .map_err(ChatDomainError::from)
     }
 

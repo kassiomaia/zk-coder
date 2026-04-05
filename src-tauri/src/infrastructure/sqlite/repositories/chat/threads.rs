@@ -230,6 +230,48 @@ pub fn set_thread_agent_session(
     Ok(())
 }
 
+/// Updates a thread's YOLO mode status.
+pub fn update_thread_yolo_mode(
+    conn: &Connection,
+    id: &str,
+    yolo_mode: bool,
+) -> Result<(), ChatRepositoryError> {
+    let metadata_json: Option<String> = conn
+        .query_row(
+            "SELECT metadata FROM threads WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .optional()?;
+
+    let mut metadata: ThreadMetadata = metadata_json
+        .as_deref()
+        .and_then(|j| {
+            serde_json::from_str(j)
+                .inspect_err(|e| {
+                    warn!("Failed to parse thread metadata for thread {id} when updating YOLO mode, using default: {e}");
+                })
+                .ok()
+        })
+        .unwrap_or_default();
+    metadata.yolo_mode = yolo_mode;
+
+    let new_metadata_json = serde_json::to_string(&metadata)?;
+    let now = Utc::now();
+
+    conn.execute(
+        "UPDATE threads SET metadata = ?1, archived = ?2, updated_at = ?3 WHERE id = ?4",
+        params![
+            new_metadata_json,
+            i64::from(metadata.archived),
+            now.to_rfc3339(),
+            id
+        ],
+    )?;
+
+    Ok(())
+}
+
 /// Deletes a thread and all its messages.
 pub fn delete_thread(conn: &Connection, id: &str) -> Result<(), ChatRepositoryError> {
     let rows_affected = conn.execute("DELETE FROM threads WHERE id = ?1", params![id])?;

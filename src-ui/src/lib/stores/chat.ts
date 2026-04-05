@@ -35,6 +35,7 @@ import {
 	sendMessage as apiSendMessage,
 	setConversationWorkspace as apiSetConversationWorkspace,
 	setThreadAgentSession,
+	setYoloMode as apiSetYoloMode,
 	updateConversationSettings as apiUpdateConversationSettings,
 	updateMessageFeedback as apiUpdateMessageFeedback,
 	updateMessageStatus as apiUpdateMessageStatus
@@ -697,6 +698,44 @@ const touchThreadAndConversation = (
 				update((state) => ({
 					...state,
 					error: error instanceof Error ? error.message : 'Failed to archive thread'
+				}));
+				return false;
+			}
+		},
+
+		/**
+		 * Set YOLO mode for a thread.
+		 */
+		async setYoloMode(id: string, yoloMode: boolean): Promise<boolean> {
+			try {
+				await apiSetYoloMode(id, yoloMode);
+				update((state) => ({
+					...state,
+					threads: state.threads.map((t) =>
+						t.id === id ? { ...t, metadata: { ...t.metadata, yoloMode }, updatedAt: new Date() } : t
+					),
+					conversations: state.conversations.map((c) =>
+						c.id === state.selectedConversationId
+							? {
+									...c,
+									threads: (c.threads || []).map((t) =>
+										t.id === id
+											? {
+													...t,
+													metadata: { ...t.metadata, yoloMode },
+													updatedAt: new Date()
+												}
+											: t
+									)
+								}
+							: c
+					)
+				}));
+				return true;
+			} catch (error) {
+				update((state) => ({
+					...state,
+					error: error instanceof Error ? error.message : 'Failed to update thread'
 				}));
 				return false;
 			}

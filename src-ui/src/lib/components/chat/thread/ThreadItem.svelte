@@ -6,7 +6,7 @@
 	import styles from './ThreadItem.module.css';
 	import ListItemActions from '$lib/components/shared/ListItemActions.svelte';
 	import InlineRenameInput from '$lib/components/shared/InlineRenameInput.svelte';
-	import { CheckCircleIcon, MessageSquareIcon } from '$lib/icons';
+	import { CheckCircleIcon, MessageSquareIcon, ZapIcon } from '$lib/icons';
 	import { formatRelativeTime } from '$lib/utils/formatRelativeTime';
 	import type { Thread } from '$lib/types/thread';
 
@@ -90,7 +90,9 @@
 		>
 			{#snippet icon()}
 				<div class={styles.icon}>
-					{#if thread.metadata.resolved}
+					{#if thread.metadata.yoloMode}
+						<ZapIcon size={16} class={styles.yoloIcon} />
+					{:else if thread.metadata.resolved}
 						<CheckCircleIcon size={16} />
 					{:else}
 						<MessageSquareIcon size={16} />
@@ -108,7 +110,9 @@
 		tabindex={isEditing ? -1 : 0}
 	>
 		<div class={styles.icon}>
-			{#if thread.metadata.resolved}
+			{#if thread.metadata.yoloMode}
+				<ZapIcon size={16} class={styles.yoloIcon} />
+			{:else if thread.metadata.resolved}
 				<CheckCircleIcon size={16} />
 			{:else}
 				<MessageSquareIcon size={16} />

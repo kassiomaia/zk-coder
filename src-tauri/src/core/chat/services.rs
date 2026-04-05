@@ -116,6 +116,9 @@ pub trait ChatService: Send + Sync {
         agent_session_id: Option<String>,
     ) -> RepositoryResult<()>;
 
+    /// Sets the YOLO mode status for a thread.
+    fn set_yolo_mode(&self, id: &str, yolo_mode: bool) -> RepositoryResult<()>;
+
     // ========================================================================
     // Message Operations
     // ========================================================================

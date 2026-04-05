@@ -197,6 +197,9 @@ pub struct ThreadMetadata {
     pub summary: Option<String>,
     /// The ID of the agent session associated with this thread, if any.
     pub agent_session_id: Option<String>,
+    /// A flag indicating whether YOLO mode is enabled for this thread.
+    #[serde(default)]
+    pub yolo_mode: bool,
 }
 
 /// Represents a thread of conversation.

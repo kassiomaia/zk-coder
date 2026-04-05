@@ -161,6 +161,7 @@ pub fn run() {
             commands::chat::threads::delete_thread,
             commands::chat::threads::rename_thread,
             commands::chat::threads::set_thread_agent_session,
+            commands::chat::threads::set_yolo_mode,
             commands::chat::messages::load_messages,
             commands::chat::messages::load_thread_messages,
             commands::chat::messages::send_message,

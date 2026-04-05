@@ -102,6 +102,10 @@ impl ChatService for ChatServiceImpl {
         ThreadRepository::set_thread_agent_session(self, id, agent_session_id)
     }
 
+    fn set_yolo_mode(&self, id: &str, yolo_mode: bool) -> RepositoryResult<()> {
+        ThreadRepository::update_thread_yolo_mode(self, id, yolo_mode)
+    }
+
     fn send_message(&self, request: SendMessageRequest) -> RepositoryResult<ChatMessage> {
         let thread = ThreadRepository::load_thread(self, &request.thread_id)?;
 

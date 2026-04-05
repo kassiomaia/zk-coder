@@ -72,6 +72,9 @@ pub trait ThreadRepository: Send + Sync {
         agent_session_id: Option<String>,
     ) -> RepositoryResult<()>;
 
+    /// Updates the YOLO mode status of a thread.
+    fn update_thread_yolo_mode(&self, id: &str, yolo_mode: bool) -> RepositoryResult<()>;
+
     /// Deletes a thread and all of its associated messages.
     fn delete_thread(&self, id: &str) -> RepositoryResult<()>;
 

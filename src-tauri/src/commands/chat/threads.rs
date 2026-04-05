@@ -90,6 +90,27 @@ pub async fn set_thread_agent_session(
         .map_err(|e| e.to_string())
 }
 
+/// Set YOLO mode for a thread.
+#[tauri::command]
+pub async fn set_yolo_mode(
+    id: String,
+    yolo_mode: bool,
+    state: tauri::State<'_, ChatState>,
+) -> Result<(), String> {
+    log::info!("set_yolo_mode: id={}, yolo_mode={}", id, yolo_mode);
+    if id.is_empty() {
+        log::error!("set_yolo_mode: empty thread id");
+        return Err("Thread ID cannot be empty".to_string());
+    }
+    state
+        .service
+        .set_yolo_mode(&id, yolo_mode)
+        .map_err(|e| {
+            log::error!("set_yolo_mode failed: {}", e);
+            e.to_string()
+        })
+}
+
 /// Response for creating a thread with a message.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

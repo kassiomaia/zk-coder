@@ -81,6 +81,10 @@ impl ThreadRepository for ChatServiceImpl {
             .set_thread_agent_session(id, agent_session_id)
     }
 
+    fn update_thread_yolo_mode(&self, id: &str, yolo_mode: bool) -> RepositoryResult<()> {
+        self.repository.update_thread_yolo_mode(id, yolo_mode)
+    }
+
     fn delete_thread(&self, id: &str) -> RepositoryResult<()> {
         self.repository.delete_thread(id)
     }

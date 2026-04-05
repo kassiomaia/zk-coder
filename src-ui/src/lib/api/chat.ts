@@ -73,6 +73,7 @@ export interface ThreadResponse {
 		intent?: string;
 		summary?: string;
 		agentSessionId?: string;
+		yoloMode?: boolean;
 	};
 }
 
@@ -282,6 +283,16 @@ export async function setThreadAgentSession(
 	await invokeCommand<void>('chat', 'set_thread_agent_session', { id, agentSessionId });
 }
 
+/**
+ * Sets YOLO mode for a thread.
+ *
+ * @param id - Thread ID
+ * @param yoloMode - Whether YOLO mode is enabled
+ */
+export async function setYoloMode(id: string, yoloMode: boolean): Promise<void> {
+	await invokeCommand<void>('chat', 'set_yolo_mode', { id, yoloMode });
+}
+
 // ============================================================================
 // Message Commands
 // ============================================================================
@@ -462,7 +473,8 @@ function threadToClient(thread: ThreadResponse): Thread {
 			priority: thread.metadata.priority,
 			intent: thread.metadata.intent,
 			summary: thread.metadata.summary,
-			agentSessionId: thread.metadata.agentSessionId
+			agentSessionId: thread.metadata.agentSessionId,
+			yoloMode: thread.metadata.yoloMode
 		}
 	};
 }

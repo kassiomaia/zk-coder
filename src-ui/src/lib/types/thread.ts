@@ -148,17 +148,32 @@ export interface ThreadViewProps {
 }
 
 /**
- * Props for the ThreadItem component.
+ * Metadata for a thread.
  */
-export interface ThreadItemProps {
-	/** The thread to display */
-	thread: Thread;
+export interface ThreadMetadata {
+	/** Whether the thread has been resolved */
+	resolved: boolean;
 
-	/** Whether this thread is currently active */
-	isActive: boolean;
+	/** Whether the thread has been archived */
+	archived?: boolean;
 
-	/** Click handler */
-	onclick: () => void;
+	/** Tags associated with the thread */
+	tags?: string[];
+
+	/** Priority level of the thread */
+	priority?: ThreadPriority;
+
+	/** Detected intent for the thread */
+	intent?: string;
+
+	/** Summary of the thread */
+	summary?: string;
+
+	/** ID of the associated agent session (if any) */
+	agentSessionId?: string;
+
+	/** Whether YOLO mode is enabled for the thread */
+	yoloMode?: boolean;
 }
 
 /**

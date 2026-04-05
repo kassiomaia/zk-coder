@@ -154,6 +154,11 @@
 	height: 16px;
 }
 
+/* YOLO mode icon styling - amber color */
+.yoloIcon {
+	color: var(--color-warning);
+}
+
 .content {
 	flex: 1;
 	min-width: 0;
