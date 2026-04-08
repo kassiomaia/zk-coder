@@ -27,6 +27,7 @@ use super::deps::ExecutionDeps;
 use super::llm_phase::call_llm;
 use super::response_phase::{handle_response, ResponseDecision};
 use super::step_gate::{begin_step, StepGateOutcome};
+use super::termination::complete_execution;
 use super::tool_phase::{run_tools, ToolPhaseOutcome};
 use super::yolo::ChatYoloModeProvider;
 
@@ -106,7 +107,25 @@ pub async fn execute(
         }
 
         let resolved =
-            resolve_context(&deps, &mut ctx, session, &request, agent_system_prompt).await?;
+            resolve_context(&deps, &mut ctx, session, &request, agent_system_prompt, client.as_ref()).await?;
+
+        // All subtasks are in a terminal state — finish without calling the LLM again.
+        if resolved.all_subtasks_completed {
+            log::info!(
+                "[AgentExecution] All subtasks completed for task {} – finishing execution",
+                ctx.task_id
+            );
+            let (result, _) = complete_execution(
+                &deps,
+                &ctx,
+                &session.conversation_id,
+                &session.thread_id,
+                String::new(),
+            )
+            .await?;
+            return Ok(result);
+        }
+
         let llm_result = call_llm(&deps, &mut ctx, &resolved, client.as_ref()).await?;
 
         match handle_response(&deps, &mut ctx, session, llm_result).await? {

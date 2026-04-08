@@ -87,6 +87,9 @@ pub struct ResolvedContext {
     pub tool_definitions: Vec<ToolDefinition>,
     /// The system prompt to be used for the LLM call.
     pub system_prompt: String,
+    /// `true` when subtasks exist but all are in a terminal state (Completed/Failed/Cancelled).
+    /// The coordinator uses this to finish execution instead of calling the LLM again.
+    pub all_subtasks_completed: bool,
 }
 
 /// The result of a call to the Large Language Model.

@@ -17,8 +17,9 @@ use crate::core::llm::entities::{ToolCall, ToolDefinition};
 use crate::infrastructure::agent::events::{AgentEvent, ContextCompactionReason, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::context::{
     apply_context_policy_v2, estimate_context_tokens, maybe_compact_context, ContextPolicyInput,
-    COMPRESSION_THRESHOLD, CONTEXT_WINDOW,
+    adaptive_compression_threshold, model_context_window,
 };
+use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::agent::runtime::{
     derive_system_prompt, AgentRuntimeError, SubtaskSummary,
 };
@@ -40,6 +41,7 @@ use crate::infrastructure::tools::context::ToolExecutionContext;
 /// * `session` - The current agent session.
 /// * `request` - The user's request that initiated the execution.
 /// * `agent_system_prompt` - The base system prompt for the agent.
+/// * `client` - The LLM client for optional context summarization.
 ///
 /// # Returns
 ///
@@ -50,11 +52,12 @@ pub async fn resolve_context(
     session: &AgentSession,
     request: &AgentRequest,
     agent_system_prompt: &str,
+    client: &dyn LlmClient,
 ) -> Result<ResolvedContext, AgentRuntimeError> {
     ctx.current_phase = ExecutionPhase::ResolvingContext;
     let tracer = deps.tracer();
 
-    let (current_subtask_summary, current_subtask_id, tool_names) =
+    let (current_subtask_summary, current_subtask_id, tool_names, all_subtasks_completed) =
         if let Ok(subtasks) = deps.task_repo.get_subtasks(&ctx.task_id) {
             let total = subtasks.len();
             if let Some(current) = subtasks
@@ -68,8 +71,18 @@ pub async fn resolve_context(
                     .into_iter()
                     .map(std::string::ToString::to_string)
                     .collect::<Vec<_>>();
-                (Some((summary, total)), Some(current.id.clone()), allowed)
+                (Some((summary, total)), Some(current.id.clone()), allowed, false)
             } else {
+                // No InProgress subtask — check if all are in a terminal state
+                let all_done = !subtasks.is_empty()
+                    && subtasks.iter().all(|st| {
+                        matches!(
+                            st.status,
+                            crate::core::agent::entities::TaskStatus::Completed
+                                | crate::core::agent::entities::TaskStatus::Failed
+                                | crate::core::agent::entities::TaskStatus::Cancelled
+                        )
+                    });
                 (
                     None,
                     None,
@@ -77,6 +90,7 @@ pub async fn resolve_context(
                         .iter()
                         .map(|tool| tool.name.clone())
                         .collect::<Vec<_>>(),
+                    all_done,
                 )
             }
         } else {
@@ -87,6 +101,7 @@ pub async fn resolve_context(
                     .iter()
                     .map(|tool| tool.name.clone())
                     .collect::<Vec<_>>(),
+                false,
             )
         };
 
@@ -114,8 +129,10 @@ pub async fn resolve_context(
         }),
     );
 
-    let usage_ratio = estimate_context_tokens(&ctx.llm_context) as f64 / CONTEXT_WINDOW as f64;
-    let should_retrieve = usage_ratio >= COMPRESSION_THRESHOLD || subtask_changed;
+    let effective_window = model_context_window(&ctx.model_name);
+    let threshold = adaptive_compression_threshold(&ctx.model_name);
+    let usage_ratio = estimate_context_tokens(&ctx.llm_context) as f64 / effective_window as f64;
+    let should_retrieve = usage_ratio >= threshold || subtask_changed;
     let retrieval_snippets = if should_retrieve {
         let _ = tracer.append_trace(
             &ctx.session_id,
@@ -151,6 +168,20 @@ pub async fn resolve_context(
         );
     }
 
+    // Identify messages that would be dropped and optionally summarize them
+    let dropped_messages = identify_messages_to_drop(&ctx.llm_context);
+    let pre_computed_summary = if dropped_messages.len() >= 8 && usage_ratio >= threshold {
+        crate::infrastructure::agent::runtime::summarize_dropped_messages(
+            client,
+            &ctx.model_name,
+            &dropped_messages,
+        )
+        .await
+        .and_then(|msg| msg.as_text().map(|s| s.to_string()))
+    } else {
+        None
+    };
+
     let policy_input = ContextPolicyInput {
         force_pack: subtask_changed,
         task_goal: Some(request.content.clone()),
@@ -158,6 +189,8 @@ pub async fn resolve_context(
             .as_ref()
             .map(|(summary, _)| summary.title.clone()),
         retrieval_snippets,
+        model_name: ctx.model_name.clone(),
+        pre_computed_summary,
     };
 
     if let Some(compaction) = apply_context_policy_v2(&mut ctx.llm_context, &policy_input) {
@@ -166,7 +199,7 @@ pub async fn resolve_context(
             AgentEvent::ContextCompacted {
                 session_id: ctx.session_id.clone(),
                 conversation_id: session.conversation_id.clone(),
-                reason: if usage_ratio >= COMPRESSION_THRESHOLD {
+                reason: if usage_ratio >= threshold {
                     ContextCompactionReason::TokenLimit
                 } else {
                     ContextCompactionReason::SubtaskTransition
@@ -186,15 +219,15 @@ pub async fn resolve_context(
             RuntimeTraceType::ContextPolicyEvaluated,
             json!({
                 "strategy": "v2",
-                "reason": if usage_ratio >= COMPRESSION_THRESHOLD { "token_limit" } else { "subtask_transition" },
+                "reason": if usage_ratio >= threshold { "token_limit" } else { "subtask_transition" },
                 "beforeCount": compaction.before_count,
                 "afterCount": compaction.after_count,
                 "beforeTokens": compaction.before_tokens,
                 "afterTokens": compaction.after_tokens,
             }),
         );
-    } else if usage_ratio >= COMPRESSION_THRESHOLD {
-        if let Some(compaction) = maybe_compact_context(&mut ctx.llm_context) {
+    } else if usage_ratio >= threshold {
+        if let Some(compaction) = maybe_compact_context(&mut ctx.llm_context, &ctx.model_name) {
             let _ = deps.app_handle.emit(
                 AGENT_EVENT_NAME,
                 AgentEvent::ContextCompacted {
@@ -259,6 +292,7 @@ pub async fn resolve_context(
     Ok(ResolvedContext {
         current_subtask_summary,
         current_subtask_id,
+        all_subtasks_completed,
         tool_definitions,
         system_prompt,
     })
@@ -351,4 +385,17 @@ fn build_retrieval_query(request_content: &str, active_subtask_title: Option<&st
     }
 
     keywords.join(" ")
+}
+
+/// Identifies messages that would be dropped by ContextPolicyV2.
+///
+/// Returns messages beyond the recent tail (excluding the system prompt at index 0).
+fn identify_messages_to_drop(context: &[crate::core::llm::entities::ChatMessage]) -> Vec<crate::core::llm::entities::ChatMessage> {
+    const KEEP_RECENT_TAIL_MESSAGES: usize = 12;
+    let tail_start = context.len().saturating_sub(KEEP_RECENT_TAIL_MESSAGES + 4);
+    if tail_start > 1 {
+        context[1..tail_start].to_vec()
+    } else {
+        Vec::new()
+    }
 }
