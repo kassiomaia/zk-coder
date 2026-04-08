@@ -278,6 +278,57 @@ fn has_remaining_in_progress_subtasks(deps: &ExecutionDeps<'_>, task_id: &str) -
         .unwrap_or(false)
 }
 
+/// Advances the next `Pending` subtask to `InProgress`.
+///
+/// Called when execution finishes but `Pending` subtasks remain that were never
+/// started (the LLM never called `agent_advance_to_next_subtask`).
+/// Returns `true` if a subtask was advanced, `false` if none were `Pending`.
+fn advance_next_pending_subtask(
+    deps: &ExecutionDeps<'_>,
+    task_id: &str,
+    session_id: &str,
+) -> bool {
+    let Ok(mut subtasks) = deps.task_repo.get_subtasks(task_id) else {
+        return false;
+    };
+    subtasks.sort_by_key(|st| st.order);
+
+    let Some(next) = subtasks
+        .into_iter()
+        .find(|st| st.status == crate::core::agent::entities::TaskStatus::Pending)
+    else {
+        return false;
+    };
+
+    if deps
+        .task_repo
+        .update_subtask_status(&next.id, crate::core::agent::entities::TaskStatus::InProgress)
+        .is_err()
+    {
+        return false;
+    }
+
+    log::info!(
+        "[AgentExecution] Advanced pending subtask {} ({}) to InProgress for task {}",
+        next.id,
+        next.title,
+        task_id
+    );
+
+    let mut event_subtask = core_task_to_event_subtask(next, task_id);
+    event_subtask.status = TaskStatus::InProgress;
+    event_subtask.started_at = Some(Utc::now());
+    let _ = deps.app_handle.emit(
+        AGENT_EVENT_NAME,
+        AgentEvent::SubtaskUpdated {
+            session_id: session_id.to_string(),
+            subtask: event_subtask,
+        },
+    );
+
+    true
+}
+
 /// Completes the execution of an agent.
 ///
 /// This function finalizes the execution by:
@@ -339,6 +390,45 @@ pub async fn complete_execution(
                 "totalOutputTokens": ctx.total_output_tokens,
                 "autoCompletedSubtasks": auto_completed,
                 "hasRemainingWork": true,
+            }),
+        );
+
+        emit_streaming_content(
+            deps,
+            &ctx.session_id,
+            conversation_id,
+            thread_id,
+            &result.content,
+            true,
+        )
+        .await;
+
+        return Ok((result, true));
+    }
+
+    // If no InProgress subtask remained, check for Pending ones and advance the next one.
+    let has_pending = advance_next_pending_subtask(deps, &ctx.task_id, &ctx.session_id);
+    if has_pending {
+        log::info!(
+            "[AgentExecution] Pending subtasks detected for task {} – session will continue",
+            ctx.task_id
+        );
+
+        let tracer = deps.tracer();
+        let _ = tracer.append_trace(
+            &ctx.session_id,
+            &ctx.task_id,
+            ctx.current_subtask_id.as_deref(),
+            ctx.step_number,
+            RuntimeTraceType::ExecutionCompleted,
+            json!({
+                "responseLength": result.content.len(),
+                "totalSteps": result.steps.len(),
+                "totalInputTokens": ctx.total_input_tokens,
+                "totalOutputTokens": ctx.total_output_tokens,
+                "autoCompletedSubtasks": auto_completed,
+                "hasRemainingWork": true,
+                "advancedPendingSubtask": true,
             }),
         );
 
@@ -698,5 +788,95 @@ mod subtask_autocompletion_tests {
         assert!(subtasks_after
             .iter()
             .all(|st| st.status == TaskTaskStatus::Completed));
+    }
+
+    /// Test that Pending subtasks are identified and available for advancement.
+    ///
+    /// This documents the behavior of `advance_next_pending_subtask`: when the agent
+    /// finishes without calling `agent_advance_to_next_subtask`, Pending subtasks
+    /// should be picked up and moved to InProgress so the execution loop continues.
+    #[test]
+    fn test_pending_subtasks_can_be_identified_for_advancement() {
+        let store = SqliteSessionRepository::new(":memory:").unwrap();
+
+        let session = AgentSession::new(
+            AgentId::new("test-agent"),
+            "Test Agent".to_string(),
+            "conv-1".to_string(),
+            "thread-1".to_string(),
+            None,
+            None,
+        );
+        let session_id = session.id.clone();
+        store.create_session(&session).unwrap();
+
+        let task = CoreAgentTask {
+            id: "task-1".to_string(),
+            session_id: session_id.0.clone(),
+            parent_task_id: None,
+            title: "Test Task".to_string(),
+            description: None,
+            status: TaskStatus::InProgress,
+            order: 0,
+            mode: Some(TaskMode::FullAccess),
+            needs_review: false,
+        };
+        TaskRepository::create_task(&store, &task).unwrap();
+
+        // Create 3 subtasks: first is Completed, others are Pending
+        let subtask1 = SubTask::new(
+            "task-1".to_string(),
+            "Step 1".to_string(),
+            SubTaskMode::FullAccess,
+            0,
+        );
+        let subtask2 = SubTask::new(
+            "task-1".to_string(),
+            "Step 2".to_string(),
+            SubTaskMode::FullAccess,
+            1,
+        );
+        let subtask3 = SubTask::new(
+            "task-1".to_string(),
+            "Step 3".to_string(),
+            SubTaskMode::FullAccess,
+            2,
+        );
+
+        store.create_subtask(&subtask1).unwrap();
+        store.create_subtask(&subtask2).unwrap();
+        store.create_subtask(&subtask3).unwrap();
+
+        // Mark first as Completed, rest stay Pending
+        store
+            .update_subtask_status(&subtask1.id, &TaskTaskStatus::Completed)
+            .unwrap();
+
+        // Verify initial state: subtask2 and subtask3 are Pending
+        let subtasks = store.get_subtasks("task-1").unwrap();
+        let pending = subtasks
+            .iter()
+            .filter(|st| st.status == TaskTaskStatus::Pending)
+            .collect::<Vec<_>>();
+
+        assert_eq!(pending.len(), 2, "Should have 2 Pending subtasks");
+        assert_eq!(pending[0].order, 1, "First pending should be subtask2 (order 1)");
+        assert_eq!(pending[1].order, 2, "Second pending should be subtask3 (order 2)");
+
+        // Advance the first pending to InProgress
+        store
+            .update_subtask_status(&subtask2.id, &TaskTaskStatus::InProgress)
+            .unwrap();
+
+        // Verify: subtask2 is now InProgress, subtask3 still Pending
+        let subtasks_after = store.get_subtasks("task-1").unwrap();
+        assert_eq!(
+            subtasks_after[1].status, TaskTaskStatus::InProgress,
+            "Subtask 2 should be InProgress"
+        );
+        assert_eq!(
+            subtasks_after[2].status, TaskTaskStatus::Pending,
+            "Subtask 3 should still be Pending"
+        );
     }
 }
