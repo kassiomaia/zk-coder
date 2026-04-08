@@ -14,7 +14,7 @@ use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::{AgentExecutionResult, AgentRequest};
 use crate::core::agent::types::TrustMode;
 use crate::core::chat::services::ChatService;
-use crate::core::llm::entities::ToolDefinition;
+use crate::core::llm::entities::{ChatMessage as Message, ToolDefinition};
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
 use crate::infrastructure::agent::runtime::AgentRuntimeError;
@@ -27,7 +27,6 @@ use super::deps::ExecutionDeps;
 use super::llm_phase::call_llm;
 use super::response_phase::{handle_response, ResponseDecision};
 use super::step_gate::{begin_step, StepGateOutcome};
-use super::termination::complete_execution;
 use super::tool_phase::{run_tools, ToolPhaseOutcome};
 use super::yolo::ChatYoloModeProvider;
 
@@ -109,21 +108,22 @@ pub async fn execute(
         let resolved =
             resolve_context(&deps, &mut ctx, session, &request, agent_system_prompt, client.as_ref()).await?;
 
-        // All subtasks are in a terminal state — finish without calling the LLM again.
+        // All subtasks are in a terminal state — ask the LLM for a finish summary.
         if resolved.all_subtasks_completed {
             log::info!(
-                "[AgentExecution] All subtasks completed for task {} – finishing execution",
+                "[AgentExecution] All subtasks completed for task {} – requesting finish summary",
                 ctx.task_id
             );
-            let (result, _) = complete_execution(
-                &deps,
-                &ctx,
-                &session.conversation_id,
-                &session.thread_id,
-                String::new(),
-            )
-            .await?;
-            return Ok(result);
+            ctx.llm_context.push(Message::user(
+                "All subtasks have been completed. Provide a concise summary of what was accomplished, key findings, and any important results.",
+            ));
+            let mut resolved = resolved;
+            resolved.tool_definitions = vec![];
+            let llm_result = call_llm(&deps, &mut ctx, &resolved, client.as_ref()).await?;
+            match handle_response(&deps, &mut ctx, session, llm_result).await? {
+                ResponseDecision::Finished(result) => return Ok(result),
+                _ => continue,
+            }
         }
 
         let llm_result = call_llm(&deps, &mut ctx, &resolved, client.as_ref()).await?;
