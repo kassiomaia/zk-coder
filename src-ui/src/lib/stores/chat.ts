@@ -432,6 +432,25 @@ const touchThreadAndConversation = (
 		 * Select a thread and load its messages.
 		 */
 		async selectThread(id: string | null) {
+			if (id !== null) {
+				const currentState = get({ subscribe });
+				if (
+					currentState.threadsLoading === 'success' &&
+					!currentState.threads.some((t) => t.id === id)
+				) {
+					agentStore.setActiveSession(null);
+					update((state) => ({
+						...state,
+						selectedThreadId: null,
+						unreadThreadIds: clearUnreadForThread(state.unreadThreadIds, null),
+						messages: [],
+						messagesLoading: 'idle',
+						error: 'Thread no longer exists'
+					}));
+					return;
+				}
+			}
+
 			update((state) => ({
 				...state,
 				selectedThreadId: id,

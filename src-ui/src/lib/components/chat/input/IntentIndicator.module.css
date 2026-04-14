@@ -46,6 +46,13 @@
 	opacity: 0.7;
 }
 
+/* Error state */
+.badge.error {
+	background: var(--color-error-light);
+	color: var(--color-error);
+	border-color: var(--color-error-border);
+}
+
 .spinner {
 	display: flex;
 	align-items: center;

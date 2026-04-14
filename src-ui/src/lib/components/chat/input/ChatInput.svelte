@@ -409,14 +409,15 @@
 	{/if}
 
 	<!-- Intent indicator -->
-	{#if showIntent && detectedIntent()}
+	{#if showIntent && (detectedIntent() || (useBackendNlp && $nlpState.error))}
 		<div class={styles.intentWrapper}>
 			<IntentIndicator
-				intent={detectedIntent()!.intent}
-				confidence={detectedIntent()!.confidence}
+				intent={detectedIntent()?.intent ?? ''}
+				confidence={detectedIntent()?.confidence ?? 0}
 				showConfidence={true}
 				loading={intentLoading}
-				classification={detectedIntent()}
+				classification={detectedIntent() ?? null}
+				error={useBackendNlp ? $nlpState.error : null}
 			/>
 		</div>
 	{/if}

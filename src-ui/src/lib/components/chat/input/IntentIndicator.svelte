@@ -19,6 +19,8 @@
 		loading?: boolean;
 		/** Full classification result (optional, for backend mode) */
 		classification?: IntentClassification | null;
+		/** Error message; when set and not loading, the badge renders the error state */
+		error?: string | null;
 	}
 
 	let {
@@ -26,8 +28,11 @@
 		confidence = 0,
 		showConfidence = false,
 		loading = false,
-		classification
+		classification,
+		error = null
 	}: Props = $props();
+
+	let hasError = $derived(!loading && !!error);
 
 	// Map legacy/simple intents to display icons
 	const intentIcons: Record<string, string> = {
@@ -87,12 +92,15 @@
 	class={[
 		styles.badge,
 		loading && styles.loading,
-		confidenceLevel() && styles[`confidence-${confidenceLevel()}`]
+		hasError && styles.error,
+		!hasError && confidenceLevel() && styles[`confidence-${confidenceLevel()}`]
 	]
 		.filter(Boolean)
 		.join(' ')}
 	role="status"
-	aria-label="Detected intent: {displayLabel()}"
+	aria-live="polite"
+	aria-label={hasError ? 'Intent detection unavailable' : `Detected intent: ${displayLabel()}`}
+	title={hasError ? (error ?? undefined) : undefined}
 >
 	{#if loading}
 		<span class={styles.spinner}>
@@ -114,6 +122,23 @@
 						repeatCount="indefinite"
 					/>
 				</circle>
+			</svg>
+		</span>
+	{:else if hasError}
+		<span class={styles.icon}>
+			<svg
+				width="14"
+				height="14"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			>
+				<circle cx="12" cy="12" r="10" />
+				<line x1="12" y1="8" x2="12" y2="12" />
+				<line x1="12" y1="16" x2="12.01" y2="16" />
 			</svg>
 		</span>
 	{:else}
@@ -213,8 +238,8 @@
 			</svg>
 		</span>
 	{/if}
-	<span class={styles.label}>{displayLabel()}</span>
-	{#if showConfidence && confidencePercent !== null}
+	<span class={styles.label}>{hasError ? 'Intent unavailable' : displayLabel()}</span>
+	{#if showConfidence && confidencePercent !== null && !hasError}
 		<span class={styles.confidence}>{confidencePercent}%</span>
 	{/if}
 </div>

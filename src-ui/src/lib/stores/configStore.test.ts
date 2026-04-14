@@ -204,6 +204,40 @@ describe('configStore', () => {
 			expect(state.providersLoading).toBe('success');
 		});
 
+		it('initialize aggregates per-provider model load failures into state.error', async () => {
+			const mockProviders = [
+				createMockProvider('prov-1', 'Provider 1', true),
+				createMockProvider('prov-2', 'Provider 2', true)
+			];
+
+			vi.mocked(getProviders).mockResolvedValue(mockProviders);
+			vi.mocked(getOperationDefaults).mockResolvedValue([]);
+			vi.mocked(getModels).mockRejectedValue(new Error('Network down'));
+
+			await configStore.initialize();
+
+			const state = get(configStore);
+			expect(state.providersLoading).toBe('success');
+			expect(state.error).toMatch(/2 provider/);
+			expect(state.error).toContain('Provider 1');
+			expect(state.error).toContain('Provider 2');
+			expect(state.error).toContain('Network down');
+		});
+
+		it('initialize leaves state.error null when all provider model loads succeed', async () => {
+			const mockProviders = [createMockProvider('prov-1', 'Provider 1', true)];
+
+			vi.mocked(getProviders).mockResolvedValue(mockProviders);
+			vi.mocked(getOperationDefaults).mockResolvedValue([]);
+			vi.mocked(getModels).mockResolvedValue([createMockModel('m-1', 'prov-1', 'Model 1')]);
+
+			await configStore.initialize();
+
+			const state = get(configStore);
+			expect(state.providersLoading).toBe('success');
+			expect(state.error).toBeNull();
+		});
+
 		it('initialize handles initialization error', async () => {
 			vi.mocked(getProviders).mockRejectedValue(new Error('Network error'));
 
@@ -619,6 +653,20 @@ describe('configStore', () => {
 			).rejects.toThrow('Save failed');
 		});
 
+		it('saveProvider surfaces error into store state on failure', async () => {
+			const state = get(configStore);
+			state.error = null;
+
+			vi.mocked(saveProvider).mockRejectedValue(new Error('Database locked'));
+
+			await expect(
+				configStore.saveProvider({ name: 'Test', icon: 'T', apiType: 'openai' })
+			).rejects.toThrow('Database locked');
+
+			const newState = get(configStore);
+			expect(newState.error).toBe('Database locked');
+		});
+
 		it('handles removeProvider errors', async () => {
 			vi.mocked(removeProvider).mockRejectedValue(new Error('Remove failed'));
 
@@ -666,6 +714,38 @@ describe('configStore', () => {
 			);
 		});
 
+		it('fetchModels surfaces network errors into store state', async () => {
+			const state = get(configStore);
+			state.error = null;
+
+			vi.mocked(fetchModels).mockRejectedValue(new Error('Network error'));
+
+			await expect(configStore.fetchModels('prov-1', 'test-key', 'openai')).rejects.toThrow(
+				'Network error'
+			);
+
+			const newState = get(configStore);
+			expect(newState.error).toBe('Network error');
+		});
+
+		it('fetchModels surfaces backend-reported failures into store state', async () => {
+			const state = get(configStore);
+			state.error = null;
+
+			vi.mocked(fetchModels).mockResolvedValue({
+				success: false,
+				models: [],
+				message: 'Invalid API key'
+			});
+
+			await expect(configStore.fetchModels('prov-1', 'bad-key', 'openai')).rejects.toThrow(
+				'Invalid API key'
+			);
+
+			const newState = get(configStore);
+			expect(newState.error).toBe('Invalid API key');
+		});
+
 		it('handles storeApiKey errors', async () => {
 			vi.mocked(storeApiKey).mockRejectedValue(new Error('Keychain error'));
 
@@ -682,6 +762,20 @@ describe('configStore', () => {
 			vi.mocked(deleteApiKey).mockRejectedValue(new Error('Delete failed'));
 
 			await expect(configStore.deleteApiKey('prov-1')).rejects.toThrow('Delete failed');
+		});
+
+		it('setOperationDefault surfaces error into store state on failure', async () => {
+			const state = get(configStore);
+			state.error = null;
+
+			vi.mocked(setOperationDefault).mockRejectedValue(new Error('Update failed'));
+
+			await expect(configStore.setOperationDefault('code', 'model-1')).rejects.toThrow(
+				'Update failed'
+			);
+
+			const newState = get(configStore);
+			expect(newState.error).toBe('Update failed');
 		});
 
 		it('handles setOperationDefault errors', async () => {

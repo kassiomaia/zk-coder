@@ -256,6 +256,74 @@ describe('IntentIndicator', () => {
 		});
 	});
 
+	describe('error state', () => {
+		it('renders error variant when error prop is set', () => {
+			const { container } = render(IntentIndicator, {
+				intent: 'generate_code',
+				error: 'Classification service unavailable'
+			});
+			const badge = container.querySelector('.error, [class*="error"]');
+			expect(badge).toBeInTheDocument();
+		});
+
+		it('shows fallback label "Intent unavailable" when errored', () => {
+			render(IntentIndicator, {
+				intent: 'generate_code',
+				error: 'Network failure'
+			});
+			expect(screen.getByText('Intent unavailable')).toBeInTheDocument();
+			expect(screen.queryByText('Generate Code')).not.toBeInTheDocument();
+		});
+
+		it('exposes an accessible label indicating intent detection is unavailable', () => {
+			const { container } = render(IntentIndicator, {
+				intent: 'generate_code',
+				error: 'Backend offline'
+			});
+			const statusEl = container.querySelector('[aria-label="Intent detection unavailable"]');
+			expect(statusEl).toBeInTheDocument();
+		});
+
+		it('suppresses confidence display in error state even when showConfidence is true', () => {
+			render(IntentIndicator, {
+				intent: 'generate_code',
+				confidence: 0.9,
+				showConfidence: true,
+				error: 'Backend offline'
+			});
+			expect(screen.queryByText('90%')).not.toBeInTheDocument();
+		});
+
+		it('prioritizes loading state over error when both are set', () => {
+			const { container } = render(IntentIndicator, {
+				intent: 'generate_code',
+				loading: true,
+				error: 'Backend offline'
+			});
+			const spinner = container.querySelector('.spinner, [class*="spinner"]');
+			expect(spinner).toBeInTheDocument();
+			expect(screen.queryByText('Intent unavailable')).not.toBeInTheDocument();
+		});
+
+		it('exposes the error message as a tooltip for sighted users', () => {
+			const { container } = render(IntentIndicator, {
+				intent: 'generate_code',
+				error: 'Request timed out'
+			});
+			const badge = container.querySelector('[title="Request timed out"]');
+			expect(badge).toBeInTheDocument();
+		});
+
+		it('falls back to normal rendering when error is null', () => {
+			render(IntentIndicator, {
+				intent: 'generate_code',
+				error: null
+			});
+			expect(screen.getByText('Generate Code')).toBeInTheDocument();
+			expect(screen.queryByText('Intent unavailable')).not.toBeInTheDocument();
+		});
+	});
+
 	describe('edge cases', () => {
 		it('handles empty intent string', () => {
 			render(IntentIndicator, {

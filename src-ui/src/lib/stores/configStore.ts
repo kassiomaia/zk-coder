@@ -99,6 +99,7 @@ function createConfigStore() {
 
 				// Load models for all configured providers from the database
 				const modelsByProvider: Record<string, Model[]> = {};
+				const providerLoadFailures: string[] = [];
 				for (const provider of providers) {
 					if (provider.isConfigured) {
 						try {
@@ -109,11 +110,18 @@ function createConfigStore() {
 							}
 						} catch (error) {
 							log.warn(`failed to load models for ${provider.id}:`, error);
+							const detail = error instanceof Error ? error.message : String(error);
+							providerLoadFailures.push(`${provider.name}: ${detail}`);
 						}
 					}
 				}
 
 				log.info('loaded models:', modelsByProvider);
+
+				const aggregatedError =
+					providerLoadFailures.length > 0
+						? `Failed to load models for ${providerLoadFailures.length} provider(s): ${providerLoadFailures.join('; ')}`
+						: null;
 
 				update((state) => ({
 					...state,
@@ -121,7 +129,8 @@ function createConfigStore() {
 					modelsByProvider,
 					operationDefaults: defaults,
 					providersLoading: 'success',
-					defaultsLoading: 'success'
+					defaultsLoading: 'success',
+					error: aggregatedError
 				}));
 			} catch (error) {
 				log.error('initialization failed:', error);
@@ -208,15 +217,22 @@ function createConfigStore() {
 		 * Saves a provider (create or update).
 		 */
 		async saveProvider(request: SaveProviderRequest): Promise<Provider> {
-			const provider = await apiSaveProvider(request);
+			let provider: Provider;
+			try {
+				provider = await apiSaveProvider(request);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				update((state) => ({ ...state, error: message }));
+				throw error;
+			}
 			update((state) => {
 				const existing = state.providers.findIndex((p) => p.id === provider.id);
 				if (existing >= 0) {
 					const providers = [...state.providers];
 					providers[existing] = provider;
-					return { ...state, providers };
+					return { ...state, providers, error: null };
 				}
-				return { ...state, providers: [...state.providers, provider] };
+				return { ...state, providers: [...state.providers, provider], error: null };
 			});
 			return provider;
 		},
@@ -277,7 +293,14 @@ function createConfigStore() {
 			baseUrl?: string
 		): Promise<string[]> {
 			log.info('fetchModels called for provider:', providerId, 'apiType:', apiType);
-			const result = await apiFetchModels(providerId, apiKey, apiType, baseUrl ?? undefined);
+			let result;
+			try {
+				result = await apiFetchModels(providerId, apiKey, apiType, baseUrl ?? undefined);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				update((state) => ({ ...state, error: message }));
+				throw error;
+			}
 			log.info('fetchModels result:', result);
 
 			if (result.success) {
@@ -319,8 +342,9 @@ function createConfigStore() {
 				await this.reloadProviders();
 			} else {
 				log.error('Fetch failed:', result.message);
-				// Throw an error with the message from the backend
-				throw new Error(result.message || 'Failed to fetch models');
+				const message = result.message || 'Failed to fetch models';
+				update((state) => ({ ...state, error: message }));
+				throw new Error(message);
 			}
 
 			return result.models;
@@ -351,17 +375,24 @@ function createConfigStore() {
 		 * Sets the default model for an operation.
 		 */
 		async setOperationDefault(operation: OperationType, modelId: string): Promise<void> {
-			await apiSetOperationDefault(operation, modelId);
+			try {
+				await apiSetOperationDefault(operation, modelId);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				update((state) => ({ ...state, error: message }));
+				throw error;
+			}
 			update((state) => {
 				const existing = state.operationDefaults.findIndex((d) => d.operation === operation);
 				if (existing >= 0) {
 					const operationDefaults = [...state.operationDefaults];
 					operationDefaults[existing] = { operation, modelId };
-					return { ...state, operationDefaults };
+					return { ...state, operationDefaults, error: null };
 				}
 				return {
 					...state,
-					operationDefaults: [...state.operationDefaults, { operation, modelId }]
+					operationDefaults: [...state.operationDefaults, { operation, modelId }],
+					error: null
 				};
 			});
 		},

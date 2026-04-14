@@ -9,7 +9,7 @@
 
 	interface Props {
 		/** Button variant - use 'accent' for main CTAs only */
-		variant?: 'primary' | 'accent' | 'secondary' | 'ghost' | 'danger';
+		variant?: 'primary' | 'accent' | 'secondary' | 'ghost' | 'danger' | 'warning';
 		/** Button size */
 		size?: 'default' | 'sm' | 'lg';
 		/** Disabled state */

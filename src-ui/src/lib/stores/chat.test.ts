@@ -590,6 +590,9 @@ describe('chatStore', () => {
 				createMockMessage('msg-2', 'conv-1', 'thread-1', 'assistant', 'Hi')
 			];
 
+			const setupState = get(chatStore);
+			setupState.threads = [mockThread];
+
 			vi.mocked(loadThreadMessages).mockResolvedValue(mockMessages);
 
 			await chatStore.selectThread('thread-1');
@@ -662,6 +665,34 @@ describe('chatStore', () => {
 			expect(newState.messages).toHaveLength(2); // Original + streaming message
 			expect(newState.messages[1].id).toBe('assist-1');
 			expect(newState.messages[1].content).toBe('Streaming...');
+		});
+
+		it('selectThread clears stale selection when thread id is not found after threads loaded', async () => {
+			const state = get(chatStore);
+			state.threads = [createMockThread('thread-1', 'conv-1', 'Thread 1')];
+			state.threadsLoading = 'success';
+			state.selectedThreadId = 'thread-1';
+			state.error = null;
+
+			await chatStore.selectThread('ghost-thread');
+
+			const newState = get(chatStore);
+			expect(newState.selectedThreadId).toBeNull();
+			expect(newState.error).toMatch(/no longer exists/i);
+			expect(newState.messagesLoading).toBe('idle');
+			expect(loadThreadMessages).not.toHaveBeenCalled();
+		});
+
+		it('selectThread tolerates an unknown id while threads are still loading', async () => {
+			const state = get(chatStore);
+			state.threads = [];
+			state.threadsLoading = 'loading';
+
+			vi.mocked(loadThreadMessages).mockResolvedValue([]);
+
+			await chatStore.selectThread('thread-not-yet-loaded');
+
+			expect(loadThreadMessages).toHaveBeenCalledWith('thread-not-yet-loaded');
 		});
 
 		it('selectThread handles load messages error', async () => {

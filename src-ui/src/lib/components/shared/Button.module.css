@@ -155,6 +155,21 @@
 	opacity: 1;
 }
 
+/* Warning variant */
+.warning {
+	background: transparent;
+	color: var(--color-warning);
+	border-color: var(--color-warning);
+}
+
+.warning::before {
+	background: var(--color-warning-light);
+}
+
+.warning:hover:not(:disabled)::before {
+	opacity: 1;
+}
+
 /* =====================
    Sizes
    ===================== */
@@ -238,6 +253,11 @@
 	animation: dangerShake 400ms var(--ease-in-out);
 }
 
+.expressive.warning:hover:not(:disabled) {
+	transform: translateY(var(--btn-hover-lift));
+	box-shadow: var(--shadow-btn-hover);
+}
+
 /* No animation */
 .none {
 	transition: none;
@@ -294,7 +314,8 @@
 	}
 
 	.expressive.accent:hover:not(:disabled),
-	.expressive.primary:hover:not(:disabled) {
+	.expressive.primary:hover:not(:disabled),
+	.expressive.warning:hover:not(:disabled) {
 		transform: none;
 	}
 

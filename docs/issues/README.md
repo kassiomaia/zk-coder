@@ -135,23 +135,23 @@ This directory contains high-priority issues identified during code review analy
 ### 🚀 Functionality (28 issues)
 1. [CLOSED - Not a bug] Incomplete Copy Message Actions - Copy uses `writeText(message.content)` on the raw markdown string, which preserves all formatting; suggested fix references a `message.type` field that doesn't exist.
 2. [CLOSED - Not a bug] Missing Error Handling for File Uploads - File attach feature is unreachable (no caller wires `onattach`); handler is a trivial passthrough with nothing to catch.
-3. [Missing Error Handling in IntentIndicator](functionality/002-missing-error-handling-intent-indicator.md)
+3. [DONE] Missing Error Handling in IntentIndicator - Fixed (added `error` prop + surfaced `$nlpState.error`)
 4. [Incomplete Markdown Support](functionality/003-incomplete-markdown-support.md)
-5. [Missing Error Handling for improveWithAI in state.js](functionality/003-missing-error-handling-improveWithAI-state-js.md)
+5. [CLOSED - Not Applicable] Missing Error Handling for improveWithAI - File lives in `docs/prototypes/agent-coding-input/js/state.js` (Alpine.js prototype never bundled into `src-ui/`). Real concern only if/when that prototype is ported.
 6. [Missing Error Handling in CustomProviderModal](functionality/004-missing-error-handling-custom-provider-modal.md)
 7. [DONE] No Resolved State Indicator in Thread Indicator - Fixed
 8. [Missing Loading State Feedback in CustomProviderModal](functionality/005-missing-loading-state-feedback-custom-provider-modal.md)
-9. [Missing Thread Not Found in Chat Layout](functionality/005-missing-thread-not-found-chat-layout.md)
+9. [DONE] Missing Thread Not Found in Chat Layout - Fixed (self-heal in `selectThread` + error surfaced via status bar)
 10. [Missing Loading State in ThreadPanel](functionality/006-missing-loading-state-thread-panel.md)
 11. [Unsafe Error Handling in ManualModelList](functionality/006-unsafe-error-handling-manual-model-list.md)
-12. [Missing API Error Handling in State Management](functionality/007-missing-api-error-handling-state-js.md)
+12. [DONE] Missing API Error Handling in State Management - Fixed (`saveProvider`, `fetchModels`, `setOperationDefault`, and `initialize` per-provider model loads now surface errors into `state.error`)
 13. [Missing Loading State in ProvidersModal](functionality/007-missing-loading-state-providers-modal.md)
 14. [Hardcoded API Key Validation Logic](functionality/008-hardcoded-api-key-validation.md)
 15. [Missing Loading State in ManualModelList](functionality/008-missing-loading-state-manual-model-list.md)
 16. [DONE] Missing Confirmation for Destructive Actions - Already resolved via `ConfirmDialog` in `+page.svelte` for delete and archive flows.
-17. [TODO Comments Without Implementation in Main Page](functionality/009-todo-without-implementation-main-page.md)
-18. [Warning Variant Logic Inconsistency in ConfirmDialog](functionality/010-warning-variant-logic-inconsistency-confirm-dialog.md)
-19. [Loading State Inconsistency in ConfirmDialog](functionality/011-loading-state-inconsistency-confirm-dialog.md)
+17. [CLOSED - Not a bug] TODO Comments Without Implementation in Main Page - Referenced `MainPage.svelte` no longer exists; route is `+page.svelte` with zero TODOs and search already implemented.
+18. [DONE] Warning Variant Logic Inconsistency in ConfirmDialog - Fixed (added dedicated `warning` Button variant; removed silent aliasing to `primary`)
+19. [CLOSED - Not a bug] Loading State Inconsistency in ConfirmDialog - Existing single-`loading` guard is correct; `oncancel` is synchronous so dual flags proposed by the suggested fix would never differ. Loading-state tests already cover the behavior.
 20. [DONE] Missing Esc Key Handler in ConfirmDialog - Already works via Modal's built-in handler; regression tests added.
 21. [Custom Input Validation Limitations in ClarificationBanner](functionality/013-custom-input-validation-limitations-clarification-banner.md)
 22. [Missing Error State Handling in ClarificationBanner](functionality/014-missing-error-state-handling-clarification-banner.md)

@@ -20,7 +20,7 @@
 		/** Cancel button label */
 		cancelLabel?: string;
 		/** Confirm button variant */
-		variant?: 'primary' | 'danger' | 'warning';
+		variant?: 'primary' | 'danger' | 'warning' | 'accent';
 		/** Called when confirmed */
 		onconfirm: () => void;
 		/** Called when cancelled */
@@ -64,11 +64,7 @@
 			<Button variant="secondary" onclick={handleCancel} disabled={loading}>
 				{cancelLabel}
 			</Button>
-			<Button
-				variant={variant === 'warning' ? 'primary' : variant}
-				onclick={handleConfirm}
-				{loading}
-			>
+			<Button variant={variant} onclick={handleConfirm} {loading}>
 				{confirmLabel}
 			</Button>
 		</div>

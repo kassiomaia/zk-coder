@@ -204,7 +204,7 @@ describe('ConfirmDialog', () => {
 	});
 
 	describe('variant prop', () => {
-		it('renders danger variant dialog', () => {
+		it('renders danger variant dialog with danger-styled confirm button', () => {
 			render(ConfirmDialog, {
 				open: true,
 				title: 'Delete',
@@ -215,10 +215,10 @@ describe('ConfirmDialog', () => {
 			});
 
 			const confirmButton = screen.getByRole('button', { name: 'Confirm' });
-			expect(confirmButton).toBeInTheDocument();
+			expect(confirmButton.className).toMatch(/danger/);
 		});
 
-		it('renders primary variant dialog', () => {
+		it('renders primary variant dialog with primary-styled confirm button', () => {
 			render(ConfirmDialog, {
 				open: true,
 				title: 'Confirm',
@@ -229,11 +229,11 @@ describe('ConfirmDialog', () => {
 			});
 
 			const confirmButton = screen.getByRole('button', { name: 'Confirm' });
-			expect(confirmButton).toBeInTheDocument();
+			expect(confirmButton.className).toMatch(/primary/);
+			expect(confirmButton.className).not.toMatch(/danger|warning/);
 		});
 
-		it('renders warning variant dialog', () => {
-			// Note: In the component, warning is mapped to primary
+		it('renders warning variant dialog with warning-styled confirm button', () => {
 			render(ConfirmDialog, {
 				open: true,
 				title: 'Warning',
@@ -244,7 +244,8 @@ describe('ConfirmDialog', () => {
 			});
 
 			const confirmButton = screen.getByRole('button', { name: 'Confirm' });
-			expect(confirmButton).toBeInTheDocument();
+			expect(confirmButton.className).toMatch(/warning/);
+			expect(confirmButton.className).not.toMatch(/danger/);
 		});
 	});
 
@@ -379,7 +380,7 @@ describe('ConfirmDialog', () => {
 			expect(screen.getByRole('button', { name: 'Archive' })).toBeInTheDocument();
 		});
 
-		it('renders warning confirmation dialog', () => {
+		it('renders warning confirmation dialog with warning-styled confirm button', () => {
 			render(ConfirmDialog, {
 				open: true,
 				title: 'Unsaved Changes',
@@ -392,7 +393,8 @@ describe('ConfirmDialog', () => {
 			});
 
 			expect(screen.getByText('Unsaved Changes')).toBeInTheDocument();
-			expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+			const confirmButton = screen.getByRole('button', { name: 'Continue' });
+			expect(confirmButton.className).toMatch(/warning/);
 		});
 	});
 
