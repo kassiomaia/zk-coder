@@ -53,3 +53,27 @@ export type {
 	LlmEvent,
 	LlmEventCallback
 } from './llm.js';
+
+// Web search tool config APIs
+export {
+	WEB_SEARCH_TOOL_ID,
+	setToolCredentials,
+	getToolCredentials,
+	deleteToolCredentials,
+	hasToolCredentials,
+	testWebSearchCredentials
+} from './toolCredentials.js';
+export type { WebSearchCredentials } from './toolCredentials.js';
+
+export {
+	getWorkspaceSearchPolicy,
+	setWorkspaceSearchPolicy,
+	deleteWorkspaceSearchPolicy
+} from './workspacePolicy.js';
+export type { WorkspaceSearchPolicy } from './workspacePolicy.js';
+
+export {
+	getWebSearchCacheStats,
+	clearWebSearchCache
+} from './webSearchCache.js';
+export type { WebSearchCacheStats } from './webSearchCache.js';

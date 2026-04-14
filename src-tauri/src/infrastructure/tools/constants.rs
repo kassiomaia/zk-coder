@@ -108,6 +108,18 @@ pub fn is_env_enabled(var: &str) -> bool {
     parse_env_flag(std::env::var(var).ok().as_deref())
 }
 
+/// Returns the process-wide mutex that serializes access to
+/// `CODER_LLM_TOOL_WEB_SEARCH` across test files. Multiple `#[cfg(test)]`
+/// modules touch this env var via `std::env::set_var` / `remove_var`, which
+/// is inherently process-wide state; without a shared lock, a test that
+/// asserts "flag off" can race with a sibling that just set it.
+#[cfg(test)]
+#[must_use]
+pub fn web_search_test_env_lock() -> &'static std::sync::Mutex<()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,7 +1,13 @@
 # Web Search Tool — Implementation Plan (TDD)
 
-**Status**: PLAN
+**Status**: COMPLETE — 2026-04-14
 **Last reviewed**: 2026-04-14
+
+> This plan has been archived. The feature shipped across Phases 0 – 10 on
+> branch `feature/web-search-tool`. Refer to `spec.md` for the ongoing
+> contract, the `CHANGELOG.md` `[Unreleased] → Added` section for the
+> per-phase record, and `docs/archive/tools/web_search/plan.md` for this
+> file's final archived state.
 **Purpose**: Test-first, phase-by-phase plan for shipping `search_web_search`. Each step lists the failing test(s) to write before any production code is touched.
 
 Read `spec.md` and `investigation.md` first. Do not start Phase 1 until the Open Questions in `spec.md §9` have been answered.

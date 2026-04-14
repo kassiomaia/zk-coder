@@ -8,23 +8,12 @@
 
 	import type { Message } from '$lib/types/message';
 	import styles from './ToolCallMessage.module.css';
-	import {
-		AlertCircle,
-		CheckCircle2,
-		ChevronRight,
-		Code,
-		FilePenLine,
-		FileSearch,
-		FileText,
-		Globe,
-		Terminal,
-		Search,
-		Eye,
-		PlayCircle
-	} from 'lucide-svelte';
+	import { AlertCircle, CheckCircle2, ChevronRight, Code } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 	import hljs from 'highlight.js';
 	import 'highlight.js/styles/github-dark.css';
+	import { getToolRenderer } from './tool-renderers/registry';
+	import type { ToolCallStatus } from './tool-renderers/types';
 
 	interface Props {
 		message: Message;
@@ -35,7 +24,9 @@
 	// Use $derived for reactive values from props
 	const agentData = $derived(message.agentData);
 	const toolName = $derived(agentData?.toolName ?? 'unknown');
-	const toolCallStatus = $derived(agentData?.toolCallStatus ?? 'pending');
+	const toolCallStatus = $derived<ToolCallStatus>(
+		(agentData?.toolCallStatus ?? 'pending') as ToolCallStatus
+	);
 	const isError = $derived(toolCallStatus === 'error');
 
 	let expanded = $state(false);
@@ -45,28 +36,11 @@
 		expanded = !expanded;
 	}
 
-	const toolIconMap: Record<string, any> = {
-		fs_read_file: FileText,
-		fs_write_file: FilePenLine,
-		fs_glob: FileSearch,
-		fs_grep: Search,
-		execute_command: Terminal,
-		web_request: Globe,
-		llm_request: Code,
-		read: FileText,
-		write: FilePenLine,
-		glob: FileSearch,
-		grep: Search,
-		bash: Terminal,
-		webfetch: Globe,
-		skill: PlayCircle,
-		task: Eye,
-		read_file: FileText,
-		write_file: FilePenLine,
-		web_fetch: Globe
-	};
-
-	const ToolIcon = $derived(toolIconMap[toolName] || Code);
+	// Resolve the per-tool renderer from the static registry. Unknown tool
+	// names fall through to the `defaultRenderer`, which surfaces the raw
+	// tool name as the title so the user still has a clue what ran.
+	const renderer = $derived(getToolRenderer(toolName));
+	const ToolIcon = $derived(renderer.icon);
 
 	function formatJSON(obj: any): string {
 		if (!obj) return '';
@@ -78,74 +52,8 @@
 		}
 	}
 
-	function getActionSummary(tool: string, args: any): { title: string; subtitle?: string } {
-		if (!args) return { title: tool };
-
-		switch (tool) {
-			case 'fs_read_file':
-			case 'read_file':
-			case 'read':
-				return { title: 'Read file', subtitle: args.filePath || args.path };
-			case 'fs_write_file':
-			case 'write_file':
-			case 'write':
-				return { title: 'Modified file', subtitle: args.filePath || args.path };
-			case 'fs_glob':
-			case 'glob':
-				return { title: 'Searched files', subtitle: args.pattern };
-			case 'fs_grep':
-			case 'grep':
-				return { title: 'Searched content', subtitle: args.pattern };
-			case 'execute_command':
-			case 'bash':
-				return { title: 'Ran command', subtitle: args.command };
-			case 'web_request':
-			case 'web_fetch':
-			case 'webfetch':
-				return { title: 'Fetched URL', subtitle: args.url };
-			case 'skill':
-				return { title: 'Loaded skill', subtitle: args.name };
-			case 'task':
-				return { title: 'Spawned agent', subtitle: args.description };
-			default:
-				return { title: tool, subtitle: Object.values(args)[0] as string };
-		}
-	}
-
-	function getOutcomeSummary(tool: string, res: any, status: string): string {
-		if (status === 'error') return 'Action failed';
-		if (status === 'pending') return 'Executing...';
-		if (!res) return 'Completed';
-
-		switch (tool) {
-			case 'fs_read_file':
-			case 'read_file':
-			case 'read':
-				return `Read ${res.content?.split('\n').length || 0} lines`;
-			case 'fs_write_file':
-			case 'write_file':
-			case 'write':
-				return 'Changes applied successfully';
-			case 'fs_glob':
-			case 'glob':
-				const count = Array.isArray(res) ? res.length : res.paths?.length || 0;
-				return `Found ${count} matching files`;
-			case 'fs_grep':
-			case 'grep':
-				const matchCount = Array.isArray(res) ? res.length : Object.keys(res).length || 0;
-				return `Found matches in ${matchCount} files`;
-			case 'execute_command':
-			case 'bash':
-				return res.exit_code === 0
-					? 'Command finished successfully'
-					: `Failed with exit code ${res.exit_code}`;
-			default:
-				return 'Completed';
-		}
-	}
-
-	const summary = $derived(getActionSummary(toolName, agentData?.toolArgs));
-	const outcome = $derived(getOutcomeSummary(toolName, agentData?.toolResult, toolCallStatus));
+	const summary = $derived(renderer.getSummary(agentData?.toolArgs, toolName));
+	const outcome = $derived(renderer.getOutcome(agentData?.toolResult, toolCallStatus));
 
 	// Helper to safely extract error message from toolResult
 	function getErrorMessage(result: unknown): string {
@@ -244,7 +152,17 @@
 					</div>
 				</div>
 
-				{#if agentData?.toolResult !== undefined}
+				{#if renderer.BodyComponent}
+					{@const BodyComponent = renderer.BodyComponent}
+					<div class={styles.detailGroup}>
+						<div class={styles.groupLabel}>Result Overview</div>
+						<BodyComponent
+							args={agentData?.toolArgs}
+							result={agentData?.toolResult}
+							status={toolCallStatus}
+						/>
+					</div>
+				{:else if agentData?.toolResult !== undefined}
 					<div class={styles.detailGroup}>
 						<div class={styles.groupLabel}>Result Overview</div>
 						<div class={styles.resultSummary}>

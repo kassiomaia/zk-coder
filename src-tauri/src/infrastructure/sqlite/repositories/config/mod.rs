@@ -11,9 +11,11 @@ use thiserror::Error;
 use crate::infrastructure::sqlite::migrations::{config, config_schema};
 
 use crate::core::config::{
-    ApiKeyRepository, ConfigDomainError, ManualModelEntry, ManualModelRepository, Model,
-    ModelRepository, ModelsSource, OperationDefault, OperationDefaultsRepository, OperationType,
-    Provider, ProviderRepository, ToolCredentialsRepository,
+    ApiKeyRepository, CachedWebSearchEntry, ConfigDomainError, ManualModelEntry,
+    ManualModelRepository, Model, ModelRepository, ModelsSource, NewCachedWebSearchEntry,
+    OperationDefault, OperationDefaultsRepository, OperationType, Provider, ProviderRepository,
+    StoredWorkspaceSearchPolicy, ToolCredentialsRepository, WebSearchCacheRepository,
+    WorkspaceSearchPolicyRepository,
 };
 
 // Re-export submodule functions
@@ -24,6 +26,8 @@ pub(crate) mod models;
 pub(crate) mod operation_defaults;
 pub(crate) mod providers;
 pub(crate) mod tool_credentials;
+pub(crate) mod web_search_cache;
+pub(crate) mod workspace_search_policy;
 
 /// Errors from the `SQLite` configuration repository.
 #[derive(Debug, Error)]
@@ -467,6 +471,143 @@ impl SqliteConfigRepository {
         let conn = self.acquire_lock()?;
         tool_credentials::has_tool_credentials(&conn, tool_id)
     }
+
+    // =========================================================================
+    // Workspace Search Policy Operations
+    // =========================================================================
+
+    /// Reads the stored policy for `workspace_path`, if any.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn get_workspace_search_policy(
+        &self,
+        workspace_path: &str,
+    ) -> Result<Option<StoredWorkspaceSearchPolicy>, ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        Ok(workspace_search_policy::get_workspace_policy(
+            &conn,
+            workspace_path,
+        )?
+        .map(|p| StoredWorkspaceSearchPolicy {
+            allowlist: p.allowlist,
+            denylist: p.denylist,
+        }))
+    }
+
+    /// Upserts the policy for `workspace_path`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn set_workspace_search_policy(
+        &self,
+        workspace_path: &str,
+        allowlist: &[String],
+        denylist: &[String],
+    ) -> Result<(), ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        workspace_search_policy::set_workspace_policy(&conn, workspace_path, allowlist, denylist)
+    }
+
+    /// Deletes the stored policy for `workspace_path` (no-op when absent).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn delete_workspace_search_policy(
+        &self,
+        workspace_path: &str,
+    ) -> Result<(), ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        workspace_search_policy::delete_workspace_policy(&conn, workspace_path)
+    }
+
+    // =========================================================================
+    // Web Search Cache Operations
+    // =========================================================================
+
+    /// Looks up a fresh cache entry by key.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn get_fresh_web_search_cache(
+        &self,
+        cache_key: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Option<CachedWebSearchEntry>, ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        Ok(web_search_cache::get_fresh(&conn, cache_key, now)?.map(|e| {
+            CachedWebSearchEntry {
+                results_json: e.results_json,
+                provider: e.provider,
+            }
+        }))
+    }
+
+    /// Persists a new cache entry.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn put_web_search_cache(
+        &self,
+        entry: &NewCachedWebSearchEntry<'_>,
+    ) -> Result<(), ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        let raw = web_search_cache::NewCacheEntry {
+            cache_key: entry.cache_key,
+            query: entry.query,
+            num_results: entry.num_results,
+            language: entry.language,
+            site: entry.site,
+            workspace_path: entry.workspace_path,
+            provider: entry.provider,
+            results_json: entry.results_json,
+            created_at: entry.created_at,
+            expires_at: entry.expires_at,
+        };
+        web_search_cache::put(&conn, &raw)
+    }
+
+    /// Drops every expired cache row.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn sweep_expired_web_search_cache(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<usize, ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        web_search_cache::sweep_expired(&conn, now)
+    }
+
+    /// Clears cache entries. `None` clears everything; `Some(path)` clears
+    /// one workspace partition.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn clear_web_search_cache(
+        &self,
+        workspace_path: Option<&str>,
+    ) -> Result<usize, ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        web_search_cache::clear(&conn, workspace_path)
+    }
+
+    /// Total cache row count.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn count_web_search_cache(&self) -> Result<usize, ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        web_search_cache::count(&conn)
+    }
 }
 
 impl From<ConfigRepositoryError> for ConfigDomainError {
@@ -674,6 +815,67 @@ impl ToolCredentialsRepository for SqliteConfigRepository {
         tool_id: &str,
     ) -> crate::core::config::ConfigRepositoryResult<bool> {
         Self::has_tool_credentials(self, tool_id).map_err(Into::into)
+    }
+}
+
+impl WorkspaceSearchPolicyRepository for SqliteConfigRepository {
+    fn get_workspace_search_policy(
+        &self,
+        workspace_path: &str,
+    ) -> crate::core::config::ConfigRepositoryResult<Option<StoredWorkspaceSearchPolicy>> {
+        Self::get_workspace_search_policy(self, workspace_path).map_err(Into::into)
+    }
+
+    fn set_workspace_search_policy(
+        &self,
+        workspace_path: &str,
+        allowlist: &[String],
+        denylist: &[String],
+    ) -> crate::core::config::ConfigRepositoryResult<()> {
+        Self::set_workspace_search_policy(self, workspace_path, allowlist, denylist)
+            .map_err(Into::into)
+    }
+
+    fn delete_workspace_search_policy(
+        &self,
+        workspace_path: &str,
+    ) -> crate::core::config::ConfigRepositoryResult<()> {
+        Self::delete_workspace_search_policy(self, workspace_path).map_err(Into::into)
+    }
+}
+
+impl WebSearchCacheRepository for SqliteConfigRepository {
+    fn get_fresh(
+        &self,
+        cache_key: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> crate::core::config::ConfigRepositoryResult<Option<CachedWebSearchEntry>> {
+        Self::get_fresh_web_search_cache(self, cache_key, now).map_err(Into::into)
+    }
+
+    fn put(
+        &self,
+        entry: &NewCachedWebSearchEntry<'_>,
+    ) -> crate::core::config::ConfigRepositoryResult<()> {
+        Self::put_web_search_cache(self, entry).map_err(Into::into)
+    }
+
+    fn sweep_expired(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> crate::core::config::ConfigRepositoryResult<usize> {
+        Self::sweep_expired_web_search_cache(self, now).map_err(Into::into)
+    }
+
+    fn clear(
+        &self,
+        workspace_path: Option<&str>,
+    ) -> crate::core::config::ConfigRepositoryResult<usize> {
+        Self::clear_web_search_cache(self, workspace_path).map_err(Into::into)
+    }
+
+    fn count(&self) -> crate::core::config::ConfigRepositoryResult<usize> {
+        Self::count_web_search_cache(self).map_err(Into::into)
     }
 }
 

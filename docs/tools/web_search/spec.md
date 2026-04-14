@@ -1,7 +1,8 @@
 # Web Search Tool — Feature Specification
 
-**Status**: PLAN
+**Status**: ACTIVE
 **Last reviewed**: 2026-04-14
+**Shipped**: 2026-04-14 (see `CHANGELOG.md` under `[Unreleased] → Added`)
 **Purpose**: Scope, interfaces, and constraints for the `search_web_search` tool that lets the agent query the public web via a Google-provided search API.
 
 ---

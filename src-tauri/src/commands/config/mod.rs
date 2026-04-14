@@ -14,6 +14,12 @@ pub mod providers;
 mod state;
 #[cfg(all(test, feature = "integration-test"))]
 mod tests;
+/// Re-exports for per-tool credentials commands (web search today).
+pub mod tool_credentials;
+/// Re-exports for web-search cache management commands.
+pub mod web_search_cache;
+/// Re-exports for per-workspace web-search policy commands.
+pub mod workspace_policy;
 
 // Re-exports from api_keys module
 pub use api_keys::{
@@ -35,3 +41,15 @@ pub use models::{
 pub use providers::{get_providers, remove_provider, save_provider};
 // Re-exports from state module
 pub use state::ConfigState;
+// Re-exports from tool_credentials module
+pub use tool_credentials::{
+    delete_tool_credentials, get_tool_credentials, has_tool_credentials, set_tool_credentials,
+    test_web_search_credentials, WebSearchCredentialsPayload,
+};
+// Re-exports from web_search_cache module
+pub use web_search_cache::{clear_web_search_cache, web_search_cache_stats, CacheStats};
+// Re-exports from workspace_policy module
+pub use workspace_policy::{
+    delete_workspace_search_policy, get_workspace_search_policy, set_workspace_search_policy,
+    WorkspacePolicyDto,
+};

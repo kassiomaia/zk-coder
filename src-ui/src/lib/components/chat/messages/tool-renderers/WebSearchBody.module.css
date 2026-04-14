@@ -1,0 +1,49 @@
+.wrap {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.banner {
+	padding: var(--space-2) var(--space-3);
+	font-size: var(--text-xs);
+	line-height: 1.5;
+	border: 1px solid transparent;
+}
+
+.bannerNeutral {
+	background: var(--color-bg-tertiary);
+	border-color: var(--color-border-subtle);
+	color: var(--color-text-secondary);
+}
+
+.bannerError {
+	background: var(--color-error-light);
+	border-color: var(--color-error-border);
+	color: var(--color-error);
+}
+
+.bannerAction {
+	margin-top: var(--space-1);
+}
+
+.bannerButton {
+	border: 0;
+	background: transparent;
+	color: var(--color-primary-400);
+	cursor: pointer;
+	font: inherit;
+	font-weight: var(--font-medium);
+	padding: 0;
+	margin: 0;
+	text-decoration: underline;
+}
+
+.bannerButton:hover {
+	color: var(--color-text-primary);
+}
+
+.bannerButton:focus-visible {
+	outline: 2px solid var(--color-primary-400);
+	outline-offset: 2px;
+}

@@ -12,7 +12,8 @@
 	import ProviderIcon from './ProviderIcon.svelte';
 	import OperationIcon from './OperationIcon.svelte';
 	import Select from '../shared/Select.svelte';
-	import { AlertCircleIcon, BoxIcon, CheckIcon, UserIcon } from '$lib/icons';
+	import WebSearchSection from '../settings/web-search/WebSearchSection.svelte';
+	import { AlertCircleIcon, BoxIcon, CheckIcon, SearchIcon, UserIcon } from '$lib/icons';
 
 	import { createLogger } from '$lib/utils/logger';
 
@@ -24,9 +25,21 @@
 		onconfigure: (providerId: string) => void;
 		onaddcustom: () => void;
 		onremoveprovider: (providerId: string) => void;
+		/** Canonicalized workspace path for the web-search policy editor. */
+		workspacePath?: string;
+		/** Tilde-compressed display path. */
+		workspaceDisplayPath?: string;
 	}
 
-	let { open, onclose, onconfigure, onaddcustom, onremoveprovider }: Props = $props();
+	let {
+		open,
+		onclose,
+		onconfigure,
+		onaddcustom,
+		onremoveprovider,
+		workspacePath = '',
+		workspaceDisplayPath
+	}: Props = $props();
 
 	// Derived reactive map of selected model IDs by operation
 	// Using $derived ensures Svelte 5 properly tracks $configStore.operationDefaults changes
@@ -143,6 +156,19 @@
 						</div>
 					{/if}
 				</div>
+			</section>
+
+			<!-- Tools → Web Search Section -->
+			<section class="modal-section {styles.section}">
+				<header class={styles.sectionHeader}>
+					<div class={styles.sectionTitleGroup}>
+						<div class={styles.sectionIcon}>
+							<SearchIcon size={16} />
+						</div>
+						<h3 class={styles.sectionTitle}>Tools — Web Search</h3>
+					</div>
+				</header>
+				<WebSearchSection {workspacePath} {workspaceDisplayPath} />
 			</section>
 
 			<!-- Models Section -->

@@ -84,6 +84,25 @@ pub fn run() {
                 SqliteConfigRepository::new(&config_db.to_string_lossy())
                     .expect("Failed to initialize SqliteConfigRepository"),
             );
+
+            // Best-effort: purge expired web_search cache entries on startup
+            // so the DB stays tidy. A failure here must not block launch.
+            match config_repository.sweep_expired_web_search_cache(chrono::Utc::now()) {
+                Ok(removed) if removed > 0 => {
+                    log::info!(
+                        target: "web_search",
+                        "startup sweep removed {removed} expired cache entries"
+                    );
+                }
+                Ok(_) => {}
+                Err(err) => {
+                    log::warn!(
+                        target: "web_search",
+                        "startup sweep of expired cache entries failed: {err}"
+                    );
+                }
+            }
+
             let llm_service = Arc::new(LlmServiceImpl::new(config_repository))
                 as Arc<dyn crate::core::llm::services::LlmService>;
 
@@ -194,6 +213,17 @@ pub fn run() {
             commands::config::models::add_manual_model,
             commands::config::models::remove_manual_model,
             commands::config::models::set_provider_models_source,
+            // Web search tool config commands
+            commands::config::tool_credentials::set_tool_credentials,
+            commands::config::tool_credentials::get_tool_credentials,
+            commands::config::tool_credentials::delete_tool_credentials,
+            commands::config::tool_credentials::has_tool_credentials,
+            commands::config::tool_credentials::test_web_search_credentials,
+            commands::config::workspace_policy::get_workspace_search_policy,
+            commands::config::workspace_policy::set_workspace_search_policy,
+            commands::config::workspace_policy::delete_workspace_search_policy,
+            commands::config::web_search_cache::clear_web_search_cache,
+            commands::config::web_search_cache::web_search_cache_stats,
             // LLM commands
             commands::llm::commands::send_chat_message,
             commands::llm::commands::send_chat_message_streaming,

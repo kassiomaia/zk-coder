@@ -85,6 +85,43 @@ pub fn init_schema(conn: &Connection) -> Result<(), ConfigRepositoryError> {
             credentials TEXT NOT NULL,
             updated_at  TEXT NOT NULL
         );
+
+        -- Per-workspace domain policy for the web search tool.
+        --
+        -- `workspace_path` is the canonicalized absolute path of the workspace
+        -- root (empty string = global fallback for sessions without one).
+        -- `allowlist` / `denylist` are JSON arrays of domain patterns
+        -- (exact host, leading-dot for subdomains, or '*' for any).
+        CREATE TABLE IF NOT EXISTS workspace_search_policy (
+            workspace_path TEXT PRIMARY KEY,
+            allowlist      TEXT NOT NULL,
+            denylist       TEXT NOT NULL,
+            updated_at     TEXT NOT NULL
+        );
+
+        -- Web search result cache.
+        --
+        -- Key is SHA-256 of the normalized request + workspace path so
+        -- per-workspace partitioning is baked into the primary key and a
+        -- policy change in one workspace cannot bleed into another. The
+        -- `results` column is JSON-serialized Vec<WebSearchResult>. The
+        -- index on `expires_at` lets the startup sweep purge stale rows
+        -- in one pass.
+        CREATE TABLE IF NOT EXISTS web_search_cache (
+            cache_key       TEXT PRIMARY KEY,
+            query           TEXT NOT NULL,
+            num_results     INTEGER NOT NULL,
+            language        TEXT,
+            site            TEXT,
+            workspace_path  TEXT NOT NULL,
+            provider        TEXT NOT NULL,
+            results         TEXT NOT NULL,
+            created_at      TEXT NOT NULL,
+            expires_at      TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_web_search_cache_expires
+        ON web_search_cache(expires_at);
         ",
     )?;
     Ok(())
@@ -114,6 +151,8 @@ mod tests {
         assert!(tables.contains(&"operation_defaults".to_string()));
         assert!(tables.contains(&"providers".to_string()));
         assert!(tables.contains(&"tool_credentials".to_string()));
+        assert!(tables.contains(&"workspace_search_policy".to_string()));
+        assert!(tables.contains(&"web_search_cache".to_string()));
     }
 
     #[test]

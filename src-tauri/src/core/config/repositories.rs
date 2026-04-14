@@ -94,6 +94,91 @@ pub trait ApiKeyRepository: Send + Sync {
     fn has_api_key(&self, provider_id: &str) -> RepositoryResult<bool>;
 }
 
+/// Allow/deny domain lists as persisted for one workspace. Empty vectors mean
+/// "no filter in that direction".
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct StoredWorkspaceSearchPolicy {
+    /// Domains the tool is allowed to search (empty = any).
+    pub allowlist: Vec<String>,
+    /// Domains the tool must never search.
+    pub denylist: Vec<String>,
+}
+
+/// A fresh cache hit for the web-search tool.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CachedWebSearchEntry {
+    /// JSON-encoded `Vec<WebSearchResult>` as persisted. The tool layer
+    /// deserializes this into the typed shape.
+    pub results_json: String,
+    /// Provider identifier recorded at insert time.
+    pub provider: String,
+}
+
+/// New entry to be persisted in the web-search cache.
+pub struct NewCachedWebSearchEntry<'a> {
+    /// SHA-256-derived key owned by the tool layer.
+    pub cache_key: &'a str,
+    /// Normalized query string.
+    pub query: &'a str,
+    /// Number of results requested.
+    pub num_results: usize,
+    /// BCP-47 language tag, normalized to lowercase.
+    pub language: Option<&'a str>,
+    /// Site restriction, normalized to lowercase.
+    pub site: Option<&'a str>,
+    /// Canonical workspace path (empty string = global bucket).
+    pub workspace_path: &'a str,
+    /// Provider identifier.
+    pub provider: &'a str,
+    /// JSON-encoded results payload.
+    pub results_json: &'a str,
+    /// Timestamp at which this entry was created.
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    /// Timestamp at which this entry should be treated as expired.
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// A repository for the web-search tool's result cache.
+pub trait WebSearchCacheRepository: Send + Sync {
+    /// Returns the cached entry for `cache_key` when it exists and is still
+    /// fresh relative to `now`.
+    fn get_fresh(
+        &self,
+        cache_key: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> RepositoryResult<Option<CachedWebSearchEntry>>;
+    /// Upserts a cache entry.
+    fn put(&self, entry: &NewCachedWebSearchEntry<'_>) -> RepositoryResult<()>;
+    /// Deletes every row whose `expires_at <= now`. Returns the number removed.
+    fn sweep_expired(&self, now: chrono::DateTime<chrono::Utc>) -> RepositoryResult<usize>;
+    /// `Some(path)` clears only that workspace partition; `None` clears everything.
+    fn clear(&self, workspace_path: Option<&str>) -> RepositoryResult<usize>;
+    /// Total row count including not-yet-swept expired entries.
+    fn count(&self) -> RepositoryResult<usize>;
+}
+
+/// A repository for the web-search tool's per-workspace domain policy.
+///
+/// The `workspace_path` is the canonicalized absolute path of the workspace
+/// root; the empty string is a sentinel for "no workspace" (global fallback).
+/// Entries not present in the store are treated as an empty policy (no filter).
+pub trait WorkspaceSearchPolicyRepository: Send + Sync {
+    /// Retrieves the policy for `workspace_path`, or `None` when absent.
+    fn get_workspace_search_policy(
+        &self,
+        workspace_path: &str,
+    ) -> RepositoryResult<Option<StoredWorkspaceSearchPolicy>>;
+    /// Upserts the policy for `workspace_path`.
+    fn set_workspace_search_policy(
+        &self,
+        workspace_path: &str,
+        allowlist: &[String],
+        denylist: &[String],
+    ) -> RepositoryResult<()>;
+    /// Deletes the stored policy for `workspace_path` (no-op when absent).
+    fn delete_workspace_search_policy(&self, workspace_path: &str) -> RepositoryResult<()>;
+}
+
 /// A repository for tool-owned credential blobs.
 ///
 /// The value stored for `tool_id` is opaque JSON whose shape is owned by the
@@ -133,6 +218,8 @@ pub trait ConfigRepository:
     + ApiKeyRepository
     + ManualModelRepository
     + ToolCredentialsRepository
+    + WorkspaceSearchPolicyRepository
+    + WebSearchCacheRepository
 {
 }
 
@@ -145,5 +232,7 @@ impl<T> ConfigRepository for T where
         + ApiKeyRepository
         + ManualModelRepository
         + ToolCredentialsRepository
+        + WorkspaceSearchPolicyRepository
+        + WebSearchCacheRepository
 {
 }

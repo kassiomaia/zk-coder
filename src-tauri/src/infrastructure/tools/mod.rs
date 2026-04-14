@@ -247,4 +247,35 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_search_web_search_is_gated_by_feature_flag() {
+        use crate::infrastructure::tools::constants::{
+            web_search_test_env_lock, ENV_WEB_SEARCH_ENABLED,
+        };
+
+        let _guard = web_search_test_env_lock()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        // Flag OFF → tool is absent from the LLM-visible catalog.
+        std::env::remove_var(ENV_WEB_SEARCH_ENABLED);
+        let off = ToolRegistry::new().unwrap();
+        let off_names: Vec<_> = off.definitions().iter().map(|d| d.name.clone()).collect();
+        assert!(
+            !off_names.contains(&"search_web_search".to_string()),
+            "tool must be hidden when flag is off"
+        );
+
+        // Flag ON → tool appears.
+        std::env::set_var(ENV_WEB_SEARCH_ENABLED, "1");
+        let on = ToolRegistry::new().unwrap();
+        let on_names: Vec<_> = on.definitions().iter().map(|d| d.name.clone()).collect();
+        assert!(
+            on_names.contains(&"search_web_search".to_string()),
+            "tool must appear when flag is on"
+        );
+
+        std::env::remove_var(ENV_WEB_SEARCH_ENABLED);
+    }
 }

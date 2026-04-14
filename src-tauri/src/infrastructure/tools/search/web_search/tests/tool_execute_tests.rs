@@ -5,23 +5,24 @@
 //! Env-var state is shared across the process, so the tests coordinate
 //! through a module-scoped mutex.
 
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, MutexGuard};
 
 use serde_json::{json, Value as JsonValue};
 
-use crate::infrastructure::tools::constants::ENV_WEB_SEARCH_ENABLED;
+use crate::infrastructure::tools::constants::{
+    web_search_test_env_lock, ENV_WEB_SEARCH_ENABLED,
+};
 use crate::infrastructure::tools::search::web_search::execute_inner_for_tests;
 use crate::infrastructure::tools::search::web_search::provider::mock::{
     MockProvider, MockResponse,
 };
 use crate::infrastructure::tools::search::web_search::provider::{
-    RawResult, SearchProviderError,
+    RawResult, SearchProvider, SearchProviderError,
 };
+use crate::infrastructure::tools::search::web_search::ExecuteDeps;
 
-static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-/// RAII guard that holds the env-var lock and cleans the flag up on drop,
-/// even if the test panics mid-way.
+/// RAII guard that holds the process-wide env-var lock and cleans the flag
+/// up on drop, even if the test panics mid-way.
 struct EnvGuard {
     _lock: MutexGuard<'static, ()>,
 }
@@ -33,13 +34,17 @@ impl Drop for EnvGuard {
 }
 
 fn flag_on() -> EnvGuard {
-    let lock = ENV_LOCK.lock().expect("env lock poisoned");
+    let lock = web_search_test_env_lock()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     std::env::set_var(ENV_WEB_SEARCH_ENABLED, "1");
     EnvGuard { _lock: lock }
 }
 
 fn flag_off() -> EnvGuard {
-    let lock = ENV_LOCK.lock().expect("env lock poisoned");
+    let lock = web_search_test_env_lock()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     std::env::remove_var(ENV_WEB_SEARCH_ENABLED);
     EnvGuard { _lock: lock }
 }
@@ -60,13 +65,16 @@ fn sample_raws() -> Vec<RawResult> {
 }
 
 async fn run(
-    provider: Arc<dyn crate::infrastructure::tools::search::web_search::provider::SearchProvider>,
+    provider: Arc<dyn SearchProvider>,
     args: JsonValue,
 ) -> Result<
     crate::infrastructure::tools::search::web_search::types::WebSearchOutput,
     crate::infrastructure::tools::search::web_search::error::WebSearchFailure,
 > {
-    execute_inner_for_tests(provider, args).await
+    // These tests exercise the tool without a workspace policy or cache;
+    // policy enforcement and cache behavior have their own dedicated suites
+    // (`policy_tests.rs`, `cache_integration_tests.rs`).
+    execute_inner_for_tests(ExecuteDeps::test_minimal(provider), args).await
 }
 
 #[tokio::test]
@@ -264,7 +272,9 @@ async fn execute_passes_language_to_provider() {
     .await
     .expect("ok");
     let observed = provider.observed_requests();
-    assert_eq!(observed[0].language.as_deref(), Some("pt-BR"));
+    // The locale resolver lowercases the BCP-47 tag so cache keys stay
+    // stable across case variants. Google accepts either case for `hl`.
+    assert_eq!(observed[0].language.as_deref(), Some("pt-br"));
 }
 
 #[tokio::test]

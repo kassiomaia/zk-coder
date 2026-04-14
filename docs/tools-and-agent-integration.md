@@ -17,14 +17,14 @@ At runtime, tools sit between:
 - the permission and approval system
 - frontend event streams and persisted session telemetry
 
-The current built-in registry exposes 30 tools across 8 categories:
+The current built-in registry exposes 31 tools across 8 categories:
 
 | Category | Count | Purpose |
 |---|---:|---|
 | `system` | 2 | App metadata and shell execution |
 | `fs` | 3 | Workspace file reads, listing, and writes |
 | `conversation` | 1 | Search chat history |
-| `search` | 2 | Workspace grep and optional web search |
+| `search` | 3 | Workspace grep and production / dev-only web search |
 | `agent` | 5 | Status, narration, and subtask management |
 | `docx` | 4 | Incremental Word document drafting |
 | `pptx` | 8 | Incremental PowerPoint drafting |
@@ -266,7 +266,7 @@ The `docx_*`, `pptx_*`, and `pdf_*` tools operate on in-memory draft stores plus
 |---|---|---|
 | `search_grep` | Regex search across workspace files. | `query: string` required. `max_results: integer` optional, default `50`, max `200`. `case_sensitive: boolean` optional. `path: string` optional subpath scope. |
 | `search_google_scrape` | Experimental HTML-scraping Google search. Exposed only when `CODER_LLM_TOOL_GOOGLE_SCRAPE=1`. | `query: string` required. `num_results: integer` optional, default `5`, max `10`. `language: string` optional. |
-| `search_web_search` | _planned_ — Production Google Custom Search JSON API wrapper. Gated by `CODER_LLM_TOOL_WEB_SEARCH=1` and DB-stored credentials. See `docs/tools/web_search/`. | `query: string` required. `num_results: integer` optional, default `5`, max `10`. `language: string` optional (BCP-47). `site: string` optional, subject to per-workspace policy. |
+| `search_web_search` | Production Google Custom Search JSON API wrapper with per-workspace domain policy, SQLite-backed result cache (24 h TTL), system-locale fallback for `hl`, and structured `error_code` bodies. Gated by `CODER_LLM_TOOL_WEB_SEARCH=1` and DB-stored credentials managed in Settings → Tools → Web Search. Spec: `docs/tools/web_search/spec.md`. | `query: string` required (1–512 chars). `num_results: integer` optional, default `5`, max `10`. `language: string` optional (BCP-47); defaults to the host system locale. `site: string` optional; rejected with `filtered_by_policy` when the active workspace's allow/deny list excludes it. |
 
 ## `agent`
 
