@@ -2,6 +2,7 @@
 
 mod google_scrape;
 mod grep;
+pub(crate) mod web_search;
 
 use crate::infrastructure::tools::traits::{Tool, ToolCategory};
 pub use google_scrape::GoogleScrapeTool;

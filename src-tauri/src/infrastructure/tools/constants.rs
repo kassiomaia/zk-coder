@@ -41,6 +41,12 @@ pub const MAX_MESSAGE_SEARCH_LIMIT: usize = 100;
 /// Default number of search results to return.
 pub const DEFAULT_WEB_SEARCH_LIMIT: usize = 5;
 
+/// Maximum number of results the Google Custom Search API will return in one call.
+pub const MAX_WEB_SEARCH_LIMIT: usize = 10;
+
+/// Maximum length of the user-supplied query in characters (post-trim).
+pub const MAX_WEB_SEARCH_QUERY_LEN: usize = 512;
+
 // =============================================================================
 // Orchestrator Constants
 // =============================================================================
@@ -69,6 +75,17 @@ pub const ENV_WORKSPACE_ROOT: &str = "CODER_LLM_TOOL_WORKSPACE_ROOT";
 
 /// Enable the Google scrape search tool (dev/test only).
 pub const ENV_GOOGLE_SCRAPE_ENABLED: &str = "CODER_LLM_TOOL_GOOGLE_SCRAPE";
+
+/// Enable the production web search tool (Google Custom Search JSON API).
+pub const ENV_WEB_SEARCH_ENABLED: &str = "CODER_LLM_TOOL_WEB_SEARCH";
+
+/// Developer override for the web-search API key; consulted by live integration
+/// tests only. Production credentials live in `coder_config.db`.
+pub const ENV_WEB_SEARCH_API_KEY: &str = "CODER_LLM_TOOL_WEB_SEARCH_API_KEY";
+
+/// Developer override for the web-search Custom Search Engine id (`cx`); used
+/// by live integration tests only. Production credentials live in `coder_config.db`.
+pub const ENV_WEB_SEARCH_CX: &str = "CODER_LLM_TOOL_WEB_SEARCH_CX";
 
 // =============================================================================
 // Helper Functions
