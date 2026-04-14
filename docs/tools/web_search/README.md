@@ -1,6 +1,6 @@
 # Web Search Tool — Planning Index
 
-**Status**: DRAFT
+**Status**: PLAN
 **Last reviewed**: 2026-04-14
 **Purpose**: Entry point for the `search_web_search` tool feature. Collects spec, codebase investigation, and the TDD task plan in one place.
 

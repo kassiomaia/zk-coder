@@ -131,6 +131,10 @@ pub fn run() {
             // Register dialog plugin (for workspace folder selection)
             app.handle().plugin(tauri_plugin_dialog::init())?;
 
+            // Register opener plugin (used by web search results to open URLs in the
+            // user's default browser). Scope-limited via `capabilities/default.json`.
+            app.handle().plugin(tauri_plugin_opener::init())?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

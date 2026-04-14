@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Web Search tool (Phase 0 — alignment)**: laid the groundwork for a new `search_web_search` LLM tool backed by the Google Custom Search JSON API. Added Rust dependencies (`async-trait`, `sys-locale`, `sha2`, `tauri-plugin-opener`, dev-dependency `wiremock`), registered the `tauri-plugin-opener` plugin scoped to `http://*` / `https://*`, and recorded the tool as _planned_ in `docs/tools-and-agent-integration.md`. Full feature spec, codebase investigation, mockups, and TDD phase plan live under `docs/tools/web_search/`. No tool code yet; subsequent phases land the `SearchProvider` trait, `WebSearchTool` implementation, DB-backed credentials, per-workspace domain policy, result cache, Tauri commands, Settings UI, and `ToolCallMessage` renderer extraction.
 - Initial project structure with Tauri v2 + Svelte + TypeScript
 - Rust backend with modular architecture (commands, agents, utils)
 - SvelteKit frontend with static adapter for Tauri integration

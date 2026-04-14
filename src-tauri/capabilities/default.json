@@ -18,6 +18,13 @@
     "core:window:allow-show",
     "core:window:allow-set-focus",
     "notification:default",
-    "dialog:default"
+    "dialog:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "http://*" },
+        { "url": "https://*" }
+      ]
+    }
   ]
 }

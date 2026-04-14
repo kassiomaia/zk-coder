@@ -1,6 +1,6 @@
 # Web Search Tool — Codebase Investigation
 
-**Status**: DRAFT
+**Status**: PLAN
 **Last reviewed**: 2026-04-14
 **Purpose**: Map the new `search_web_search` tool onto the existing tool system with file/line evidence, so the implementer can extend each touchpoint without hunting for the right seam.
 

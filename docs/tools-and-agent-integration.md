@@ -266,6 +266,7 @@ The `docx_*`, `pptx_*`, and `pdf_*` tools operate on in-memory draft stores plus
 |---|---|---|
 | `search_grep` | Regex search across workspace files. | `query: string` required. `max_results: integer` optional, default `50`, max `200`. `case_sensitive: boolean` optional. `path: string` optional subpath scope. |
 | `search_google_scrape` | Experimental HTML-scraping Google search. Exposed only when `CODER_LLM_TOOL_GOOGLE_SCRAPE=1`. | `query: string` required. `num_results: integer` optional, default `5`, max `10`. `language: string` optional. |
+| `search_web_search` | _planned_ — Production Google Custom Search JSON API wrapper. Gated by `CODER_LLM_TOOL_WEB_SEARCH=1` and DB-stored credentials. See `docs/tools/web_search/`. | `query: string` required. `num_results: integer` optional, default `5`, max `10`. `language: string` optional (BCP-47). `site: string` optional, subject to per-workspace policy. |
 
 ## `agent`
 

@@ -1,6 +1,6 @@
 # Web Search Tool — Implementation Plan (TDD)
 
-**Status**: DRAFT
+**Status**: PLAN
 **Last reviewed**: 2026-04-14
 **Purpose**: Test-first, phase-by-phase plan for shipping `search_web_search`. Each step lists the failing test(s) to write before any production code is touched.
 
@@ -23,15 +23,15 @@ Read `spec.md` and `investigation.md` first. Do not start Phase 1 until the Open
 ## Phase 0 — Alignment (prerequisite)
 
 - [x] Open questions resolved — see `spec.md §9` Resolution Log (2026-04-14).
-- [ ] Promote `spec.md` status DRAFT → PLAN (kept DRAFT until this plan is also promoted).
-- [ ] Add three new crate dependencies to `src-tauri/Cargo.toml`:
+- [x] Promote `spec.md` status DRAFT → PLAN (kept DRAFT until this plan is also promoted).
+- [x] Add new crate dependencies to `src-tauri/Cargo.toml`:
   - `async-trait = "0.1"` — for the `SearchProvider` trait.
   - `sys-locale = "0.3"` — for system locale detection.
   - `sha2 = "0.10"` — for the cache key hash.
-  - `tauri-plugin-opener = "2"` under `[dependencies]` and register the plugin in `lib.rs`.
+  - `tauri-plugin-opener = "2"` under `[dependencies]` and registered the plugin in `lib.rs` with `http(s)://*` capability scope.
   - `wiremock = "0.6"` under `[dev-dependencies]` — for offline Google provider tests.
-- [ ] Create a feature branch `feature/web-search-tool`.
-- [ ] Register this plan: add a one-line entry in `docs/tools-and-agent-integration.md` (`search_web_search: planned`).
+- [x] Create a feature branch `feature/web-search-tool`.
+- [x] Register this plan: added a _planned_ row in `docs/tools-and-agent-integration.md` and a changelog entry under Unreleased/Added.
 
 Exit: dependencies added, branch created, spec promoted.
 
