@@ -25,7 +25,11 @@ export function getContextNoticeCopy(reason: SystemNoticeReason): NoticeCopy {
 
 export function buildContextNoticeContent(event: ContextCompactedEvent): string {
 	const copy = getContextNoticeCopy(event.reason);
-	return `${copy.title}\n\n${copy.body}\n\n${event.beforeTokens.toLocaleString()} -> ${event.afterTokens.toLocaleString()} tokens`;
+	const delta =
+		event.beforeTokens !== event.afterTokens
+			? `\n\n${event.beforeTokens.toLocaleString()} -> ${event.afterTokens.toLocaleString()} tokens`
+			: '';
+	return `${copy.title}\n\n${copy.body}${delta}`;
 }
 
 export function parseSystemNoticeFromMessage(
@@ -38,7 +42,7 @@ export function parseSystemNoticeFromMessage(
 
 	const normalized = content.trim();
 	const match = normalized.match(
-		/^(Context updated|Context compacted)\n\n([\s\S]+?)\n\n([\d,]+) -> ([\d,]+) tokens$/u
+		/^(Context updated|Context compacted)\n\n([\s\S]+?)(?:\n\n([\d,]+) -> ([\d,]+) tokens)?$/u
 	);
 
 	if (!match) {
@@ -54,8 +58,8 @@ export function parseSystemNoticeFromMessage(
 		reason,
 		beforeCount: 0,
 		afterCount: 0,
-		beforeTokens: parseLocaleNumber(beforeTokensRaw),
-		afterTokens: parseLocaleNumber(afterTokensRaw)
+		beforeTokens: beforeTokensRaw ? parseLocaleNumber(beforeTokensRaw) : 0,
+		afterTokens: afterTokensRaw ? parseLocaleNumber(afterTokensRaw) : 0
 	};
 }
 

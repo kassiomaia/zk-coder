@@ -33,11 +33,13 @@
 			<p class={styles.body}>{copy.body}</p>
 		</div>
 
-		<div class={styles.metrics}>
-			<span class={styles.metricValue}>
-				{notice.beforeTokens.toLocaleString()} -> {notice.afterTokens.toLocaleString()} tokens
-			</span>
-		</div>
+		{#if notice.beforeTokens !== notice.afterTokens}
+			<div class={styles.metrics}>
+				<span class={styles.metricValue}>
+					{notice.beforeTokens.toLocaleString()} -> {notice.afterTokens.toLocaleString()} tokens
+				</span>
+			</div>
+		{/if}
 	</div>
 {:else}
 	<div class={styles.noticeFallback}>

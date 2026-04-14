@@ -4,7 +4,9 @@
 //! LLM context window during agent execution.
 
 #[allow(unused_imports)]
-use crate::core::llm::entities::{ChatMessage as Message, MessageRole, ToolCall};
+use crate::core::llm::entities::{
+    ChatMessage as Message, ContentBlock, MessageContent, MessageRole, ToolCall, ToolResult,
+};
 use serde_json::Value as JsonValue;
 
 /// Approximate context window size for token budgeting (conservative 128k).
@@ -62,9 +64,41 @@ pub const BUDGET_FAILURE_MEMORY_TOKENS: usize = 140;
 /// Hard token budgets for ContextPolicyV2 blocks.
 pub const BUDGET_RECENT_DIALOGUE_TOKENS: usize = 1600;
 
+/// Flat token overhead per message (role + metadata framing).
+pub const PER_MESSAGE_OVERHEAD: usize = 10;
+/// Flat token framing cost added for each tool call on a message.
+pub const PER_TOOL_CALL_FRAMING: usize = 4;
+/// Flat token framing cost added for each tool result on a message.
+pub const PER_TOOL_RESULT_FRAMING: usize = 4;
+/// Conservative per-image token cost for multi-modal messages.
+pub const IMAGE_TOKEN_COST: usize = 1_200;
+
+/// Minimum absolute token reduction to classify a pack pass as a real compaction.
+pub const MIN_SAVINGS_TOKENS: usize = 200;
+/// Minimum relative token reduction (fraction of before) to classify as real compaction.
+pub const MIN_SAVINGS_RATIO: f64 = 0.05;
+/// Forced packing is skipped when context usage is below this ratio of the window.
+pub const TINY_CONTEXT_RATIO: f64 = 0.10;
+
+/// Categorization of the outcome of a context packing pass.
+///
+/// This distinguishes meaningful compaction from benign reorganization,
+/// so callers can decide whether to surface the change to the user.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContextPackOutcome {
+    /// Packing produced a measurable token reduction.
+    Compacted,
+    /// Packing changed the context structure but did not reduce tokens meaningfully.
+    Reorganized,
+    /// Packing produced no change in counts or tokens.
+    Unchanged,
+}
+
 /// Details about context compaction.
 #[derive(Debug, Clone)]
 pub struct CompactionDetails {
+    /// Qualitative outcome of the packing pass.
+    pub outcome: ContextPackOutcome,
     /// Number of messages before compaction.
     pub before_count: usize,
     /// Number of messages after compaction.
@@ -75,6 +109,29 @@ pub struct CompactionDetails {
     pub after_tokens: usize,
     /// Whether reinjection of context is needed.
     pub needs_reinjection: bool,
+}
+
+/// Classifies a packing pass by comparing before/after counts and tokens.
+fn classify_outcome(
+    before_tokens: usize,
+    after_tokens: usize,
+    before_count: usize,
+    after_count: usize,
+) -> ContextPackOutcome {
+    if before_tokens == after_tokens && before_count == after_count {
+        return ContextPackOutcome::Unchanged;
+    }
+    let saved = before_tokens.saturating_sub(after_tokens);
+    let ratio = if before_tokens == 0 {
+        0.0
+    } else {
+        saved as f64 / before_tokens as f64
+    };
+    if saved >= MIN_SAVINGS_TOKENS && ratio >= MIN_SAVINGS_RATIO {
+        ContextPackOutcome::Compacted
+    } else {
+        ContextPackOutcome::Reorganized
+    }
 }
 
 /// Inputs for ContextPolicyV2 deterministic packing.
@@ -96,16 +153,52 @@ pub struct ContextPolicyInput {
 
 /// Estimates the token count for a message context.
 ///
-/// This is a rough estimate used for budgeting. The actual token count
-/// may vary based on the model and content.
+/// Counts the payload that the provider will actually serialize: text
+/// content (including text inside `Blocks`), images (as a flat cost),
+/// tool call arguments, and tool result outputs. A rough `len / 4` rule
+/// approximates tokenization; the estimate is used for budgeting only.
 pub fn estimate_context_tokens(context: &[Message]) -> usize {
-    let mut total = 0usize;
-    for msg in context {
-        // Estimate tokens: ~4 chars per token, plus overhead for role/metadata
-        let content_len = msg.as_text().map_or(0, |s| s.len());
-        total += content_len / 4 + 10; // ~4 chars per token, +10 for overhead
+    context.iter().map(estimate_message_tokens).sum()
+}
+
+/// Estimates the token cost of a single message, including tool calls and tool results.
+pub fn estimate_message_tokens(msg: &Message) -> usize {
+    let mut total = PER_MESSAGE_OVERHEAD;
+    total = total.saturating_add(estimate_content_tokens(&msg.content));
+    for call in &msg.tool_calls {
+        total = total.saturating_add(estimate_tool_call_tokens(call));
+    }
+    if let Some(result) = &msg.tool_result {
+        total = total.saturating_add(estimate_tool_result_tokens(result));
     }
     total
+}
+
+fn estimate_content_tokens(content: &MessageContent) -> usize {
+    match content {
+        MessageContent::Text(text) => text.len() / 4,
+        MessageContent::Blocks(blocks) => blocks
+            .iter()
+            .map(|block| match block {
+                ContentBlock::Text { text } => text.len() / 4,
+                ContentBlock::Image { .. } => IMAGE_TOKEN_COST,
+            })
+            .sum(),
+    }
+}
+
+fn estimate_tool_call_tokens(call: &ToolCall) -> usize {
+    call.name.len() / 4 + estimate_json_tokens(&call.arguments) + PER_TOOL_CALL_FRAMING
+}
+
+fn estimate_tool_result_tokens(result: &ToolResult) -> usize {
+    estimate_json_tokens(&result.output) + PER_TOOL_RESULT_FRAMING
+}
+
+fn estimate_json_tokens(value: &JsonValue) -> usize {
+    serde_json::to_string(value)
+        .map(|s| s.len() / 4)
+        .unwrap_or(0)
 }
 
 /// Compacts the message context if it exceeds the compression threshold.
@@ -158,6 +251,7 @@ pub fn maybe_compact_context(context: &mut Vec<Message>, model_name: &str) -> Op
     *context = new_context;
 
     Some(CompactionDetails {
+        outcome: classify_outcome(before_tokens, after_tokens, before_count, after_count),
         before_count,
         after_count,
         before_tokens,
@@ -186,6 +280,17 @@ pub fn apply_context_policy_v2(
     let threshold = adaptive_compression_threshold(&input.model_name);
     let usage_ratio = before_tokens as f64 / effective_window as f64;
     if usage_ratio < threshold && !input.force_pack {
+        return None;
+    }
+
+    // Skip packing when the context is tiny and packing was merely forced by
+    // a subtask transition. Repacking a near-empty context cannot yield a
+    // meaningful reduction and the synthetic blocks can even grow it.
+    if input.force_pack
+        && usage_ratio < TINY_CONTEXT_RATIO
+        && input.retrieval_snippets.is_empty()
+        && input.pre_computed_summary.is_none()
+    {
         return None;
     }
 
@@ -273,6 +378,7 @@ pub fn apply_context_policy_v2(
     *context = packed;
 
     Some(CompactionDetails {
+        outcome: classify_outcome(before_tokens, after_tokens, before_count, after_count),
         before_count,
         after_count,
         before_tokens,
@@ -531,7 +637,7 @@ fn collect_recent_dialogue_tail(context: &[Message], max_tokens: usize) -> Vec<M
         {
             continue;
         }
-        let tokens = estimate_context_tokens(std::slice::from_ref(msg));
+        let tokens = estimate_message_tokens(msg);
         if used + tokens > max_tokens {
             break;
         }
@@ -871,5 +977,136 @@ mod tests {
             assert_eq!(details.before_tokens, before_tokens);
             assert!(details.after_tokens < before_tokens);
         }
+    }
+
+    fn large_json_string(approx_bytes: usize) -> String {
+        "x".repeat(approx_bytes)
+    }
+
+    #[test]
+    fn test_estimate_counts_tool_call_arguments() {
+        let big_payload = large_json_string(4_000);
+        let msg_with = Message::assistant_with_tool_calls(
+            "text".to_string(),
+            vec![ToolCall {
+                id: "call_1".into(),
+                name: "fs_write".into(),
+                arguments: json!({ "contents": big_payload }),
+            }],
+        );
+        let msg_without = Message::assistant("text");
+
+        let with_tokens = estimate_message_tokens(&msg_with);
+        let without_tokens = estimate_message_tokens(&msg_without);
+
+        // The 4KB JSON payload should contribute ~1000 tokens under len/4.
+        assert!(
+            with_tokens >= without_tokens + 900,
+            "tool-call JSON should be counted (with={with_tokens}, without={without_tokens})"
+        );
+    }
+
+    #[test]
+    fn test_estimate_counts_tool_result_output() {
+        let big_output = json!({ "data": large_json_string(4_000) });
+        let tool_msg = Message::tool_result("call_1", big_output, false);
+        let tokens = estimate_message_tokens(&tool_msg);
+
+        // Old estimator would have returned exactly PER_MESSAGE_OVERHEAD (10).
+        assert!(
+            tokens > PER_MESSAGE_OVERHEAD + 900,
+            "tool-result JSON should be counted, got {tokens}"
+        );
+    }
+
+    #[test]
+    fn test_estimate_counts_blocks_content() {
+        let msg = Message::multimodal(
+            MessageRole::User,
+            vec![
+                ContentBlock::text("A".repeat(400)),
+                ContentBlock::text("B".repeat(400)),
+            ],
+        );
+        let tokens = estimate_message_tokens(&msg);
+        // Old estimator returned 0 content for Blocks; with ~800 chars it should be ~200 tokens.
+        assert!(tokens > 150, "text inside Blocks must be counted, got {tokens}");
+    }
+
+    #[test]
+    fn test_estimate_image_block_has_fixed_cost() {
+        let huge_base64 = "A".repeat(100_000);
+        let msg = Message::multimodal(
+            MessageRole::User,
+            vec![ContentBlock::image_base64("image/png", huge_base64)],
+        );
+        let tokens = estimate_message_tokens(&msg);
+        // Image cost is flat — not proportional to base64 length.
+        let lower = PER_MESSAGE_OVERHEAD + IMAGE_TOKEN_COST;
+        let upper = PER_MESSAGE_OVERHEAD + IMAGE_TOKEN_COST + 10;
+        assert!(
+            (lower..=upper).contains(&tokens),
+            "image cost should be fixed near IMAGE_TOKEN_COST, got {tokens}"
+        );
+    }
+
+    #[test]
+    fn test_apply_policy_v2_skips_tiny_forced_context() {
+        let mut context = vec![
+            Message::system("System"),
+            Message::user("Hi"),
+            Message::assistant("Hello"),
+        ];
+        let input = ContextPolicyInput {
+            force_pack: true,
+            model_name: "gpt-4".to_string(),
+            ..ContextPolicyInput::default()
+        };
+        let result = apply_context_policy_v2(&mut context, &input);
+        assert!(result.is_none(), "tiny forced context must skip packing");
+        assert_eq!(context.len(), 3, "context must not be mutated when skipping");
+    }
+
+    #[test]
+    fn test_apply_policy_v2_classifies_unchanged_correctly() {
+        // Build a context that exceeds threshold but whose packed form matches input shape.
+        // Hitting an exact match is hard; assert that classify_outcome agrees on identity.
+        assert_eq!(
+            classify_outcome(500, 500, 10, 10),
+            ContextPackOutcome::Unchanged,
+        );
+    }
+
+    #[test]
+    fn test_classify_outcome_reorganized_when_insufficient_savings() {
+        // 50-token savings on a 1000-token context: below both thresholds.
+        assert_eq!(
+            classify_outcome(1_000, 950, 10, 8),
+            ContextPackOutcome::Reorganized,
+        );
+    }
+
+    #[test]
+    fn test_classify_outcome_compacted_when_real_savings() {
+        // 6000-token savings on a 10000-token context: 60% > MIN_SAVINGS_RATIO.
+        assert_eq!(
+            classify_outcome(10_000, 4_000, 50, 10),
+            ContextPackOutcome::Compacted,
+        );
+    }
+
+    #[test]
+    fn test_maybe_compact_context_populates_outcome() {
+        // Build a context well above gpt-4's 70% threshold (~89.6k tokens).
+        let padding = "x".repeat(400);
+        let mut context = vec![Message::system("System")];
+        for i in 0..1_000 {
+            context.push(Message::user(format!("msg {i} {padding}")));
+        }
+
+        let result = maybe_compact_context(&mut context, "gpt-4");
+        let details = result.expect("large context should compact");
+        assert_eq!(details.outcome, ContextPackOutcome::Compacted);
+        assert!(details.after_tokens < details.before_tokens);
     }
 }

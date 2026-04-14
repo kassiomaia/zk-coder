@@ -151,6 +151,13 @@ export function handleContextCompacted(
 	state: AgentState,
 	event: Extract<AgentEvent, { type: 'context_compacted' }>
 ) {
+	// Defensive no-op: the backend no longer emits zero-delta compaction events,
+	// but older backends or replays may still deliver them. Suppress here so the
+	// chat never shows a misleading "N -> N tokens" notice.
+	if (event.beforeTokens === event.afterTokens) {
+		return;
+	}
+
 	const session = state.sessions.get(event.sessionId);
 	const onSystemMessage = getOnSystemMessage();
 	if (onSystemMessage && session) {

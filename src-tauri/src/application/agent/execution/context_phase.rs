@@ -16,8 +16,9 @@ use crate::core::agent::task::AgentRequest;
 use crate::core::llm::entities::{ToolCall, ToolDefinition};
 use crate::infrastructure::agent::events::{AgentEvent, ContextCompactionReason, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::context::{
-    apply_context_policy_v2, estimate_context_tokens, maybe_compact_context, ContextPolicyInput,
-    adaptive_compression_threshold, model_context_window,
+    adaptive_compression_threshold, apply_context_policy_v2, estimate_context_tokens,
+    maybe_compact_context, model_context_window, CompactionDetails, ContextPackOutcome,
+    ContextPolicyInput,
 };
 use crate::infrastructure::llm::LlmClient;
 use crate::infrastructure::agent::runtime::{
@@ -194,67 +195,25 @@ pub async fn resolve_context(
     };
 
     if let Some(compaction) = apply_context_policy_v2(&mut ctx.llm_context, &policy_input) {
-        let _ = deps.app_handle.emit(
-            AGENT_EVENT_NAME,
-            AgentEvent::ContextCompacted {
-                session_id: ctx.session_id.clone(),
-                conversation_id: session.conversation_id.clone(),
-                reason: if usage_ratio >= threshold {
-                    ContextCompactionReason::TokenLimit
-                } else {
-                    ContextCompactionReason::SubtaskTransition
-                },
-                before_count: compaction.before_count,
-                after_count: compaction.after_count,
-                before_tokens: compaction.before_tokens,
-                after_tokens: compaction.after_tokens,
-                timestamp: chrono::Utc::now(),
-            },
-        );
-        let _ = tracer.append_trace(
-            &ctx.session_id,
-            &ctx.task_id,
+        record_compaction(
+            deps,
+            ctx,
+            session,
             current_subtask_id.as_deref(),
-            ctx.step_number,
-            RuntimeTraceType::ContextPolicyEvaluated,
-            json!({
-                "strategy": "v2",
-                "reason": if usage_ratio >= threshold { "token_limit" } else { "subtask_transition" },
-                "beforeCount": compaction.before_count,
-                "afterCount": compaction.after_count,
-                "beforeTokens": compaction.before_tokens,
-                "afterTokens": compaction.after_tokens,
-            }),
+            "v2",
+            usage_ratio >= threshold,
+            &compaction,
         );
     } else if usage_ratio >= threshold {
         if let Some(compaction) = maybe_compact_context(&mut ctx.llm_context, &ctx.model_name) {
-            let _ = deps.app_handle.emit(
-                AGENT_EVENT_NAME,
-                AgentEvent::ContextCompacted {
-                    session_id: ctx.session_id.clone(),
-                    conversation_id: session.conversation_id.clone(),
-                    reason: ContextCompactionReason::TokenLimit,
-                    before_count: compaction.before_count,
-                    after_count: compaction.after_count,
-                    before_tokens: compaction.before_tokens,
-                    after_tokens: compaction.after_tokens,
-                    timestamp: chrono::Utc::now(),
-                },
-            );
-            let _ = tracer.append_trace(
-                &ctx.session_id,
-                &ctx.task_id,
+            record_compaction(
+                deps,
+                ctx,
+                session,
                 current_subtask_id.as_deref(),
-                ctx.step_number,
-                RuntimeTraceType::ContextPolicyEvaluated,
-                json!({
-                    "strategy": "legacy",
-                    "reason": "token_limit",
-                    "beforeCount": compaction.before_count,
-                    "afterCount": compaction.after_count,
-                    "beforeTokens": compaction.before_tokens,
-                    "afterTokens": compaction.after_tokens,
-                }),
+                "legacy",
+                true,
+                &compaction,
             );
         }
     }
@@ -397,5 +356,124 @@ fn identify_messages_to_drop(context: &[crate::core::llm::entities::ChatMessage]
         context[1..tail_start].to_vec()
     } else {
         Vec::new()
+    }
+}
+
+/// Whether a compaction pass should surface as a user-visible chat notice.
+///
+/// Only genuine reductions triggered by token pressure are shown. Forced
+/// subtask-transition repacks and no-op reorganizations are kept as traces.
+fn should_emit_compaction_event(details: &CompactionDetails, triggered_by_token_limit: bool) -> bool {
+    matches!(details.outcome, ContextPackOutcome::Compacted)
+        && triggered_by_token_limit
+        && details.after_tokens < details.before_tokens
+}
+
+/// Records a compaction pass: always appends a trace; optionally emits
+/// the user-visible `ContextCompacted` event when [`should_emit_compaction_event`] agrees.
+fn record_compaction(
+    deps: &ExecutionDeps<'_>,
+    ctx: &ExecutionContext,
+    session: &AgentSession,
+    current_subtask_id: Option<&str>,
+    strategy: &'static str,
+    triggered_by_token_limit: bool,
+    details: &CompactionDetails,
+) {
+    let outcome_label = match details.outcome {
+        ContextPackOutcome::Compacted => "compacted",
+        ContextPackOutcome::Reorganized => "reorganized",
+        ContextPackOutcome::Unchanged => "unchanged",
+    };
+    let reason_label = if triggered_by_token_limit {
+        "token_limit"
+    } else {
+        "subtask_transition"
+    };
+
+    let _ = deps.tracer().append_trace(
+        &ctx.session_id,
+        &ctx.task_id,
+        current_subtask_id,
+        ctx.step_number,
+        RuntimeTraceType::ContextPolicyEvaluated,
+        json!({
+            "strategy": strategy,
+            "outcome": outcome_label,
+            "reason": reason_label,
+            "beforeCount": details.before_count,
+            "afterCount": details.after_count,
+            "beforeTokens": details.before_tokens,
+            "afterTokens": details.after_tokens,
+        }),
+    );
+
+    if should_emit_compaction_event(details, triggered_by_token_limit) {
+        let _ = deps.app_handle.emit(
+            AGENT_EVENT_NAME,
+            AgentEvent::ContextCompacted {
+                session_id: ctx.session_id.clone(),
+                conversation_id: session.conversation_id.clone(),
+                reason: ContextCompactionReason::TokenLimit,
+                before_count: details.before_count,
+                after_count: details.after_count,
+                before_tokens: details.before_tokens,
+                after_tokens: details.after_tokens,
+                timestamp: chrono::Utc::now(),
+            },
+        );
+    } else {
+        log::debug!(
+            "[AgentRuntime] context pack outcome={outcome_label} reason={reason_label} strategy={strategy} \
+             before_tokens={} after_tokens={}",
+            details.before_tokens,
+            details.after_tokens,
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_details(outcome: ContextPackOutcome, before: usize, after: usize) -> CompactionDetails {
+        CompactionDetails {
+            outcome,
+            before_count: 20,
+            after_count: 15,
+            before_tokens: before,
+            after_tokens: after,
+            needs_reinjection: true,
+        }
+    }
+
+    #[test]
+    fn emits_only_when_compacted_and_token_limit_driven() {
+        let details = sample_details(ContextPackOutcome::Compacted, 10_000, 4_000);
+        assert!(should_emit_compaction_event(&details, true));
+    }
+
+    #[test]
+    fn suppresses_when_outcome_is_reorganized() {
+        let details = sample_details(ContextPackOutcome::Reorganized, 1_000, 1_000);
+        assert!(!should_emit_compaction_event(&details, true));
+    }
+
+    #[test]
+    fn suppresses_when_outcome_is_unchanged() {
+        let details = sample_details(ContextPackOutcome::Unchanged, 800, 800);
+        assert!(!should_emit_compaction_event(&details, true));
+    }
+
+    #[test]
+    fn suppresses_subtask_transition_even_when_compacted() {
+        let details = sample_details(ContextPackOutcome::Compacted, 10_000, 4_000);
+        assert!(!should_emit_compaction_event(&details, false));
+    }
+
+    #[test]
+    fn suppresses_when_after_tokens_not_lower() {
+        let details = sample_details(ContextPackOutcome::Compacted, 4_000, 4_000);
+        assert!(!should_emit_compaction_event(&details, true));
     }
 }
