@@ -51,3 +51,16 @@
 .compact .title {
 	display: none;
 }
+
+/* Resolved state - muted, with success-tinted icon */
+.resolved {
+	opacity: 0.75;
+}
+
+.resolved .icon {
+	color: var(--color-success, var(--color-primary-500));
+}
+
+.resolved:hover {
+	opacity: 1;
+}

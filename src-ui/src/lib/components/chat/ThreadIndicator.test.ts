@@ -234,4 +234,40 @@ describe('ThreadIndicator', () => {
 			expect(button).toBeInTheDocument();
 		});
 	});
+
+	describe('resolved state', () => {
+		it('applies a resolved modifier class when resolved is true', () => {
+			const { container } = render(ThreadIndicator, {
+				thread: mockThread,
+				resolved: true
+			});
+			const button = container.querySelector('button');
+			expect(button?.className).toMatch(/resolved/);
+		});
+
+		it('does not apply the resolved modifier when resolved is false or omitted', () => {
+			const { container } = render(ThreadIndicator, {
+				thread: mockThread
+			});
+			const button = container.querySelector('button');
+			expect(button?.className).not.toMatch(/resolved/);
+		});
+
+		it('renders an accessible label indicating resolved status', () => {
+			render(ThreadIndicator, {
+				thread: mockThread,
+				resolved: true
+			});
+			const button = screen.getByRole('button');
+			expect(button.getAttribute('aria-label')).toMatch(/resolved/i);
+		});
+
+		it('uses the default thread icon when not resolved', () => {
+			const { container } = render(ThreadIndicator, {
+				thread: mockThread
+			});
+			// default icon path starts with M21 15a2 2 0 (message square bubble)
+			expect(container.innerHTML).toContain('M21 15a2 2 0');
+		});
+	});
 });

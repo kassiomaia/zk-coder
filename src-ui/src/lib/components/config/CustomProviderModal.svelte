@@ -51,18 +51,34 @@
 		return `${sanitized}-${randomSuffix}`;
 	}
 
+	function clearError() {
+		error = '';
+	}
+
 	function handleNameChange(value: string) {
 		providerName = value;
 		// Auto-generate ID from name only if user hasn't manually edited it
 		if (!isIdManuallyEdited) {
 			providerId = generateId(value);
 		}
+		clearError();
 	}
 
 	function handleIdChange(value: string) {
 		providerId = value;
 		// Mark ID as manually edited when user changes it
 		isIdManuallyEdited = true;
+		clearError();
+	}
+
+	function handleBaseUrlChange(value: string) {
+		baseUrl = value;
+		clearError();
+	}
+
+	function handleApiTypeChange(value: ApiType) {
+		apiType = value;
+		clearError();
 	}
 
 	function resetForm() {
@@ -175,7 +191,7 @@
 						name="apiType"
 						value="openai"
 						checked={apiType === 'openai'}
-						onchange={() => (apiType = 'openai')}
+						onchange={() => handleApiTypeChange('openai')}
 					/>
 					<span class={styles.radioLabel}>
 						<span class={styles.radioTitle}>OpenAI Compatible</span>
@@ -188,7 +204,7 @@
 						name="apiType"
 						value="anthropic"
 						checked={apiType === 'anthropic'}
-						onchange={() => (apiType = 'anthropic')}
+						onchange={() => handleApiTypeChange('anthropic')}
 					/>
 					<span class={styles.radioLabel}>
 						<span class={styles.radioTitle}>Anthropic Compatible</span>
@@ -201,7 +217,7 @@
 						name="apiType"
 						value="google"
 						checked={apiType === 'google'}
-						onchange={() => (apiType = 'google')}
+						onchange={() => handleApiTypeChange('google')}
 					/>
 					<span class={styles.radioLabel}>
 						<span class={styles.radioTitle}>Google (Gemini) Compatible</span>
@@ -215,7 +231,7 @@
 			name="baseUrl"
 			type="text"
 			value={baseUrl}
-			onchange={(v) => (baseUrl = v)}
+			onchange={handleBaseUrlChange}
 			label="Base URL"
 			placeholder="https://api.example.com/v1"
 			helper="API endpoint URL (e.g., https://api.example.com/v1)"

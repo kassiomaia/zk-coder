@@ -625,6 +625,39 @@ describe('configStore', () => {
 			await expect(configStore.removeProvider('prov-1')).rejects.toThrow('Remove failed');
 		});
 
+		it('removeProvider surfaces error into store state on failure', async () => {
+			const state = get(configStore);
+			state.providers = [
+				createMockProvider('prov-1', 'Provider 1'),
+				createMockProvider('prov-2', 'Provider 2')
+			];
+			state.error = null;
+
+			vi.mocked(removeProvider).mockRejectedValue(new Error('DB locked'));
+
+			await expect(configStore.removeProvider('prov-1')).rejects.toThrow('DB locked');
+
+			const newState = get(configStore);
+			expect(newState.error).toBe('DB locked');
+		});
+
+		it('removeProvider does not mutate providers list on failure', async () => {
+			const state = get(configStore);
+			const initialProviders = [
+				createMockProvider('prov-1', 'Provider 1'),
+				createMockProvider('prov-2', 'Provider 2')
+			];
+			state.providers = initialProviders;
+
+			vi.mocked(removeProvider).mockRejectedValue(new Error('Remove failed'));
+
+			await expect(configStore.removeProvider('prov-1')).rejects.toThrow();
+
+			const newState = get(configStore);
+			expect(newState.providers).toHaveLength(2);
+			expect(newState.providers.map((p) => p.id)).toEqual(['prov-1', 'prov-2']);
+		});
+
 		it('handles fetchModels API errors', async () => {
 			vi.mocked(fetchModels).mockRejectedValue(new Error('Network error'));
 

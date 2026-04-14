@@ -191,6 +191,11 @@
 		return threads.find((t) => t.id === threadId)?.title;
 	}
 
+	function isThreadResolved(threadId: string | undefined): boolean {
+		if (!threadId) return false;
+		return threads.find((t) => t.id === threadId)?.metadata.resolved ?? false;
+	}
+
 	/**
 	 * Check if a message should use specialized rendering based on its kind.
 	 */
@@ -468,6 +473,7 @@
 									id: message.threadId,
 									title: getThreadTitle(message.threadId)!
 								} as any}
+								resolved={isThreadResolved(message.threadId)}
 								onclick={() => onThreadClick?.(message.threadId!)}
 								compact
 							/>

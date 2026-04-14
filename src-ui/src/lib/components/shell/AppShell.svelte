@@ -522,7 +522,7 @@
 	.resizer.resizer-active::before {
 		width: 3px;
 		background: var(--color-primary-500);
-		box-shadow: 0 0 12px var(--color-primary-glow-strong);
+		box-shadow: 0 0 12px var(--color-accent-primary-glow-strong);
 	}
 
 	.resizer:hover,

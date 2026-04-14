@@ -225,7 +225,13 @@ function createConfigStore() {
 		 * Removes a custom provider.
 		 */
 		async removeProvider(providerId: string): Promise<void> {
-			await apiRemoveProvider(providerId);
+			try {
+				await apiRemoveProvider(providerId);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				update((state) => ({ ...state, error: message }));
+				throw error;
+			}
 			update((state) => {
 				const providers = state.providers.filter((p) => p.id !== providerId);
 				const modelsByProvider = { ...state.modelsByProvider };
@@ -236,7 +242,7 @@ function createConfigStore() {
 					(d) => !d.modelId?.startsWith(providerId)
 				);
 
-				return { ...state, providers, modelsByProvider, operationDefaults };
+				return { ...state, providers, modelsByProvider, operationDefaults, error: null };
 			});
 		},
 

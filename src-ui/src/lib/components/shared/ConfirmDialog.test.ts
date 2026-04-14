@@ -477,4 +477,36 @@ describe('ConfirmDialog', () => {
 			expect(mockOnCancel).toHaveBeenCalledTimes(2);
 		});
 	});
+
+	describe('keyboard interaction', () => {
+		it('calls oncancel when Escape is pressed', async () => {
+			render(ConfirmDialog, {
+				open: true,
+				title: 'Delete',
+				message: 'Are you sure?',
+				onconfirm: mockOnConfirm,
+				oncancel: mockOnCancel
+			});
+
+			await fireEvent.keyDown(document, { key: 'Escape' });
+
+			expect(mockOnCancel).toHaveBeenCalledTimes(1);
+			expect(mockOnConfirm).not.toHaveBeenCalled();
+		});
+
+		it('does not call oncancel when Escape is pressed while loading', async () => {
+			render(ConfirmDialog, {
+				open: true,
+				title: 'Delete',
+				message: 'Are you sure?',
+				loading: true,
+				onconfirm: mockOnConfirm,
+				oncancel: mockOnCancel
+			});
+
+			await fireEvent.keyDown(document, { key: 'Escape' });
+
+			expect(mockOnCancel).not.toHaveBeenCalled();
+		});
+	});
 });

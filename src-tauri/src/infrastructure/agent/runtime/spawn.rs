@@ -775,6 +775,18 @@ impl SpawnEngine {
 
         let cwd = match working_dir {
             Some(dir) => {
+                // Reject parent-directory components before joining. `Path::starts_with`
+                // is lexical, so `/workspace/../etc` would still start with `/workspace`
+                // and pass the prefix check even though it resolves outside the workspace.
+                if dir
+                    .components()
+                    .any(|c| matches!(c, std::path::Component::ParentDir))
+                {
+                    return Err(SpawnError::PathTraversal(format!(
+                        "Working directory '{}' contains parent-directory components",
+                        dir.display()
+                    )));
+                }
                 let resolved = workspace.join(dir);
                 if !resolved.starts_with(workspace) {
                     return Err(SpawnError::PathTraversal(format!(

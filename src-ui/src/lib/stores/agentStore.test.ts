@@ -81,15 +81,20 @@ describe('agentStore', () => {
 
 		it('handles Tauri not available gracefully', async () => {
 			mockListen.mockRejectedValue(new Error('Tauri not available'));
-			const consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
 
-			await agentStore.initialize();
+			// Verifies graceful degradation — initialize must not throw and must
+			// leave the store in a consistent state (no error surfaced to the UI,
+			// no stale sessions) when Tauri's event API is unavailable. The previous
+			// version of this test spied on `console.debug`, but the store logs via
+			// `createLogger`, whose debug channel is a no-op in the vitest mock
+			// (`$app/environment.dev === false`). Asserting on logging internals
+			// was brittle; asserting on observable state is the contract that
+			// actually matters.
+			await expect(agentStore.initialize()).resolves.toBeUndefined();
 
-			expect(consoleDebugSpy).toHaveBeenCalledWith(
-				'[agentStore] Tauri event listener not available'
-			);
-
-			consoleDebugSpy.mockRestore();
+			const state = get(agentStore);
+			expect(state.error).toBeNull();
+			expect(state.sessions.size).toBe(0);
 		});
 	});
 
@@ -228,19 +233,18 @@ describe('agentStore', () => {
 
 		it('sendRequest handles errors', async () => {
 			mockInvoke.mockRejectedValue(new Error('Network error'));
-			const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
+			// Verifies the observable effect of a failed IPC: the error message is
+			// surfaced to the store so the UI can display it. The previous version
+			// of this test also asserted that `console.error` was called with a
+			// specific shape, but the store now logs via `createLogger`, which
+			// prefixes the message and redacts Error objects into plain structures
+			// — making the console-level assertion brittle without adding coverage
+			// beyond what the store state check already provides.
 			await agentStore.sendRequest('session-1', 'test');
-
-			expect(consoleErrorSpy).toHaveBeenCalledWith(
-				'[agentStore] sendRequest failed:',
-				expect.any(Error)
-			);
 
 			const state = get(agentStore);
 			expect(state.error).toBe('Error: Network error');
-
-			consoleErrorSpy.mockRestore();
 		});
 
 		it('cancelSession marks session as cancelled in store', async () => {

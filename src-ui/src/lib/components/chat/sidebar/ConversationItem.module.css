@@ -220,7 +220,7 @@
 }
 
 .chipSeparator {
-	color: var(--color-text-quaternary);
+	color: var(--color-text-muted);
 	opacity: 0.5;
 	font-size: var(--text-2xs);
 }

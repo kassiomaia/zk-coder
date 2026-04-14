@@ -24,7 +24,6 @@ export type {
 	ConversationSettings,
 	ConversationGroup,
 	ThreadViewProps,
-	ThreadItemProps,
 	ConversationSidebarProps
 } from './thread.js';
 

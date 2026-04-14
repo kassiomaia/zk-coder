@@ -439,7 +439,7 @@
 		padding: var(--space-0-5) var(--space-1-5);
 		border: 1px solid var(--color-warning-border);
 		border-radius: var(--radius-sm);
-		background: var(--color-warning-subtle);
+		background: var(--color-warning-light);
 		color: var(--color-warning);
 		font-size: var(--text-2xs);
 		font-weight: var(--font-medium);

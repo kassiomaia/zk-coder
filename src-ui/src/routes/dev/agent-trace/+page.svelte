@@ -315,9 +315,13 @@
 
 		let unlistenTrace: (() => void) | undefined;
 		let unlistenFocus: (() => void) | undefined;
-		let tickHandle: ReturnType<typeof window.setInterval> | undefined;
-		let pollingHandle: ReturnType<typeof window.setInterval> | undefined;
-		let graceHandle: ReturnType<typeof window.setTimeout> | undefined;
+		// Using `number | undefined` rather than `ReturnType<typeof setInterval>` because
+		// the latter can resolve to `NodeJS.Timeout` when `@types/node` is in scope, which
+		// clashes with the `number` that `window.setInterval` / `window.setTimeout` return
+		// in a browser environment (this page runs in the Tauri webview).
+		let tickHandle: number | undefined;
+		let pollingHandle: number | undefined;
+		let graceHandle: number | undefined;
 
 		const currentWindow = getCurrentWebviewWindow();
 		windowLabel = currentWindow.label;

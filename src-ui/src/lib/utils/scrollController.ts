@@ -190,15 +190,6 @@ function handleStateTransition(
 		context.autoScrollEnabled = true;
 	}
 
-	if (event === 'STREAM_END') {
-		// Streaming ended - ensure we're at bottom
-		if (context.autoScrollEnabled) {
-			withIgnoredScrollEvents(threadId, () => {
-				scrollToBottomInstant(element);
-			});
-		}
-	}
-
 	if (event === 'USER_SEND_MESSAGE') {
 		// User sent message - force scroll to bottom
 		context.autoScrollEnabled = true;
@@ -460,10 +451,14 @@ export function handleStreamingEnd(threadId: string): void {
 	const context = threadContexts.get(threadId);
 	if (!context) return;
 
+	// Snapshot before sendEvent: the state listener flips autoScrollEnabled to
+	// false as soon as the state machine transitions to 'idle', so any guard
+	// that reads context.autoScrollEnabled *after* sendEvent would be dead.
+	const shouldFinalScroll = context.autoScrollEnabled;
+
 	sendEvent(threadId, 'STREAM_END');
 
-	// Final scroll to bottom if auto-scroll is enabled
-	if (context.autoScrollEnabled) {
+	if (shouldFinalScroll) {
 		withIgnoredScrollEvents(threadId, () => {
 			scrollToBottomInstant(context.element);
 		});

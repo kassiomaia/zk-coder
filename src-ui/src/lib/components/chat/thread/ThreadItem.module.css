@@ -103,12 +103,6 @@
 	background: rgba(0, 0, 0, 0.07);
 }
 
-.hasUnread {
-}
-
-.streaming {
-}
-
 .item.hasUnread:not(.selected) .button {
 	background: var(--color-accent-primary-glow-light);
 }
@@ -132,7 +126,7 @@
 	width: 20px;
 	height: 20px;
 	border-radius: 4px;
-	color: var(--color-text-quaternary);
+	color: var(--color-text-muted);
 	transition: color 0.2s ease;
 }
 
@@ -189,7 +183,7 @@
 	align-items: center;
 	gap: 4px;
 	font-size: 10px; /* Smaller scale */
-	color: var(--color-text-quaternary);
+	color: var(--color-text-muted);
 	opacity: 0.6; /* Lower contrast */
 	transition: opacity 0.2s ease;
 }
@@ -302,7 +296,7 @@
 .item[data-variant='inline'] .icon {
 	width: 20px; /* Same icon size */
 	height: 20px;
-	color: var(--color-text-quaternary);
+	color: var(--color-text-muted);
 	opacity: 0.7;
 }
 

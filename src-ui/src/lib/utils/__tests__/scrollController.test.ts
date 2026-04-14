@@ -3,6 +3,7 @@ import {
 	clearAll,
 	getThreadScrollState,
 	handleContentUpdate,
+	handleStreamingEnd,
 	handleStreamingStart,
 	handleUserScroll,
 	isAutoScrollEnabled,
@@ -141,5 +142,58 @@ describe('scrollController', () => {
 		handleContentUpdate(threadId);
 
 		expect(element.scrollTop).toBe(600);
+	});
+
+	it('scrolls to the true bottom when streaming ends and auto-scroll was active', () => {
+		const threadId = 'thread-stream-end-catchup';
+		const element = createScrollableElement({
+			scrollTop: 100,
+			scrollHeight: 300,
+			clientHeight: 200
+		});
+
+		registerThreadElement(threadId, element);
+		handleStreamingStart(threadId);
+
+		setScrollMetrics(element, {
+			scrollTop: 100,
+			scrollHeight: 420,
+			clientHeight: 200
+		});
+
+		handleStreamingEnd(threadId);
+
+		expect(element.scrollTop).toBe(420);
+		expect(getThreadScrollState(threadId)).toBe('idle');
+	});
+
+	it('does not scroll on stream end when user had paused auto-scroll', () => {
+		const threadId = 'thread-stream-end-user-paused';
+		const element = createScrollableElement({
+			scrollTop: 300,
+			scrollHeight: 500,
+			clientHeight: 200
+		});
+
+		registerThreadElement(threadId, element);
+		handleStreamingStart(threadId);
+
+		setScrollMetrics(element, {
+			scrollTop: 180,
+			scrollHeight: 500,
+			clientHeight: 200
+		});
+		handleUserScroll(threadId);
+		expect(getThreadScrollState(threadId)).toBe('user_paused');
+		expect(isAutoScrollEnabled(threadId)).toBe(false);
+
+		setScrollMetrics(element, {
+			scrollTop: 180,
+			scrollHeight: 560,
+			clientHeight: 200
+		});
+		handleStreamingEnd(threadId);
+
+		expect(element.scrollTop).toBe(180);
 	});
 });

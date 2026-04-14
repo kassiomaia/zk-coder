@@ -41,20 +41,20 @@
 
 	.success {
 		background: var(--color-success-subtle);
-		color: var(--color-success-600);
-		border: 1px solid var(--color-success-200);
+		color: var(--color-success-dark);
+		border: 1px solid var(--color-success-border);
 	}
 
 	.warning {
-		background: var(--color-warning-subtle);
-		color: var(--color-warning-600);
-		border: 1px solid var(--color-warning-200);
+		background: var(--color-warning-light);
+		color: var(--color-warning-dark);
+		border: 1px solid var(--color-warning-border);
 	}
 
 	.error {
-		background: var(--color-error-subtle);
-		color: var(--color-error-600);
-		border: 1px solid var(--color-error-200);
+		background: var(--color-error-light);
+		color: var(--color-error-dark);
+		border: 1px solid var(--color-error-border);
 	}
 
 	.info {

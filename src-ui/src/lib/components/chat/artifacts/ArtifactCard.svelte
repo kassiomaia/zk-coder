@@ -82,7 +82,12 @@
 	});
 </script>
 
-<div class="artifact-card" class:collapsed={isCollapsed} class:collapsible>
+<div
+	class="artifact-card"
+	class:collapsed={isCollapsed}
+	class:collapsible
+	class:terminal={type === 'terminal'}
+>
 	<!-- Header -->
 	{#if title || language || showCopy || collapsible}
 		<div class="artifact-header">
@@ -342,7 +347,7 @@
      ===================== */
 
 	/* Terminal artifacts get monospace treatment */
-	.artifact-card:has(.artifact-language:contains('Terminal')) {
+	.artifact-card.terminal {
 		font-family: var(--font-mono);
 	}
 

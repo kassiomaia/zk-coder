@@ -48,8 +48,9 @@ describe('handleStreamingContent', () => {
 		streamingMocks.getOnPersistAssistantMessage.mockReturnValue(null);
 	});
 
-	it('accumulates non-final chunks and schedules throttled updates', () => {
+	it('accumulates non-final chunks sharing the same messageId and schedules throttled updates', () => {
 		const state = makeState();
+		const messageId = 'stream-final-result-session-1-task-1-no-subtask-s4';
 
 		handleStreamingContent(state, {
 			type: 'streaming_content',
@@ -57,7 +58,8 @@ describe('handleStreamingContent', () => {
 			conversationId: 'conv-1',
 			threadId: 'thread-1',
 			chunk: 'Hello',
-			isFinal: false
+			isFinal: false,
+			messageId
 		});
 
 		handleStreamingContent(state, {
@@ -66,17 +68,18 @@ describe('handleStreamingContent', () => {
 			conversationId: 'conv-1',
 			threadId: 'thread-1',
 			chunk: ' world',
-			isFinal: false
+			isFinal: false,
+			messageId
 		});
 
 		expect(state.sessions.get('session-1')?.streamingMessages).toEqual({
-			'streaming-assistant-session-1': 'Hello world'
+			[messageId]: 'Hello world'
 		});
 		expect(streamingMocks.scheduleStreamingUpdate).toHaveBeenLastCalledWith(
-			'session-1:streaming-assistant-session-1',
+			`session-1:${messageId}`,
 			'conv-1',
 			'thread-1',
-			'streaming-assistant-session-1',
+			messageId,
 			'Hello world',
 			'sending'
 		);
@@ -84,6 +87,7 @@ describe('handleStreamingContent', () => {
 
 	it('flushes the full accumulated content immediately on the final chunk', () => {
 		const state = makeState();
+		const messageId = 'stream-final-result-session-1-task-1-no-subtask-s4';
 
 		handleStreamingContent(state, {
 			type: 'streaming_content',
@@ -91,7 +95,8 @@ describe('handleStreamingContent', () => {
 			conversationId: 'conv-1',
 			threadId: 'thread-1',
 			chunk: 'Hello',
-			isFinal: false
+			isFinal: false,
+			messageId
 		});
 
 		handleStreamingContent(state, {
@@ -100,18 +105,19 @@ describe('handleStreamingContent', () => {
 			conversationId: 'conv-1',
 			threadId: 'thread-1',
 			chunk: ' world',
-			isFinal: true
+			isFinal: true,
+			messageId
 		});
 
 		expect(streamingMocks.clearStreamingUpdates).toHaveBeenCalledWith(
-			'session-1:streaming-assistant-session-1'
+			`session-1:${messageId}`
 		);
 		expect(state.sessions.get('session-1')?.streamingMessages).toBeUndefined();
 		expect(streamingMocks.scheduleStreamingUpdate).toHaveBeenLastCalledWith(
-			'session-1:streaming-assistant-session-1',
+			`session-1:${messageId}`,
 			'conv-1',
 			'thread-1',
-			'streaming-assistant-session-1',
+			messageId,
 			'Hello world',
 			'sent',
 			true
@@ -150,6 +156,67 @@ describe('handleStreamingContent', () => {
 			'streaming-tool-preamble-session-1-1',
 			'Let me inspect the repository structure.'
 		);
+	});
+
+	it('keeps two concurrent streams in the same session under distinct keys when messageIds are distinct', () => {
+		const state = makeState();
+
+		handleStreamingContent(state, {
+			type: 'streaming_content',
+			sessionId: 'session-1',
+			conversationId: 'conv-1',
+			threadId: 'thread-1',
+			chunk: 'first subtask output',
+			isFinal: false,
+			messageId: 'stream-subtask-result-session-1-task-1-sub-A-s3'
+		});
+
+		handleStreamingContent(state, {
+			type: 'streaming_content',
+			sessionId: 'session-1',
+			conversationId: 'conv-1',
+			threadId: 'thread-1',
+			chunk: 'second subtask output',
+			isFinal: false,
+			messageId: 'stream-subtask-result-session-1-task-1-sub-B-s7'
+		});
+
+		const streamingMessages = state.sessions.get('session-1')?.streamingMessages;
+		expect(streamingMessages).toEqual({
+			'stream-subtask-result-session-1-task-1-sub-A-s3': 'first subtask output',
+			'stream-subtask-result-session-1-task-1-sub-B-s7': 'second subtask output'
+		});
+	});
+
+	it('does not collapse two streams with missing messageId into the same session-wide key', () => {
+		const state = makeState();
+
+		handleStreamingContent(state, {
+			type: 'streaming_content',
+			sessionId: 'session-1',
+			conversationId: 'conv-1',
+			threadId: 'thread-1',
+			chunk: 'subtask one result',
+			isFinal: true
+		});
+
+		handleStreamingContent(state, {
+			type: 'streaming_content',
+			sessionId: 'session-1',
+			conversationId: 'conv-1',
+			threadId: 'thread-1',
+			chunk: 'subtask two result',
+			isFinal: true
+		});
+
+		const flushCalls = streamingMocks.scheduleStreamingUpdate.mock.calls.filter(
+			(call: unknown[]) => call[5] === 'sent'
+		);
+		expect(flushCalls.length).toBe(2);
+
+		const firstKey = flushCalls[0][0] as string;
+		const secondKey = flushCalls[1][0] as string;
+		expect(firstKey).not.toEqual(secondKey);
 	});
 
 	it('includes the session id when updating the thinking message from status phrases', async () => {

@@ -32,7 +32,7 @@
 }
 
 .input:hover:not(:disabled) {
-	border-color: var(--color-border-hover);
+	border-color: var(--color-border-secondary);
 }
 
 .input:focus {
@@ -44,7 +44,7 @@
 .input:disabled {
 	opacity: var(--opacity-disabled);
 	cursor: not-allowed;
-	background: var(--color-surface-disabled);
+	background: var(--color-bg-tertiary);
 }
 
 .input.error {

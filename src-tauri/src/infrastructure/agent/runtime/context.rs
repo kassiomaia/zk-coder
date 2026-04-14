@@ -13,6 +13,39 @@ pub const CONTEXT_WINDOW: usize = 128_000;
 /// Threshold (60%) at which to compact the context.
 pub const COMPRESSION_THRESHOLD: f64 = 0.60;
 
+/// Returns the known context window size for a given model name.
+/// Falls back to CONTEXT_WINDOW if the model is unknown.
+pub fn model_context_window(model_name: &str) -> usize {
+    let name = model_name.to_lowercase();
+    if name.contains("claude") {
+        200_000
+    } else if name.contains("gemini-1.5") {
+        1_000_000
+    } else if name.contains("gpt-4-32k") {
+        32_768
+    } else if name.contains("gpt-4") {
+        128_000
+    } else if name.contains("gpt-3.5-turbo-16k") {
+        16_384
+    } else if name.contains("gpt-3.5") {
+        4_096
+    } else {
+        CONTEXT_WINDOW // conservative default
+    }
+}
+
+/// Computes the compression threshold ratio based on the model's context window.
+/// Larger context windows compact later (0.70–0.80), smaller ones compact earlier (0.50–0.60).
+pub fn adaptive_compression_threshold(model_name: &str) -> f64 {
+    let window = model_context_window(model_name);
+    match window {
+        w if w >= 500_000 => 0.80,
+        w if w >= 128_000 => 0.70,
+        w if w >= 32_000 => 0.60,
+        _ => 0.50,
+    }
+}
+
 /// Number of recent messages to preserve during compaction.
 pub const KEEP_RECENT_MESSAGES: usize = 15;
 /// Number of recent dialogue messages to preserve in ContextPolicyV2 tail block.
@@ -55,6 +88,10 @@ pub struct ContextPolicyInput {
     pub active_subtask: Option<String>,
     /// Retrieved context snippets.
     pub retrieval_snippets: Vec<String>,
+    /// The model name for adaptive threshold and context window size.
+    pub model_name: String,
+    /// Pre-computed summary of dropped messages (if available).
+    pub pre_computed_summary: Option<String>,
 }
 
 /// Estimates the token count for a message context.
@@ -81,13 +118,15 @@ pub fn estimate_context_tokens(context: &[Message]) -> usize {
 /// 1. Preserve the first message (usually system prompt)
 /// 2. Keep the most recent messages
 /// 3. Remove old messages in between
-pub fn maybe_compact_context(context: &mut Vec<Message>) -> Option<CompactionDetails> {
+pub fn maybe_compact_context(context: &mut Vec<Message>, model_name: &str) -> Option<CompactionDetails> {
     let before_count = context.len();
     let before_tokens = estimate_context_tokens(context);
 
     // Calculate if we need compaction
-    let usage_ratio = before_tokens as f64 / CONTEXT_WINDOW as f64;
-    if usage_ratio < COMPRESSION_THRESHOLD {
+    let effective_window = model_context_window(model_name);
+    let threshold = adaptive_compression_threshold(model_name);
+    let usage_ratio = before_tokens as f64 / effective_window as f64;
+    if usage_ratio < threshold {
         return None;
     }
 
@@ -135,15 +174,18 @@ pub fn maybe_compact_context(context: &mut Vec<Message>) -> Option<CompactionDet
 /// 3) active subtask block
 /// 4) file relevance block
 /// 5) failure memory block
-/// 6) recent dialogue tail
+/// 6) pre-computed summary block (if available)
+/// 7) recent dialogue tail
 pub fn apply_context_policy_v2(
     context: &mut Vec<Message>,
     input: &ContextPolicyInput,
 ) -> Option<CompactionDetails> {
     let before_count = context.len();
     let before_tokens = estimate_context_tokens(context);
-    let usage_ratio = before_tokens as f64 / CONTEXT_WINDOW as f64;
-    if usage_ratio < COMPRESSION_THRESHOLD && !input.force_pack {
+    let effective_window = model_context_window(&input.model_name);
+    let threshold = adaptive_compression_threshold(&input.model_name);
+    let usage_ratio = before_tokens as f64 / effective_window as f64;
+    if usage_ratio < threshold && !input.force_pack {
         return None;
     }
 
@@ -208,6 +250,16 @@ pub fn apply_context_policy_v2(
         if !text.is_empty() {
             packed.push(Message::system(format!(
                 "ContextPolicyV2 failure memory:\n{}",
+                text
+            )));
+        }
+    }
+
+    if let Some(ref summary) = input.pre_computed_summary {
+        let text = truncate_to_token_budget(summary, 1_200);
+        if !text.is_empty() {
+            packed.push(Message::system(format!(
+                "ContextPolicyV2 LLM summary:\n{}",
                 text
             )));
         }
@@ -582,7 +634,7 @@ mod tests {
             Message::assistant("Hi there!"),
         ];
 
-        let result = maybe_compact_context(&mut context);
+        let result = maybe_compact_context(&mut context, "gpt-4");
         assert!(result.is_none());
         assert_eq!(context.len(), 3); // Unchanged
     }
@@ -598,7 +650,7 @@ mod tests {
         }
 
         let before_len = context.len();
-        let result = maybe_compact_context(&mut context);
+        let result = maybe_compact_context(&mut context, "gpt-4");
 
         // At exactly threshold, should still compact
         // (the function checks usage_ratio < threshold for no compaction)
@@ -610,19 +662,19 @@ mod tests {
 
     #[test]
     fn test_context_compaction_above_threshold() {
-        // Create a context large enough to trigger compaction (>60% of 128k tokens = ~76800 tokens)
-        // At ~30 chars per message (content + overhead), need ~2500+ messages to trigger compaction
+        // Create a context large enough to trigger compaction
+        // For gpt-4 (128k @ 60% = ~76800 tokens), need enough to exceed threshold
+        // Using longer messages to reach threshold faster
         let mut context = vec![Message::system("System prompt")];
-        for i in 0..2500 {
-            context.push(Message::user(&format!("Message {} with some content", i)));
+        for i in 0..3500 {
+            context.push(Message::user(&format!("User message {} with some additional content to increase token count", i)));
             context.push(Message::assistant(&format!(
-                "Response {} with more content",
+                "Assistant response {} with more content here to exceed threshold",
                 i
             )));
         }
 
-        let before_len = context.len();
-        let result = maybe_compact_context(&mut context);
+        let result = maybe_compact_context(&mut context, "gpt-4");
 
         assert!(result.is_some());
         let details = result.unwrap();
@@ -654,7 +706,7 @@ mod tests {
         }
 
         let before_len = context.len();
-        let result = maybe_compact_context(&mut context);
+        let result = maybe_compact_context(&mut context, "gpt-4");
 
         // Verify compaction occurred
         assert!(
@@ -676,14 +728,14 @@ mod tests {
     #[test]
     fn test_context_compaction_details() {
         let mut context = vec![Message::system("System")];
-        // Need enough messages to exceed 60% of CONTEXT_WINDOW
-        // Each message pair is ~22 tokens, so we need ~3500 pairs to reach ~77000 tokens
+        // Need enough messages to exceed 60% of gpt-4's 128k context window
+        // Using longer messages to reach token threshold faster
         for i in 0..3500 {
-            context.push(Message::user(&format!("User {}", i)));
-            context.push(Message::assistant(&format!("Assistant {}", i)));
+            context.push(Message::user(&format!("User message {} with extended content", i)));
+            context.push(Message::assistant(&format!("Assistant response {} with additional text", i)));
         }
 
-        let result = maybe_compact_context(&mut context);
+        let result = maybe_compact_context(&mut context, "gpt-4");
         assert!(result.is_some());
 
         let details = result.unwrap();
@@ -701,7 +753,7 @@ mod tests {
             Message::assistant("Hi"),
         ];
 
-        let result = maybe_compact_context(&mut context);
+        let result = maybe_compact_context(&mut context, "gpt-4");
         assert!(result.is_none(), "Small context should not compact");
         assert_eq!(context.len(), 3);
     }
@@ -717,7 +769,7 @@ mod tests {
         // This should be exactly KEEP_RECENT_MESSAGES + 1
         assert_eq!(context.len(), KEEP_RECENT_MESSAGES + 1);
 
-        let result = maybe_compact_context(&mut context);
+        let result = maybe_compact_context(&mut context, "gpt-4");
         // With small messages, we're likely below token threshold
         assert!(result.is_none());
     }
@@ -730,7 +782,7 @@ mod tests {
             context.push(Message::assistant(&format!("Assistant {}", i)));
         }
 
-        maybe_compact_context(&mut context);
+        maybe_compact_context(&mut context, "gpt-4");
 
         // System message should always be first
         assert_eq!(context[0].role, MessageRole::System);
@@ -741,11 +793,11 @@ mod tests {
     fn test_context_compaction_with_mixed_message_types() {
         let mut context = vec![Message::system("System")];
         // Need enough messages to exceed 60% of CONTEXT_WINDOW (76800 tokens)
-        // Each message pair is ~24 tokens, so we need ~3200 pairs to reach ~77000 tokens
-        for i in 0..3200 {
-            context.push(Message::user(&format!("User {}", i)));
+        // Need longer messages to exceed 60% of gpt-4's 128k window
+        for i in 0..3500 {
+            context.push(Message::user(&format!("User message {} with extended content to reach threshold", i)));
             context.push(Message::assistant_with_tool_calls(
-                format!("Response {}", i),
+                format!("Response {} with additional text", i),
                 vec![ToolCall {
                     id: format!("call_{}", i),
                     name: "test_tool".to_string(),
@@ -754,7 +806,7 @@ mod tests {
             ));
         }
 
-        let result = maybe_compact_context(&mut context);
+        let result = maybe_compact_context(&mut context, "gpt-4");
         assert!(result.is_some());
 
         // Should still have system message
@@ -766,14 +818,13 @@ mod tests {
     #[test]
     fn test_compaction_details_needs_reinjection_flag() {
         let mut context = vec![Message::system("System")];
-        // Need enough messages to exceed 60% of CONTEXT_WINDOW (128000 * 0.6 = 76800 tokens)
-        // Each message contributes ~11 tokens (content_len / 4 + 10)
-        // So we need about 7000 messages to trigger compaction
-        for i in 0..7000 {
-            context.push(Message::user(&format!("User {}", i)));
+        // Need enough messages to exceed 60% of gpt-4's 128k context window
+        // With longer messages to ensure we hit the threshold reliably
+        for i in 0..5000 {
+            context.push(Message::user(&format!("User message {} with extended content to reach token limit threshold", i)));
         }
 
-        let result = maybe_compact_context(&mut context);
+        let result = maybe_compact_context(&mut context, "gpt-4");
         assert!(result.is_some());
 
         let details = result.unwrap();
@@ -815,7 +866,7 @@ mod tests {
 
         let before_tokens = estimate_context_tokens(&context);
 
-        let result = maybe_compact_context(&mut context);
+        let result = maybe_compact_context(&mut context, "gpt-4");
         if let Some(details) = result {
             assert_eq!(details.before_tokens, before_tokens);
             assert!(details.after_tokens < before_tokens);

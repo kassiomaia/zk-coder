@@ -4,65 +4,71 @@ import SettingsModal from './SettingsModal.svelte';
 import { configStore } from '$lib/stores/configStore';
 
 // Mock the configStore
-vi.mock('$lib/stores/configStore', () => ({
-	configStore: {
-		providers: [
-			{
-				id: 'anthropic',
-				name: 'Anthropic',
-				icon: '🤖',
-				isCustom: false,
-				apiType: 'anthropic' as const,
-				isConfigured: true
-			},
-			{
-				id: 'openai',
-				name: 'OpenAI',
-				icon: '🧠',
-				isCustom: false,
-				apiType: 'openai' as const,
-				isConfigured: true
-			},
-			{
-				id: 'custom-provider',
-				name: 'Custom Provider',
-				icon: '🔌',
-				isCustom: true,
-				apiType: 'openai' as const,
-				baseUrl: 'https://api.example.com',
-				isConfigured: true
-			}
-		],
-		operationDefaults: [
-			{ operation: 'search', modelId: 'claude-3-opus' },
-			{ operation: 'code', modelId: 'gpt-4' }
-		],
-		setOperationDefault: vi.fn(),
-		removeProvider: vi.fn()
-	},
-	availableModelsByOperation: {
-		search: [
-			{
-				id: 'claude-3-opus',
-				name: 'Claude Opus',
-				providerId: 'anthropic',
-				capabilities: { vision: true, audio: false, streaming: true }
-			}
-		],
-		code: [
-			{
-				id: 'gpt-4',
-				name: 'GPT-4',
-				providerId: 'openai',
-				capabilities: { vision: true, audio: false, streaming: true }
-			}
-		],
-		eye: [],
-		mic: [],
-		lightbulb: [],
-		'check-circle': []
-	}
-}));
+vi.mock('$lib/stores/configStore', async () => {
+	const { readable } = await import('svelte/store');
+	const providers = [
+		{
+			id: 'anthropic',
+			name: 'Anthropic',
+			icon: '🤖',
+			isCustom: false,
+			apiType: 'anthropic' as const,
+			isConfigured: true
+		},
+		{
+			id: 'openai',
+			name: 'OpenAI',
+			icon: '🧠',
+			isCustom: false,
+			apiType: 'openai' as const,
+			isConfigured: true
+		},
+		{
+			id: 'custom-provider',
+			name: 'Custom Provider',
+			icon: '🔌',
+			isCustom: true,
+			apiType: 'openai' as const,
+			baseUrl: 'https://api.example.com',
+			isConfigured: true
+		}
+	];
+	const operationDefaults = [
+		{ operation: 'search', modelId: 'claude-3-opus' },
+		{ operation: 'code', modelId: 'gpt-4' }
+	];
+	return {
+		configStore: {
+			subscribe: readable({ providers, operationDefaults }).subscribe,
+			providers,
+			operationDefaults,
+			setOperationDefault: vi.fn(),
+			removeProvider: vi.fn()
+		},
+		availableModelsByOperation: readable({
+			search: [
+				{
+					id: 'claude-3-opus',
+					name: 'Claude Opus',
+					providerId: 'anthropic',
+					capabilities: { vision: true, audio: false, streaming: true }
+				}
+			],
+			code: [
+				{
+					id: 'gpt-4',
+					name: 'GPT-4',
+					providerId: 'openai',
+					capabilities: { vision: true, audio: false, streaming: true }
+				}
+			],
+			eye: [],
+			mic: [],
+			lightbulb: [],
+			'check-circle': []
+		})
+	};
+});
 
 // Mock OPERATION_CONFIGS
 vi.mock('$lib/types/config', () => ({
@@ -127,7 +133,8 @@ describe('SettingsModal', () => {
 		open: true,
 		onclose: vi.fn(),
 		onconfigure: vi.fn(),
-		onaddcustom: vi.fn()
+		onaddcustom: vi.fn(),
+		onremoveprovider: vi.fn()
 	};
 
 	describe('rendering when open', () => {
@@ -194,16 +201,15 @@ describe('SettingsModal', () => {
 			expect(removeButtons).toHaveLength(1);
 		});
 
-		it('calls handleRemoveProvider when Remove is clicked', async () => {
-			const removeProviderSpy = vi.fn();
-			vi.mocked(configStore).removeProvider = removeProviderSpy;
+		it('invokes onremoveprovider callback when Remove is clicked', async () => {
+			const onremoveprovider = vi.fn();
 
-			render(SettingsModal, mockProps);
+			render(SettingsModal, { ...mockProps, onremoveprovider });
 
 			const removeButton = screen.getByRole('button', { name: 'Remove' });
 			await fireEvent.click(removeButton);
 
-			expect(removeProviderSpy).toHaveBeenCalledWith('custom-provider');
+			expect(onremoveprovider).toHaveBeenCalledWith('custom-provider');
 		});
 	});
 

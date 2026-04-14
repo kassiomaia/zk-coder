@@ -36,7 +36,7 @@
 }
 
 .select:hover:not(:disabled) {
-	border-color: var(--color-border-hover);
+	border-color: var(--color-border-secondary);
 }
 
 .select:focus {
@@ -48,7 +48,7 @@
 .select:disabled {
 	opacity: var(--opacity-disabled);
 	cursor: not-allowed;
-	background: var(--color-surface-disabled);
+	background: var(--color-bg-tertiary);
 }
 
 .icon {

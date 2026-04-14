@@ -318,6 +318,11 @@
 		const unsubErr = chatError.subscribe((err) => {
 			currentError = err;
 		});
+		const unsubConfigErr = configStore.subscribe((state) => {
+			if (state.error) {
+				currentError = state.error;
+			}
+		});
 		return () => {
 			unsubMsg();
 			unsubConv();
@@ -326,6 +331,7 @@
 			unsubProcessingThreads();
 			unsubUnreadThreads();
 			unsubErr();
+			unsubConfigErr();
 		};
 	});
 
@@ -747,6 +753,8 @@
 
 	function handleErrorRetry() {
 		chatStore.clearError();
+		configStore.clearError();
+		currentError = null;
 	}
 
 	// Config modal handlers

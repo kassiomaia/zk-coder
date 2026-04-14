@@ -664,9 +664,18 @@ Some prose after"#;
 
     #[test]
     fn test_normalize_planning_json_rejects_missing_json() {
-        let error = normalize_planning_json("<think>Only reasoning, no plan.</think>").unwrap_err();
+        // Prose that survives `<think>` stripping but contains no JSON object —
+        // exercises the "Could not locate a JSON object" branch of
+        // `normalize_planning_json`. An input like `<think>...</think>` alone
+        // would strip to empty and hit the empty-after-normalization branch
+        // instead, which is covered elsewhere.
+        let error =
+            normalize_planning_json("I'm sorry, I can't help with that request.").unwrap_err();
 
-        assert!(error.contains("Could not locate a JSON object"));
+        assert!(
+            error.contains("Could not locate a JSON object"),
+            "expected missing-JSON error, got: {error}"
+        );
     }
 
     // ========================================================================
@@ -851,7 +860,14 @@ Some prose after"#;
         let result = plan_new_task_with_mock(&client, "Some request").await;
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Failed to parse"));
+        let error = result.unwrap_err();
+        // `normalize_planning_json` rejects responses with no JSON object before
+        // `serde_json::from_str` ever runs, so either error-path is an acceptable
+        // failure mode for "not valid JSON".
+        assert!(
+            error.contains("Failed to parse") || error.contains("Could not locate a JSON object"),
+            "expected parse or locate error, got: {error}"
+        );
     }
 
     #[tokio::test]

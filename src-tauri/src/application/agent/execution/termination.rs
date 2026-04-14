@@ -5,6 +5,7 @@ use serde_json::json;
 use tauri::Emitter;
 
 use super::deps::ExecutionDeps;
+use super::message_ids::{streaming_message_id, StreamingMessageIdInput, StreamingPhase};
 use super::state::ExecutionContext;
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::session::{SessionId, SessionState};
@@ -173,6 +174,7 @@ pub(super) async fn emit_streaming_content(
     thread_id: &str,
     content: &str,
     finalize_stream: bool,
+    message_id: String,
 ) {
     emit_streaming_message(
         deps,
@@ -181,7 +183,7 @@ pub(super) async fn emit_streaming_content(
         thread_id,
         content,
         finalize_stream,
-        None,
+        message_id,
         false,
     )
     .await;
@@ -194,7 +196,7 @@ pub(super) async fn emit_streaming_message(
     thread_id: &str,
     content: &str,
     finalize_stream: bool,
-    message_id: Option<String>,
+    message_id: String,
     persist_message: bool,
 ) {
     let events = build_streaming_events(content, finalize_stream);
@@ -209,7 +211,7 @@ pub(super) async fn emit_streaming_message(
                 thread_id: thread_id.to_string(),
                 chunk,
                 is_final,
-                message_id: message_id.clone(),
+                message_id: Some(message_id.clone()),
                 persist_message: persist_message.then_some(true),
             },
         );
@@ -393,6 +395,13 @@ pub async fn complete_execution(
             }),
         );
 
+        let subtask_result_id = streaming_message_id(&StreamingMessageIdInput {
+            phase: StreamingPhase::SubtaskResult,
+            session_id: &ctx.session_id,
+            task_id: &ctx.task_id,
+            subtask_id: ctx.current_subtask_id.as_deref(),
+            step_number: ctx.step_number,
+        });
         emit_streaming_content(
             deps,
             &ctx.session_id,
@@ -400,6 +409,7 @@ pub async fn complete_execution(
             thread_id,
             &result.content,
             true,
+            subtask_result_id,
         )
         .await;
 
@@ -432,6 +442,13 @@ pub async fn complete_execution(
             }),
         );
 
+        let subtask_result_id = streaming_message_id(&StreamingMessageIdInput {
+            phase: StreamingPhase::SubtaskResult,
+            session_id: &ctx.session_id,
+            task_id: &ctx.task_id,
+            subtask_id: ctx.current_subtask_id.as_deref(),
+            step_number: ctx.step_number,
+        });
         emit_streaming_content(
             deps,
             &ctx.session_id,
@@ -439,6 +456,7 @@ pub async fn complete_execution(
             thread_id,
             &result.content,
             true,
+            subtask_result_id,
         )
         .await;
 
@@ -481,6 +499,13 @@ pub async fn complete_execution(
             status: TaskStatus::Completed,
         },
     );
+    let final_result_id = streaming_message_id(&StreamingMessageIdInput {
+        phase: StreamingPhase::FinalResult,
+        session_id: &ctx.session_id,
+        task_id: &ctx.task_id,
+        subtask_id: None,
+        step_number: ctx.step_number,
+    });
     emit_streaming_content(
         deps,
         &ctx.session_id,
@@ -488,6 +513,7 @@ pub async fn complete_execution(
         thread_id,
         &result.content,
         true,
+        final_result_id,
     )
     .await;
     let _ = deps.app_handle.emit(
@@ -506,6 +532,79 @@ pub async fn complete_execution(
 #[cfg(test)]
 mod tests {
     use super::build_streaming_events;
+    use crate::application::agent::execution::message_ids::{
+        streaming_message_id, StreamingMessageIdInput, StreamingPhase,
+    };
+
+    /// Regression test for the "messages replaced on the frontend" bug.
+    ///
+    /// When two subtasks complete in the same session, each must produce a distinct
+    /// streaming message id so the frontend chat store does not overwrite the first
+    /// message with the second. This asserts the id-building contract used by
+    /// `complete_execution` at each of its three streaming emission points.
+    #[test]
+    fn subtask_result_ids_differ_between_two_subtasks_in_the_same_session() {
+        let first = streaming_message_id(&StreamingMessageIdInput {
+            phase: StreamingPhase::SubtaskResult,
+            session_id: "sess-xyz",
+            task_id: "task-root",
+            subtask_id: Some("subtask-investigate"),
+            step_number: 3,
+        });
+        let second = streaming_message_id(&StreamingMessageIdInput {
+            phase: StreamingPhase::SubtaskResult,
+            session_id: "sess-xyz",
+            task_id: "task-root",
+            subtask_id: Some("subtask-fix"),
+            step_number: 9,
+        });
+        assert_ne!(
+            first, second,
+            "Two subtasks in the same session must not share a streaming message id"
+        );
+    }
+
+    /// The final completion emission uses a different id than any prior subtask-result
+    /// emission, so the final summary cannot overwrite the last subtask's result.
+    #[test]
+    fn final_result_id_differs_from_subtask_result_id() {
+        let subtask_result = streaming_message_id(&StreamingMessageIdInput {
+            phase: StreamingPhase::SubtaskResult,
+            session_id: "sess-1",
+            task_id: "task-1",
+            subtask_id: Some("subtask-last"),
+            step_number: 12,
+        });
+        let final_result = streaming_message_id(&StreamingMessageIdInput {
+            phase: StreamingPhase::FinalResult,
+            session_id: "sess-1",
+            task_id: "task-1",
+            subtask_id: None,
+            step_number: 12,
+        });
+        assert_ne!(subtask_result, final_result);
+    }
+
+    /// Tool-preamble emissions disambiguate by subtask as well as step, so two
+    /// subtasks restarting the step counter cannot collide.
+    #[test]
+    fn tool_preamble_ids_differ_across_subtasks_when_step_resets() {
+        let first_subtask_step_1 = streaming_message_id(&StreamingMessageIdInput {
+            phase: StreamingPhase::ToolPreamble,
+            session_id: "sess-1",
+            task_id: "task-1",
+            subtask_id: Some("sub-A"),
+            step_number: 1,
+        });
+        let second_subtask_step_1 = streaming_message_id(&StreamingMessageIdInput {
+            phase: StreamingPhase::ToolPreamble,
+            session_id: "sess-1",
+            task_id: "task-1",
+            subtask_id: Some("sub-B"),
+            step_number: 1,
+        });
+        assert_ne!(first_subtask_step_1, second_subtask_step_1);
+    }
 
     #[test]
     fn test_build_streaming_events_marks_last_chunk_final_when_requested() {

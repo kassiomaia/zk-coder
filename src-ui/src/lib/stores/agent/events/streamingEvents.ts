@@ -8,6 +8,26 @@ import type { AgentState } from '../state';
 import { clearStreamingUpdates, scheduleStreamingUpdate } from '../streaming';
 import { getOnAgentActivity, getOnPersistAssistantMessage, getOnSystemMessage } from '../callbacks';
 import { buildContextNoticeContent } from '$lib/utils/systemNotices';
+import { createLogger } from '$lib/utils/logger';
+
+const log = createLogger('streamingEvents');
+
+/**
+ * Generates a unique, per-event fallback id when the backend omits `messageId`.
+ *
+ * The legacy behaviour collapsed every such event onto `streaming-assistant-{sessionId}`,
+ * which caused successive subtask outputs to overwrite each other in the chat store.
+ * This fallback guarantees the frontend never silently merges two unrelated messages;
+ * a backend regression that drops `messageId` will show up as extra messages (loud)
+ * rather than as lost messages (silent).
+ */
+function generateOrphanStreamingId(sessionId: string): string {
+	const unique =
+		typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+			? crypto.randomUUID()
+			: `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	return `streaming-orphan-${sessionId}-${unique}`;
+}
 
 /**
  * Handle streaming_content event.
@@ -18,7 +38,16 @@ export function handleStreamingContent(
 ) {
 	const session = state.sessions.get(event.sessionId);
 	if (session) {
-		const assistantMessageId = event.messageId ?? `streaming-assistant-${event.sessionId}`;
+		let assistantMessageId: string;
+		if (event.messageId) {
+			assistantMessageId = event.messageId;
+		} else {
+			assistantMessageId = generateOrphanStreamingId(event.sessionId);
+			log.warn(
+				'streaming_content event arrived without messageId; using unique fallback id',
+				{ sessionId: event.sessionId, assistantMessageId }
+			);
+		}
 		const streamingKey = `${event.sessionId}:${assistantMessageId}`;
 		const existingMessages = session.streamingMessages ?? {};
 		const existingContent = existingMessages[assistantMessageId] ?? '';

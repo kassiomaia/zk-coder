@@ -163,14 +163,33 @@ If a document feels stale, misleading, or redundant, act on it immediately rathe
    transition: background var(--transition-fast) var(--ease-out);
    ```
 
+4. **jQuery-style pseudo-classes**: Selectors such as `:contains()`, `:parent()`, `:eq()`, `:gt()`, and `:lt()` are **not valid CSS** — they are jQuery extensions. Svelte's CSS parser rejects them (`Expected a valid CSS identifier`), which invalidates the entire virtual stylesheet and produces `failed to load virtual css module` warnings for every component that transitively depends on the file.
+   ```css
+   /* BAD - :contains is jQuery, not CSS */
+   .artifact-card:has(.artifact-language:contains('Terminal')) {
+     font-family: var(--font-mono);
+   }
+
+   /* GOOD - Toggle a state class from the component script */
+   /* Svelte: <div class="artifact-card" class:terminal={type === 'terminal'}> */
+   .artifact-card.terminal {
+     font-family: var(--font-mono);
+   }
+   ```
+
 ### CSS Verification Checklist
 
 Before committing any CSS changes:
 
-1. **Check variable existence**: Search `design-system.css` to verify the variable is defined
-2. **Run type check**: `npm run check` from `src-ui/`
-3. **Run dev server**: `npm run dev` to verify no CSS module loading errors
-4. **Check for empty rulesets**: `grep -r "\. {}\|\.className {}" src-ui/src/lib/components`
+1. **Run the CSS integrity test** (fails on undefined variables and empty rulesets):
+   `npx vitest run src/lib/styles/css-integrity.test.ts` from `src-ui/`
+2. **Check variable existence**: Search `design-system.css` to verify the variable is defined
+3. **Run type check**: `npm run check` from `src-ui/`
+4. **Run dev server**: `npm run dev` to verify no CSS module loading errors
+
+The integrity test (`src-ui/src/lib/styles/css-integrity.test.ts`) runs as part of the standard test suite and is the enforcement mechanism for the failure modes documented in the Prohibited CSS Patterns section. If it flags a missing variable, add the token to `design-system.css` or supply a fallback via `var(--token, fallback)`. If it flags an empty ruleset, either remove the rule or add a descriptive comment inside the braces. If it flags an invalid pseudo-class, replace it with a state class toggled from the component script.
+
+The dev server itself is also configured to prevent this class of failure from going unnoticed: `vite.config.ts` warms every `src/**/*.svelte` at startup via `server.warmup.clientFiles`, which forces Svelte's CSS parser to run against every component before the first request arrives. Parse errors therefore surface immediately in the dev server log instead of hiding behind a cascade of `failed to load virtual css module` warnings.
 
 ### Shared CSS Files
 

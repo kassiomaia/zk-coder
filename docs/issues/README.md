@@ -4,7 +4,7 @@ This directory contains high-priority issues identified during code review analy
 
 ## Summary
 
-- **Total Issues**: 153
+- **Total Issues**: 156
 - **Categories**: 7
 - **Priority**: All High
 
@@ -132,14 +132,14 @@ This directory contains high-priority issues identified during code review analy
 41. [Console Logging in ChatArea](code-quality/041-console-logging-production-chatarea.md)
 42. [Inconsistent Naming in state.js](code-quality/042-inconsistent-naming-statejs.md)
 
-### 🚀 Functionality (25 issues)
-1. [Incomplete Copy Message Actions](functionality/001-incomplete-copy-message-actions.md)
-2. [Missing Error Handling for File Uploads](functionality/002-missing-error-handling-file-uploads.md)
+### 🚀 Functionality (28 issues)
+1. [CLOSED - Not a bug] Incomplete Copy Message Actions - Copy uses `writeText(message.content)` on the raw markdown string, which preserves all formatting; suggested fix references a `message.type` field that doesn't exist.
+2. [CLOSED - Not a bug] Missing Error Handling for File Uploads - File attach feature is unreachable (no caller wires `onattach`); handler is a trivial passthrough with nothing to catch.
 3. [Missing Error Handling in IntentIndicator](functionality/002-missing-error-handling-intent-indicator.md)
 4. [Incomplete Markdown Support](functionality/003-incomplete-markdown-support.md)
 5. [Missing Error Handling for improveWithAI in state.js](functionality/003-missing-error-handling-improveWithAI-state-js.md)
 6. [Missing Error Handling in CustomProviderModal](functionality/004-missing-error-handling-custom-provider-modal.md)
-7. [No Resolved State Indicator in Thread Indicator](functionality/004-no-resolved-state-indicator-thread-indicator.md)
+7. [DONE] No Resolved State Indicator in Thread Indicator - Fixed
 8. [Missing Loading State Feedback in CustomProviderModal](functionality/005-missing-loading-state-feedback-custom-provider-modal.md)
 9. [Missing Thread Not Found in Chat Layout](functionality/005-missing-thread-not-found-chat-layout.md)
 10. [Missing Loading State in ThreadPanel](functionality/006-missing-loading-state-thread-panel.md)
@@ -148,16 +148,19 @@ This directory contains high-priority issues identified during code review analy
 13. [Missing Loading State in ProvidersModal](functionality/007-missing-loading-state-providers-modal.md)
 14. [Hardcoded API Key Validation Logic](functionality/008-hardcoded-api-key-validation.md)
 15. [Missing Loading State in ManualModelList](functionality/008-missing-loading-state-manual-model-list.md)
-16. [Missing Confirmation for Destructive Actions](functionality/009-missing-confirmation-destructive-actions.md)
+16. [DONE] Missing Confirmation for Destructive Actions - Already resolved via `ConfirmDialog` in `+page.svelte` for delete and archive flows.
 17. [TODO Comments Without Implementation in Main Page](functionality/009-todo-without-implementation-main-page.md)
 18. [Warning Variant Logic Inconsistency in ConfirmDialog](functionality/010-warning-variant-logic-inconsistency-confirm-dialog.md)
 19. [Loading State Inconsistency in ConfirmDialog](functionality/011-loading-state-inconsistency-confirm-dialog.md)
-20. [Missing Esc Key Handler in ConfirmDialog](functionality/012-missing-esc-key-handler-confirm-dialog.md)
+20. [DONE] Missing Esc Key Handler in ConfirmDialog - Already works via Modal's built-in handler; regression tests added.
 21. [Custom Input Validation Limitations in ClarificationBanner](functionality/013-custom-input-validation-limitations-clarification-banner.md)
 22. [Missing Error State Handling in ClarificationBanner](functionality/014-missing-error-state-handling-clarification-banner.md)
 23. [Missing Input Validation in state.js](functionality/015-missing-input-validation-state-js.md)
 24. [Missing API Type Validation in CustomProviderModal](functionality/016-missing-api-type-validation-custom-provider-modal.md)
 25. [URL Validation Limitation in CustomProviderModal](functionality/017-url-validation-limitation-custom-provider-modal.md)
+26. [DONE] Stale Validation Error in CustomProviderModal - Fixed
+27. [DONE] Silent Failure When Removing Provider - Fixed
+28. [DONE] STREAM_END Final Scroll Is Unreachable - Fixed
 
 ### 🏗️ Design Architecture (18 issues)
 1. [Tight Coupling Between ScrollController and ChatArea](design-architecture/001-tight-coupling-scroll-controller-chat-area.md)

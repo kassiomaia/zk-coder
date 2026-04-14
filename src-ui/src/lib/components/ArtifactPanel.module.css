@@ -16,7 +16,7 @@
 	flex-direction: column;
 	height: 100%;
 	background: var(--color-surface);
-	border-right: 1px solid var(--color-border);
+	border-right: 1px solid var(--color-border-primary);
 }
 
 /* Header Section */
@@ -26,7 +26,7 @@
 	align-items: center;
 	justify-content: space-between;
 	padding: var(--space-4) var(--space-4) var(--space-3);
-	border-bottom: 1px solid var(--color-border);
+	border-bottom: 1px solid var(--color-border-primary);
 }
 
 .title {
@@ -47,7 +47,7 @@
 	display: flex;
 	gap: var(--space-1);
 	padding: var(--space-2) var(--space-4);
-	border-bottom: 1px solid var(--color-border);
+	border-bottom: 1px solid var(--color-border-primary);
 	overflow-x: auto;
 	flex-shrink: 0;
 }
@@ -261,7 +261,7 @@
 @media (max-width: 480px) {
 	.artifactPanel {
 		border-right: none;
-		border-bottom: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-border-primary);
 	}
 
 	.header {

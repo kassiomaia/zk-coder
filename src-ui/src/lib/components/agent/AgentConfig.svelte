@@ -320,7 +320,7 @@
 	}
 
 	.agent-card:hover {
-		border-color: var(--color-border-default);
+		border-color: var(--color-border-secondary);
 	}
 
 	.agent-card.selected {

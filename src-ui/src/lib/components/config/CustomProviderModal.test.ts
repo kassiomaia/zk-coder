@@ -205,6 +205,94 @@ describe('CustomProviderModal', () => {
 			const addButton = screen.getByRole('button', { name: 'Add Provider' });
 			expect(addButton).not.toBeDisabled();
 		});
+
+		it('clears stale validation error when user edits the base URL', async () => {
+			const { container } = render(CustomProviderModal, mockProps);
+
+			const nameInput = container.querySelector<HTMLInputElement>('input[name="providerName"]')!;
+			const urlInput = container.querySelector<HTMLInputElement>('input[name="baseUrl"]')!;
+
+			await fireEvent.input(nameInput, { target: { value: 'Test' } });
+			await fireEvent.input(urlInput, { target: { value: 'not-a-valid-url' } });
+
+			const addButton = screen.getByRole('button', { name: 'Add Provider' });
+			await fireEvent.click(addButton);
+
+			expect(screen.getByText('Invalid URL format')).toBeInTheDocument();
+
+			await fireEvent.input(urlInput, { target: { value: 'https://api.example.com/v1' } });
+
+			await waitFor(() => {
+				expect(screen.queryByText('Invalid URL format')).not.toBeInTheDocument();
+			});
+		});
+
+		it('clears stale validation error when user edits the provider name', async () => {
+			const { container } = render(CustomProviderModal, mockProps);
+
+			const nameInput = container.querySelector<HTMLInputElement>('input[name="providerName"]')!;
+			const urlInput = container.querySelector<HTMLInputElement>('input[name="baseUrl"]')!;
+
+			await fireEvent.input(nameInput, { target: { value: 'Test' } });
+			await fireEvent.input(urlInput, { target: { value: 'not-a-valid-url' } });
+
+			const addButton = screen.getByRole('button', { name: 'Add Provider' });
+			await fireEvent.click(addButton);
+
+			expect(screen.getByText('Invalid URL format')).toBeInTheDocument();
+
+			await fireEvent.input(nameInput, { target: { value: 'Renamed' } });
+
+			await waitFor(() => {
+				expect(screen.queryByText('Invalid URL format')).not.toBeInTheDocument();
+			});
+		});
+
+		it('clears stale validation error when user edits the provider ID', async () => {
+			const { container } = render(CustomProviderModal, mockProps);
+
+			const nameInput = container.querySelector<HTMLInputElement>('input[name="providerName"]')!;
+			const urlInput = container.querySelector<HTMLInputElement>('input[name="baseUrl"]')!;
+			const idInput = container.querySelector<HTMLInputElement>('input[name="providerId"]')!;
+
+			await fireEvent.input(nameInput, { target: { value: 'Test' } });
+			await fireEvent.input(urlInput, { target: { value: 'not-a-valid-url' } });
+
+			const addButton = screen.getByRole('button', { name: 'Add Provider' });
+			await fireEvent.click(addButton);
+
+			expect(screen.getByText('Invalid URL format')).toBeInTheDocument();
+
+			await fireEvent.input(idInput, { target: { value: 'edited-id' } });
+
+			await waitFor(() => {
+				expect(screen.queryByText('Invalid URL format')).not.toBeInTheDocument();
+			});
+		});
+
+		it('clears stale validation error when user changes the API type', async () => {
+			const { container } = render(CustomProviderModal, mockProps);
+
+			const nameInput = container.querySelector<HTMLInputElement>('input[name="providerName"]')!;
+			const urlInput = container.querySelector<HTMLInputElement>('input[name="baseUrl"]')!;
+
+			await fireEvent.input(nameInput, { target: { value: 'Test' } });
+			await fireEvent.input(urlInput, { target: { value: 'not-a-valid-url' } });
+
+			const addButton = screen.getByRole('button', { name: 'Add Provider' });
+			await fireEvent.click(addButton);
+
+			expect(screen.getByText('Invalid URL format')).toBeInTheDocument();
+
+			const anthropicRadio = container.querySelector<HTMLInputElement>(
+				'input[name="apiType"][value="anthropic"]'
+			)!;
+			await fireEvent.click(anthropicRadio);
+
+			await waitFor(() => {
+				expect(screen.queryByText('Invalid URL format')).not.toBeInTheDocument();
+			});
+		});
 	});
 
 	describe('form submission', () => {

@@ -269,7 +269,7 @@
 }
 
 .settingsButton:hover {
-	background: var(--color-bg-hover);
+	background: var(--color-surface-hover);
 	color: var(--color-text-primary);
 	border-color: var(--color-border-secondary);
 }

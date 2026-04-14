@@ -18,6 +18,7 @@ pub mod helpers;
 pub mod loop_detection;
 pub mod permissions;
 pub mod spawn;
+pub mod summarizer;
 mod tool_feedback;
 pub mod types;
 
@@ -43,6 +44,7 @@ pub use client::{chat_with_retry, create_llm_client, LlmRetryConfig};
 pub use context::{
     apply_context_policy_v2, estimate_context_tokens, maybe_compact_context, CompactionDetails,
     ContextPolicyInput, COMPRESSION_THRESHOLD, CONTEXT_WINDOW, KEEP_RECENT_MESSAGES,
+    KEEP_RECENT_TAIL_MESSAGES, adaptive_compression_threshold, model_context_window,
 };
 pub use execution::execute;
 pub use helpers::{derive_system_prompt, generate_diff_from_content, infer_action_type};
@@ -55,6 +57,7 @@ pub use spawn::{
     SpawnEngine, SpawnError, SpawnInvocation, SpawnMode, SpawnObserver, SpawnOutcome, SpawnPolicy,
     SpawnRequest,
 };
+pub use summarizer::summarize_dropped_messages;
 pub use types::{AgentRuntimeError, SubtaskSummary};
 
 /// The agent runtime orchestrates LLM + tool execution with permissions.

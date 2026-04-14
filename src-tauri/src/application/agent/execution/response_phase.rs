@@ -9,6 +9,7 @@ use serde_json::json;
 use tauri::Emitter;
 
 use super::deps::ExecutionDeps;
+use super::message_ids::{streaming_message_id, StreamingMessageIdInput, StreamingPhase};
 use super::state::{ExecutionContext, LlmCallResult};
 use super::termination::{
     complete_execution, emit_streaming_content, emit_streaming_message, fail_execution,
@@ -115,6 +116,13 @@ pub async fn handle_response(
         .await?;
 
         if has_remaining {
+            let continuation_id = streaming_message_id(&StreamingMessageIdInput {
+                phase: StreamingPhase::SubtaskContinuation,
+                session_id: &ctx.session_id,
+                task_id: &ctx.task_id,
+                subtask_id: ctx.current_subtask_id.as_deref(),
+                step_number: ctx.step_number,
+            });
             emit_streaming_content(
                 deps,
                 &ctx.session_id,
@@ -122,6 +130,7 @@ pub async fn handle_response(
                 &session.thread_id,
                 "\n\nContinuing with next subtask...\n",
                 false,
+                continuation_id,
             )
             .await;
             return Ok(ResponseDecision::ContinueWithNextSubtask);
@@ -164,6 +173,13 @@ pub async fn handle_response(
     }
 
     if !response.content.trim().is_empty() {
+        let preamble_id = streaming_message_id(&StreamingMessageIdInput {
+            phase: StreamingPhase::ToolPreamble,
+            session_id: &ctx.session_id,
+            task_id: &ctx.task_id,
+            subtask_id: ctx.current_subtask_id.as_deref(),
+            step_number: ctx.step_number,
+        });
         emit_streaming_message(
             deps,
             &ctx.session_id,
@@ -171,10 +187,7 @@ pub async fn handle_response(
             &session.thread_id,
             &response.content,
             true,
-            Some(format!(
-                "streaming-tool-preamble-{}-{}",
-                ctx.session_id, ctx.step_number
-            )),
+            preamble_id,
             true,
         )
         .await;

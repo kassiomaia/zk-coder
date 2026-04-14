@@ -9,6 +9,7 @@ pub mod context_phase;
 pub mod coordinator;
 pub mod deps;
 pub mod llm_phase;
+pub mod message_ids;
 pub mod response_phase;
 pub mod state;
 pub mod step_gate;

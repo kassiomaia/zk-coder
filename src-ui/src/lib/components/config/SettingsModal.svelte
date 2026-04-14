@@ -23,7 +23,7 @@
 		onclose: () => void;
 		onconfigure: (providerId: string) => void;
 		onaddcustom: () => void;
-		onremoveprovider?: (providerId: string) => void;
+		onremoveprovider: (providerId: string) => void;
 	}
 
 	let { open, onclose, onconfigure, onaddcustom, onremoveprovider }: Props = $props();
@@ -71,16 +71,8 @@
 		}
 	}
 
-	async function handleRemoveProvider(providerId: string) {
-		if (onremoveprovider) {
-			onremoveprovider(providerId);
-		} else {
-			try {
-				await configStore.removeProvider(providerId);
-			} catch (error) {
-				log.error('Failed to remove provider:', error);
-			}
-		}
+	function handleRemoveProvider(providerId: string) {
+		onremoveprovider(providerId);
 	}
 
 	// Debug logging when modal opens (only in development)
