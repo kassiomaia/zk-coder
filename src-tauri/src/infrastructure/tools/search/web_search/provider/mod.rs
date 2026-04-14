@@ -73,5 +73,7 @@ pub trait SearchProvider: Send + Sync {
     async fn search(&self, req: SearchRequest) -> Result<Vec<RawResult>, SearchProviderError>;
 }
 
+pub mod google;
+
 #[cfg(test)]
 pub mod mock;

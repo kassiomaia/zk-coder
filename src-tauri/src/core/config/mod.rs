@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 pub use repositories::{
     ApiKeyRepository, ConfigDomainError, ConfigRepository, ManualModelRepository, ModelRepository,
     OperationDefaultsRepository, ProviderRepository, RepositoryResult as ConfigRepositoryResult,
+    ToolCredentialsRepository,
 };
 
 /// Represents the type of an API provider.

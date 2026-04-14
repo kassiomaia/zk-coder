@@ -76,6 +76,15 @@ pub fn init_schema(conn: &Connection) -> Result<(), ConfigRepositoryError> {
 
         CREATE INDEX IF NOT EXISTS idx_manual_models_provider
         ON manual_models(provider_id);
+
+        -- Tool credentials table. Each row stores the opaque JSON credential
+        -- blob owned by one tool_id. Shape is tool-specific (see the
+        -- per-tool resolver for the format).
+        CREATE TABLE IF NOT EXISTS tool_credentials (
+            tool_id     TEXT PRIMARY KEY,
+            credentials TEXT NOT NULL,
+            updated_at  TEXT NOT NULL
+        );
         ",
     )?;
     Ok(())
@@ -104,5 +113,32 @@ mod tests {
         assert!(tables.contains(&"models".to_string()));
         assert!(tables.contains(&"operation_defaults".to_string()));
         assert!(tables.contains(&"providers".to_string()));
+        assert!(tables.contains(&"tool_credentials".to_string()));
+    }
+
+    #[test]
+    fn test_init_schema_is_idempotent_on_existing_db() {
+        // Simulate a fresh install followed by an app restart: running
+        // `init_schema` twice on the same connection must be safe, since
+        // existing users will re-run it every launch.
+        let conn = Connection::open_in_memory().unwrap();
+        init_schema(&conn).unwrap();
+        init_schema(&conn).unwrap();
+    }
+
+    #[test]
+    fn test_tool_credentials_table_has_expected_columns() {
+        let conn = Connection::open_in_memory().unwrap();
+        init_schema(&conn).unwrap();
+        let columns: Vec<String> = conn
+            .prepare("PRAGMA table_info(tool_credentials)")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert!(columns.contains(&"tool_id".to_string()));
+        assert!(columns.contains(&"credentials".to_string()));
+        assert!(columns.contains(&"updated_at".to_string()));
     }
 }

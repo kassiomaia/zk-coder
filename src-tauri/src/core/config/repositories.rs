@@ -94,6 +94,22 @@ pub trait ApiKeyRepository: Send + Sync {
     fn has_api_key(&self, provider_id: &str) -> RepositoryResult<bool>;
 }
 
+/// A repository for tool-owned credential blobs.
+///
+/// The value stored for `tool_id` is opaque JSON whose shape is owned by the
+/// tool (e.g. the web-search tool stores `{"api_key": "…", "cx": "…"}`). This
+/// repository does not interpret the blob — it only persists it.
+pub trait ToolCredentialsRepository: Send + Sync {
+    /// Upserts the credentials blob for `tool_id`.
+    fn set_tool_credentials(&self, tool_id: &str, credentials: &str) -> RepositoryResult<()>;
+    /// Retrieves the credentials blob for `tool_id`, if any.
+    fn get_tool_credentials(&self, tool_id: &str) -> RepositoryResult<Option<String>>;
+    /// Removes the stored credentials for `tool_id` (no-op when absent).
+    fn delete_tool_credentials(&self, tool_id: &str) -> RepositoryResult<()>;
+    /// Returns `true` when credentials are persisted for `tool_id`.
+    fn has_tool_credentials(&self, tool_id: &str) -> RepositoryResult<bool>;
+}
+
 /// A repository for managing manual model overrides for a provider.
 pub trait ManualModelRepository: Send + Sync {
     /// Retrieves all manual models for a specific provider.
@@ -116,6 +132,7 @@ pub trait ConfigRepository:
     + OperationDefaultsRepository
     + ApiKeyRepository
     + ManualModelRepository
+    + ToolCredentialsRepository
 {
 }
 
@@ -127,5 +144,6 @@ impl<T> ConfigRepository for T where
         + OperationDefaultsRepository
         + ApiKeyRepository
         + ManualModelRepository
+        + ToolCredentialsRepository
 {
 }

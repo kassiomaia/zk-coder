@@ -13,7 +13,7 @@ use crate::infrastructure::sqlite::migrations::{config, config_schema};
 use crate::core::config::{
     ApiKeyRepository, ConfigDomainError, ManualModelEntry, ManualModelRepository, Model,
     ModelRepository, ModelsSource, OperationDefault, OperationDefaultsRepository, OperationType,
-    Provider, ProviderRepository,
+    Provider, ProviderRepository, ToolCredentialsRepository,
 };
 
 // Re-export submodule functions
@@ -23,6 +23,7 @@ pub(crate) mod manual_models;
 pub(crate) mod models;
 pub(crate) mod operation_defaults;
 pub(crate) mod providers;
+pub(crate) mod tool_credentials;
 
 /// Errors from the `SQLite` configuration repository.
 #[derive(Debug, Error)]
@@ -415,6 +416,57 @@ impl SqliteConfigRepository {
         let conn = self.acquire_lock()?;
         providers::set_provider_models_source(&conn, provider_id, models_source)
     }
+
+    // =========================================================================
+    // Tool Credentials Operations
+    // =========================================================================
+
+    /// Upserts the credentials blob for `tool_id`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn set_tool_credentials(
+        &self,
+        tool_id: &str,
+        credentials: &str,
+    ) -> Result<(), ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        tool_credentials::set_tool_credentials(&conn, tool_id, credentials)
+    }
+
+    /// Retrieves the credentials blob for `tool_id`, if present.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn get_tool_credentials(
+        &self,
+        tool_id: &str,
+    ) -> Result<Option<String>, ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        tool_credentials::get_tool_credentials(&conn, tool_id)
+    }
+
+    /// Deletes the credentials row for `tool_id` (no-op when absent).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn delete_tool_credentials(&self, tool_id: &str) -> Result<(), ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        tool_credentials::delete_tool_credentials(&conn, tool_id)
+    }
+
+    /// Returns whether a credentials row exists for `tool_id`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn has_tool_credentials(&self, tool_id: &str) -> Result<bool, ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        tool_credentials::has_tool_credentials(&conn, tool_id)
+    }
 }
 
 impl From<ConfigRepositoryError> for ConfigDomainError {
@@ -591,6 +643,37 @@ impl ManualModelRepository for SqliteConfigRepository {
         name: &str,
     ) -> crate::core::config::ConfigRepositoryResult<()> {
         Self::remove_manual_model(self, provider_id, name).map_err(Into::into)
+    }
+}
+
+impl ToolCredentialsRepository for SqliteConfigRepository {
+    fn set_tool_credentials(
+        &self,
+        tool_id: &str,
+        credentials: &str,
+    ) -> crate::core::config::ConfigRepositoryResult<()> {
+        Self::set_tool_credentials(self, tool_id, credentials).map_err(Into::into)
+    }
+
+    fn get_tool_credentials(
+        &self,
+        tool_id: &str,
+    ) -> crate::core::config::ConfigRepositoryResult<Option<String>> {
+        Self::get_tool_credentials(self, tool_id).map_err(Into::into)
+    }
+
+    fn delete_tool_credentials(
+        &self,
+        tool_id: &str,
+    ) -> crate::core::config::ConfigRepositoryResult<()> {
+        Self::delete_tool_credentials(self, tool_id).map_err(Into::into)
+    }
+
+    fn has_tool_credentials(
+        &self,
+        tool_id: &str,
+    ) -> crate::core::config::ConfigRepositoryResult<bool> {
+        Self::has_tool_credentials(self, tool_id).map_err(Into::into)
     }
 }
 

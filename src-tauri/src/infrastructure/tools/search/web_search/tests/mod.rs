@@ -4,4 +4,8 @@
 //! to keep any single file well inside the repository's soft limit.
 
 mod args_tests;
+mod credentials_tests;
+mod error_mapping_tests;
+mod provider_google_tests;
 mod provider_mock_tests;
+mod tool_execute_tests;
