@@ -6,6 +6,7 @@
 //! Phase 1 ships the argument / output types and their pure validation logic.
 //! No HTTP, DB, provider, or registry wiring is present at this phase.
 
+pub mod provider;
 pub mod types;
 
 #[cfg(test)]
