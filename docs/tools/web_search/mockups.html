@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Search — Visual Mockups</title>
+
+<!--
+  Web Search Tool — Visual Mockups
+  --------------------------------
+  Open this file directly in a browser. No build step, no dependencies.
+  Every visual token below is mirrored from src-ui/src/lib/styles/design-system.css
+  (dark theme, the app's default). Component classes are scoped per-section so
+  each block can be lifted straight into the Svelte component it documents.
+
+  Sections map one-to-one with the files listed in plan.md:
+    Chat area:
+      1. Pending       -> ToolCallMessage.svelte (pending state)
+      2. Success       -> ToolCallMessage.svelte (collapsed)
+      3. Expanded      -> ToolCallMessage.svelte + WebSearchResults.svelte
+      4. Cached        -> ToolCallMessage.svelte (cached variant)
+      5. No results    -> ToolCallMessage.svelte (policy-filtered empty)
+      6. Not configured-> ToolCallMessage.svelte (error variant)
+    Settings:
+      7. Credentials   -> WebSearchCredentials.svelte
+      8. Policy        -> WebSearchPolicy.svelte
+      9. Cache controls-> WebSearchCacheControls.svelte
+-->
+
+<style>
+  /* ----------------------------------------------------------------------
+     Design tokens (subset, dark theme) — see design-system.css
+     ---------------------------------------------------------------------- */
+  :root {
+    /* Neutrals (warm stone) */
+    --c-bg:          #0b0b0a;
+    --c-bg-2:        #141413;
+    --c-bg-3:        #1a1918;
+    --c-surface:     #141413;
+    --c-surface-hov: #201f1e;
+    --c-surface-act: #282726;
+    --c-text:        #e6e5e0;
+    --c-text-2:      #a3a29a;
+    --c-text-3:      #73726a;
+    --c-text-muted:  #545350;
+
+    /* Borders */
+    --c-border:      rgba(255, 252, 245, 0.07);
+    --c-border-sub:  rgba(255, 252, 245, 0.04);
+    --c-border-2:    rgba(255, 252, 245, 0.12);
+
+    /* Primary slate-blue */
+    --c-primary:     #5c6178;
+    --c-primary-4:   #7a7f96;
+    --c-primary-sub: rgba(92, 97, 120, 0.12);
+    --c-primary-bdr: rgba(92, 97, 120, 0.25);
+
+    /* Semantic */
+    --c-success:     #3d9970;
+    --c-success-sub: rgba(61, 153, 112, 0.12);
+    --c-success-bdr: rgba(61, 153, 112, 0.18);
+    --c-warning:     #d4930d;
+    --c-warning-sub: rgba(212, 147, 13, 0.12);
+    --c-warning-bdr: rgba(212, 147, 13, 0.18);
+    --c-error:       #c94a4a;
+    --c-error-sub:   rgba(201, 74, 74, 0.12);
+    --c-error-bdr:   rgba(201, 74, 74, 0.18);
+
+    /* Type */
+    --f-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --f-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+
+    /* Sizes */
+    --t-2xs: 10px;
+    --t-xs:  12px;
+    --t-sm:  14px;
+    --t-md:  15px;
+
+    /* Spacing (4px base) */
+    --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px;
+
+    /* Motion */
+    --tr-fast:  150ms cubic-bezier(0.2, 0, 0, 1);
+    --tr-med:   250ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  /* ----------------------------------------------------------------------
+     Page chrome (review-only; NOT part of the app)
+     ---------------------------------------------------------------------- */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-family: var(--f-sans);
+    font-size: var(--t-sm);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .page {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: var(--s-8) var(--s-6) 120px;
+  }
+  .page__title {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 var(--s-1);
+  }
+  .page__sub {
+    color: var(--c-text-3);
+    font-size: var(--t-xs);
+    margin: 0 0 var(--s-8);
+    max-width: 60ch;
+  }
+  .page__section {
+    margin-top: var(--s-8);
+    padding-top: var(--s-5);
+    border-top: 1px solid var(--c-border-sub);
+  }
+  .page__section-title {
+    font-size: var(--t-2xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-text-3);
+    margin: 0 0 var(--s-5);
+  }
+
+  .panel {
+    margin-bottom: var(--s-6);
+  }
+  .panel__head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-3);
+    margin-bottom: var(--s-2);
+  }
+  .panel__num {
+    font-family: var(--f-mono);
+    font-size: var(--t-2xs);
+    color: var(--c-text-muted);
+    letter-spacing: 0.05em;
+  }
+  .panel__label {
+    font-size: var(--t-xs);
+    font-weight: 500;
+    color: var(--c-text);
+  }
+  .panel__ref {
+    font-family: var(--f-mono);
+    font-size: var(--t-2xs);
+    color: var(--c-text-3);
+    margin-left: auto;
+  }
+  .panel__canvas {
+    background: var(--c-bg-2);
+    border: 1px solid var(--c-border-sub);
+    padding: var(--s-5);
+  }
+
+  /* Simulated chat container: mirrors the messages-list width and padding */
+  .chat {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .chat__user {
+    color: var(--c-text-2);
+    font-size: var(--t-sm);
+    padding: var(--s-2) var(--s-3);
+    background: var(--c-bg-3);
+    margin-bottom: var(--s-3);
+    border-left: 2px solid var(--c-border-2);
+  }
+  .chat__user-label {
+    font-size: var(--t-2xs);
+    color: var(--c-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+
+  /* ----------------------------------------------------------------------
+     ToolCallMessage — shared (mirrors ToolCallMessage.module.css exactly)
+     ---------------------------------------------------------------------- */
+  .tc {
+    margin-bottom: 1px;
+    background: transparent;
+    border: 1px solid transparent;
+    overflow: hidden;
+    transition: all var(--tr-fast);
+  }
+  .tc:hover { background: var(--c-surface-hov); border-color: var(--c-border-sub); }
+  .tc.is-expanded { background: var(--c-bg-2); border-color: var(--c-border-sub); }
+  .tc.has-error   { border-left: 2px solid var(--c-error); }
+
+  .tc__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--s-1) var(--s-2);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    gap: var(--s-2);
+    text-align: left;
+    color: inherit;
+    font: inherit;
+  }
+  .tc__main {
+    display: flex; align-items: center; gap: var(--s-2); min-width: 0; flex: 1;
+  }
+  .tc__chev {
+    display: inline-flex; color: var(--c-text-3); opacity: 0.5;
+    transition: transform var(--tr-fast);
+  }
+  .tc.is-expanded .tc__chev { transform: rotate(90deg); opacity: 0.8; }
+
+  .tc__badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px;
+    background: var(--c-bg-3);
+    color: var(--c-text-3);
+    flex-shrink: 0;
+    transition: all var(--tr-fast);
+  }
+  .tc.is-expanded .tc__badge, .tc:hover .tc__badge {
+    background: var(--c-primary-sub); color: var(--c-primary-4);
+  }
+
+  .tc__info { display: flex; align-items: baseline; gap: var(--s-2); min-width: 0; }
+  .tc__title {
+    font-size: var(--t-xs); font-weight: 500;
+    color: var(--c-text-2); white-space: nowrap;
+  }
+  .tc.is-expanded .tc__title, .tc:hover .tc__title {
+    color: var(--c-text); font-weight: 600;
+  }
+  .tc__sub {
+    font-family: var(--f-mono);
+    font-size: var(--t-2xs);
+    color: var(--c-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.7;
+    max-width: 380px;
+  }
+
+  .tc__meta { display: flex; align-items: center; gap: var(--s-2); flex-shrink: 0; }
+  .tc__outcome { font-size: var(--t-2xs); color: var(--c-text-3); display: none; }
+  .tc.is-expanded .tc__outcome { display: block; }
+  .tc__outcome--muted { color: var(--c-text-muted); }
+
+  .tc__status { display: inline-flex; color: var(--c-text-muted); opacity: 0.6; }
+  .tc__status.is-success { color: var(--c-success); opacity: 0.85; }
+  .tc__status.is-error   { color: var(--c-error);   opacity: 0.9; }
+
+  .tc__spinner {
+    width: 12px; height: 12px;
+    border: 1.5px solid var(--c-primary-4);
+    border-bottom-color: transparent;
+    border-radius: 999px;
+    display: inline-block;
+    animation: tc-spin 900ms linear infinite;
+  }
+  @keyframes tc-spin { to { transform: rotate(360deg); } }
+
+  .tc__content { padding: var(--s-3); background: var(--c-bg-2); }
+  .tc__group { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--s-3); }
+  .tc__group-label {
+    font-size: var(--t-2xs); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--c-text-3); opacity: 0.8;
+  }
+  .tc__params { display: flex; flex-direction: column; gap: 2px; }
+  .tc__param { display: flex; gap: var(--s-2); font-size: var(--t-2xs); }
+  .tc__param-k { color: var(--c-text-3); font-weight: 500; min-width: 72px; }
+  .tc__param-v { color: var(--c-text-2); font-family: var(--f-mono); word-break: break-all; }
+
+  .tc__banner {
+    font-size: var(--t-xs);
+    padding: var(--s-2) var(--s-3);
+    border: 1px solid var(--c-error-bdr);
+    background: var(--c-error-sub);
+    color: var(--c-error);
+    line-height: 1.4;
+  }
+  .tc__banner--neutral {
+    border-color: var(--c-border);
+    background: var(--c-bg-3);
+    color: var(--c-text-2);
+  }
+  .tc__banner-action {
+    display: inline-flex; align-items: center; gap: var(--s-1);
+    margin-top: var(--s-2);
+    font-size: var(--t-2xs);
+    color: var(--c-primary-4);
+    text-decoration: none;
+    border: 1px solid var(--c-primary-bdr);
+    background: var(--c-primary-sub);
+    padding: 2px var(--s-2);
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .tc__footer {
+    margin-top: var(--s-3);
+    font-size: var(--t-2xs);
+    color: var(--c-text-muted);
+    opacity: 0.5;
+    text-align: right;
+  }
+
+  /* ----------------------------------------------------------------------
+     WebSearchResults — new component (section 3 and onward)
+     ---------------------------------------------------------------------- */
+  .wsr {
+    display: flex; flex-direction: column;
+    border: 1px solid var(--c-border-sub);
+    background: var(--c-bg);
+  }
+  .wsr__item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: var(--s-3);
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--c-border-sub);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: background var(--tr-fast);
+  }
+  .wsr__item:last-child { border-bottom: 0; }
+  .wsr__item:hover, .wsr__item:focus-visible {
+    background: var(--c-surface-hov);
+    outline: none;
+  }
+  .wsr__item:focus-visible { box-shadow: inset 2px 0 0 var(--c-primary-4); }
+
+  .wsr__head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: var(--s-3); margin-bottom: 2px;
+  }
+  .wsr__title {
+    font-size: var(--t-sm);
+    font-weight: 600;
+    color: var(--c-text);
+    letter-spacing: -0.005em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1; min-width: 0;
+  }
+  .wsr__ext {
+    font-size: var(--t-2xs); color: var(--c-text-muted);
+    flex-shrink: 0; opacity: 0.7;
+  }
+  .wsr__url {
+    font-family: var(--f-mono);
+    font-size: var(--t-2xs);
+    color: var(--c-text-3);
+    margin-bottom: var(--s-1);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .wsr__snippet {
+    font-size: var(--t-xs);
+    color: var(--c-text-2);
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ----------------------------------------------------------------------
+     Settings cards (sections 7–9)
+     ---------------------------------------------------------------------- */
+  .sc {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border-sub);
+    padding: var(--s-5);
+  }
+  .sc__head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: var(--s-4);
+  }
+  .sc__title { font-size: var(--t-md); font-weight: 600; margin: 0; }
+  .sc__hint  { font-size: var(--t-2xs); color: var(--c-text-3); margin: 0; }
+
+  .sc__row {
+    display: flex; flex-direction: column; gap: var(--s-1);
+    margin-bottom: var(--s-3);
+  }
+  .sc__label {
+    font-size: var(--t-2xs); font-weight: 500;
+    color: var(--c-text-2);
+    letter-spacing: 0.02em;
+  }
+  .sc__input {
+    width: 100%;
+    padding: 7px var(--s-3);
+    background: var(--c-bg);
+    color: var(--c-text);
+    border: 1px solid var(--c-border);
+    font-family: var(--f-mono);
+    font-size: var(--t-xs);
+    outline: none;
+    transition: border-color var(--tr-fast);
+  }
+  .sc__input:focus { border-color: var(--c-primary-4); }
+  .sc__input--code { letter-spacing: 0.02em; }
+
+  .sc__input-wrap { position: relative; }
+  .sc__reveal {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    border: 0; background: transparent;
+    color: var(--c-text-3);
+    font-size: var(--t-2xs);
+    padding: 4px 8px; cursor: pointer;
+    font-family: inherit;
+  }
+  .sc__reveal:hover { color: var(--c-text); }
+
+  .sc__actions {
+    display: flex; gap: var(--s-2); align-items: center;
+    margin-top: var(--s-3);
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--c-border-sub);
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: var(--s-1);
+    padding: 6px var(--s-3);
+    font-size: var(--t-xs); font-weight: 500;
+    font-family: inherit;
+    border: 1px solid var(--c-border);
+    background: var(--c-bg);
+    color: var(--c-text);
+    cursor: pointer;
+    transition: all var(--tr-fast);
+  }
+  .btn:hover { background: var(--c-surface-hov); border-color: var(--c-border-2); }
+  .btn--primary {
+    background: var(--c-primary-sub);
+    border-color: var(--c-primary-bdr);
+    color: var(--c-text);
+  }
+  .btn--primary:hover { background: rgba(92, 97, 120, 0.18); }
+  .btn--ghost { border-color: transparent; color: var(--c-text-3); }
+  .btn--ghost:hover { color: var(--c-text); background: var(--c-surface-hov); }
+  .btn--danger { color: var(--c-error); border-color: var(--c-error-bdr); background: var(--c-error-sub); }
+  .btn--danger:hover { background: rgba(201, 74, 74, 0.18); }
+
+  .sc__status {
+    margin-left: auto;
+    font-size: var(--t-2xs);
+    color: var(--c-success);
+    display: inline-flex; align-items: center; gap: var(--s-1);
+  }
+
+  /* Policy chips */
+  .chips {
+    display: flex; flex-wrap: wrap; gap: var(--s-1);
+    padding: var(--s-2);
+    min-height: 40px;
+    border: 1px solid var(--c-border);
+    background: var(--c-bg);
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px var(--s-2);
+    font-family: var(--f-mono);
+    font-size: var(--t-2xs);
+    color: var(--c-text);
+    background: var(--c-bg-3);
+    border: 1px solid var(--c-border);
+  }
+  .chip--allow { color: var(--c-success); border-color: var(--c-success-bdr); background: var(--c-success-sub); }
+  .chip--deny  { color: var(--c-error);   border-color: var(--c-error-bdr);   background: var(--c-error-sub); }
+  .chip__x {
+    border: 0; background: transparent; color: inherit; opacity: 0.5;
+    cursor: pointer; font-size: var(--t-2xs); padding: 0 2px; line-height: 1;
+  }
+  .chip__x:hover { opacity: 1; }
+
+  /* Cache stats */
+  .cache-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-3);
+    margin-bottom: var(--s-4);
+  }
+  .cache-stat {
+    padding: var(--s-3);
+    background: var(--c-bg);
+    border: 1px solid var(--c-border-sub);
+  }
+  .cache-stat__label {
+    font-size: var(--t-2xs);
+    color: var(--c-text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .cache-stat__value {
+    font-family: var(--f-mono);
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--c-text);
+    margin-top: 4px;
+    letter-spacing: -0.01em;
+  }
+  .cache-stat__unit {
+    font-size: var(--t-xs);
+    color: var(--c-text-3);
+    margin-left: 4px;
+  }
+</style>
+</head>
+
+<body>
+<main class="page">
+
+  <h1 class="page__title">Web Search — Visual Mockups</h1>
+  <p class="page__sub">
+    Reference visualizations for the <code style="font-family:var(--f-mono);color:var(--c-text-2)">search_web_search</code> tool.
+    Dark theme shown (application default). Every class name, token, and spatial rhythm
+    mirrors the production <code style="font-family:var(--f-mono);color:var(--c-text-2)">src-ui/</code> styles so these
+    blocks can be lifted straight into the Svelte components listed in <code style="font-family:var(--f-mono);color:var(--c-text-2)">plan.md</code>.
+  </p>
+
+  <!-- ============================================================
+       Chat area — six states
+       ============================================================ -->
+  <section>
+    <h2 class="page__section-title">Chat area · tool call states</h2>
+
+    <!-- 1. Pending -->
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__num">01</span>
+        <span class="panel__label">Pending</span>
+        <span class="panel__ref">ToolCallMessage.svelte · toolCallStatus = 'pending'</span>
+      </div>
+      <div class="panel__canvas">
+        <div class="chat">
+          <div class="chat__user">
+            <div class="chat__user-label">You</div>
+            What's the latest Svelte version?
+          </div>
+          <div class="tc">
+            <button class="tc__header" type="button">
+              <span class="tc__main">
+                <span class="tc__chev" aria-hidden="true">›</span>
+                <span class="tc__badge" aria-hidden="true">
+                  <!-- Globe icon (lucide) -->
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                </span>
+                <span class="tc__info">
+                  <span class="tc__title">Searching web</span>
+                  <span class="tc__sub">what's the latest Svelte version?</span>
+                </span>
+              </span>
+              <span class="tc__meta">
+                <span class="tc__outcome tc__outcome--muted">Executing...</span>
+                <span class="tc__spinner" aria-label="Pending"></span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Success collapsed -->
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__num">02</span>
+        <span class="panel__label">Success · collapsed</span>
+        <span class="panel__ref">ToolCallMessage.svelte · getOutcomeSummary('search_web_search')</span>
+      </div>
+      <div class="panel__canvas">
+        <div class="chat">
+          <div class="tc">
+            <button class="tc__header" type="button">
+              <span class="tc__main">
+                <span class="tc__chev" aria-hidden="true">›</span>
+                <span class="tc__badge" aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                </span>
+                <span class="tc__info">
+                  <span class="tc__title">Searched web</span>
+                  <span class="tc__sub">what's the latest Svelte version?</span>
+                </span>
+              </span>
+              <span class="tc__meta">
+                <span class="tc__outcome">Found 5 results</span>
+                <span class="tc__status is-success" aria-label="Success">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Success expanded with results -->
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__num">03</span>
+        <span class="panel__label">Success · expanded with results list</span>
+        <span class="panel__ref">ToolCallMessage.svelte + WebSearchResults.svelte</span>
+      </div>
+      <div class="panel__canvas">
+        <div class="chat">
+          <div class="tc is-expanded">
+            <button class="tc__header" type="button">
+              <span class="tc__main">
+                <span class="tc__chev" aria-hidden="true">›</span>
+                <span class="tc__badge" aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                </span>
+                <span class="tc__info">
+                  <span class="tc__title">Searched web</span>
+                  <span class="tc__sub">what's the latest Svelte version?</span>
+                </span>
+              </span>
+              <span class="tc__meta">
+                <span class="tc__outcome">Found 5 results</span>
+                <span class="tc__status is-success" aria-label="Success">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+              </span>
+            </button>
+
+            <div class="tc__content">
+              <div class="tc__group">
+                <div class="tc__group-label">Parameters</div>
+                <div class="tc__params">
+                  <div class="tc__param"><span class="tc__param-k">query:</span><span class="tc__param-v">what's the latest Svelte version?</span></div>
+                  <div class="tc__param"><span class="tc__param-k">num_results:</span><span class="tc__param-v">5</span></div>
+                  <div class="tc__param"><span class="tc__param-k">language:</span><span class="tc__param-v">en-us</span></div>
+                </div>
+              </div>
+
+              <div class="tc__group">
+                <div class="tc__group-label">Results · provider: google_custom_search</div>
+                <!-- WebSearchResults.svelte -->
+                <div class="wsr" role="list">
+                  <button class="wsr__item" type="button" role="listitem" aria-label="Open Svelte 5 release notes at svelte.dev">
+                    <div class="wsr__head">
+                      <span class="wsr__title">Svelte 5 is alive</span>
+                      <span class="wsr__ext" aria-hidden="true">↗</span>
+                    </div>
+                    <div class="wsr__url">svelte.dev/blog/svelte-5-is-alive</div>
+                    <div class="wsr__snippet">After nearly 18 months of development, Svelte 5 is now stable. Runes, snippets, and a new reactivity system deliver a faster, more predictable component model.</div>
+                  </button>
+                  <button class="wsr__item" type="button" role="listitem">
+                    <div class="wsr__head">
+                      <span class="wsr__title">Release notes · svelte 5.0.0</span>
+                      <span class="wsr__ext" aria-hidden="true">↗</span>
+                    </div>
+                    <div class="wsr__url">github.com/sveltejs/svelte/releases/tag/svelte%405.0.0</div>
+                    <div class="wsr__snippet">Major release of the Svelte compiler with runes, event delegation changes, and updated TypeScript support. Migration guide linked in the description.</div>
+                  </button>
+                  <button class="wsr__item" type="button" role="listitem">
+                    <div class="wsr__head">
+                      <span class="wsr__title">What's new in Svelte 5</span>
+                      <span class="wsr__ext" aria-hidden="true">↗</span>
+                    </div>
+                    <div class="wsr__url">svelte.dev/docs/svelte/v5-migration-guide</div>
+                    <div class="wsr__snippet">Practical changes, breaking API notes, and upgrade paths for teams moving from Svelte 4.</div>
+                  </button>
+                  <button class="wsr__item" type="button" role="listitem">
+                    <div class="wsr__head">
+                      <span class="wsr__title">npm · svelte</span>
+                      <span class="wsr__ext" aria-hidden="true">↗</span>
+                    </div>
+                    <div class="wsr__url">npmjs.com/package/svelte</div>
+                    <div class="wsr__snippet">Cybernetically enhanced web apps. Current major: 5. Weekly downloads, version history, and tarball links.</div>
+                  </button>
+                  <button class="wsr__item" type="button" role="listitem">
+                    <div class="wsr__head">
+                      <span class="wsr__title">Svelte 5 stable: a new era</span>
+                      <span class="wsr__ext" aria-hidden="true">↗</span>
+                    </div>
+                    <div class="wsr__url">news.ycombinator.com/item?id=42245024</div>
+                    <div class="wsr__snippet">Hacker News discussion of the 5.0.0 release, runes adoption, and performance benchmarks against earlier versions.</div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="tc__footer">Executed at 14:03</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Cached -->
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__num">04</span>
+        <span class="panel__label">Success · cache hit</span>
+        <span class="panel__ref">ToolCallMessage.svelte · output.cached === true</span>
+      </div>
+      <div class="panel__canvas">
+        <div class="chat">
+          <div class="tc is-expanded">
+            <button class="tc__header" type="button">
+              <span class="tc__main">
+                <span class="tc__chev" aria-hidden="true">›</span>
+                <span class="tc__badge" aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                </span>
+                <span class="tc__info">
+                  <span class="tc__title">Searched web</span>
+                  <span class="tc__sub">what's the latest Svelte version?</span>
+                </span>
+              </span>
+              <span class="tc__meta">
+                <span class="tc__outcome">Found 5 results <span style="color:var(--c-text-muted);font-family:var(--f-mono)">(cached)</span></span>
+                <span class="tc__status is-success" aria-label="Success (cached)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+              </span>
+            </button>
+
+            <div class="tc__content">
+              <div class="tc__banner tc__banner--neutral">
+                Served from local cache · expires in 23 h 47 min · bypass with a different query.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. No results / policy-filtered -->
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__num">05</span>
+        <span class="panel__label">No results · filtered by policy</span>
+        <span class="panel__ref">ToolCallMessage.svelte · output.count === 0 &amp;&amp; filtered_by_policy</span>
+      </div>
+      <div class="panel__canvas">
+        <div class="chat">
+          <div class="tc is-expanded">
+            <button class="tc__header" type="button">
+              <span class="tc__main">
+                <span class="tc__chev" aria-hidden="true">›</span>
+                <span class="tc__badge" aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                </span>
+                <span class="tc__info">
+                  <span class="tc__title">Searched web</span>
+                  <span class="tc__sub">node streaming benchmarks 2025</span>
+                </span>
+              </span>
+              <span class="tc__meta">
+                <span class="tc__outcome">No results</span>
+                <span class="tc__status is-success" aria-label="Completed, zero results">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+              </span>
+            </button>
+            <div class="tc__content">
+              <div class="tc__banner tc__banner--neutral">
+                All 5 provider results were dropped by the workspace's domain policy.
+                Review allow/deny lists in
+                <span style="font-family:var(--f-mono);color:var(--c-text)">Settings → Tools → Web Search</span>.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Error — not configured -->
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__num">06</span>
+        <span class="panel__label">Error · credentials not configured</span>
+        <span class="panel__ref">ToolCallMessage.svelte · toolCallStatus = 'error'</span>
+      </div>
+      <div class="panel__canvas">
+        <div class="chat">
+          <div class="tc is-expanded has-error">
+            <button class="tc__header" type="button">
+              <span class="tc__main">
+                <span class="tc__chev" aria-hidden="true">›</span>
+                <span class="tc__badge" aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                </span>
+                <span class="tc__info">
+                  <span class="tc__title">Searched web</span>
+                  <span class="tc__sub">rustc 1.78 release date</span>
+                </span>
+              </span>
+              <span class="tc__meta">
+                <span class="tc__outcome">Search failed</span>
+                <span class="tc__status is-error" aria-label="Error">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </span>
+              </span>
+            </button>
+            <div class="tc__content">
+              <div class="tc__banner">
+                Web search is not configured. Add a Google Custom Search API key and
+                Engine ID to enable this tool.
+                <div>
+                  <button class="tc__banner-action" type="button">Open settings →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ============================================================
+       Settings — three sub-components
+       ============================================================ -->
+  <section class="page__section">
+    <h2 class="page__section-title">Settings · Tools → Web Search</h2>
+
+    <!-- 7. Credentials -->
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__num">07</span>
+        <span class="panel__label">Credentials form</span>
+        <span class="panel__ref">WebSearchCredentials.svelte</span>
+      </div>
+      <div class="panel__canvas">
+        <div class="sc" style="max-width:520px;margin:0 auto">
+          <div class="sc__head">
+            <div>
+              <h3 class="sc__title">Google Custom Search</h3>
+              <p class="sc__hint">Required. Stored in <span style="font-family:var(--f-mono)">coder_config.db</span>. Never transmitted beyond Google.</p>
+            </div>
+            <span class="sc__status" aria-live="polite">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Verified 2 min ago
+            </span>
+          </div>
+
+          <div class="sc__row">
+            <label class="sc__label" for="apiKey">API key</label>
+            <div class="sc__input-wrap">
+              <input id="apiKey" class="sc__input sc__input--code" type="password" value="AIzaSyB-••••••••••••••••••••••••••" aria-describedby="apiKey-hint">
+              <button class="sc__reveal" type="button" aria-label="Show API key">Show</button>
+            </div>
+          </div>
+
+          <div class="sc__row">
+            <label class="sc__label" for="cx">Search Engine ID (cx)</label>
+            <input id="cx" class="sc__input sc__input--code" type="text" value="017576662512468239146:omuauf_lfve">
+          </div>
+
+          <div class="sc__actions">
+            <button class="btn btn--primary" type="button">Save</button>
+            <button class="btn" type="button">Test</button>
+            <button class="btn btn--ghost" type="button" style="margin-left:auto">Clear</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. Policy -->
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__num">08</span>
+        <span class="panel__label">Per-workspace domain policy</span>
+        <span class="panel__ref">WebSearchPolicy.svelte</span>
+      </div>
+      <div class="panel__canvas">
+        <div class="sc" style="max-width:520px;margin:0 auto">
+          <div class="sc__head">
+            <div>
+              <h3 class="sc__title">Domain policy</h3>
+              <p class="sc__hint">
+                Active workspace: <span style="font-family:var(--f-mono);color:var(--c-text-2)">~/devel/zk/coder</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="sc__row">
+            <label class="sc__label">Allowlist <span style="color:var(--c-text-muted);font-weight:400">· if set, only these domains may appear</span></label>
+            <div class="chips" role="list" aria-label="Allowlist">
+              <span class="chip chip--allow" role="listitem">github.com <button class="chip__x" type="button" aria-label="Remove github.com">×</button></span>
+              <span class="chip chip--allow" role="listitem">.svelte.dev <button class="chip__x" type="button" aria-label="Remove .svelte.dev">×</button></span>
+              <span class="chip chip--allow" role="listitem">rust-lang.org <button class="chip__x" type="button" aria-label="Remove rust-lang.org">×</button></span>
+              <input class="sc__input sc__input--code" style="flex:1;min-width:120px;padding:2px 8px;border-color:transparent;background:transparent" placeholder="add domain…" aria-label="Add domain to allowlist">
+            </div>
+          </div>
+
+          <div class="sc__row">
+            <label class="sc__label">Denylist <span style="color:var(--c-text-muted);font-weight:400">· always blocked, overrides allowlist</span></label>
+            <div class="chips" role="list" aria-label="Denylist">
+              <span class="chip chip--deny" role="listitem">pinterest.com <button class="chip__x" type="button" aria-label="Remove pinterest.com">×</button></span>
+              <span class="chip chip--deny" role="listitem">.quora.com <button class="chip__x" type="button" aria-label="Remove .quora.com">×</button></span>
+              <input class="sc__input sc__input--code" style="flex:1;min-width:120px;padding:2px 8px;border-color:transparent;background:transparent" placeholder="add domain…" aria-label="Add domain to denylist">
+            </div>
+          </div>
+
+          <div class="sc__actions">
+            <button class="btn btn--primary" type="button">Save policy</button>
+            <button class="btn btn--ghost" type="button" style="margin-left:auto">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9. Cache controls -->
+    <div class="panel">
+      <div class="panel__head">
+        <span class="panel__num">09</span>
+        <span class="panel__label">Cache controls</span>
+        <span class="panel__ref">WebSearchCacheControls.svelte</span>
+      </div>
+      <div class="panel__canvas">
+        <div class="sc" style="max-width:520px;margin:0 auto">
+          <div class="sc__head">
+            <div>
+              <h3 class="sc__title">Cache</h3>
+              <p class="sc__hint">Results are cached per workspace. Policy is re-applied on read.</p>
+            </div>
+          </div>
+
+          <div class="cache-grid">
+            <div class="cache-stat">
+              <div class="cache-stat__label">Entries</div>
+              <div class="cache-stat__value">47</div>
+            </div>
+            <div class="cache-stat">
+              <div class="cache-stat__label">Size</div>
+              <div class="cache-stat__value">128<span class="cache-stat__unit">KB</span></div>
+            </div>
+            <div class="cache-stat">
+              <div class="cache-stat__label">TTL</div>
+              <div class="cache-stat__value">24<span class="cache-stat__unit">h</span></div>
+            </div>
+          </div>
+
+          <div class="sc__row">
+            <label class="sc__label" for="ttl">Default TTL (5 min – 7 days)</label>
+            <input id="ttl" class="sc__input sc__input--code" type="text" value="24h">
+          </div>
+
+          <div class="sc__actions">
+            <button class="btn" type="button">Clear this workspace</button>
+            <button class="btn btn--danger" type="button" style="margin-left:auto">Clear all</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+</body>
+</html>
