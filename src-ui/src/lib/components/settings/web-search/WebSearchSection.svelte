@@ -31,9 +31,8 @@
 
 <div class={styles.section}>
 	<p class={styles.preface}>
-		Production Google Custom Search integration for the <code>search_web_search</code> tool.
-		Gated by the <code>CODER_LLM_TOOL_WEB_SEARCH</code> feature flag — the tool is hidden from the
-		LLM until a key is saved here and the flag is on.
+		Let the assistant search the web using your own Google Custom Search account. Add your
+		credentials, choose which domains can be searched per workspace, and manage cached results.
 	</p>
 
 	<WebSearchCredentials onSaved={bumpRefresh} />

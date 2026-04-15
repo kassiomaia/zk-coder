@@ -88,8 +88,8 @@
 		<div>
 			<h3 id="ws-cache-title" class={styles.title}>Cache</h3>
 			<p class={styles.hint}>
-				Results are cached per workspace for 24 h. Policy is re-applied on read, so tightening the
-				denylist takes effect on the next call without clearing.
+				Search results are kept per workspace for 24 hours to keep things fast. Changes to the
+				domain policy take effect on the next search — no need to clear the cache.
 			</p>
 		</div>
 	</header>
@@ -114,7 +114,7 @@
 
 	<div class={styles.actions}>
 		<Button
-			variant="secondary"
+			variant="ghost"
 			size="sm"
 			disabled={!hasWorkspace || clearing || loading}
 			loading={clearing && hasWorkspace}

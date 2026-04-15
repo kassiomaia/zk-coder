@@ -197,7 +197,7 @@
 		<div>
 			<h3 id="web-search-creds-title" class={styles.title}>Google Custom Search</h3>
 			<p class={styles.hint}>
-				Required. Stored in <code>coder_config.db</code>. Never transmitted beyond Google.
+				Stored securely on this device. Only sent to Google when the assistant runs a search.
 			</p>
 		</div>
 		{#if testState.kind === 'success'}

@@ -12,7 +12,7 @@
 	import ProviderIcon from './ProviderIcon.svelte';
 	import OperationIcon from './OperationIcon.svelte';
 	import Select from '../shared/Select.svelte';
-	import WebSearchSection from '../settings/web-search/WebSearchSection.svelte';
+	import WebSearchModal from '../settings/web-search/WebSearchModal.svelte';
 	import { AlertCircleIcon, BoxIcon, CheckIcon, SearchIcon, UserIcon } from '$lib/icons';
 
 	import { createLogger } from '$lib/utils/logger';
@@ -43,6 +43,16 @@
 
 	// Derived reactive map of selected model IDs by operation
 	// Using $derived ensures Svelte 5 properly tracks $configStore.operationDefaults changes
+	let webSearchModalOpen = $state(false);
+
+	function openWebSearchModal() {
+		webSearchModalOpen = true;
+	}
+
+	function closeWebSearchModal() {
+		webSearchModalOpen = false;
+	}
+
 	let selectedModelIds = $derived.by(() => {
 		const map = new Map<OperationType, string | null>();
 		for (const d of $configStore.operationDefaults) {
@@ -158,17 +168,37 @@
 				</div>
 			</section>
 
-			<!-- Tools → Web Search Section -->
+			<!-- Tools Section -->
 			<section class="modal-section {styles.section}">
 				<header class={styles.sectionHeader}>
 					<div class={styles.sectionTitleGroup}>
 						<div class={styles.sectionIcon}>
 							<SearchIcon size={16} />
 						</div>
-						<h3 class={styles.sectionTitle}>Tools — Web Search</h3>
+						<h3 class={styles.sectionTitle}>Tools</h3>
 					</div>
 				</header>
-				<WebSearchSection {workspacePath} {workspaceDisplayPath} />
+
+				<div class={styles.toolsList}>
+					<div class={styles.toolItem}>
+						<div class={styles.toolInfo}>
+							<div class={styles.toolIconWrapper}>
+								<SearchIcon size={18} />
+							</div>
+							<div class={styles.toolDetails}>
+								<div class={styles.toolName}>Web Search</div>
+								<div class={styles.toolMeta}>
+									Let the assistant look up information on the web.
+								</div>
+							</div>
+						</div>
+						<div class={styles.toolActions}>
+							<Button variant="ghost" size="sm" onclick={openWebSearchModal}>
+								Configure
+							</Button>
+						</div>
+					</div>
+				</div>
 			</section>
 
 			<!-- Models Section -->
@@ -215,3 +245,10 @@
 		</div>
 	{/snippet}
 </Modal>
+
+<WebSearchModal
+	open={webSearchModalOpen}
+	onclose={closeWebSearchModal}
+	{workspacePath}
+	{workspaceDisplayPath}
+/>
