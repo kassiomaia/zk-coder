@@ -438,8 +438,8 @@ Single source of truth for which task closes which gap from
 | No document theme | 3 | T1.4 | done |
 | `position` unused | 4 | T1.3 | done |
 | Only builtin fonts | 5 | T1.5 | done |
-| Character-count wrapping | 6 | T1.2 + T1.6 | pending |
-| Silent truncation | 7 | T1.6 | pending |
+| Character-count wrapping | 6 | T1.2 + T1.6 | done |
+| Silent truncation | 7 | T1.6 | done |
 | Lossy HTML | 8 | T1.3 (via deletion) | done |
 | Primitive Markdown | 9 | T1.3 (via deletion) | done |
 | Image placeholder | 10 | T2.5 | pending |

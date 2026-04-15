@@ -26,9 +26,7 @@ use crate::core::documents::pdf::render::{
 use crate::core::documents::pdf::section::Section;
 
 use super::font_cache::{FontCache, FontSlot, LoadedFont};
-
-/// PostScript points per millimetre (`72 / 25.4`).
-const POINTS_PER_MM: f32 = 2.834_645_7;
+use super::layout::{LayoutEngine, LayoutParams, POINTS_PER_MM};
 
 /// Renderer backed by the `printpdf` crate and a [`FontCache`].
 pub struct PrintPdfRenderer {
@@ -101,18 +99,20 @@ impl PrintPdfRenderer {
         );
 
         let font_refs = embed_all_fonts(&pdf_doc, &self.fonts)?;
-        let layer = pdf_doc.get_page(page_idx).get_layer(layer_idx);
+        let first_layer = pdf_doc.get_page(page_idx).get_layer(layer_idx);
         let params = LayoutParams::from_doc(doc, theme, page_width_mm, page_height_mm);
+        let mut engine = LayoutEngine::new(&pdf_doc, first_layer, params);
 
         let mut missing: BTreeSet<char> = BTreeSet::new();
         layout_sections(
-            &layer,
+            &mut engine,
             &font_refs,
             &self.fonts,
             &doc.sections,
-            &params,
             &mut missing,
         )?;
+        let page_count = engine.page_count();
+        drop(engine);
 
         let bytes = pdf_doc
             .save_to_bytes()
@@ -140,7 +140,7 @@ impl PrintPdfRenderer {
             .collect();
 
         Ok(RenderOutcome {
-            page_count: 1,
+            page_count,
             embedded_fonts,
             warnings,
             byte_len,
@@ -156,192 +156,114 @@ const fn page_dimensions(doc: &PdfDocument) -> (f32, f32) {
     }
 }
 
-struct LayoutParams {
-    usable_width_pt: f32,
-    body_leading_mm: f32,
-    heading_leading_mm: f32,
-    block_gap_mm: f32,
-    min_y_mm: f32,
-    x_mm: f32,
-    initial_y_mm: f32,
-    body_size_pt: f32,
-    heading_size_pt: f32,
-}
-
-impl LayoutParams {
-    fn from_doc(doc: &PdfDocument, theme: &Theme, page_width_mm: f32, page_height_mm: f32) -> Self {
-        let margin_left = doc.geometry.margins.left_mm();
-        let margin_right = doc.geometry.margins.right_mm();
-        let margin_top = doc.geometry.margins.top_mm();
-        let margin_bottom = doc.geometry.margins.bottom_mm();
-
-        let body_size_pt = theme.typography.body_font_size_pt;
-        let heading_size_pt = theme.typography.heading_font_size_pt;
-        let line_leading = theme.typography.line_leading;
-        let body_leading_mm = body_size_pt * line_leading / POINTS_PER_MM;
-        let heading_leading_mm = heading_size_pt * line_leading / POINTS_PER_MM;
-        Self {
-            usable_width_pt: (page_width_mm - margin_left - margin_right) * POINTS_PER_MM,
-            body_leading_mm,
-            heading_leading_mm,
-            block_gap_mm: body_leading_mm * theme.spacing.block_gap,
-            min_y_mm: margin_bottom,
-            x_mm: margin_left,
-            initial_y_mm: page_height_mm - margin_top - heading_leading_mm,
-            body_size_pt,
-            heading_size_pt,
-        }
-    }
-}
-
 fn layout_sections(
-    layer: &PdfLayerReference,
+    engine: &mut LayoutEngine<'_>,
     font_refs: &FontRefMap,
     fonts: &FontCache,
     sections: &[Section],
-    params: &LayoutParams,
     missing: &mut BTreeSet<char>,
 ) -> Result<(), RenderError> {
-    let mut cursor_y_mm = params.initial_y_mm;
     for section in sections {
-        let keep = emit_heading(
-            layer,
-            font_refs,
-            fonts,
-            section.heading.text(),
-            params,
-            &mut cursor_y_mm,
-            missing,
-        )?;
-        if !keep {
-            return Ok(());
-        }
-        cursor_y_mm -= params.block_gap_mm;
+        emit_heading(engine, font_refs, fonts, section.heading.text(), missing)?;
+        let block_gap = engine.params().block_gap_mm;
+        engine.advance(block_gap);
         for block in &section.blocks {
-            let cont = match block {
-                Block::Paragraph(p) => emit_paragraph(
-                    layer,
-                    font_refs,
-                    fonts,
-                    p,
-                    params,
-                    &mut cursor_y_mm,
-                    missing,
-                )?,
-                Block::Heading(h) => emit_heading(
-                    layer,
-                    font_refs,
-                    fonts,
-                    h.text(),
-                    params,
-                    &mut cursor_y_mm,
-                    missing,
-                )?,
-                // T1.6 turns this into a real page break.
-                Block::PageBreak => return Ok(()),
-            };
-            if !cont {
-                return Ok(());
+            match block {
+                Block::Paragraph(p) => emit_paragraph(engine, font_refs, fonts, p, missing)?,
+                Block::Heading(h) => emit_heading(engine, font_refs, fonts, h.text(), missing)?,
+                Block::PageBreak => engine.break_page(),
             }
-            cursor_y_mm -= params.block_gap_mm;
+            let gap = engine.params().block_gap_mm;
+            engine.advance(gap);
         }
     }
     Ok(())
 }
 
 /// Emits each [`InlineRun`] of `p` on its own lines using the run's
-/// style-matched font. Returns `false` if the y cursor fell below the
-/// bottom margin.
+/// style-matched font. Lines that would overflow the page are pushed
+/// onto a fresh page by the [`LayoutEngine`].
 fn emit_paragraph(
-    layer: &PdfLayerReference,
+    engine: &mut LayoutEngine<'_>,
     font_refs: &FontRefMap,
     fonts: &FontCache,
     p: &Paragraph,
-    params: &LayoutParams,
-    cursor_y_mm: &mut f32,
     missing: &mut BTreeSet<char>,
-) -> Result<bool, RenderError> {
+) -> Result<(), RenderError> {
     for run in p.runs() {
-        let keep = emit_run(
-            layer,
-            font_refs,
-            fonts,
-            run,
-            params,
-            cursor_y_mm,
-            missing,
-        )?;
-        if !keep {
-            return Ok(false);
-        }
+        emit_run(engine, font_refs, fonts, run, missing)?;
     }
-    Ok(true)
+    Ok(())
 }
 
 fn emit_run(
-    layer: &PdfLayerReference,
+    engine: &mut LayoutEngine<'_>,
     font_refs: &FontRefMap,
     fonts: &FontCache,
     run: &InlineRun,
-    params: &LayoutParams,
-    cursor_y_mm: &mut f32,
     missing: &mut BTreeSet<char>,
-) -> Result<bool, RenderError> {
+) -> Result<(), RenderError> {
     let primary = fonts.primary_for(&run.style);
     let face = primary.face()?;
-    let lines = wrap_with_face(&face, run.text(), params.body_size_pt, params.usable_width_pt);
+    let body_size_pt = engine.params().body_size_pt;
+    let usable_width_pt = engine.params().usable_width_pt;
+    let lines = wrap_with_face(&face, run.text(), body_size_pt, usable_width_pt);
     for line in lines {
-        if *cursor_y_mm < params.min_y_mm {
-            return Ok(false);
-        }
+        let leading = engine.params().body_leading_mm;
+        engine.ensure_space_for(leading);
+        let layer = engine.current_layer();
+        let x = engine.params().x_mm;
+        let y = engine.cursor_y_mm();
         emit_line_with_fallback(
-            layer,
+            &layer,
             font_refs,
             fonts,
             &run.style,
             &line,
-            params.body_size_pt,
-            params.x_mm,
-            *cursor_y_mm,
+            body_size_pt,
+            x,
+            y,
             missing,
         )?;
-        *cursor_y_mm -= params.body_leading_mm;
+        engine.advance(leading);
     }
-    Ok(true)
+    Ok(())
 }
 
-/// Emits `text` at the heading size using the regular-weight font.
-/// Returns `false` if the y cursor fell below the bottom margin.
+/// Emits `text` at the heading size using the regular-weight font,
+/// paginating through the engine.
 fn emit_heading(
-    layer: &PdfLayerReference,
+    engine: &mut LayoutEngine<'_>,
     font_refs: &FontRefMap,
     fonts: &FontCache,
     text: &str,
-    params: &LayoutParams,
-    cursor_y_mm: &mut f32,
     missing: &mut BTreeSet<char>,
-) -> Result<bool, RenderError> {
+) -> Result<(), RenderError> {
     let primary = fonts.primary_for(&InlineStyle::PLAIN);
     let face = primary.face()?;
-    let lines = wrap_with_face(&face, text, params.heading_size_pt, params.usable_width_pt);
+    let heading_size_pt = engine.params().heading_size_pt;
+    let usable_width_pt = engine.params().usable_width_pt;
+    let lines = wrap_with_face(&face, text, heading_size_pt, usable_width_pt);
     for line in lines {
-        if *cursor_y_mm < params.min_y_mm {
-            return Ok(false);
-        }
+        let leading = engine.params().heading_leading_mm;
+        engine.ensure_space_for(leading);
+        let layer = engine.current_layer();
+        let x = engine.params().x_mm;
+        let y = engine.cursor_y_mm();
         emit_line_with_fallback(
-            layer,
+            &layer,
             font_refs,
             fonts,
             &InlineStyle::PLAIN,
             &line,
-            params.heading_size_pt,
-            params.x_mm,
-            *cursor_y_mm,
+            heading_size_pt,
+            x,
+            y,
             missing,
         )?;
-        *cursor_y_mm -= params.heading_leading_mm;
+        engine.advance(leading);
     }
-    Ok(true)
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments, clippy::trivially_copy_pass_by_ref)]
@@ -797,34 +719,233 @@ mod tests {
         pdf.get_page_content(page_id).expect("page content")
     }
 
+    /// Collects the raw glyph-id bytes from every `Tj`/`TJ` operand on
+    /// the given page. Printpdf emits text for custom TTF fonts as
+    /// `<gid_hex>Tj`, so contiguous words show up as contiguous u16 BE
+    /// pairs. That makes presence/absence checks a byte-substring
+    /// operation.
+    fn page_gid_bytes(pdf: &lopdf::Document, page_number: u32) -> Vec<u8> {
+        let pages = pdf.get_pages();
+        let page_id = pages.get(&page_number).copied().expect("page exists");
+        let content = pdf
+            .get_and_decode_page_content(page_id)
+            .expect("decode page content");
+        let mut flat: Vec<u8> = Vec::new();
+        for op in &content.operations {
+            if op.operator == "Tj" || op.operator == "TJ" {
+                for operand in &op.operands {
+                    collect_text_bytes(&mut flat, operand);
+                }
+            }
+        }
+        flat
+    }
+
+    fn collect_text_bytes(sink: &mut Vec<u8>, obj: &lopdf::Object) {
+        match obj {
+            lopdf::Object::String(bytes, _) => sink.extend_from_slice(bytes),
+            lopdf::Object::Array(arr) => {
+                for item in arr {
+                    collect_text_bytes(sink, item);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Encodes `text` as the big-endian glyph-id byte sequence the
+    /// renderer would emit for `font`. Returns empty for empty input.
+    fn gid_signature(face: &Face<'_>, text: &str) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(text.len() * 2);
+        for c in text.chars() {
+            let gid = face
+                .glyph_index(c)
+                .map_or(0_u16, |g| g.0);
+            bytes.push((gid >> GID_BYTE_SHIFT) as u8);
+            bytes.push((gid & GID_LOW_BYTE_MASK) as u8);
+        }
+        bytes
+    }
+
+    const GID_BYTE_SHIFT: u16 = 8;
+    const GID_LOW_BYTE_MASK: u16 = 0xFF;
+
+    fn contains_gid_signature(haystack: &[u8], needle: &[u8]) -> bool {
+        if needle.is_empty() || haystack.len() < needle.len() {
+            return false;
+        }
+        haystack.windows(needle.len()).any(|w| w == needle)
+    }
+
+    #[tokio::test]
+    async fn fifty_paragraph_fixture_paginates_fully() {
+        let r = renderer();
+        let mut doc = PdfDocument::new(Metadata::new("Pagination Fixture").unwrap());
+        let heading = Heading::new(HeadingLevel::new(1).unwrap(), "Long Document").unwrap();
+        let mut section = Section::new(heading);
+        for i in 0..FIFTY_PARA_COUNT {
+            let text = format!(
+                "PARAGRAPHMARKER{i:02} this line fills a paragraph with filler words to give the wrapper real work"
+            );
+            section.push(Block::Paragraph(Paragraph::plain(text).unwrap()));
+        }
+        doc.push_section(section);
+
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r
+            .render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render ok");
+        assert!(
+            outcome.page_count > 1,
+            "50-paragraph fixture must paginate beyond one page, got {}",
+            outcome.page_count
+        );
+
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses output");
+        let mut all: Vec<u8> = Vec::new();
+        for pn in 1..=u32::try_from(outcome.page_count).unwrap() {
+            all.extend(page_gid_bytes(&parsed, pn));
+        }
+
+        let font_bytes =
+            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let face = Face::parse(&font_bytes, 0).unwrap();
+        for i in 0..FIFTY_PARA_COUNT {
+            let marker = format!("PARAGRAPHMARKER{i:02}");
+            let sig = gid_signature(&face, &marker);
+            assert!(
+                contains_gid_signature(&all, &sig),
+                "paragraph {i} missing from rendered output — silent truncation"
+            );
+        }
+    }
+
+    const FIFTY_PARA_COUNT: usize = 50;
+
+    #[tokio::test]
+    async fn explicit_page_break_forces_new_page() {
+        let r = renderer();
+        let mut doc = PdfDocument::new(Metadata::new("Page Break").unwrap());
+        let heading = Heading::new(HeadingLevel::new(1).unwrap(), "Top").unwrap();
+        let mut section = Section::new(heading);
+        section.push(Block::Paragraph(Paragraph::plain("BEFOREBREAK").unwrap()));
+        section.push(Block::PageBreak);
+        section.push(Block::Paragraph(Paragraph::plain("AFTERBREAK").unwrap()));
+        doc.push_section(section);
+
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r
+            .render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render ok");
+        assert_eq!(
+            outcome.page_count, 2,
+            "explicit page break must produce exactly two pages"
+        );
+
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses output");
+        let font_bytes =
+            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let face = Face::parse(&font_bytes, 0).unwrap();
+        let before = gid_signature(&face, "BEFOREBREAK");
+        let after = gid_signature(&face, "AFTERBREAK");
+
+        let p1 = page_gid_bytes(&parsed, 1);
+        let p2 = page_gid_bytes(&parsed, 2);
+        assert!(contains_gid_signature(&p1, &before), "page 1 missing BEFOREBREAK");
+        assert!(!contains_gid_signature(&p1, &after), "page 1 leaked AFTERBREAK");
+        assert!(contains_gid_signature(&p2, &after), "page 2 missing AFTERBREAK");
+        assert!(!contains_gid_signature(&p2, &before), "page 2 leaked BEFOREBREAK");
+    }
+
+    #[tokio::test]
+    async fn adversarial_single_paragraph_wraps_across_pages() {
+        let r = renderer();
+        let words: Vec<String> = (0..BIG_PARA_WORDS).map(|i| format!("wx{i:04}")).collect();
+        let big = words.join(" ");
+
+        let mut doc = PdfDocument::new(Metadata::new("Adversarial").unwrap());
+        let heading = Heading::new(HeadingLevel::new(1).unwrap(), "Huge").unwrap();
+        let mut section = Section::new(heading);
+        section.push(Block::Paragraph(Paragraph::plain(big).unwrap()));
+        doc.push_section(section);
+
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r
+            .render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render ok");
+        assert!(
+            outcome.page_count > 1,
+            "adversarial paragraph must span multiple pages, got {}",
+            outcome.page_count
+        );
+
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses output");
+        let mut all: Vec<u8> = Vec::new();
+        for pn in 1..=u32::try_from(outcome.page_count).unwrap() {
+            all.extend(page_gid_bytes(&parsed, pn));
+        }
+        let font_bytes =
+            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let face = Face::parse(&font_bytes, 0).unwrap();
+        for w in &words {
+            let sig = gid_signature(&face, w);
+            assert!(
+                contains_gid_signature(&all, &sig),
+                "word {w} missing — adversarial paragraph lost content across page boundary"
+            );
+        }
+    }
+
+    const BIG_PARA_WORDS: usize = 2000;
+
     /// Sweep test: no numeric literal (other than `0.0` / `1.0`) may
-    /// appear outside `const` items in the renderer. Style knobs belong
-    /// in the theme TOML; physical constants belong in named `const`
-    /// bindings. This is the T1.4 enforcement mechanism.
+    /// appear outside `const` items in the render layout path (this
+    /// file and `layout.rs`). Style knobs belong in the theme TOML;
+    /// physical constants belong in named `const` bindings. This is
+    /// the T1.4 enforcement mechanism, extended by T1.6 to cover the
+    /// split-out layout engine.
     #[test]
     fn no_magic_numbers_in_render_path() {
-        let src = include_str!("printpdf_renderer.rs");
-        let cutoff = src.find("#[cfg(test)]").unwrap_or(src.len());
-        let body = &src[..cutoff];
+        let sources: &[(&str, &str)] = &[
+            ("printpdf_renderer.rs", include_str!("printpdf_renderer.rs")),
+            ("layout.rs", include_str!("layout.rs")),
+        ];
 
         let re = regex::Regex::new(r"\b\d+(?:_\d+)*\.\d+(?:_\d+)*\b")
             .expect("regex compiles");
 
         let mut violations: Vec<String> = Vec::new();
-        for (ln, line) in body.lines().enumerate() {
-            let trimmed = line.trim_start();
-            if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*") {
-                continue;
-            }
-            if trimmed.starts_with("const ") {
-                continue;
-            }
-            for m in re.find_iter(line) {
-                let s = m.as_str();
-                if s == "0.0" || s == "1.0" {
+        for (name, src) in sources {
+            let cutoff = src.find("#[cfg(test)]").unwrap_or(src.len());
+            let body = &src[..cutoff];
+            for (ln, line) in body.lines().enumerate() {
+                let trimmed = line.trim_start();
+                if trimmed.starts_with("//")
+                    || trimmed.starts_with("/*")
+                    || trimmed.starts_with("*")
+                {
                     continue;
                 }
-                violations.push(format!("line {}: {}  ({})", ln + 1, line.trim(), s));
+                // Skip `const` items regardless of visibility
+                // (`const`, `pub const`, `pub(super) const`, …).
+                let without_vis = trimmed
+                    .strip_prefix("pub(crate) ")
+                    .or_else(|| trimmed.strip_prefix("pub(super) "))
+                    .or_else(|| trimmed.strip_prefix("pub "))
+                    .unwrap_or(trimmed);
+                if without_vis.starts_with("const ") {
+                    continue;
+                }
+                for m in re.find_iter(line) {
+                    let s = m.as_str();
+                    if s == "0.0" || s == "1.0" {
+                        continue;
+                    }
+                    violations.push(format!("{name}:{}: {}  ({s})", ln + 1, line.trim()));
+                }
             }
         }
 

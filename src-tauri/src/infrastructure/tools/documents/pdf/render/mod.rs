@@ -6,6 +6,7 @@
 //! quirks all stay here.
 
 pub mod font_cache;
+pub(super) mod layout;
 pub mod printpdf_renderer;
 pub mod theme_loader;
 
