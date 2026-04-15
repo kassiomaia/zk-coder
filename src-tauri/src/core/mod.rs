@@ -7,6 +7,7 @@
 pub mod agent;
 pub mod chat;
 pub mod config;
+pub mod documents;
 pub mod llm;
 pub mod nlp;
 
