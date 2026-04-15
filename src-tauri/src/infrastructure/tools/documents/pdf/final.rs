@@ -6,9 +6,8 @@
 //! `application/tools/pdf/` and `infrastructure/tools/.../pdf/render/`.
 
 use crate::application::tools::pdf::finalize::{render_draft, FinalizeError};
-use crate::core::documents::pdf::render::Theme;
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
-use crate::infrastructure::tools::documents::pdf::render::PrintPdfRenderer;
+use crate::infrastructure::tools::documents::pdf::render::{load_report_theme, PrintPdfRenderer};
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
     documents::shared::{get_draft_store, PdfDraft},
@@ -176,7 +175,7 @@ async fn write_pdf(draft: &PdfDraft) -> Result<(PathBuf, u64), ToolError> {
     let file = std::fs::File::create(&output_path)
         .map_err(|e| ToolError::failed(format!("Failed to create PDF file: {e}")))?;
     let mut writer = BufWriter::new(file);
-    let theme = Theme::default();
+    let theme = load_report_theme();
 
     render_draft(draft, &renderer, &theme, &mut writer)
         .await

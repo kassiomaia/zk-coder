@@ -172,18 +172,21 @@ impl LayoutParams {
         let margin_top = doc.geometry.margins.top_mm();
         let margin_bottom = doc.geometry.margins.bottom_mm();
 
-        let body_leading_mm = theme.body_font_size_pt * theme.line_leading / POINTS_PER_MM;
-        let heading_leading_mm = theme.heading_font_size_pt * theme.line_leading / POINTS_PER_MM;
+        let body_size_pt = theme.typography.body_font_size_pt;
+        let heading_size_pt = theme.typography.heading_font_size_pt;
+        let line_leading = theme.typography.line_leading;
+        let body_leading_mm = body_size_pt * line_leading / POINTS_PER_MM;
+        let heading_leading_mm = heading_size_pt * line_leading / POINTS_PER_MM;
         Self {
             usable_width_pt: (page_width_mm - margin_left - margin_right) * POINTS_PER_MM,
             body_leading_mm,
             heading_leading_mm,
-            block_gap_mm: body_leading_mm * theme.block_gap,
+            block_gap_mm: body_leading_mm * theme.spacing.block_gap,
             min_y_mm: margin_bottom,
             x_mm: margin_left,
             initial_y_mm: page_height_mm - margin_top - heading_leading_mm,
-            body_size_pt: theme.body_font_size_pt,
-            heading_size_pt: theme.heading_font_size_pt,
+            body_size_pt,
+            heading_size_pt,
         }
     }
 }
@@ -489,5 +492,86 @@ mod tests {
         } else {
             String::from_utf8_lossy(bytes).into_owned()
         }
+    }
+
+    #[tokio::test]
+    async fn different_themes_produce_different_output() {
+        let r = renderer();
+        let doc = fixture_doc();
+
+        let mut theme_a = Theme::default();
+        theme_a.typography.body_font_size_pt = 10.0;
+        theme_a.typography.heading_font_size_pt = 14.0;
+
+        let mut theme_b = Theme::default();
+        theme_b.typography.body_font_size_pt = 20.0;
+        theme_b.typography.heading_font_size_pt = 28.0;
+
+        let mut buf_a: Vec<u8> = Vec::new();
+        let mut buf_b: Vec<u8> = Vec::new();
+        r.render(&doc, &theme_a, &mut buf_a, None).await.unwrap();
+        r.render(&doc, &theme_b, &mut buf_b, None).await.unwrap();
+
+        assert_ne!(
+            buf_a, buf_b,
+            "rendering the same doc with different theme scales must yield different bytes"
+        );
+
+        // Parse both and assert the content streams actually differ: the
+        // font size is baked into the page's content stream so a change
+        // in `body_font_size_pt` must change its bytes.
+        let pdf_a = lopdf::Document::load_mem(&buf_a).expect("lopdf a");
+        let pdf_b = lopdf::Document::load_mem(&buf_b).expect("lopdf b");
+        let content_a = first_page_content(&pdf_a);
+        let content_b = first_page_content(&pdf_b);
+        assert_ne!(
+            content_a, content_b,
+            "page content streams must differ when typography changes"
+        );
+    }
+
+    fn first_page_content(pdf: &lopdf::Document) -> Vec<u8> {
+        let pages = pdf.get_pages();
+        let (_, page_id) = pages.into_iter().next().expect("at least one page");
+        pdf.get_page_content(page_id).expect("page content")
+    }
+
+    /// Sweep test: no numeric literal (other than `0.0` / `1.0`) may
+    /// appear outside `const` items in the renderer. Style knobs belong
+    /// in the theme TOML; physical constants belong in named `const`
+    /// bindings. This is the T1.4 enforcement mechanism.
+    #[test]
+    fn no_magic_numbers_in_render_path() {
+        let src = include_str!("printpdf_renderer.rs");
+        // Cut off the test module — literals in tests are fine.
+        let cutoff = src.find("#[cfg(test)]").unwrap_or(src.len());
+        let body = &src[..cutoff];
+
+        let re = regex::Regex::new(r"\b\d+(?:_\d+)*\.\d+(?:_\d+)*\b")
+            .expect("regex compiles");
+
+        let mut violations: Vec<String> = Vec::new();
+        for (ln, line) in body.lines().enumerate() {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*") {
+                continue;
+            }
+            if trimmed.starts_with("const ") {
+                continue;
+            }
+            for m in re.find_iter(line) {
+                let s = m.as_str();
+                if s == "0.0" || s == "1.0" {
+                    continue;
+                }
+                violations.push(format!("line {}: {}  ({})", ln + 1, line.trim(), s));
+            }
+        }
+
+        assert!(
+            violations.is_empty(),
+            "magic numeric literals found outside const items — move them to the theme:\n{}",
+            violations.join("\n")
+        );
     }
 }

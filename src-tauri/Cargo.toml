@@ -71,6 +71,7 @@ pptx = "0.1"
 docx-rust = "0.1"
 printpdf = "0.7"
 ttf-parser = "0.20"
+toml = "0.8"
 
 [dev-dependencies]
 tempfile = "3"

@@ -36,9 +36,9 @@ pub enum FinalizeError {
 /// # Errors
 /// Returns a core [`PdfModelError`] if the draft's title or any
 /// generated block violates a core invariant (e.g. an empty title).
-pub fn build_document(draft: &PdfDraft) -> Result<PdfDocument, PdfModelError> {
+pub fn build_document(draft: &PdfDraft, theme: &Theme) -> Result<PdfDocument, PdfModelError> {
     let metadata = Metadata::new(trim_or_fallback(&draft.title, &draft.filename))?;
-    let geometry = page_geometry_for(draft.page_size)?;
+    let geometry = page_geometry_for(draft.page_size, theme)?;
     let mut doc = PdfDocument::new(metadata).with_geometry(geometry);
 
     let mut blocks: Vec<Block> = Vec::new();
@@ -75,24 +75,22 @@ pub async fn render_draft<R>(
 where
     R: PdfRenderer + ?Sized,
 {
-    let doc = build_document(draft)?;
+    let doc = build_document(draft, theme)?;
     let outcome = renderer.render(&doc, theme, sink, None).await?;
     Ok(outcome)
 }
 
-fn page_geometry_for(size: PdfPageSize) -> Result<PageGeometry, PdfModelError> {
+fn page_geometry_for(size: PdfPageSize, theme: &Theme) -> Result<PageGeometry, PdfModelError> {
     let page_size = match size {
         PdfPageSize::A4 => PageSize::A4,
         PdfPageSize::A3 => PageSize::A3,
         PdfPageSize::Letter => PageSize::Letter,
         PdfPageSize::Legal => PageSize::Legal,
     };
-    // The 20 mm uniform margin matches the legacy renderer's hard-coded
-    // default. T1.4 sources this from the loaded theme.
     Ok(PageGeometry::new(
         page_size,
         Orientation::Portrait,
-        Margins::uniform(20.0)?,
+        Margins::uniform(theme.page_defaults.margin_mm)?,
     ))
 }
 
@@ -144,7 +142,7 @@ mod tests {
                 content: "Body".to_string(),
             }],
         );
-        let doc = build_document(&d).unwrap();
+        let doc = build_document(&d, &Theme::default()).unwrap();
         assert_eq!(doc.metadata.title(), "Quarterly Report");
     }
 
@@ -156,7 +154,7 @@ mod tests {
                 content: "Body".to_string(),
             }],
         );
-        let doc = build_document(&d).unwrap();
+        let doc = build_document(&d, &Theme::default()).unwrap();
         assert_eq!(doc.metadata.title(), "test.pdf");
     }
 
@@ -173,7 +171,7 @@ mod tests {
                 },
             ],
         );
-        let doc = build_document(&d).unwrap();
+        let doc = build_document(&d, &Theme::default()).unwrap();
         assert_eq!(doc.sections.len(), 1);
         let blocks = &doc.sections[0].blocks;
         let break_count = blocks
@@ -186,7 +184,7 @@ mod tests {
     #[test]
     fn build_document_empty_draft_still_has_one_section() {
         let d = draft_with("Empty", vec![]);
-        let doc = build_document(&d).unwrap();
+        let doc = build_document(&d, &Theme::default()).unwrap();
         assert_eq!(doc.sections.len(), 1);
         assert_eq!(doc.metadata.title(), "Empty");
     }

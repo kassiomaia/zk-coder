@@ -17,13 +17,13 @@ pub mod geometry;
 pub mod metadata;
 pub mod render;
 pub mod section;
+pub mod theme;
 
 pub use block::{Align, Block, InlineRun, InlineStyle, Paragraph};
 pub use document::PdfDocument;
 pub use error::PdfModelError;
 pub use geometry::{Margins, Orientation, PageGeometry, PageSize};
 pub use metadata::{Lang, Metadata};
-pub use render::{
-    FontRef, PdfRenderer, ProgressSink, RenderError, RenderOutcome, RenderWarning, Theme,
-};
+pub use render::{FontRef, PdfRenderer, ProgressSink, RenderError, RenderOutcome, RenderWarning};
 pub use section::{Heading, HeadingLevel, Section};
+pub use theme::{PageDefaults, Palette, Rgb, Spacing, Theme, TypographyScale};

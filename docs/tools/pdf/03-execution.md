@@ -435,7 +435,7 @@ Single source of truth for which task closes which gap from
 |---|---|---|---|
 | Coarse content blobs | 1 | T1.1 | pending |
 | `title` dropped | 2 | T1.3 | done |
-| No document theme | 3 | T1.4 | pending |
+| No document theme | 3 | T1.4 | done |
 | `position` unused | 4 | T1.3 | done |
 | Only builtin fonts | 5 | T1.5 | pending |
 | Character-count wrapping | 6 | T1.2 + T1.6 | pending |

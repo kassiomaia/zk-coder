@@ -4,11 +4,6 @@
 //! Concrete implementations live in `infrastructure/tools/documents/pdf/`
 //! and are free to pick any PDF library; callers see nothing but this
 //! module.
-//!
-//! The `Theme` type in this file is a **T1.2 placeholder**. T1.4 replaces
-//! it with a fully typed theme loaded from TOML. Keeping a minimal stub
-//! here lets the trait signature already carry a `&Theme` argument so
-//! T1.4 is a pure expansion, not a breaking change.
 
 use std::io::Write;
 
@@ -17,44 +12,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::document::PdfDocument;
-
-/// Typographic settings applied to a render.
-///
-/// **Temporary**: T1.4 replaces this struct with a richer `Theme` loaded
-/// from a TOML file (see `docs/tools/pdf/03-execution.md` T1.4). Fields
-/// here are the minimum T1.2 needs to render paragraphs and headings
-/// with sensible defaults.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[allow(clippy::derive_partial_eq_without_eq)]
-pub struct Theme {
-    /// Body font size, in points.
-    pub body_font_size_pt: f32,
-    /// Heading font size, in points.
-    pub heading_font_size_pt: f32,
-    /// Line leading as a multiplier of the font size.
-    pub line_leading: f32,
-    /// Vertical gap between blocks, as a multiplier of the body leading.
-    pub block_gap: f32,
-}
-
-impl Theme {
-    /// Minimal built-in defaults used until T1.4 loads a real theme file.
-    #[must_use]
-    pub const fn default_report() -> Self {
-        Self {
-            body_font_size_pt: 11.0,
-            heading_font_size_pt: 18.0,
-            line_leading: 1.3,
-            block_gap: 0.4,
-        }
-    }
-}
-
-impl Default for Theme {
-    fn default() -> Self {
-        Self::default_report()
-    }
-}
+pub use super::theme::Theme;
 
 /// Progress notifications emitted while a document renders.
 ///
@@ -157,9 +115,9 @@ mod tests {
     #[test]
     fn default_theme_is_report_preset() {
         let t = Theme::default();
-        assert!((t.body_font_size_pt - 11.0).abs() < f32::EPSILON);
-        assert!((t.heading_font_size_pt - 18.0).abs() < f32::EPSILON);
-        assert!(t.line_leading > 1.0);
+        assert!((t.typography.body_font_size_pt - 11.0).abs() < f32::EPSILON);
+        assert!((t.typography.heading_font_size_pt - 18.0).abs() < f32::EPSILON);
+        assert!(t.typography.line_leading > 1.0);
     }
 
     #[test]
