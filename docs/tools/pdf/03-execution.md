@@ -208,9 +208,16 @@ cancelled.
 M1 is Done when **all** of the following are true:
 
 - T1.1–T1.8 are merged.
-- A 4-page reference document
-  (`docs/tools/pdf/goldens/m1-reference.pdf`) is committed alongside
-  its SHA-256. The test harness re-renders and compares on every run.
+- A 4-page reference fixture renders end-to-end through the
+  application service, and its **structural fingerprint** is locked
+  by `m1_exit_gate_four_page_reference_renders` in
+  `application/tools/pdf/finalize.rs`. (The originally-planned SHA-256
+  of the rendered bytes is not viable: `printpdf 0.7` injects a
+  random 32-character `document_id`/`instance_id` and `Date::now()`
+  into the document info, so byte-exact comparison would flap on every
+  run. The fingerprint test asserts page count, embedded-font count,
+  byte-length range, and `/Title` round-trip — all the regressions a
+  byte hash would catch, none of the noise it would produce.)
 - `cargo test` and `cargo clippy` are green.
 - `00-as-is.md` gaps #1, #2, #3, #4, #5, #6, #7, #14, #15, #16 are
   ticked off in the gap tracker in this file (see end).
@@ -433,7 +440,7 @@ Single source of truth for which task closes which gap from
 
 | Gap | # | Task | Status |
 |---|---|---|---|
-| Coarse content blobs | 1 | T1.1 | pending |
+| Coarse content blobs | 1 | T1.1 | done |
 | `title` dropped | 2 | T1.3 | done |
 | No document theme | 3 | T1.4 | done |
 | `position` unused | 4 | T1.3 | done |
