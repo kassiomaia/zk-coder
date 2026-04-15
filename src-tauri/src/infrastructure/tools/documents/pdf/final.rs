@@ -5,13 +5,12 @@
 //! layout, font loading, and block translation lives under
 //! `application/tools/pdf/` and `infrastructure/tools/.../pdf/render/`.
 
-use crate::application::tools::pdf::finalize::{render_draft, FinalizeError};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::tools::documents::pdf::artifacts::{
     migrate_legacy_artifacts, resolve_artifacts_dir,
 };
-use crate::infrastructure::tools::documents::pdf::render::{
-    bundled_report_cache, load_report_theme, PrintPdfRenderer,
+use crate::infrastructure::tools::documents::pdf::write::{
+    render_to_artifact, RenderArtifactError,
 };
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
@@ -21,9 +20,9 @@ use crate::infrastructure::tools::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use std::io::BufWriter;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
+use tokio_util::sync::CancellationToken;
 
 /// Arguments for finalizing a PDF document.
 #[derive(Debug, Deserialize)]
@@ -114,7 +113,7 @@ impl Tool for PdfFinalizeTool {
             let page_count = draft.pages.len();
             let page_size = draft.page_size;
 
-            let (path, size_bytes) = write_pdf(&draft, &app_handle).await?;
+            let (path, size_bytes) = write_pdf(draft, &app_handle).await?;
 
             let artifact_id = if args.auto_save {
                 Some(format!("art_{}", uuid::Uuid::new_v4()))
@@ -160,36 +159,38 @@ impl Tool for PdfFinalizeTool {
 
 /// Writes the PDF artifact to disk and returns its path and size.
 ///
-/// Resolves the artifacts directory under Tauri's `app_local_data_dir`
-/// and migrates any pre-T1.7 files from the legacy `$HOME/.coder/artifacts`
-/// location on a best-effort basis. T1.8 will move the synchronous write
-/// onto a background task.
-async fn write_pdf(draft: &PdfDraft, app_handle: &AppHandle) -> Result<(PathBuf, u64), ToolError> {
+/// Resolves the artifacts directory under Tauri's `app_local_data_dir`,
+/// migrates any pre-T1.7 files from the legacy `$HOME/.coder/artifacts`
+/// location on a best-effort basis, and delegates the render to
+/// [`render_to_artifact`] — which runs on `spawn_blocking`, writes to a
+/// `.tmp` sibling, and atomically renames on success.
+///
+/// The [`CancellationToken`] slot is built fresh here because there is
+/// no UI channel wired in yet. T3.1 will replace this with a token
+/// supplied by the card so the user can stop a long render.
+async fn write_pdf(
+    draft: PdfDraft,
+    app_handle: &AppHandle,
+) -> Result<(PathBuf, u64), ToolError> {
     let artifacts_dir = resolve_artifacts_dir(app_handle)?;
     migrate_from_legacy_home(&artifacts_dir);
     let output_path = artifacts_dir.join(&draft.filename);
 
-    let fonts = bundled_report_cache()
-        .map_err(|e| ToolError::failed(format!("Failed to load bundled fonts: {e}")))?;
-    let renderer = PrintPdfRenderer::new(fonts);
-    let file = std::fs::File::create(&output_path)
-        .map_err(|e| ToolError::failed(format!("Failed to create PDF file: {e}")))?;
-    let mut writer = BufWriter::new(file);
-    let theme = load_report_theme();
-
-    render_draft(draft, &renderer, &theme, &mut writer)
+    let cancel = CancellationToken::new();
+    render_to_artifact(draft, output_path, cancel)
         .await
         .map_err(|e| match e {
-            FinalizeError::Model(inner) => {
-                ToolError::failed(format!("Invalid PDF draft: {inner}"))
+            RenderArtifactError::Cancelled => ToolError::failed("PDF render cancelled"),
+            RenderArtifactError::Render(msg) => {
+                ToolError::failed(format!("PDF render failed: {msg}"))
             }
-            FinalizeError::Render(inner) => {
-                ToolError::failed(format!("PDF render failed: {inner}"))
+            RenderArtifactError::Io(inner) => {
+                ToolError::failed(format!("Failed to write PDF artifact: {inner}"))
             }
-        })?;
-
-    let size_bytes = std::fs::metadata(&output_path).map(|m| m.len()).unwrap_or(0);
-    Ok((output_path, size_bytes))
+            RenderArtifactError::Join(msg) => {
+                ToolError::failed(format!("PDF render task crashed: {msg}"))
+            }
+        })
 }
 
 /// Best-effort one-shot migration of any files left under the pre-T1.7
@@ -248,6 +249,48 @@ mod sweep_tests {
             !body.contains(".coder"),
             "write_pdf must not hard-code legacy .coder directory",
         );
+    }
+
+    /// T1.8 invariant: `write_pdf` must route through `render_to_artifact`,
+    /// which is the only path that gives us the atomic-write + cancellation
+    /// guarantees.
+    #[test]
+    fn write_pdf_routes_through_render_to_artifact() {
+        let src = include_str!("final.rs");
+        let body = write_pdf_body(src);
+        assert!(
+            body.contains("render_to_artifact("),
+            "write_pdf must call render_to_artifact"
+        );
+        assert!(
+            !body.contains("File::create"),
+            "write_pdf must not open the final artifact file directly",
+        );
+        assert!(
+            !body.contains("render_draft("),
+            "write_pdf must delegate the render to the atomic write helper",
+        );
+    }
+
+    fn write_pdf_body(src: &str) -> &str {
+        let start = src
+            .find("async fn write_pdf(")
+            .expect("write_pdf must exist");
+        let body_start = src[start..].find('{').expect("body opens") + start;
+        let mut depth = 0_i32;
+        for (idx, ch) in src[body_start..].char_indices() {
+            match ch {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return &src[start..=body_start + idx];
+                    }
+                }
+                _ => {}
+            }
+        }
+        panic!("write_pdf body must be balanced");
     }
 
     /// `ArtifactCreated` events must carry the real `session_id` from

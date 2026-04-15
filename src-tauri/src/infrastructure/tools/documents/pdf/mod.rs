@@ -9,6 +9,7 @@ mod list;
 pub mod render;
 mod r#start;
 mod validate;
+mod write;
 
 pub use add_page::PdfAddPageTool;
 pub use category::PdfCategory;

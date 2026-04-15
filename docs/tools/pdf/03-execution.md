@@ -448,7 +448,7 @@ Single source of truth for which task closes which gap from
 | Non-persistent drafts | 13 | **deferred** | not scheduled |
 | Artifacts outside app-data | 14 | T1.7 | done |
 | Hardcoded session_id | 15 | T1.7 | done |
-| Blocking render | 16 | T1.8 | pending |
+| Blocking render | 16 | T1.8 | done |
 | No golden-file tests | 17 | M1 exit gate | pending |
 | Substring validator | 18 | T2.7 | pending |
 | Card lacks structural facts | 19 | T3.1 | pending |
