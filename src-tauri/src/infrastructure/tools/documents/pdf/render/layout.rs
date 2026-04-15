@@ -12,7 +12,7 @@
 //!
 //! [`PrintPdfRenderer`]: super::PrintPdfRenderer
 
-use printpdf::{Mm, PdfDocumentReference, PdfLayerReference};
+use printpdf::{Mm, PdfDocumentReference, PdfLayerReference, PdfPageIndex};
 
 use crate::core::documents::pdf::document::PdfDocument;
 use crate::core::documents::pdf::render::Theme;
@@ -77,6 +77,23 @@ impl LayoutParams {
     }
 }
 
+/// One heading occurrence captured during layout.
+///
+/// The renderer translates these into PDF outline / bookmark entries
+/// after layout completes. Capturing them in the engine — rather than
+/// at the markdown/draft layer — guarantees the recorded `page` matches
+/// the page the heading actually lands on after pagination.
+#[derive(Debug, Clone)]
+pub(super) struct OutlineMark {
+    pub level: u8,
+    pub title: String,
+    /// printpdf's opaque handle for the page the heading lives on.
+    pub page: PdfPageIndex,
+    /// Zero-based human page number (matches `page_count - 1` at the
+    /// moment of recording).
+    pub page_number: usize,
+}
+
 /// Layout engine that owns the cursor and decides when to paginate.
 ///
 /// A single engine is constructed per `render` call. The renderer gives
@@ -86,14 +103,18 @@ pub(super) struct LayoutEngine<'a> {
     pdf: &'a PdfDocumentReference,
     params: LayoutParams,
     layers: Vec<PdfLayerReference>,
+    pages: Vec<PdfPageIndex>,
     cursor_y_mm: f32,
     page_count: usize,
+    outline: Vec<OutlineMark>,
 }
 
 impl<'a> LayoutEngine<'a> {
-    /// Builds an engine seeded with the first page's layer.
+    /// Builds an engine seeded with the first page's layer and its
+    /// printpdf page handle.
     pub fn new(
         pdf: &'a PdfDocumentReference,
+        first_page: PdfPageIndex,
         first_layer: PdfLayerReference,
         params: LayoutParams,
     ) -> Self {
@@ -102,9 +123,38 @@ impl<'a> LayoutEngine<'a> {
             pdf,
             params,
             layers: vec![first_layer],
+            pages: vec![first_page],
             cursor_y_mm: cursor,
             page_count: 1,
+            outline: Vec::new(),
         }
+    }
+
+    /// Records an outline mark anchored to the current page.
+    ///
+    /// `title` is trimmed for whitespace before storing; empty input
+    /// after trimming is ignored so we never produce a blank bookmark.
+    #[allow(clippy::expect_used)]
+    pub fn record_outline(&mut self, level: u8, title: &str) {
+        let trimmed = title.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        let page = *self
+            .pages
+            .last()
+            .expect("LayoutEngine always holds at least one page handle");
+        self.outline.push(OutlineMark {
+            level,
+            title: trimmed.to_string(),
+            page,
+            page_number: self.page_count - 1,
+        });
+    }
+
+    /// Drains the collected outline marks in document order.
+    pub fn take_outline(&mut self) -> Vec<OutlineMark> {
+        std::mem::take(&mut self.outline)
     }
 
     /// Exposes the layout parameters by reference.
@@ -153,6 +203,7 @@ impl<'a> LayoutEngine<'a> {
         );
         let layer = self.pdf.get_page(pi).get_layer(li);
         self.layers.push(layer);
+        self.pages.push(pi);
         self.cursor_y_mm = self.params.initial_y_mm;
         self.page_count += 1;
     }

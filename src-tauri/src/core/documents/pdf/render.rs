@@ -56,6 +56,19 @@ pub enum RenderWarning {
     },
 }
 
+/// One entry in the PDF outline (a.k.a. bookmark).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OutlineEntry {
+    /// Heading level, 1..=6 (matches [`HeadingLevel`]).
+    ///
+    /// [`HeadingLevel`]: super::section::HeadingLevel
+    pub level: u8,
+    /// Heading text used as the bookmark title.
+    pub title: String,
+    /// Zero-based index of the page the heading lives on.
+    pub page_index: usize,
+}
+
 /// Summary returned by a successful render.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RenderOutcome {
@@ -67,6 +80,9 @@ pub struct RenderOutcome {
     pub warnings: Vec<RenderWarning>,
     /// Total bytes written to the sink.
     pub byte_len: u64,
+    /// Outline / bookmark entries, in document order.
+    #[serde(default)]
+    pub outline: Vec<OutlineEntry>,
 }
 
 /// Fatal rendering error.
@@ -132,9 +148,23 @@ mod tests {
                 text: "☃".to_string(),
             }],
             byte_len: 42,
+            outline: vec![OutlineEntry {
+                level: 1,
+                title: "Intro".to_string(),
+                page_index: 0,
+            }],
         };
         let json = serde_json::to_string(&o).unwrap();
         let back: RenderOutcome = serde_json::from_str(&json).unwrap();
         assert_eq!(o, back);
+    }
+
+    #[test]
+    fn render_outcome_outline_defaults_when_absent() {
+        // Old payloads that pre-date the outline field must still
+        // deserialize cleanly — outline silently defaults to empty.
+        let json = r#"{"page_count":1,"embedded_fonts":[],"warnings":[],"byte_len":0}"#;
+        let parsed: RenderOutcome = serde_json::from_str(json).unwrap();
+        assert!(parsed.outline.is_empty());
     }
 }

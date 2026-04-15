@@ -21,7 +21,8 @@ use crate::core::documents::pdf::block::{Block, InlineRun, InlineStyle, Paragrap
 use crate::core::documents::pdf::document::PdfDocument;
 use crate::core::documents::pdf::geometry::Orientation;
 use crate::core::documents::pdf::render::{
-    FontRef, PdfRenderer, ProgressSink, RenderError, RenderOutcome, RenderWarning, Theme,
+    FontRef, OutlineEntry, PdfRenderer, ProgressSink, RenderError, RenderOutcome, RenderWarning,
+    Theme,
 };
 use crate::core::documents::pdf::section::Section;
 
@@ -101,7 +102,7 @@ impl PrintPdfRenderer {
         let font_refs = embed_all_fonts(&pdf_doc, &self.fonts)?;
         let first_layer = pdf_doc.get_page(page_idx).get_layer(layer_idx);
         let params = LayoutParams::from_doc(doc, theme, page_width_mm, page_height_mm);
-        let mut engine = LayoutEngine::new(&pdf_doc, first_layer, params);
+        let mut engine = LayoutEngine::new(&pdf_doc, page_idx, first_layer, params);
 
         let mut missing: BTreeSet<char> = BTreeSet::new();
         layout_sections(
@@ -112,7 +113,27 @@ impl PrintPdfRenderer {
             &mut missing,
         )?;
         let page_count = engine.page_count();
+        let outline_marks = engine.take_outline();
         drop(engine);
+
+        let outline: Vec<OutlineEntry> = outline_marks
+            .iter()
+            .map(|m| OutlineEntry {
+                level: m.level,
+                title: m.title.clone(),
+                page_index: m.page_number,
+            })
+            .collect();
+        // printpdf collapses to one bookmark per page (HashMap keyed by
+        // page index). Adding in document order means the *first*
+        // heading recorded for a page is the one that survives — which
+        // matches what a reader expects when several headings share a page.
+        let mut seen_pages = std::collections::HashSet::<usize>::new();
+        for mark in &outline_marks {
+            if seen_pages.insert(mark.page_number) {
+                pdf_doc.add_bookmark(mark.title.clone(), mark.page);
+            }
+        }
 
         let bytes = pdf_doc
             .save_to_bytes()
@@ -144,6 +165,7 @@ impl PrintPdfRenderer {
             embedded_fonts,
             warnings,
             byte_len,
+            outline,
         })
     }
 }
@@ -164,13 +186,22 @@ fn layout_sections(
     missing: &mut BTreeSet<char>,
 ) -> Result<(), RenderError> {
     for section in sections {
-        emit_heading(engine, font_refs, fonts, section.heading.text(), missing)?;
+        emit_heading(
+            engine,
+            font_refs,
+            fonts,
+            section.heading.text(),
+            section.heading.level.get(),
+            missing,
+        )?;
         let block_gap = engine.params().block_gap_mm;
         engine.advance(block_gap);
         for block in &section.blocks {
             match block {
                 Block::Paragraph(p) => emit_paragraph(engine, font_refs, fonts, p, missing)?,
-                Block::Heading(h) => emit_heading(engine, font_refs, fonts, h.text(), missing)?,
+                Block::Heading(h) => {
+                    emit_heading(engine, font_refs, fonts, h.text(), h.level.get(), missing)?;
+                }
                 Block::PageBreak => engine.break_page(),
             }
             let gap = engine.params().block_gap_mm;
@@ -231,12 +262,14 @@ fn emit_run(
 }
 
 /// Emits `text` at the heading size using the regular-weight font,
-/// paginating through the engine.
+/// paginating through the engine. Records an outline mark anchored to
+/// the page the first wrapped line actually lands on.
 fn emit_heading(
     engine: &mut LayoutEngine<'_>,
     font_refs: &FontRefMap,
     fonts: &FontCache,
     text: &str,
+    level: u8,
     missing: &mut BTreeSet<char>,
 ) -> Result<(), RenderError> {
     let primary = fonts.primary_for(&InlineStyle::PLAIN);
@@ -244,9 +277,16 @@ fn emit_heading(
     let heading_size_pt = engine.params().heading_size_pt;
     let usable_width_pt = engine.params().usable_width_pt;
     let lines = wrap_with_face(&face, text, heading_size_pt, usable_width_pt);
+    let mut outline_recorded = false;
     for line in lines {
         let leading = engine.params().heading_leading_mm;
         engine.ensure_space_for(leading);
+        if !outline_recorded {
+            // Record after ensure_space_for so the page index reflects
+            // any forced break the heading triggered.
+            engine.record_outline(level, text);
+            outline_recorded = true;
+        }
         let layer = engine.current_layer();
         let x = engine.params().x_mm;
         let y = engine.cursor_y_mm();
@@ -900,6 +940,135 @@ mod tests {
     }
 
     const BIG_PARA_WORDS: usize = 2000;
+
+    #[tokio::test]
+    async fn outline_records_one_entry_per_section_heading() {
+        let r = renderer();
+        let mut doc = PdfDocument::new(Metadata::new("Outline").unwrap());
+        for (i, name) in ["Alpha", "Bravo", "Charlie"].iter().enumerate() {
+            let h = Heading::new(HeadingLevel::new(1).unwrap(), *name).unwrap();
+            let mut s = Section::new(h);
+            s.push(Block::Paragraph(
+                Paragraph::plain(format!("section body {i}")).unwrap(),
+            ));
+            doc.push_section(s);
+        }
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r
+            .render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render ok");
+
+        let titles: Vec<&str> = outcome.outline.iter().map(|e| e.title.as_str()).collect();
+        assert_eq!(
+            titles,
+            vec!["Alpha", "Bravo", "Charlie"],
+            "outline must list headings in document order"
+        );
+        for entry in &outcome.outline {
+            assert_eq!(entry.level, 1, "section headings collapsed to level 1");
+            assert!(
+                entry.page_index < outcome.page_count,
+                "outline page_index {} out of range for {} pages",
+                entry.page_index,
+                outcome.page_count
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn outline_anchors_heading_to_page_after_break() {
+        let r = renderer();
+        let mut doc = PdfDocument::new(Metadata::new("Cross-page Outline").unwrap());
+        let h1 = Heading::new(HeadingLevel::new(1).unwrap(), "OnPageOne").unwrap();
+        let mut s1 = Section::new(h1);
+        s1.push(Block::Paragraph(Paragraph::plain("first body").unwrap()));
+        s1.push(Block::PageBreak);
+        s1.push(Block::Heading(
+            Heading::new(HeadingLevel::new(2).unwrap(), "OnPageTwo").unwrap(),
+        ));
+        s1.push(Block::Paragraph(Paragraph::plain("second body").unwrap()));
+        doc.push_section(s1);
+
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r
+            .render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render ok");
+
+        assert_eq!(outcome.outline.len(), 2);
+        let on_one = &outcome.outline[0];
+        let on_two = &outcome.outline[1];
+        assert_eq!(on_one.title, "OnPageOne");
+        assert_eq!(on_one.page_index, 0);
+        assert_eq!(on_one.level, 1);
+        assert_eq!(on_two.title, "OnPageTwo");
+        assert_eq!(on_two.page_index, 1);
+        assert_eq!(on_two.level, 2);
+    }
+
+    #[tokio::test]
+    async fn outline_emits_pdf_outlines_dictionary() {
+        let r = renderer();
+        let mut doc = PdfDocument::new(Metadata::new("Outlines Dict").unwrap());
+        for (i, name) in ["Cover", "Body", "Wrap"].iter().enumerate() {
+            let h = Heading::new(HeadingLevel::new(1).unwrap(), *name).unwrap();
+            let mut s = Section::new(h);
+            s.push(Block::Paragraph(
+                Paragraph::plain(format!("body for {name}")).unwrap(),
+            ));
+            // Force each subsequent section onto its own page so printpdf's
+            // one-bookmark-per-page collapse doesn't drop the entry.
+            if i + 1 < 3 {
+                s.push(Block::PageBreak);
+            }
+            doc.push_section(s);
+        }
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render ok");
+
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let mut found_outlines = false;
+        let mut outline_titles: Vec<String> = Vec::new();
+        for (_, obj) in &parsed.objects {
+            if let lopdf::Object::Dictionary(d) = obj {
+                if let Ok(lopdf::Object::Name(n)) = d.get(b"Type") {
+                    if n == b"Outlines" {
+                        found_outlines = true;
+                    }
+                }
+                if let Ok(lopdf::Object::String(bytes, _)) = d.get(b"Title") {
+                    if d.get(b"Parent").is_ok() {
+                        outline_titles.push(decode_pdf_string(bytes));
+                    }
+                }
+            }
+        }
+        assert!(
+            found_outlines,
+            "rendered PDF must carry an /Outlines dictionary",
+        );
+        for expected in ["Cover", "Body", "Wrap"] {
+            assert!(
+                outline_titles.iter().any(|t| t == expected),
+                "outline must contain {expected}; got {outline_titles:?}"
+            );
+        }
+    }
+
+    fn decode_pdf_string(bytes: &[u8]) -> String {
+        if bytes.starts_with(&[0xFE, 0xFF]) {
+            let u16s: Vec<u16> = bytes[2..]
+                .chunks(2)
+                .map(|c| u16::from_be_bytes([c[0], *c.get(1).unwrap_or(&0)]))
+                .collect();
+            String::from_utf16_lossy(&u16s)
+        } else {
+            String::from_utf8_lossy(bytes).into_owned()
+        }
+    }
 
     /// Sweep test: no numeric literal (other than `0.0` / `1.0`) may
     /// appear outside `const` items in the render layout path (this

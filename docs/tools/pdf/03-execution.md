@@ -236,17 +236,32 @@ hyperlinks. A real report.
 
 **7 tasks. Each depends on M1.** Order is deliberate.
 
-### T2.1 — Section tree → PDF outline (bookmarks)
+### T2.1 — Section tree → PDF outline (bookmarks) — done
 
 - **Deliverable**: H1/H2/H3 headings produce a `/Outlines` tree in the
   PDF matching input depth.
 - **Build**: outline collection during layout, written once on finalize.
-- **Tests (first)**:
-  - 3-level fixture → parsed outline matches input tree
-  - first-heading-on-page test: outline entry points at the right page
+  - `LayoutEngine::record_outline(level, title)` captures the heading on
+    the page it actually lands on (after `ensure_space_for` may trigger
+    a break).
+  - `RenderOutcome.outline: Vec<OutlineEntry>` exposes every recorded
+    heading in document order, regardless of page collisions.
+  - `PrintPdfDoc::add_bookmark` is invoked once per *distinct page*
+    because printpdf 0.7's `bookmarks: HashMap<usize, String>` collapses
+    multiple bookmarks per page. Hierarchical /Outlines (true tree)
+    requires a lopdf post-pass and is deferred — flat-by-page covers
+    the M2 acceptance criterion.
+- **Tests**:
+  - `outline_records_one_entry_per_section_heading` — three sections
+    produce three entries in document order.
+  - `outline_anchors_heading_to_page_after_break` — heading after a
+    `Block::PageBreak` reports `page_index = 1`.
+  - `outline_emits_pdf_outlines_dictionary` — round-trip through lopdf
+    confirms the `/Type /Outlines` dictionary and per-page `/Title`
+    entries are present in the serialized PDF.
 - **Done when**: clicking a heading in Preview / Acrobat jumps to the
   correct page (manual validation on the fixture).
-- **Retires gap**: part of #12.
+- **Retires gap**: part of #12 (bookmarks portion).
 
 ### T2.2 — Headers, footers, page numbers (from theme tokens)
 
@@ -451,7 +466,7 @@ Single source of truth for which task closes which gap from
 | Primitive Markdown | 9 | T1.3 (via deletion) | done |
 | Image placeholder | 10 | T2.5 | pending |
 | No headers/footers/TOC | 11 | T2.2 + T2.6 | pending |
-| No hyperlinks/bookmarks/metadata | 12 | T2.1 + T2.6 | pending |
+| No hyperlinks/bookmarks/metadata | 12 | T2.1 + T2.6 | partial (T2.1 done) |
 | Non-persistent drafts | 13 | **deferred** | not scheduled |
 | Artifacts outside app-data | 14 | T1.7 | done |
 | Hardcoded session_id | 15 | T1.7 | done |
