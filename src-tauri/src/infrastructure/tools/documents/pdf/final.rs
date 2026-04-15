@@ -412,46 +412,31 @@ fn render_page_content(
     Ok(())
 }
 
-/// Simple text wrapping function that breaks text into lines that fit within a given width.
+/// Breaks `text` into lines that fit within `max_width_pt` using real
+/// glyph advances from the bundled TTF. Delegates to
+/// [`super::render::wrap_greedy`], the single wrapping implementation
+/// for the tree. T1.3 deletes this entire module; until then this shim
+/// exists so the legacy finalize path stops using a character-count
+/// heuristic.
 fn wrap_text(text: &str, max_width_pt: f64, font_size: f64) -> Vec<String> {
-    // Approximate character width (varies by font, using average for Helvetica)
-    const AVG_CHAR_WIDTH_PT: f64 = 0.5;
+    const FONT_BYTES: &[u8] = include_bytes!(
+        "../../../../../resources/pdf/fonts/LiberationSans-Regular.ttf"
+    );
 
-    let max_chars = (max_width_pt / (font_size * AVG_CHAR_WIDTH_PT)) as usize;
-    let max_chars = max_chars.max(20); // Minimum characters per line
+    #[allow(clippy::cast_possible_truncation)]
+    let wrapped = super::render::wrap_greedy(
+        FONT_BYTES,
+        text,
+        font_size as f32,
+        max_width_pt as f32,
+    )
+    .unwrap_or_else(|_| vec![text.to_string()]);
 
-    let mut lines = Vec::new();
-    let mut current_line = String::new();
-
-    for word in text.split_whitespace() {
-        if current_line.is_empty() {
-            current_line.push_str(word);
-        } else if current_line.len() + 1 + word.len() <= max_chars {
-            current_line.push(' ');
-            current_line.push_str(word);
-        } else {
-            lines.push(current_line);
-            current_line = word.to_string();
-        }
+    if wrapped.is_empty() {
+        vec![text.to_string()]
+    } else {
+        wrapped
     }
-
-    if !current_line.is_empty() {
-        lines.push(current_line);
-    }
-
-    // Handle explicit line breaks
-    let mut result = Vec::new();
-    for line in lines {
-        for sub_line in line.split('\n') {
-            result.push(sub_line.to_string());
-        }
-    }
-
-    if result.is_empty() {
-        result.push(text.to_string());
-    }
-
-    result
 }
 
 /// Convert HTML content to plain text (basic implementation).

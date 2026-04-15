@@ -5,6 +5,7 @@ mod category;
 mod delete_page;
 mod r#final;
 mod list;
+pub mod render;
 mod r#start;
 mod validate;
 
