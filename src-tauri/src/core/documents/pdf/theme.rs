@@ -61,6 +61,46 @@ pub struct PageDefaults {
     pub margin_mm: f32,
 }
 
+/// Header/footer templates and their styling.
+///
+/// Templates support the tokens `{title}`, `{page}`, `{total_pages}`,
+/// and `{section}`. Unknown tokens are left literal so theme typos
+/// surface in the rendered PDF instead of being silently dropped.
+///
+/// Either side (header or footer) can be `None` to omit that strip
+/// entirely; both being `None` disables decoration outright.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+pub struct Decorations {
+    /// Template painted at the top of each page (subject to
+    /// `suppress_on_first_page`).
+    #[serde(default)]
+    pub header: Option<String>,
+    /// Template painted at the bottom of each page.
+    #[serde(default)]
+    pub footer: Option<String>,
+    /// Skip header & footer on the first page (cover convention).
+    #[serde(default)]
+    pub suppress_on_first_page: bool,
+    /// Font size applied to header/footer text, in points.
+    pub font_size_pt: f32,
+    /// Distance from page edge to header/footer baseline, in mm.
+    pub margin_mm: f32,
+}
+
+impl Default for Decorations {
+    fn default() -> Self {
+        // No header/footer by default — opt in via theme.
+        Self {
+            header: None,
+            footer: None,
+            suppress_on_first_page: true,
+            font_size_pt: 9.0,
+            margin_mm: 10.0,
+        }
+    }
+}
+
 /// Font family paths resolved relative to the bundled font directory
 /// (`src-tauri/resources/pdf/fonts/`).
 ///
@@ -95,6 +135,9 @@ pub struct Theme {
     pub spacing: Spacing,
     /// Page-level defaults.
     pub page_defaults: PageDefaults,
+    /// Header / footer templates and styling.
+    #[serde(default)]
+    pub decorations: Decorations,
     /// Font families bundled with this theme.
     pub fonts: Fonts,
 }
@@ -124,6 +167,13 @@ impl Theme {
             },
             spacing: Spacing { block_gap: 0.4 },
             page_defaults: PageDefaults { margin_mm: 20.0 },
+            decorations: Decorations {
+                header: Some("{title}".to_string()),
+                footer: Some("Page {page} of {total_pages}".to_string()),
+                suppress_on_first_page: true,
+                font_size_pt: 9.0,
+                margin_mm: 10.0,
+            },
             fonts: Fonts {
                 regular: "LiberationSans-Regular.ttf".to_string(),
                 bold: "LiberationSans-Bold.ttf".to_string(),

@@ -25,7 +25,9 @@ use crate::core::documents::pdf::render::{
     Theme,
 };
 use crate::core::documents::pdf::section::Section;
+use crate::core::documents::pdf::theme::Decorations;
 
+use super::decorator::{expand_template, paint_decoration, section_for_page, PageContext};
 use super::font_cache::{FontCache, FontSlot, LoadedFont};
 use super::layout::{LayoutEngine, LayoutParams, POINTS_PER_MM};
 
@@ -114,6 +116,12 @@ impl PrintPdfRenderer {
         )?;
         let page_count = engine.page_count();
         let outline_marks = engine.take_outline();
+        // Snapshot the per-page layers and the layout params we still
+        // need *after* we drop the engine. Engine borrows pdf_doc, so
+        // it must die before we hand pdf_doc anywhere else.
+        let engine_layers_snapshot: Vec<PdfLayerReference> = engine.layers().to_vec();
+        let decoration_x_mm = engine.params().x_mm;
+        let decoration_page_height_mm = engine.params().page_height_mm;
         drop(engine);
 
         let outline: Vec<OutlineEntry> = outline_marks
@@ -134,6 +142,26 @@ impl PrintPdfRenderer {
                 pdf_doc.add_bookmark(mark.title.clone(), mark.page);
             }
         }
+
+        // T2.2: paint header/footer on each page now that the total
+        // page count is known. Section starts come from level-1 outline
+        // marks (one per top-level section) so `{section}` resolves to
+        // the section the page belongs to.
+        let section_starts: Vec<(usize, String)> = outline_marks
+            .iter()
+            .filter(|m| m.level == 1)
+            .map(|m| (m.page_number + 1, m.title.clone()))
+            .collect();
+        decorate_pages(
+            &engine_layers_snapshot,
+            &font_refs,
+            doc.metadata.title(),
+            &theme.decorations,
+            page_count,
+            &section_starts,
+            decoration_x_mm,
+            decoration_page_height_mm,
+        );
 
         let bytes = pdf_doc
             .save_to_bytes()
@@ -209,6 +237,51 @@ fn layout_sections(
         }
     }
     Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn decorate_pages(
+    layers: &[PdfLayerReference],
+    font_refs: &FontRefMap,
+    title: &str,
+    decorations: &Decorations,
+    total_pages: usize,
+    section_starts: &[(usize, String)],
+    x_mm: f32,
+    page_height_mm: f32,
+) {
+    if decorations.header.is_none() && decorations.footer.is_none() {
+        return;
+    }
+    for (idx, layer) in layers.iter().enumerate() {
+        let page_one_based = idx + 1;
+        if decorations.suppress_on_first_page && page_one_based == 1 {
+            continue;
+        }
+        let ctx = PageContext {
+            title,
+            page: page_one_based,
+            total_pages,
+            section: section_for_page(section_starts, page_one_based),
+        };
+        let header = decorations
+            .header
+            .as_deref()
+            .map(|t| expand_template(t, &ctx));
+        let footer = decorations
+            .footer
+            .as_deref()
+            .map(|t| expand_template(t, &ctx));
+        paint_decoration(
+            layer,
+            &font_refs.regular,
+            decorations,
+            header.as_deref(),
+            footer.as_deref(),
+            x_mm,
+            page_height_mm,
+        );
+    }
 }
 
 /// Emits each [`InlineRun`] of `p` on its own lines using the run's
@@ -1067,6 +1140,137 @@ mod tests {
             String::from_utf16_lossy(&u16s)
         } else {
             String::from_utf8_lossy(bytes).into_owned()
+        }
+    }
+
+    fn three_page_doc(title: &str) -> PdfDocument {
+        let mut doc = PdfDocument::new(Metadata::new(title).unwrap());
+        for (i, name) in ["First", "Second", "Third"].iter().enumerate() {
+            let h = Heading::new(HeadingLevel::new(1).unwrap(), *name).unwrap();
+            let mut s = Section::new(h);
+            s.push(Block::Paragraph(
+                Paragraph::plain(format!("body for {name}")).unwrap(),
+            ));
+            if i + 1 < 3 {
+                s.push(Block::PageBreak);
+            }
+            doc.push_section(s);
+        }
+        doc
+    }
+
+    #[tokio::test]
+    async fn header_and_footer_appear_on_pages_after_the_first() {
+        let r = renderer();
+        let doc = three_page_doc("DECORATEDREPORT");
+        let theme = Theme::default(); // bundled report.toml has decorations on
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r.render(&doc, &theme, &mut buf, None).await.expect("render");
+        assert_eq!(outcome.page_count, 3, "fixture must produce 3 pages");
+
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let font_bytes =
+            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let face = Face::parse(&font_bytes, 0).unwrap();
+
+        let title_sig = gid_signature(&face, "DECORATEDREPORT");
+        // suppress_on_first_page is true → page 1 carries no title token.
+        let p1 = page_gid_bytes(&parsed, 1);
+        let p2 = page_gid_bytes(&parsed, 2);
+        let p3 = page_gid_bytes(&parsed, 3);
+        assert!(
+            !contains_gid_signature(&p1, &title_sig),
+            "page 1 must not carry header (suppress_on_first_page = true)"
+        );
+        assert!(
+            contains_gid_signature(&p2, &title_sig),
+            "page 2 header must contain {{title}}"
+        );
+        assert!(
+            contains_gid_signature(&p3, &title_sig),
+            "page 3 header must contain {{title}}"
+        );
+
+        // Footer template "Page {page} of {total_pages}" → page 2 must
+        // contain "Page 2 of 3" — verify the literal `2 of 3` substring.
+        let total_sig = gid_signature(&face, "Page 2 of 3");
+        assert!(
+            contains_gid_signature(&p2, &total_sig),
+            "page 2 footer must resolve to 'Page 2 of 3' (got {} bytes content)",
+            p2.len()
+        );
+        let p3_total = gid_signature(&face, "Page 3 of 3");
+        assert!(
+            contains_gid_signature(&p3, &p3_total),
+            "page 3 footer must resolve to 'Page 3 of 3'"
+        );
+    }
+
+    #[tokio::test]
+    async fn total_pages_token_resolves_not_left_literal_in_pdf() {
+        let r = renderer();
+        let doc = three_page_doc("Title");
+        let theme = Theme::default();
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &theme, &mut buf, None).await.expect("render");
+
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let font_bytes =
+            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let face = Face::parse(&font_bytes, 0).unwrap();
+
+        let literal = gid_signature(&face, "{total_pages}");
+        for pn in 1..=3 {
+            let bytes = page_gid_bytes(&parsed, pn);
+            assert!(
+                !contains_gid_signature(&bytes, &literal),
+                "page {pn} contains unresolved '{{total_pages}}' literal"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn first_page_suppression_toggle_off_paints_page_one() {
+        let r = renderer();
+        let doc = three_page_doc("HEADERONONE");
+        let mut theme = Theme::default();
+        theme.decorations.suppress_on_first_page = false;
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &theme, &mut buf, None).await.expect("render");
+
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let font_bytes =
+            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let face = Face::parse(&font_bytes, 0).unwrap();
+        let sig = gid_signature(&face, "HEADERONONE");
+        let p1 = page_gid_bytes(&parsed, 1);
+        assert!(
+            contains_gid_signature(&p1, &sig),
+            "with suppress_on_first_page=false the title must land on page 1"
+        );
+    }
+
+    #[tokio::test]
+    async fn no_decorations_in_theme_skips_decoration_pass() {
+        let r = renderer();
+        let doc = three_page_doc("Plain");
+        let mut theme = Theme::default();
+        theme.decorations.header = None;
+        theme.decorations.footer = None;
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &theme, &mut buf, None).await.expect("render");
+
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let font_bytes =
+            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let face = Face::parse(&font_bytes, 0).unwrap();
+        let page_sig = gid_signature(&face, "Page ");
+        for pn in 1..=3 {
+            let bytes = page_gid_bytes(&parsed, pn);
+            assert!(
+                !contains_gid_signature(&bytes, &page_sig),
+                "page {pn} carries footer text even though decorations were cleared"
+            );
         }
     }
 

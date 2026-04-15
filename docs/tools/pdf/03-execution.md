@@ -263,20 +263,33 @@ hyperlinks. A real report.
   correct page (manual validation on the fixture).
 - **Retires gap**: part of #12 (bookmarks portion).
 
-### T2.2 — Headers, footers, page numbers (from theme tokens)
+### T2.2 — Headers, footers, page numbers (from theme tokens) — done
 
 - **Deliverable**: every page except the cover shows a header/footer
   built from theme template tokens `{title}`, `{page}`, `{total_pages}`,
   `{section}`.
-- **Build**: `PageDecorator` in `render/decorator.rs`; template
-  expansion at write time (two-pass so `{total_pages}` is resolved).
-- **Tests (first)**:
-  - 3-page doc: parsed text of each page contains the expected header
-    and footer
-  - first-page suppression toggle
-  - `{total_pages}` resolves correctly (not `{total_pages}` literal)
-- **Done when**: `report.toml` exposes the template strings; no strings
-  are hardcoded in the decorator.
+- **Build**: `decorator.rs` exposes `expand_template` /
+  `section_for_page` / `paint_decoration`. The renderer runs a
+  decoration pass *after* layout completes (single-pass works because
+  total page count is known at that point); section starts come from
+  the level-1 outline marks already collected by T2.1.
+- **Tests**:
+  - `header_and_footer_appear_on_pages_after_the_first` — title token
+    appears on pages 2 and 3 of a 3-page fixture but not on page 1
+    (suppression on); `Page 2 of 3` / `Page 3 of 3` literals land in
+    the correct page content streams.
+  - `total_pages_token_resolves_not_left_literal_in_pdf` — guards
+    against substring-replace ordering bugs.
+  - `first_page_suppression_toggle_off_paints_page_one` — toggle
+    truly drives the suppression.
+  - `no_decorations_in_theme_skips_decoration_pass` — clearing both
+    templates produces a PDF with no footer text on any page.
+  - Plus six unit tests on `expand_template` and `section_for_page`
+    covering token vocabulary, unknown-token survival, and section
+    look-up edge cases.
+- **Done when**: `report.toml` exposes the template strings; the new
+  `[decorations]` section is the single source of truth, and the
+  decorator carries no template literals of its own.
 - **Retires gap**: part of #11.
 
 ### T2.3 — List, code, callout blocks
@@ -465,7 +478,7 @@ Single source of truth for which task closes which gap from
 | Lossy HTML | 8 | T1.3 (via deletion) | done |
 | Primitive Markdown | 9 | T1.3 (via deletion) | done |
 | Image placeholder | 10 | T2.5 | pending |
-| No headers/footers/TOC | 11 | T2.2 + T2.6 | pending |
+| No headers/footers/TOC | 11 | T2.2 + T2.6 | partial (T2.2 done) |
 | No hyperlinks/bookmarks/metadata | 12 | T2.1 + T2.6 | partial (T2.1 done) |
 | Non-persistent drafts | 13 | **deferred** | not scheduled |
 | Artifacts outside app-data | 14 | T1.7 | done |

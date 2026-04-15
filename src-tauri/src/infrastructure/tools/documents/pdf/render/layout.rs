@@ -157,6 +157,12 @@ impl<'a> LayoutEngine<'a> {
         std::mem::take(&mut self.outline)
     }
 
+    /// Returns the layer for every page added so far, in page order.
+    /// Used by the decorator pass to paint headers/footers after layout.
+    pub fn layers(&self) -> &[PdfLayerReference] {
+        &self.layers
+    }
+
     /// Exposes the layout parameters by reference.
     pub const fn params(&self) -> &LayoutParams {
         &self.params

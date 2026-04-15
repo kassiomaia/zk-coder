@@ -5,6 +5,7 @@
 //! the backend touches `printpdf`. Layout, font metrics, and engine
 //! quirks all stay here.
 
+pub(super) mod decorator;
 pub mod font_cache;
 pub(super) mod layout;
 pub mod printpdf_renderer;

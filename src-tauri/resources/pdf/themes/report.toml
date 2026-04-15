@@ -26,6 +26,15 @@ block_gap = 0.4
 [page_defaults]
 margin_mm = 20.0
 
+[decorations]
+# Tokens: {title} {page} {total_pages} {section}
+# Either side can be omitted to drop that strip.
+header = "{title}"
+footer = "Page {page} of {total_pages}"
+suppress_on_first_page = true
+font_size_pt = 9.0
+margin_mm = 10.0
+
 [fonts]
 regular = "LiberationSans-Regular.ttf"
 bold = "LiberationSans-Bold.ttf"
