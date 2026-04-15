@@ -8,6 +8,7 @@ pub mod agent;
 pub mod chat;
 pub mod llm;
 pub mod nlp;
+pub mod tools;
 
 pub use agent::AgentServiceImpl;
 pub use chat::ChatServiceImpl;

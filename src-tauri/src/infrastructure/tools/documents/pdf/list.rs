@@ -142,13 +142,11 @@ impl Tool for PdfListPagesTool {
 fn get_content_type_name(
     content: &crate::infrastructure::tools::documents::shared::PdfPageContent,
 ) -> String {
+    use crate::infrastructure::tools::documents::shared::PdfPageContent;
     match content {
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Markdown { .. } => {
-            "markdown"
-        }
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Html { .. } => "html",
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Text { .. } => "text",
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Image { .. } => "image",
+        PdfPageContent::Markdown { .. } => "markdown",
+        PdfPageContent::Text { .. } => "text",
+        PdfPageContent::Image { .. } => "image",
     }
     .to_string()
 }
@@ -157,20 +155,10 @@ fn get_content_type_name(
 fn format_content_content(
     content: &crate::infrastructure::tools::documents::shared::PdfPageContent,
 ) -> String {
+    use crate::infrastructure::tools::documents::shared::PdfPageContent;
     match content {
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Markdown { content } => {
-            content.clone()
-        }
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Html {
-            content, ..
-        } => content.clone(),
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Text { content } => {
-            content.clone()
-        }
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Image {
-            path,
-            caption,
-        } => {
+        PdfPageContent::Markdown { content } | PdfPageContent::Text { content } => content.clone(),
+        PdfPageContent::Image { path, caption } => {
             format!(
                 "[Image: {}]{}",
                 path,
@@ -187,20 +175,12 @@ fn format_content_content(
 fn format_content_preview(
     content: &crate::infrastructure::tools::documents::shared::PdfPageContent,
 ) -> String {
+    use crate::infrastructure::tools::documents::shared::PdfPageContent;
     match content {
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Markdown { content } => {
+        PdfPageContent::Markdown { content } | PdfPageContent::Text { content } => {
             truncate(content, 100)
         }
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Html {
-            content, ..
-        } => truncate(content, 100),
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Text { content } => {
-            truncate(content, 100)
-        }
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Image {
-            path,
-            caption,
-        } => {
+        PdfPageContent::Image { path, caption } => {
             format!(
                 "[Image: {}]{}",
                 truncate(path, 50),
@@ -351,12 +331,6 @@ mod tests {
             content: "# Test".to_string(),
         };
         assert_eq!(get_content_type_name(&markdown), "markdown");
-
-        let html = PdfPageContent::Html {
-            content: "<h1>Test</h1>".to_string(),
-            styles: None,
-        };
-        assert_eq!(get_content_type_name(&html), "html");
 
         let text = PdfPageContent::Text {
             content: "Test".to_string(),

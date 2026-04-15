@@ -350,23 +350,6 @@ fn wrap_with_face(
     lines
 }
 
-/// Greedy word-wrap keyed on a raw TTF / OTF buffer.
-///
-/// Exposed so the legacy `final.rs` path can share a single measurement
-/// implementation until it is deleted in T1.3.
-///
-/// # Errors
-/// Returns [`RenderError::Font`] if `font_bytes` is not a readable font.
-pub fn wrap_greedy(
-    font_bytes: &[u8],
-    text: &str,
-    font_size_pt: f32,
-    max_width_pt: f32,
-) -> Result<Vec<String>, RenderError> {
-    let face = Face::parse(font_bytes, 0).map_err(|e| RenderError::Font(e.to_string()))?;
-    Ok(wrap_with_face(&face, text, font_size_pt, max_width_pt))
-}
-
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,

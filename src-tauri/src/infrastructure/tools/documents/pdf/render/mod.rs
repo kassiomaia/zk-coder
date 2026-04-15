@@ -7,4 +7,4 @@
 
 pub mod printpdf_renderer;
 
-pub use printpdf_renderer::{wrap_greedy, PrintPdfRenderer};
+pub use printpdf_renderer::PrintPdfRenderer;

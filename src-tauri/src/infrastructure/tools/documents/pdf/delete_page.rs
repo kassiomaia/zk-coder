@@ -137,13 +137,11 @@ impl Tool for PdfDeletePageTool {
 fn get_content_type_name(
     content: &crate::infrastructure::tools::documents::shared::PdfPageContent,
 ) -> String {
+    use crate::infrastructure::tools::documents::shared::PdfPageContent;
     match content {
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Markdown { .. } => {
-            "markdown"
-        }
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Html { .. } => "html",
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Text { .. } => "text",
-        crate::infrastructure::tools::documents::shared::PdfPageContent::Image { .. } => "image",
+        PdfPageContent::Markdown { .. } => "markdown",
+        PdfPageContent::Text { .. } => "text",
+        PdfPageContent::Image { .. } => "image",
     }
     .to_string()
 }

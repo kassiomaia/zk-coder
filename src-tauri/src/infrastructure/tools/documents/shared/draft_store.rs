@@ -168,11 +168,17 @@ impl DraftStore {
     // === PDF Draft Methods ===
 
     /// Create a new PDF draft and return its ID.
-    pub fn create_pdf_draft(&mut self, filename: String, page_size: Option<PdfPageSize>) -> String {
+    pub fn create_pdf_draft(
+        &mut self,
+        filename: String,
+        title: String,
+        page_size: Option<PdfPageSize>,
+    ) -> String {
         let id = format!("pdf_{}", Uuid::new_v4());
         let draft = PdfDraft {
             pdf_id: id.clone(),
             filename,
+            title,
             pages: Vec::new(),
             page_size: page_size.unwrap_or_default(),
             status: DraftStatus::Building,
@@ -194,11 +200,12 @@ impl DraftStore {
         self.pdf_drafts.get(pdf_id)
     }
 
-    /// Add a page to a PDF draft.
+    /// Add a page to a PDF draft at the given position.
     pub fn add_pdf_page(
         &mut self,
         pdf_id: &str,
         content: PdfPageContent,
+        position: PdfInsertPosition,
     ) -> Result<String, DraftError> {
         let draft = self
             .pdf_drafts
@@ -210,12 +217,22 @@ impl DraftStore {
         }
 
         let page_id = format!("page_{}", Uuid::new_v4());
-        let index = draft.pages.len();
-        draft.pages.push(DraftPage {
-            id: page_id.clone(),
-            index,
-            content,
-        });
+        let insert_index = match position {
+            PdfInsertPosition::End => draft.pages.len(),
+            PdfInsertPosition::Start => 0,
+        };
+        draft.pages.insert(
+            insert_index,
+            DraftPage {
+                id: page_id.clone(),
+                index: insert_index,
+                content,
+            },
+        );
+        // Re-sequence page indices so they reflect insertion order.
+        for (i, page) in draft.pages.iter_mut().enumerate() {
+            page.index = i;
+        }
         draft.updated_at = Utc::now();
         Ok(page_id)
     }
@@ -365,6 +382,8 @@ pub struct PdfDraft {
     pub pdf_id: String,
     /// The filename for the PDF.
     pub filename: String,
+    /// The document title (rendered into the PDF `/Title` metadata).
+    pub title: String,
     /// Pages contained in the PDF.
     pub pages: Vec<DraftPage>,
     /// The page size for the PDF.
@@ -553,6 +572,10 @@ pub enum SlideContent {
 }
 
 /// Content types for PDF pages.
+///
+/// `Html` used to be a variant here; it was deleted in T1.3 because the
+/// old renderer only did lossy tag stripping. Agents now emit typed
+/// Markdown or text, which the application layer maps into typed blocks.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum PdfPageContent {
@@ -560,13 +583,6 @@ pub enum PdfPageContent {
     Markdown {
         /// The markdown content.
         content: String,
-    },
-    /// HTML formatted content with optional styles.
-    Html {
-        /// The HTML content.
-        content: String,
-        /// Optional CSS styles.
-        styles: Option<String>,
     },
     /// Plain text content.
     Text {
@@ -580,6 +596,17 @@ pub enum PdfPageContent {
         /// Optional image caption.
         caption: Option<String>,
     },
+}
+
+/// Where to insert a new PDF page.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PdfInsertPosition {
+    /// Prepend before any existing pages.
+    Start,
+    /// Append after all existing pages (default).
+    #[default]
+    End,
 }
 
 /// PDF page sizes.
@@ -737,10 +764,15 @@ mod tests {
     #[test]
     fn test_create_pdf_draft() {
         let mut store = DraftStore::new();
-        let id = store.create_pdf_draft("document.pdf".to_string(), None);
+        let id = store.create_pdf_draft(
+            "document.pdf".to_string(),
+            "My Document".to_string(),
+            None,
+        );
 
         let draft = store.get_pdf_draft(&id).unwrap();
         assert_eq!(draft.filename, "document.pdf");
+        assert_eq!(draft.title, "My Document");
         assert_eq!(draft.pages.len(), 0);
         assert_eq!(draft.page_size, PdfPageSize::A4);
     }
@@ -748,17 +780,59 @@ mod tests {
     #[test]
     fn test_add_pdf_page() {
         let mut store = DraftStore::new();
-        let id = store.create_pdf_draft("document.pdf".to_string(), None);
+        let id = store.create_pdf_draft(
+            "document.pdf".to_string(),
+            "Doc".to_string(),
+            None,
+        );
 
         let content = PdfPageContent::Text {
             content: "Page content".to_string(),
         };
 
-        let page_id = store.add_pdf_page(&id, content).unwrap();
+        let page_id = store
+            .add_pdf_page(&id, content, PdfInsertPosition::End)
+            .unwrap();
 
         let draft = store.get_pdf_draft(&id).unwrap();
         assert_eq!(draft.pages.len(), 1);
         assert_eq!(draft.pages[0].id, page_id);
+    }
+
+    #[test]
+    fn test_add_pdf_page_at_start_prepends() {
+        let mut store = DraftStore::new();
+        let id = store.create_pdf_draft(
+            "document.pdf".to_string(),
+            "Doc".to_string(),
+            None,
+        );
+
+        let first = store
+            .add_pdf_page(
+                &id,
+                PdfPageContent::Text {
+                    content: "first".to_string(),
+                },
+                PdfInsertPosition::End,
+            )
+            .unwrap();
+        let second = store
+            .add_pdf_page(
+                &id,
+                PdfPageContent::Text {
+                    content: "prepended".to_string(),
+                },
+                PdfInsertPosition::Start,
+            )
+            .unwrap();
+
+        let draft = store.get_pdf_draft(&id).unwrap();
+        assert_eq!(draft.pages.len(), 2);
+        assert_eq!(draft.pages[0].id, second, "prepended page lands at index 0");
+        assert_eq!(draft.pages[0].index, 0);
+        assert_eq!(draft.pages[1].id, first);
+        assert_eq!(draft.pages[1].index, 1);
     }
 
     #[test]
@@ -786,7 +860,7 @@ mod tests {
         store.create_docx_draft("test1.docx".to_string());
         store.create_docx_draft("test2.docx".to_string());
         store.create_pptx_draft("test.pptx".to_string());
-        store.create_pdf_draft("test.pdf".to_string(), None);
+        store.create_pdf_draft("test.pdf".to_string(), "T".to_string(), None);
 
         let counts = store.get_counts();
         assert_eq!(counts.docx_building, 2);

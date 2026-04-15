@@ -1,21 +1,30 @@
 //! Finalize a PDF document.
+//!
+//! This module is the thin Tool adapter: it pops a draft, hands it to
+//! the application service, and emits the artifact-created event. All
+//! layout, font loading, and block translation lives under
+//! `application/tools/pdf/` and `infrastructure/tools/.../pdf/render/`.
 
+use crate::application::tools::pdf::finalize::{render_draft, FinalizeError};
+use crate::core::documents::pdf::render::Theme;
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
+use crate::infrastructure::tools::documents::pdf::render::PrintPdfRenderer;
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{get_draft_store, PdfDraft, PdfPageContent, PdfPageSize},
+    documents::shared::{get_draft_store, PdfDraft},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
-use printpdf::{
-    BuiltinFont, IndirectFontRef, Mm, PdfDocument, PdfDocumentReference, PdfLayerReference,
-};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use std::fs::File;
 use std::io::BufWriter;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
+
+/// Bundled font used for T1.2/T1.3. T1.5 replaces this single-font load
+/// with a cache and fallback chain driven by the theme.
+const BUNDLED_FONT_BYTES: &[u8] =
+    include_bytes!("../../../../../resources/pdf/fonts/LiberationSans-Regular.ttf");
 
 /// Arguments for finalizing a PDF document.
 #[derive(Debug, Deserialize)]
@@ -97,21 +106,17 @@ impl Tool for PdfFinalizeTool {
                     ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
-                // Get and remove the draft (finalizing removes it from active drafts)
                 store
                     .remove_pdf_draft(&args.pdf_id)
                     .ok_or_else(|| ToolError::failed(format!("PDF not found: {}", args.pdf_id)))?
             };
 
-            // Clone needed data before async call
             let filename = draft.filename.clone();
             let page_count = draft.pages.len();
             let page_size = draft.page_size;
 
-            // Generate the PDF file
-            let (path, size_bytes) = generate_pdf(draft).await?;
+            let (path, size_bytes) = write_pdf(&draft).await?;
 
-            // Create artifact reference
             let artifact_id = if args.auto_save {
                 Some(format!("art_{}", uuid::Uuid::new_v4()))
             } else {
@@ -122,18 +127,22 @@ impl Tool for PdfFinalizeTool {
                 pdf_id: args.pdf_id,
                 filename,
                 artifact_id,
-                path: path.to_str().unwrap().to_string(),
+                path: path
+                    .to_str()
+                    .ok_or_else(|| ToolError::failed("artifact path is not valid UTF-8"))?
+                    .to_string(),
                 page_count,
                 page_size: format!("{page_size:?}"),
                 size_bytes,
             };
 
-            // Emit ArtifactCreated event for frontend display
             if let Some(ref artifact_id) = output.artifact_id {
                 let _ = app_handle.emit(
                     AGENT_EVENT_NAME,
                     AgentEvent::ArtifactCreated {
-                        session_id: "current".to_string(), // TODO: Get actual session_id
+                        // T1.7 threads the real `session_id` through
+                        // `ToolExecutionContext` and drops this literal.
+                        session_id: "current".to_string(),
                         artifact_id: artifact_id.clone(),
                         artifact_type: "Pdf".to_string(),
                         filename: output.filename.clone(),
@@ -148,409 +157,38 @@ impl Tool for PdfFinalizeTool {
     }
 }
 
-/// Generate a PDF file from the draft using printpdf.
-async fn generate_pdf(draft: PdfDraft) -> Result<(PathBuf, u64), ToolError> {
-    // Get the home directory for artifact storage
+/// Writes the PDF artifact to disk and returns its path and size.
+///
+/// T1.7 replaces the `HOME`-anchored location with the Tauri
+/// `app_local_data_dir`, and T1.8 moves the write onto a background
+/// task.
+async fn write_pdf(draft: &PdfDraft) -> Result<(PathBuf, u64), ToolError> {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .map_err(|_| ToolError::failed("Could not determine home directory".to_string()))?;
-
-    // Create artifacts directory in home/.coder/artifacts
     let artifacts_dir = PathBuf::from(home).join(".coder").join("artifacts");
     std::fs::create_dir_all(&artifacts_dir)
         .map_err(|e| ToolError::failed(format!("Failed to create artifacts directory: {e}")))?;
-
-    // Create output file path
     let output_path = artifacts_dir.join(&draft.filename);
 
-    // Get page dimensions
-    let (page_width, page_height) = get_page_dimensions(&draft.page_size);
-
-    // Handle empty draft - create a document with one blank page
-    if draft.pages.is_empty() {
-        let (doc, _page1, _layer1) =
-            PdfDocument::new(&draft.filename, page_width, page_height, "Layer 1");
-        let file = File::create(&output_path)
-            .map_err(|e| ToolError::failed(format!("Failed to create PDF file: {e}")))?;
-        let mut writer = BufWriter::new(file);
-        doc.save(&mut writer)
-            .map_err(|e| ToolError::failed(format!("Failed to save PDF: {e}")))?;
-
-        let size_bytes = std::fs::metadata(&output_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
-
-        return Ok((output_path, size_bytes));
-    }
-
-    // Create the PDF document with the first page
-    let (doc, first_page_idx, first_layer_idx) =
-        PdfDocument::new(&draft.filename, page_width, page_height, "Layer 1");
-
-    // Add fonts once for reuse
-    let font_regular = doc
-        .add_builtin_font(BuiltinFont::Helvetica)
-        .map_err(|e| ToolError::failed(format!("Failed to add font: {e}")))?;
-    let font_bold = doc
-        .add_builtin_font(BuiltinFont::HelveticaBold)
-        .map_err(|e| ToolError::failed(format!("Failed to add font: {e}")))?;
-
-    // Process first page
-    let first_page = doc.get_page(first_page_idx);
-    let first_layer = first_page.get_layer(first_layer_idx);
-    render_page_content(
-        &doc,
-        first_layer,
-        &draft.pages[0].content,
-        &font_regular,
-        &font_bold,
-        page_width,
-        page_height,
-    )?;
-
-    // Add and render remaining pages
-    for page_data in draft.pages.iter().skip(1) {
-        let (page_idx, layer_idx) = doc.add_page(
-            page_width,
-            page_height,
-            format!("Layer {}", page_data.index + 1),
-        );
-        let page = doc.get_page(page_idx);
-        let layer = page.get_layer(layer_idx);
-        render_page_content(
-            &doc,
-            layer,
-            &page_data.content,
-            &font_regular,
-            &font_bold,
-            page_width,
-            page_height,
-        )?;
-    }
-
-    // Save the document
-    let file = File::create(&output_path)
+    let renderer = PrintPdfRenderer::new(BUNDLED_FONT_BYTES.to_vec())
+        .map_err(|e| ToolError::failed(format!("Failed to initialise PDF renderer: {e}")))?;
+    let file = std::fs::File::create(&output_path)
         .map_err(|e| ToolError::failed(format!("Failed to create PDF file: {e}")))?;
     let mut writer = BufWriter::new(file);
-    doc.save(&mut writer)
-        .map_err(|e| ToolError::failed(format!("Failed to save PDF: {e}")))?;
+    let theme = Theme::default();
 
-    let size_bytes = std::fs::metadata(&output_path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    render_draft(draft, &renderer, &theme, &mut writer)
+        .await
+        .map_err(|e| match e {
+            FinalizeError::Model(inner) => {
+                ToolError::failed(format!("Invalid PDF draft: {inner}"))
+            }
+            FinalizeError::Render(inner) => {
+                ToolError::failed(format!("PDF render failed: {inner}"))
+            }
+        })?;
 
+    let size_bytes = std::fs::metadata(&output_path).map(|m| m.len()).unwrap_or(0);
     Ok((output_path, size_bytes))
-}
-
-/// Get page dimensions in millimeters for a given page size.
-const fn get_page_dimensions(page_size: &PdfPageSize) -> (Mm, Mm) {
-    match page_size {
-        PdfPageSize::A4 => (Mm(210.0), Mm(297.0)),
-        PdfPageSize::Letter => (Mm(216.0), Mm(279.0)),
-        PdfPageSize::Legal => (Mm(216.0), Mm(356.0)),
-        PdfPageSize::A3 => (Mm(297.0), Mm(420.0)),
-    }
-}
-
-/// Render content to a PDF layer.
-fn render_page_content(
-    _doc: &PdfDocumentReference,
-    layer: PdfLayerReference,
-    content: &PdfPageContent,
-    font_regular: &IndirectFontRef,
-    font_bold: &IndirectFontRef,
-    page_width: Mm,
-    page_height: Mm,
-) -> Result<(), ToolError> {
-    // Margins in mm
-    let margin_left = Mm(20.0);
-    let margin_right = Mm(20.0);
-    let margin_top = Mm(20.0);
-    let margin_bottom = Mm(20.0);
-
-    // Usable width and height (Mm is a newtype around f32)
-    let usable_width = page_width - margin_left - margin_right;
-    let _usable_height = page_height - margin_top - margin_bottom;
-
-    // Current y position (from top)
-    let mut current_y = page_height - margin_top;
-
-    // Font sizes (must be f32 for use_text)
-    const FONT_SIZE_TITLE: f32 = 18.0;
-    const FONT_SIZE_BODY: f32 = 12.0;
-    const LINE_HEIGHT: f32 = 5.0;
-
-    match content {
-        PdfPageContent::Text { content } => {
-            // Render text content with simple word wrapping
-            for line in wrap_text(
-                content,
-                f64::from(usable_width.0),
-                f64::from(FONT_SIZE_BODY),
-            ) {
-                if current_y < margin_bottom {
-                    break; // No more space on page
-                }
-                layer.use_text(&line, FONT_SIZE_BODY, margin_left, current_y, font_regular);
-                current_y -= Mm(FONT_SIZE_BODY + LINE_HEIGHT);
-            }
-        }
-        PdfPageContent::Markdown { content } => {
-            // Render markdown content (basic implementation)
-            for line in content.lines() {
-                if current_y < margin_bottom {
-                    break;
-                }
-
-                if line.starts_with("# ") {
-                    // Header level 1
-                    layer.use_text(
-                        &line[2..],
-                        FONT_SIZE_TITLE,
-                        margin_left,
-                        current_y,
-                        font_bold,
-                    );
-                    current_y -= Mm(FONT_SIZE_TITLE + LINE_HEIGHT);
-                } else if line.starts_with("## ") {
-                    // Header level 2
-                    layer.use_text(
-                        &line[3..],
-                        FONT_SIZE_TITLE - 2.0,
-                        margin_left,
-                        current_y,
-                        font_bold,
-                    );
-                    current_y -= Mm(FONT_SIZE_TITLE - 2.0 + LINE_HEIGHT);
-                } else if line.starts_with("### ") {
-                    // Header level 3
-                    layer.use_text(
-                        &line[4..],
-                        FONT_SIZE_TITLE - 4.0,
-                        margin_left,
-                        current_y,
-                        font_bold,
-                    );
-                    current_y -= Mm(FONT_SIZE_TITLE - 4.0 + LINE_HEIGHT);
-                } else if !line.is_empty() {
-                    // Regular paragraph
-                    for wrapped_line in
-                        wrap_text(line, f64::from(usable_width.0), f64::from(FONT_SIZE_BODY))
-                    {
-                        if current_y < margin_bottom {
-                            break;
-                        }
-                        layer.use_text(
-                            &wrapped_line,
-                            FONT_SIZE_BODY,
-                            margin_left,
-                            current_y,
-                            font_regular,
-                        );
-                        current_y -= Mm(FONT_SIZE_BODY + LINE_HEIGHT);
-                    }
-                } else {
-                    // Empty line
-                    current_y -= Mm(LINE_HEIGHT);
-                }
-            }
-        }
-        PdfPageContent::Html { content, styles: _ } => {
-            // For HTML, strip tags and render as text (basic implementation)
-            let text = html_to_plain_text(content);
-            for line in wrap_text(&text, f64::from(usable_width.0), f64::from(FONT_SIZE_BODY)) {
-                if current_y < margin_bottom {
-                    break;
-                }
-                layer.use_text(&line, FONT_SIZE_BODY, margin_left, current_y, font_regular);
-                current_y -= Mm(FONT_SIZE_BODY + LINE_HEIGHT);
-            }
-        }
-        PdfPageContent::Image { path, caption } => {
-            // Add a placeholder text for the image
-            layer.use_text(
-                format!("[Image: {path}]"),
-                FONT_SIZE_BODY,
-                margin_left,
-                current_y,
-                font_regular,
-            );
-            current_y -= Mm(FONT_SIZE_BODY + LINE_HEIGHT);
-
-            // Add caption if present
-            if let Some(caption_text) = caption {
-                for line in wrap_text(
-                    caption_text,
-                    f64::from(usable_width.0),
-                    f64::from(FONT_SIZE_BODY),
-                ) {
-                    if current_y < margin_bottom {
-                        break;
-                    }
-                    layer.use_text(
-                        &line,
-                        FONT_SIZE_BODY - 2.0,
-                        margin_left,
-                        current_y,
-                        font_regular,
-                    );
-                    current_y -= Mm(FONT_SIZE_BODY - 2.0 + LINE_HEIGHT);
-                }
-            }
-
-            // Add note about image embedding
-            layer.use_text(
-                "(Image embedding will be implemented in a future update)",
-                FONT_SIZE_BODY - 2.0,
-                margin_left,
-                current_y,
-                font_regular,
-            );
-        }
-    }
-
-    Ok(())
-}
-
-/// Breaks `text` into lines that fit within `max_width_pt` using real
-/// glyph advances from the bundled TTF. Delegates to
-/// [`super::render::wrap_greedy`], the single wrapping implementation
-/// for the tree. T1.3 deletes this entire module; until then this shim
-/// exists so the legacy finalize path stops using a character-count
-/// heuristic.
-fn wrap_text(text: &str, max_width_pt: f64, font_size: f64) -> Vec<String> {
-    const FONT_BYTES: &[u8] = include_bytes!(
-        "../../../../../resources/pdf/fonts/LiberationSans-Regular.ttf"
-    );
-
-    #[allow(clippy::cast_possible_truncation)]
-    let wrapped = super::render::wrap_greedy(
-        FONT_BYTES,
-        text,
-        font_size as f32,
-        max_width_pt as f32,
-    )
-    .unwrap_or_else(|_| vec![text.to_string()]);
-
-    if wrapped.is_empty() {
-        vec![text.to_string()]
-    } else {
-        wrapped
-    }
-}
-
-/// Convert HTML content to plain text (basic implementation).
-fn html_to_plain_text(html: &str) -> String {
-    let mut result = html.to_string();
-
-    // Remove common HTML tags
-    result = result.replace("<br>", "\n");
-    result = result.replace("<br/>", "\n");
-    result = result.replace("<br />", "\n");
-    result = result.replace("<p>", "\n");
-    result = result.replace("</p>", "\n");
-    result = result.replace("<div>", "\n");
-    result = result.replace("</div>", "\n");
-    result = result.replace("<h1>", "\n");
-    result = result.replace("</h1>", "\n");
-    result = result.replace("<h2>", "\n");
-    result = result.replace("</h2>", "\n");
-    result = result.replace("<h3>", "\n");
-    result = result.replace("</h3>", "\n");
-
-    // Remove remaining HTML tags (simple regex-like replacement)
-    let mut cleaned = String::new();
-    let mut in_tag = false;
-    for c in result.chars() {
-        match c {
-            '<' => in_tag = true,
-            '>' => in_tag = false,
-            _ if !in_tag => cleaned.push(c),
-            _ => {}
-        }
-    }
-
-    // Clean up excessive whitespace
-    cleaned.lines().collect::<Vec<_>>().join("\n")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::infrastructure::tools::documents::shared::{DraftPage, DraftStatus};
-    use chrono::Utc;
-
-    fn create_test_draft() -> PdfDraft {
-        PdfDraft {
-            pdf_id: "test_pdf".to_string(),
-            filename: "test.pdf".to_string(),
-            pages: vec![
-                DraftPage {
-                    id: "page_1".to_string(),
-                    index: 0,
-                    content: PdfPageContent::Text {
-                        content: "First page".to_string(),
-                    },
-                },
-                DraftPage {
-                    id: "page_2".to_string(),
-                    index: 1,
-                    content: PdfPageContent::Markdown {
-                        content: "# Second page".to_string(),
-                    },
-                },
-            ],
-            page_size: PdfPageSize::A4,
-            status: DraftStatus::Building,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        }
-    }
-
-    #[test]
-    fn test_get_page_dimensions() {
-        let (w, h) = get_page_dimensions(&PdfPageSize::A4);
-        assert_eq!(w.0, 210.0);
-        assert_eq!(h.0, 297.0);
-
-        let (w, h) = get_page_dimensions(&PdfPageSize::Letter);
-        assert_eq!(w.0, 216.0);
-        assert_eq!(h.0, 279.0);
-
-        let (w, h) = get_page_dimensions(&PdfPageSize::Legal);
-        assert_eq!(w.0, 216.0);
-        assert_eq!(h.0, 356.0);
-
-        let (w, h) = get_page_dimensions(&PdfPageSize::A3);
-        assert_eq!(w.0, 297.0);
-        assert_eq!(h.0, 420.0);
-    }
-
-    #[test]
-    fn test_wrap_text() {
-        let text = "Hello world this is a test";
-        let wrapped = wrap_text(text, 100.0, 12.0);
-        // Should split into multiple lines based on width
-        assert!(!wrapped.is_empty());
-        assert!(wrapped.iter().all(|l| l.len() <= text.len()));
-    }
-
-    #[test]
-    fn test_html_to_plain_text() {
-        let html = "<p>Hello <strong>world</strong></p>";
-        let plain = html_to_plain_text(html);
-        assert!(!plain.contains('<'));
-        assert!(!plain.contains('>'));
-        assert!(plain.contains("Hello"));
-        assert!(plain.contains("world"));
-    }
-
-    #[test]
-    fn test_html_to_plain_text_with_breaks() {
-        let html = "Line1<br>Line2<br/>Line3";
-        let plain = html_to_plain_text(html);
-        assert!(plain.contains("Line1"));
-        assert!(plain.contains("Line2"));
-        assert!(plain.contains("Line3"));
-    }
 }

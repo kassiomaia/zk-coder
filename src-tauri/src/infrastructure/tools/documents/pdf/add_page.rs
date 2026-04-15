@@ -2,7 +2,7 @@
 
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{get_draft_store, PdfPageContent},
+    documents::shared::{get_draft_store, PdfInsertPosition, PdfPageContent},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -24,22 +24,27 @@ pub struct PdfAddPageArgs {
 }
 
 /// Page content input for serialization.
+///
+/// Mirrors [`PdfPageContent`] at the tool boundary. The `html` variant was
+/// removed in T1.3 — callers must emit structured Markdown or plain text.
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PdfPageContentInput {
+    /// Markdown content variant.
     Markdown {
+        /// The markdown source.
         content: String,
     },
-    Html {
-        content: String,
-        #[serde(default)]
-        styles: Option<String>,
-    },
+    /// Plain text content variant.
     Text {
+        /// The text content.
         content: String,
     },
+    /// Image reference with optional caption.
     Image {
+        /// Path to the image file.
         path: String,
+        /// Optional caption.
         #[serde(default)]
         caption: Option<String>,
     },
@@ -49,10 +54,16 @@ impl From<PdfPageContentInput> for PdfPageContent {
     fn from(item: PdfPageContentInput) -> Self {
         match item {
             PdfPageContentInput::Markdown { content } => Self::Markdown { content },
-            PdfPageContentInput::Html { content, styles } => Self::Html { content, styles },
             PdfPageContentInput::Text { content } => Self::Text { content },
             PdfPageContentInput::Image { path, caption } => Self::Image { path, caption },
         }
+    }
+}
+
+fn parse_position(raw: &str) -> PdfInsertPosition {
+    match raw.to_ascii_lowercase().as_str() {
+        "start" => PdfInsertPosition::Start,
+        _ => PdfInsertPosition::End,
     }
 }
 
@@ -101,15 +112,6 @@ impl Tool for PdfAddPageTool {
                                 "type": "object",
                                 "required": ["type", "content"],
                                 "properties": {
-                                    "type": {"const": "html"},
-                                    "content": {"type": "string"},
-                                    "styles": {"type": "string"}
-                                }
-                            },
-                            {
-                                "type": "object",
-                                "required": ["type", "content"],
-                                "properties": {
                                     "type": {"const": "text"},
                                     "content": {"type": "string"}
                                 }
@@ -151,6 +153,7 @@ impl Tool for PdfAddPageTool {
 
             // Convert content input to internal type
             let content: PdfPageContent = args.content.into();
+            let position = parse_position(&args.position);
 
             let draft_store = get_draft_store();
             let (page_id, page_number, total_pages) = {
@@ -158,18 +161,20 @@ impl Tool for PdfAddPageTool {
                     ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
+                let page_id = store
+                    .add_pdf_page(&args.pdf_id, content, position)
+                    .map_err(|e| ToolError::failed(format!("Failed to add page: {e}")))?;
+
                 let draft = store
                     .get_pdf_draft(&args.pdf_id)
                     .ok_or_else(|| ToolError::failed(format!("PDF not found: {}", args.pdf_id)))?;
-
-                let total_before = draft.pages.len();
-
-                let page_id = store
-                    .add_pdf_page(&args.pdf_id, content)
-                    .map_err(|e| ToolError::failed(format!("Failed to add page: {e}")))?;
-
-                let draft = store.get_pdf_draft(&args.pdf_id).unwrap();
-                (page_id, draft.pages.len(), total_before + 1)
+                let total = draft.pages.len();
+                let index = draft
+                    .pages
+                    .iter()
+                    .position(|p| p.id == page_id)
+                    .unwrap_or(total.saturating_sub(1));
+                (page_id, index + 1, total)
             };
 
             let output = PdfAddPageOutput {
@@ -204,20 +209,13 @@ mod tests {
     }
 
     #[test]
-    fn test_html_content_conversion() {
-        let input = PdfPageContentInput::Html {
-            content: "<h1>Title</h1>".to_string(),
-            styles: Some("h1 { color: red; }".to_string()),
-        };
-
-        let content: PdfPageContent = input.into();
-        match content {
-            PdfPageContent::Html { content, styles } => {
-                assert_eq!(content, "<h1>Title</h1>");
-                assert_eq!(styles, Some("h1 { color: red; }".to_string()));
-            }
-            _ => panic!("Expected Html"),
-        }
+    fn test_parse_position_defaults_to_end() {
+        assert_eq!(parse_position(""), PdfInsertPosition::End);
+        assert_eq!(parse_position("end"), PdfInsertPosition::End);
+        assert_eq!(parse_position("END"), PdfInsertPosition::End);
+        assert_eq!(parse_position("start"), PdfInsertPosition::Start);
+        assert_eq!(parse_position("Start"), PdfInsertPosition::Start);
+        assert_eq!(parse_position("bogus"), PdfInsertPosition::End);
     }
 
     #[test]

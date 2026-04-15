@@ -9,8 +9,8 @@ pub use artifact_store::{
 };
 pub use draft_store::{
     get_draft_store, DocxContent, DocxDraft, DraftCounts, DraftError, DraftPage, DraftSection,
-    DraftSlide, DraftStatus, DraftStore, PdfDraft, PdfPageContent, PdfPageSize, PptxDraft,
-    PptxSlide, SlideContent, SlideLayout,
+    DraftSlide, DraftStatus, DraftStore, PdfDraft, PdfInsertPosition, PdfPageContent, PdfPageSize,
+    PptxDraft, PptxSlide, SlideContent, SlideLayout,
 };
 pub use validation::{
     validate_file_exists, validate_file_size, validate_magic_bytes, DocumentFileType,

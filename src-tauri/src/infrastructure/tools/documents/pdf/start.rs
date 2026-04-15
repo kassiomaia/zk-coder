@@ -105,7 +105,7 @@ impl Tool for PdfStartTool {
                     ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
 
-                store.create_pdf_draft(filename.clone(), Some(page_size))
+                store.create_pdf_draft(filename.clone(), args.title.clone(), Some(page_size))
             };
 
             let created_at = chrono::Utc::now().to_rfc3339();

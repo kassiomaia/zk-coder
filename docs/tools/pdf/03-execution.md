@@ -434,14 +434,14 @@ Single source of truth for which task closes which gap from
 | Gap | # | Task | Status |
 |---|---|---|---|
 | Coarse content blobs | 1 | T1.1 | pending |
-| `title` dropped | 2 | T1.3 | pending |
+| `title` dropped | 2 | T1.3 | done |
 | No document theme | 3 | T1.4 | pending |
-| `position` unused | 4 | T1.3 | pending |
+| `position` unused | 4 | T1.3 | done |
 | Only builtin fonts | 5 | T1.5 | pending |
 | Character-count wrapping | 6 | T1.2 + T1.6 | pending |
 | Silent truncation | 7 | T1.6 | pending |
-| Lossy HTML | 8 | T1.3 (via deletion) | pending |
-| Primitive Markdown | 9 | T1.3 (via deletion) | pending |
+| Lossy HTML | 8 | T1.3 (via deletion) | done |
+| Primitive Markdown | 9 | T1.3 (via deletion) | done |
 | Image placeholder | 10 | T2.5 | pending |
 | No headers/footers/TOC | 11 | T2.2 + T2.6 | pending |
 | No hyperlinks/bookmarks/metadata | 12 | T2.1 + T2.6 | pending |

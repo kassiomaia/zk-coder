@@ -164,9 +164,9 @@ impl PdfValidator {
 
         // Check if any page has text content
         let has_text = draft.pages.iter().any(|p| match &p.content {
-            PdfPageContent::Text { content } => !content.trim().is_empty(),
-            PdfPageContent::Markdown { content } => !content.trim().is_empty(),
-            PdfPageContent::Html { content, .. } => !content.trim().is_empty(),
+            PdfPageContent::Text { content } | PdfPageContent::Markdown { content } => {
+                !content.trim().is_empty()
+            }
             PdfPageContent::Image { .. } => false, // Images don't have extractable text
         });
 
@@ -211,9 +211,9 @@ impl PdfValidator {
             .pages
             .iter()
             .filter(|p| match &p.content {
-                PdfPageContent::Text { content } => content.trim().is_empty(),
-                PdfPageContent::Markdown { content } => content.trim().is_empty(),
-                PdfPageContent::Html { content, .. } => content.trim().is_empty(),
+                PdfPageContent::Text { content } | PdfPageContent::Markdown { content } => {
+                    content.trim().is_empty()
+                }
                 PdfPageContent::Image { .. } => false, // Images count as content
             })
             .count();
@@ -270,6 +270,7 @@ mod tests {
         PdfDraft {
             pdf_id: "test_pdf".to_string(),
             filename: "test.pdf".to_string(),
+            title: "Test".to_string(),
             pages: vec![
                 crate::infrastructure::tools::documents::shared::draft_store::DraftPage {
                     id: "page1".to_string(),
@@ -302,6 +303,7 @@ mod tests {
         let draft = PdfDraft {
             pdf_id: "test".to_string(),
             filename: "test.pdf".to_string(),
+            title: "Test".to_string(),
             pages: Vec::new(),
             page_size:
                 crate::infrastructure::tools::documents::shared::draft_store::PdfPageSize::A4,
