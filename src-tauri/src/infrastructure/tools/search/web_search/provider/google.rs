@@ -102,13 +102,25 @@ impl SearchProvider for GoogleProvider {
             return Err(SearchProviderError::RateLimited);
         }
         if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
+            // Google often returns a JSON body with a "API key not valid"
+            // style message on 401/403. Surface it so the Settings UI shows
+            // something actionable instead of a generic Unauthorized.
+            let detail = read_error_message(response).await;
+            log::warn!(
+                target: "web_search",
+                "provider unauthorized: {}",
+                detail.as_deref().unwrap_or("<no detail>")
+            );
             return Err(SearchProviderError::Unauthorized);
         }
         if !status.is_success() {
-            return Err(SearchProviderError::Upstream(format!(
-                "HTTP {}",
-                status.as_u16()
-            )));
+            let code = status.as_u16();
+            let detail = read_error_message(response).await;
+            let message = match detail {
+                Some(m) => format!("HTTP {code}: {m}"),
+                None => format!("HTTP {code}"),
+            };
+            return Err(SearchProviderError::Upstream(message));
         }
 
         let body: GoogleSearchResponse = response
@@ -123,6 +135,37 @@ impl SearchProvider for GoogleProvider {
             .map(map_item)
             .collect())
     }
+}
+
+/// Pulls the `error.message` field out of a Google API JSON error body. If
+/// the body isn't JSON or doesn't carry a message, falls back to the raw
+/// text (truncated) so the Settings UI still shows *something* actionable.
+async fn read_error_message(response: reqwest::Response) -> Option<String> {
+    let body = response.text().await.ok()?;
+    if let Ok(parsed) = serde_json::from_str::<GoogleErrorEnvelope>(&body) {
+        if let Some(message) = parsed.error.and_then(|e| e.message) {
+            return Some(message);
+        }
+    }
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    // Cap at 240 chars so a huge HTML error page doesn't drown the banner.
+    let capped: String = trimmed.chars().take(240).collect();
+    Some(capped)
+}
+
+#[derive(Debug, Deserialize)]
+struct GoogleErrorEnvelope {
+    #[serde(default)]
+    error: Option<GoogleErrorBody>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GoogleErrorBody {
+    #[serde(default)]
+    message: Option<String>,
 }
 
 fn map_transport_error(err: reqwest::Error) -> SearchProviderError {

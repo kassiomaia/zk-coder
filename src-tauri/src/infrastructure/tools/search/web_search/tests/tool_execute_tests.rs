@@ -41,14 +41,6 @@ fn flag_on() -> EnvGuard {
     EnvGuard { _lock: lock }
 }
 
-fn flag_off() -> EnvGuard {
-    let lock = web_search_test_env_lock()
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    std::env::remove_var(ENV_WEB_SEARCH_ENABLED);
-    EnvGuard { _lock: lock }
-}
-
 fn sample_raws() -> Vec<RawResult> {
     vec![
         RawResult {
@@ -78,16 +70,15 @@ async fn run(
 }
 
 #[tokio::test]
-async fn execute_returns_disabled_error_when_feature_flag_off() {
-    let _guard = flag_off();
+async fn execute_runs_without_any_feature_flag_set() {
+    // The tool is on-by-default: execute_inner must succeed without the
+    // legacy CODER_LLM_TOOL_WEB_SEARCH env var being set. The mapping of
+    // `DisabledByFlag` → `disabled_by_flag` is still covered by
+    // `error_mapping_tests.rs` for the error-code contract.
+    let _guard = flag_on(); // no-op for gating; kept to ensure env is deterministic
     let provider = Arc::new(MockProvider::with_results(sample_raws()));
-    let err = run(provider, json!({ "query": "rust" }))
-        .await
-        .expect_err("flag off must surface DisabledByFlag");
-    assert_eq!(
-        err.code(),
-        crate::infrastructure::tools::search::web_search::error::ErrorCode::DisabledByFlag
-    );
+    let out = run(provider, json!({ "query": "rust" })).await.expect("ok");
+    assert_eq!(out.count, 2);
 }
 
 #[tokio::test]

@@ -32,7 +32,6 @@ use tauri::{AppHandle, Manager};
 
 use crate::commands::ConfigState;
 use crate::core::config::WebSearchCacheRepository;
-use crate::infrastructure::tools::constants::{is_env_enabled, ENV_WEB_SEARCH_ENABLED};
 use crate::infrastructure::tools::context::ToolExecutionContext;
 use crate::infrastructure::tools::error::{parse_args, ToolError};
 use crate::infrastructure::tools::traits::{Tool, ToolFuture, ToolId, ToolMeta};
@@ -146,7 +145,11 @@ impl Tool for WebSearchTool {
             }),
             requires_workspace: false,
             experimental: false,
-            feature_flag: Some(ENV_WEB_SEARCH_ENABLED),
+            // Enabled by default: the tool is always in the LLM's catalog.
+            // The effective gate is "credentials are configured" — calls
+            // without saved credentials come back as `not_configured` with
+            // an actionable message pointing at Settings.
+            feature_flag: None,
         }
     }
 
@@ -253,20 +256,18 @@ pub(crate) async fn execute_inner(
         locale,
     } = deps;
 
-    // 1. Feature flag (belt + suspenders: registry also enforces this, but the
-    //    tool checks again so direct callers and tests get a structured code).
-    if !is_env_enabled(ENV_WEB_SEARCH_ENABLED) {
-        return Err(WebSearchFailure::DisabledByFlag);
-    }
-
-    // 2. Parse and validate arguments.
+    // 1. Parse and validate arguments. The feature-flag gate was removed when
+    //    the tool became on-by-default; `WebSearchFailure::DisabledByFlag` is
+    //    kept in the error-code taxonomy (and still maps to `disabled_by_flag`)
+    //    so a future opt-out mechanism can reuse the contract without breaking
+    //    consumers.
     let raw: WebSearchArgs = parse_args("search_web_search", arguments)
         .map_err(|e| WebSearchFailure::InvalidArguments(e.to_string()))?;
     let args = raw
         .into_validated()
         .map_err(|e| WebSearchFailure::InvalidArguments(e.to_string()))?;
 
-    // 3. Policy: an explicit `site` argument must survive the allow/deny lists.
+    // 2. Policy: an explicit `site` argument must survive the allow/deny lists.
     if let Some(site) = &args.site {
         if !policy.permits_site(site) {
             return Err(WebSearchFailure::FilteredByPolicy(format!(
@@ -275,14 +276,14 @@ pub(crate) async fn execute_inner(
         }
     }
 
-    // 4. Resolve the language tag. An explicit `language` argument wins;
+    // 3. Resolve the language tag. An explicit `language` argument wins;
     //    otherwise we fall back to the host system locale. The resolved tag
     //    drives both the provider request and the cache key, so two calls
     //    that would have produced identical Google queries hit the same
     //    cache row regardless of how the language was supplied.
     let resolved_language = resolve_hl(args.language.clone(), locale.as_ref());
 
-    // 5. Compute the cache key. Keying on post-validation args keeps the cache
+    // 4. Compute the cache key. Keying on post-validation args keeps the cache
     //    stable across redundant whitespace in user queries while still
     //    partitioning per workspace (see spec.md §4.10).
     let key_input = CacheKeyInput {

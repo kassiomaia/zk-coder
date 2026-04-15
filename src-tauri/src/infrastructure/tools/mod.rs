@@ -249,7 +249,11 @@ mod tests {
     }
 
     #[test]
-    fn test_search_web_search_is_gated_by_feature_flag() {
+    fn test_search_web_search_is_registered_by_default() {
+        // The tool is on-by-default: it appears in the LLM catalog without
+        // any env var having to be set. `not_configured` (the "no credentials
+        // yet" branch) is the effective gate; covered by the tool's own
+        // tests.
         use crate::infrastructure::tools::constants::{
             web_search_test_env_lock, ENV_WEB_SEARCH_ENABLED,
         };
@@ -258,24 +262,16 @@ mod tests {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
 
-        // Flag OFF → tool is absent from the LLM-visible catalog.
         std::env::remove_var(ENV_WEB_SEARCH_ENABLED);
-        let off = ToolRegistry::new().unwrap();
-        let off_names: Vec<_> = off.definitions().iter().map(|d| d.name.clone()).collect();
+        let registry = ToolRegistry::new().unwrap();
+        let names: Vec<_> = registry
+            .definitions()
+            .iter()
+            .map(|d| d.name.clone())
+            .collect();
         assert!(
-            !off_names.contains(&"search_web_search".to_string()),
-            "tool must be hidden when flag is off"
+            names.contains(&"search_web_search".to_string()),
+            "tool must appear even when the legacy flag is unset"
         );
-
-        // Flag ON → tool appears.
-        std::env::set_var(ENV_WEB_SEARCH_ENABLED, "1");
-        let on = ToolRegistry::new().unwrap();
-        let on_names: Vec<_> = on.definitions().iter().map(|d| d.name.clone()).collect();
-        assert!(
-            on_names.contains(&"search_web_search".to_string()),
-            "tool must appear when flag is on"
-        );
-
-        std::env::remove_var(ENV_WEB_SEARCH_ENABLED);
     }
 }

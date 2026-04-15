@@ -55,16 +55,65 @@ describe('WebSearchCredentials', () => {
 		expect(cx.value).toBe('');
 	});
 
-	it('prefills a masked placeholder when credentials exist', async () => {
+	it('leaves the API-key input empty when credentials exist, using HTML placeholder to signal presence', async () => {
 		mockHas.mockResolvedValue(true);
 		mockGet.mockResolvedValue({ apiKey: 'sk-real-secret', cx: 'cx-1' });
 		render(WebSearchCredentials);
 		await waitFor(() => {
 			const apiKey = screen.getByTestId('api-key-input') as HTMLInputElement;
-			// Masked placeholder — the real key must not leak into the DOM.
-			expect(apiKey.value).not.toContain('sk-real-secret');
-			expect(apiKey.value.length).toBeGreaterThan(0);
+			// The real stored key must NEVER enter the DOM — verify it never
+			// appears in the value or the placeholder attribute.
+			expect(apiKey.value).toBe('');
+			expect(apiKey.placeholder.toLowerCase()).toContain('stored');
+			expect(apiKey.placeholder).not.toContain('sk-real-secret');
 			expect(apiKey.type).toBe('password');
+			// CX, however, is not a secret and pre-fills normally.
+			const cxInput = screen.getByTestId('cx-input') as HTMLInputElement;
+			expect(cxInput.value).toBe('cx-1');
+		});
+	});
+
+	it('save with empty API-key input keeps the stored key (CX-only update)', async () => {
+		mockHas.mockResolvedValue(true);
+		mockGet.mockResolvedValue({ apiKey: 'sk-existing', cx: 'cx-old' });
+		render(WebSearchCredentials);
+		await waitFor(() => {
+			const cxInput = screen.getByTestId('cx-input') as HTMLInputElement;
+			expect(cxInput.value).toBe('cx-old');
+		});
+
+		// Edit CX only — the API-key input stays empty so the stored key
+		// must be preserved.
+		const cxInput = screen.getByTestId('cx-input');
+		await fireEvent.input(cxInput, { target: { value: 'cx-new' } });
+		await fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
+
+		await waitFor(() => {
+			expect(mockSet).toHaveBeenCalledWith('search_web_search', {
+				apiKey: 'sk-existing',
+				cx: 'cx-new'
+			});
+		});
+	});
+
+	it('save with a non-empty API-key input replaces the stored key', async () => {
+		mockHas.mockResolvedValue(true);
+		mockGet.mockResolvedValue({ apiKey: 'sk-old', cx: 'cx-1' });
+		render(WebSearchCredentials);
+		await waitFor(() => {
+			const cxInput = screen.getByTestId('cx-input') as HTMLInputElement;
+			expect(cxInput.value).toBe('cx-1');
+		});
+
+		const apiKeyInput = screen.getByTestId('api-key-input');
+		await fireEvent.input(apiKeyInput, { target: { value: 'sk-new' } });
+		await fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
+
+		await waitFor(() => {
+			expect(mockSet).toHaveBeenCalledWith('search_web_search', {
+				apiKey: 'sk-new',
+				cx: 'cx-1'
+			});
 		});
 	});
 

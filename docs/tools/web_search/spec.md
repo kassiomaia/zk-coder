@@ -47,15 +47,14 @@ MVP targets **Google Custom Search JSON API** with a "search the entire web" CX.
 
 ### 4.2 Feature flag and gating
 
-- New env constant: `ENV_WEB_SEARCH_ENABLED = "CODER_LLM_TOOL_WEB_SEARCH"`.
-- The tool's `ToolMeta::feature_flag` is `Some(ENV_WEB_SEARCH_ENABLED)`.
+- **As shipped (2026-04-14)**: the tool is **enabled by default**. `ToolMeta::feature_flag` is `None`; the `CODER_LLM_TOOL_WEB_SEARCH` env var no longer gates visibility and is retained only as a constant for historical / future opt-out use (see the note at the end of this section).
 - `ToolMeta::experimental` is `false` (it is a production API).
 - `requires_workspace` is `false`.
 - Gating order, evaluated on every call:
-  1. Feature flag set → otherwise return `ToolError::Disabled`.
-  2. Credentials present (API key + CX) → otherwise return `ToolError::ExecutionFailed("Web search is not configured")` with actionable next step.
-  3. Arguments valid.
-  4. Execute HTTP request.
+  1. Credentials present (API key + CX) → otherwise return an error body with `error_code: "not_configured"` and an actionable next step.
+  2. Arguments valid.
+  3. Execute HTTP request.
+- `WebSearchFailure::DisabledByFlag` and its `error_code: "disabled_by_flag"` mapping remain part of the frozen error contract so a future opt-out mechanism (e.g. `CODER_LLM_TOOL_WEB_SEARCH=0`) can be reintroduced without changing consumers.
 
 ### 4.3 Input schema (LLM-facing)
 

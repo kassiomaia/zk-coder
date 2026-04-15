@@ -5,13 +5,16 @@
 	 * Mirrors docs/tools/web_search/mockups.html panel 07 and the contract in
 	 * docs/archive/tools/web_search/plan.md Appendix B.3.
 	 *
-	 * Security-sensitive defaults:
+	 * Security / UX discipline:
 	 * - API key input is `type="password"` by default; a reveal toggle flips
-	 *   to `type="text"` for user confirmation.
-	 * - The component never renders the stored key until the user explicitly
-	 *   reveals it. On mount, if a key is already stored, the field shows a
-	 *   masked placeholder (`••••••`) that the user must clear before typing.
-	 * - API-key state is cleared on unmount to minimize JS heap residency.
+	 *   to `type="text"` so the user can verify what they typed.
+	 * - The real stored key is NEVER stuffed back into the input's `value`.
+	 *   On load, if a key is already stored, the input stays empty and the
+	 *   HTML `placeholder` attribute communicates "existing key stored —
+	 *   leave blank to keep". Save with an empty API-key input re-uses the
+	 *   stored value (CX-only updates); Save with a non-empty input replaces
+	 *   the stored key.
+	 * - On Clear, both fields are wiped and the stored row is deleted.
 	 */
 	import Button from '../../shared/Button.svelte';
 	import { CheckIcon, AlertCircleIcon } from '$lib/icons';
@@ -38,8 +41,6 @@
 		| { kind: 'success'; message: string; at: Date }
 		| { kind: 'failure'; message: string; at: Date };
 
-	const MASKED_PLACEHOLDER = '••••••••••••••••••••••';
-
 	let apiKey = $state('');
 	let cx = $state('');
 	let revealed = $state(false);
@@ -48,38 +49,41 @@
 	let deleting = $state(false);
 	let testState = $state<TestState>({ kind: 'idle' });
 	let hasStoredKey = $state(false);
-	let apiKeyTouched = $state(false);
 	let validationError = $state<string | null>(null);
 
 	const isTesting = $derived(testState.kind === 'running');
-	// The API key is ready to submit when either the user typed a new value
-	// or the masked placeholder is still in place (we accept "no change").
-	// We DO NOT auto-send the masked placeholder to the backend — if the user
-	// never touched the input, `saveCredentials` skips the API-key update.
-	const apiKeyReady = $derived(
-		apiKeyTouched ? apiKey.trim().length > 0 : hasStoredKey
-	);
+
+	// Save is enabled when CX is non-empty AND we either have a newly-typed
+	// API key or an existing stored key to keep. Typing into the API-key
+	// input is treated as an explicit replacement; leaving it empty means
+	// "CX-only update — don't touch the stored key".
 	const canSave = $derived(
-		!saving && !isTesting && apiKeyReady && cx.trim() !== ''
+		!saving &&
+			!isTesting &&
+			cx.trim() !== '' &&
+			(apiKey.trim() !== '' || hasStoredKey)
+	);
+
+	const apiKeyPlaceholder = $derived(
+		hasStoredKey ? 'Leave blank to keep the stored key' : 'AIzaSy…'
 	);
 
 	async function load() {
 		loading = true;
 		try {
 			hasStoredKey = await hasToolCredentials(WEB_SEARCH_TOOL_ID);
-			const stored = hasStoredKey ? await getToolCredentials(WEB_SEARCH_TOOL_ID) : null;
-			if (stored) {
-				apiKey = MASKED_PLACEHOLDER;
-				cx = stored.cx;
-			} else {
-				apiKey = '';
-				cx = '';
-			}
+			const stored = hasStoredKey
+				? await getToolCredentials(WEB_SEARCH_TOOL_ID)
+				: null;
+			// Never prefill the API key — users shouldn't see the real value
+			// unless they explicitly click Reveal after saving a new one.
+			apiKey = '';
+			cx = stored?.cx ?? '';
 		} catch (err) {
-			validationError = err instanceof Error ? err.message : 'Failed to load credentials.';
+			validationError =
+				err instanceof Error ? err.message : 'Failed to load credentials.';
 		} finally {
 			loading = false;
-			apiKeyTouched = false;
 			revealed = false;
 		}
 	}
@@ -92,15 +96,7 @@
 		};
 	});
 
-	function handleApiKeyInput(ev: Event) {
-		apiKey = (ev.target as HTMLInputElement).value;
-		apiKeyTouched = true;
-		testState = { kind: 'idle' };
-		validationError = null;
-	}
-
-	function handleCxInput(ev: Event) {
-		cx = (ev.target as HTMLInputElement).value;
+	function clearFeedback() {
 		testState = { kind: 'idle' };
 		validationError = null;
 	}
@@ -113,14 +109,13 @@
 		if (!canSave) return;
 		saving = true;
 		validationError = null;
+		const trimmedApiKey = apiKey.trim();
+		const trimmedCx = cx.trim();
 		try {
-			// If the user never touched the API key, we must not overwrite the
-			// stored value with the masked placeholder. Require an explicit
-			// edit to change the key.
-			if (!apiKeyTouched) {
-				// Still allow a CX-only update by re-sending the stored API key
-				// indirectly: we fetch once and forward. This avoids round-trip
-				// flicker and keeps the key in memory only for this call.
+			if (trimmedApiKey === '') {
+				// CX-only update: re-fetch the stored key and forward with
+				// the new CX. This keeps the key secret end-to-end except for
+				// the one call that persists the updated row.
 				const stored = await getToolCredentials(WEB_SEARCH_TOOL_ID);
 				if (!stored) {
 					validationError =
@@ -129,22 +124,20 @@
 				}
 				await setToolCredentials(WEB_SEARCH_TOOL_ID, {
 					apiKey: stored.apiKey,
-					cx: cx.trim()
+					cx: trimmedCx
 				});
 			} else {
 				await setToolCredentials(WEB_SEARCH_TOOL_ID, {
-					apiKey: apiKey.trim(),
-					cx: cx.trim()
+					apiKey: trimmedApiKey,
+					cx: trimmedCx
 				});
 			}
 			testState = { kind: 'idle' };
 			hasStoredKey = true;
-			apiKeyTouched = false;
-			// Reset to masked view on successful save.
-			if (apiKey !== MASKED_PLACEHOLDER) {
-				apiKey = MASKED_PLACEHOLDER;
-				revealed = false;
-			}
+			// Wipe the input value so the next edit starts from empty and
+			// the placeholder communicates "stored key in place".
+			apiKey = '';
+			revealed = false;
 			onSaved?.();
 		} catch (err) {
 			validationError = err instanceof Error ? err.message : String(err);
@@ -178,7 +171,6 @@
 			apiKey = '';
 			cx = '';
 			hasStoredKey = false;
-			apiKeyTouched = false;
 			testState = { kind: 'idle' };
 			onSaved?.();
 		} catch (err) {
@@ -241,9 +233,9 @@
 				autocomplete="off"
 				spellcheck="false"
 				disabled={loading}
-				value={apiKey}
-				oninput={handleApiKeyInput}
-				placeholder={hasStoredKey ? MASKED_PLACEHOLDER : 'AIzaSy…'}
+				bind:value={apiKey}
+				oninput={clearFeedback}
+				placeholder={apiKeyPlaceholder}
 				aria-describedby="web-search-api-key-hint"
 				data-testid="api-key-input"
 			/>
@@ -273,8 +265,8 @@
 			autocomplete="off"
 			spellcheck="false"
 			disabled={loading}
-			value={cx}
-			oninput={handleCxInput}
+			bind:value={cx}
+			oninput={clearFeedback}
 			placeholder="017576662512468239146:omuauf_lfve"
 			data-testid="cx-input"
 		/>
