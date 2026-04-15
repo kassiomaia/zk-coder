@@ -1,12 +1,18 @@
 # Bundled fonts
 
-Fonts loaded by the PDF renderer (`core/documents/pdf/render.rs`).
+Fonts loaded by the PDF renderer through the theme (`resources/pdf/themes/`).
 
-## LiberationSans-Regular.ttf
+## LiberationSans-Regular.ttf, LiberationSans-Bold.ttf, LiberationSans-Italic.ttf
 
 - Source: Fedora `liberation-sans-fonts` package (upstream: Red Hat, Google Arimo).
 - License: SIL Open Font License 1.1 — see `LiberationSans-LICENSE.txt`.
-- Why bundled: T1.2 requires a TTF file on disk so the renderer can compute
-  real glyph advances via `ttf-parser` instead of a character-count heuristic.
-- T1.5 introduces a proper font cache with a fallback chain. Until then this
-  file is the single font the renderer loads.
+- Why bundled: provide regular / bold / italic weights for the T1.5 font cache.
+
+## DejaVuSans.ttf
+
+- Source: DejaVu Fonts project.
+- License: DejaVu/Bitstream Vera license (free for bundling, see the project
+  website for full text).
+- Why bundled: wider Unicode coverage than Liberation Sans — used as the
+  fallback family so that glyphs absent from the primary family (box-drawing,
+  certain math symbols, etc.) still render without a MissingGlyph warning.

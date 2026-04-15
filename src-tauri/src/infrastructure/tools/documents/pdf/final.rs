@@ -7,7 +7,9 @@
 
 use crate::application::tools::pdf::finalize::{render_draft, FinalizeError};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
-use crate::infrastructure::tools::documents::pdf::render::{load_report_theme, PrintPdfRenderer};
+use crate::infrastructure::tools::documents::pdf::render::{
+    bundled_report_cache, load_report_theme, PrintPdfRenderer,
+};
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
     documents::shared::{get_draft_store, PdfDraft},
@@ -19,11 +21,6 @@ use serde_json::Value as JsonValue;
 use std::io::BufWriter;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
-
-/// Bundled font used for T1.2/T1.3. T1.5 replaces this single-font load
-/// with a cache and fallback chain driven by the theme.
-const BUNDLED_FONT_BYTES: &[u8] =
-    include_bytes!("../../../../../resources/pdf/fonts/LiberationSans-Regular.ttf");
 
 /// Arguments for finalizing a PDF document.
 #[derive(Debug, Deserialize)]
@@ -170,8 +167,9 @@ async fn write_pdf(draft: &PdfDraft) -> Result<(PathBuf, u64), ToolError> {
         .map_err(|e| ToolError::failed(format!("Failed to create artifacts directory: {e}")))?;
     let output_path = artifacts_dir.join(&draft.filename);
 
-    let renderer = PrintPdfRenderer::new(BUNDLED_FONT_BYTES.to_vec())
-        .map_err(|e| ToolError::failed(format!("Failed to initialise PDF renderer: {e}")))?;
+    let fonts = bundled_report_cache()
+        .map_err(|e| ToolError::failed(format!("Failed to load bundled fonts: {e}")))?;
+    let renderer = PrintPdfRenderer::new(fonts);
     let file = std::fs::File::create(&output_path)
         .map_err(|e| ToolError::failed(format!("Failed to create PDF file: {e}")))?;
     let mut writer = BufWriter::new(file);

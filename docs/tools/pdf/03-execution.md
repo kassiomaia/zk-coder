@@ -437,7 +437,7 @@ Single source of truth for which task closes which gap from
 | `title` dropped | 2 | T1.3 | done |
 | No document theme | 3 | T1.4 | done |
 | `position` unused | 4 | T1.3 | done |
-| Only builtin fonts | 5 | T1.5 | pending |
+| Only builtin fonts | 5 | T1.5 | done |
 | Character-count wrapping | 6 | T1.2 + T1.6 | pending |
 | Silent truncation | 7 | T1.6 | pending |
 | Lossy HTML | 8 | T1.3 (via deletion) | done |

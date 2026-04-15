@@ -61,9 +61,31 @@ pub struct PageDefaults {
     pub margin_mm: f32,
 }
 
+/// Font family paths resolved relative to the bundled font directory
+/// (`src-tauri/resources/pdf/fonts/`).
+///
+/// Every field is a file name, not a full path — the loader joins them
+/// with the resource root at runtime. Fallbacks are consulted for glyphs
+/// missing from the style-selected family.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Fonts {
+    /// Regular weight used for plain body text.
+    pub regular: String,
+    /// Bold weight.
+    pub bold: String,
+    /// Italic / oblique weight.
+    pub italic: String,
+    /// Monospaced weight used for inline code runs.
+    pub mono: String,
+    /// Families consulted when a glyph is missing from the style-selected
+    /// font. Walked left to right.
+    #[serde(default)]
+    pub fallbacks: Vec<String>,
+}
+
 /// Complete theme consumed by the renderer.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[allow(clippy::derive_partial_eq_without_eq, clippy::module_name_repetitions)]
 pub struct Theme {
     /// Font sizes and leading.
     pub typography: TypographyScale,
@@ -73,13 +95,15 @@ pub struct Theme {
     pub spacing: Spacing,
     /// Page-level defaults.
     pub page_defaults: PageDefaults,
+    /// Font families bundled with this theme.
+    pub fonts: Fonts,
 }
 
 impl Theme {
     /// Hard-coded fallback theme used if the bundled `report.toml` cannot
     /// be loaded. Values mirror `resources/pdf/themes/report.toml`.
     #[must_use]
-    pub const fn default_report() -> Self {
+    pub fn default_report() -> Self {
         Self {
             typography: TypographyScale {
                 body_font_size_pt: 11.0,
@@ -100,6 +124,13 @@ impl Theme {
             },
             spacing: Spacing { block_gap: 0.4 },
             page_defaults: PageDefaults { margin_mm: 20.0 },
+            fonts: Fonts {
+                regular: "LiberationSans-Regular.ttf".to_string(),
+                bold: "LiberationSans-Bold.ttf".to_string(),
+                italic: "LiberationSans-Italic.ttf".to_string(),
+                mono: "LiberationSans-Regular.ttf".to_string(),
+                fallbacks: vec!["DejaVuSans.ttf".to_string()],
+            },
         }
     }
 }

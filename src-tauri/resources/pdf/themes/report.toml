@@ -25,3 +25,10 @@ block_gap = 0.4
 
 [page_defaults]
 margin_mm = 20.0
+
+[fonts]
+regular = "LiberationSans-Regular.ttf"
+bold = "LiberationSans-Bold.ttf"
+italic = "LiberationSans-Italic.ttf"
+mono = "LiberationSans-Regular.ttf"
+fallbacks = ["DejaVuSans.ttf"]

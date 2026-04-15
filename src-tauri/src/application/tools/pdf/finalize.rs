@@ -191,12 +191,12 @@ mod tests {
 
     #[tokio::test]
     async fn render_draft_produces_pdf_with_matching_title() {
-        use crate::infrastructure::tools::documents::pdf::render::PrintPdfRenderer;
-        use std::path::PathBuf;
+        use crate::infrastructure::tools::documents::pdf::render::{
+            bundled_report_cache, PrintPdfRenderer,
+        };
 
-        let font_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("resources/pdf/fonts/LiberationSans-Regular.ttf");
-        let renderer = PrintPdfRenderer::from_path(&font_path).expect("bundled font loads");
+        let fonts = bundled_report_cache().expect("bundled fonts load");
+        let renderer = PrintPdfRenderer::new(fonts);
 
         let draft = draft_with(
             "T1.3 Integration",

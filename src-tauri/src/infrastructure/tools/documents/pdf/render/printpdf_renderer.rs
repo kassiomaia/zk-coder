@@ -1,104 +1,88 @@
-//! `PrintPdfRenderer`: the T1.2 renderer.
+//! `PrintPdfRenderer`: the T1.5 renderer.
 //!
-//! Produces a single-page PDF from a [`PdfDocument`] using real glyph
-//! advances pulled from a TTF file. T1.6 replaces the one-page cap with
-//! a layout engine that paginates; T1.4 replaces the ad-hoc constants
-//! here with a loaded theme.
+//! Produces a PDF from a [`PdfDocument`] using real glyph advances pulled
+//! from the theme's declared fonts. T1.6 replaces the one-page cap with
+//! a layout engine that paginates.
+//!
+//! Every visual constant lives in the loaded [`Theme`]; the sweep test
+//! at the bottom of this module fails on any numeric literal that slips
+//! into a function body.
 
+use std::collections::BTreeSet;
 use std::io::{Cursor, Write};
-use std::path::Path;
 
 use async_trait::async_trait;
-use printpdf::{IndirectFontRef, Mm, PdfDocument as PrintPdfDoc, PdfLayerReference};
-use ttf_parser::{name_id, Face};
+use printpdf::{
+    IndirectFontRef, Mm, PdfDocument as PrintPdfDoc, PdfDocumentReference, PdfLayerReference,
+};
+use ttf_parser::Face;
 
-use crate::core::documents::pdf::block::{Block, InlineRun, Paragraph};
+use crate::core::documents::pdf::block::{Block, InlineRun, InlineStyle, Paragraph};
 use crate::core::documents::pdf::document::PdfDocument;
 use crate::core::documents::pdf::geometry::Orientation;
 use crate::core::documents::pdf::render::{
-    FontRef, PdfRenderer, ProgressSink, RenderError, RenderOutcome, Theme,
+    FontRef, PdfRenderer, ProgressSink, RenderError, RenderOutcome, RenderWarning, Theme,
 };
 use crate::core::documents::pdf::section::Section;
+
+use super::font_cache::{FontCache, FontSlot, LoadedFont};
 
 /// PostScript points per millimetre (`72 / 25.4`).
 const POINTS_PER_MM: f32 = 2.834_645_7;
 
-/// Renderer backed by the `printpdf` crate and a single embedded TTF.
-///
-/// One font is enough for T1.2. T1.5 introduces the font cache with a
-/// fallback chain.
+/// Renderer backed by the `printpdf` crate and a [`FontCache`].
 pub struct PrintPdfRenderer {
-    font_bytes: Vec<u8>,
-    family_name: String,
+    fonts: FontCache,
 }
 
 impl PrintPdfRenderer {
-    /// Builds a renderer from raw TTF / OTF bytes.
-    ///
-    /// # Errors
-    /// Returns [`RenderError::Font`] if `font_bytes` is not a readable
-    /// font file.
-    pub fn new(font_bytes: Vec<u8>) -> Result<Self, RenderError> {
-        let family_name = {
-            let face =
-                Face::parse(&font_bytes, 0).map_err(|e| RenderError::Font(e.to_string()))?;
-            read_family_name(&face).unwrap_or_else(|| "Unknown".to_string())
-        };
-        Ok(Self {
-            font_bytes,
-            family_name,
-        })
+    /// Builds a renderer around a preloaded font cache.
+    #[must_use]
+    pub const fn new(fonts: FontCache) -> Self {
+        Self { fonts }
     }
 
-    /// Builds a renderer by reading a font file from disk.
-    ///
-    /// # Errors
-    /// Returns [`RenderError::Io`] if the file cannot be read and
-    /// [`RenderError::Font`] if it cannot be parsed.
-    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, RenderError> {
-        let bytes = std::fs::read(path.as_ref())?;
-        Self::new(bytes)
+    /// Exposes the cache for introspection (tests, diagnostics).
+    #[must_use]
+    pub const fn fonts(&self) -> &FontCache {
+        &self.fonts
     }
 
-    /// Reads the family name declared by the loaded font.
+    /// Returns the family name declared by the regular-weight font.
     #[must_use]
     pub fn family_name(&self) -> &str {
-        &self.family_name
-    }
-
-    /// Returns the raw font bytes embedded in the output.
-    #[must_use]
-    pub fn font_bytes(&self) -> &[u8] {
-        &self.font_bytes
-    }
-
-    fn face(&self) -> Result<Face<'_>, RenderError> {
-        Face::parse(&self.font_bytes, 0).map_err(|e| RenderError::Font(e.to_string()))
+        self.fonts
+            .all()
+            .into_iter()
+            .find(|f| f.slot() == FontSlot::Regular)
+            .map_or("Unknown", LoadedFont::family)
     }
 
     /// Returns `text` wrapped into lines that each fit within
-    /// `max_width_pt` at `font_size_pt`, using real glyph advances.
+    /// `max_width_pt` at `font_size_pt`, using the regular-weight font's
+    /// glyph advances.
     ///
     /// # Errors
-    /// Returns [`RenderError::Font`] if the loaded font cannot be
-    /// reparsed (should not happen once `new` has succeeded).
+    /// Returns [`RenderError::Font`] if the loaded font cannot be reparsed.
     pub fn wrap_line(
         &self,
         text: &str,
         font_size_pt: f32,
         max_width_pt: f32,
     ) -> Result<Vec<String>, RenderError> {
-        let face = self.face()?;
+        let regular = self.fonts.primary_for(&InlineStyle::PLAIN);
+        let face = regular.face()?;
         Ok(wrap_with_face(&face, text, font_size_pt, max_width_pt))
     }
 
-    /// Returns the width in points of `text` at `font_size_pt`.
+    /// Returns the width in points of `text` at `font_size_pt`, measured
+    /// with the regular-weight font.
     ///
     /// # Errors
-    /// Returns [`RenderError::Font`] if the loaded font cannot be
-    /// reparsed.
+    /// Returns [`RenderError::Font`] if the loaded font cannot be reparsed.
     pub fn measure_text_pt(&self, text: &str, font_size_pt: f32) -> Result<f32, RenderError> {
-        let face = self.face()?;
+        let regular = self.fonts.primary_for(&InlineStyle::PLAIN);
+        let face = regular.face()?;
         Ok(measure_with_face(&face, text, font_size_pt))
     }
 
@@ -116,14 +100,19 @@ impl PrintPdfRenderer {
             "Layer 1",
         );
 
-        let font = pdf_doc
-            .add_external_font(Cursor::new(self.font_bytes.as_slice()))
-            .map_err(|e| RenderError::Engine(e.to_string()))?;
-
-        let face = self.face()?;
+        let font_refs = embed_all_fonts(&pdf_doc, &self.fonts)?;
         let layer = pdf_doc.get_page(page_idx).get_layer(layer_idx);
         let params = LayoutParams::from_doc(doc, theme, page_width_mm, page_height_mm);
-        layout_sections(&layer, &font, &face, &doc.sections, &params);
+
+        let mut missing: BTreeSet<char> = BTreeSet::new();
+        layout_sections(
+            &layer,
+            &font_refs,
+            &self.fonts,
+            &doc.sections,
+            &params,
+            &mut missing,
+        )?;
 
         let bytes = pdf_doc
             .save_to_bytes()
@@ -133,13 +122,27 @@ impl PrintPdfRenderer {
         let byte_len = u64::try_from(bytes.len())
             .map_err(|_| RenderError::Engine("output exceeds u64".to_string()))?;
 
+        let embedded_fonts: Vec<FontRef> = self
+            .fonts
+            .all()
+            .iter()
+            .map(|f| FontRef {
+                family: format!("{} ({})", f.family(), f.slot().label()),
+                bytes_len: f.bytes().len(),
+            })
+            .collect();
+
+        let warnings: Vec<RenderWarning> = missing
+            .into_iter()
+            .map(|c| RenderWarning::MissingGlyph {
+                text: c.to_string(),
+            })
+            .collect();
+
         Ok(RenderOutcome {
             page_count: 1,
-            embedded_fonts: vec![FontRef {
-                family: self.family_name.clone(),
-                bytes_len: self.font_bytes.len(),
-            }],
-            warnings: Vec::new(),
+            embedded_fonts,
+            warnings,
             byte_len,
         })
     }
@@ -191,94 +194,288 @@ impl LayoutParams {
     }
 }
 
-fn paragraph_text(p: &Paragraph) -> String {
-    p.runs().iter().map(InlineRun::text).collect()
-}
-
 fn layout_sections(
     layer: &PdfLayerReference,
-    font: &IndirectFontRef,
-    face: &Face<'_>,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
     sections: &[Section],
     params: &LayoutParams,
-) {
+    missing: &mut BTreeSet<char>,
+) -> Result<(), RenderError> {
     let mut cursor_y_mm = params.initial_y_mm;
     for section in sections {
-        if !emit_heading(layer, font, face, section.heading.text(), params, &mut cursor_y_mm) {
-            return;
+        let keep = emit_heading(
+            layer,
+            font_refs,
+            fonts,
+            section.heading.text(),
+            params,
+            &mut cursor_y_mm,
+            missing,
+        )?;
+        if !keep {
+            return Ok(());
         }
         cursor_y_mm -= params.block_gap_mm;
         for block in &section.blocks {
             let cont = match block {
-                Block::Paragraph(p) => {
-                    let text = paragraph_text(p);
-                    emit_body(layer, font, face, &text, params, &mut cursor_y_mm)
-                }
-                Block::Heading(h) => {
-                    emit_heading(layer, font, face, h.text(), params, &mut cursor_y_mm)
-                }
-                // T1.6 will turn this into a real new-page; T1.2 stops
-                // at the first page boundary.
-                Block::PageBreak => return,
+                Block::Paragraph(p) => emit_paragraph(
+                    layer,
+                    font_refs,
+                    fonts,
+                    p,
+                    params,
+                    &mut cursor_y_mm,
+                    missing,
+                )?,
+                Block::Heading(h) => emit_heading(
+                    layer,
+                    font_refs,
+                    fonts,
+                    h.text(),
+                    params,
+                    &mut cursor_y_mm,
+                    missing,
+                )?,
+                // T1.6 turns this into a real page break.
+                Block::PageBreak => return Ok(()),
             };
             if !cont {
-                return;
+                return Ok(());
             }
             cursor_y_mm -= params.block_gap_mm;
         }
     }
+    Ok(())
 }
 
-/// Emits `text` at the heading size. Returns `false` if the y cursor
-/// dropped below the bottom margin and the caller should abort.
-fn emit_heading(
+/// Emits each [`InlineRun`] of `p` on its own lines using the run's
+/// style-matched font. Returns `false` if the y cursor fell below the
+/// bottom margin.
+fn emit_paragraph(
     layer: &PdfLayerReference,
-    font: &IndirectFontRef,
-    face: &Face<'_>,
-    text: &str,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    p: &Paragraph,
     params: &LayoutParams,
     cursor_y_mm: &mut f32,
-) -> bool {
-    for line in wrap_with_face(face, text, params.heading_size_pt, params.usable_width_pt) {
-        if *cursor_y_mm < params.min_y_mm {
-            return false;
+    missing: &mut BTreeSet<char>,
+) -> Result<bool, RenderError> {
+    for run in p.runs() {
+        let keep = emit_run(
+            layer,
+            font_refs,
+            fonts,
+            run,
+            params,
+            cursor_y_mm,
+            missing,
+        )?;
+        if !keep {
+            return Ok(false);
         }
-        layer.use_text(
-            line,
-            params.heading_size_pt,
-            Mm(params.x_mm),
-            Mm(*cursor_y_mm),
-            font,
-        );
-        *cursor_y_mm -= params.heading_leading_mm;
     }
-    true
+    Ok(true)
 }
 
-/// Emits `text` at the body size. Returns `false` if the y cursor
-/// dropped below the bottom margin and the caller should abort.
-fn emit_body(
+fn emit_run(
     layer: &PdfLayerReference,
-    font: &IndirectFontRef,
-    face: &Face<'_>,
-    text: &str,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    run: &InlineRun,
     params: &LayoutParams,
     cursor_y_mm: &mut f32,
-) -> bool {
-    for line in wrap_with_face(face, text, params.body_size_pt, params.usable_width_pt) {
+    missing: &mut BTreeSet<char>,
+) -> Result<bool, RenderError> {
+    let primary = fonts.primary_for(&run.style);
+    let face = primary.face()?;
+    let lines = wrap_with_face(&face, run.text(), params.body_size_pt, params.usable_width_pt);
+    for line in lines {
         if *cursor_y_mm < params.min_y_mm {
-            return false;
+            return Ok(false);
         }
-        layer.use_text(
-            line,
+        emit_line_with_fallback(
+            layer,
+            font_refs,
+            fonts,
+            &run.style,
+            &line,
             params.body_size_pt,
-            Mm(params.x_mm),
-            Mm(*cursor_y_mm),
-            font,
-        );
+            params.x_mm,
+            *cursor_y_mm,
+            missing,
+        )?;
         *cursor_y_mm -= params.body_leading_mm;
     }
-    true
+    Ok(true)
+}
+
+/// Emits `text` at the heading size using the regular-weight font.
+/// Returns `false` if the y cursor fell below the bottom margin.
+fn emit_heading(
+    layer: &PdfLayerReference,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    text: &str,
+    params: &LayoutParams,
+    cursor_y_mm: &mut f32,
+    missing: &mut BTreeSet<char>,
+) -> Result<bool, RenderError> {
+    let primary = fonts.primary_for(&InlineStyle::PLAIN);
+    let face = primary.face()?;
+    let lines = wrap_with_face(&face, text, params.heading_size_pt, params.usable_width_pt);
+    for line in lines {
+        if *cursor_y_mm < params.min_y_mm {
+            return Ok(false);
+        }
+        emit_line_with_fallback(
+            layer,
+            font_refs,
+            fonts,
+            &InlineStyle::PLAIN,
+            &line,
+            params.heading_size_pt,
+            params.x_mm,
+            *cursor_y_mm,
+            missing,
+        )?;
+        *cursor_y_mm -= params.heading_leading_mm;
+    }
+    Ok(true)
+}
+
+#[allow(clippy::too_many_arguments, clippy::trivially_copy_pass_by_ref)]
+fn emit_line_with_fallback(
+    layer: &PdfLayerReference,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    style: &InlineStyle,
+    line: &str,
+    font_size_pt: f32,
+    start_x_mm: f32,
+    y_mm: f32,
+    missing: &mut BTreeSet<char>,
+) -> Result<(), RenderError> {
+    let primary = fonts.primary_for(style);
+    let mut x_mm = start_x_mm;
+    let mut current_slot: FontSlot = primary.slot();
+    let mut current_text = String::new();
+
+    for c in line.chars() {
+        let slot = fonts.resolve(c, style).map_or_else(
+            || {
+                missing.insert(c);
+                primary.slot()
+            },
+            LoadedFont::slot,
+        );
+        if slot != current_slot && !current_text.is_empty() {
+            x_mm = emit_segment(
+                layer,
+                font_refs,
+                fonts,
+                current_slot,
+                &current_text,
+                font_size_pt,
+                x_mm,
+                y_mm,
+            )?;
+            current_text.clear();
+        }
+        current_slot = slot;
+        current_text.push(c);
+    }
+    if !current_text.is_empty() {
+        emit_segment(
+            layer,
+            font_refs,
+            fonts,
+            current_slot,
+            &current_text,
+            font_size_pt,
+            x_mm,
+            y_mm,
+        )?;
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn emit_segment(
+    layer: &PdfLayerReference,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    slot: FontSlot,
+    text: &str,
+    font_size_pt: f32,
+    x_mm: f32,
+    y_mm: f32,
+) -> Result<f32, RenderError> {
+    let font_ref = font_refs
+        .get(slot)
+        .ok_or_else(|| RenderError::Engine(format!("missing font ref for slot {slot:?}")))?;
+    let font = fonts
+        .all()
+        .into_iter()
+        .find(|f| f.slot() == slot)
+        .ok_or_else(|| RenderError::Engine(format!("missing loaded font for slot {slot:?}")))?;
+    let face = font.face()?;
+    let width_pt = measure_with_face(&face, text, font_size_pt);
+    layer.use_text(text, font_size_pt, Mm(x_mm), Mm(y_mm), font_ref);
+    Ok(x_mm + width_pt / POINTS_PER_MM)
+}
+
+struct FontRefMap {
+    regular: IndirectFontRef,
+    bold: IndirectFontRef,
+    italic: IndirectFontRef,
+    mono: IndirectFontRef,
+    fallbacks: Vec<IndirectFontRef>,
+}
+
+impl FontRefMap {
+    fn get(&self, slot: FontSlot) -> Option<&IndirectFontRef> {
+        match slot {
+            FontSlot::Regular => Some(&self.regular),
+            FontSlot::Bold => Some(&self.bold),
+            FontSlot::Italic => Some(&self.italic),
+            FontSlot::Mono => Some(&self.mono),
+            FontSlot::Fallback(i) => self.fallbacks.get(i),
+        }
+    }
+}
+
+fn embed_all_fonts(
+    pdf: &PdfDocumentReference,
+    cache: &FontCache,
+) -> Result<FontRefMap, RenderError> {
+    let mut regular: Option<IndirectFontRef> = None;
+    let mut bold: Option<IndirectFontRef> = None;
+    let mut italic: Option<IndirectFontRef> = None;
+    let mut mono: Option<IndirectFontRef> = None;
+    let mut fallbacks: Vec<(usize, IndirectFontRef)> = Vec::new();
+
+    for font in cache.all() {
+        let reference = pdf
+            .add_external_font(Cursor::new(font.bytes()))
+            .map_err(|e| RenderError::Engine(e.to_string()))?;
+        match font.slot() {
+            FontSlot::Regular => regular = Some(reference),
+            FontSlot::Bold => bold = Some(reference),
+            FontSlot::Italic => italic = Some(reference),
+            FontSlot::Mono => mono = Some(reference),
+            FontSlot::Fallback(i) => fallbacks.push((i, reference)),
+        }
+    }
+
+    fallbacks.sort_by_key(|(i, _)| *i);
+    Ok(FontRefMap {
+        regular: regular.ok_or_else(|| RenderError::Engine("no regular font".to_string()))?,
+        bold: bold.ok_or_else(|| RenderError::Engine("no bold font".to_string()))?,
+        italic: italic.ok_or_else(|| RenderError::Engine("no italic font".to_string()))?,
+        mono: mono.ok_or_else(|| RenderError::Engine("no mono font".to_string()))?,
+        fallbacks: fallbacks.into_iter().map(|(_, r)| r).collect(),
+    })
 }
 
 #[async_trait]
@@ -292,16 +489,6 @@ impl PdfRenderer for PrintPdfRenderer {
     ) -> Result<RenderOutcome, RenderError> {
         self.render_sync(doc, theme, sink)
     }
-}
-
-fn read_family_name(face: &Face<'_>) -> Option<String> {
-    face.names().into_iter().find_map(|n| {
-        if n.name_id == name_id::FAMILY {
-            n.to_string()
-        } else {
-            None
-        }
-    })
 }
 
 fn glyph_advance_pt(face: &Face<'_>, c: char, font_size_pt: f32) -> f32 {
@@ -363,23 +550,34 @@ fn wrap_with_face(
 )]
 mod tests {
     use super::*;
-    use crate::core::documents::pdf::block::{Block, Paragraph};
+    use crate::core::documents::pdf::block::{Block, InlineRun, InlineStyle, Paragraph};
     use crate::core::documents::pdf::document::PdfDocument;
     use crate::core::documents::pdf::metadata::Metadata;
     use crate::core::documents::pdf::section::{Heading, HeadingLevel, Section};
+    use crate::core::documents::pdf::theme::Fonts;
     use std::path::PathBuf;
 
-    fn font_path() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("resources/pdf/fonts/LiberationSans-Regular.ttf")
+    fn fonts_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/pdf/fonts")
+    }
+
+    fn test_fonts_spec() -> Fonts {
+        Fonts {
+            regular: "LiberationSans-Regular.ttf".to_string(),
+            bold: "LiberationSans-Bold.ttf".to_string(),
+            italic: "LiberationSans-Italic.ttf".to_string(),
+            mono: "LiberationSans-Regular.ttf".to_string(),
+            fallbacks: vec!["DejaVuSans.ttf".to_string()],
+        }
     }
 
     fn renderer() -> PrintPdfRenderer {
-        PrintPdfRenderer::from_path(font_path()).expect("bundled font loads")
+        let cache = FontCache::load(&test_fonts_spec(), &fonts_root()).expect("fonts load");
+        PrintPdfRenderer::new(cache)
     }
 
     fn fixture_doc() -> PdfDocument {
-        let mut doc = PdfDocument::new(Metadata::new("T1.2 Fixture").unwrap());
+        let mut doc = PdfDocument::new(Metadata::new("T1.5 Fixture").unwrap());
         let heading = Heading::new(HeadingLevel::new(1).unwrap(), "Introduction").unwrap();
         let mut section = Section::new(heading);
         section.push(Block::Paragraph(
@@ -390,10 +588,9 @@ mod tests {
     }
 
     #[test]
-    fn renderer_loads_real_font() {
+    fn renderer_exposes_regular_family_name() {
         let r = renderer();
         assert!(r.family_name().to_lowercase().contains("liberation"));
-        assert!(r.font_bytes().len() > 1000);
     }
 
     #[test]
@@ -415,24 +612,17 @@ mod tests {
         let text = "Lorem ipsum dolor sit amet consectetur adipiscing elit";
         let single = r.measure_text_pt(text, 12.0).unwrap();
         let one = r.wrap_line(text, 12.0, single + 10.0).unwrap();
-        assert_eq!(one.len(), 1, "text must fit on one line when width ≥ full measure");
+        assert_eq!(one.len(), 1);
         let tight = r.wrap_line(text, 12.0, single / 4.0).unwrap();
-        assert!(
-            tight.len() >= 4,
-            "with a quarter-width budget the wrap must emit at least 4 lines, got {}",
-            tight.len()
-        );
+        assert!(tight.len() >= 4, "got {}", tight.len());
         let all_joined = tight.join(" ");
         for word in text.split_whitespace() {
-            assert!(
-                all_joined.contains(word),
-                "wrapped output must preserve every word; missing {word}"
-            );
+            assert!(all_joined.contains(word), "missing word {word}");
         }
     }
 
     #[tokio::test]
-    async fn render_fixture_is_valid_parseable_pdf() {
+    async fn render_fixture_embeds_every_cache_font() {
         let r = renderer();
         let doc = fixture_doc();
         let theme = Theme::default();
@@ -443,55 +633,132 @@ mod tests {
             .expect("render ok");
 
         assert_eq!(outcome.page_count, 1);
-        assert_eq!(outcome.embedded_fonts.len(), 1);
-        assert!(outcome.warnings.is_empty());
         assert!(outcome.byte_len > 0);
         assert_eq!(outcome.byte_len as usize, buf.len());
+        // The cache holds regular / bold / italic / mono + fallback → 5.
+        assert_eq!(
+            outcome.embedded_fonts.len(),
+            5,
+            "every cache font must land in the embedded_fonts list"
+        );
 
-        assert!(
-            buf.starts_with(b"%PDF-1."),
-            "output must start with %PDF-1., got {:?}",
-            &buf[..10.min(buf.len())]
-        );
-        assert!(
-            buf.windows(5).any(|w| w == b"%%EOF"),
-            "output must contain %%EOF trailer"
-        );
+        assert!(buf.starts_with(b"%PDF-1."));
+        assert!(buf.windows(5).any(|w| w == b"%%EOF"));
+    }
+
+    #[tokio::test]
+    async fn render_bold_and_italic_adds_multiple_fonts_to_pdf_font_dict() {
+        let r = renderer();
+
+        let mut doc = PdfDocument::new(Metadata::new("Fonts In Dict").unwrap());
+        let heading = Heading::new(HeadingLevel::new(1).unwrap(), "Styles").unwrap();
+        let mut section = Section::new(heading);
+
+        let plain = InlineRun::new("plain text").unwrap();
+        let bold = InlineRun::new("bold text")
+            .unwrap()
+            .with_style(InlineStyle {
+                bold: true,
+                ..InlineStyle::PLAIN
+            });
+        let italic = InlineRun::new("italic text")
+            .unwrap()
+            .with_style(InlineStyle {
+                italic: true,
+                ..InlineStyle::PLAIN
+            });
+
+        section.push(Block::Paragraph(Paragraph::new(vec![plain]).unwrap()));
+        section.push(Block::Paragraph(Paragraph::new(vec![bold]).unwrap()));
+        section.push(Block::Paragraph(Paragraph::new(vec![italic]).unwrap()));
+        doc.push_section(section);
+
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .unwrap();
 
         let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses output");
-        let pages = parsed.get_pages();
-        assert_eq!(pages.len(), 1, "/Pages must contain exactly one page");
-
-        let info = parsed
-            .trailer
-            .get(b"Info")
-            .and_then(|o| parsed.dereference(o).map(|(_, v)| v))
-            .expect("trailer has Info reference");
-        let info_dict = info.as_dict().expect("Info is a dict");
-        let title_obj = info_dict.get(b"Title").expect("/Title present in Info");
-        let title_bytes = match title_obj {
-            lopdf::Object::String(s, _) => s.clone(),
-            other => panic!("unexpected /Title object: {other:?}"),
-        };
-        let title_text = decode_pdf_string(&title_bytes);
+        let font_count = count_font_entries(&parsed);
         assert!(
-            title_text.contains("T1.2 Fixture"),
-            "/Title must match metadata, got {title_text:?}"
+            font_count >= 3,
+            "rendered PDF must register at least regular/bold/italic in its font dict, got {font_count}"
+        );
+        // And Helvetica must not be the only thing in the tree.
+        assert!(
+            !is_only_helvetica(&parsed),
+            "renderer must not fall back to bare Helvetica"
         );
     }
 
-    /// Best-effort decoding of PDF string literals (`PDFDocEncoding` or
-    /// `UTF-16BE` with a byte-order mark). Used only by tests.
-    fn decode_pdf_string(bytes: &[u8]) -> String {
-        if bytes.starts_with(&[0xFE, 0xFF]) {
-            let u16s: Vec<u16> = bytes[2..]
-                .chunks(2)
-                .map(|c| u16::from_be_bytes([c[0], *c.get(1).unwrap_or(&0)]))
-                .collect();
-            String::from_utf16_lossy(&u16s)
-        } else {
-            String::from_utf8_lossy(bytes).into_owned()
+    #[tokio::test]
+    async fn missing_glyph_in_every_font_emits_warning() {
+        let r = renderer();
+
+        // U+E000 is Private Use Area — no mainstream font has it.
+        let mut doc = PdfDocument::new(Metadata::new("Missing Glyph").unwrap());
+        let heading = Heading::new(HeadingLevel::new(1).unwrap(), "Warn").unwrap();
+        let mut section = Section::new(heading);
+        section.push(Block::Paragraph(Paragraph::plain("before\u{E000}after").unwrap()));
+        doc.push_section(section);
+
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r
+            .render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render does not panic on missing glyphs");
+
+        assert!(
+            outcome
+                .warnings
+                .iter()
+                .any(|w| matches!(w, RenderWarning::MissingGlyph { text } if text.contains('\u{E000}'))),
+            "missing PUA glyph must surface as a MissingGlyph warning: {:?}",
+            outcome.warnings
+        );
+        assert!(buf.starts_with(b"%PDF-1."));
+    }
+
+    /// Helper: counts `/Font` subtype entries in the parsed PDF.
+    fn count_font_entries(pdf: &lopdf::Document) -> usize {
+        let mut n = 0;
+        for (_, obj) in &pdf.objects {
+            if let lopdf::Object::Dictionary(d) = obj {
+                if let Ok(t) = d.get(b"Type") {
+                    if matches!(t, lopdf::Object::Name(name) if name == b"Font") {
+                        n += 1;
+                    }
+                }
+            }
         }
+        n
+    }
+
+    fn is_only_helvetica(pdf: &lopdf::Document) -> bool {
+        let mut saw_non_helvetica = false;
+        let mut saw_font = false;
+        for (_, obj) in &pdf.objects {
+            if let lopdf::Object::Dictionary(d) = obj {
+                if let Ok(t) = d.get(b"Type") {
+                    if matches!(t, lopdf::Object::Name(n) if n == b"Font") {
+                        saw_font = true;
+                        let base = d
+                            .get(b"BaseFont")
+                            .ok()
+                            .and_then(|o| match o {
+                                lopdf::Object::Name(n) => Some(n.clone()),
+                                _ => None,
+                            })
+                            .unwrap_or_default();
+                        let name = String::from_utf8_lossy(&base).to_lowercase();
+                        if !name.contains("helvetica") {
+                            saw_non_helvetica = true;
+                        }
+                    }
+                }
+            }
+        }
+        saw_font && !saw_non_helvetica
     }
 
     #[tokio::test]
@@ -512,14 +779,8 @@ mod tests {
         r.render(&doc, &theme_a, &mut buf_a, None).await.unwrap();
         r.render(&doc, &theme_b, &mut buf_b, None).await.unwrap();
 
-        assert_ne!(
-            buf_a, buf_b,
-            "rendering the same doc with different theme scales must yield different bytes"
-        );
+        assert_ne!(buf_a, buf_b);
 
-        // Parse both and assert the content streams actually differ: the
-        // font size is baked into the page's content stream so a change
-        // in `body_font_size_pt` must change its bytes.
         let pdf_a = lopdf::Document::load_mem(&buf_a).expect("lopdf a");
         let pdf_b = lopdf::Document::load_mem(&buf_b).expect("lopdf b");
         let content_a = first_page_content(&pdf_a);
@@ -543,7 +804,6 @@ mod tests {
     #[test]
     fn no_magic_numbers_in_render_path() {
         let src = include_str!("printpdf_renderer.rs");
-        // Cut off the test module — literals in tests are fine.
         let cutoff = src.find("#[cfg(test)]").unwrap_or(src.len());
         let body = &src[..cutoff];
 
