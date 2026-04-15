@@ -16,6 +16,7 @@ use crate::infrastructure::llm::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, MessageContent,
     MessageRole, StreamChunk, StreamDelta, ToolCall, UsageStats,
 };
+use crate::infrastructure::utils::truncate_text;
 
 /// Default base URL for `OpenAI` API.
 pub const OPENAI_BASE_URL: &str = "https://api.openai.com/v1";
@@ -489,11 +490,7 @@ impl OpenAiClient {
                         match serde_json::from_str::<serde_json::Value>(&call.function.arguments) {
                             Ok(value) => value,
                             Err(e) => {
-                                let truncated = if call.function.arguments.len() > 500 {
-                                    format!("{}...", &call.function.arguments[..500])
-                                } else {
-                                    call.function.arguments.clone()
-                                };
+                                let truncated = truncate_text(&call.function.arguments, 500);
                                 log::error!(
                                     "Failed to parse tool arguments for '{}': {}. Arguments: {}",
                                     call.function.name,
@@ -626,7 +623,7 @@ impl OpenAiClient {
                             if !text.is_empty() {
                                 info!(
                                     "openai::chat_stream: chunk content preview: {:?}",
-                                    &text[..text.len().min(200)]
+                                    crate::infrastructure::utils::truncate_text(&text, 200)
                                 );
                             }
                         }
@@ -648,7 +645,7 @@ impl OpenAiClient {
                         info!(
                             "openai::chat_stream: processing line #{}, content={:?}",
                             line_count,
-                            &line[..line.len().min(150)]
+                            crate::infrastructure::utils::truncate_text(&line, 150)
                         );
                     }
 
@@ -717,7 +714,7 @@ impl OpenAiClient {
                         && line_count <= 10 {
                             info!(
                                 "openai::chat_stream: skipping unparsable line (not SSE format): {:?}",
-                                &line[..line.len().min(100)]
+                                crate::infrastructure::utils::truncate_text(&line, 100)
                             );
                         }
                 }
@@ -1104,5 +1101,15 @@ mod tests {
             Some("https://api.openai.com/v1/chat/completions".to_string()),
         );
         assert_eq!(client.base_url, "https://api.openai.com/v1");
+    }
+
+    #[test]
+    fn test_truncate_text_handles_multibyte_boundary() {
+        let text = format!("{}{}{}", "a".repeat(499), "─", "b");
+
+        let truncated = crate::infrastructure::utils::truncate_text(&text, 500);
+
+        assert!(truncated.ends_with("..."));
+        assert!(truncated.starts_with(&"a".repeat(499)));
     }
 }

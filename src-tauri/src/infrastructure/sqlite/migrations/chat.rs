@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use crate::core::chat::entities::ThreadMetadata;
 use crate::infrastructure::sqlite::repositories::chat::ChatRepositoryError;
+use crate::infrastructure::utils::truncate_text;
 
 /// Migrates orphan messages (messages without a thread) to new threads.
 ///
@@ -91,11 +92,11 @@ fn derive_thread_title(content: &str) -> String {
         return "New Thread".to_string();
     }
 
-    if cleaned.len() <= 50 {
+    if cleaned.chars().count() <= 50 {
         return cleaned;
     }
 
-    let truncated = &cleaned[..50];
+    let truncated = truncate_text(&cleaned, 50);
     if let Some(last_space) = truncated.rfind(' ') {
         if last_space > 20 {
             format!("{}...", &truncated[..last_space])
@@ -145,6 +146,15 @@ mod tests {
         assert_eq!(derive_thread_title("**bold**"), "bold");
         assert_eq!(derive_thread_title("`code`"), "code");
         assert_eq!(derive_thread_title("line1\nline2"), "line1 line2");
+    }
+
+    #[test]
+    fn test_derive_thread_title_handles_multibyte_boundary() {
+        let content = format!("{}{}{}", "a".repeat(49), "─", "b");
+        let title = derive_thread_title(&content);
+
+        assert!(title.ends_with("..."));
+        assert!(title.starts_with(&"a".repeat(49)));
     }
 
     #[test]

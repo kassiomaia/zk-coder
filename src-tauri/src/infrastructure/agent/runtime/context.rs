@@ -667,12 +667,7 @@ fn collect_recent_dialogue_tail(context: &[Message], max_tokens: usize) -> Vec<M
 }
 
 fn truncate_text(text: &str, max_len: usize) -> String {
-    if text.len() <= max_len {
-        return text.to_string();
-    }
-    let mut out = text[..max_len].to_string();
-    out.push_str("...");
-    out
+    crate::infrastructure::utils::truncate_text(text, max_len)
 }
 
 fn estimate_text_tokens(text: &str) -> usize {
@@ -760,6 +755,16 @@ mod tests {
         let result = maybe_compact_context(&mut context, "gpt-4");
         assert!(result.is_none());
         assert_eq!(context.len(), 3); // Unchanged
+    }
+
+    #[test]
+    fn test_truncate_text_handles_multibyte_boundary() {
+        let text = format!("{}{}{}", "a".repeat(499), "─", "b");
+
+        let truncated = truncate_text(&text, 500);
+
+        assert!(truncated.ends_with("..."));
+        assert!(truncated.starts_with(&"a".repeat(499)));
     }
 
     #[test]

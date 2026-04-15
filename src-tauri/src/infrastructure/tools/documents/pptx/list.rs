@@ -6,6 +6,7 @@ use crate::infrastructure::tools::{
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
+use crate::infrastructure::utils::truncate_text;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::path::PathBuf;
@@ -190,10 +191,10 @@ fn format_content_preview(
 
 /// Truncate a string to a maximum length.
 fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
+    if s.chars().count() <= max_len {
         s.to_string()
     } else {
-        format!("{}...", &s[..max_len.saturating_sub(3)])
+        truncate_text(s, max_len.saturating_sub(3))
     }
 }
 
@@ -541,5 +542,15 @@ mod tests {
         assert_eq!(truncate("hello", 10), "hello");
         assert_eq!(truncate("hello world", 5), "he...");
         assert_eq!(truncate("hi", 2), "hi");
+    }
+
+    #[test]
+    fn test_truncate_handles_multibyte_boundary() {
+        let text = format!("{}{}{}", "a".repeat(96), "─", "b".repeat(10));
+
+        let truncated = truncate(&text, 100);
+
+        assert!(truncated.ends_with("..."));
+        assert!(truncated.starts_with(&"a".repeat(96)));
     }
 }

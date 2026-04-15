@@ -6,3 +6,4 @@ pub mod llm;
 pub mod nlp;
 pub mod sqlite;
 pub mod tools;
+pub mod utils;

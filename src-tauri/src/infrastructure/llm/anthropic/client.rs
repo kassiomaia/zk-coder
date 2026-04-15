@@ -404,7 +404,7 @@ impl AnthropicClient {
                         info!(
                             "anthropic::chat_stream: processing line #{}, content={:?}",
                             line_count,
-                            &line[..line.len().min(150)]
+                            crate::infrastructure::utils::truncate_text(&line, 150)
                         );
                     }
 

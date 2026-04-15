@@ -6,6 +6,7 @@ use crate::infrastructure::tools::{
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
+use crate::infrastructure::utils::truncate_text;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tauri::AppHandle;
@@ -203,10 +204,12 @@ fn summarize_section(
 fn truncate_preview(text: &str, full: bool) -> String {
     if full {
         text.to_string()
-    } else if text.len() > 100 {
-        format!("{}...", &text[..97])
     } else {
-        text.to_string()
+        if text.chars().count() <= 100 {
+            text.to_string()
+        } else {
+            truncate_text(text, 97)
+        }
     }
 }
 
@@ -268,5 +271,23 @@ mod tests {
         let summary = summarize_section(&section, false);
         assert_eq!(summary.content_type, "BulletList");
         assert_eq!(summary.preview, "Item 1");
+    }
+
+    #[test]
+    fn test_summarize_paragraph_handles_multibyte_boundary() {
+        let long_text = format!("{}{}{}", "a".repeat(96), "─", "b".repeat(10));
+        let section = DraftSection {
+            id: "sec_4".to_string(),
+            index: 3,
+            content: DocxContent::Paragraph {
+                text: long_text,
+                style: None,
+            },
+        };
+
+        let summary = summarize_section(&section, false);
+
+        assert!(summary.preview.ends_with("..."));
+        assert!(summary.preview.starts_with(&"a".repeat(96)));
     }
 }
