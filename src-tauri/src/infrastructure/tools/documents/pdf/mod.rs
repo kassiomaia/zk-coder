@@ -1,6 +1,7 @@
 //! PDF document tools.
 
 mod add_page;
+pub mod artifacts;
 mod category;
 mod delete_page;
 mod r#final;

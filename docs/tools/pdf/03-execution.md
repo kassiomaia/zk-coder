@@ -446,8 +446,8 @@ Single source of truth for which task closes which gap from
 | No headers/footers/TOC | 11 | T2.2 + T2.6 | pending |
 | No hyperlinks/bookmarks/metadata | 12 | T2.1 + T2.6 | pending |
 | Non-persistent drafts | 13 | **deferred** | not scheduled |
-| Artifacts outside app-data | 14 | T1.7 | pending |
-| Hardcoded session_id | 15 | T1.7 | pending |
+| Artifacts outside app-data | 14 | T1.7 | done |
+| Hardcoded session_id | 15 | T1.7 | done |
 | Blocking render | 16 | T1.8 | pending |
 | No golden-file tests | 17 | M1 exit gate | pending |
 | Substring validator | 18 | T2.7 | pending |

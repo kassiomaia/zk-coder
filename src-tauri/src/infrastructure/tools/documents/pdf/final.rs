@@ -7,6 +7,9 @@
 
 use crate::application::tools::pdf::finalize::{render_draft, FinalizeError};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
+use crate::infrastructure::tools::documents::pdf::artifacts::{
+    migrate_legacy_artifacts, resolve_artifacts_dir,
+};
 use crate::infrastructure::tools::documents::pdf::render::{
     bundled_report_cache, load_report_theme, PrintPdfRenderer,
 };
@@ -88,7 +91,7 @@ impl Tool for PdfFinalizeTool {
 
     fn execute(
         &self,
-        _context: ToolExecutionContext,
+        context: ToolExecutionContext,
         arguments: JsonValue,
         app_handle: AppHandle,
         _workspace_root: Option<PathBuf>,
@@ -111,7 +114,7 @@ impl Tool for PdfFinalizeTool {
             let page_count = draft.pages.len();
             let page_size = draft.page_size;
 
-            let (path, size_bytes) = write_pdf(&draft).await?;
+            let (path, size_bytes) = write_pdf(&draft, &app_handle).await?;
 
             let artifact_id = if args.auto_save {
                 Some(format!("art_{}", uuid::Uuid::new_v4()))
@@ -133,12 +136,14 @@ impl Tool for PdfFinalizeTool {
             };
 
             if let Some(ref artifact_id) = output.artifact_id {
+                let session_id = context
+                    .session_id
+                    .clone()
+                    .unwrap_or_else(|| context.conversation_id.clone());
                 let _ = app_handle.emit(
                     AGENT_EVENT_NAME,
                     AgentEvent::ArtifactCreated {
-                        // T1.7 threads the real `session_id` through
-                        // `ToolExecutionContext` and drops this literal.
-                        session_id: "current".to_string(),
+                        session_id,
                         artifact_id: artifact_id.clone(),
                         artifact_type: "Pdf".to_string(),
                         filename: output.filename.clone(),
@@ -155,16 +160,13 @@ impl Tool for PdfFinalizeTool {
 
 /// Writes the PDF artifact to disk and returns its path and size.
 ///
-/// T1.7 replaces the `HOME`-anchored location with the Tauri
-/// `app_local_data_dir`, and T1.8 moves the write onto a background
-/// task.
-async fn write_pdf(draft: &PdfDraft) -> Result<(PathBuf, u64), ToolError> {
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .map_err(|_| ToolError::failed("Could not determine home directory".to_string()))?;
-    let artifacts_dir = PathBuf::from(home).join(".coder").join("artifacts");
-    std::fs::create_dir_all(&artifacts_dir)
-        .map_err(|e| ToolError::failed(format!("Failed to create artifacts directory: {e}")))?;
+/// Resolves the artifacts directory under Tauri's `app_local_data_dir`
+/// and migrates any pre-T1.7 files from the legacy `$HOME/.coder/artifacts`
+/// location on a best-effort basis. T1.8 will move the synchronous write
+/// onto a background task.
+async fn write_pdf(draft: &PdfDraft, app_handle: &AppHandle) -> Result<(PathBuf, u64), ToolError> {
+    let artifacts_dir = resolve_artifacts_dir(app_handle)?;
+    migrate_from_legacy_home(&artifacts_dir);
     let output_path = artifacts_dir.join(&draft.filename);
 
     let fonts = bundled_report_cache()
@@ -188,4 +190,90 @@ async fn write_pdf(draft: &PdfDraft) -> Result<(PathBuf, u64), ToolError> {
 
     let size_bytes = std::fs::metadata(&output_path).map(|m| m.len()).unwrap_or(0);
     Ok((output_path, size_bytes))
+}
+
+/// Best-effort one-shot migration of any files left under the pre-T1.7
+/// `$HOME/.coder/artifacts` location. Silent on any error: this runs on
+/// every finalize, and we never want migration trouble to mask a
+/// successful render.
+fn migrate_from_legacy_home(current: &std::path::Path) {
+    let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) else {
+        return;
+    };
+    let legacy = PathBuf::from(home).join(".coder").join("artifacts");
+    if legacy == current {
+        return;
+    }
+    let _ = migrate_legacy_artifacts(&legacy, current);
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod sweep_tests {
+    /// The artifact path must resolve through Tauri's `app_local_data_dir`.
+    /// Anchoring on `HOME` would reintroduce the pre-T1.7 bug of writing
+    /// outside the Tauri sandbox.
+    #[test]
+    fn write_pdf_does_not_anchor_on_home_env() {
+        let src = include_str!("final.rs");
+        let signature = "async fn write_pdf(";
+        let start = src.find(signature).expect("write_pdf must exist");
+        let body_start = src[start..].find('{').expect("write_pdf body opens") + start;
+        let mut depth = 0_i32;
+        let mut end = body_start;
+        for (idx, ch) in src[body_start..].char_indices() {
+            match ch {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = body_start + idx + 1;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        assert!(end > body_start, "write_pdf body must be balanced");
+        let body = &src[start..end];
+        assert!(
+            !body.contains(r#"env::var("HOME")"#),
+            "write_pdf must not read HOME directly; use resolve_artifacts_dir",
+        );
+        assert!(
+            !body.contains(r#"env::var("USERPROFILE")"#),
+            "write_pdf must not read USERPROFILE directly",
+        );
+        assert!(
+            !body.contains(".coder"),
+            "write_pdf must not hard-code legacy .coder directory",
+        );
+    }
+
+    /// `ArtifactCreated` events must carry the real `session_id` from
+    /// `ToolExecutionContext`. A literal `"current"` would tie every
+    /// artifact to the same stream on the frontend.
+    #[test]
+    fn finalize_does_not_hardcode_session_id() {
+        let src = include_str!("final.rs");
+        let execute_start = src
+            .find("fn execute(")
+            .expect("Tool::execute must exist");
+        let sweep_start = src
+            .find("mod sweep_tests")
+            .expect("sweep_tests must exist");
+        let exec_region = &src[execute_start..sweep_start];
+        assert!(
+            !exec_region.contains(r#""current".to_string()"#),
+            "execute must not fabricate a 'current' session_id literal",
+        );
+        let normalized: String = exec_region
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect();
+        assert!(
+            normalized.contains("context.session_id"),
+            "execute must thread context.session_id into ArtifactCreated",
+        );
+    }
 }
