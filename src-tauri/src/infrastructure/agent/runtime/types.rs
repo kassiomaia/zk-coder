@@ -18,6 +18,11 @@ pub enum AgentRuntimeError {
     /// Detected repetitive action loop.
     #[error("Detected repetitive action loop")]
     LoopDetected,
+    /// Detected a narration loop: the LLM produced no tool calls across multiple
+    /// consecutive iterations while in-progress subtasks remained, which would
+    /// otherwise cause the execution loop to spin indefinitely.
+    #[error("Detected narration loop: LLM produced no tool calls across multiple iterations")]
+    NarrationLoop,
     /// Action was denied by user.
     #[error("Action denied by user")]
     ActionDenied,
@@ -176,6 +181,7 @@ mod tests {
             AgentRuntimeError::SessionNotFound("session-1".to_string()),
             AgentRuntimeError::Llm("API error".to_string()),
             AgentRuntimeError::LoopDetected,
+            AgentRuntimeError::NarrationLoop,
             AgentRuntimeError::ActionDenied,
             AgentRuntimeError::ApprovalTimeout,
             AgentRuntimeError::Cancelled,

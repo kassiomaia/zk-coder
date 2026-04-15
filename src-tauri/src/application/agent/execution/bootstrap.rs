@@ -175,6 +175,7 @@ pub async fn start_execution(
         last_injected_subtask_order: if plan.is_non_trivial { Some(0) } else { None },
         current_phase: ExecutionPhase::Bootstrapping,
         context_usage_percent: 0.0,
+        consecutive_empty_tool_iterations: 0,
     };
 
     let tracer = deps.tracer();

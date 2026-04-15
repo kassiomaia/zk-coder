@@ -645,6 +645,23 @@ fn collect_recent_dialogue_tail(context: &[Message], max_tokens: usize) -> Vec<M
         tail.push(msg.clone());
         kept += 1;
     }
+
+    // Preserve tool_use/tool_result pairing. The backward walk can keep a
+    // `Tool` message (small tool_result) while dropping its paired assistant
+    // `tool_use` if that assistant message was too large for the budget or
+    // fell outside the `KEEP_RECENT_TAIL_MESSAGES` cap. Shipping an orphan
+    // tool_result to the provider produces a 400 error ("tool result's tool
+    // id ... not found"). Drop any orphans before returning.
+    let kept_tool_call_ids: std::collections::HashSet<String> = tail
+        .iter()
+        .filter(|m| m.role == MessageRole::Assistant)
+        .flat_map(|m| m.tool_calls.iter().map(|tc| tc.id.clone()))
+        .collect();
+    tail.retain(|m| match (&m.role, &m.tool_result) {
+        (MessageRole::Tool, Some(result)) => kept_tool_call_ids.contains(&result.call_id),
+        _ => true,
+    });
+
     tail.reverse();
     tail
 }
@@ -1108,5 +1125,192 @@ mod tests {
         let details = result.expect("large context should compact");
         assert_eq!(details.outcome, ContextPackOutcome::Compacted);
         assert!(details.after_tokens < details.before_tokens);
+    }
+
+    // --- collect_recent_dialogue_tail pairing invariant ---
+    //
+    // These tests enforce the invariant that the returned tail never contains a
+    // tool_result whose paired tool_use (on an assistant message) was dropped.
+    // Violating this invariant is what caused the production 400 on session
+    // 0ceae112 step 17: "tool result's tool id(call_function_...) not found".
+
+    fn assistant_with_call(id: &str, args_padding_bytes: usize) -> Message {
+        let content = "x".repeat(args_padding_bytes);
+        Message::assistant_with_tool_calls(
+            "writing".to_string(),
+            vec![ToolCall {
+                id: id.to_string(),
+                name: "fs_write_file".to_string(),
+                arguments: json!({"path": "docs/foo.md", "content": content}),
+            }],
+        )
+    }
+
+    fn tool_result_for(id: &str) -> Message {
+        Message::tool_result(id, json!({"bytes_written": 42}), false)
+    }
+
+    fn orphan_tool_result_ids(tail: &[Message]) -> Vec<String> {
+        let assistant_ids: std::collections::HashSet<String> = tail
+            .iter()
+            .filter(|m| m.role == MessageRole::Assistant)
+            .flat_map(|m| m.tool_calls.iter().map(|tc| tc.id.clone()))
+            .collect();
+        tail.iter()
+            .filter(|m| m.role == MessageRole::Tool)
+            .filter_map(|m| m.tool_result.as_ref().map(|r| r.call_id.clone()))
+            .filter(|id| !assistant_ids.contains(id))
+            .collect()
+    }
+
+    #[test]
+    fn collect_recent_tail_drops_orphan_when_tool_use_exceeds_token_budget() {
+        // Reproduces the production incident: an fs_write_file tool_use carrying
+        // a large `content` argument blows past the 1600-token tail budget, so
+        // the backward walk `break`s on that assistant message. Without the fix,
+        // its cheap tool_result (already pushed) is left as an orphan.
+        //
+        // ~15_000-byte arguments => ~3750 tokens, well beyond 1600.
+        let context = vec![
+            Message::user("please write the file".to_string()),
+            assistant_with_call("call_X", 15_000),
+            tool_result_for("call_X"),
+            Message::user("next step please".to_string()),
+            Message::assistant("ok, continuing".to_string()),
+        ];
+
+        let tail = collect_recent_dialogue_tail(&context, BUDGET_RECENT_DIALOGUE_TOKENS);
+
+        assert!(
+            orphan_tool_result_ids(&tail).is_empty(),
+            "tail must not contain orphan tool_results; got tail: {tail:#?}",
+        );
+    }
+
+    #[test]
+    fn collect_recent_tail_drops_orphan_when_tool_use_outside_message_window() {
+        // KEEP_RECENT_TAIL_MESSAGES caps the walk at 12 kept messages. If an
+        // assistant tool_use sits just outside that window while its tool_result
+        // sits just inside, the pair splits. Distinct from the token-budget
+        // path above.
+        //
+        // Layout (21 messages, indices 0..20):
+        //   idx  0-8 : small chatter
+        //   idx  9   : assistant tool_use  call_Y  <- MUST be at the boundary
+        //   idx 10   : tool_result         call_Y
+        //   idx 11-20: 10 more small messages
+        //
+        // Backward walk: 20,19,...,10 = 11 messages kept, then idx 9 would be
+        // the 12th and fits the cap. So to push idx 10 in but idx 9 out we need
+        // one more message past idx 20. Use 22 messages total; assistant at
+        // idx 9, tool_result at idx 10, chatter idx 11..21.
+        let mut context: Vec<Message> = (0..9)
+            .map(|i| Message::user(format!("chatter {i}")))
+            .collect();
+        context.push(assistant_with_call("call_Y", 4));
+        context.push(tool_result_for("call_Y"));
+        for i in 0..11 {
+            context.push(Message::user(format!("tail chatter {i}")));
+        }
+        assert_eq!(context.len(), 22);
+
+        let tail = collect_recent_dialogue_tail(&context, 100_000);
+
+        assert!(
+            tail.len() <= KEEP_RECENT_TAIL_MESSAGES,
+            "tail length {} exceeds KEEP_RECENT_TAIL_MESSAGES {}",
+            tail.len(),
+            KEEP_RECENT_TAIL_MESSAGES,
+        );
+        assert!(
+            orphan_tool_result_ids(&tail).is_empty(),
+            "tail must not contain orphan tool_results; got tail: {tail:#?}",
+        );
+    }
+
+    #[test]
+    fn collect_recent_tail_keeps_matched_pair_when_both_fit() {
+        // Baseline: when both members of the pair fit, both must be preserved.
+        let context = vec![
+            assistant_with_call("call_Z", 20),
+            tool_result_for("call_Z"),
+            Message::user("thanks".to_string()),
+        ];
+
+        let tail = collect_recent_dialogue_tail(&context, BUDGET_RECENT_DIALOGUE_TOKENS);
+
+        let has_assistant = tail
+            .iter()
+            .any(|m| m.role == MessageRole::Assistant && !m.tool_calls.is_empty());
+        let has_tool_result = tail.iter().any(|m| m.role == MessageRole::Tool);
+        assert!(
+            has_assistant && has_tool_result,
+            "both pair members should survive; got tail: {tail:#?}",
+        );
+        assert!(orphan_tool_result_ids(&tail).is_empty());
+    }
+
+    #[test]
+    fn collect_recent_tail_reproduces_session_0ceae112_incident() {
+        // Exact shape of the production failure: fs_write_file to
+        // docs/cxone/quick-reference.md with ~11593 bytes of content, followed
+        // by a tiny tool_result, followed by one more tool round-trip, then a
+        // subtask transition. Before the fix, compaction leaves the 11593-byte
+        // tool_use out of the tail while its tool_result stays in.
+        let huge_content = "#".repeat(11_593);
+        let context = vec![
+            Message::user("extract business logic".to_string()),
+            Message::assistant_with_tool_calls(
+                "creating the quick reference".to_string(),
+                vec![ToolCall {
+                    id: "call_function_snasv7li0myh_1".to_string(),
+                    name: "fs_write_file".to_string(),
+                    arguments: json!({
+                        "path": "docs/cxone/quick-reference.md",
+                        "content": huge_content,
+                    }),
+                }],
+            ),
+            Message::tool_result(
+                "call_function_snasv7li0myh_1",
+                json!({"bytes_written": 11_593, "path": "docs/cxone/quick-reference.md"}),
+                false,
+            ),
+            Message::assistant_with_tool_calls(
+                "listing directory".to_string(),
+                vec![ToolCall {
+                    id: "call_function_list_1".to_string(),
+                    name: "fs_list_files".to_string(),
+                    arguments: json!({"path": "docs/cxone"}),
+                }],
+            ),
+            Message::tool_result(
+                "call_function_list_1",
+                json!({"count": 8}),
+                false,
+            ),
+            Message::assistant_with_tool_calls(
+                "advancing".to_string(),
+                vec![ToolCall {
+                    id: "call_function_advance_1".to_string(),
+                    name: "agent_advance_to_next_subtask".to_string(),
+                    arguments: json!({}),
+                }],
+            ),
+            Message::tool_result(
+                "call_function_advance_1",
+                json!({"success": true}),
+                false,
+            ),
+            Message::user("now compile the knowledge base".to_string()),
+        ];
+
+        let tail = collect_recent_dialogue_tail(&context, BUDGET_RECENT_DIALOGUE_TOKENS);
+
+        let orphans = orphan_tool_result_ids(&tail);
+        assert!(
+            orphans.is_empty(),
+            "session 0ceae112 incident must not repeat: orphan tool_call_ids in tail: {orphans:?}; tail: {tail:#?}",
+        );
     }
 }

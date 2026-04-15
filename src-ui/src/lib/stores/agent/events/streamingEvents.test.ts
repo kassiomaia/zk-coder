@@ -158,6 +158,58 @@ describe('handleStreamingContent', () => {
 		);
 	});
 
+	// Regression guard for the "subtask summary vanishes on reload" bug. The
+	// backend emits the subtask-result stream with persistMessage: true once the
+	// bug is fixed; this test pins the frontend side of the contract so a future
+	// refactor cannot silently drop the callback invocation for that path.
+	it('persists subtask-result summaries emitted by the backend', () => {
+		const state = makeState();
+		const onPersistAssistantMessage = vi.fn();
+		streamingMocks.getOnPersistAssistantMessage.mockReturnValue(onPersistAssistantMessage);
+
+		const messageId = 'stream-subtask-result-session-1-task-1-sub-investigate-s3';
+
+		handleStreamingContent(state, {
+			type: 'streaming_content',
+			sessionId: 'session-1',
+			conversationId: 'conv-1',
+			threadId: 'thread-1',
+			chunk: 'Subtask complete: found the offending module.',
+			isFinal: true,
+			messageId,
+			persistMessage: true
+		});
+
+		expect(onPersistAssistantMessage).toHaveBeenCalledWith(
+			'session-1',
+			'conv-1',
+			'thread-1',
+			messageId,
+			'Subtask complete: found the offending module.'
+		);
+	});
+
+	// Negative regression guard: when persistMessage is absent the callback must
+	// NOT fire. This is what distinguishes transient UI fillers (the "Continuing
+	// with next subtask..." message) from real persisted summaries.
+	it('does not persist final chunks that lack the persistMessage flag', () => {
+		const state = makeState();
+		const onPersistAssistantMessage = vi.fn();
+		streamingMocks.getOnPersistAssistantMessage.mockReturnValue(onPersistAssistantMessage);
+
+		handleStreamingContent(state, {
+			type: 'streaming_content',
+			sessionId: 'session-1',
+			conversationId: 'conv-1',
+			threadId: 'thread-1',
+			chunk: '\n\nContinuing with next subtask...\n',
+			isFinal: true,
+			messageId: 'stream-subtask-continuation-session-1-task-1-sub-A-s5'
+		});
+
+		expect(onPersistAssistantMessage).not.toHaveBeenCalled();
+	});
+
 	it('keeps two concurrent streams in the same session under distinct keys when messageIds are distinct', () => {
 		const state = makeState();
 

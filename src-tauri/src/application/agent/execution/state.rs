@@ -39,6 +39,12 @@ pub struct ExecutionContext {
     pub current_phase: ExecutionPhase,
     /// The percentage of the context window that is currently being used.
     pub context_usage_percent: f64,
+    /// Number of consecutive iterations where the LLM produced no tool calls
+    /// while `InProgress` subtasks still remained. Used by the narration-loop
+    /// guard in `response_phase` to escalate when the agent stops making
+    /// progress. Reset to `0` on any iteration that finishes execution or
+    /// runs tools.
+    pub consecutive_empty_tool_iterations: u32,
 }
 
 impl ExecutionContext {

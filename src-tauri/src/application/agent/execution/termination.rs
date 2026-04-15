@@ -167,26 +167,98 @@ fn build_streaming_events(content: &str, finalize_stream: bool) -> Vec<(String, 
         .collect()
 }
 
-pub(super) async fn emit_streaming_content(
-    deps: &ExecutionDeps<'_>,
+/// Pure builder for the list of `AgentEvent::StreamingContent` events produced
+/// by one streamed assistant emission.
+///
+/// Extracted from [`emit_streaming_message`] so the payload shape —
+/// specifically whether `persist_message` is set — can be unit-tested without
+/// a live Tauri `AppHandle`. The `emit_*` helpers become thin loops over the
+/// output of this function.
+pub(super) fn build_streaming_content_events(
     session_id: &str,
     conversation_id: &str,
     thread_id: &str,
     content: &str,
     finalize_stream: bool,
     message_id: String,
-) {
-    emit_streaming_message(
-        deps,
+    persist_message: bool,
+) -> Vec<AgentEvent> {
+    build_streaming_events(content, finalize_stream)
+        .into_iter()
+        .map(|(chunk, is_final)| AgentEvent::StreamingContent {
+            session_id: session_id.to_string(),
+            conversation_id: conversation_id.to_string(),
+            thread_id: thread_id.to_string(),
+            chunk,
+            is_final,
+            message_id: Some(message_id.clone()),
+            persist_message: persist_message.then_some(true),
+        })
+        .collect()
+}
+
+/// Builds the streaming events emitted when a subtask completes while more
+/// work remains on the task. Mirrors the call made by `complete_execution` so
+/// the persistence contract can be exercised in unit tests without a live
+/// `AppHandle`.
+///
+/// The events always request persistence: subtask summaries are user-visible
+/// messages that must survive a reload — otherwise the chat history would show
+/// only the final answer, with the intermediate per-subtask narration lost.
+pub(super) fn subtask_result_streaming_events(
+    session_id: &str,
+    task_id: &str,
+    subtask_id: Option<&str>,
+    step_number: u32,
+    conversation_id: &str,
+    thread_id: &str,
+    content: &str,
+) -> Vec<AgentEvent> {
+    let message_id = streaming_message_id(&StreamingMessageIdInput {
+        phase: StreamingPhase::SubtaskResult,
+        session_id,
+        task_id,
+        subtask_id,
+        step_number,
+    });
+    build_streaming_content_events(
         session_id,
         conversation_id,
         thread_id,
         content,
-        finalize_stream,
+        true,
         message_id,
-        false,
+        true,
     )
-    .await;
+}
+
+/// Builds the streaming events emitted when the whole task completes and the
+/// agent's final answer is streamed to the user. Always requests persistence
+/// so the final summary is available after a reload.
+pub(super) fn final_result_streaming_events(
+    session_id: &str,
+    task_id: &str,
+    step_number: u32,
+    conversation_id: &str,
+    thread_id: &str,
+    content: &str,
+) -> Vec<AgentEvent> {
+    let message_id = streaming_message_id(&StreamingMessageIdInput {
+        phase: StreamingPhase::FinalResult,
+        session_id,
+        task_id,
+        subtask_id: None,
+        step_number,
+    });
+    build_streaming_content_events(
+        session_id,
+        conversation_id,
+        thread_id,
+        content,
+        true,
+        message_id,
+        true,
+    )
 }
 
 pub(super) async fn emit_streaming_message(
@@ -199,22 +271,27 @@ pub(super) async fn emit_streaming_message(
     message_id: String,
     persist_message: bool,
 ) {
-    let events = build_streaming_events(content, finalize_stream);
+    let events = build_streaming_content_events(
+        session_id,
+        conversation_id,
+        thread_id,
+        content,
+        finalize_stream,
+        message_id,
+        persist_message,
+    );
+    emit_prebuilt_streaming_events(deps, events).await;
+}
+
+/// Emits an already-built list of `StreamingContent` events on the app handle,
+/// respecting the inter-chunk pacing delay. Separated from
+/// [`build_streaming_content_events`] so the payload construction remains a
+/// pure, unit-testable function.
+async fn emit_prebuilt_streaming_events(deps: &ExecutionDeps<'_>, events: Vec<AgentEvent>) {
     let last_index = events.len().saturating_sub(1);
 
-    for (index, (chunk, is_final)) in events.into_iter().enumerate() {
-        let _ = deps.app_handle.emit(
-            AGENT_EVENT_NAME,
-            AgentEvent::StreamingContent {
-                session_id: session_id.to_string(),
-                conversation_id: conversation_id.to_string(),
-                thread_id: thread_id.to_string(),
-                chunk,
-                is_final,
-                message_id: Some(message_id.clone()),
-                persist_message: persist_message.then_some(true),
-            },
-        );
+    for (index, event) in events.into_iter().enumerate() {
+        let _ = deps.app_handle.emit(AGENT_EVENT_NAME, event);
 
         if index != last_index {
             tokio::time::sleep(std::time::Duration::from_millis(STREAMING_CHUNK_DELAY_MS)).await;
@@ -226,7 +303,7 @@ pub(super) async fn emit_streaming_message(
 ///
 /// Emits a `SubtaskUpdated` event for each one so the frontend stays in sync.
 /// Returns the number of subtasks that were auto-completed.
-fn auto_complete_in_progress_subtasks(
+pub(super) fn auto_complete_in_progress_subtasks(
     deps: &ExecutionDeps<'_>,
     task_id: &str,
     session_id: &str,
@@ -285,7 +362,7 @@ fn has_remaining_in_progress_subtasks(deps: &ExecutionDeps<'_>, task_id: &str) -
 /// Called when execution finishes but `Pending` subtasks remain that were never
 /// started (the LLM never called `agent_advance_to_next_subtask`).
 /// Returns `true` if a subtask was advanced, `false` if none were `Pending`.
-fn advance_next_pending_subtask(
+pub(super) fn advance_next_pending_subtask(
     deps: &ExecutionDeps<'_>,
     task_id: &str,
     session_id: &str,
@@ -331,6 +408,56 @@ fn advance_next_pending_subtask(
     true
 }
 
+/// Shared tail used by the two "still-continuing" branches in
+/// [`complete_execution`]: append a `ExecutionCompleted` trace flagged with
+/// `hasRemainingWork: true` and stream the per-subtask summary to the chat.
+///
+/// `advanced_pending_subtask` toggles the extra trace field that distinguishes
+/// "still running through InProgress subtasks" from "advanced a Pending one".
+async fn emit_subtask_result_with_trace(
+    deps: &ExecutionDeps<'_>,
+    ctx: &ExecutionContext,
+    conversation_id: &str,
+    thread_id: &str,
+    result: &AgentExecutionResult,
+    auto_completed: usize,
+    advanced_pending_subtask: bool,
+) {
+    let mut trace = json!({
+        "responseLength": result.content.len(),
+        "totalSteps": result.steps.len(),
+        "totalInputTokens": ctx.total_input_tokens,
+        "totalOutputTokens": ctx.total_output_tokens,
+        "autoCompletedSubtasks": auto_completed,
+        "hasRemainingWork": true,
+    });
+    if advanced_pending_subtask {
+        if let Some(obj) = trace.as_object_mut() {
+            obj.insert("advancedPendingSubtask".to_string(), json!(true));
+        }
+    }
+
+    let _ = deps.tracer().append_trace(
+        &ctx.session_id,
+        &ctx.task_id,
+        ctx.current_subtask_id.as_deref(),
+        ctx.step_number,
+        RuntimeTraceType::ExecutionCompleted,
+        trace,
+    );
+
+    let events = subtask_result_streaming_events(
+        &ctx.session_id,
+        &ctx.task_id,
+        ctx.current_subtask_id.as_deref(),
+        ctx.step_number,
+        conversation_id,
+        thread_id,
+        &result.content,
+    );
+    emit_prebuilt_streaming_events(deps, events).await;
+}
+
 /// Completes the execution of an agent.
 ///
 /// This function finalizes the execution by:
@@ -369,97 +496,41 @@ pub async fn complete_execution(
         );
     }
 
-    let has_remaining = has_remaining_in_progress_subtasks(deps, &ctx.task_id);
-
-    if has_remaining {
+    if has_remaining_in_progress_subtasks(deps, &ctx.task_id) {
         log::info!(
             "[AgentExecution] Remaining InProgress subtasks detected for task {} – \
              session will continue",
             ctx.task_id
         );
-
-        let tracer = deps.tracer();
-        let _ = tracer.append_trace(
-            &ctx.session_id,
-            &ctx.task_id,
-            ctx.current_subtask_id.as_deref(),
-            ctx.step_number,
-            RuntimeTraceType::ExecutionCompleted,
-            json!({
-                "responseLength": result.content.len(),
-                "totalSteps": result.steps.len(),
-                "totalInputTokens": ctx.total_input_tokens,
-                "totalOutputTokens": ctx.total_output_tokens,
-                "autoCompletedSubtasks": auto_completed,
-                "hasRemainingWork": true,
-            }),
-        );
-
-        let subtask_result_id = streaming_message_id(&StreamingMessageIdInput {
-            phase: StreamingPhase::SubtaskResult,
-            session_id: &ctx.session_id,
-            task_id: &ctx.task_id,
-            subtask_id: ctx.current_subtask_id.as_deref(),
-            step_number: ctx.step_number,
-        });
-        emit_streaming_content(
+        emit_subtask_result_with_trace(
             deps,
-            &ctx.session_id,
+            ctx,
             conversation_id,
             thread_id,
-            &result.content,
-            true,
-            subtask_result_id,
+            &result,
+            auto_completed,
+            false,
         )
         .await;
-
         return Ok((result, true));
     }
 
     // If no InProgress subtask remained, check for Pending ones and advance the next one.
-    let has_pending = advance_next_pending_subtask(deps, &ctx.task_id, &ctx.session_id);
-    if has_pending {
+    if advance_next_pending_subtask(deps, &ctx.task_id, &ctx.session_id) {
         log::info!(
             "[AgentExecution] Pending subtasks detected for task {} – session will continue",
             ctx.task_id
         );
-
-        let tracer = deps.tracer();
-        let _ = tracer.append_trace(
-            &ctx.session_id,
-            &ctx.task_id,
-            ctx.current_subtask_id.as_deref(),
-            ctx.step_number,
-            RuntimeTraceType::ExecutionCompleted,
-            json!({
-                "responseLength": result.content.len(),
-                "totalSteps": result.steps.len(),
-                "totalInputTokens": ctx.total_input_tokens,
-                "totalOutputTokens": ctx.total_output_tokens,
-                "autoCompletedSubtasks": auto_completed,
-                "hasRemainingWork": true,
-                "advancedPendingSubtask": true,
-            }),
-        );
-
-        let subtask_result_id = streaming_message_id(&StreamingMessageIdInput {
-            phase: StreamingPhase::SubtaskResult,
-            session_id: &ctx.session_id,
-            task_id: &ctx.task_id,
-            subtask_id: ctx.current_subtask_id.as_deref(),
-            step_number: ctx.step_number,
-        });
-        emit_streaming_content(
+        emit_subtask_result_with_trace(
             deps,
-            &ctx.session_id,
+            ctx,
             conversation_id,
             thread_id,
-            &result.content,
+            &result,
+            auto_completed,
             true,
-            subtask_result_id,
         )
         .await;
-
         return Ok((result, true));
     }
 
@@ -499,23 +570,15 @@ pub async fn complete_execution(
             status: TaskStatus::Completed,
         },
     );
-    let final_result_id = streaming_message_id(&StreamingMessageIdInput {
-        phase: StreamingPhase::FinalResult,
-        session_id: &ctx.session_id,
-        task_id: &ctx.task_id,
-        subtask_id: None,
-        step_number: ctx.step_number,
-    });
-    emit_streaming_content(
-        deps,
+    let events = final_result_streaming_events(
         &ctx.session_id,
+        &ctx.task_id,
+        ctx.step_number,
         conversation_id,
         thread_id,
         &result.content,
-        true,
-        final_result_id,
-    )
-    .await;
+    );
+    emit_prebuilt_streaming_events(deps, events).await;
     let _ = deps.app_handle.emit(
         AGENT_EVENT_NAME,
         AgentEvent::ExecutionComplete {
@@ -531,10 +594,36 @@ pub async fn complete_execution(
 
 #[cfg(test)]
 mod tests {
-    use super::build_streaming_events;
+    use super::{
+        build_streaming_content_events, build_streaming_events, final_result_streaming_events,
+        subtask_result_streaming_events,
+    };
     use crate::application::agent::execution::message_ids::{
         streaming_message_id, StreamingMessageIdInput, StreamingPhase,
     };
+    use crate::infrastructure::agent::events::AgentEvent;
+
+    fn streaming_persist_flags(events: &[AgentEvent]) -> Vec<Option<bool>> {
+        events
+            .iter()
+            .map(|event| match event {
+                AgentEvent::StreamingContent {
+                    persist_message, ..
+                } => *persist_message,
+                other => panic!("expected StreamingContent event, got {other:?}"),
+            })
+            .collect()
+    }
+
+    fn streaming_final_flags(events: &[AgentEvent]) -> Vec<bool> {
+        events
+            .iter()
+            .map(|event| match event {
+                AgentEvent::StreamingContent { is_final, .. } => *is_final,
+                other => panic!("expected StreamingContent event, got {other:?}"),
+            })
+            .collect()
+    }
 
     /// Regression test for the "messages replaced on the frontend" bug.
     ///
@@ -624,6 +713,106 @@ mod tests {
 
         assert!(!events.is_empty());
         assert!(events.iter().all(|(_, is_final)| !is_final));
+    }
+
+    /// Regression for the "subtask summary vanishes on reload" bug.
+    ///
+    /// `complete_execution` streams a per-subtask summary via
+    /// [`subtask_result_streaming_events`] whenever a subtask completes while
+    /// more work remains on the task. Every emitted `StreamingContent` event
+    /// must carry `persist_message: Some(true)` so the frontend write-through
+    /// callback persists the summary to `coder_chat.db`; otherwise the text is
+    /// dropped when the session ends and is gone on the next reload.
+    #[test]
+    fn subtask_result_events_request_persistence() {
+        let events = subtask_result_streaming_events(
+            "sess-xyz",
+            "task-root",
+            Some("subtask-investigate"),
+            3,
+            "conv-1",
+            "thread-1",
+            "Investigated the repo and found the offending module.",
+        );
+
+        assert!(!events.is_empty());
+        assert!(
+            streaming_persist_flags(&events)
+                .into_iter()
+                .all(|flag| flag == Some(true)),
+            "every subtask-result chunk must carry persist_message: Some(true)"
+        );
+
+        let final_flags = streaming_final_flags(&events);
+        assert_eq!(
+            final_flags.last().copied(),
+            Some(true),
+            "the last chunk of a subtask-result emission must be is_final"
+        );
+        assert!(
+            final_flags
+                .iter()
+                .take(final_flags.len().saturating_sub(1))
+                .all(|flag| !flag),
+            "only the last chunk may be is_final"
+        );
+    }
+
+    /// Regression for the "final answer vanishes on reload" bug.
+    ///
+    /// `complete_execution` streams the final answer via
+    /// [`final_result_streaming_events`]. This is the summary the user sees at
+    /// the end of an agent run; it must be persisted to the chat database.
+    #[test]
+    fn final_result_events_request_persistence() {
+        let events = final_result_streaming_events(
+            "sess-xyz",
+            "task-root",
+            12,
+            "conv-1",
+            "thread-1",
+            "Done. Summary of everything I did...",
+        );
+
+        assert!(!events.is_empty());
+        assert!(
+            streaming_persist_flags(&events)
+                .into_iter()
+                .all(|flag| flag == Some(true)),
+            "every final-result chunk must carry persist_message: Some(true)"
+        );
+    }
+
+    /// The "Continuing with next subtask..." narration-loop filler is UI-only
+    /// and must NOT be persisted — otherwise reloads would be polluted with
+    /// transient filler text.
+    #[test]
+    fn continuation_filler_events_do_not_request_persistence() {
+        let continuation_id = streaming_message_id(&StreamingMessageIdInput {
+            phase: StreamingPhase::SubtaskContinuation,
+            session_id: "sess-xyz",
+            task_id: "task-root",
+            subtask_id: Some("subtask-advance"),
+            step_number: 7,
+        });
+
+        let events = build_streaming_content_events(
+            "sess-xyz",
+            "conv-1",
+            "thread-1",
+            "\n\nContinuing with next subtask...\n",
+            false,
+            continuation_id,
+            false,
+        );
+
+        assert!(!events.is_empty());
+        assert!(
+            streaming_persist_flags(&events)
+                .into_iter()
+                .all(|flag| flag.is_none()),
+            "continuation filler must not carry a persist_message flag"
+        );
     }
 }
 
