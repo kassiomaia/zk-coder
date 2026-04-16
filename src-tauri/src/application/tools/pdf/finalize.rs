@@ -370,4 +370,107 @@ mod tests {
             outcome.warnings
         );
     }
+
+    /// Integration test: rich Markdown content (as the agent would emit it)
+    /// passes through the adapter → build_document → renderer pipeline
+    /// and produces a valid multi-page PDF with the expected structure.
+    #[tokio::test]
+    async fn rich_markdown_through_full_pipeline() {
+        use crate::infrastructure::tools::documents::pdf::render::{
+            bundled_report_cache, PrintPdfRenderer,
+        };
+
+        let fonts = bundled_report_cache().expect("bundled fonts load");
+        let renderer = PrintPdfRenderer::new(fonts);
+        let theme = Theme::default();
+
+        let rich_md = r#"# Quarterly Report
+
+This is the **executive summary** with a [link](https://example.com) and `inline code`.
+
+## Key Metrics
+
+| Metric | Q1 | Q2 |
+|--------|----|----|
+| Revenue | $10M | $12M |
+| Users | 50k | 65k |
+
+## Highlights
+
+- Launched new **feature A**
+- Improved *performance* by 40%
+  - Backend optimizations
+  - Frontend caching
+1. First priority item
+2. Second priority item
+
+```rust
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+> **Important**: This quarter exceeded all targets.
+
+---
+
+## Conclusion
+
+The quarter was *very* successful."#;
+
+        let draft = draft_with(
+            "Rich Markdown Test",
+            vec![PdfPageContent::Markdown {
+                content: rich_md.to_string(),
+            }],
+        );
+
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = render_draft(&draft, &renderer, &theme, &mut buf, None)
+            .await
+            .expect("rich markdown renders");
+
+        assert!(buf.starts_with(b"%PDF-1."), "valid PDF header");
+        assert!(outcome.page_count >= 1, "at least 1 page");
+
+        let pdf = lopdf::Document::load_mem(&buf).expect("lopdf parses output");
+
+        // The PDF must contain the URI annotation for the link.
+        let raw = String::from_utf8_lossy(&buf);
+        assert!(
+            raw.contains("example.com"),
+            "rendered PDF must contain the external link URI"
+        );
+
+        // The outline should contain the headings.
+        assert!(
+            !outcome.outline.is_empty(),
+            "rendered PDF should have outline entries from headings"
+        );
+        let titles: Vec<&str> = outcome.outline.iter().map(|e| e.title.as_str()).collect();
+        assert!(
+            titles.iter().any(|t| t.contains("Quarterly")),
+            "outline should contain 'Quarterly Report'"
+        );
+        assert!(
+            titles.iter().any(|t| t.contains("Conclusion")),
+            "outline should contain 'Conclusion'"
+        );
+
+        // Verify font dict has embedded fonts (not just Helvetica).
+        let mut font_count = 0;
+        for (_, obj) in &pdf.objects {
+            if let lopdf::Object::Dictionary(d) = obj {
+                if let Ok(t) = d.get(b"Type") {
+                    if matches!(t, lopdf::Object::Name(name) if name == b"Font") {
+                        font_count += 1;
+                    }
+                }
+            }
+        }
+        assert!(
+            font_count >= 3,
+            "rendered PDF must embed multiple fonts, got {font_count}"
+        );
+    }
 }

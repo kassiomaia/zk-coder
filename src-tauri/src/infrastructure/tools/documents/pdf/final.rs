@@ -65,7 +65,10 @@ impl Tool for PdfFinalizeTool {
     fn meta(&self) -> ToolMeta {
         ToolMeta {
             id: ToolId::new("pdf", "finalize"),
-            description: "Finalize a PDF document, generating the actual PDF file and saving it to the artifact store. After finalizing, no more pages can be added.",
+            description: "Render and save the PDF document. The renderer produces a professional layout \
+              with embedded fonts, page headers/footers with page numbers, PDF bookmarks from headings, \
+              and theme-driven styling. After finalizing, no more pages can be added. \
+              A download link will appear in the chat.",
             input_schema: serde_json::json!({
                 "type": "object",
                 "additionalProperties": false,

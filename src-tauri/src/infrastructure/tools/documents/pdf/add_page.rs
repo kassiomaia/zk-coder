@@ -87,25 +87,32 @@ impl Tool for PdfAddPageTool {
     fn meta(&self) -> ToolMeta {
         ToolMeta {
             id: ToolId::new("pdf", "add_page"),
-            description: "Add a page to a PDF document. Pages support Markdown, HTML, plain text, or images. The page is appended to the end by default.",
+            description: "Add a page to a PDF document. Use Markdown for rich content — the renderer \
+              supports: # headings (H1–H6), **bold**, *italic*, `inline code`, [links](url), \
+              unordered lists (- item), ordered lists (1. item), nested lists (indent 2+ spaces), \
+              fenced code blocks (```lang ... ```), pipe tables (| H1 | H2 |\\n|---|---|\\n| a | b |), \
+              blockquotes (> text → callout box), horizontal rules (--- → page break), \
+              and images via the image content type. \
+              Prefer 'markdown' type for most content. Use 'image' type only to embed a file from disk. \
+              Each pdf_add_page call adds one logical page of content; the renderer paginates automatically.",
             input_schema: serde_json::json!({
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
                     "pdf_id": {
                         "type": "string",
-                        "description": "PDF ID from pdf_start"
+                        "description": "PDF ID returned by pdf_start"
                     },
                     "content": {
                         "type": "object",
-                        "description": "Page content",
+                        "description": "Page content. Use type='markdown' for rich text (headings, lists, tables, code, links, bold/italic). Use type='text' for plain unformatted text. Use type='image' to embed a file.",
                         "oneOf": [
                             {
                                 "type": "object",
                                 "required": ["type", "content"],
                                 "properties": {
                                     "type": {"const": "markdown"},
-                                    "content": {"type": "string"}
+                                    "content": {"type": "string", "description": "Markdown content with headings, lists, tables, code fences, blockquotes, bold/italic, links"}
                                 }
                             },
                             {
@@ -113,7 +120,7 @@ impl Tool for PdfAddPageTool {
                                 "required": ["type", "content"],
                                 "properties": {
                                     "type": {"const": "text"},
-                                    "content": {"type": "string"}
+                                    "content": {"type": "string", "description": "Plain unformatted text"}
                                 }
                             },
                             {
@@ -121,8 +128,8 @@ impl Tool for PdfAddPageTool {
                                 "required": ["type", "path"],
                                 "properties": {
                                     "type": {"const": "image"},
-                                    "path": {"type": "string"},
-                                    "caption": {"type": "string"}
+                                    "path": {"type": "string", "description": "Absolute path to a PNG or JPEG image file"},
+                                    "caption": {"type": "string", "description": "Optional image caption / alt text"}
                                 }
                             }
                         ]
@@ -130,7 +137,8 @@ impl Tool for PdfAddPageTool {
                     "position": {
                         "type": "string",
                         "enum": ["start", "end"],
-                        "default": "end"
+                        "default": "end",
+                        "description": "Where to insert this page (default: end)"
                     }
                 },
                 "required": ["pdf_id", "content"]

@@ -48,10 +48,16 @@ impl Tool for PdfStartTool {
     fn meta(&self) -> ToolMeta {
         ToolMeta {
             id: ToolId::new("pdf", "start"),
-            description: "GENERATE a PDF document (.pdf). Use this to create PDFs from scratch. \
-              Workflow: call this tool first, then add pages with pdf_add_page, \
-              then finalize with pdf_finalize. The PDF will be saved to the artifact store \
-              and a download link will appear in the chat. DO NOT write scripts to generate PDFs.",
+            description: "Create a professional PDF document. \
+              Workflow: (1) call pdf_start, (2) call pdf_add_page one or more times to add content, \
+              (3) call pdf_finalize to render and save the PDF. \
+              The rendered PDF supports: headings (H1-H6), paragraphs with **bold**, *italic*, \
+              `code`, and [links](url), ordered/unordered/nested lists, fenced code blocks \
+              (```lang), pipe tables (| A | B |), blockquotes (> text) rendered as callout boxes, \
+              horizontal rules (---) as page breaks, and embedded images. \
+              The output includes page headers/footers with page numbers, a font-embedded \
+              professional layout, and PDF bookmarks from headings. \
+              DO NOT write scripts to generate PDFs — use this tool instead.",
             input_schema: serde_json::json!({
                 "type": "object",
                 "additionalProperties": false,
