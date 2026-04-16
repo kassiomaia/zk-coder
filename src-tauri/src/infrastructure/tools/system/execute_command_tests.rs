@@ -262,7 +262,11 @@ async fn test_execute_command_working_dir_outside_workspace_fails() {
 
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(err.to_string().contains("outside workspace"));
+    assert!(
+        err.to_string().contains("parent-directory components")
+            || err.to_string().contains("outside workspace"),
+        "Expected path traversal error, got: {err}"
+    );
 }
 
 #[tokio::test]

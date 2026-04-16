@@ -110,6 +110,15 @@ impl Tool for ExecuteCommandTool {
 
             // Resolve working directory
             let cwd = if let Some(ref dir) = args.working_dir {
+                let dir_path = std::path::Path::new(dir);
+                if dir_path
+                    .components()
+                    .any(|c| matches!(c, std::path::Component::ParentDir))
+                {
+                    return Err(ToolError::PathTraversal(format!(
+                        "Working directory '{dir}' contains parent-directory components"
+                    )));
+                }
                 let resolved = workspace.join(dir);
                 if !resolved.starts_with(&workspace) {
                     return Err(ToolError::PathTraversal(format!(
