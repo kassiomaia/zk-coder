@@ -584,6 +584,11 @@ pub enum Block {
     Table(TableBlock),
     /// Embedded image.
     Image(ImageBlock),
+    /// Table of contents placeholder.
+    ///
+    /// The renderer replaces this marker with the actual TOC content
+    /// after a first layout pass establishes heading page numbers.
+    Toc,
 }
 
 #[cfg(test)]

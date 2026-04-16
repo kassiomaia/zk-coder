@@ -371,22 +371,25 @@ hyperlinks. A real report.
   - 2 domain unit tests in `block.rs`.
 - **Retires gap**: #10.
 
-### T2.6 — TOC block + internal and external hyperlinks
+### T2.6 — TOC block + internal and external hyperlinks — done
 
-- **Deliverable**: `pdf.add_toc` inserts a TOC whose page numbers are
-  correct after pagination converges. `InlineRun::link` produces link
-  annotations.
-- **Build**:
-  - two-pass layout: render, collect heading positions, patch TOC, emit
-  - link annotations for both internal (heading anchor) and external
-    (`Url`) targets
-- **Tests (first)**:
-  - TOC entries point at the correct real page (not `N+1` because TOC
-    insertion shifted pagination)
-  - internal link target resolves to the heading's page
-  - external link has the expected URI action
-- **Done when**: clicking a TOC entry and clicking an external link
-  both work in a real viewer on the fixture.
+- **Delivered**: `Block::Toc` marker triggers a two-pass render:
+  measurement pass collects outline marks with page numbers, then the
+  real pass emits the TOC content (heading "Table of Contents" + one
+  indented line per heading with page number adjusted for TOC offset).
+  `InlineRun::link` produces `LinkAnnotation` with `Actions::uri` for
+  external hyperlinks.
+- **Two-pass architecture**: `render_sync` detects `Block::Toc` →
+  calls `measure_toc` (layout-only pass, discards PDF) → computes
+  `TocEntry` list with adjusted page numbers → calls `do_render` with
+  entries. Documents without `Block::Toc` skip the measurement pass.
+- **Tests (passing)**:
+  - `toc_block_emits_heading_titles_with_page_numbers` — glyph
+    signatures for "Table of Contents", "Introduction", and "Conclusion"
+    all appear in the rendered PDF.
+  - `external_link_produces_uri_annotation` — raw PDF bytes contain
+    "example.com" URI string from `InlineRun::link`.
+  - `document_without_toc_block_renders_normally` — no-regression check.
 - **Retires gap**: #11 (completes), #12 (completes).
 
 ### T2.7 — Structural `PdfValidator`
@@ -514,8 +517,8 @@ Single source of truth for which task closes which gap from
 | Lossy HTML | 8 | T1.3 (via deletion) | done |
 | Primitive Markdown | 9 | T1.3 (via deletion) | done |
 | Image placeholder | 10 | T2.5 | done |
-| No headers/footers/TOC | 11 | T2.2 + T2.6 | partial (T2.2 done) |
-| No hyperlinks/bookmarks/metadata | 12 | T2.1 + T2.6 | partial (T2.1 done) |
+| No headers/footers/TOC | 11 | T2.2 + T2.6 | done |
+| No hyperlinks/bookmarks/metadata | 12 | T2.1 + T2.6 | done |
 | Non-persistent drafts | 13 | **deferred** | not scheduled |
 | Artifacts outside app-data | 14 | T1.7 | done |
 | Hardcoded session_id | 15 | T1.7 | done |

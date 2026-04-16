@@ -97,6 +97,94 @@ impl PrintPdfRenderer {
         theme: &Theme,
         sink: &mut (dyn Write + Send),
     ) -> Result<RenderOutcome, RenderError> {
+        let has_toc = doc
+            .sections
+            .iter()
+            .any(|s| s.blocks.iter().any(|b| matches!(b, Block::Toc)));
+
+        // If the document contains a `Block::Toc`, do a two-pass render:
+        // 1. First pass skips Toc blocks → collect outline marks with
+        //    preliminary page numbers.
+        // 2. Second pass emits the Toc content using those marks, with
+        //    page numbers adjusted by the offset the TOC itself introduces.
+        let toc_entries: Option<Vec<TocEntry>> = if has_toc {
+            let (entries, _toc_page_count) =
+                self.measure_toc(doc, theme)?;
+            Some(entries)
+        } else {
+            None
+        };
+
+        self.do_render(doc, theme, sink, toc_entries.as_deref())
+    }
+
+    /// Performs the first (measurement) pass: layout everything except
+    /// `Block::Toc`, collect outline marks, compute TOC lines, and
+    /// estimate how many pages the TOC will occupy.
+    fn measure_toc(
+        &self,
+        doc: &PdfDocument,
+        theme: &Theme,
+    ) -> Result<(Vec<TocEntry>, usize), RenderError> {
+        let (page_width_mm, page_height_mm) = page_dimensions(doc);
+        let (pdf_doc, page_idx, layer_idx) = PrintPdfDoc::new(
+            "measure",
+            Mm(page_width_mm),
+            Mm(page_height_mm),
+            "L1",
+        );
+        let _font_refs = embed_all_fonts(&pdf_doc, &self.fonts)?;
+        let first_layer = pdf_doc.get_page(page_idx).get_layer(layer_idx);
+        let params = LayoutParams::from_doc(doc, theme, page_width_mm, page_height_mm);
+        let mut engine = LayoutEngine::new(&pdf_doc, page_idx, first_layer, params);
+
+        let font_refs = embed_all_fonts(&pdf_doc, &self.fonts)?;
+        let mut missing = BTreeSet::new();
+        layout_sections(
+            &mut engine,
+            &font_refs,
+            &self.fonts,
+            &doc.sections,
+            &mut missing,
+            None,
+        )?;
+        let outline_marks = engine.take_outline();
+        let body_leading_mm = engine.params().body_leading_mm;
+        let usable_height = engine.params().initial_y_mm - engine.params().min_y_mm;
+
+        let entries: Vec<TocEntry> = outline_marks
+            .iter()
+            .map(|m| TocEntry {
+                level: m.level,
+                title: m.title.clone(),
+                page_display: m.page_number + 1,
+            })
+            .collect();
+
+        // Each TOC line takes one body leading; add a heading line too.
+        let toc_height = body_leading_mm * (entries.len() + 1) as f32;
+        let toc_pages = ((toc_height / usable_height).ceil() as usize).max(1);
+
+        // Adjust page numbers: everything after the TOC shifts by toc_pages.
+        let adjusted: Vec<TocEntry> = entries
+            .into_iter()
+            .map(|mut e| {
+                e.page_display += toc_pages;
+                e
+            })
+            .collect();
+
+        Ok((adjusted, toc_pages))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn do_render(
+        &self,
+        doc: &PdfDocument,
+        theme: &Theme,
+        sink: &mut (dyn Write + Send),
+        toc_entries: Option<&[TocEntry]>,
+    ) -> Result<RenderOutcome, RenderError> {
         let (page_width_mm, page_height_mm) = page_dimensions(doc);
         let (pdf_doc, page_idx, layer_idx) = PrintPdfDoc::new(
             doc.metadata.title(),
@@ -117,12 +205,10 @@ impl PrintPdfRenderer {
             &self.fonts,
             &doc.sections,
             &mut missing,
+            toc_entries,
         )?;
         let page_count = engine.page_count();
         let outline_marks = engine.take_outline();
-        // Snapshot the per-page layers and the layout params we still
-        // need *after* we drop the engine. Engine borrows pdf_doc, so
-        // it must die before we hand pdf_doc anywhere else.
         let engine_layers_snapshot: Vec<PdfLayerReference> = engine.layers().to_vec();
         let decoration_x_mm = engine.params().x_mm;
         let decoration_page_height_mm = engine.params().page_height_mm;
@@ -136,10 +222,6 @@ impl PrintPdfRenderer {
                 page_index: m.page_number,
             })
             .collect();
-        // printpdf collapses to one bookmark per page (HashMap keyed by
-        // page index). Adding in document order means the *first*
-        // heading recorded for a page is the one that survives — which
-        // matches what a reader expects when several headings share a page.
         let mut seen_pages = std::collections::HashSet::<usize>::new();
         for mark in &outline_marks {
             if seen_pages.insert(mark.page_number) {
@@ -147,10 +229,6 @@ impl PrintPdfRenderer {
             }
         }
 
-        // T2.2: paint header/footer on each page now that the total
-        // page count is known. Section starts come from level-1 outline
-        // marks (one per top-level section) so `{section}` resolves to
-        // the section the page belongs to.
         let section_starts: Vec<(usize, String)> = outline_marks
             .iter()
             .filter(|m| m.level == 1)
@@ -202,6 +280,16 @@ impl PrintPdfRenderer {
     }
 }
 
+/// A single entry in the Table of Contents generated by the two-pass
+/// render when a `Block::Toc` marker is encountered.
+#[derive(Debug, Clone)]
+struct TocEntry {
+    level: u8,
+    title: String,
+    /// 1-based display page number (already adjusted for TOC offset).
+    page_display: usize,
+}
+
 const fn page_dimensions(doc: &PdfDocument) -> (f32, f32) {
     let (portrait_w, portrait_h) = doc.geometry.size.dimensions_mm();
     match doc.geometry.orientation {
@@ -216,6 +304,7 @@ fn layout_sections(
     fonts: &FontCache,
     sections: &[Section],
     missing: &mut BTreeSet<char>,
+    toc_entries: Option<&[TocEntry]>,
 ) -> Result<(), RenderError> {
     for section in sections {
         emit_heading(
@@ -244,6 +333,12 @@ fn layout_sections(
                     emit_table(engine, font_refs, fonts, table, missing)?;
                 }
                 Block::Image(img) => emit_image(engine, img)?,
+                Block::Toc => {
+                    if let Some(entries) = toc_entries {
+                        emit_toc(engine, font_refs, fonts, entries, missing)?;
+                    }
+                    // When toc_entries is None (measurement pass), skip.
+                }
             }
             let gap = engine.params().block_gap_mm;
             engine.advance(gap);
@@ -325,7 +420,7 @@ fn emit_run(
     let body_size_pt = engine.params().body_size_pt;
     let usable_width_pt = engine.params().usable_width_pt;
     let lines = wrap_with_face(&face, run.text(), body_size_pt, usable_width_pt);
-    for line in lines {
+    for line in &lines {
         let leading = engine.params().body_leading_mm;
         engine.ensure_space_for(leading);
         let layer = engine.current_layer();
@@ -336,15 +431,48 @@ fn emit_run(
             font_refs,
             fonts,
             &run.style,
-            &line,
+            line,
             body_size_pt,
             x,
             y,
             missing,
         )?;
+        // T2.6: if the run carries a link, add a link annotation
+        // covering the text area for each wrapped line.
+        if let Some(href) = &run.link {
+            let line_width_pt = measure_with_face(&face, line, body_size_pt);
+            let line_width_mm = line_width_pt / POINTS_PER_MM;
+            add_link_annotation(&layer, href, x, y, line_width_mm, leading);
+        }
         engine.advance(leading);
     }
     Ok(())
+}
+
+/// Adds a URI link annotation covering a rectangular region.
+fn add_link_annotation(
+    layer: &PdfLayerReference,
+    href: &str,
+    x_mm: f32,
+    y_mm: f32,
+    width_mm: f32,
+    height_mm: f32,
+) {
+    use printpdf::{Actions, BorderArray, ColorArray, LinkAnnotation};
+    let rect = Rect::new(
+        Mm(x_mm),
+        Mm(y_mm - height_mm),
+        Mm(x_mm + width_mm),
+        Mm(y_mm + height_mm),
+    );
+    let annotation = LinkAnnotation::new(
+        rect,
+        Some(BorderArray::Solid([0.0, 0.0, 0.0])),
+        Some(ColorArray::Transparent),
+        Actions::uri(href.to_string()),
+        None,
+    );
+    layer.add_link_annotation(annotation);
 }
 
 /// Emits `text` at the heading size using the regular-weight font,
@@ -672,6 +800,67 @@ fn emit_callout(
     engine.advance(padding + padding);
     Ok(())
 }
+
+/// Emits the Table of Contents from precomputed entries.
+///
+/// Each entry is rendered as a line: `<indent><title> ... <page>`.
+/// The heading "Table of Contents" is emitted first in heading style.
+#[allow(clippy::cast_precision_loss)]
+fn emit_toc(
+    engine: &mut LayoutEngine<'_>,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    entries: &[TocEntry],
+    missing: &mut BTreeSet<char>,
+) -> Result<(), RenderError> {
+    let heading_size_pt = engine.params().heading_size_pt;
+    let heading_leading = engine.params().heading_leading_mm;
+    engine.ensure_space_for(heading_leading);
+    let layer = engine.current_layer();
+    let x = engine.params().x_mm;
+    let y = engine.cursor_y_mm();
+    emit_line_with_fallback(
+        &layer,
+        font_refs,
+        fonts,
+        &InlineStyle::PLAIN,
+        TOC_HEADING_TEXT,
+        heading_size_pt,
+        x,
+        y,
+        missing,
+    )?;
+    engine.advance(heading_leading);
+    let gap = engine.params().block_gap_mm;
+    engine.advance(gap);
+
+    let body_size_pt = engine.params().body_size_pt;
+    let body_leading = engine.params().body_leading_mm;
+    let indent_mm = engine.params().list_indent_mm;
+
+    for entry in entries {
+        engine.ensure_space_for(body_leading);
+        let layer = engine.current_layer();
+        let depth = (entry.level.saturating_sub(1)) as f32;
+        let entry_x = x + indent_mm * depth;
+        let line = format!("{}  {}", entry.title, entry.page_display);
+        emit_line_with_fallback(
+            &layer,
+            font_refs,
+            fonts,
+            &InlineStyle::PLAIN,
+            &line,
+            body_size_pt,
+            entry_x,
+            engine.cursor_y_mm(),
+            missing,
+        )?;
+        engine.advance(body_leading);
+    }
+    Ok(())
+}
+
+const TOC_HEADING_TEXT: &str = "Table of Contents";
 
 /// Emits an image block on the current page.
 ///
@@ -2317,6 +2506,105 @@ mod tests {
     fn image_block_empty_data_returns_error() {
         let err = ImageBlock::new(vec![]);
         assert!(err.is_err());
+    }
+
+    // ---- T2.6 integration tests: TOC + hyperlinks ----
+
+    #[tokio::test]
+    async fn toc_block_emits_heading_titles_with_page_numbers() {
+        let r = renderer();
+        let mut doc = PdfDocument::new(Metadata::new("TOC Test").unwrap());
+
+        // Section 1 with TOC placeholder
+        let h1 = Heading::new(HeadingLevel::new(1).unwrap(), "Cover").unwrap();
+        let mut s1 = Section::new(h1);
+        s1.push(Block::Toc);
+        doc.push_section(s1);
+
+        // Section 2
+        let h2 = Heading::new(HeadingLevel::new(1).unwrap(), "Introduction").unwrap();
+        let mut s2 = Section::new(h2);
+        s2.push(Block::Paragraph(Paragraph::plain("intro text").unwrap()));
+        s2.push(Block::PageBreak);
+        doc.push_section(s2);
+
+        // Section 3
+        let h3 = Heading::new(HeadingLevel::new(1).unwrap(), "Conclusion").unwrap();
+        let mut s3 = Section::new(h3);
+        s3.push(Block::Paragraph(Paragraph::plain("conclusion text").unwrap()));
+        doc.push_section(s3);
+
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r
+            .render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+
+        // The TOC must contain the heading titles as glyph signatures.
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let font_bytes =
+            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let face = Face::parse(&font_bytes, 0).unwrap();
+
+        let toc_heading_sig = gid_signature(&face, "Table of Contents");
+        let intro_sig = gid_signature(&face, "Introduction");
+        let conclusion_sig = gid_signature(&face, "Conclusion");
+
+        let mut all_gids: Vec<u8> = Vec::new();
+        for pn in 1..=u32::try_from(outcome.page_count).unwrap() {
+            all_gids.extend(page_gid_bytes(&parsed, pn));
+        }
+
+        assert!(
+            contains_gid_signature(&all_gids, &toc_heading_sig),
+            "output must contain 'Table of Contents' heading"
+        );
+        assert!(
+            contains_gid_signature(&all_gids, &intro_sig),
+            "output must contain 'Introduction' in TOC"
+        );
+        assert!(
+            contains_gid_signature(&all_gids, &conclusion_sig),
+            "output must contain 'Conclusion' in TOC"
+        );
+    }
+
+    #[tokio::test]
+    async fn external_link_produces_uri_annotation() {
+        let r = renderer();
+        let mut doc = PdfDocument::new(Metadata::new("Links").unwrap());
+        let h = Heading::new(HeadingLevel::new(1).unwrap(), "Resources").unwrap();
+        let mut s = Section::new(h);
+        let run = InlineRun::new("click here")
+            .unwrap()
+            .with_link("https://example.com");
+        s.push(Block::Paragraph(Paragraph::new(vec![run]).unwrap()));
+        doc.push_section(s);
+
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+
+        // The PDF raw bytes must contain the URI string.
+        let raw = String::from_utf8_lossy(&buf);
+        assert!(
+            raw.contains("example.com"),
+            "rendered PDF must contain 'example.com' URI in its raw bytes"
+        );
+    }
+
+    #[tokio::test]
+    async fn document_without_toc_block_renders_normally() {
+        // Ensure no regression: docs without Block::Toc still work.
+        let r = renderer();
+        let doc = fixture_doc();
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r
+            .render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+        assert_eq!(outcome.page_count, 1);
     }
 
     /// Sweep test: no numeric literal (other than `0.0` / `1.0`) may
