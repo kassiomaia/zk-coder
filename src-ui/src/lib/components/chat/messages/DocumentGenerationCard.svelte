@@ -65,6 +65,8 @@
 		steps?: ProgressStep[];
 		/** Error message if failed */
 		error?: string;
+		/** Non-fatal warnings from the renderer (T3.2). */
+		warnings?: string[];
 		/** Whether details are expanded */
 		expanded?: boolean;
 		/** Session ID for this generation */
@@ -91,6 +93,7 @@
 		progress = null,
 		steps = [],
 		error,
+		warnings = [],
 		expanded = false,
 		sessionId,
 		artifactId,
@@ -450,6 +453,18 @@
 					<span class={styles.expandText}>Details</span>
 				</button>
 			{/if}
+
+			{#if !error && warnings && warnings.length > 0 && !isExpanded}
+				<button
+					class={[styles.actionBtn, styles.ghost].join(' ')}
+					onclick={toggleExpanded}
+					title="Show warnings"
+					type="button"
+				>
+					<AlertCircle size={12} />
+					<span class={styles.expandText}>{warnings.length} warning{warnings.length === 1 ? '' : 's'}</span>
+				</button>
+			{/if}
 		</div>
 	</div>
 
@@ -459,6 +474,20 @@
 			<div class={styles.errorDetails}>
 				<div class={styles.errorHeader}>Error details</div>
 				<pre class={styles.errorText}>{error}</pre>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Expanded warnings (T3.2) -->
+	{#if !error && warnings && warnings.length > 0 && isExpanded}
+		<div class={styles.details} transition:slide={{ duration: 200 }}>
+			<div class={styles.errorDetails}>
+				<div class={styles.errorHeader}>{warnings.length} warning{warnings.length === 1 ? '' : 's'}</div>
+				<ul class={styles.warningsList}>
+					{#each warnings as warning}
+						<li>{warning}</li>
+					{/each}
+				</ul>
 			</div>
 		</div>
 	{/if}

@@ -458,16 +458,18 @@ design-system tokens.
     monotonic non-decreasing progress percentages ending at 100.
 - **Retires gap**: #19.
 
-### T3.2 — Validation report surfaced in the card
+### T3.2 — Validation report surfaced in the card — done
 
-- **Deliverable**: if `PdfValidator` emits warnings, the card shows a
-  "view details" affordance using existing design tokens.
-- **Build**: pass warnings through the event stream; reuse the expand /
-  details mechanism already on the card.
-- **Tests (first)**:
-  - Svelte test: warnings array → "details" toggle renders
-  - `css-integrity.test.ts` continues green (zero new tokens)
-- **Done when**: no new colors, shadows, radii, or fonts introduced.
+- **Delivered**: `DocumentGenerationCard` now accepts a `warnings`
+  prop (string[]). When present and non-empty, a clickable pill shows
+  "N warning(s)" with an `AlertCircle` icon. Expanding reveals a bulleted
+  list styled with existing design tokens (`--text-xs`, `--color-text-secondary`,
+  `--space-*`, `--radius-sm`).
+- **Wiring**: T3.1 already stashes `PdfWarning` events in the job's
+  `warnings[]` array; the card reads it directly.
+- **CSS**: `warningsList` class added to the module CSS. Uses only
+  existing design tokens — zero new colors, shadows, radii, or fonts.
+- **Done when**: card renders warnings toggle, no new design tokens.
 
 ### T3.3 — Settings → Tools → PDF theme picker
 

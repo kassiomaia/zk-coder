@@ -514,6 +514,18 @@
 	word-break: break-word;
 }
 
+.warningsList {
+	font-size: var(--text-xs);
+	color: var(--color-text-secondary);
+	padding-left: var(--space-4);
+	margin: var(--space-1) 0 0;
+	list-style: disc;
+}
+
+.warningsList li {
+	margin-bottom: var(--space-1);
+}
+
 /* =====================
    Responsive Design
    ===================== */
