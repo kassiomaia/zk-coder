@@ -13,9 +13,9 @@ use crate::infrastructure::sqlite::migrations::{config, config_schema};
 use crate::core::config::{
     ApiKeyRepository, CachedWebSearchEntry, ConfigDomainError, ManualModelEntry,
     ManualModelRepository, Model, ModelRepository, ModelsSource, NewCachedWebSearchEntry,
-    OperationDefault, OperationDefaultsRepository, OperationType, Provider, ProviderRepository,
-    StoredWorkspaceSearchPolicy, ToolCredentialsRepository, WebSearchCacheRepository,
-    WorkspaceSearchPolicyRepository,
+    OperationDefault, OperationDefaultsRepository, OperationType, PdfThemeRepository, Provider,
+    ProviderRepository, StoredWorkspaceSearchPolicy, ToolCredentialsRepository,
+    WebSearchCacheRepository, WorkspaceSearchPolicyRepository,
 };
 
 // Re-export submodule functions
@@ -26,6 +26,7 @@ pub(crate) mod models;
 pub(crate) mod operation_defaults;
 pub(crate) mod providers;
 pub(crate) mod tool_credentials;
+pub(crate) mod pdf_theme;
 pub(crate) mod web_search_cache;
 pub(crate) mod workspace_search_policy;
 
@@ -876,6 +877,25 @@ impl WebSearchCacheRepository for SqliteConfigRepository {
 
     fn count(&self) -> crate::core::config::ConfigRepositoryResult<usize> {
         Self::count_web_search_cache(self).map_err(Into::into)
+    }
+}
+
+impl PdfThemeRepository for SqliteConfigRepository {
+    fn get_pdf_theme(
+        &self,
+        workspace_path: &str,
+    ) -> crate::core::config::ConfigRepositoryResult<Option<String>> {
+        let conn = self.acquire_lock()?;
+        pdf_theme::get_pdf_theme(&conn, workspace_path).map_err(Into::into)
+    }
+
+    fn set_pdf_theme(
+        &self,
+        workspace_path: &str,
+        theme_name: &str,
+    ) -> crate::core::config::ConfigRepositoryResult<()> {
+        let conn = self.acquire_lock()?;
+        pdf_theme::set_pdf_theme(&conn, workspace_path, theme_name).map_err(Into::into)
     }
 }
 

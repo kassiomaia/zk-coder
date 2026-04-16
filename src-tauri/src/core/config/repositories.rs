@@ -211,6 +211,15 @@ pub trait ManualModelRepository: Send + Sync {
 /// This trait serves as a convenient way to require all configuration repository
 /// capabilities behind a single dependency, which is useful for adapters
 /// that implement all the necessary traits.
+/// PDF theme selection persistence (T3.3).
+pub trait PdfThemeRepository: Send + Sync {
+    /// Returns the selected theme name for a workspace, or `None` for
+    /// the default.
+    fn get_pdf_theme(&self, workspace_path: &str) -> RepositoryResult<Option<String>>;
+    /// Persists the selected theme for a workspace.
+    fn set_pdf_theme(&self, workspace_path: &str, theme_name: &str) -> RepositoryResult<()>;
+}
+
 pub trait ConfigRepository:
     ProviderRepository
     + ModelRepository
@@ -220,6 +229,7 @@ pub trait ConfigRepository:
     + ToolCredentialsRepository
     + WorkspaceSearchPolicyRepository
     + WebSearchCacheRepository
+    + PdfThemeRepository
 {
 }
 
@@ -234,5 +244,6 @@ impl<T> ConfigRepository for T where
         + ToolCredentialsRepository
         + WorkspaceSearchPolicyRepository
         + WebSearchCacheRepository
+        + PdfThemeRepository
 {
 }

@@ -12,8 +12,9 @@ use serde::{Deserialize, Serialize};
 pub use repositories::{
     ApiKeyRepository, CachedWebSearchEntry, ConfigDomainError, ConfigRepository,
     ManualModelRepository, ModelRepository, NewCachedWebSearchEntry, OperationDefaultsRepository,
-    ProviderRepository, RepositoryResult as ConfigRepositoryResult, StoredWorkspaceSearchPolicy,
-    ToolCredentialsRepository, WebSearchCacheRepository, WorkspaceSearchPolicyRepository,
+    PdfThemeRepository, ProviderRepository, RepositoryResult as ConfigRepositoryResult,
+    StoredWorkspaceSearchPolicy, ToolCredentialsRepository, WebSearchCacheRepository,
+    WorkspaceSearchPolicyRepository,
 };
 
 /// Represents the type of an API provider.

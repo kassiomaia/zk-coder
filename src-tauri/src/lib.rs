@@ -224,6 +224,9 @@ pub fn run() {
             commands::config::workspace_policy::delete_workspace_search_policy,
             commands::config::web_search_cache::clear_web_search_cache,
             commands::config::web_search_cache::web_search_cache_stats,
+            commands::config::pdf_theme::list_pdf_themes,
+            commands::config::pdf_theme::get_pdf_theme,
+            commands::config::pdf_theme::set_pdf_theme,
             // LLM commands
             commands::llm::commands::send_chat_message,
             commands::llm::commands::send_chat_message_streaming,

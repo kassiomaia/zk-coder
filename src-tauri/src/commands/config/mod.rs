@@ -14,6 +14,8 @@ pub mod providers;
 mod state;
 #[cfg(all(test, feature = "integration-test"))]
 mod tests;
+/// Re-exports for PDF theme selection commands.
+pub mod pdf_theme;
 /// Re-exports for per-tool credentials commands (web search today).
 pub mod tool_credentials;
 /// Re-exports for web-search cache management commands.
@@ -46,6 +48,8 @@ pub use tool_credentials::{
     delete_tool_credentials, get_tool_credentials, has_tool_credentials, set_tool_credentials,
     test_web_search_credentials, WebSearchCredentialsPayload,
 };
+// Re-exports from pdf_theme module
+pub use pdf_theme::{get_pdf_theme, list_pdf_themes, set_pdf_theme};
 // Re-exports from web_search_cache module
 pub use web_search_cache::{clear_web_search_cache, web_search_cache_stats, CacheStats};
 // Re-exports from workspace_policy module

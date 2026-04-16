@@ -122,6 +122,13 @@ pub fn init_schema(conn: &Connection) -> Result<(), ConfigRepositoryError> {
 
         CREATE INDEX IF NOT EXISTS idx_web_search_cache_expires
         ON web_search_cache(expires_at);
+
+        -- PDF theme selection (T3.3)
+        CREATE TABLE IF NOT EXISTS pdf_theme_selection (
+            workspace_path  TEXT PRIMARY KEY,
+            theme_name      TEXT NOT NULL,
+            updated_at      TEXT NOT NULL
+        );
         ",
     )?;
     Ok(())
