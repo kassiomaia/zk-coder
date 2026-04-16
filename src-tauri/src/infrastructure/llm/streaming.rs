@@ -87,8 +87,8 @@ pub fn stream_to_events_with_thread(
         }
 
         // Flush any remaining buffered content
-        if let Some(_final_event) = batcher.finish(&request_id, thread_id.clone()) {
-            // Event yielded
+        if let Some(final_event) = batcher.finish(&request_id, thread_id.clone()) {
+            yield final_event;
         }
 
         // Get the final values before moving batcher
@@ -145,13 +145,13 @@ mod tests {
                 .await;
 
         // With default batching (min_flush_length: 20), small chunks are batched
-        // So we expect: Started, Complete (no intermediate Chunk events)
-        assert_eq!(events.len(), 2);
+        // and flushed at stream end: Started, Chunk, Complete
+        assert!(events.len() >= 2, "expected at least Started + Complete");
         assert!(matches!(
             &events[0],
             LlmEvent::Started { request_id, .. } if request_id == "req-1"
         ));
-        assert!(matches!(&events[1], LlmEvent::Complete { .. }));
+        assert!(matches!(events.last().unwrap(), LlmEvent::Complete { .. }));
     }
 
     #[tokio::test]
@@ -172,6 +172,35 @@ mod tests {
         });
 
         assert_eq!(complete_event.as_deref(), Some("Hello world"));
+    }
+
+    #[tokio::test]
+    async fn test_stream_final_flush_is_yielded() {
+        // Use high thresholds so chunks are never auto-flushed during the stream
+        let config = BatchingConfig::new(10_000, 10_000);
+        let chunks = futures::stream::iter(vec![
+            Ok(create_test_chunk("resp-1", "Hello", false)),
+            Ok(create_test_chunk("resp-1", " world", true)),
+        ]);
+
+        let events: Vec<LlmEvent> = stream_to_events_with_config(
+            "req-1".to_string(),
+            "gpt-4".to_string(),
+            Box::pin(chunks),
+            config,
+        )
+        .collect()
+        .await;
+
+        // With the fix, events should be: Started, Chunk("Hello world"), Complete
+        let chunk_events: Vec<&LlmEvent> = events
+            .iter()
+            .filter(|e| matches!(e, LlmEvent::Chunk { .. }))
+            .collect();
+        assert!(
+            !chunk_events.is_empty(),
+            "Final flush must yield a Chunk event before Complete; got events: {events:?}"
+        );
     }
 
     #[tokio::test]

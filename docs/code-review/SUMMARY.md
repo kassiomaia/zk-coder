@@ -61,6 +61,27 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | `application/tools/pdf/adapter.rs` | Markdown-to-block conversion |
 | `commands/documents/mod.rs` | Artifact store Mutex handling |
 | `lib.rs` | Application initialization, state management |
+| `application/tools/pdf/adapter.rs` | Markdown-to-block conversion; image file read with no path validation |
+| `application/tools/pdf/finalize.rs` | Draft-to-PDF build; render pipeline |
+| `infrastructure/tools/documents/pdf/final.rs` | PDF finalize tool; artifact write with unsanitized filename |
+| `infrastructure/tools/documents/pdf/start.rs` | PDF start tool; filename input normalization |
+| `infrastructure/tools/documents/pdf/write.rs` | Atomic write with temp file guard; cancellation |
+| `infrastructure/tools/documents/pdf/validate.rs` | Structural PDF validation via lopdf |
+| `infrastructure/tools/documents/pdf/render/font_cache.rs` | Font cache; mono slot assignment |
+| `infrastructure/tools/documents/pdf/render/layout.rs` | Page-break-aware layout engine |
+| `infrastructure/tools/documents/pdf/render/printpdf_renderer.rs` | Core renderer; image decode |
+| `infrastructure/tools/documents/pdf/artifacts.rs` | Artifact path resolution and legacy migration |
+| `infrastructure/tools/documents/pdf/list.rs` | List/get page tools |
+| `infrastructure/tools/documents/pdf/add_page.rs` | Add page tool; content input conversion |
+| `infrastructure/tools/documents/shared/draft_store.rs` | In-memory draft store; filename storage |
+| `infrastructure/llm/streaming.rs` | Stream-to-events conversion; batcher finish bug |
+| `infrastructure/llm/streaming/batcher.rs` | Chunk batching logic; clean |
+| `infrastructure/llm/anthropic/stream.rs` | SSE parsing, stream state; clean |
+| `commands/llm/orchestrator/streaming.rs` | Orchestrated streaming entry point; emit error handling |
+| `commands/llm/orchestrator/loop_runner.rs` | Bounded tool loop; serialization swallow, string-match retry |
+| `infrastructure/agent/approval.rs` | Approval queue; broadcast sends; clean |
+| `infrastructure/tools/fs/write_file.rs` | Path traversal validation; clean |
+| `infrastructure/sqlite/migrations/` | SQL queries; all parameterized; clean |
 
 ## Triage Results
 
@@ -83,12 +104,19 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | F5 | Low | High | API Design Smell | Inherent `from_str` shadows `std::str::FromStr` | **Fixed** |
 | F6 | Low | High | Correctness Risk | `TaskMode` vs `SubTaskMode` tool list divergence | **Fixed** |
 | F7 | Medium | High | Correctness Risk | Inconsistent path traversal validation | **Fixed** |
+| F8 | High | High | Correctness Risk / Security | Arbitrary file read via image path in PDF adapter | **Fixed** |
+| F9 | High | High | Correctness Risk / Security | Filename path traversal in PDF finalize | **Fixed** |
+| F10 | Medium | High | Correctness Risk | Mono font slot uses proportional font | **Fixed** |
+| F11 | Medium | Medium | Performance Smell / Correctness Risk | No image size limit before decode | **Fixed** |
+| F12 | Medium | High | Correctness Risk | Streaming batcher final flush event dropped | **Fixed** |
+| F13 | Medium | High | Correctness Risk | Tool output serialization silently swallowed | **Fixed** |
+| F14 | Low | High | Maintainability Smell | Retry classification uses fragile string matching | **Fixed** |
 
 ## Resolution Summary
-- Fixes implemented: 7 of 7 findings (F1, F2, F3, F4, F5, F6, F7)
+- Fixes implemented: 14 of 14 findings (F1–F14)
 - Fixes deferred: 0
 - False positives found: 0
-- Tests added: 34 (13 serde compat + 16 state transition + 5 FromStr trait)
+- Tests added: 44 (34 from first run + 9 from second run + 1 from third run)
 - Frontend changes required: No — IPC contracts byte-identical
 
 ### Fix Log
@@ -101,6 +129,13 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | 5 | F1 — Duplicate type system | Fixed | Yes | 13 | 4-phase consolidation: serde compat shim, flip AgentService trait, flip repository traits, delete entities.rs. ~45 files touched. |
 | 6 | F6 — TaskMode tool list divergence | Fixed | Yes | 0 | Resolved automatically by F1 Phase 3 — `entities::TaskMode` no longer exists; only canonical `SubTaskMode` remains |
 | 7 | F5 — `FromStr` shadowing | Fixed | Yes | 5 | Added `impl FromStr` for 4 types; renamed inherent fallback-returning methods to `from_str_or_default`; `OperationType` inherent deleted entirely |
+| 8 | F8 — Arbitrary file read via image path | Fixed | Yes | 2 | Added `Component::ParentDir` rejection + 50MB size limit in `image_to_blocks()`; added `InvalidImagePath` and `ImageTooLarge` error variants |
+| 9 | F9 — Filename path traversal | Fixed | Yes | 5 | Added `sanitize_filename()` in `pdf_start` — strips directory components, rejects degenerate inputs |
+| 10 | F10 — Mono font slot uses proportional font | Fixed | Yes | 2 | Bundled `LiberationMono-Regular.ttf`; updated `bundled_report_cache()` to use it for `FontSlot::Mono` |
+| 11 | F11 — No image size limit before decode | Fixed | Yes | 0 | Combined with F8 — `MAX_IMAGE_FILE_BYTES` (50MB) check before `std::fs::read()` |
+| 12 | F12 — Streaming batcher final flush dropped | Fixed | Yes | 1 (1 updated) | Changed `_final_event` → `final_event` + `yield` in `streaming.rs:90` |
+| 13 | F13 — Tool output serialization swallowed | Fixed | Yes | 0 | Replaced `unwrap_or_default()` with `unwrap_or_else` + `log::warn!` in `loop_runner.rs:215` |
+| 14 | F14 — Retry string matching | Fixed | Yes | 0 | Replaced 3-way string matching with `err.is_retryable()` in `loop_runner.rs:264` |
 
 ### Pre-existing Test Failure
 - `test_derive_thread_title_long` in `sqlite/migrations/chat.rs` — assertion `result.len() <= 54` fails. Unrelated to audit findings.

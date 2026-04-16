@@ -62,4 +62,19 @@ pub enum PdfModelError {
         /// Number of columns the table declares.
         columns: usize,
     },
+
+    /// An image path contains parent-directory traversal components.
+    #[error("image path contains parent-directory components: {0}")]
+    InvalidImagePath(String),
+
+    /// An image file exceeds the maximum allowed size.
+    #[error("image file '{path}' is {size} bytes, exceeding {max} byte limit")]
+    ImageTooLarge {
+        /// The path that was checked.
+        path: String,
+        /// Actual file size in bytes.
+        size: u64,
+        /// Maximum allowed size in bytes.
+        max: u64,
+    },
 }

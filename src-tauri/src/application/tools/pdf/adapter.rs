@@ -57,7 +57,25 @@ fn text_to_blocks(text: &str) -> Result<Vec<Block>, PdfModelError> {
 
 // ── Image ─────────────────────────────────────────────────────────
 
+const MAX_IMAGE_FILE_BYTES: u64 = 50 * 1024 * 1024;
+
 fn image_to_blocks(path: &str, caption: Option<&str>) -> Result<Vec<Block>, PdfModelError> {
+    let image_path = std::path::Path::new(path);
+    if image_path
+        .components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
+        return Err(PdfModelError::InvalidImagePath(path.to_string()));
+    }
+    if let Ok(meta) = std::fs::metadata(image_path) {
+        if meta.len() > MAX_IMAGE_FILE_BYTES {
+            return Err(PdfModelError::ImageTooLarge {
+                path: path.to_string(),
+                size: meta.len(),
+                max: MAX_IMAGE_FILE_BYTES,
+            });
+        }
+    }
     let data = std::fs::read(path).unwrap_or_default();
     if data.is_empty() {
         // Fall back to placeholder text when the file is missing or
@@ -755,6 +773,30 @@ mod tests {
         .unwrap();
         assert_eq!(blocks.len(), 2);
         assert_paragraph_text(&blocks[0], "[Image: /nonexistent/file.png]");
+    }
+
+    #[test]
+    fn image_path_with_parent_dir_rejected() {
+        let result = page_to_blocks(&PdfPageContent::Image {
+            path: "../../etc/passwd".to_string(),
+            caption: None,
+        });
+        assert!(result.is_err(), "path with .. must be rejected");
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, PdfModelError::InvalidImagePath(_)),
+            "expected InvalidImagePath, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn image_absolute_path_without_traversal_accepted() {
+        let blocks = page_to_blocks(&PdfPageContent::Image {
+            path: "/nonexistent/absolute/image.png".to_string(),
+            caption: None,
+        })
+        .unwrap();
+        assert!(!blocks.is_empty());
     }
 
     // -- Edge cases --

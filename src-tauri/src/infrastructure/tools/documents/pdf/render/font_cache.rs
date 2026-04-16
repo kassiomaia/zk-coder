@@ -246,13 +246,15 @@ pub fn bundled_report_cache() -> Result<FontCache, RenderError> {
         include_bytes!("../../../../../../resources/pdf/fonts/LiberationSans-Bold.ttf");
     const ITALIC: &[u8] =
         include_bytes!("../../../../../../resources/pdf/fonts/LiberationSans-Italic.ttf");
+    const MONO: &[u8] =
+        include_bytes!("../../../../../../resources/pdf/fonts/LiberationMono-Regular.ttf");
     const DEJAVU: &[u8] =
         include_bytes!("../../../../../../resources/pdf/fonts/DejaVuSans.ttf");
 
     let regular = LoadedFont::from_bytes(FontSlot::Regular, REGULAR.to_vec())?;
     let bold = LoadedFont::from_bytes(FontSlot::Bold, BOLD.to_vec())?;
     let italic = LoadedFont::from_bytes(FontSlot::Italic, ITALIC.to_vec())?;
-    let mono = LoadedFont::from_bytes(FontSlot::Mono, REGULAR.to_vec())?;
+    let mono = LoadedFont::from_bytes(FontSlot::Mono, MONO.to_vec())?;
     let fallback = LoadedFont::from_bytes(FontSlot::Fallback(0), DEJAVU.to_vec())?;
     Ok(FontCache::from_parts(regular, bold, italic, mono, vec![fallback]))
 }
@@ -304,7 +306,7 @@ mod tests {
             regular: "LiberationSans-Regular.ttf".to_string(),
             bold: "LiberationSans-Bold.ttf".to_string(),
             italic: "LiberationSans-Italic.ttf".to_string(),
-            mono: "LiberationSans-Regular.ttf".to_string(),
+            mono: "LiberationMono-Regular.ttf".to_string(),
             fallbacks: vec!["DejaVuSans.ttf".to_string()],
         };
         FontCache::load(&spec, &resources_root()).expect("fonts load")
@@ -342,6 +344,38 @@ mod tests {
         assert_eq!(c.primary_for(&italic).slot(), FontSlot::Italic);
 
         assert_eq!(c.primary_for(&InlineStyle::PLAIN).slot(), FontSlot::Regular);
+    }
+
+    #[test]
+    fn mono_slot_is_monospaced_font() {
+        let c = cache();
+        let mono = c.primary_for(&InlineStyle {
+            code: true,
+            bold: false,
+            italic: false,
+        });
+        assert_eq!(mono.slot(), FontSlot::Mono);
+        let family = mono.family().to_lowercase();
+        assert!(
+            family.contains("mono"),
+            "mono slot must be a monospaced font, got '{}'",
+            mono.family()
+        );
+    }
+
+    #[test]
+    fn bundled_cache_mono_is_monospaced() {
+        let c = bundled_report_cache().expect("bundled cache loads");
+        let mono = c.primary_for(&InlineStyle {
+            code: true,
+            bold: false,
+            italic: false,
+        });
+        assert!(
+            mono.family().to_lowercase().contains("mono"),
+            "bundled mono slot must be monospaced, got '{}'",
+            mono.family()
+        );
     }
 
     #[test]

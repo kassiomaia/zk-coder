@@ -212,7 +212,13 @@ Enable a model/provider with native tool-calling support for orchestrated execut
             core_messages.push(crate::core::llm::entities::ChatMessage {
                 role: CoreMessageRole::Tool,
                 content: MessageContent::Text(
-                    serde_json::to_string(&result.output).unwrap_or_default(),
+                    serde_json::to_string(&result.output).unwrap_or_else(|e| {
+                        log::warn!(
+                            "[LLM] Failed to serialize tool output for call_id={}: {e}",
+                            result.call_id
+                        );
+                        String::new()
+                    }),
                 ),
                 tool_calls: Vec::new(),
                 tool_result: Some(crate::core::llm::entities::ToolResult {
@@ -261,10 +267,7 @@ pub async fn run_chat_with_retry(
         match result {
             Ok(response) => return Ok(response),
             Err(err) => {
-                let is_retryable = err.to_string().to_lowercase().contains("timeout")
-                    || err.to_string().to_lowercase().contains("rate limit")
-                    || err.to_string().to_lowercase().contains("temporary");
-                let can_retry = is_retryable && attempt < ORCHESTRATOR_LLM_MAX_RETRIES;
+                let can_retry = err.is_retryable() && attempt < ORCHESTRATOR_LLM_MAX_RETRIES;
 
                 if !can_retry {
                     return Err(err.to_string());
