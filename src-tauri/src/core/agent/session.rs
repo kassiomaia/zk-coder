@@ -7,7 +7,7 @@
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use uuid::Uuid;
 
 use super::types::{ActionPreview, ActionType, AgentId};
@@ -118,7 +118,13 @@ impl AgentSession {
 ///
 /// This enum defines a state machine that governs the behavior of an `AgentSession`
 /// as it progresses through its execution.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// # Serialization
+///
+/// Serializes with `#[serde(tag = "type")]` (canonical form). Deserialization
+/// accepts both the canonical `"type"` tag and the legacy `"state"` tag used by
+/// pre-consolidation code paths; see the manual `Deserialize` impl below.
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SessionState {
     /// The session is being initialized.
@@ -243,6 +249,190 @@ impl SessionState {
             }
             // Terminal states
             Self::Finished { .. } | Self::Cancelled { .. } => false,
+        }
+    }
+}
+
+/// Shadow of [`SessionState`] used only to reuse serde's derived tag-based
+/// deserializer for the canonical `"type"`-tagged form. This is the private
+/// half of the compatibility deserializer below.
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum SessionStateCanonical {
+    Launching,
+    Running {
+        #[serde(rename = "currentStep")]
+        current_step: u32,
+        #[serde(rename = "contextUsage")]
+        context_usage: f64,
+    },
+    WaitForRequest {
+        #[serde(rename = "lastActionAt")]
+        last_action_at: DateTime<Utc>,
+    },
+    UserInputRequired {
+        #[serde(rename = "pendingActionIds")]
+        pending_action_ids: Vec<String>,
+    },
+    Finished {
+        #[serde(rename = "completedAt")]
+        completed_at: DateTime<Utc>,
+    },
+    Cancelled {
+        reason: String,
+    },
+    Error {
+        message: String,
+        recoverable: bool,
+    },
+    Paused {
+        #[serde(rename = "pausedAt")]
+        paused_at: DateTime<Utc>,
+        message: String,
+        #[serde(rename = "currentSubtaskId", default)]
+        current_subtask_id: Option<String>,
+    },
+}
+
+impl From<SessionStateCanonical> for SessionState {
+    fn from(value: SessionStateCanonical) -> Self {
+        match value {
+            SessionStateCanonical::Launching => Self::Launching,
+            SessionStateCanonical::Running {
+                current_step,
+                context_usage,
+            } => Self::Running {
+                current_step,
+                context_usage,
+            },
+            SessionStateCanonical::WaitForRequest { last_action_at } => {
+                Self::WaitForRequest { last_action_at }
+            }
+            SessionStateCanonical::UserInputRequired { pending_action_ids } => {
+                Self::UserInputRequired { pending_action_ids }
+            }
+            SessionStateCanonical::Finished { completed_at } => Self::Finished { completed_at },
+            SessionStateCanonical::Cancelled { reason } => Self::Cancelled { reason },
+            SessionStateCanonical::Error {
+                message,
+                recoverable,
+            } => Self::Error {
+                message,
+                recoverable,
+            },
+            SessionStateCanonical::Paused {
+                paused_at,
+                message,
+                current_subtask_id,
+            } => Self::Paused {
+                paused_at,
+                message,
+                current_subtask_id,
+            },
+        }
+    }
+}
+
+/// Compatibility prefix used by the service layer to tag recoverable errors.
+/// Mirrored here (rather than imported from the application layer) so the core
+/// module stays free of upward dependencies. Keep in sync with
+/// `application::agent::service::AgentServiceImpl::is_recoverable_error_message`.
+const RECOVERABLE_ERROR_PREFIX: &str = "[recoverable]";
+
+fn parse_legacy_error(error: &str) -> (bool, String) {
+    if let Some(rest) = error.strip_prefix(RECOVERABLE_ERROR_PREFIX) {
+        (true, rest.trim_start().to_string())
+    } else {
+        (false, error.to_string())
+    }
+}
+
+/// Deserializes the historical legacy `#[serde(tag = "state")]` shape into the
+/// canonical [`SessionState`]. Only the variants that appeared in the pre-
+/// consolidation `entities.rs` enum are handled; anything else is an error.
+fn deserialize_legacy_state<E: serde::de::Error>(
+    value: &serde_json::Value,
+) -> Result<SessionState, E> {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| E::custom("legacy SessionState must be a JSON object"))?;
+    let variant = obj
+        .get("state")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| E::custom("legacy SessionState missing `state` discriminator"))?;
+
+    // Helpers used across arms.
+    let parse_dt = |key: &str| -> Result<DateTime<Utc>, E> {
+        let v = obj
+            .get(key)
+            .ok_or_else(|| E::custom(format!("legacy SessionState missing `{key}`")))?;
+        serde_json::from_value::<DateTime<Utc>>(v.clone())
+            .map_err(|err| E::custom(format!("legacy SessionState invalid `{key}`: {err}")))
+    };
+    let get_str = |key: &str| -> String {
+        obj.get(key)
+            .and_then(|v| v.as_str())
+            .map(String::from)
+            .unwrap_or_default()
+    };
+
+    match variant {
+        "processing" => Ok(SessionState::Running {
+            current_step: 0,
+            context_usage: 0.0,
+        }),
+        "awaiting_approval" => {
+            let action_id = get_str("action_id");
+            let ids = if action_id.is_empty() {
+                Vec::new()
+            } else {
+                vec![action_id]
+            };
+            Ok(SessionState::UserInputRequired {
+                pending_action_ids: ids,
+            })
+        }
+        "wait_for_request" => Ok(SessionState::WaitForRequest {
+            last_action_at: parse_dt("last_action_at")?,
+        }),
+        "finished" => Ok(SessionState::Finished {
+            completed_at: parse_dt("completed_at")?,
+        }),
+        "cancelled" => Ok(SessionState::Cancelled {
+            reason: get_str("reason"),
+        }),
+        "error" => {
+            let error = get_str("error");
+            let (recoverable, message) = parse_legacy_error(&error);
+            Ok(SessionState::Error {
+                message,
+                recoverable,
+            })
+        }
+        "paused" => Ok(SessionState::Paused {
+            paused_at: parse_dt("paused_at")?,
+            message: get_str("message"),
+            current_subtask_id: None,
+        }),
+        other => Err(E::custom(format!(
+            "unknown legacy SessionState variant: {other}"
+        ))),
+    }
+}
+
+impl<'de> Deserialize<'de> for SessionState {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let is_legacy = value
+            .as_object()
+            .map(|obj| !obj.contains_key("type") && obj.contains_key("state"))
+            .unwrap_or(false);
+        if is_legacy {
+            deserialize_legacy_state::<D::Error>(&value)
+        } else {
+            SessionStateCanonical::deserialize(value)
+                .map(Into::into)
+                .map_err(serde::de::Error::custom)
         }
     }
 }
@@ -477,5 +667,188 @@ mod tests {
         assert_eq!(finished().variant_name(), "Finished");
         assert_eq!(cancelled().variant_name(), "Cancelled");
         assert_eq!(paused().variant_name(), "Paused");
+    }
+
+    // ---- Legacy serde compatibility ----
+
+    #[test]
+    fn deserializes_canonical_running() {
+        let json = serde_json::json!({
+            "type": "running",
+            "currentStep": 3,
+            "contextUsage": 0.42,
+        });
+        let state: SessionState = serde_json::from_value(json).expect("canonical running");
+        match state {
+            SessionState::Running {
+                current_step,
+                context_usage,
+            } => {
+                assert_eq!(current_step, 3);
+                assert!((context_usage - 0.42).abs() < f64::EPSILON);
+            }
+            other => panic!("expected Running, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn legacy_processing_deserializes_to_running() {
+        let json = serde_json::json!({
+            "state": "processing",
+            "started_at": "2026-04-16T12:00:00Z",
+        });
+        let state: SessionState = serde_json::from_value(json).expect("legacy processing");
+        match state {
+            SessionState::Running {
+                current_step,
+                context_usage,
+            } => {
+                assert_eq!(current_step, 0);
+                assert!((context_usage).abs() < f64::EPSILON);
+            }
+            other => panic!("expected Running, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn legacy_awaiting_approval_deserializes_to_user_input_required() {
+        let json = serde_json::json!({
+            "state": "awaiting_approval",
+            "action_id": "act-1",
+            "requested_at": "2026-04-16T12:00:00Z",
+        });
+        let state: SessionState = serde_json::from_value(json).expect("legacy awaiting_approval");
+        match state {
+            SessionState::UserInputRequired { pending_action_ids } => {
+                assert_eq!(pending_action_ids, vec!["act-1".to_string()]);
+            }
+            other => panic!("expected UserInputRequired, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn legacy_finished_deserializes_dropping_result() {
+        let json = serde_json::json!({
+            "state": "finished",
+            "completed_at": "2026-04-16T12:00:00Z",
+            "result": "this field is dropped during migration",
+        });
+        let state: SessionState = serde_json::from_value(json).expect("legacy finished");
+        assert!(matches!(state, SessionState::Finished { .. }));
+    }
+
+    #[test]
+    fn legacy_cancelled_deserializes_dropping_cancelled_at() {
+        let json = serde_json::json!({
+            "state": "cancelled",
+            "cancelled_at": "2026-04-16T12:00:00Z",
+            "reason": "user cancelled",
+        });
+        let state: SessionState = serde_json::from_value(json).expect("legacy cancelled");
+        match state {
+            SessionState::Cancelled { reason } => assert_eq!(reason, "user cancelled"),
+            other => panic!("expected Cancelled, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn legacy_error_recoverable_prefix_is_classified() {
+        let json = serde_json::json!({
+            "state": "error",
+            "error_at": "2026-04-16T12:00:00Z",
+            "error": "[recoverable] transient timeout",
+        });
+        let state: SessionState = serde_json::from_value(json).expect("legacy error");
+        match state {
+            SessionState::Error {
+                message,
+                recoverable,
+            } => {
+                assert!(recoverable);
+                assert_eq!(message, "transient timeout");
+            }
+            other => panic!("expected Error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn legacy_error_without_prefix_is_unrecoverable() {
+        let json = serde_json::json!({
+            "state": "error",
+            "error_at": "2026-04-16T12:00:00Z",
+            "error": "fatal configuration error",
+        });
+        let state: SessionState = serde_json::from_value(json).expect("legacy error");
+        match state {
+            SessionState::Error {
+                message,
+                recoverable,
+            } => {
+                assert!(!recoverable);
+                assert_eq!(message, "fatal configuration error");
+            }
+            other => panic!("expected Error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn legacy_paused_deserializes_with_none_subtask_id() {
+        let json = serde_json::json!({
+            "state": "paused",
+            "paused_at": "2026-04-16T12:00:00Z",
+            "message": "awaiting input",
+        });
+        let state: SessionState = serde_json::from_value(json).expect("legacy paused");
+        match state {
+            SessionState::Paused {
+                message,
+                current_subtask_id,
+                ..
+            } => {
+                assert_eq!(message, "awaiting input");
+                assert!(current_subtask_id.is_none());
+            }
+            other => panic!("expected Paused, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn legacy_wait_for_request_deserializes_unchanged() {
+        let json = serde_json::json!({
+            "state": "wait_for_request",
+            "last_action_at": "2026-04-16T12:00:00Z",
+        });
+        let state: SessionState =
+            serde_json::from_value(json).expect("legacy wait_for_request");
+        assert!(matches!(state, SessionState::WaitForRequest { .. }));
+    }
+
+    #[test]
+    fn canonical_serialization_roundtrips() {
+        let original = SessionState::Running {
+            current_step: 7,
+            context_usage: 0.8,
+        };
+        let json = serde_json::to_value(&original).expect("serialize");
+        let roundtripped: SessionState = serde_json::from_value(json).expect("deserialize");
+        assert!(
+            matches!(
+                roundtripped,
+                SessionState::Running {
+                    current_step: 7,
+                    ..
+                }
+            ),
+            "roundtrip failed: {roundtripped:?}"
+        );
+    }
+
+    #[test]
+    fn unknown_legacy_variant_is_an_error() {
+        let json = serde_json::json!({
+            "state": "invalid_variant",
+        });
+        let err: Result<SessionState, _> = serde_json::from_value(json);
+        assert!(err.is_err());
     }
 }

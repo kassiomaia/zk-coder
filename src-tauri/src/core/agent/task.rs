@@ -105,6 +105,10 @@ impl AgentTask {
 }
 
 /// The execution status of a task or sub-task.
+///
+/// Deserialization accepts the legacy `"aborted"` discriminator as an alias
+/// for [`TaskStatus::Cancelled`], matching the pre-consolidation
+/// `entities::TaskStatus::Aborted` variant so historical DB rows still load.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
@@ -119,6 +123,7 @@ pub enum TaskStatus {
     /// The task has failed.
     Failed,
     /// The task was cancelled by the user.
+    #[serde(alias = "aborted")]
     Cancelled,
 }
 
@@ -758,5 +763,22 @@ mod tests {
 
         task.add_step(step);
         assert_eq!(task.steps.len(), 1);
+    }
+
+    // ---- Legacy serde compatibility ----
+
+    #[test]
+    fn legacy_aborted_deserializes_to_cancelled() {
+        let json = serde_json::json!("aborted");
+        let status: TaskStatus = serde_json::from_value(json).expect("aborted alias");
+        assert_eq!(status, TaskStatus::Cancelled);
+    }
+
+    #[test]
+    fn canonical_cancelled_roundtrips() {
+        let json = serde_json::to_value(TaskStatus::Cancelled).expect("serialize");
+        assert_eq!(json, serde_json::json!("cancelled"));
+        let status: TaskStatus = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(status, TaskStatus::Cancelled);
     }
 }
