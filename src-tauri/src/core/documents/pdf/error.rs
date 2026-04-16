@@ -45,4 +45,17 @@ pub enum PdfModelError {
     /// A callout was constructed with empty body text.
     #[error("callout body must not be empty")]
     EmptyCallout,
+
+    /// A table was constructed with no columns.
+    #[error("table must have at least one column")]
+    EmptyTableColumns,
+
+    /// A table row had a cell count that differs from the column count.
+    #[error("table row has {cells} cells but table defines {columns} columns")]
+    TableCellCountMismatch {
+        /// Number of cells the row provides.
+        cells: usize,
+        /// Number of columns the table declares.
+        columns: usize,
+    },
 }

@@ -52,6 +52,10 @@ pub struct Palette {
     pub callout_bg: Rgb,
     /// Border / accent color for callout boxes.
     pub callout_border: Rgb,
+    /// Background fill for table header rows.
+    pub table_header_bg: Rgb,
+    /// Table border / gridline color.
+    pub table_border: Rgb,
 }
 
 /// Block-level spacing multipliers.
@@ -64,6 +68,8 @@ pub struct Spacing {
     pub list_indent_mm: f32,
     /// Internal padding around code blocks and callouts, in mm.
     pub block_padding_mm: f32,
+    /// Internal cell padding within table cells, in mm.
+    pub table_cell_padding_mm: f32,
 }
 
 /// Page-level defaults applied when the draft does not override them.
@@ -197,11 +203,22 @@ impl Theme {
                     g: 0.44,
                     b: 0.78,
                 },
+                table_header_bg: Rgb {
+                    r: 0.92,
+                    g: 0.92,
+                    b: 0.94,
+                },
+                table_border: Rgb {
+                    r: 0.75,
+                    g: 0.75,
+                    b: 0.78,
+                },
             },
             spacing: Spacing {
                 block_gap: 0.4,
                 list_indent_mm: 6.0,
                 block_padding_mm: 2.5,
+                table_cell_padding_mm: 1.5,
             },
             page_defaults: PageDefaults { margin_mm: 20.0 },
             decorations: Decorations {

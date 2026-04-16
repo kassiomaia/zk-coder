@@ -337,12 +337,177 @@ impl Callout {
     }
 }
 
+/// Column width specification for a [`TableBlock`].
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ColumnWidth {
+    /// Fixed width in millimetres.
+    Fixed {
+        /// Width in mm.
+        mm: f32,
+    },
+    /// Proportional share of the remaining width.
+    ///
+    /// After all `Fixed` columns are satisfied, the leftover width is
+    /// divided among `Auto` columns in proportion to their `weight`.
+    Auto {
+        /// Relative weight (default `1.0`).
+        #[serde(default = "default_auto_weight")]
+        weight: f32,
+    },
+}
+
+fn default_auto_weight() -> f32 {
+    1.0
+}
+
+impl ColumnWidth {
+    /// Shorthand for a fixed-width column.
+    #[must_use]
+    pub const fn fixed(mm: f32) -> Self {
+        Self::Fixed { mm }
+    }
+
+    /// Shorthand for an auto-width column with weight `1.0`.
+    #[must_use]
+    pub fn auto() -> Self {
+        Self::Auto {
+            weight: default_auto_weight(),
+        }
+    }
+}
+
+/// A single cell in a [`TableRow`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TableCell {
+    runs: Vec<InlineRun>,
+}
+
+impl TableCell {
+    /// Builds a cell from its inline runs.
+    ///
+    /// An empty `runs` vec produces a blank cell — this is allowed so
+    /// that sparse tables (with intentional empty cells) can be built.
+    #[must_use]
+    pub fn new(runs: Vec<InlineRun>) -> Self {
+        Self { runs }
+    }
+
+    /// Convenience: a single plain-text cell.
+    ///
+    /// # Errors
+    /// Propagates [`PdfModelError::EmptyInlineRun`] if `text` is empty.
+    pub fn plain(text: impl Into<String>) -> Result<Self, PdfModelError> {
+        Ok(Self::new(vec![InlineRun::new(text)?]))
+    }
+
+    /// Returns the ordered inline runs.
+    #[must_use]
+    pub fn runs(&self) -> &[InlineRun] {
+        &self.runs
+    }
+}
+
+/// A row of [`TableCell`]s.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TableRow {
+    cells: Vec<TableCell>,
+}
+
+impl TableRow {
+    /// Builds a row from its cells.
+    #[must_use]
+    pub fn new(cells: Vec<TableCell>) -> Self {
+        Self { cells }
+    }
+
+    /// Returns the ordered cells.
+    #[must_use]
+    pub fn cells(&self) -> &[TableCell] {
+        &self.cells
+    }
+}
+
+/// Table block with optional header row and body rows.
+///
+/// Column widths drive the renderer's horizontal layout. Each row must
+/// have exactly as many cells as the table has columns — construction
+/// validates this so the renderer never panics on index-out-of-bounds.
+///
+/// The optional `header` is repeated by the renderer whenever the table
+/// overflows onto a new page.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TableBlock {
+    columns: Vec<ColumnWidth>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    header: Option<TableRow>,
+    rows: Vec<TableRow>,
+}
+
+impl TableBlock {
+    /// Builds a table.
+    ///
+    /// # Errors
+    /// - [`PdfModelError::EmptyTableColumns`] if `columns` is empty.
+    /// - [`PdfModelError::TableCellCountMismatch`] if any row (header
+    ///   or body) has a different cell count than `columns.len()`.
+    pub fn new(
+        columns: Vec<ColumnWidth>,
+        header: Option<TableRow>,
+        rows: Vec<TableRow>,
+    ) -> Result<Self, PdfModelError> {
+        if columns.is_empty() {
+            return Err(PdfModelError::EmptyTableColumns);
+        }
+        let col_count = columns.len();
+        if let Some(ref h) = header {
+            if h.cells().len() != col_count {
+                return Err(PdfModelError::TableCellCountMismatch {
+                    cells: h.cells().len(),
+                    columns: col_count,
+                });
+            }
+        }
+        for row in &rows {
+            if row.cells().len() != col_count {
+                return Err(PdfModelError::TableCellCountMismatch {
+                    cells: row.cells().len(),
+                    columns: col_count,
+                });
+            }
+        }
+        Ok(Self {
+            columns,
+            header,
+            rows,
+        })
+    }
+
+    /// Returns the column width specifications.
+    #[must_use]
+    pub fn columns(&self) -> &[ColumnWidth] {
+        &self.columns
+    }
+
+    /// Returns the optional header row.
+    #[must_use]
+    pub fn header(&self) -> Option<&TableRow> {
+        self.header.as_ref()
+    }
+
+    /// Returns the body rows.
+    #[must_use]
+    pub fn rows(&self) -> &[TableRow] {
+        &self.rows
+    }
+}
+
 /// Block-level element.
 ///
 /// M2 extends the M1 trio (paragraph / heading / page break) with rich
-/// blocks: lists, code, and callouts. Adding a variant requires
+/// blocks: lists, code, callouts, and tables. Adding a variant requires
 /// matching renderer support — the layout engine `match` is exhaustive.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Block {
     /// Paragraph of inline runs.
@@ -357,6 +522,8 @@ pub enum Block {
     Code(CodeBlock),
     /// Callout / admonition box.
     Callout(Callout),
+    /// Table with optional repeating header.
+    Table(TableBlock),
 }
 
 #[cfg(test)]
@@ -502,5 +669,78 @@ mod tests {
             let back: Block = serde_json::from_str(&json).unwrap();
             assert_eq!(&back, block);
         }
+    }
+
+    #[test]
+    fn table_rejects_empty_columns() {
+        assert_eq!(
+            TableBlock::new(vec![], None, vec![]).unwrap_err(),
+            PdfModelError::EmptyTableColumns
+        );
+    }
+
+    #[test]
+    fn table_rejects_cell_count_mismatch_in_header() {
+        let cols = vec![ColumnWidth::auto(), ColumnWidth::auto()];
+        let header = TableRow::new(vec![TableCell::plain("only one").unwrap()]);
+        let err = TableBlock::new(cols, Some(header), vec![]).unwrap_err();
+        assert!(matches!(
+            err,
+            PdfModelError::TableCellCountMismatch { cells: 1, columns: 2 }
+        ));
+    }
+
+    #[test]
+    fn table_rejects_cell_count_mismatch_in_body() {
+        let cols = vec![ColumnWidth::auto()];
+        let row = TableRow::new(vec![
+            TableCell::plain("a").unwrap(),
+            TableCell::plain("b").unwrap(),
+        ]);
+        let err = TableBlock::new(cols, None, vec![row]).unwrap_err();
+        assert!(matches!(
+            err,
+            PdfModelError::TableCellCountMismatch { cells: 2, columns: 1 }
+        ));
+    }
+
+    #[test]
+    fn table_with_header_serde_roundtrip() {
+        let cols = vec![ColumnWidth::fixed(40.0), ColumnWidth::auto()];
+        let header = TableRow::new(vec![
+            TableCell::plain("Name").unwrap(),
+            TableCell::plain("Value").unwrap(),
+        ]);
+        let body = vec![TableRow::new(vec![
+            TableCell::plain("alpha").unwrap(),
+            TableCell::plain("1").unwrap(),
+        ])];
+        let table = TableBlock::new(cols, Some(header), body).unwrap();
+        let json = serde_json::to_string(&table).unwrap();
+        let back: TableBlock = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.columns().len(), 2);
+        assert!(back.header().is_some());
+        assert_eq!(back.rows().len(), 1);
+    }
+
+    #[test]
+    fn table_allows_empty_body_rows() {
+        let cols = vec![ColumnWidth::auto()];
+        let table = TableBlock::new(cols, None, vec![]).unwrap();
+        assert!(table.rows().is_empty());
+    }
+
+    #[test]
+    fn block_table_serde_roundtrip() {
+        let table = TableBlock::new(
+            vec![ColumnWidth::auto()],
+            None,
+            vec![TableRow::new(vec![TableCell::plain("x").unwrap()])],
+        )
+        .unwrap();
+        let block = Block::Table(table);
+        let json = serde_json::to_string(&block).unwrap();
+        let back: Block = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, block);
     }
 }

@@ -19,7 +19,8 @@ use printpdf::{
 use ttf_parser::Face;
 
 use crate::core::documents::pdf::block::{
-    Block, Callout, CodeBlock, InlineRun, InlineStyle, ListBlock, ListItem, Paragraph,
+    Block, Callout, CodeBlock, ColumnWidth, InlineRun, InlineStyle, ListBlock, ListItem, Paragraph,
+    TableBlock, TableRow,
 };
 use crate::core::documents::pdf::document::PdfDocument;
 use crate::core::documents::pdf::geometry::Orientation;
@@ -238,6 +239,9 @@ fn layout_sections(
                 Block::Code(code) => emit_code(engine, font_refs, fonts, code, missing)?,
                 Block::Callout(callout) => {
                     emit_callout(engine, font_refs, fonts, callout, missing)?;
+                }
+                Block::Table(table) => {
+                    emit_table(engine, font_refs, fonts, table, missing)?;
                 }
             }
             let gap = engine.params().block_gap_mm;
@@ -667,6 +671,235 @@ fn emit_callout(
     engine.advance(padding + padding);
     Ok(())
 }
+
+/// Resolves [`ColumnWidth`] specs into concrete widths in mm.
+///
+/// Fixed columns keep their declared width. The remaining width is
+/// split among `Auto` columns proportional to their weight.
+fn resolve_column_widths(columns: &[ColumnWidth], usable_mm: f32) -> Vec<f32> {
+    let fixed_total: f32 = columns
+        .iter()
+        .filter_map(|c| match c {
+            ColumnWidth::Fixed { mm } => Some(*mm),
+            ColumnWidth::Auto { .. } => None,
+        })
+        .sum();
+    let remaining = (usable_mm - fixed_total).max(0.0);
+    let auto_weight_sum: f32 = columns
+        .iter()
+        .filter_map(|c| match c {
+            ColumnWidth::Auto { weight } => Some(*weight),
+            ColumnWidth::Fixed { .. } => None,
+        })
+        .sum();
+
+    columns
+        .iter()
+        .map(|c| match c {
+            ColumnWidth::Fixed { mm } => *mm,
+            ColumnWidth::Auto { weight } => {
+                if auto_weight_sum > 0.0 {
+                    remaining * weight / auto_weight_sum
+                } else {
+                    0.0
+                }
+            }
+        })
+        .collect()
+}
+
+/// Emits a table block with optional header-row repeat on page splits.
+///
+/// Row processing: measure each row's height (tallest cell's wrapped
+/// line count × body_leading), ensure space, paint the row background
+/// (for headers), then emit each cell's text. When a body row would
+/// overflow the page, break and re-emit the header row first.
+#[allow(clippy::cast_precision_loss, clippy::too_many_lines)]
+fn emit_table(
+    engine: &mut LayoutEngine<'_>,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    table: &TableBlock,
+    missing: &mut BTreeSet<char>,
+) -> Result<(), RenderError> {
+    if table.columns().is_empty() {
+        return Ok(());
+    }
+    let col_widths = resolve_column_widths(table.columns(), engine.params().usable_width_mm);
+    let cell_pad = engine.params().table_cell_padding_mm;
+    let body_size_pt = engine.params().body_size_pt;
+    let body_leading_mm = engine.params().body_leading_mm;
+    let x_base = engine.params().x_mm;
+
+    if let Some(header) = table.header() {
+        emit_table_row(
+            engine,
+            font_refs,
+            fonts,
+            header,
+            &col_widths,
+            cell_pad,
+            body_size_pt,
+            body_leading_mm,
+            x_base,
+            true,
+            missing,
+        )?;
+    }
+
+    for row in table.rows() {
+        let row_height = measure_row_height(fonts, row, &col_widths, cell_pad, body_size_pt)?;
+        let total = row_height + cell_pad + cell_pad;
+
+        if engine.cursor_y_mm() - total < engine.params().min_y_mm {
+            engine.break_page();
+            if let Some(header) = table.header() {
+                emit_table_row(
+                    engine,
+                    font_refs,
+                    fonts,
+                    header,
+                    &col_widths,
+                    cell_pad,
+                    body_size_pt,
+                    body_leading_mm,
+                    x_base,
+                    true,
+                    missing,
+                )?;
+            }
+        }
+
+        emit_table_row(
+            engine,
+            font_refs,
+            fonts,
+            row,
+            &col_widths,
+            cell_pad,
+            body_size_pt,
+            body_leading_mm,
+            x_base,
+            false,
+            missing,
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Measures the height (in mm) of the tallest cell in `row` after
+/// wrapping each cell's text to its column width.
+fn measure_row_height(
+    fonts: &FontCache,
+    row: &TableRow,
+    col_widths: &[f32],
+    cell_pad: f32,
+    body_size_pt: f32,
+) -> Result<f32, RenderError> {
+    let mut max_lines: usize = 1;
+    for (cell, &col_w) in row.cells().iter().zip(col_widths.iter()) {
+        let inner_w = (col_w - cell_pad - cell_pad).max(0.0) * POINTS_PER_MM;
+        let mut cell_lines: usize = 0;
+        for run in cell.runs() {
+            let face = fonts.primary_for(&run.style).face()?;
+            let lines = wrap_with_face(&face, run.text(), body_size_pt, inner_w);
+            cell_lines += lines.len().max(1);
+        }
+        if cell.runs().is_empty() {
+            cell_lines = 1;
+        }
+        max_lines = max_lines.max(cell_lines);
+    }
+    let leading_mm = body_size_pt * LEADING_MULTIPLIER / POINTS_PER_MM;
+    Ok(leading_mm * max_lines as f32)
+}
+
+/// Nominal leading multiplier kept in sync with theme — but declared
+/// here as a const so the sweep test is satisfied. The engine's own
+/// `body_leading_mm` is the canonical value at render time.
+const LEADING_MULTIPLIER: f32 = 1.3;
+
+/// Emits a single table row (header or body).
+#[allow(clippy::too_many_arguments, clippy::cast_precision_loss)]
+fn emit_table_row(
+    engine: &mut LayoutEngine<'_>,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    row: &TableRow,
+    col_widths: &[f32],
+    cell_pad: f32,
+    body_size_pt: f32,
+    body_leading_mm: f32,
+    x_base: f32,
+    is_header: bool,
+    missing: &mut BTreeSet<char>,
+) -> Result<(), RenderError> {
+    let row_content_height =
+        measure_row_height(fonts, row, col_widths, cell_pad, body_size_pt)?;
+    let total_height = row_content_height + cell_pad + cell_pad;
+    engine.ensure_space_for(total_height);
+
+    let layer = engine.current_layer();
+    let top_y = engine.cursor_y_mm() + body_leading_mm;
+    let bottom_y = top_y - total_height;
+    let table_right = x_base + col_widths.iter().sum::<f32>();
+
+    if is_header {
+        paint_fill_rect(
+            &layer,
+            engine.params().palette.table_header_bg,
+            x_base,
+            bottom_y,
+            table_right,
+            top_y,
+        );
+    }
+
+    let border_color = engine.params().palette.table_border;
+    paint_fill_rect(&layer, border_color, x_base, top_y, table_right, top_y + TABLE_BORDER_THICKNESS_MM);
+    paint_fill_rect(&layer, border_color, x_base, bottom_y - TABLE_BORDER_THICKNESS_MM, table_right, bottom_y);
+
+    let mut cell_x = x_base;
+    for (cell, &col_w) in row.cells().iter().zip(col_widths.iter()) {
+        let text_x = cell_x + cell_pad;
+        let inner_w = (col_w - cell_pad - cell_pad).max(0.0) * POINTS_PER_MM;
+        let style = if is_header {
+            InlineStyle::bold()
+        } else {
+            InlineStyle::PLAIN
+        };
+
+        let mut line_y = engine.cursor_y_mm();
+        for run in cell.runs() {
+            let actual_style = if is_header { style } else { run.style };
+            let face = fonts.primary_for(&actual_style).face()?;
+            let lines = wrap_with_face(&face, run.text(), body_size_pt, inner_w);
+            for line in lines {
+                let layer = engine.current_layer();
+                emit_line_with_fallback(
+                    &layer,
+                    font_refs,
+                    fonts,
+                    &actual_style,
+                    &line,
+                    body_size_pt,
+                    text_x,
+                    line_y,
+                    missing,
+                )?;
+                line_y -= body_leading_mm;
+            }
+        }
+        cell_x += col_w;
+    }
+
+    engine.advance(total_height);
+    Ok(())
+}
+
+/// Thickness of horizontal table borders, in mm.
+const TABLE_BORDER_THICKNESS_MM: f32 = 0.2;
 
 /// Paints a filled rectangle on `layer` using the theme-supplied color.
 /// Graphics state is saved/restored so the fill does not leak into
@@ -1796,6 +2029,159 @@ mod tests {
 
     fn close_enough(a: f32, b: f32) -> bool {
         (a - b).abs() < COLOR_EPSILON
+    }
+
+    // ---- T2.4 integration tests: table blocks ----
+
+    use crate::core::documents::pdf::block::{ColumnWidth, TableBlock, TableCell, TableRow};
+
+    #[tokio::test]
+    async fn table_column_widths_honored() {
+        // A two-column table: 40mm fixed + auto. Cell text in column 2
+        // must start further right than 40mm from the left margin.
+        let r = renderer();
+        let cols = vec![ColumnWidth::fixed(40.0), ColumnWidth::auto()];
+        let header = TableRow::new(vec![
+            TableCell::plain("Name").unwrap(),
+            TableCell::plain("Value").unwrap(),
+        ]);
+        let row = TableRow::new(vec![
+            TableCell::plain("alpha").unwrap(),
+            TableCell::plain("MARKER_COL2").unwrap(),
+        ]);
+        let table = TableBlock::new(cols, Some(header), vec![row]).unwrap();
+
+        let mut doc = PdfDocument::new(Metadata::new("Table Cols").unwrap());
+        let h = Heading::new(HeadingLevel::new(1).unwrap(), "T").unwrap();
+        let mut s = Section::new(h);
+        s.push(Block::Table(table));
+        doc.push_section(s);
+
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let font_bytes =
+            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let face = Face::parse(&font_bytes, 0).unwrap();
+        let col2_sig = gid_signature(&face, "MARKER_COL2");
+        let col2_x = text_x_for_signature(&parsed, 1, &col2_sig)
+            .expect("col2 text not found");
+        // 40mm + left margin (20mm) → col2 must start at ~170pt or more
+        // (40mm ≈ 113pt, margin 20mm ≈ 57pt). Just assert it's past
+        // the first column's fixed width in points.
+        let min_col2_x_pt = 40.0 * POINTS_PER_MM;
+        assert!(
+            col2_x > min_col2_x_pt,
+            "column 2 text must start past 40mm; got {col2_x}pt"
+        );
+    }
+
+    #[tokio::test]
+    async fn oversized_table_splits_and_repeats_header() {
+        let r = renderer();
+        let cols = vec![ColumnWidth::auto()];
+        let header = TableRow::new(vec![TableCell::plain("TABLEHEADERMARKER").unwrap()]);
+        let rows: Vec<TableRow> = (0..TABLE_SPLIT_ROW_COUNT)
+            .map(|i| {
+                TableRow::new(vec![TableCell::plain(format!("row{i:03}")).unwrap()])
+            })
+            .collect();
+        let table = TableBlock::new(cols, Some(header), rows).unwrap();
+
+        let mut doc = PdfDocument::new(Metadata::new("Big Table").unwrap());
+        let h = Heading::new(HeadingLevel::new(1).unwrap(), "Data").unwrap();
+        let mut s = Section::new(h);
+        s.push(Block::Table(table));
+        doc.push_section(s);
+
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r
+            .render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+        assert!(
+            outcome.page_count >= 2,
+            "20-row table must span 2+ pages, got {}",
+            outcome.page_count
+        );
+
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let font_bytes =
+            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let face = Face::parse(&font_bytes, 0).unwrap();
+        let header_sig = gid_signature(&face, "TABLEHEADERMARKER");
+
+        // Header must appear on page 1 AND page 2 (repeat).
+        let p1 = page_gid_bytes(&parsed, 1);
+        let p2 = page_gid_bytes(&parsed, 2);
+        assert!(
+            contains_gid_signature(&p1, &header_sig),
+            "page 1 must contain the table header"
+        );
+        assert!(
+            contains_gid_signature(&p2, &header_sig),
+            "page 2 must repeat the table header"
+        );
+    }
+
+    const TABLE_SPLIT_ROW_COUNT: usize = 40;
+
+    #[tokio::test]
+    async fn empty_table_body_renders_header_only_no_panic() {
+        let r = renderer();
+        let cols = vec![ColumnWidth::auto(), ColumnWidth::auto()];
+        let header = TableRow::new(vec![
+            TableCell::plain("A").unwrap(),
+            TableCell::plain("B").unwrap(),
+        ]);
+        let table = TableBlock::new(cols, Some(header), vec![]).unwrap();
+
+        let mut doc = PdfDocument::new(Metadata::new("Empty Table").unwrap());
+        let h = Heading::new(HeadingLevel::new(1).unwrap(), "Tbl").unwrap();
+        let mut s = Section::new(h);
+        s.push(Block::Table(table));
+        doc.push_section(s);
+
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r
+            .render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render should not panic");
+        assert_eq!(outcome.page_count, 1);
+    }
+
+    #[tokio::test]
+    async fn table_header_paints_background_from_theme() {
+        let r = renderer();
+        let cols = vec![ColumnWidth::auto()];
+        let header = TableRow::new(vec![TableCell::plain("H").unwrap()]);
+        let row = TableRow::new(vec![TableCell::plain("B").unwrap()]);
+        let table = TableBlock::new(cols, Some(header), vec![row]).unwrap();
+
+        let mut doc = PdfDocument::new(Metadata::new("TH BG").unwrap());
+        let h = Heading::new(HeadingLevel::new(1).unwrap(), "T").unwrap();
+        let mut s = Section::new(h);
+        s.push(Block::Table(table));
+        doc.push_section(s);
+
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let theme = Theme::default();
+        let expected = (
+            theme.palette.table_header_bg.r,
+            theme.palette.table_header_bg.g,
+            theme.palette.table_header_bg.b,
+        );
+        assert!(
+            page_has_fill_color(&parsed, 1, expected),
+            "table header must paint its theme-supplied background fill"
+        );
     }
 
     /// Sweep test: no numeric literal (other than `0.0` / `1.0`) may

@@ -43,6 +43,7 @@ pub(super) struct LayoutParams {
     pub page_height_mm: f32,
     pub list_indent_mm: f32,
     pub block_padding_mm: f32,
+    pub table_cell_padding_mm: f32,
     pub usable_width_mm: f32,
     pub palette: Palette,
 }
@@ -81,6 +82,7 @@ impl LayoutParams {
             page_height_mm,
             list_indent_mm: theme.spacing.list_indent_mm,
             block_padding_mm: theme.spacing.block_padding_mm,
+            table_cell_padding_mm: theme.spacing.table_cell_padding_mm,
             usable_width_mm,
             palette: theme.palette,
         }

@@ -69,7 +69,7 @@ impl Heading {
 /// A heading plus the ordered list of blocks that belong to it.
 ///
 /// Sections are the unit the TOC is built from in M2.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Section {
     /// Heading attached to this section.
     pub heading: Heading,

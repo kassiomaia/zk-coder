@@ -40,10 +40,21 @@ r = 0.28
 g = 0.44
 b = 0.78
 
+[palette.table_header_bg]
+r = 0.92
+g = 0.92
+b = 0.94
+
+[palette.table_border]
+r = 0.75
+g = 0.75
+b = 0.78
+
 [spacing]
 block_gap = 0.4
 list_indent_mm = 6.0
 block_padding_mm = 2.5
+table_cell_padding_mm = 1.5
 
 [page_defaults]
 margin_mm = 20.0

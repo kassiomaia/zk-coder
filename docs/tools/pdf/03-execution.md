@@ -325,17 +325,32 @@ hyperlinks. A real report.
 - **Done when**: all render-path tests green, domain tests green,
   bundled `report.toml` matches `Theme::default_report`.
 
-### T2.4 — Tables with row-boundary splitting
+### T2.4 — Tables with row-boundary splitting — done
 
-- **Deliverable**: `TableBlock` with fixed and `auto` columns; header
-  row repeats when the table crosses a page boundary.
-- **Build**: table layout in `render/table.rs`.
-- **Tests (first)**:
-  - column widths honored
-  - oversized table splits at a row boundary, header repeats on the
-    second page
-  - empty table is a no-op, no panic
-- **Done when**: a 20-row table across 2 pages renders deterministically.
+- **Delivered**: `TableBlock` with `ColumnWidth::Fixed` / `Auto`
+  columns, optional `TableRow` header (repeated on page overflow), and
+  typed `TableCell`s carrying inline runs.
+- **Domain**: `ColumnWidth`, `TableCell`, `TableRow`, `TableBlock` in
+  `block.rs`; constructors validate cell-count-matches-column-count.
+  Error variants `EmptyTableColumns`, `TableCellCountMismatch`.
+- **Theme**: `Palette` gained `table_header_bg`, `table_border`;
+  `Spacing` gained `table_cell_padding_mm`. `report.toml` updated in
+  lockstep.
+- **Renderer**: `resolve_column_widths` distributes auto widths
+  proportionally; `emit_table` emits header row with bold text and
+  background fill, then body rows; on page overflow it calls
+  `break_page()` and re-emits the header. `emit_table_row` draws
+  horizontal border lines and cell text with word-wrap.
+- **Tests (passing)**:
+  - `table_column_widths_honored` — column-2 text starts past 40mm.
+  - `oversized_table_splits_and_repeats_header` — 40-row table spans
+    2+ pages; header glyph signature appears on both pages.
+  - `empty_table_body_renders_header_only_no_panic` — zero body rows OK.
+  - `table_header_paints_background_from_theme` — `palette.table_header_bg`
+    fill operator present.
+  - 6 domain unit tests in `block.rs`.
+- **Done when**: 40-row table across 2+ pages renders deterministically
+  and all tests green.
 
 ### T2.5 — Real image embedding
 
