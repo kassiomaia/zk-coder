@@ -40,6 +40,9 @@ pub trait SessionRepository: Send + Sync {
     /// Updates the workspace directory for a specific session.
     fn update_workspace(&self, id: &SessionId, workspace: &str) -> RepositoryResult<()>;
 
+    /// Updates the model ID for a specific session.
+    fn update_model_id(&self, id: &SessionId, model_id: &str) -> RepositoryResult<()>;
+
     /// Deletes an agent session from the repository.
     fn delete_session(&self, id: &SessionId) -> RepositoryResult<()>;
 

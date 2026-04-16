@@ -243,6 +243,7 @@ pub fn run() {
             commands::agent::sessions::cancel_agent_session,
             commands::agent::sessions::delete_agent_session,
             commands::agent::sessions::update_agent_session_workspace,
+            commands::agent::sessions::update_agent_session_model,
             commands::agent::approvals::approve_agent_action,
             commands::agent::approvals::deny_agent_action,
             commands::agent::approvals::get_pending_agent_actions,

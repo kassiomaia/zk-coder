@@ -303,6 +303,19 @@ pub fn update_workspace(
     Ok(())
 }
 
+/// Update model_id for a session.
+pub fn update_model_id(
+    conn: &Connection,
+    id: &SessionId,
+    model_id: &str,
+) -> Result<(), SessionRepositoryError> {
+    conn.execute(
+        "UPDATE agent_sessions SET model_id = ?1, updated_at = ?2 WHERE id = ?3",
+        params![model_id, chrono::Utc::now().to_rfc3339(), id.0],
+    )?;
+    Ok(())
+}
+
 /// Persist a recovery event for a session.
 pub fn record_recovery_event(
     conn: &Connection,
@@ -433,5 +446,19 @@ mod tests {
             loaded.workspace_root,
             Some(std::path::PathBuf::from("/new/workspace"))
         );
+    }
+
+    #[test]
+    fn test_update_model_id() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session = make_session();
+        create_session(&conn, &session).unwrap();
+
+        update_model_id(&conn, &session.id, "claude-opus-4").unwrap();
+
+        let loaded = get_session(&conn, &session.id).unwrap().unwrap();
+        assert_eq!(loaded.model_id, Some("claude-opus-4".to_string()));
     }
 }

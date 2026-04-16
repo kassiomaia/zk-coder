@@ -304,6 +304,40 @@ export async function updateSessionWorkspace(
 }
 
 /**
+ * Update the model ID for a session.
+ */
+export async function updateSessionModel(
+	state: AgentState,
+	update: (fn: (state: AgentState) => AgentState) => void,
+	sessionId: string,
+	modelId: string
+): Promise<void> {
+	log.debug('[agentStore] updateSessionModel called:', { sessionId, modelId });
+	try {
+		const { invoke } = await import('@tauri-apps/api/core');
+		await invoke('update_agent_session_model', {
+			sessionId,
+			modelId
+		});
+		log.debug('[agentStore] Backend model update successful');
+		update((state) => {
+			const session = state.sessions.get(sessionId);
+			if (session) {
+				state.sessions.set(sessionId, {
+					...session,
+					modelId
+				});
+				log.debug('[agentStore] Local state updated with new model');
+			}
+			return { ...state, sessions: new Map(state.sessions) };
+		});
+	} catch (error) {
+		log.error('[agentStore] Failed to update session model:', error);
+		update((s) => ({ ...s, error: String(error) }));
+	}
+}
+
+/**
  * Get completed session history for a conversation.
  */
 export async function getSessionHistory(conversationId: string): Promise<AgentSession[]> {

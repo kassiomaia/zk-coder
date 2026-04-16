@@ -93,6 +93,15 @@ impl AgentServiceImpl {
             .update_workspace(&CoreSessionId(session_id.to_string()), workspace_root)
     }
 
+    pub(super) fn update_session_model_impl(
+        &self,
+        session_id: &str,
+        model_id: &str,
+    ) -> RepositoryResult<()> {
+        self.session_repo
+            .update_model_id(&CoreSessionId(session_id.to_string()), model_id)
+    }
+
     pub(super) fn send_request_impl(
         &self,
         request: SendAgentRequestRequest,

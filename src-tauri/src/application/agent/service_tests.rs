@@ -363,6 +363,24 @@ fn test_update_session_workspace_to_none() {
     );
 }
 
+#[test]
+fn test_update_session_model_success() {
+    let service = create_test_service();
+
+    let session = create_test_session(&service, "conv-model", "thread-model");
+    let session_id = session.id.0.clone();
+
+    let result = service.update_session_model(&session_id, "claude-opus-4");
+
+    assert!(result.is_ok());
+
+    // Verify the model was updated
+    let store = service.telemetry_repo();
+    let agents_session_id = SessionId(session_id.to_string());
+    let updated = store.get_session(&agents_session_id).unwrap().unwrap();
+    assert_eq!(updated.model_id, Some("claude-opus-4".to_string()));
+}
+
 // =========================================================================
 // Agent Request Sending Tests
 // =========================================================================

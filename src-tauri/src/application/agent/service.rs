@@ -241,6 +241,14 @@ impl AgentService for AgentServiceImpl {
         self.update_session_workspace_impl(session_id, workspace_root)
     }
 
+    fn update_session_model(
+        &self,
+        session_id: &str,
+        model_id: &str,
+    ) -> RepositoryResult<()> {
+        self.update_session_model_impl(session_id, model_id)
+    }
+
     fn send_request(&self, request: SendAgentRequestRequest) -> RepositoryResult<CoreSessionId> {
         self.send_request_impl(request)
     }

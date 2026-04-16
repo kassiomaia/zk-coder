@@ -59,6 +59,7 @@ export interface AgentSession {
 	threadId: string;
 	state: SessionState;
 	workspaceRoot?: string;
+	modelId?: string;
 	tasks?: AgentTask[];
 	filesTouched?: TouchedFile[];
 	terminalOutput?: TerminalLine[];

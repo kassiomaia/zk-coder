@@ -40,6 +40,7 @@ export interface AgentStore {
 	cancelSession(sessionId: string): Promise<void>;
 	rollbackSession(sessionId: string): Promise<string[]>;
 	updateSessionWorkspace(sessionId: string, workspacePath: string): Promise<void>;
+	updateSessionModel(sessionId: string, modelId: string): Promise<void>;
 	createSubtask(
 		taskId: string,
 		title: string,
@@ -235,6 +236,14 @@ function createAgentStore(): AgentStore {
 	}
 
 	/**
+	 * Update the model ID for a session.
+	 */
+	async function updateSessionModel(sessionId: string, modelId: string) {
+		const state = get({ subscribe });
+		return Actions.updateSessionModel(state, update, sessionId, modelId);
+	}
+
+	/**
 	 * Create a new subtask for task decomposition.
 	 */
 	async function createSubtask(
@@ -388,6 +397,7 @@ function createAgentStore(): AgentStore {
 		cancelSession,
 		rollbackSession,
 		updateSessionWorkspace,
+		updateSessionModel,
 		createSubtask,
 		updateSubtaskStatus,
 		getSessionHistory,

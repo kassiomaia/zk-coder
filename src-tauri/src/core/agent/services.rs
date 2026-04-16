@@ -129,6 +129,13 @@ pub trait AgentService: Send + Sync {
         workspace_root: &str,
     ) -> RepositoryResult<()>;
 
+    /// Updates the model for an agent session.
+    fn update_session_model(
+        &self,
+        session_id: &str,
+        model_id: &str,
+    ) -> RepositoryResult<()>;
+
     // ========================================================================
     // Execution Operations
     // ========================================================================

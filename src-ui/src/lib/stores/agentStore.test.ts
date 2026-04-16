@@ -302,6 +302,27 @@ describe('agentStore', () => {
 			expect(session?.workspaceRoot).toBe('/new-workspace');
 		});
 
+		it('updateSessionModel updates backend and local state', async () => {
+			// Setup: add a session
+			mockInvoke.mockResolvedValue(mockSession);
+			await agentStore.createSession('agent-1', 'conv-1', 'thread-1', '/workspace');
+
+			// Clear mocks
+			mockInvoke.mockClear();
+			mockInvoke.mockResolvedValue(undefined);
+
+			await agentStore.updateSessionModel('session-1', 'claude-opus-4');
+
+			expect(mockInvoke).toHaveBeenCalledWith('update_agent_session_model', {
+				sessionId: 'session-1',
+				modelId: 'claude-opus-4'
+			});
+
+			const state = get(agentStore);
+			const session = state.sessions.get('session-1');
+			expect(session?.modelId).toBe('claude-opus-4');
+		});
+
 		it('getSessionHistory returns session history', async () => {
 			const history = [mockSession];
 			mockInvoke.mockResolvedValue(history);

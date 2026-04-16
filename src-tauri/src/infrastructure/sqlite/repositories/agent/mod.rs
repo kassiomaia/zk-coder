@@ -178,6 +178,19 @@ impl SqliteSessionRepository {
         sessions::update_workspace(&conn, id, workspace_root)
     }
 
+    /// Update model_id for a session.
+    pub fn update_model_id(
+        &self,
+        id: &crate::core::agent::session::SessionId,
+        model_id: &str,
+    ) -> Result<(), SessionRepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
+        sessions::update_model_id(&conn, id, model_id)
+    }
+
     /// Record a startup crash-recovery event.
     pub fn record_recovery_event(
         &self,
@@ -587,6 +600,16 @@ impl SessionRepository for SqliteSessionRepository {
     ) -> RepositoryResult<()> {
         let internal_id = crate::core::agent::session::SessionId(id.0.clone());
         Self::update_workspace(self, &internal_id, workspace)
+            .map_err(core_entities::AgentDomainError::from)
+    }
+
+    fn update_model_id(
+        &self,
+        id: &core_entities::SessionId,
+        model_id: &str,
+    ) -> RepositoryResult<()> {
+        let internal_id = crate::core::agent::session::SessionId(id.0.clone());
+        Self::update_model_id(self, &internal_id, model_id)
             .map_err(core_entities::AgentDomainError::from)
     }
 

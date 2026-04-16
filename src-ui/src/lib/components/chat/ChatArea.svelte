@@ -163,15 +163,22 @@
 
 	// Model selection state - initialize from conversation settings or config default
 	let selectedModelId = $state<string | null>(null);
+	let lastModelInitThreadId = $state<string | undefined>(undefined);
 
-	// Initialize model from conversation settings or config default
+	// Initialize model from conversation settings or config default.
+	// Only reset when the thread/conversation changes, not when model settings update
+	// within the same conversation (to avoid overwriting the user's local selection
+	// before the async updateConversationSettings call completes).
 	$effect(() => {
-		if (initialModelId) {
-			selectedModelId = initialModelId;
-		} else {
-			const defaultModel = configStore.getDefault('code');
-			if (defaultModel) {
-				selectedModelId = defaultModel;
+		if (threadId !== lastModelInitThreadId) {
+			lastModelInitThreadId = threadId;
+			if (initialModelId) {
+				selectedModelId = initialModelId;
+			} else {
+				const defaultModel = configStore.getDefault('code');
+				if (defaultModel) {
+					selectedModelId = defaultModel;
+				}
 			}
 		}
 	});

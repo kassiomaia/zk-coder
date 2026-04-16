@@ -692,6 +692,7 @@
 	}
 
 	// Model change handler - persists model selection to conversation settings
+	// and syncs to any active agent session on the current thread
 	async function handleModelChange(conversationId: string, modelId: string) {
 		const conversation = $selectedConversation;
 		if (conversation && conversation.settings.model !== modelId) {
@@ -701,6 +702,11 @@
 				maxTokens: conversation.settings.maxTokens,
 				systemPrompt: conversation.settings.systemPrompt
 			});
+		}
+		// Sync agent session model if the current thread has an active agent session
+		const currentThread = threads.find((t) => t.id === selectedThreadId);
+		if (currentThread?.metadata.agentSessionId) {
+			await agentStore.updateSessionModel(currentThread.metadata.agentSessionId, modelId);
 		}
 	}
 

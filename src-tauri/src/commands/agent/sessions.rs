@@ -133,6 +133,19 @@ pub async fn update_agent_session_workspace(
         .map_err(|e| e.to_string())
 }
 
+/// Update the model ID for a session.
+#[tauri::command]
+pub async fn update_agent_session_model(
+    session_id: String,
+    model_id: String,
+    state: tauri::State<'_, AgentState>,
+) -> Result<(), String> {
+    state
+        .service
+        .update_session_model(&session_id, &model_id)
+        .map_err(|e| e.to_string())
+}
+
 /// Send a request to an agent session for execution.
 #[tauri::command]
 pub async fn send_agent_request(
