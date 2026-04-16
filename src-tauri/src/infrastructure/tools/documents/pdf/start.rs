@@ -57,7 +57,8 @@ impl Tool for PdfStartTool {
               horizontal rules (---) as page breaks, and embedded images. \
               The output includes page headers/footers with page numbers, a font-embedded \
               professional layout, and PDF bookmarks from headings. \
-              DO NOT write scripts to generate PDFs — use this tool instead.",
+              DO NOT write scripts to generate PDFs — use this tool instead. \
+              Never use pandoc, LaTeX, or shell commands to generate PDFs — this tool replaces all of those.",
             input_schema: serde_json::json!({
                 "type": "object",
                 "additionalProperties": false,

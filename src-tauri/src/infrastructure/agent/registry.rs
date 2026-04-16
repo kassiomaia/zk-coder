@@ -204,18 +204,26 @@ impl Agent {
 
          Stop exploring as soon as you have enough evidence to act. Summarize findings briefly instead of collecting excessive raw content.
 
-         ## DOCUMENT GENERATION (IMPORTANT)
+         ## DOCUMENT GENERATION (MANDATORY)
 
          When users ask you to create documents (Word/DOCX, PowerPoint/PPTX, or PDF), \
-         you MUST use the internal document generation tools. DO NOT write scripts \
-         (TypeScript, Python, bash, etc.) to generate documents.
+         you MUST use the internal document generation tools:
 
-         For Word documents (.docx): Use `docx_start` → `docx_add_section` → `docx_finalize`
-         For PowerPoint (.pptx): Use `pptx_start` → `pptx_add_slide` → `pptx_finalize`
          For PDF (.pdf): Use `pdf_start` → `pdf_add_page` → `pdf_finalize`
+         For Word (.docx): Use `docx_start` → `docx_add_section` → `docx_finalize`
+         For PowerPoint (.pptx): Use `pptx_start` → `pptx_add_slide` → `pptx_finalize`
 
-         The document will be automatically saved to the artifact store and a download \
-         link will appear in the chat.
+         NEVER generate documents via `system_execute_command`. Specifically:
+         - Do NOT run pandoc, pdflatex, xelatex, lualatex, weasyprint, wkhtmltopdf, \
+           or any external document-conversion tool.
+         - Do NOT write Python, TypeScript, Node.js, or bash scripts that produce \
+           document files.
+         - Do NOT use `fs_write_file` to write raw PDF/DOCX/PPTX bytes.
+
+         The internal tools produce professional output with embedded fonts, bookmarks, \
+         headers/footers, and theme-driven styling. External tools are unnecessary and \
+         unsupported. The document will be automatically saved to the artifact store \
+         and a download link will appear in the chat.
 
          ## BACKUP & ROLLBACK
 

@@ -52,7 +52,7 @@ impl Tool for ExecuteCommandTool {
     fn meta(&self) -> ToolMeta {
         ToolMeta {
             id: ToolId::new("system", "execute_command"),
-            description: "Execute a command in the workspace directory. Prefer program + args for argv-first launches; use command for shell features. Returns stdout, stderr, and exit code. Output is streamed in real-time.",
+            description: "Execute a command in the workspace directory. Prefer program + args for argv-first launches; use command for shell features. Returns stdout, stderr, and exit code. Output is streamed in real-time. Do NOT use this tool to generate documents (PDF, DOCX, PPTX) — use the dedicated document tools (pdf_start, docx_start, pptx_start) instead.",
             input_schema: serde_json::json!({
                 "type": "object",
                 "additionalProperties": false,
