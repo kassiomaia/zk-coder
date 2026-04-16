@@ -1,19 +1,27 @@
 ---
 name: rust-fix-plan
-description: "Plans concrete fixes for Rust code review findings. Reads docs/code-review/FINDINGS.md and UNSAFE_AUDIT.md, traces root causes through call chains, and produces a detailed FIX_PLAN.md with proposed changes, affected code paths, edge cases, test plans, and risk assessments. Use after rust-review has produced findings."
+description: "Plans concrete fixes for Rust code review findings with confidence-aware triage. Reads FINDINGS.md and UNSAFE_AUDIT.md, traces root causes through call chains, produces idempotent FIX_PLAN.md with proposed changes, affected code paths, edge cases, test plans, and risk assessments including confidence and missing-context notes. Skips already-resolved findings."
 ---
 
 # Rust Fix Plan Skill
 
-> Deep-dive into findings and produce precise, executable fix plans.
+> Deep-dive into findings, trace root causes, produce precise executable fix plans.
 
 ## What This Skill Does
 
-Takes the output of a code review (FINDINGS.md, UNSAFE_AUDIT.md) and produces a concrete fix plan. For each selected finding, it reads the source, traces callers and callees, identifies the minimal change set, and documents everything an engineer needs to implement the fix.
+Takes review output (FINDINGS.md, UNSAFE_AUDIT.md) and produces concrete fix plans. Respects finding confidence levels — skips low-confidence findings unless Critical. Plans are persistent, idempotent, and skip already-resolved findings.
+
+## Operating Principles
+
+1. Consistent across runs — same findings produce same plans
+2. Correctness over speed — read code, trace call chains, understand before proposing
+3. No speculative fixes — flag unknowns explicitly
+4. Concrete plans — "change unwrap() on line 142 to map_err(...)?" not "refactor error handling"
+5. Idempotent updates — don't re-plan resolved findings
 
 ## Prerequisites
 
-These files must exist (produced by rust-review):
+Requires existing review output:
 - `docs/code-review/FINDINGS.md`
 - `docs/code-review/UNSAFE_AUDIT.md`
 - `docs/code-review/SUMMARY.md`
@@ -22,38 +30,21 @@ These files must exist (produced by rust-review):
 
 | File | Purpose |
 |------|---------|
-| `docs/code-review/FIX_PLAN.md` | Detailed fix plans with root cause, proposed change, edge cases, test plan, risk |
+| `docs/code-review/FIX_PLAN.md` | Root cause analysis, proposed changes, edge cases, test plans, risk with confidence |
 
-## Budget
+## Triage Criteria
 
-- **Max 5 fixes** planned (highest severity first)
-- Every plan must be concrete enough to implement without re-reading the finding
+Selects at most 5 findings based on:
+- Severity (Critical and High first)
+- Finding confidence (skip Low unless Critical)
+- Feasibility of a clean fix
+- Skips already-resolved findings
 
 ## Per-Fix Structure
 
-Each fix includes:
-- **Root Cause Analysis** — what is wrong and why
-- **Proposed Change** — files, diff sketch, what stays the same
-- **Affected Code Paths** — functions, modules, callers
-- **Edge Cases** — what the fix must handle
-- **Test Plan** — existing tests, new tests needed, regression risks
-- **Risk Assessment** — confidence, blast radius, breaking change
+Root Cause Analysis, Proposed Change, Affected Code Paths, Edge Cases, Test Plan, Risk Assessment (confidence, blast radius, breaking change, missing context)
 
-## Quality Bar
+## Pipeline Position
 
-"Refactor error handling" is not a plan. "Change `unwrap()` on line 142 of `agent.rs` to `map_err(|e| AgentError::SessionInit(e))?` and propagate to callers X, Y, Z" is a plan.
-
-## Usage
-
-Default: plan fixes for all findings.
-
-Filter by passing severity, category, or path as argument.
-
-## Pipeline
-
-This is Phase 2 of the Rust audit pipeline:
-
-1. **rust-review** — find problems
-2. **rust-fix-plan** (this skill) — plan fixes from findings
-3. **rust-fix-exec** — implement fixes via TDD
-4. **rust-audit** — run all three phases in sequence
+Phase 2 of the Rust audit pipeline:
+1. **rust-review** → 2. **rust-fix-plan** (this) → 3. **rust-fix-exec** → or all at once: **rust-audit**

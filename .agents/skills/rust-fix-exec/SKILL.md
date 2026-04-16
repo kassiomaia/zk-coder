@@ -1,73 +1,53 @@
 ---
 name: rust-fix-exec
-description: "Senior Rust engineer that executes fixes from FIX_PLAN.md using strict TDD. Writes failing tests first, implements minimal fixes, verifies build and tests after each change, checks frontend for IPC breakage, and updates review documents with resolution status. Use after rust-fix-plan has produced a plan."
+description: "Senior Rust engineer that executes fixes from FIX_PLAN.md using strict TDD with confidence awareness. Verifies findings before fixing (Medium/Low confidence may be false positives). Writes failing tests first, implements minimal fixes, checks frontend for IPC breakage, and updates all review documents with resolution status. Idempotent — skips already-resolved fixes."
 ---
 
 # Rust Fix Execution Skill
 
-> Implement fixes via strict TDD, one at a time, never breaking the build.
+> Implement fixes via strict TDD, one at a time, never breaking the build, verifying findings before acting.
 
 ## What This Skill Does
 
-Takes a fix plan (FIX_PLAN.md) and implements each fix using test-driven development. Understands the Tauri v2 + Svelte product context and checks for frontend breakage when backend contracts change.
+Takes a fix plan (FIX_PLAN.md) and implements each fix using test-driven development. State-aware: reads prior reports, respects confidence levels, verifies findings are still valid before implementing, skips already-resolved entries.
 
-## Prerequisites
+## Operating Principles
 
-These files must exist:
-- `docs/code-review/FIX_PLAN.md` (produced by rust-fix-plan)
-- `docs/code-review/FINDINGS.md` (produced by rust-review)
-- `docs/code-review/UNSAFE_AUDIT.md` (produced by rust-review)
+1. Consistent — same plan, same execution, same result
+2. Correctness over speed — understand before changing, test before implementing
+3. No speculative changes — fix what the plan says, nothing more
+4. Honest documentation — mark false positives, document deviations
+5. Idempotent — don't re-execute resolved fixes
 
-Must also read before coding:
-- `AGENTS.md` — project rules and architecture
-- `RULES.md` — coding rules and style
+## Confidence Awareness
 
-## Core Principles
+- **High confidence** — proceed with plan as written
+- **Medium confidence** — verify finding is real before implementing
+- **Low confidence** — investigate thoroughly; expect some may be invalid
 
-- **TDD: test first, code second**
-- **One fix at a time** — complete fully before starting the next
-- **Never break the build** — `cargo build` + `cargo test` must pass after each fix
-- **Minimal changes** — fix what the plan says, nothing more
-- **Product-aware** — check frontend when Tauri commands/events change
-
-## TDD Cycle Per Fix
+## TDD Cycle
 
 | Step | Action | Verification |
 |------|--------|-------------|
-| 1. Read | Source files, tests, frontend callers | — |
+| 1. Read & verify | Source files, tests, frontend callers, finding validity | — |
 | 2. Test first | Write failing test | `cargo test` — must fail |
 | 3. Implement | Apply minimal fix | — |
 | 4. Green | All tests pass | `cargo test` — must pass |
-| 5. Build check | Compilation + lint | `cargo build` + `cargo clippy` |
-| 6. Frontend check | If IPC changed | `npm run check` from `src-ui/` |
-| 7. Update docs | Resolution section in FINDINGS.md | — |
+| 5. Build check | Compilation + lint + frontend | `cargo build` + `cargo clippy` + `npm run check` |
+| 6. Update docs | Resolution section in FINDINGS.md | — |
+
+## Product Context
+
+Tauri v2 desktop app with Svelte frontend. Checks frontend callers when Tauri command signatures, IPC types, or event payloads change.
 
 ## Documents Updated
 
-- `docs/code-review/FINDINGS.md` — adds Resolution section per finding
-- `docs/code-review/UNSAFE_AUDIT.md` — updates unsafe sites if changed
-- `docs/code-review/SUMMARY.md` — adds Resolution Summary after all fixes
-- `docs/code-review/FIX_PLAN.md` — marks execution status per fix
+- `FINDINGS.md` — Resolution section (status, confidence verified, tests, deviations)
+- `UNSAFE_AUDIT.md` — updated verdicts for changed unsafe sites
+- `SUMMARY.md` — Resolution Summary with false positive count
+- `FIX_PLAN.md` — execution status per fix
 
-## Final Verification
+## Pipeline Position
 
-After all fixes:
-```bash
-cargo build && cargo test && cargo clippy
-cd src-ui && npm run check
-```
-
-## Usage
-
-Default: execute all fixes in FIX_PLAN.md in order.
-
-Filter by passing fix numbers, severity, or category as argument.
-
-## Pipeline
-
-This is Phase 3 of the Rust audit pipeline:
-
-1. **rust-review** — find problems
-2. **rust-fix-plan** — plan fixes from findings
-3. **rust-fix-exec** (this skill) — implement fixes via TDD
-4. **rust-audit** — run all three phases in sequence
+Phase 3 of the Rust audit pipeline:
+1. **rust-review** → 2. **rust-fix-plan** → 3. **rust-fix-exec** (this) → or all at once: **rust-audit**

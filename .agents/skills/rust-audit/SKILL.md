@@ -1,72 +1,58 @@
 ---
 name: rust-audit
-description: "Full Rust audit-to-fix pipeline that runs review, fix planning, and TDD fix execution in strict sequence. Produces findings, plans concrete fixes, implements them with tests, and verifies the build stays green throughout. Use for end-to-end code quality improvement in a single pass."
+description: "Full autonomous Rust audit-to-fix pipeline: review, plan, fix in strict sequence. State-aware with idempotent, diffable reports. Confidence-aware triage (skips low-confidence unless Critical, verifies before fixing, tracks false positives). TDD execution with frontend IPC awareness. Produces persistent evolving documentation under docs/code-review/."
 ---
 
 # Rust Audit Pipeline Skill
 
-> End-to-end: review, plan, fix — in one pass.
+> End-to-end: review, plan, fix — autonomous, state-aware, idempotent.
 
 ## What This Skill Does
 
-Runs three phases in strict sequence, with gates between each:
+Runs three phases in strict sequence with gates between each. Maintains persistent repository-local reports that evolve over time. Confidence-aware throughout: findings carry confidence levels, plans respect them, execution verifies before acting.
 
-| Phase | Role | Output |
-|-------|------|--------|
-| 1. Review | Find highest-risk issues (max 7) | SUMMARY.md, FINDINGS.md, UNSAFE_AUDIT.md |
-| 2. Fix Planning | Plan concrete fixes (max 5) | FIX_PLAN.md |
-| 3. Fix Execution | Implement via TDD | Updated docs + working code |
+## Operating Principles (all phases)
 
-Each phase must complete fully before the next begins.
+1. Consistent across runs — same code, same results
+2. Correctness over coverage — deep on fewer files, not shallow on many
+3. No speculative claims — only report what code supports
+4. Signal quality — no noise, no generic advice
+5. Idempotent — running twice on unchanged code produces same result; resolved findings are not re-processed
 
-## Phase Gates
+## Pipeline
 
-```
-═══ Phase 1 COMPLETE — Review ═══
-Findings: N | Critical: N | High: N | Medium: N | Low: N
-Proceeding to Phase 2...
+| Phase | Role | Budget | Output |
+|-------|------|--------|--------|
+| 1. Review | Find highest-risk issues | 5 files, 7 findings | SUMMARY.md, FINDINGS.md, UNSAFE_AUDIT.md |
+| 2. Planning | Plan concrete fixes | 5 fixes | FIX_PLAN.md |
+| 3. Execution | Implement via TDD | All planned fixes | Updated docs + working code |
 
-═══ Phase 2 COMPLETE — Fix Planning ═══
-Fixes planned: N | Deferred: N
-Proceeding to Phase 3...
+## Key Models
 
-═══ Phase 3 COMPLETE — Fix Execution ═══
-Fixes implemented: N | Deferred: N | Tests added: N
-Build: pass | Tests: pass | Clippy: pass | Frontend: pass
-```
+**Severity:** Critical > High > Medium > Low
+**Confidence:** High > Medium > Low (downgrade when context is missing)
+**Unsafe Verdicts:** Sound | Likely Sound | Risky | Dangerous
+
+## Confidence Flow
+
+- Review tags each finding with confidence
+- Planning uses confidence for triage (skip Low unless Critical)
+- Execution verifies findings before implementing (Medium/Low may be false positives)
+- Resolution documents whether confidence was confirmed
 
 ## Abort Conditions
 
-- Phase 1 finds 0 issues → pipeline ends cleanly
-- Phase 2 determines all findings are false positives → pipeline ends after Phase 2
-- Phase 3 fix causes cascading breakage (>3 unexpected files) → stop, document, ask for guidance
+- Phase 1: 0 issues → pipeline ends cleanly
+- Phase 2: all findings are false positives or low-confidence → ends after Phase 2
+- Phase 3: cascading breakage >3 unexpected files → stop, document, ask for guidance
 
-## Key Constraints
+## Product Context
 
-- **Max 5 files** reviewed deeply (Phase 1)
-- **Max 7 findings** reported (Phase 1)
-- **Max 5 fixes** planned (Phase 2)
-- **TDD enforced** — failing test before every fix (Phase 3)
-- **Build never breaks** between fixes (Phase 3)
-- **Frontend checked** when Tauri IPC contracts change (Phase 3)
-
-## Documents Produced
-
-All under `docs/code-review/`:
-- `SUMMARY.md` — overview + resolution summary
-- `FINDINGS.md` — detailed findings with resolution status
-- `UNSAFE_AUDIT.md` — unsafe site audit trail
-- `FIX_PLAN.md` — fix plans with execution status
-
-## Usage
-
-Default scope: all `.rs` files under `src/` and `src-tauri/`.
-
-Narrow scope by passing a path or glob as argument.
+Tauri v2 desktop app with Svelte frontend. Phase 3 checks frontend callers when Tauri IPC contracts change.
 
 ## Component Skills
 
-This pipeline composes three standalone skills:
-1. **rust-review** — can be run independently for review-only
-2. **rust-fix-plan** — can be run independently if findings already exist
-3. **rust-fix-exec** — can be run independently if a fix plan already exists
+Each phase can run independently:
+1. **rust-review** — review only
+2. **rust-fix-plan** — plan from existing findings
+3. **rust-fix-exec** — execute from existing plan

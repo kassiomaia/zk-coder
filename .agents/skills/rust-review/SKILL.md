@@ -1,52 +1,47 @@
 ---
 name: rust-review
-description: "Focused Rust code review agent. Triages the codebase for high-risk areas (unsafe, FFI, concurrency, error boundaries), picks at most 5 files to review deeply, and produces max 7 high-confidence findings. Outputs SUMMARY.md, FINDINGS.md, and UNSAFE_AUDIT.md under docs/code-review/. Use when you need to identify safety, correctness, or design issues in Rust code."
+description: "Autonomous Rust code review agent that maintains persistent, evolving assessments. Triages for high-risk areas (unsafe, FFI, concurrency), picks at most 5 files for deep review, produces max 7 evidence-based findings with confidence levels. Reports are idempotent and diffable. Classifies unsafe as Sound/Likely Sound/Risky/Dangerous. Outputs SUMMARY.md, FINDINGS.md, UNSAFE_AUDIT.md under docs/code-review/."
 ---
 
 # Rust Code Review Skill
 
-> Focused, deep Rust code review — quality over quantity.
+> Autonomous, state-aware Rust code review — persistent reports that evolve over time.
 
 ## What This Skill Does
 
-Performs a targeted review of Rust source files, prioritizing high-risk areas. Instead of scanning everything, it triages the codebase, selects the most dangerous files, and goes deep on them.
+Maintains an accurate, evolving assessment of code safety, correctness, and maintainability. Not a one-off scanner — produces persistent, diffable reports that future runs and engineers build upon.
+
+## Operating Principles
+
+1. Consistent across runs — same code, same findings, same titles
+2. Correctness over coverage — deep on fewer files, not shallow on many
+3. No speculative claims — only report what the code supports
+4. Signal quality — no noise, no generic advice, no cosmetic findings
+5. Idempotent updates — running twice on unchanged code produces the same result
 
 ## Outputs
 
 | File | Purpose |
 |------|---------|
-| `docs/code-review/SUMMARY.md` | Short overview: scope, totals, top risks |
-| `docs/code-review/FINDINGS.md` | Detailed findings (max 7), ordered by severity |
-| `docs/code-review/UNSAFE_AUDIT.md` | Audit trail for every unsafe site in reviewed files |
+| `docs/code-review/SUMMARY.md` | Scope, totals, top risks |
+| `docs/code-review/FINDINGS.md` | Detailed findings (max 7) with confidence levels |
+| `docs/code-review/UNSAFE_AUDIT.md` | Unsafe site audit with Sound/Likely Sound/Risky/Dangerous verdicts |
 
-## Budgets
+## Key Models
 
-- **Max 5 files** reviewed deeply
-- **Max 7 findings** reported
-- Only findings directly supported by the code
+**Severity:** Critical > High > Medium > Low
 
-## Severity Levels
+**Confidence:** High (code-supported) > Medium (assumption-dependent) > Low (needs confirmation)
 
-- **Critical** — likely UB, memory corruption, data race, unsound unsafe, invalid FFI
-- **High** — likely correctness bug, broken invariant, deadlock risk, dangerous panic
-- **Medium** — design issue likely to cause future bugs, pattern misuse, perf smell
-- **Low** — minor but real clarity or structure issue
+**Unsafe Verdicts:** Sound | Likely Sound | Risky | Dangerous
 
-## Categories
+**Finding Discipline** — only create a finding if:
+- Correctness or safety risk exists
+- Missing or weak invariant in unsafe code
+- Code hides critical behavior or assumptions
+- Design significantly increases future bug risk
 
-Unsafe Risk, Correctness Risk, Maintainability Smell, Performance Smell, API Design Smell
+## Pipeline Position
 
-## Usage
-
-Default scope: all `.rs` files under `src/` and `src-tauri/`.
-
-Narrow the scope by passing a path or glob as argument.
-
-## Pipeline
-
-This is Phase 1 of the Rust audit pipeline:
-
-1. **rust-review** (this skill) — find problems
-2. **rust-fix-plan** — plan fixes from findings
-3. **rust-fix-exec** — implement fixes via TDD
-4. **rust-audit** — run all three phases in sequence
+Phase 1 of the Rust audit pipeline:
+1. **rust-review** (this) → 2. **rust-fix-plan** → 3. **rust-fix-exec** → or all at once: **rust-audit**
