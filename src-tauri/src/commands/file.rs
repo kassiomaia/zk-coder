@@ -4,7 +4,7 @@
 //! separate from agent tool execution. They don't consume LLM tokens.
 
 use crate::commands::agent::AgentState;
-use std::path::PathBuf;
+use std::path::{Component, PathBuf};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 const FILE_DIFF_WINDOW_LABEL: &str = "file-diff";
@@ -41,7 +41,25 @@ pub async fn get_file_content(
     session_id: String,
     agent_state: tauri::State<'_, AgentState>,
 ) -> Result<FileContentResponse, String> {
-    let full_path = PathBuf::from(workspace_root).join(&file_path);
+    let file_p = std::path::Path::new(&file_path);
+    if file_p
+        .components()
+        .any(|c| matches!(c, Component::ParentDir))
+    {
+        return Err(format!(
+            "Path contains parent-directory components: {file_path}"
+        ));
+    }
+
+    let workspace = PathBuf::from(&workspace_root);
+    let full_path = workspace.join(&file_path);
+
+    if let Ok(canonical) = full_path.canonicalize() {
+        if !canonical.starts_with(&workspace) {
+            return Err(format!("Path is outside workspace: {file_path}"));
+        }
+    }
+
     let exists = full_path.exists();
 
     // Read current file content
@@ -153,8 +171,10 @@ pub async fn open_file_diff_window(
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let encoded_path = encode_url(&file_path);
+    let encoded_workspace = encode_url(&workspace_root);
+    let encoded_session = encode_url(&session_id);
     let path = format!(
-        "/file-diff?filePath={encoded_path}&workspaceRoot={workspace_root}&sessionId={session_id}"
+        "/file-diff?filePath={encoded_path}&workspaceRoot={encoded_workspace}&sessionId={encoded_session}"
     );
 
     if let Some(window) = app_handle.get_webview_window(FILE_DIFF_WINDOW_LABEL) {

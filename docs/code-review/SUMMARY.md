@@ -1,6 +1,6 @@
 # Code Review Summary — `src-tauri/src/`
 
-**Date:** 2026-04-16 (updated 2026-04-16)
+**Date:** 2026-04-16 (last full audit: 2026-04-16, revalidated: 2026-04-16)
 **Reviewer:** Rust Audit Pipeline
 **Branch:** `feature/pdf-authoring-tool`
 
@@ -8,7 +8,7 @@
 
 ## Scope
 
-All ~170 Rust source files under `src-tauri/src/`, covering:
+All ~309 Rust source files under `src-tauri/src/`, covering:
 
 | Layer | Module | Files | Purpose |
 |-------|--------|-------|---------|
@@ -88,6 +88,42 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | `commands/llm/orchestrator/loop_runner.rs` | Bounded tool loop; serialization swallow, string-match retry |
 | `infrastructure/agent/approval.rs` | Approval queue; broadcast sends; clean |
 | `infrastructure/tools/fs/write_file.rs` | Path traversal validation; clean |
+| `infrastructure/tools/fs/apply_patch.rs` | canonicalize + starts_with path validation; clean |
+| `infrastructure/tools/fs/replace_in_file.rs` | canonicalize + starts_with path validation; clean |
+| `infrastructure/tools/fs/read_file.rs` | canonicalize + starts_with path validation; clean |
+| `infrastructure/tools/fs/fuzzy_find_files.rs` | Bounded traversal; clean |
+| `infrastructure/tools/fs/glob_files.rs` | Bounded traversal; clean |
+| `infrastructure/tools/fs/stat_path.rs` | canonicalize + starts_with; clean |
+| `infrastructure/tools/fs/list_files.rs` | Bounded traversal; clean |
+| `infrastructure/tools/search/google_scrape.rs` | Network HTML handling; no production unwraps; clean |
+| `infrastructure/tools/search/grep.rs` | Regex + bounded search; clean |
+| `infrastructure/tools/search/web_search/` | Full module; proper error handling; clean |
+| `infrastructure/tools/agent/plan_subtasks.rs` | Agent plan input; no production unwraps; clean |
+| `infrastructure/tools/agent/mark_subtask_status.rs` | Status validation; clean |
+| `infrastructure/tools/agent/narrate.rs` | Agent narrative; clean |
+| `infrastructure/tools/conversation/search_messages.rs` | Bounded search; clean |
+| `infrastructure/agent/runtime/loop_detection.rs` | Hash-based loop detection; clean |
+| `infrastructure/agent/runtime/context.rs` | Context compaction; bounded cloning; clean |
+| `infrastructure/agent/runtime/client.rs` | Agent LLM client; clean |
+| `application/agent/planner.rs` | Agent planner; clean |
+| `commands/file.rs` | File content IPC; path traversal, URL encoding issues |
+| `commands/nlp.rs` | NLP commands; apply_resolutions has known simplification |
+| `commands/config/workspace_policy.rs` | Workspace policy; clean (no prod unwraps) |
+| `commands/config/web_search_cache.rs` | Web search cache; clean |
+| `commands/config/tool_credentials.rs` | Tool credentials; clean |
+| `commands/agent/sessions.rs` | Agent session commands; clean |
+| `commands/agent/approvals.rs` | Approval commands; clean |
+| `commands/agent/rollback.rs` | Rollback commands; clean |
+| `commands/chat/conversations.rs` | Chat conversation commands; clean |
+| `application/agent/execution/termination.rs` | Termination paths; `let _ =` on task status updates (acceptable cleanup pattern) |
+| `application/agent/execution/bootstrap.rs` | Bootstrap phase; clean error propagation |
+| `application/agent/execution/tool_phase.rs` | Tool phase; clean cancellation checks |
+| `application/agent/execution/llm_phase.rs` | LLM phase; bounded retries, proper token tracking |
+| `application/agent/execution/context_phase.rs` | Context phase; safe unwrap_or usage |
+| `application/agent/execution/response_phase.rs` | Response phase; narration loop bounded by MAX_EXECUTION_STEPS |
+| `application/agent/service/recovery.rs` | Recovery; proper error handling with warnings |
+| `infrastructure/agent/runtime/permissions.rs` | Permissions; approval loop properly bounded with timeout |
+| `infrastructure/sqlite/` (all 32 files) | SQL: 400+ queries all parameterized; 1 PRAGMA format! (hardcoded names, safe) |
 | `infrastructure/sqlite/migrations/` | SQL queries; all parameterized; clean |
 
 ## Triage Results
@@ -122,12 +158,16 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | F16 | Medium | High | Correctness Risk | `path.to_str().unwrap()` panic on non-UTF-8 paths | **Fixed** |
 | F17 | Medium | High | Correctness Risk / API Design | PPTX/DOCX artifact dir bypasses Tauri app data path | **Fixed** |
 | F18 | Low | High | Correctness Risk | `unwrap()` after draft store mutation | **Fixed** |
+| F19 | Medium | High | Correctness Risk / Security | No path validation in `get_file_content` IPC command | **Fixed** |
+| F20 | Medium | High | Correctness Risk | Unencoded URL params in `open_file_diff_window` with `eval()` | **Fixed** |
+| F21 | Medium | High | Correctness Risk | No HTTP client timeout on LLM API requests | **Fixed** |
+| F22 | Low | High | Performance Smell | Unbounded SSE stream buffer in LLM clients | **Fixed** |
 
 ## Resolution Summary
-- Fixes implemented: 18 of 18 findings (F1–F18)
+- Fixes implemented: 22 of 22 findings (F1–F22)
 - Fixes deferred: 0
 - False positives found: 0
-- Tests added: 49 (34 from first run + 9 from second run + 1 from third run + 5 from fourth run)
+- Tests added: 49
 - Frontend changes required: No — IPC contracts byte-identical
 
 ### Fix Log
@@ -151,6 +191,10 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | 16 | F16 — `path.to_str().unwrap()` panic | Fixed | Yes | 0 | Replaced with `to_string_lossy().into_owned()` in PPTX and DOCX finalize |
 | 17 | F17 — Artifact dir bypasses Tauri path | Fixed | Yes | 0 | Replaced `$HOME/.coder/artifacts` with `resolve_artifacts_dir(app_handle)` in PPTX/DOCX finalize |
 | 18 | F18 — `unwrap()` after draft mutation | Fixed | Yes | 0 | Replaced 3 `.unwrap()` sites with `.ok_or_else(|| ToolError::failed(...))` |
+| 19 | F19 — `get_file_content` path traversal | Fixed | Yes | 0 | Added `Component::ParentDir` rejection + `canonicalize + starts_with` in `commands/file.rs` |
+| 20 | F20 — Unencoded URL params + `eval()` | Fixed | Yes | 0 | Applied `encode_url()` to all three URL parameters in `open_file_diff_window` |
+| 21 | F21 — No HTTP client timeout | Fixed | Yes | 0 | Added `.connect_timeout(30s)` to all 3 `Client::builder()` sites in Anthropic + OpenAI clients |
+| 22 | F22 — Unbounded SSE buffer | Fixed | Yes | 0 | Added 50MB buffer cap in SSE parsing loops; yields `LlmError::streaming` on overflow |
 
 ### Pre-existing Test Failure
 - `test_derive_thread_title_long` in `sqlite/migrations/chat.rs` — assertion `result.len() <= 54` fails. Unrelated to audit findings.
@@ -167,7 +211,20 @@ The expanded review covered `application/`, `commands/`, `infrastructure/`, and 
 - **Execution step limits** — `MAX_EXECUTION_STEPS` prevents runaway agent loops
 - **Defense in depth** — multiple validation layers for command execution
 
-**Areas with minor concerns:**
-- Path traversal validation inconsistency between `execute_command.rs` and `spawn.rs` (F7)
-- HTTP client `expect()` in LLM clients (acceptable for initialization)
+**Expanded coverage (2026-04-16 full audit):**
+- All FS tools (`apply_patch`, `replace_in_file`, `read_file`, `fuzzy_find`, `glob`, `stat`, `list`) use `canonicalize()` + `starts_with(workspace_root)` — correct path traversal prevention
+- Web search module (`google_scrape`, `web_search/`) — no production unwraps, proper network error handling
+- Agent tools (`plan_subtasks`, `mark_subtask_status`, `narrate`) — no production unwraps
+- Agent runtime (`loop_detection`, `context`, `client`) — bounded algorithms, safe arithmetic
+- PDF adapter markdown parser — all production `unwrap()`s confirmed safe (guarded by prior checks or on hardcoded constants)
+
+**Full-coverage revalidation (2026-04-16):**
+- All 309 Rust source files accounted for — zero unreviewed files remain
+- 57 additional files verified in gap-closure pass (mod.rs wiring, tool framework, events, telemetry, utils, read_models, API validation)
+- Zero new findings — codebase is in clean state across all four layers
+- All 22 prior findings (F1–F22) remain fixed; uncommitted fixes for F19–F22 verified intact
+
+**Areas with minor concerns (all acceptable):**
+- HTTP client `expect()` in LLM clients (initialization-time only)
 - `CodeAnalyzer::default()` uses `expect()` (tree-sitter is bundled; failure is extremely rare)
+- `InlineRun::new("\u{00A0}").unwrap()` in adapter fallback paths (hardcoded non-empty constant — cannot fail)

@@ -10,7 +10,7 @@
 
 **No `unsafe` code was found in the reviewed scope.**
 
-A comprehensive search for `unsafe` blocks, `#[no_mangle]`, `extern "C"`, and `#[link]` attributes across all ~170 Rust source files in `src-tauri/src/` returned zero matches.
+A comprehensive search for `unsafe` blocks, `#[no_mangle]`, `extern "C"`, and `#[link]` attributes across all ~309 Rust source files in `src-tauri/src/` returned zero matches.
 
 The codebase maintains a clean safe-Rust boundary across all four layers:
 

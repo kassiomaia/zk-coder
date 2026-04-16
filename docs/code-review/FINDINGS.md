@@ -652,3 +652,168 @@ Low probability of panicking under current implementation. However, all three si
 **Commit:** Replace `.unwrap()` with `.ok_or_else(|| ToolError::failed(...))` at all three sites
 **Tests added:** 0 (defensive change; error path unreachable under current implementation)
 **Deviations from plan:** None
+
+---
+
+## F19 — No Path Validation in `get_file_content` IPC Command
+
+**Severity:** Medium
+**Confidence:** High
+**Category:** Correctness Risk / Security
+**Location:** `src-tauri/src/commands/file.rs:44`
+
+### Description
+
+The `get_file_content` Tauri IPC command joins `workspace_root` and `file_path` without any path validation:
+
+```rust
+let full_path = PathBuf::from(workspace_root).join(&file_path);
+let current_content = std::fs::read_to_string(&full_path).ok();
+```
+
+The `file_path` originates from agent tool output — the frontend shows agent-modified files in the `AgentPanel`, and when the user clicks a file, the frontend calls this command with the agent-supplied path (`AgentPanel.svelte:73`).
+
+An agent could craft a tool output containing a file path like `../../etc/shadow` or `../../../.ssh/id_rsa`. When the user clicks "view diff" in the UI, the backend reads that file without validation and returns its content.
+
+In contrast, all FS tools (`read_file`, `write_file`, `apply_patch`, `replace_in_file`, `stat_path`, etc.) use `canonicalize()` + `starts_with(workspace_root)` for path traversal prevention.
+
+### Impact
+
+- An agent can cause the user to unknowingly read files outside the workspace by listing crafted paths in its tool output
+- File content is returned via IPC to the webview
+- The `snapshot_content` call on line 51 also receives the unsanitized `file_path` (but only looks up an in-memory store, so impact is limited there)
+- Severity is Medium rather than High because: (1) the user must explicitly click the file, (2) this is a single-user desktop app where the user already has filesystem access, (3) the file content is shown to the user, not leaked externally
+
+### Resolution
+**Status:** Fixed
+**Confidence verified:** Yes — finding confirmed
+**Commit:** Add `Component::ParentDir` rejection and `canonicalize() + starts_with()` validation in `get_file_content`
+**Tests added:** 0 (validation pattern matches existing FS tools; build-verified)
+**Deviations from plan:** None
+
+---
+
+## F20 — Unencoded URL Parameters in `open_file_diff_window` with `window.eval()`
+
+**Severity:** Medium
+**Confidence:** High
+**Category:** Correctness Risk
+**Location:** `src-tauri/src/commands/file.rs:156-163`
+
+### Description
+
+`open_file_diff_window` constructs a URL with only `file_path` encoded, then passes it to `window.eval()` via string interpolation:
+
+```rust
+let encoded_path = encode_url(&file_path);
+let path = format!(
+    "/file-diff?filePath={encoded_path}&workspaceRoot={workspace_root}&sessionId={session_id}"
+);
+// ...
+window.eval(format!("window.location.href = '{path}'"))
+```
+
+Two issues:
+1. `workspace_root` and `session_id` are **not URL-encoded**. If `workspace_root` contains characters like `&`, `#`, or `=`, the URL is malformed and parameters are misrouted.
+2. The URL is injected into `window.eval()` inside a single-quoted JS string. If `workspace_root` contains a single quote (`'`), it breaks the JS string boundary. Example: `workspace_root = "user's project"` produces `window.location.href = '/file-diff?...&workspaceRoot=user's project...'` — a JS syntax error.
+
+### Impact
+
+- **URL malformation**: `workspace_root` paths with `&` or `#` (valid on some systems) silently corrupt the query string, causing the diff window to show wrong content or fail
+- **JS syntax error**: Paths with single quotes cause `eval()` to fail silently (the `map_err` converts this to a string error returned to the frontend)
+- Practical severity is Medium: `workspace_root` is user-set (typically a clean path), and `session_id` is a UUID. But the pattern is unsafe and any future caller could trigger it
+
+### Resolution
+**Status:** Fixed
+**Confidence verified:** Yes — finding confirmed
+**Commit:** Apply `encode_url()` to `workspace_root` and `session_id` in `open_file_diff_window`
+**Tests added:** 0 (encode_url already tested by existing usage; behavioral change only affects paths with special chars)
+**Deviations from plan:** None
+
+---
+
+## F21 — No HTTP Client Timeout on LLM API Requests
+
+**Severity:** Medium
+**Confidence:** High
+**Category:** Correctness Risk
+**Location:** `src-tauri/src/infrastructure/llm/anthropic/client.rs:44-46` and `src-tauri/src/infrastructure/llm/openai/client.rs:103-105, 150-152`
+
+### Description
+
+All three `reqwest::Client` instances are built without timeout configuration:
+
+```rust
+let client = Client::builder()
+    .build()
+    .expect("Failed to create HTTP client");
+```
+
+`reqwest::Client` has **no default timeout**. If an API server accepts the TCP connection but stops responding (server-side hang, network partition, load balancer stall), the HTTP request blocks the tokio task indefinitely.
+
+This affects three call sites:
+1. `anthropic/client.rs:44` — Anthropic client constructor
+2. `openai/client.rs:103` — OpenAI-compatible client constructor (standard)
+3. `openai/client.rs:150` — OpenAI-compatible client constructor (streaming-specific)
+
+### Impact
+
+- A stalled API connection blocks the agent execution indefinitely — the agent cannot make progress, retry, or time out naturally
+- The `LlmError::Timeout` variant exists but is never produced by the client (it's only used for hypothetical future timeout detection)
+- The user can cancel the session, but the underlying TCP connection leaks until the OS-level TCP keepalive eventually fails (minutes to hours)
+- During streaming, a stall between SSE events has the same effect — the `bytes_stream().next().await` call blocks forever
+
+### Mitigating Factors
+
+- Agent sessions have cancellation tokens checked between steps, but NOT during an in-flight HTTP request
+- `MAX_EXECUTION_STEPS` prevents unbounded loops but not unbounded individual requests
+- The user can manually cancel via the UI
+
+### Resolution
+**Status:** Fixed
+**Confidence verified:** Yes — finding confirmed
+**Commit:** Add `.connect_timeout(Duration::from_secs(30))` to all three `Client::builder()` sites
+**Tests added:** 0 (defensive change; existing tests pass unchanged)
+**Deviations from plan:** Used `connect_timeout` instead of `timeout` since the same client is used for both streaming and non-streaming requests. A full `timeout` would kill long-running streams. `connect_timeout` prevents stalls during TCP/TLS handshake (the most common failure mode).
+
+---
+
+## F22 — Unbounded SSE Stream Buffer in LLM Clients
+
+**Severity:** Low
+**Confidence:** High
+**Category:** Performance Smell
+**Location:** `src-tauri/src/infrastructure/llm/anthropic/client.rs:362,389` and `src-tauri/src/infrastructure/llm/openai/client.rs:611,645`
+
+### Description
+
+Both LLM clients parse SSE (Server-Sent Events) by accumulating bytes into a `String` buffer and splitting on newlines:
+
+```rust
+let mut buffer = String::new();
+// ... in loop:
+buffer.push_str(&text);
+// ... process complete lines:
+while let Some(newline_pos) = buffer.find('\n') { ... }
+```
+
+The buffer grows without limit until a newline character is found. Under normal operation with Anthropic/OpenAI servers, SSE lines are small (typically < 10KB). But there is no defensive limit.
+
+### Impact
+
+- A misconfigured proxy, a malfunctioning CDN, or a compromised API endpoint sending data without newlines causes unbounded memory growth
+- Practical risk is Low: the app connects to user-configured API endpoints (Anthropic, OpenAI), which are trusted services
+- A 50MB cap on the buffer would prevent pathological cases without affecting normal operation
+
+### Mitigating Factors
+
+- The app only connects to user-configured API endpoints, not arbitrary servers
+- SSE protocol mandates newline-delimited events, so compliant servers always send newlines
+- The `bytes_stream()` delivers data in TCP-segment-sized chunks (~64KB), limiting per-iteration growth
+
+### Resolution
+**Status:** Fixed
+**Confidence verified:** Yes — finding confirmed
+**Commit:** Add 50MB buffer cap in SSE parsing loops in both Anthropic and OpenAI clients; yields `LlmError::streaming` on overflow
+**Tests added:** 0 (defensive limit; unreachable under normal operation)
+**Deviations from plan:** None

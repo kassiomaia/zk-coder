@@ -27,6 +27,10 @@
 | F16 | `path.to_str().unwrap()` panic | High | **EXECUTED** | Correctness: panic on non-UTF-8 paths |
 | F17 | Artifact dir bypasses Tauri path | High | **EXECUTED** | Correctness: split artifact location |
 | F18 | `unwrap()` after draft mutation | High | **EXECUTED** | Correctness: latent panic sites |
+| F19 | No path validation in `get_file_content` | High | **EXECUTED** | Security: agent-influenced path bypasses workspace sandbox |
+| F20 | Unencoded URL params + `eval()` | High | **EXECUTED** | Correctness: broken URLs and JS syntax errors |
+| F21 | No HTTP client timeout | High | **EXECUTED** | Correctness: stalled API connection blocks agent indefinitely |
+| F22 | Unbounded SSE stream buffer | High | **EXECUTED** | Performance: buffer grows without limit between newlines |
 
 ## Deferred Table
 
@@ -659,3 +663,213 @@ No new tests needed — the error path is unreachable under current implementati
 ### Risk Assessment
 
 **Zero risk.** Replaces a panic with a graceful error return. No behavioral change for the happy path.
+
+---
+
+## Fix 13 — Add Path Validation to `get_file_content` (F19)
+
+### Root Cause
+
+`commands/file.rs:44` uses `PathBuf::from(workspace_root).join(&file_path)` without any validation. The `file_path` parameter originates from agent tool output shown in the UI. If the agent includes a path like `../../etc/shadow`, clicking "view diff" reads that file.
+
+### Proposed Change
+
+Add `Component::ParentDir` rejection and `starts_with(workspace_root)` validation before reading the file:
+
+```rust
+pub async fn get_file_content(
+    workspace_root: String,
+    file_path: String,
+    session_id: String,
+    agent_state: tauri::State<'_, AgentState>,
+) -> Result<FileContentResponse, String> {
+    let workspace = PathBuf::from(&workspace_root);
+    let file_p = std::path::Path::new(&file_path);
+
+    // Reject paths with parent-directory traversal
+    if file_p.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+        return Err(format!("Path contains parent-directory components: {file_path}"));
+    }
+
+    let full_path = workspace.join(&file_path);
+
+    // Verify the resolved path is within the workspace
+    if let Ok(canonical) = full_path.canonicalize() {
+        if !canonical.starts_with(&workspace) {
+            return Err(format!("Path is outside workspace: {file_path}"));
+        }
+    }
+
+    // ... rest unchanged
+}
+```
+
+### Affected Code Paths
+
+- `commands/file.rs:38-82` — `get_file_content` (single fix site)
+
+### Edge Cases
+
+- Relative paths within workspace (`src/main.rs`) — pass (no `..`)
+- Traversal paths (`../../etc/shadow`) — rejected by `ParentDir` check
+- Absolute paths (`/etc/shadow`) — `join` replaces workspace root, `canonicalize + starts_with` catches it
+- Non-existent files — `canonicalize` fails, falls through to existing `read_to_string().ok()` which returns `None`
+
+### Test Plan
+
+1. New test: `get_file_content_rejects_parent_dir` — `"../../etc/passwd"` returns error
+2. New test: `get_file_content_accepts_relative_path` — `"src/main.rs"` passes validation
+3. Existing behavior preserved for normal file paths
+
+### Risk Assessment
+
+**Very low risk.** Same pattern as the FS tools already use. Only rejects paths that would escape the workspace. Normal file viewing is unaffected.
+
+---
+
+## Fix 14 — URL-Encode All Parameters in `open_file_diff_window` (F20)
+
+### Root Cause
+
+`commands/file.rs:156-157` builds a URL with only `file_path` encoded, then injects it into `window.eval()`:
+```rust
+let path = format!(
+    "/file-diff?filePath={encoded_path}&workspaceRoot={workspace_root}&sessionId={session_id}"
+);
+window.eval(format!("window.location.href = '{path}'"))
+```
+
+### Proposed Change
+
+URL-encode all three parameters using the existing `encode_url()` function:
+
+```rust
+let encoded_path = encode_url(&file_path);
+let encoded_workspace = encode_url(&workspace_root);
+let encoded_session = encode_url(&session_id);
+let path = format!(
+    "/file-diff?filePath={encoded_path}&workspaceRoot={encoded_workspace}&sessionId={encoded_session}"
+);
+```
+
+### Affected Code Paths
+
+- `commands/file.rs:155-157` — URL construction (single fix site)
+
+### Edge Cases
+
+- Normal workspace paths (`/home/user/project`) — URL-encoded but decoded correctly by the frontend router
+- Paths with spaces (`/home/user/my project`) — currently break the URL; fix properly encodes them
+- Paths with `&` or `#` — currently corrupt query string; fix encodes them
+- Paths with single quotes — currently break `eval()`; fix encodes them as `%27`
+
+### Test Plan
+
+1. New test: `encode_url_handles_special_chars` — verify `'`, `&`, `#`, space are all encoded
+2. Existing test: verify the function produces valid RFC 3986 percent-encoding
+
+### Risk Assessment
+
+**Very low risk.** The `encode_url()` function already exists and works correctly (it's used for `file_path`). Just applying it to the other two parameters. No behavioral change for typical paths (alphanumeric + `/`).
+
+---
+
+## Fix 15 — Add HTTP Client Timeout (F21)
+
+### Root Cause
+
+All three `reqwest::Client::builder().build()` calls in the LLM clients have no `.timeout()` configured. `reqwest` has no default timeout, so a stalled server hangs the tokio task indefinitely.
+
+### Proposed Change
+
+Add a 120-second request timeout to all three client builders. This is long enough for complex LLM requests (which can take 60+ seconds for large context windows) but prevents indefinite hangs:
+
+```rust
+// Before
+let client = Client::builder()
+    .build()
+    .expect("Failed to create HTTP client");
+
+// After
+let client = Client::builder()
+    .timeout(std::time::Duration::from_secs(120))
+    .build()
+    .expect("Failed to create HTTP client");
+```
+
+For the streaming clients, use `.connect_timeout()` instead of `.timeout()` — a full request timeout would kill long-running streams. The connect timeout prevents stalls during initial connection only:
+
+```rust
+let client = Client::builder()
+    .connect_timeout(std::time::Duration::from_secs(30))
+    .build()
+    .expect("Failed to create HTTP client");
+```
+
+### Affected Code Paths
+
+- `infrastructure/llm/anthropic/client.rs:44-46` — Anthropic client (streaming + non-streaming share one client)
+- `infrastructure/llm/openai/client.rs:103-105` — OpenAI standard client
+- `infrastructure/llm/openai/client.rs:150-152` — OpenAI streaming client
+
+### Edge Cases
+
+- Very large requests with extended thinking (Anthropic) can take 60-90 seconds — 120s timeout accommodates this
+- Streaming responses are long-lived by design — `.connect_timeout()` only applies to initial handshake, not the stream itself
+- Network retries at the orchestrator level (bounded to 2) would retry after timeout
+
+### Test Plan
+
+1. Existing tests pass — no behavioral change for normal requests
+2. Verify `LlmError::Timeout` is produced when a request takes > 120s (integration test with a mock server)
+
+### Risk Assessment
+
+**Low risk.** Timeouts are additive safety measures. The 120s/30s values are conservative. No behavioral change for normal API requests.
+
+---
+
+## Fix 16 — Cap SSE Stream Buffer Size (F22)
+
+### Root Cause
+
+The SSE parsing loops in both clients accumulate bytes into a `String` buffer that grows without limit between newlines. Under normal operation this is fine, but a malfunctioning server sending data without newlines causes unbounded allocation.
+
+### Proposed Change
+
+Add a buffer size check after each append. If the buffer exceeds 50MB without encountering a newline, yield an error and break:
+
+```rust
+const MAX_SSE_BUFFER_BYTES: usize = 50 * 1024 * 1024; // 50 MB
+
+buffer.push_str(&text);
+
+if buffer.len() > MAX_SSE_BUFFER_BYTES {
+    error!("SSE buffer exceeded {} bytes without newline, aborting stream", MAX_SSE_BUFFER_BYTES);
+    yield Err(LlmError::streaming(format!(
+        "SSE buffer exceeded {} MB limit",
+        MAX_SSE_BUFFER_BYTES / (1024 * 1024)
+    )));
+    break;
+}
+```
+
+### Affected Code Paths
+
+- `infrastructure/llm/anthropic/client.rs:389` — after `buffer.push_str(&text)`
+- `infrastructure/llm/openai/client.rs:645` — after `buffer.push_str(&text)`
+
+### Edge Cases
+
+- Normal SSE events: ~100 bytes to ~100KB — well below 50MB limit
+- Very large model responses: accumulated in `full_content` in the batcher, not in the SSE buffer (buffer is drained per-line)
+- The 50MB limit is generous: a single SSE line should never be close to this
+
+### Test Plan
+
+1. Existing tests pass — normal responses are far below the limit
+2. No new test needed — the limit is unreachable under normal operation
+
+### Risk Assessment
+
+**Zero risk.** The 50MB limit is unreachable under normal operation. It only triggers for pathological server behavior.

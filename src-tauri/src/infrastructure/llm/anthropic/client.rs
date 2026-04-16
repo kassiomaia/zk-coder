@@ -42,6 +42,7 @@ impl AnthropicClient {
     #[must_use]
     pub fn new(api_key: String, base_url: Option<String>) -> Self {
         let client = Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(30))
             .build()
             .expect("Failed to create HTTP client");
 
@@ -387,6 +388,16 @@ impl AnthropicClient {
                             );
                         }
                         buffer.push_str(&text);
+
+                        const MAX_SSE_BUFFER_BYTES: usize = 50 * 1024 * 1024;
+                        if buffer.len() > MAX_SSE_BUFFER_BYTES {
+                            error!("anthropic::chat_stream: SSE buffer exceeded {} bytes without newline", MAX_SSE_BUFFER_BYTES);
+                            yield Err(LlmError::streaming(format!(
+                                "SSE buffer exceeded {} MB limit",
+                                MAX_SSE_BUFFER_BYTES / (1024 * 1024)
+                            )));
+                            break;
+                        }
                     }
                     Err(e) => {
                         error!("anthropic::chat_stream: failed to convert chunk to utf8: {e}");
