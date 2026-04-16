@@ -22,9 +22,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
-use crate::core::agent::entities::{
-    Agent as CoreAgent, AgentDomainError, TaskStatus as CoreTaskStatus,
-};
+use crate::core::agent::errors::AgentDomainError;
 use crate::core::agent::repositories::{
     ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
     TaskRepository,
@@ -41,7 +39,15 @@ use crate::infrastructure::agent::registry::AgentRegistry;
 use crate::infrastructure::agent::runtime::AgentRuntime;
 use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
 
-use super::conversions::store_error_to_domain;
+/// Converts any displayable error into an `AgentDomainError::InvalidInput`.
+///
+/// Used by service submodules to bridge infrastructure-layer errors (e.g.,
+/// SQLite repo errors) into the domain error type returned by the service.
+pub(super) fn store_error_to_domain<E: std::fmt::Display>(err: E) -> AgentDomainError {
+    AgentDomainError::InvalidInput {
+        reason: err.to_string(),
+    }
+}
 
 /// The concrete implementation of the `AgentService` trait.
 pub struct AgentServiceImpl {
@@ -180,22 +186,6 @@ impl AgentServiceImpl {
         } else {
             self.runtime_handle.block_on(future)
         }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn to_core_agent(&self, agent: Agent) -> CoreAgent {
-        agent.into()
-    }
-
-    /// Converts a core task status to an application task status.
-    pub fn to_core_task_status(&self, status: CoreTaskStatus) -> TaskStatus {
-        status.into()
-    }
-
-    /// Converts an application task status to a core task status.
-    #[must_use]
-    pub fn from_core_task_status(status: TaskStatus) -> CoreTaskStatus {
-        status.into()
     }
 
     #[cfg(test)]

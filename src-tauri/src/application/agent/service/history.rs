@@ -1,4 +1,4 @@
-use crate::core::agent::entities::AgentDomainError;
+use crate::core::agent::errors::AgentDomainError;
 use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::services::{
     ExecutionStep, FileAction, FileChange, SessionDetails, TerminalLine,

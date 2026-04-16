@@ -13,7 +13,7 @@ use crate::infrastructure::agent::events::AgentEvent;
 use crate::infrastructure::agent::events::AGENT_EVENT_NAME;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
 use crate::infrastructure::agent::runtime::types::AgentRuntimeError;
-use crate::infrastructure::agent::runtime::{infer_action_type, runtime_session_state_from_core};
+use crate::infrastructure::agent::runtime::infer_action_type;
 use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
 use crate::infrastructure::tools::OrchestratorToolResult;
 use crate::infrastructure::tools::ToolRegistry;
@@ -70,7 +70,7 @@ pub(super) async fn execute_with_approval(
 ) -> Result<OrchestratorToolResult, AgentRuntimeError> {
     let action_type = infer_action_type(&call.name, &call.arguments);
     let resume_core_state = session_repo
-        .get_session(&crate::core::agent::entities::SessionId(
+        .get_session(&crate::core::agent::session::SessionId(
             session.id.0.clone(),
         ))
         .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?
@@ -133,15 +133,13 @@ pub(super) async fn execute_with_approval(
     let action_id = pending.id.clone();
 
     // Update session state to waiting for input
-    let core_state: crate::core::agent::entities::SessionState =
-        crate::core::agent::session::SessionState::UserInputRequired {
-            pending_action_ids: vec![action_id.clone()],
-        }
-        .into();
+    let waiting_state = crate::core::agent::session::SessionState::UserInputRequired {
+        pending_action_ids: vec![action_id.clone()],
+    };
     session_repo
         .update_state(
-            &crate::core::agent::entities::SessionId(session.id.0.clone()),
-            &core_state,
+            &crate::core::agent::session::SessionId(session.id.0.clone()),
+            &waiting_state,
         )
         .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
 
@@ -167,11 +165,11 @@ pub(super) async fn execute_with_approval(
         tokio::select! {
             _ = cancellation_poll.tick() => {
                 let current_session = session_repo
-                    .get_session(&crate::core::agent::entities::SessionId(session.id.0.clone()))
+                    .get_session(&crate::core::agent::session::SessionId(session.id.0.clone()))
                     .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
                 if matches!(
                     current_session.state,
-                    crate::core::agent::entities::SessionState::Cancelled { .. }
+                    crate::core::agent::session::SessionState::Cancelled { .. }
                 ) {
                     approval_queue.clear_session(&session.id.0).await;
                     return Err(AgentRuntimeError::Cancelled);
@@ -185,7 +183,7 @@ pub(super) async fn execute_with_approval(
                         info!("[AgentRuntime] Action {action_id} approved");
                         session_repo
                             .update_state(
-                                &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                                &crate::core::agent::session::SessionId(session.id.0.clone()),
                                 &resume_core_state,
                             )
                             .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
@@ -193,7 +191,7 @@ pub(super) async fn execute_with_approval(
                             AGENT_EVENT_NAME,
                             AgentEvent::SessionStateChanged {
                                 session_id: session.id.0.clone(),
-                                state: crate::infrastructure::agent::runtime::permissions::runtime_session_state_from_core(&resume_core_state),
+                                state: resume_core_state.clone(),
                             },
                         );
                         return Ok(super::executor::execute_tool(
@@ -214,7 +212,7 @@ pub(super) async fn execute_with_approval(
                         info!("[AgentRuntime] Action {action_id} denied");
                         session_repo
                             .update_state(
-                                &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                                &crate::core::agent::session::SessionId(session.id.0.clone()),
                                 &resume_core_state,
                             )
                             .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
@@ -222,7 +220,7 @@ pub(super) async fn execute_with_approval(
                             AGENT_EVENT_NAME,
                             AgentEvent::SessionStateChanged {
                                 session_id: session.id.0.clone(),
-                                state: runtime_session_state_from_core(&resume_core_state),
+                                state: resume_core_state.clone(),
                             },
                         );
                         return Ok(OrchestratorToolResult {
@@ -240,7 +238,7 @@ pub(super) async fn execute_with_approval(
                         warn!("[AgentRuntime] Action {action_id} timed out");
                         session_repo
                             .update_state(
-                                &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                                &crate::core::agent::session::SessionId(session.id.0.clone()),
                                 &resume_core_state,
                             )
                             .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
@@ -248,7 +246,7 @@ pub(super) async fn execute_with_approval(
                             AGENT_EVENT_NAME,
                             AgentEvent::SessionStateChanged {
                                 session_id: session.id.0.clone(),
-                                state: runtime_session_state_from_core(&resume_core_state),
+                                state: resume_core_state.clone(),
                             },
                         );
                         return Ok(OrchestratorToolResult {
@@ -271,14 +269,14 @@ pub(super) async fn execute_with_approval(
                 // Clean up pending action
                 approval_queue.deny(&action_id).await;
                 let _ = session_repo.update_state(
-                    &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                    &crate::core::agent::session::SessionId(session.id.0.clone()),
                     &resume_core_state,
                 );
                 let _ = app_handle.emit(
                     AGENT_EVENT_NAME,
                     AgentEvent::SessionStateChanged {
                         session_id: session.id.0.clone(),
-                        state: runtime_session_state_from_core(&resume_core_state),
+                        state: resume_core_state.clone(),
                     },
                 );
                 return Err(AgentRuntimeError::ApprovalTimeout);

@@ -442,20 +442,6 @@ mod tests {
     }
 
     #[test]
-    fn test_runtime_session_state_from_core_processing_maps_to_running() {
-        let runtime = runtime_session_state_from_core(
-            &crate::core::agent::entities::SessionState::Processing {
-                started_at: Utc::now(),
-            },
-        );
-
-        match runtime {
-            crate::core::agent::session::SessionState::Running { .. } => {}
-            other => panic!("Expected Running state, got {:?}", other),
-        }
-    }
-
-    #[test]
     fn test_action_preview_all_fields() {
         let preview = ActionPreview {
             content_type: "diff".to_string(),

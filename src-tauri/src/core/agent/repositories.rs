@@ -4,7 +4,7 @@
 //! agent sessions, approvals, tasks, and execution data. These interfaces
 //! decouple the core agent logic from specific database implementations.
 
-use super::entities::AgentDomainError;
+use super::errors::AgentDomainError;
 use super::execution::{ExecutionSnapshot, RuntimeTrace};
 use super::session::{AgentSession, PendingAction, SessionId, SessionState};
 use super::task::{AgentTask, SubTask, TaskStatus};

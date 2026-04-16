@@ -81,7 +81,7 @@ pub async fn process_tool_calls_with_permissions(
         let current_subtask_id = if let Ok(subtasks) = task_repo.get_subtasks(task_id) {
             subtasks
                 .iter()
-                .find(|st| st.status == crate::core::agent::entities::TaskStatus::InProgress)
+                .find(|st| st.status == crate::core::agent::task::TaskStatus::InProgress)
                 .map(|st| st.id.clone())
         } else {
             None

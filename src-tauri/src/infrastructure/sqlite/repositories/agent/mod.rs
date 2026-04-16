@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 
-use crate::core::agent::entities as core_entities;
+use crate::core::agent::errors::AgentDomainError;
 use crate::core::agent::repositories::{
     ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
     TaskRepository,
@@ -43,7 +43,7 @@ pub enum SessionRepositoryError {
     Json(#[from] serde_json::Error),
 }
 
-impl From<SessionRepositoryError> for core_entities::AgentDomainError {
+impl From<SessionRepositoryError> for AgentDomainError {
     fn from(err: SessionRepositoryError) -> Self {
         match err {
             SessionRepositoryError::NotFound(id) => Self::SessionNotFound { id },
@@ -553,8 +553,8 @@ impl SessionRepository for SqliteSessionRepository {
         id: &agent_session::SessionId,
     ) -> RepositoryResult<agent_session::AgentSession> {
         Self::get_session(self, id)
-            .map_err(core_entities::AgentDomainError::from)?
-            .ok_or_else(|| core_entities::AgentDomainError::SessionNotFound { id: id.0.clone() })
+            .map_err(AgentDomainError::from)?
+            .ok_or_else(|| AgentDomainError::SessionNotFound { id: id.0.clone() })
     }
 
     fn get_sessions_for_conversation(
@@ -562,11 +562,11 @@ impl SessionRepository for SqliteSessionRepository {
         conversation_id: &str,
     ) -> RepositoryResult<Vec<agent_session::AgentSession>> {
         Self::get_sessions_for_conversation(self, conversation_id)
-            .map_err(core_entities::AgentDomainError::from)
+            .map_err(AgentDomainError::from)
     }
 
     fn list_sessions(&self) -> RepositoryResult<Vec<agent_session::AgentSession>> {
-        Self::list_sessions(self).map_err(core_entities::AgentDomainError::from)
+        Self::list_sessions(self).map_err(AgentDomainError::from)
     }
 
     fn update_state(
@@ -574,7 +574,7 @@ impl SessionRepository for SqliteSessionRepository {
         id: &agent_session::SessionId,
         state: &agent_session::SessionState,
     ) -> RepositoryResult<()> {
-        Self::update_state(self, id, state).map_err(core_entities::AgentDomainError::from)
+        Self::update_state(self, id, state).map_err(AgentDomainError::from)
     }
 
     fn update_workspace(
@@ -582,7 +582,7 @@ impl SessionRepository for SqliteSessionRepository {
         id: &agent_session::SessionId,
         workspace: &str,
     ) -> RepositoryResult<()> {
-        Self::update_workspace(self, id, workspace).map_err(core_entities::AgentDomainError::from)
+        Self::update_workspace(self, id, workspace).map_err(AgentDomainError::from)
     }
 
     fn update_model_id(
@@ -590,11 +590,11 @@ impl SessionRepository for SqliteSessionRepository {
         id: &agent_session::SessionId,
         model_id: &str,
     ) -> RepositoryResult<()> {
-        Self::update_model_id(self, id, model_id).map_err(core_entities::AgentDomainError::from)
+        Self::update_model_id(self, id, model_id).map_err(AgentDomainError::from)
     }
 
     fn delete_session(&self, id: &agent_session::SessionId) -> RepositoryResult<()> {
-        Self::delete_session(self, id).map_err(core_entities::AgentDomainError::from)
+        Self::delete_session(self, id).map_err(AgentDomainError::from)
     }
 
     fn record_recovery_event(
@@ -604,7 +604,7 @@ impl SessionRepository for SqliteSessionRepository {
         recovered_at: DateTime<Utc>,
     ) -> RepositoryResult<()> {
         Self::record_recovery_event(self, session_id, reason, recovered_at)
-            .map_err(core_entities::AgentDomainError::from)
+            .map_err(AgentDomainError::from)
     }
 }
 
@@ -617,11 +617,11 @@ impl TaskRepository for SqliteSessionRepository {
             .as_ref()
             .and_then(|ctx| ctx.selection.as_deref());
         Self::create_task(self, task, Some(title), description)
-            .map_err(core_entities::AgentDomainError::from)
+            .map_err(AgentDomainError::from)
     }
 
     fn create_subtask(&self, subtask: &agent_task::SubTask) -> RepositoryResult<()> {
-        Self::create_subtask(self, subtask).map_err(core_entities::AgentDomainError::from)
+        Self::create_subtask(self, subtask).map_err(AgentDomainError::from)
     }
 
     fn get_session_tasks(
@@ -629,14 +629,14 @@ impl TaskRepository for SqliteSessionRepository {
         session_id: &str,
     ) -> RepositoryResult<Vec<agent_task::AgentTask>> {
         let internal_id = agent_session::SessionId(session_id.to_string());
-        Self::get_session_tasks(self, &internal_id).map_err(core_entities::AgentDomainError::from)
+        Self::get_session_tasks(self, &internal_id).map_err(AgentDomainError::from)
     }
 
     fn get_subtasks(
         &self,
         parent_task_id: &str,
     ) -> RepositoryResult<Vec<agent_task::SubTask>> {
-        Self::get_subtasks(self, parent_task_id).map_err(core_entities::AgentDomainError::from)
+        Self::get_subtasks(self, parent_task_id).map_err(AgentDomainError::from)
     }
 
     fn update_task_status(
@@ -645,7 +645,7 @@ impl TaskRepository for SqliteSessionRepository {
         status: agent_task::TaskStatus,
     ) -> RepositoryResult<()> {
         Self::update_task_status(self, task_id, &status)
-            .map_err(core_entities::AgentDomainError::from)
+            .map_err(AgentDomainError::from)
     }
 
     fn update_subtask_status(
@@ -654,7 +654,7 @@ impl TaskRepository for SqliteSessionRepository {
         status: agent_task::TaskStatus,
     ) -> RepositoryResult<()> {
         Self::update_subtask_status(self, subtask_id, &status)
-            .map_err(core_entities::AgentDomainError::from)
+            .map_err(AgentDomainError::from)
     }
 }
 
@@ -663,7 +663,7 @@ impl ExecutionRepository for SqliteSessionRepository {
         &self,
         snapshot: &crate::core::agent::execution::ExecutionSnapshot,
     ) -> RepositoryResult<()> {
-        Self::save_execution_snapshot(self, snapshot).map_err(core_entities::AgentDomainError::from)
+        Self::save_execution_snapshot(self, snapshot).map_err(AgentDomainError::from)
     }
 
     fn get_execution_snapshot(
@@ -671,12 +671,12 @@ impl ExecutionRepository for SqliteSessionRepository {
         session_id: &str,
     ) -> RepositoryResult<Option<crate::core::agent::execution::ExecutionSnapshot>> {
         Self::get_execution_snapshot(self, session_id)
-            .map_err(core_entities::AgentDomainError::from)
+            .map_err(AgentDomainError::from)
     }
 
     fn clear_execution_snapshot(&self, session_id: &str) -> RepositoryResult<()> {
         Self::clear_execution_snapshot(self, session_id)
-            .map_err(core_entities::AgentDomainError::from)
+            .map_err(AgentDomainError::from)
     }
 }
 
@@ -685,7 +685,7 @@ impl RuntimeTraceRepository for SqliteSessionRepository {
         &self,
         trace: &crate::core::agent::execution::RuntimeTrace,
     ) -> RepositoryResult<()> {
-        Self::append_runtime_trace(self, trace).map_err(core_entities::AgentDomainError::from)
+        Self::append_runtime_trace(self, trace).map_err(AgentDomainError::from)
     }
 
     fn get_runtime_traces(
@@ -694,7 +694,7 @@ impl RuntimeTraceRepository for SqliteSessionRepository {
         limit: Option<usize>,
     ) -> RepositoryResult<Vec<crate::core::agent::execution::RuntimeTrace>> {
         Self::get_runtime_traces(self, session_id, limit)
-            .map_err(core_entities::AgentDomainError::from)
+            .map_err(AgentDomainError::from)
     }
 }
 

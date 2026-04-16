@@ -12,13 +12,12 @@
 
 use std::sync::Arc;
 
-use crate::core::agent::session::{AgentSession, PendingAction, SessionId};
-use crate::core::agent::task::SubTask;
-use crate::core::agent::types::{ActionType, AgentId, TrustMode};
 use crate::application::agent::AgentServiceImpl;
-use crate::core::agent::entities::TaskStatus as CoreTaskStatus;
-use crate::core::agent::entities::{AgentTrustMode, SessionState as CoreSessionState};
+use crate::core::agent::errors::AgentDomainError;
 use crate::core::agent::services::{AgentService, CreateSessionRequest, SendAgentRequestRequest};
+use crate::core::agent::session::{AgentSession, PendingAction, SessionId, SessionState};
+use crate::core::agent::task::{SubTask, TaskStatus};
+use crate::core::agent::types::{ActionType, AgentId, TrustMode};
 use crate::core::chat::services::ChatService;
 use crate::application::ChatServiceImpl;
 use crate::infrastructure::agent::approval::ApprovalQueue;
@@ -72,7 +71,7 @@ fn create_test_session(
     service: &AgentServiceImpl,
     conversation_id: &str,
     thread_id: &str,
-) -> crate::core::agent::entities::AgentSession {
+) -> AgentSession {
     let request = CreateSessionRequest {
         agent_id: "code-agent".to_string(),
         conversation_id: conversation_id.to_string(),
@@ -195,7 +194,7 @@ fn test_create_session_state_transition() {
     // Session should be in WaitForRequest state after creation
     assert!(matches!(
         session.state,
-        CoreSessionState::WaitForRequest { .. }
+        SessionState::WaitForRequest { .. }
     ));
 }
 
@@ -224,7 +223,7 @@ fn test_get_session_not_found() {
     assert!(result.is_err());
     assert!(matches!(
         result,
-        Err(crate::core::agent::entities::AgentDomainError::SessionNotFound { .. })
+        Err(crate::core::agent::errors::AgentDomainError::SessionNotFound { .. })
     ));
 }
 
@@ -267,7 +266,7 @@ fn test_cancel_session_success() {
 
     // Verify session is in cancelled state
     let fetched = service.get_session(&session_id).unwrap();
-    assert!(matches!(fetched.state, CoreSessionState::Cancelled { .. }));
+    assert!(matches!(fetched.state, SessionState::Cancelled { .. }));
 }
 
 #[test]
@@ -283,7 +282,7 @@ fn test_cancel_session_persists_reason() {
 
     let fetched = service.get_session(&session_id).unwrap();
 
-    if let CoreSessionState::Cancelled { reason } = &fetched.state {
+    if let SessionState::Cancelled { reason } = &fetched.state {
         assert_eq!(reason, "User cancelled");
     } else {
         panic!("Expected Cancelled state with reason");
@@ -305,7 +304,7 @@ fn test_delete_session_success() {
     let result = service.get_session(&session_id);
     assert!(matches!(
         result,
-        Err(crate::core::agent::entities::AgentDomainError::SessionNotFound { .. })
+        Err(crate::core::agent::errors::AgentDomainError::SessionNotFound { .. })
     ));
 }
 
@@ -398,7 +397,7 @@ fn test_send_request_validates_session_exists() {
 
     assert!(matches!(
         result,
-        Err(crate::core::agent::entities::AgentDomainError::SessionNotFound { .. })
+        Err(crate::core::agent::errors::AgentDomainError::SessionNotFound { .. })
     ));
 }
 
@@ -520,7 +519,7 @@ fn test_approve_nonexistent_action_fails() {
 
     assert!(matches!(
         result,
-        Err(crate::core::agent::entities::AgentDomainError::ActionNotFound { .. })
+        Err(crate::core::agent::errors::AgentDomainError::ActionNotFound { .. })
     ));
 }
 
@@ -551,7 +550,7 @@ fn test_deny_nonexistent_action_fails() {
 
     assert!(matches!(
         result,
-        Err(crate::core::agent::entities::AgentDomainError::ActionNotFound { .. })
+        Err(crate::core::agent::errors::AgentDomainError::ActionNotFound { .. })
     ));
 }
 
@@ -612,68 +611,8 @@ fn test_get_agent_not_found() {
 
     assert!(matches!(
         result,
-        Err(crate::core::agent::entities::AgentDomainError::AgentNotFound { .. })
+        Err(crate::core::agent::errors::AgentDomainError::AgentNotFound { .. })
     ));
-}
-
-#[test]
-fn test_to_core_agent_converts_trust_mode_trusted() {
-    let service = create_test_service();
-
-    let agent = crate::core::agent::types::Agent {
-        id: AgentId::new("test"),
-        name: "Test".to_string(),
-        description: "Test agent".to_string(),
-        system_prompt: "Test".to_string(),
-        allowed_tools: vec![],
-        default_model_id: "test".to_string(),
-        trust_mode: TrustMode::Trusted,
-        created_at: chrono::Utc::now(),
-        updated_at: chrono::Utc::now(),
-    };
-
-    let core_agent = service.to_core_agent(agent);
-    assert!(matches!(core_agent.trust_mode, AgentTrustMode::Never));
-}
-
-#[test]
-fn test_to_core_agent_converts_trust_mode_restricted() {
-    let service = create_test_service();
-
-    let agent = crate::core::agent::types::Agent {
-        id: AgentId::new("test-restricted"),
-        name: "Restricted".to_string(),
-        description: "Test".to_string(),
-        system_prompt: "Test".to_string(),
-        allowed_tools: vec![],
-        default_model_id: "test".to_string(),
-        trust_mode: TrustMode::Restricted,
-        created_at: chrono::Utc::now(),
-        updated_at: chrono::Utc::now(),
-    };
-
-    let core_agent = service.to_core_agent(agent);
-    assert!(matches!(core_agent.trust_mode, AgentTrustMode::Always));
-}
-
-#[test]
-fn test_to_core_agent_converts_trust_mode_untrusted() {
-    let service = create_test_service();
-
-    let agent = crate::core::agent::types::Agent {
-        id: AgentId::new("test-untrusted"),
-        name: "Untrusted".to_string(),
-        description: "Test".to_string(),
-        system_prompt: "Test".to_string(),
-        allowed_tools: vec![],
-        default_model_id: "test".to_string(),
-        trust_mode: TrustMode::Untrusted,
-        created_at: chrono::Utc::now(),
-        updated_at: chrono::Utc::now(),
-    };
-
-    let core_agent = service.to_core_agent(agent);
-    assert!(matches!(core_agent.trust_mode, AgentTrustMode::RiskyOnly));
 }
 
 // =========================================================================
@@ -745,13 +684,13 @@ fn test_update_subtask_status() {
     let task_id = "task-update";
     let subtask_id = create_test_subtask(&service, task_id, "Update Me", 0);
 
-    let result = service.update_subtask_status(subtask_id.clone(), CoreTaskStatus::InProgress);
+    let result = service.update_subtask_status(subtask_id.clone(), TaskStatus::InProgress);
 
     assert!(result.is_ok());
 
     // Verify the status was updated
     let subtasks = service.get_subtasks(task_id).unwrap();
-    assert_eq!(subtasks[0].status, CoreTaskStatus::InProgress);
+    assert_eq!(subtasks[0].status, TaskStatus::InProgress);
 }
 
 #[test]
@@ -759,9 +698,9 @@ fn test_update_subtask_status_all_transitions() {
     let service = create_test_service();
 
     let statuses = vec![
-        CoreTaskStatus::Pending,
-        CoreTaskStatus::InProgress,
-        CoreTaskStatus::Completed,
+        TaskStatus::Pending,
+        TaskStatus::InProgress,
+        TaskStatus::Completed,
     ];
 
     for status in statuses {
@@ -782,11 +721,11 @@ fn test_task_status_conversion_roundtrip() {
 
     // Test all status variants
     let statuses = vec![
-        CoreTaskStatus::Pending,
-        CoreTaskStatus::InProgress,
-        CoreTaskStatus::Completed,
-        CoreTaskStatus::Failed,
-        CoreTaskStatus::Cancelled,
+        TaskStatus::Pending,
+        TaskStatus::InProgress,
+        TaskStatus::Completed,
+        TaskStatus::Failed,
+        TaskStatus::Cancelled,
     ];
 
     for status in statuses {
@@ -869,7 +808,7 @@ fn test_get_session_details_not_found() {
 
     assert!(matches!(
         result,
-        Err(crate::core::agent::entities::AgentDomainError::SessionNotFound { .. })
+        Err(crate::core::agent::errors::AgentDomainError::SessionNotFound { .. })
     ));
 }
 
@@ -904,7 +843,7 @@ fn test_rollback_file_not_tracked() {
     assert!(result.is_err());
     assert!(matches!(
         result,
-        Err(crate::core::agent::entities::AgentDomainError::InvalidInput { .. })
+        Err(crate::core::agent::errors::AgentDomainError::InvalidInput { .. })
     ));
 }
 
@@ -917,7 +856,7 @@ fn test_rollback_session_not_found() {
     assert!(result.is_err());
     assert!(matches!(
         result,
-        Err(crate::core::agent::entities::AgentDomainError::InvalidInput { .. })
+        Err(crate::core::agent::errors::AgentDomainError::InvalidInput { .. })
     ));
 }
 
@@ -944,7 +883,7 @@ fn test_session_state_conversion_wait_for_request() {
     let core_session = service.to_core_session(agents_session);
     assert!(matches!(
         core_session.state,
-        CoreSessionState::WaitForRequest { .. }
+        SessionState::WaitForRequest { .. }
     ));
 }
 
@@ -968,7 +907,7 @@ fn test_session_state_conversion_finished() {
     let core_session = service.to_core_session(agents_session);
     assert!(matches!(
         core_session.state,
-        CoreSessionState::Finished { .. }
+        SessionState::Finished { .. }
     ));
 }
 
@@ -1007,7 +946,7 @@ fn test_subtask_to_core_task_conversion() {
     assert_eq!(core_task.title, "Test Task");
     assert_eq!(core_task.description, Some("Test description".to_string()));
     assert_eq!(core_task.order, 1);
-    assert_eq!(core_task.status, CoreTaskStatus::Pending);
+    assert_eq!(core_task.status, TaskStatus::Pending);
 }
 
 // =========================================================================
@@ -1062,7 +1001,7 @@ fn test_repository_error_to_domain_error_conversion() {
 
     assert!(matches!(
         domain_err,
-        crate::core::agent::entities::AgentDomainError::InvalidInput { .. }
+        crate::core::agent::errors::AgentDomainError::InvalidInput { .. }
     ));
     assert_eq!(domain_err.to_string(), "Invalid input: test error message");
 }
@@ -1110,7 +1049,7 @@ fn test_full_session_lifecycle() {
     let cancelled = service.get_session(&session_id).unwrap();
     assert!(matches!(
         cancelled.state,
-        CoreSessionState::Cancelled { .. }
+        SessionState::Cancelled { .. }
     ));
 
     // Delete session
@@ -1122,7 +1061,7 @@ fn test_full_session_lifecycle() {
     let result = service.get_session(&session_id);
     assert!(matches!(
         result,
-        Err(crate::core::agent::entities::AgentDomainError::SessionNotFound { .. })
+        Err(crate::core::agent::errors::AgentDomainError::SessionNotFound { .. })
     ));
 }
 

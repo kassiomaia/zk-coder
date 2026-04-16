@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use chrono::Utc;
 use log::info;
 
-use crate::core::agent::entities::AgentDomainError;
+use crate::core::agent::errors::AgentDomainError;
 use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::services::{CreateSessionRequest, SendAgentRequestRequest};
 use crate::core::agent::session::{AgentSession, SessionId, SessionState};

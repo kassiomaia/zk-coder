@@ -2,7 +2,7 @@
 //!
 //! Contains agent entities, repository interfaces, and service interfaces.
 
-pub mod entities;
+pub mod errors;
 pub mod execution;
 pub mod permissions;
 pub mod repositories;
@@ -14,13 +14,20 @@ mod tests;
 pub mod types;
 
 // Re-export core types
-pub use entities::{
-    Agent, AgentExecutionResult, AgentId, AgentRequest, AgentSession, AgentTask, ApprovalAction,
-    ApprovalStatus, PendingAction, SessionId, SessionState,
+pub use errors::AgentDomainError;
+pub use session::{AgentSession, PendingAction, SessionId, SessionState};
+pub use task::{
+    AgentExecutionResult, AgentRequest, AgentTask, Attachment, Complexity, ExecutionStep, Plan,
+    PlanStep, RequestContext, StepAction, StepResult, SubTask, SubTaskMode, TaskStatus,
+    UsageStats,
 };
+pub use types::{ActionPreview, ActionType, Agent, AgentId, PermissionLevel, TrustMode};
 pub use execution::{
     ExecutionPhase, ExecutionSnapshot, ExecutionTransition, LlmTracePayload, RuntimeTrace,
     RuntimeTraceType,
 };
-pub use repositories::{AgentRepository, ApprovalRepository, SessionRepository};
+pub use repositories::{
+    AgentRepository, ApprovalRepository, ExecutionRepository, RepositoryResult,
+    RuntimeTraceRepository, SessionRepository, TaskRepository,
+};
 pub use services::AgentService;

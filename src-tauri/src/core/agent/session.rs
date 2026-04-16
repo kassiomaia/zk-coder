@@ -36,6 +36,18 @@ impl std::fmt::Display for SessionId {
     }
 }
 
+impl From<&str> for SessionId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl From<String> for SessionId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
 /// Represents a running, stateful agent session.
 ///
 /// This struct is ephemeral and holds all the runtime state for an agent's

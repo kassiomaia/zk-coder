@@ -1,7 +1,7 @@
 use log::info;
 use tauri::{AppHandle, Emitter};
 
-use crate::core::agent::entities::AgentDomainError;
+use crate::core::agent::errors::AgentDomainError;
 use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::session::{SessionId, SessionState};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};

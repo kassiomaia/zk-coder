@@ -261,42 +261,31 @@ pub fn auto_decompose_failed_subtask(
 
     let mut created_ids: Vec<String> = Vec::new();
     for (idx, title) in titles.iter().enumerate() {
-        let core_subtask = crate::core::agent::entities::AgentTask {
-            id: uuid::Uuid::new_v4().to_string(),
-            session_id: session.id.0.clone(),
-            parent_task_id: Some(task_id.to_string()),
-            title: title.clone(),
-            description: Some(format!(
-                "Auto-decomposed from failed subtask '{}' ({})",
-                failed_subtask.title, failed_subtask.id
-            )),
-            status: crate::core::agent::entities::TaskStatus::Pending,
-            order: base_order + idx as i32,
-            mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
-            needs_review: false,
-        };
-        if let Err(e) = task_repo.create_subtask(task_id, &core_subtask) {
+        let mut subtask = crate::core::agent::task::SubTask::new(
+            task_id.to_string(),
+            title.clone(),
+            crate::core::agent::task::SubTaskMode::FullAccess,
+            base_order + idx as i32,
+        );
+        subtask.description = Some(format!(
+            "Auto-decomposed from failed subtask '{}' ({})",
+            failed_subtask.title, failed_subtask.id
+        ));
+
+        if let Err(e) = task_repo.create_subtask(&subtask) {
             warn!("[AgentRuntime] Failed to auto-create decomposed subtask: {e}");
             continue;
         }
 
-        let mut event_subtask = crate::core::agent::task::SubTask::new(
-            task_id.to_string(),
-            core_subtask.title.clone(),
-            crate::core::agent::task::SubTaskMode::FullAccess,
-            core_subtask.order,
-        );
-        event_subtask.id = core_subtask.id.clone();
-        event_subtask.description = core_subtask.description.clone();
-
+        let subtask_id = subtask.id.clone();
         let _ = app_handle.emit(
             AGENT_EVENT_NAME,
             AgentEvent::SubtaskCreated {
                 session_id: session.id.0.clone(),
-                subtask: event_subtask,
+                subtask,
             },
         );
-        created_ids.push(core_subtask.id.clone());
+        created_ids.push(subtask_id);
     }
 
     if !created_ids.is_empty() {

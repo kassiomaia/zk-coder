@@ -23,6 +23,18 @@ impl std::fmt::Display for AgentId {
     }
 }
 
+impl From<&str> for AgentId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl From<String> for AgentId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
 /// Represents the persisted configuration for an agent.
 ///
 /// This struct defines an agent's capabilities, including which tools it has

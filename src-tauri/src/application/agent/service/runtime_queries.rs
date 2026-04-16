@@ -5,7 +5,7 @@ use crate::application::agent::read_models::{
     AgentCatalog, AgentExecutionContext, AgentExecutionDebugDetails, AgentSessionRuntimeDetails,
     FileTouchedView, PendingActionsView, TerminalLineView, ToolCallView,
 };
-use crate::core::agent::entities::AgentDomainError;
+use crate::core::agent::errors::AgentDomainError;
 use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::session::{SessionId, SessionState};
 use crate::core::agent::task::AgentRequest;

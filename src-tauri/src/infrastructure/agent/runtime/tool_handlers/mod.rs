@@ -167,19 +167,17 @@ fn handle_plan_subtasks(
             .and_then(|v| v.as_str())
             .map(std::string::ToString::to_string);
 
-        let core_subtask = crate::core::agent::entities::AgentTask {
-            id: uuid::Uuid::new_v4().to_string(),
-            session_id: session.id.0.clone(),
-            parent_task_id: Some(task_id.to_string()),
-            title: title.clone(),
-            description: description.clone(),
-            status: crate::core::agent::entities::TaskStatus::Pending,
-            order: idx as i32,
-            mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
-            needs_review: false,
-        };
+        let mut subtask = crate::core::agent::task::SubTask::new(
+            task_id.to_string(),
+            title.clone(),
+            crate::core::agent::task::SubTaskMode::FullAccess,
+            idx as i32,
+        );
+        if let Some(ref desc) = description {
+            subtask.description = Some(desc.clone());
+        }
 
-        if let Err(e) = task_repo.create_subtask(task_id, &core_subtask) {
+        if let Err(e) = task_repo.create_subtask(&subtask) {
             warn!("[AgentRuntime] Failed to create subtask: {e}");
             return OrchestratorToolResult {
                 call_id: call.id.clone(),
@@ -191,22 +189,11 @@ fn handle_plan_subtasks(
             };
         }
 
-        let mut event_subtask = crate::core::agent::task::SubTask::new(
-            task_id.to_string(),
-            title,
-            crate::core::agent::task::SubTaskMode::FullAccess,
-            idx as i32,
-        );
-        event_subtask.id = core_subtask.id.clone();
-        if let Some(desc) = description {
-            event_subtask.description = Some(desc);
-        }
-
         let _ = app_handle.emit(
             AGENT_EVENT_NAME,
             AgentEvent::SubtaskCreated {
                 session_id: session.id.0.clone(),
-                subtask: event_subtask,
+                subtask,
             },
         );
 
@@ -218,7 +205,7 @@ fn handle_plan_subtasks(
         if let Some(first) = created_subtasks.iter().find(|st| st.order == 0).cloned() {
             let _ = task_repo.update_subtask_status(
                 &first.id,
-                crate::core::agent::entities::TaskStatus::InProgress,
+                crate::core::agent::task::TaskStatus::InProgress,
             );
 
             let mut updated = core_task_to_event_subtask(first, task_id);
@@ -277,7 +264,7 @@ fn handle_advance_subtask(
 
     let current_index = subtasks
         .iter()
-        .position(|st| st.status == crate::core::agent::entities::TaskStatus::InProgress);
+        .position(|st| st.status == crate::core::agent::task::TaskStatus::InProgress);
 
     let Some(current_pos) = current_index else {
         return OrchestratorToolResult {
@@ -306,7 +293,7 @@ fn handle_advance_subtask(
 
     if let Err(e) = task_repo.update_subtask_status(
         &current.id,
-        crate::core::agent::entities::TaskStatus::Completed,
+        crate::core::agent::task::TaskStatus::Completed,
     ) {
         warn!("[AgentRuntime] Failed to complete subtask: {e}");
         return OrchestratorToolResult {
@@ -333,13 +320,13 @@ fn handle_advance_subtask(
     let next = subtasks
         .iter()
         .skip(current_pos + 1)
-        .find(|st| st.status == crate::core::agent::entities::TaskStatus::Pending)
+        .find(|st| st.status == crate::core::agent::task::TaskStatus::Pending)
         .cloned();
 
     if let Some(next) = next {
         if let Err(e) = task_repo.update_subtask_status(
             &next.id,
-            crate::core::agent::entities::TaskStatus::InProgress,
+            crate::core::agent::task::TaskStatus::InProgress,
         ) {
             warn!("[AgentRuntime] Failed to start subtask: {e}");
             return OrchestratorToolResult {
@@ -375,7 +362,7 @@ fn handle_advance_subtask(
     }
 
     let _ =
-        task_repo.update_task_status(task_id, crate::core::agent::entities::TaskStatus::Completed);
+        task_repo.update_task_status(task_id, crate::core::agent::task::TaskStatus::Completed);
     let _ = app_handle.emit(
         AGENT_EVENT_NAME,
         AgentEvent::TaskUpdated {
@@ -582,24 +569,24 @@ fn handle_narrate(
 fn parse_status(
     status: &str,
 ) -> Option<(
-    crate::core::agent::entities::TaskStatus,
+    crate::core::agent::task::TaskStatus,
     crate::core::agent::task::TaskStatus,
 )> {
     match status {
         "pending" => Some((
-            crate::core::agent::entities::TaskStatus::Pending,
+            crate::core::agent::task::TaskStatus::Pending,
             crate::core::agent::task::TaskStatus::Pending,
         )),
         "in_progress" => Some((
-            crate::core::agent::entities::TaskStatus::InProgress,
+            crate::core::agent::task::TaskStatus::InProgress,
             crate::core::agent::task::TaskStatus::InProgress,
         )),
         "completed" => Some((
-            crate::core::agent::entities::TaskStatus::Completed,
+            crate::core::agent::task::TaskStatus::Completed,
             crate::core::agent::task::TaskStatus::Completed,
         )),
         "failed" => Some((
-            crate::core::agent::entities::TaskStatus::Failed,
+            crate::core::agent::task::TaskStatus::Failed,
             crate::core::agent::task::TaskStatus::Failed,
         )),
         _ => None,
