@@ -44,6 +44,8 @@ export interface DocumentGenerationJob {
 	artifactId?: string;
 	/** File path when complete */
 	filePath?: string;
+	/** Non-fatal warnings from the renderer (T3.1). */
+	warnings?: string[];
 	/** Timestamps */
 	startedAt: Date;
 	updatedAt: Date;
@@ -113,6 +115,18 @@ function extractFilename(args: Record<string, unknown>): string {
 		return parts[parts.length - 1] || 'Untitled';
 	}
 	return 'Untitled Document';
+}
+
+/** Maps a backend PDF phase label to a human-readable string. */
+function pdfPhaseLabel(phase: string): string {
+	switch (phase) {
+		case 'preparing': return 'Preparing fonts and layout…';
+		case 'rendering': return 'Rendering pages…';
+		case 'decorating': return 'Adding headers and footers…';
+		case 'writing': return 'Writing PDF file…';
+		case 'complete': return 'Document ready';
+		default: return 'Processing…';
+	}
 }
 
 /** Map tool name to human-readable phase */
@@ -403,6 +417,53 @@ export class DocumentGenerationTracker {
 
 		job.updatedAt = new Date();
 		return true;
+	}
+
+	/**
+	 * Handle a PDF progress event from the backend.
+	 *
+	 * Maps `PdfPhaseChanged`, `PdfProgress`, and `PdfWarning` events
+	 * onto the active job's state so the `DocumentGenerationCard`
+	 * reflects real render progress.
+	 */
+	handlePdfEvent(sessionId: string, event: { type: string; phase?: string; percent?: number; message?: string }): void {
+		const job = this.getJobBySession(sessionId);
+		if (!job) return;
+
+		switch (event.type) {
+			case 'pdf_phase_changed': {
+				const phaseMap: Record<string, GenPhase> = {
+					preparing: 'preparing',
+					rendering: 'building',
+					decorating: 'finalizing',
+					writing: 'finalizing',
+					complete: 'completed'
+				};
+				const mapped = phaseMap[event.phase || ''] || job.phase;
+				job.phase = mapped;
+				job.statusText = pdfPhaseLabel(event.phase || '');
+				if (mapped === 'completed') {
+					job.complete = true;
+					job.progress = 100;
+				}
+				break;
+			}
+			case 'pdf_progress':
+				if (typeof event.percent === 'number') {
+					job.progress = event.percent;
+				}
+				break;
+			case 'pdf_warning':
+				// Stash warnings for the validation report card (T3.2)
+				if (!job.warnings) {
+					job.warnings = [];
+				}
+				if (event.message) {
+					job.warnings.push(event.message);
+				}
+				break;
+		}
+		job.updatedAt = new Date();
 	}
 
 	/** Remove a job */

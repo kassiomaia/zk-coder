@@ -12,7 +12,9 @@ use crate::core::documents::pdf::document::PdfDocument;
 use crate::core::documents::pdf::error::PdfModelError;
 use crate::core::documents::pdf::geometry::{Margins, Orientation, PageGeometry, PageSize};
 use crate::core::documents::pdf::metadata::Metadata;
-use crate::core::documents::pdf::render::{PdfRenderer, RenderError, RenderOutcome, Theme};
+use crate::core::documents::pdf::render::{
+    PdfRenderer, ProgressSink, RenderError, RenderOutcome, Theme,
+};
 use crate::core::documents::pdf::section::{Heading, HeadingLevel, Section};
 use crate::infrastructure::tools::documents::shared::{PdfDraft, PdfPageSize};
 
@@ -71,12 +73,13 @@ pub async fn render_draft<R>(
     renderer: &R,
     theme: &Theme,
     sink: &mut (dyn Write + Send),
+    progress: Option<ProgressSink>,
 ) -> Result<RenderOutcome, FinalizeError>
 where
     R: PdfRenderer + ?Sized,
 {
     let doc = build_document(draft, theme)?;
-    let outcome = renderer.render(&doc, theme, sink, None).await?;
+    let outcome = renderer.render(&doc, theme, sink, progress).await?;
     Ok(outcome)
 }
 
@@ -212,7 +215,7 @@ mod tests {
 
         let mut buf: Vec<u8> = Vec::new();
         let theme = Theme::default();
-        let outcome = render_draft(&draft, &renderer, &theme, &mut buf)
+        let outcome = render_draft(&draft, &renderer, &theme, &mut buf, None)
             .await
             .expect("render ok");
 
@@ -306,7 +309,7 @@ mod tests {
 
         let draft = m1_reference_draft();
         let mut buf = Vec::new();
-        let outcome = render_draft(&draft, &renderer, &theme, &mut buf)
+        let outcome = render_draft(&draft, &renderer, &theme, &mut buf, None)
             .await
             .expect("M1 reference renders");
 

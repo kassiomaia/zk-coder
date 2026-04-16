@@ -402,6 +402,21 @@ export type AgentEvent =
 			timestamp: string;
 	  }
 	| {
+			type: 'pdf_phase_changed';
+			sessionId: string;
+			phase: string;
+	  }
+	| {
+			type: 'pdf_progress';
+			sessionId: string;
+			percent: number;
+	  }
+	| {
+			type: 'pdf_warning';
+			sessionId: string;
+			message: string;
+	  }
+	| {
 			type: 'artifact_created';
 			sessionId: string;
 			artifactId: string;

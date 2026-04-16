@@ -352,6 +352,33 @@ pub enum AgentEvent {
         timestamp: DateTime<Utc>,
     },
 
+    /// PDF render entered a new phase.
+    PdfPhaseChanged {
+        /// The session ID.
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        /// Phase label.
+        phase: String,
+    },
+
+    /// PDF render incremental progress update.
+    PdfProgress {
+        /// The session ID.
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        /// Percentage complete (0–100).
+        percent: u8,
+    },
+
+    /// PDF render emitted a non-fatal warning.
+    PdfWarning {
+        /// The session ID.
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        /// Human-readable warning text.
+        message: String,
+    },
+
     /// A document artifact was created.
     ArtifactCreated {
         /// The session ID.

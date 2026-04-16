@@ -14,12 +14,48 @@ use thiserror::Error;
 use super::document::PdfDocument;
 pub use super::theme::Theme;
 
-/// Progress notifications emitted while a document renders.
+/// Phase labels emitted during PDF rendering.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PdfPhase {
+    /// Loading fonts and preparing the layout engine.
+    Preparing,
+    /// Laying out sections and paginating content.
+    Rendering,
+    /// Painting decorations (headers, footers, bookmarks).
+    Decorating,
+    /// Serializing to bytes and writing to sink.
+    Writing,
+    /// Render completed successfully.
+    Complete,
+}
+
+/// A single progress notification sent from the renderer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PdfProgressEvent {
+    /// The render has entered a new phase.
+    PhaseChanged {
+        /// Current phase label.
+        phase: PdfPhase,
+    },
+    /// Incremental progress update (0–100).
+    Progress {
+        /// Percentage complete (0–100, clamped).
+        percent: u8,
+    },
+    /// A non-fatal warning was observed during rendering.
+    Warning {
+        /// Human-readable warning text.
+        message: String,
+    },
+}
+
+/// Callback that receives [`PdfProgressEvent`]s during a render.
 ///
-/// T1.2 does not wire progress events to the UI yet (T3.1 does). The
-/// type is a placeholder so the trait signature is forward-compatible.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct ProgressSink;
+/// Pass `None` to `PdfRenderer::render` when no progress reporting is
+/// needed (e.g. in tests).
+pub type ProgressSink = Box<dyn Fn(PdfProgressEvent) + Send>;
 
 /// Record of a font actually embedded in the output file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

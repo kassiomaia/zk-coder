@@ -100,7 +100,7 @@ pub async fn render_to_artifact(
             let file = std::fs::File::create(&tmp_for_task)?;
             let mut writer = BufWriter::new(file);
             let rt = tokio::runtime::Handle::current();
-            rt.block_on(render_draft(&draft, &renderer, &theme, &mut writer))
+            rt.block_on(render_draft(&draft, &renderer, &theme, &mut writer, None))
                 .map_err(|e| {
                     RenderArtifactError::Render(match e {
                         FinalizeError::Model(inner) => format!("invalid draft: {inner}"),

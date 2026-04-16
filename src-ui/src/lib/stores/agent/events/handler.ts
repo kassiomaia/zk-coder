@@ -88,6 +88,12 @@ export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentSta
 		case 'context_compacted':
 			StreamingEvents.handleContextCompacted(state, event);
 			break;
+		case 'pdf_phase_changed':
+		case 'pdf_progress':
+		case 'pdf_warning':
+			// PDF progress events are consumed by documentGenerationTracker
+			// via its own event listener. No session state change needed.
+			break;
 		case 'artifact_created':
 			SessionEvents.handleArtifactCreated(state, event);
 			break;

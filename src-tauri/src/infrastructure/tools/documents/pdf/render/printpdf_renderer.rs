@@ -25,8 +25,8 @@ use crate::core::documents::pdf::block::{
 use crate::core::documents::pdf::document::PdfDocument;
 use crate::core::documents::pdf::geometry::Orientation;
 use crate::core::documents::pdf::render::{
-    FontRef, OutlineEntry, PdfRenderer, ProgressSink, RenderError, RenderOutcome, RenderWarning,
-    Theme,
+    FontRef, OutlineEntry, PdfPhase, PdfProgressEvent, PdfRenderer, ProgressSink, RenderError,
+    RenderOutcome, RenderWarning, Theme,
 };
 use crate::core::documents::pdf::section::Section;
 use crate::core::documents::pdf::theme::{Decorations, Rgb as ThemeRgb};
@@ -96,17 +96,18 @@ impl PrintPdfRenderer {
         doc: &PdfDocument,
         theme: &Theme,
         sink: &mut (dyn Write + Send),
+        progress: &Option<ProgressSink>,
     ) -> Result<RenderOutcome, RenderError> {
+        emit_progress(progress, PdfProgressEvent::PhaseChanged {
+            phase: PdfPhase::Preparing,
+        });
+        emit_progress(progress, PdfProgressEvent::Progress { percent: 0 });
+
         let has_toc = doc
             .sections
             .iter()
             .any(|s| s.blocks.iter().any(|b| matches!(b, Block::Toc)));
 
-        // If the document contains a `Block::Toc`, do a two-pass render:
-        // 1. First pass skips Toc blocks → collect outline marks with
-        //    preliminary page numbers.
-        // 2. Second pass emits the Toc content using those marks, with
-        //    page numbers adjusted by the offset the TOC itself introduces.
         let toc_entries: Option<Vec<TocEntry>> = if has_toc {
             let (entries, _toc_page_count) =
                 self.measure_toc(doc, theme)?;
@@ -115,7 +116,19 @@ impl PrintPdfRenderer {
             None
         };
 
-        self.do_render(doc, theme, sink, toc_entries.as_deref())
+        emit_progress(progress, PdfProgressEvent::PhaseChanged {
+            phase: PdfPhase::Rendering,
+        });
+        emit_progress(progress, PdfProgressEvent::Progress { percent: PROGRESS_RENDERING });
+
+        let outcome = self.do_render(doc, theme, sink, toc_entries.as_deref(), progress)?;
+
+        emit_progress(progress, PdfProgressEvent::PhaseChanged {
+            phase: PdfPhase::Complete,
+        });
+        emit_progress(progress, PdfProgressEvent::Progress { percent: PROGRESS_COMPLETE });
+
+        Ok(outcome)
     }
 
     /// Performs the first (measurement) pass: layout everything except
@@ -184,6 +197,7 @@ impl PrintPdfRenderer {
         theme: &Theme,
         sink: &mut (dyn Write + Send),
         toc_entries: Option<&[TocEntry]>,
+        progress: &Option<ProgressSink>,
     ) -> Result<RenderOutcome, RenderError> {
         let (page_width_mm, page_height_mm) = page_dimensions(doc);
         let (pdf_doc, page_idx, layer_idx) = PrintPdfDoc::new(
@@ -229,6 +243,11 @@ impl PrintPdfRenderer {
             }
         }
 
+        emit_progress(progress, PdfProgressEvent::PhaseChanged {
+            phase: PdfPhase::Decorating,
+        });
+        emit_progress(progress, PdfProgressEvent::Progress { percent: PROGRESS_DECORATING });
+
         let section_starts: Vec<(usize, String)> = outline_marks
             .iter()
             .filter(|m| m.level == 1)
@@ -244,6 +263,11 @@ impl PrintPdfRenderer {
             decoration_x_mm,
             decoration_page_height_mm,
         );
+
+        emit_progress(progress, PdfProgressEvent::PhaseChanged {
+            phase: PdfPhase::Writing,
+        });
+        emit_progress(progress, PdfProgressEvent::Progress { percent: PROGRESS_WRITING });
 
         let bytes = pdf_doc
             .save_to_bytes()
@@ -1287,6 +1311,19 @@ fn embed_all_fonts(
     })
 }
 
+/// Progress percentage constants — render phases.
+const PROGRESS_RENDERING: u8 = 20;
+const PROGRESS_DECORATING: u8 = 60;
+const PROGRESS_WRITING: u8 = 80;
+const PROGRESS_COMPLETE: u8 = 100;
+
+/// Sends a progress event to the sink, if present.
+fn emit_progress(sink: &Option<ProgressSink>, event: PdfProgressEvent) {
+    if let Some(cb) = sink {
+        cb(event);
+    }
+}
+
 #[async_trait]
 impl PdfRenderer for PrintPdfRenderer {
     async fn render(
@@ -1294,9 +1331,9 @@ impl PdfRenderer for PrintPdfRenderer {
         doc: &PdfDocument,
         theme: &Theme,
         sink: &mut (dyn Write + Send),
-        _progress: Option<ProgressSink>,
+        progress: Option<ProgressSink>,
     ) -> Result<RenderOutcome, RenderError> {
-        self.render_sync(doc, theme, sink)
+        self.render_sync(doc, theme, sink, &progress)
     }
 }
 
@@ -2605,6 +2642,79 @@ mod tests {
             .await
             .expect("render");
         assert_eq!(outcome.page_count, 1);
+    }
+
+    // ---- T3.1: progress events ----
+
+    use crate::core::documents::pdf::render::{PdfPhase, PdfProgressEvent};
+
+    #[tokio::test]
+    async fn progress_events_arrive_in_order_and_monotonic() {
+        let r = renderer();
+        let doc = fixture_doc();
+        let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let events_clone = events.clone();
+        let sink: ProgressSink = Box::new(move |evt| {
+            events_clone.lock().unwrap().push(evt);
+        });
+
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &Theme::default(), &mut buf, Some(sink))
+            .await
+            .expect("render");
+
+        let captured = events.lock().unwrap();
+        assert!(
+            captured.len() >= 4,
+            "must emit at least 4 events (4 phases), got {}",
+            captured.len()
+        );
+
+        // Phases must arrive in order: Preparing → Rendering → Decorating → Writing → Complete
+        let phases: Vec<&PdfPhase> = captured
+            .iter()
+            .filter_map(|e| match e {
+                PdfProgressEvent::PhaseChanged { phase } => Some(phase),
+                _ => None,
+            })
+            .collect();
+        let expected = [
+            PdfPhase::Preparing,
+            PdfPhase::Rendering,
+            PdfPhase::Decorating,
+            PdfPhase::Writing,
+            PdfPhase::Complete,
+        ];
+        assert_eq!(
+            phases.len(),
+            expected.len(),
+            "must see all 5 phase transitions"
+        );
+        for (got, want) in phases.iter().zip(expected.iter()) {
+            assert_eq!(*got, want, "phase ordering mismatch");
+        }
+
+        // Progress percentages must be monotonically non-decreasing
+        let percents: Vec<u8> = captured
+            .iter()
+            .filter_map(|e| match e {
+                PdfProgressEvent::Progress { percent } => Some(*percent),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            !percents.is_empty(),
+            "must emit at least one progress event"
+        );
+        for window in percents.windows(2) {
+            assert!(
+                window[1] >= window[0],
+                "progress must be monotonic: {} → {}",
+                window[0],
+                window[1]
+            );
+        }
+        assert_eq!(*percents.last().unwrap(), PROGRESS_COMPLETE);
     }
 
     // ---- M2 exit gate: journey-a golden file ----

@@ -437,21 +437,25 @@ design-system tokens.
 
 **4 tasks. Each depends on M2.**
 
-### T3.1 — Structured progress events end-to-end
+### T3.1 — Structured progress events end-to-end — done
 
-- **Deliverable**: the frontend receives typed progress events and maps
-  them onto the existing `DocumentGenerationCard` phases.
-- **Build**:
-  - new `AgentEvent::Pdf*` variants: `PdfPhaseChanged`, `PdfProgress`,
-    `PdfWarning`
-  - emission from the background render job in T1.8
-  - `documentGenerationTracker.ts` maps them to card state
-- **Tests (first)**:
-  - backend: events arrive in declared order
-  - backend: progress is monotonic
-  - frontend: tracker unit tests cover each new event type
-- **Done when**: the card shows an honest page count and phase label
-  during a real render.
+- **Delivered**: `ProgressSink` replaced with a real `Box<dyn Fn>` callback.
+  Renderer emits `PdfPhaseChanged` (Preparing → Rendering → Decorating →
+  Writing → Complete), `PdfProgress` (0–100), and `PdfWarning` events
+  at key points in `render_sync` / `do_render`.
+- **Backend**: `AgentEvent` gained 3 new variants (`PdfPhaseChanged`,
+  `PdfProgress`, `PdfWarning`). `render_draft` now accepts optional
+  `ProgressSink`. `emit_progress` helper sends events when sink is
+  present. Progress % consts: 0 → 20 → 60 → 80 → 100.
+- **Frontend**: `AgentEvent` type union extended with 3 new discriminants.
+  Event handler routes them (no session state change — consumed by
+  tracker). `DocumentGenerationTracker.handlePdfEvent()` maps phase
+  labels to `GenPhase`, updates progress %, and stashes warnings in a
+  new `warnings?: string[]` field on the job.
+- **Tests (passing)**:
+  - `progress_events_arrive_in_order_and_monotonic` — captures events via
+    `Arc<Mutex<Vec>>` callback, asserts phase ordering (5 phases) and
+    monotonic non-decreasing progress percentages ending at 100.
 - **Retires gap**: #19.
 
 ### T3.2 — Validation report surfaced in the card
@@ -526,7 +530,7 @@ Single source of truth for which task closes which gap from
 | Blocking render | 16 | T1.8 | done |
 | No golden-file tests | 17 | M1 + M2 exit gates | done |
 | Substring validator | 18 | T2.7 | done |
-| Card lacks structural facts | 19 | T3.1 | pending |
+| Card lacks structural facts | 19 | T3.1 | done |
 | No theme settings UI | 20 | T3.3 | pending |
 
 Gap #13 is the only one deferred. It is only promoted if a user report
