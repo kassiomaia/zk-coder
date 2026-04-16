@@ -80,15 +80,15 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | F2 | Medium | High | Correctness Risk | No state machine validation for session transitions | **Fixed** |
 | F3 | Medium | High | API Design Smell | Wildcard re-export of chat entities | **Fixed** |
 | F4 | Medium | High | Correctness Risk | Regex `unwrap()` in production code path | **Fixed** |
-| F5 | Low | High | API Design Smell | Inherent `from_str` shadows `std::str::FromStr` | Deferred |
+| F5 | Low | High | API Design Smell | Inherent `from_str` shadows `std::str::FromStr` | **Fixed** |
 | F6 | Low | High | Correctness Risk | `TaskMode` vs `SubTaskMode` tool list divergence | **Fixed** |
 | F7 | Medium | High | Correctness Risk | Inconsistent path traversal validation | **Fixed** |
 
 ## Resolution Summary
-- Fixes implemented: 6 of 7 findings (F1, F2, F3, F4, F6, F7)
-- Fixes deferred: 1 (F5: low severity, cosmetic)
+- Fixes implemented: 7 of 7 findings (F1, F2, F3, F4, F5, F6, F7)
+- Fixes deferred: 0
 - False positives found: 0
-- Tests added: 29 (13 serde compat + 16 state transition)
+- Tests added: 34 (13 serde compat + 16 state transition + 5 FromStr trait)
 - Frontend changes required: No — IPC contracts byte-identical
 
 ### Fix Log
@@ -100,6 +100,7 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | 4 | F7 — Path traversal inconsistency | Fixed | Yes | 0 (1 updated) | Added `Component::ParentDir` rejection in `execute_command.rs` to match `spawn.rs` |
 | 5 | F1 — Duplicate type system | Fixed | Yes | 13 | 4-phase consolidation: serde compat shim, flip AgentService trait, flip repository traits, delete entities.rs. ~45 files touched. |
 | 6 | F6 — TaskMode tool list divergence | Fixed | Yes | 0 | Resolved automatically by F1 Phase 3 — `entities::TaskMode` no longer exists; only canonical `SubTaskMode` remains |
+| 7 | F5 — `FromStr` shadowing | Fixed | Yes | 5 | Added `impl FromStr` for 4 types; renamed inherent fallback-returning methods to `from_str_or_default`; `OperationType` inherent deleted entirely |
 
 ### Pre-existing Test Failure
 - `test_derive_thread_title_long` in `sqlite/migrations/chat.rs` — assertion `result.len() <= 54` fails. Unrelated to audit findings.

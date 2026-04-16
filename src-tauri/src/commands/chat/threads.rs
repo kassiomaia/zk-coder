@@ -153,7 +153,7 @@ pub async fn create_thread_with_message(
     role: String,
     state: tauri::State<'_, ChatState>,
 ) -> Result<ThreadWithMessageResponse, String> {
-    let message_role = MessageRole::from_str(&role);
+    let message_role = MessageRole::from_str_or_default(&role);
     let (thread, message) = state
         .service
         .create_thread_with_message(&conversation_id, &thread_title, &content, message_role)

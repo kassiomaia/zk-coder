@@ -68,13 +68,29 @@ impl MessageRole {
         }
     }
 
-    /// Creates a `MessageRole` from a string slice.
+    /// Parses a `MessageRole` from a string slice, falling back to `User` for
+    /// any unknown input. Kept for DB-read tolerance where historic rows may
+    /// contain unknown role values that must not crash the application. For
+    /// strict parsing with explicit error reporting, use `"..".parse::<MessageRole>()`.
     #[must_use]
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_str_or_default(s: &str) -> Self {
         match s {
             "assistant" => Self::Assistant,
             "system" => Self::System,
             _ => Self::User,
+        }
+    }
+}
+
+impl std::str::FromStr for MessageRole {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "user" => Ok(Self::User),
+            "assistant" => Ok(Self::Assistant),
+            "system" => Ok(Self::System),
+            other => Err(format!("unknown MessageRole: {other}")),
         }
     }
 }
@@ -420,8 +436,21 @@ mod tests {
     fn test_message_role_serialization() {
         assert_eq!(MessageRole::User.as_str(), "user");
         assert_eq!(MessageRole::Assistant.as_str(), "assistant");
-        assert_eq!(MessageRole::from_str("user"), MessageRole::User);
-        assert_eq!(MessageRole::from_str("assistant"), MessageRole::Assistant);
+        assert_eq!(MessageRole::from_str_or_default("user"), MessageRole::User);
+        assert_eq!(
+            MessageRole::from_str_or_default("assistant"),
+            MessageRole::Assistant
+        );
+        assert_eq!(MessageRole::from_str_or_default("unknown"), MessageRole::User);
+    }
+
+    #[test]
+    fn test_message_role_from_str_trait() {
+        assert_eq!("user".parse::<MessageRole>(), Ok(MessageRole::User));
+        assert_eq!("assistant".parse::<MessageRole>(), Ok(MessageRole::Assistant));
+        assert_eq!("system".parse::<MessageRole>(), Ok(MessageRole::System));
+        assert!("unknown".parse::<MessageRole>().is_err());
+        assert!("".parse::<MessageRole>().is_err());
     }
 
     #[test]

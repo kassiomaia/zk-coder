@@ -87,7 +87,7 @@ impl SqliteContextWindowRepository {
             .query_map(params![&id], |row| {
                 Ok(ContextMessage {
                     id: row.get(0)?,
-                    role: MessageRole::from_str(&row.get::<_, String>(1)?),
+                    role: MessageRole::from_str_or_default(&row.get::<_, String>(1)?),
                     content: row.get(2)?,
                     timestamp: parse_datetime(&row.get::<_, String>(3)?),
                     tokens: row.get(4)?,

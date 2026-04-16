@@ -40,7 +40,7 @@ pub async fn send_message(
         conversation_id,
         thread_id,
         content,
-        role: MessageRole::from_str(&role),
+        role: MessageRole::from_str_or_default(&role),
     };
     state
         .service

@@ -20,9 +20,9 @@ pub fn get_providers(conn: &Connection) -> Result<Vec<Provider>, ConfigRepositor
     let providers = stmt
         .query_map([], |row| {
             let api_type_str: String = row.get(4)?;
-            let api_type = ApiType::from_str(&api_type_str);
+            let api_type = ApiType::from_str_or_default(&api_type_str);
             let models_source_str: String = row.get(7)?;
-            let models_source = ModelsSource::from_str(&models_source_str);
+            let models_source = ModelsSource::from_str_or_default(&models_source_str);
             let created_at_str: String = row.get(8)?;
             let updated_at_str: String = row.get(9)?;
 
@@ -64,9 +64,9 @@ pub fn get_provider(
     let provider = stmt
         .query_row(params![id], |row| {
             let api_type_str: String = row.get(4)?;
-            let api_type = ApiType::from_str(&api_type_str);
+            let api_type = ApiType::from_str_or_default(&api_type_str);
             let models_source_str: String = row.get(7)?;
-            let models_source = ModelsSource::from_str(&models_source_str);
+            let models_source = ModelsSource::from_str_or_default(&models_source_str);
             let created_at_str: String = row.get(8)?;
             let updated_at_str: String = row.get(9)?;
 

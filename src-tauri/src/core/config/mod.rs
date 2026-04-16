@@ -41,13 +41,29 @@ impl ApiType {
         }
     }
 
-    /// Creates an `ApiType` from a string slice.
+    /// Parses an `ApiType` from a string slice, falling back to `OpenAI` for
+    /// any unknown input. Kept for DB-read tolerance where historic rows may
+    /// contain unknown provider ids that must not crash the application. For
+    /// strict parsing with explicit error reporting, use `"..".parse::<ApiType>()`.
     #[must_use]
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_str_or_default(s: &str) -> Self {
         match s {
             "anthropic" => Self::Anthropic,
             "google" => Self::Google,
             _ => Self::OpenAI,
+        }
+    }
+}
+
+impl std::str::FromStr for ApiType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "openai" => Ok(Self::OpenAI),
+            "anthropic" => Ok(Self::Anthropic),
+            "google" => Ok(Self::Google),
+            other => Err(format!("unknown ApiType: {other}")),
         }
     }
 }
@@ -76,13 +92,29 @@ impl ModelsSource {
         }
     }
 
-    /// Creates a `ModelsSource` from a string slice.
+    /// Parses a `ModelsSource` from a string slice, falling back to `Auto` for
+    /// any unknown input. Kept for DB-read tolerance where historic rows may
+    /// contain unknown values that must not crash the application. For strict
+    /// parsing with explicit error reporting, use `"..".parse::<ModelsSource>()`.
     #[must_use]
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_str_or_default(s: &str) -> Self {
         match s {
             "manual" => Self::Manual,
             "hybrid" => Self::Hybrid,
             _ => Self::Auto,
+        }
+    }
+}
+
+impl std::str::FromStr for ModelsSource {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "auto" => Ok(Self::Auto),
+            "manual" => Ok(Self::Manual),
+            "hybrid" => Ok(Self::Hybrid),
+            other => Err(format!("unknown ModelsSource: {other}")),
         }
     }
 }
@@ -336,20 +368,6 @@ impl OperationType {
         }
     }
 
-    /// Creates an `OperationType` from a string slice.
-    #[must_use]
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "analysis" => Some(Self::Analysis),
-            "code" => Some(Self::Code),
-            "vision" => Some(Self::Vision),
-            "audio" => Some(Self::Audio),
-            "tips" => Some(Self::Tips),
-            "review" => Some(Self::Review),
-            _ => None,
-        }
-    }
-
     /// Returns a slice containing all `OperationType` variants.
     #[must_use]
     pub const fn all() -> &'static [Self] {
@@ -367,6 +385,22 @@ impl OperationType {
 impl std::fmt::Display for OperationType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
+    }
+}
+
+impl std::str::FromStr for OperationType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "analysis" => Ok(Self::Analysis),
+            "code" => Ok(Self::Code),
+            "vision" => Ok(Self::Vision),
+            "audio" => Ok(Self::Audio),
+            "tips" => Ok(Self::Tips),
+            "review" => Ok(Self::Review),
+            other => Err(format!("unknown OperationType: {other}")),
+        }
     }
 }
 
@@ -488,15 +522,45 @@ mod tests {
 
     #[test]
     fn test_api_type_conversion() {
-        assert_eq!(ApiType::from_str("openai"), ApiType::OpenAI);
-        assert_eq!(ApiType::from_str("anthropic"), ApiType::Anthropic);
-        assert_eq!(ApiType::from_str("unknown"), ApiType::OpenAI);
+        assert_eq!(ApiType::from_str_or_default("openai"), ApiType::OpenAI);
+        assert_eq!(ApiType::from_str_or_default("anthropic"), ApiType::Anthropic);
+        assert_eq!(ApiType::from_str_or_default("unknown"), ApiType::OpenAI);
+    }
+
+    #[test]
+    fn test_api_type_from_str_trait() {
+        assert_eq!("openai".parse::<ApiType>(), Ok(ApiType::OpenAI));
+        assert_eq!("anthropic".parse::<ApiType>(), Ok(ApiType::Anthropic));
+        assert_eq!("google".parse::<ApiType>(), Ok(ApiType::Google));
+        assert!("unknown".parse::<ApiType>().is_err());
+        assert!("".parse::<ApiType>().is_err());
+    }
+
+    #[test]
+    fn test_models_source_conversion() {
+        assert_eq!(ModelsSource::from_str_or_default("auto"), ModelsSource::Auto);
+        assert_eq!(ModelsSource::from_str_or_default("manual"), ModelsSource::Manual);
+        assert_eq!(ModelsSource::from_str_or_default("hybrid"), ModelsSource::Hybrid);
+        assert_eq!(ModelsSource::from_str_or_default("unknown"), ModelsSource::Auto);
+    }
+
+    #[test]
+    fn test_models_source_from_str_trait() {
+        assert_eq!("auto".parse::<ModelsSource>(), Ok(ModelsSource::Auto));
+        assert_eq!("manual".parse::<ModelsSource>(), Ok(ModelsSource::Manual));
+        assert_eq!("hybrid".parse::<ModelsSource>(), Ok(ModelsSource::Hybrid));
+        assert!("unknown".parse::<ModelsSource>().is_err());
     }
 
     #[test]
     fn test_operation_type_conversion() {
-        assert_eq!(OperationType::from_str("code"), Some(OperationType::Code));
-        assert_eq!(OperationType::from_str("unknown"), None);
+        assert_eq!("code".parse::<OperationType>(), Ok(OperationType::Code));
+        assert_eq!("analysis".parse::<OperationType>(), Ok(OperationType::Analysis));
+        assert_eq!("vision".parse::<OperationType>(), Ok(OperationType::Vision));
+        assert_eq!("audio".parse::<OperationType>(), Ok(OperationType::Audio));
+        assert_eq!("tips".parse::<OperationType>(), Ok(OperationType::Tips));
+        assert_eq!("review".parse::<OperationType>(), Ok(OperationType::Review));
+        assert!("unknown".parse::<OperationType>().is_err());
     }
 
     #[test]

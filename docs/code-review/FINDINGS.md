@@ -168,6 +168,17 @@ Several types define inherent `from_str` methods instead of implementing the `Fr
 
 These inherent methods prevent using the standard `.parse::<T>()` pattern and can cause confusion when consumers expect the trait-based API.
 
+### Resolution
+**Status:** Fixed
+**Confidence verified:** Yes — finding confirmed
+**Commit:** `refactor(core): add FromStr impls; rename inherent from_str methods to disambiguate`
+**Tests added:** 5 new tests (`test_api_type_from_str_trait`, `test_models_source_from_str_trait`, `test_models_source_conversion`, `test_message_role_from_str_trait`; `test_operation_type_conversion` rewritten for `FromStr`)
+**Deviations from plan:** None
+**Notes:**
+- `ApiType`, `ModelsSource`, `MessageRole`: inherent method renamed to `from_str_or_default` (preserves DB-read fallback tolerance at ~10 call sites). Strict `FromStr` impl added for idiomatic `.parse::<T>()` usage.
+- `OperationType`: inherent `Option`-returning method deleted outright; replaced by `FromStr` impl. The one production caller (`operation_defaults.rs:18`) now uses `operation_str.parse().unwrap_or(OperationType::Analysis)` — semantically equivalent.
+- All four `FromStr` impls use `type Err = String` for consistency; typed errors were out of scope for this hygiene fix.
+
 ---
 
 ## F6 — `TaskMode` vs `SubTaskMode` Tool List Divergence
