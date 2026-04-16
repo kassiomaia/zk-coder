@@ -76,20 +76,20 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 
 | # | Severity | Confidence | Category | Title | Status |
 |---|----------|------------|----------|-------|--------|
-| F1 | High | High | Maintainability / Correctness | Duplicate type system in agent module | Deferred |
+| F1 | High | High | Maintainability / Correctness | Duplicate type system in agent module | **Fixed** |
 | F2 | Medium | High | Correctness Risk | No state machine validation for session transitions | **Fixed** |
 | F3 | Medium | High | API Design Smell | Wildcard re-export of chat entities | **Fixed** |
 | F4 | Medium | High | Correctness Risk | Regex `unwrap()` in production code path | **Fixed** |
 | F5 | Low | High | API Design Smell | Inherent `from_str` shadows `std::str::FromStr` | Deferred |
-| F6 | Low | High | Correctness Risk | `TaskMode` vs `SubTaskMode` tool list divergence | Deferred |
+| F6 | Low | High | Correctness Risk | `TaskMode` vs `SubTaskMode` tool list divergence | **Fixed** |
 | F7 | Medium | High | Correctness Risk | Inconsistent path traversal validation | **Fixed** |
 
 ## Resolution Summary
-- Fixes implemented: 4 of 4 planned (F2, F3, F4, F7)
-- Fixes deferred: 3 (F1: too large for audit scope, F5/F6: low severity)
+- Fixes implemented: 6 of 7 findings (F1, F2, F3, F4, F6, F7)
+- Fixes deferred: 1 (F5: low severity, cosmetic)
 - False positives found: 0
-- Tests added: 16 (+ 1 test updated)
-- Frontend changes required: No
+- Tests added: 29 (13 serde compat + 16 state transition)
+- Frontend changes required: No — IPC contracts byte-identical
 
 ### Fix Log
 | # | Finding | Status | Confidence Verified | Tests Added | Notes |
@@ -98,6 +98,8 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | 2 | F3 — Wildcard re-export | Fixed | Yes | 0 | Replaced `pub use chat::entities::*` with explicit list; compile-time verified |
 | 3 | F4 — Regex LazyLock | Fixed | Yes | 0 | Patterns compiled once via `std::sync::LazyLock`; all 31 existing tests pass |
 | 4 | F7 — Path traversal inconsistency | Fixed | Yes | 0 (1 updated) | Added `Component::ParentDir` rejection in `execute_command.rs` to match `spawn.rs` |
+| 5 | F1 — Duplicate type system | Fixed | Yes | 13 | 4-phase consolidation: serde compat shim, flip AgentService trait, flip repository traits, delete entities.rs. ~45 files touched. |
+| 6 | F6 — TaskMode tool list divergence | Fixed | Yes | 0 | Resolved automatically by F1 Phase 3 — `entities::TaskMode` no longer exists; only canonical `SubTaskMode` remains |
 
 ### Pre-existing Test Failure
 - `test_derive_thread_title_long` in `sqlite/migrations/chat.rs` — assertion `result.len() <= 54` fails. Unrelated to audit findings.

@@ -15,7 +15,7 @@
 
 ### Description
 
-The agent module maintains two parallel, divergent type hierarchies for the same domain concepts:
+(Historical — now resolved.) The agent module previously maintained two parallel, divergent type hierarchies for the same domain concepts:
 
 | Concept | `entities.rs` | New location |
 |---------|---------------|--------------|
@@ -39,6 +39,19 @@ The `mod.rs` re-exports exclusively from `entities.rs`, making it the "public" A
 2. **Behavioral divergence:** `entities::TaskMode::FullAccess.allowed_tools()` includes `"agent_plan_subtasks"`, but `task::SubTaskMode::FullAccess.allowed_tools()` does not. A consumer using one vs the other gets different permission sets.
 3. **Structural divergence:** `entities::AgentSession` has no `parent_session_id` or `updated_at` fields; `session::AgentSession` does. `entities::AgentTask` is a simple struct; `task::AgentTask` has steps, subtasks, and lifecycle methods.
 4. **Confusion for contributors:** New code can import from either path with no compile-time error.
+
+### Resolution
+**Status:** Fixed
+**Confidence verified:** Yes — finding confirmed
+**Commits:**
+- Phase 0: `refactor(agent): add serde compat layer for legacy SessionState and TaskStatus` (fea2f97)
+- Phase 1: `refactor(agent): flip AgentService trait to canonical session/task/types` (547e6ca)
+- Phase 2: `refactor(agent): flip repository traits to canonical types; remove conversion bridge` (7d42bde)
+- Phase 3: `refactor(agent): delete legacy entities.rs; delete application conversions.rs; delete AgentTrustMode`
+**Tests added:** 13 serde compat tests (Phase 0)
+**Deviations from plan:**
+- Deleted `AgentTrustMode` entirely (user-approved; the `AgentTrustMode::from(TrustMode::Trusted) = Never` mapping was semantically backwards and never actually consulted on the permission decision path).
+- Kept Phase 0's serde compat deserializer even though current write paths only produce canonical format — acts as defense-in-depth for any historical DB rows.
 
 ---
 
@@ -169,6 +182,13 @@ These inherent methods prevent using the standard `.parse::<T>()` pattern and ca
 `entities::TaskMode::FullAccess.allowed_tools()` includes `"agent_plan_subtasks"` (line 373), but `task::SubTaskMode::FullAccess.allowed_tools()` explicitly excludes it. The test in `task.rs:587` asserts this exclusion.
 
 This means the tool permission set depends on which type the caller uses, leading to inconsistent behavior. A caller using `entities::TaskMode` gets planning capability; one using `task::SubTaskMode` does not.
+
+### Resolution
+**Status:** Fixed
+**Confidence verified:** Yes — finding confirmed
+**Commit:** Part of F1 Phase 3 (`entities.rs` deleted — only `SubTaskMode` remains)
+**Tests added:** None required (LEGACY `TaskMode` enum removed)
+**Deviations from plan:** None
 
 ---
 
