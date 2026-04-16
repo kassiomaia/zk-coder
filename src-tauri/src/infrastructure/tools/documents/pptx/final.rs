@@ -3,6 +3,7 @@
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
+    documents::pdf::artifacts::resolve_artifacts_dir,
     documents::shared::{get_draft_store, PptxDraft, PptxSlide, SlideContent, SlideLayout},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
@@ -125,7 +126,7 @@ impl Tool for PptxFinalizeTool {
             let estimated_duration_minutes = estimate_duration(&draft);
 
             // Generate the PPTX file
-            let (path, size_bytes) = generate_pptx(draft).await?;
+            let (path, size_bytes) = generate_pptx(draft, &app_handle).await?;
 
             // Create artifact reference
             let artifact_id = if args.auto_save {
@@ -138,7 +139,7 @@ impl Tool for PptxFinalizeTool {
                 deck_id: args.deck_id,
                 filename,
                 artifact_id,
-                path: path.to_str().unwrap().to_string(),
+                path: path.to_string_lossy().into_owned(),
                 validation,
                 slide_count,
                 estimated_duration_minutes,
@@ -255,18 +256,12 @@ fn estimate_duration(draft: &PptxDraft) -> usize {
 }
 
 /// Generate a PPTX file from the draft using the pptx crate.
-async fn generate_pptx(draft: PptxDraft) -> Result<(PathBuf, u64), ToolError> {
-    // Get the home directory for artifact storage
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .map_err(|_| ToolError::failed("Could not determine home directory".to_string()))?;
+async fn generate_pptx(draft: PptxDraft, app_handle: &AppHandle) -> Result<(PathBuf, u64), ToolError> {
+    let artifacts_dir = resolve_artifacts_dir(app_handle)?;
+    generate_pptx_to_dir(draft, &artifacts_dir).await
+}
 
-    // Create artifacts directory in home/.coder/artifacts
-    let artifacts_dir = PathBuf::from(home).join(".coder").join("artifacts");
-    std::fs::create_dir_all(&artifacts_dir)
-        .map_err(|e| ToolError::failed(format!("Failed to create artifacts directory: {e}")))?;
-
-    // Create output file path
+async fn generate_pptx_to_dir(draft: PptxDraft, artifacts_dir: &std::path::Path) -> Result<(PathBuf, u64), ToolError> {
     let output_path = artifacts_dir.join(&draft.filename);
 
     // Create a new presentation
@@ -510,7 +505,6 @@ mod tests {
     use super::*;
     use crate::infrastructure::tools::documents::shared::{DraftSlide, DraftStatus};
     use chrono::Utc;
-    use std::fs;
 
     fn create_test_draft() -> PptxDraft {
         PptxDraft {
@@ -633,8 +627,11 @@ mod tests {
         let mut draft = create_test_draft();
         draft.filename = format!("test-{}.pptx", uuid::Uuid::new_v4());
 
+        let tmp = tempfile::tempdir().unwrap();
         let runtime = tokio::runtime::Runtime::new().unwrap();
-        let (path, _size) = runtime.block_on(generate_pptx(draft)).unwrap();
+        let (path, _size) = runtime
+            .block_on(generate_pptx_to_dir(draft, tmp.path()))
+            .unwrap();
 
         let prs = pptx::Presentation::open(&path).unwrap();
         let slides = prs.slides().unwrap();
@@ -647,6 +644,5 @@ mod tests {
         assert!(slide2_xml.contains("Item 1"));
         assert!(slide2_xml.contains("Item 2"));
 
-        let _ = fs::remove_file(path);
     }
 }

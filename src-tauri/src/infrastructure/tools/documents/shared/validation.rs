@@ -235,6 +235,34 @@ pub const fn estimate_page_count(
     Ok((size_bytes / bytes_per_page + 1) as usize)
 }
 
+/// Sanitize a user-supplied filename, stripping directory components
+/// and ensuring a valid extension.
+///
+/// Returns a flat filename (no path separators, no `..` traversal)
+/// with the given extension guaranteed.
+pub fn sanitize_filename(raw: &str, extension: &str) -> String {
+    let trimmed = raw.trim();
+    let ext_dot = format!(".{extension}");
+    let with_ext = if trimmed.ends_with(&ext_dot) {
+        trimmed.to_string()
+    } else {
+        format!("{trimmed}.{extension}")
+    };
+    let fallback = format!("document.{extension}");
+    let name = std::path::Path::new(&with_ext)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(&fallback);
+    let sanitized = name.replace(['/', '\\'], "_");
+    let stem = sanitized.strip_suffix(&ext_dot).unwrap_or(&sanitized);
+    let stem_clean: String = stem.chars().filter(|c| *c != '.').collect();
+    if stem_clean.trim().is_empty() {
+        fallback
+    } else {
+        sanitized
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -321,5 +349,44 @@ mod tests {
         let mut report = ValidationReport::new();
         report.add_error("Test", "Test error");
         assert!(!report.passed, "Report with error should fail");
+    }
+
+    #[test]
+    fn sanitize_filename_strips_directory_components() {
+        assert_eq!(
+            sanitize_filename("../../../etc/cron.d/job.pptx", "pptx"),
+            "job.pptx"
+        );
+        assert_eq!(
+            sanitize_filename("sub/dir/report.docx", "docx"),
+            "report.docx"
+        );
+    }
+
+    #[test]
+    fn sanitize_filename_handles_empty() {
+        assert_eq!(sanitize_filename("", "pptx"), "document.pptx");
+        assert_eq!(sanitize_filename("  ", "docx"), "document.docx");
+    }
+
+    #[test]
+    fn sanitize_filename_preserves_normal_names() {
+        assert_eq!(
+            sanitize_filename("presentation.pptx", "pptx"),
+            "presentation.pptx"
+        );
+        assert_eq!(sanitize_filename("report", "docx"), "report.docx");
+    }
+
+    #[test]
+    fn sanitize_filename_handles_dot_dot_only() {
+        assert_eq!(sanitize_filename("..", "pptx"), "document.pptx");
+        assert_eq!(sanitize_filename("...", "docx"), "document.docx");
+    }
+
+    #[test]
+    fn sanitize_filename_adds_extension() {
+        assert_eq!(sanitize_filename("deck", "pptx"), "deck.pptx");
+        assert_eq!(sanitize_filename("report.pdf", "pdf"), "report.pdf");
     }
 }

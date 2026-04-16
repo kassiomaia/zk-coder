@@ -13,8 +13,8 @@ pub use draft_store::{
     PptxDraft, PptxSlide, SlideContent, SlideLayout,
 };
 pub use validation::{
-    validate_file_exists, validate_file_size, validate_magic_bytes, DocumentFileType,
-    ValidationCheck, ValidationLevel, ValidationReport,
+    sanitize_filename, validate_file_exists, validate_file_size, validate_magic_bytes,
+    DocumentFileType, ValidationCheck, ValidationLevel, ValidationReport,
 };
 
 use std::sync::{Arc, Mutex};

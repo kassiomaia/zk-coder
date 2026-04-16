@@ -1,7 +1,7 @@
 //! Start a new PDF document.
 
 use crate::infrastructure::tools::{
-    documents::shared::{get_draft_store, PdfPageSize},
+    documents::shared::{get_draft_store, sanitize_filename, PdfPageSize},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -96,7 +96,7 @@ impl Tool for PdfStartTool {
         Box::pin(async move {
             let args: PdfStartArgs = parse_args("pdf_start", arguments)?;
 
-            let filename = sanitize_filename(&args.filename);
+            let filename = sanitize_filename(&args.filename, "pdf");
 
             // Parse page size
             let page_size = parse_page_size(args.page_size.as_deref().unwrap_or("A4"));
@@ -125,27 +125,6 @@ impl Tool for PdfStartTool {
 
             Ok(serde_json::to_value(output)?)
         })
-    }
-}
-
-fn sanitize_filename(raw: &str) -> String {
-    let trimmed = raw.trim();
-    let with_ext = if trimmed.ends_with(".pdf") {
-        trimmed.to_string()
-    } else {
-        format!("{trimmed}.pdf")
-    };
-    let name = std::path::Path::new(&with_ext)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("document.pdf");
-    let sanitized = name.replace(['/', '\\'], "_");
-    let stem = sanitized.strip_suffix(".pdf").unwrap_or(&sanitized);
-    let stem_clean: String = stem.chars().filter(|c| *c != '.').collect();
-    if stem_clean.trim().is_empty() {
-        "document.pdf".to_string()
-    } else {
-        sanitized
     }
 }
 
@@ -202,30 +181,30 @@ mod tests {
     #[test]
     fn sanitize_filename_strips_directory_components() {
         assert_eq!(
-            sanitize_filename("../../../etc/cron.d/job.pdf"),
+            sanitize_filename("../../../etc/cron.d/job.pdf", "pdf"),
             "job.pdf"
         );
     }
 
     #[test]
     fn sanitize_filename_handles_separators() {
-        assert_eq!(sanitize_filename("sub/dir/file.pdf"), "file.pdf");
+        assert_eq!(sanitize_filename("sub/dir/file.pdf", "pdf"), "file.pdf");
     }
 
     #[test]
     fn sanitize_filename_handles_empty() {
-        assert_eq!(sanitize_filename(""), "document.pdf");
+        assert_eq!(sanitize_filename("", "pdf"), "document.pdf");
     }
 
     #[test]
     fn sanitize_filename_preserves_normal_names() {
-        assert_eq!(sanitize_filename("report.pdf"), "report.pdf");
-        assert_eq!(sanitize_filename("my-report"), "my-report.pdf");
+        assert_eq!(sanitize_filename("report.pdf", "pdf"), "report.pdf");
+        assert_eq!(sanitize_filename("my-report", "pdf"), "my-report.pdf");
     }
 
     #[test]
     fn sanitize_filename_handles_dot_dot_only() {
-        assert_eq!(sanitize_filename(".."), "document.pdf");
+        assert_eq!(sanitize_filename("..", "pdf"), "document.pdf");
     }
 
     #[test]

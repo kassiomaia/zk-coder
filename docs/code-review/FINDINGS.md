@@ -500,3 +500,155 @@ The `LlmError` type already has an `is_retryable()` method (used in `streaming.r
 **Commit:** Replace 3-way string matching with `err.is_retryable()` in `loop_runner.rs:264`
 **Tests added:** 0 (existing orchestrator tests validate retry behavior)
 **Deviations from plan:** None
+
+---
+
+## F15 — Filename Path Traversal in PPTX and DOCX Start Tools
+
+**Severity:** High
+**Confidence:** High
+**Category:** Correctness Risk / Security
+**Location:** `src-tauri/src/infrastructure/tools/documents/pptx/start.rs:96-100` and `src-tauri/src/infrastructure/tools/documents/docx/start.rs:88-92`
+
+### Description
+
+Both `pptx_start` and `docx_start` tools normalize the filename extension but do **not** sanitize path components. The PDF module's `pdf_start` was fixed for this exact issue in F9 via a `sanitize_filename()` function, but the PPTX and DOCX modules were added afterward without the same protection.
+
+**PPTX start.rs:96-100:**
+```rust
+let filename = if args.filename.ends_with(".pptx") {
+    args.filename.clone()
+} else {
+    format!("{}.pptx", args.filename)
+};
+```
+
+**DOCX start.rs:88-92:**
+```rust
+let filename = if args.filename.ends_with(".docx") {
+    args.filename
+} else {
+    format!("{}.docx", args.filename)
+};
+```
+
+This unsanitized filename is stored in the draft and later used in `pptx/final.rs:270` and `docx/final.rs:245` as `artifacts_dir.join(&draft.filename)`. An agent can supply:
+- `"../../../etc/cron.d/job.pptx"` → writes outside artifacts dir
+- `"sub/dir/../../escape.docx"` → writes to arbitrary location
+
+### Impact
+
+Identical to F9: an agent can write a document file to any location the process has write access to. The file content is a valid PPTX/DOCX (not arbitrary bytes), but overwriting existing files or placing files in auto-execute directories is possible.
+
+### Resolution
+**Status:** Fixed
+**Confidence verified:** Yes — finding confirmed
+**Commit:** Extract shared `sanitize_filename(raw, extension)` to `shared/validation.rs`; apply to PPTX, DOCX, and PDF start tools
+**Tests added:** 5 (in `shared/validation.rs`)
+**Deviations from plan:** Also consolidated PDF's local `sanitize_filename` into the shared function
+
+---
+
+## F16 — `path.to_str().unwrap()` Panic on Non-UTF-8 Paths
+
+**Severity:** Medium
+**Confidence:** High
+**Category:** Correctness Risk
+**Location:** `src-tauri/src/infrastructure/tools/documents/pptx/final.rs:141` and `src-tauri/src/infrastructure/tools/documents/docx/final.rs:140`
+
+### Description
+
+Both finalize tools convert the output `PathBuf` to a string for the response using `.to_str().unwrap()`:
+
+```rust
+path: path.to_str().unwrap().to_string(),
+```
+
+On Linux, file paths can contain non-UTF-8 byte sequences. If the artifacts directory path (derived from `$HOME`) contains non-UTF-8 characters, this will panic at runtime.
+
+### Impact
+
+A panic in a Tauri command handler crashes the desktop application. While non-UTF-8 home directory paths are rare, they are valid on Linux and the code should handle them gracefully. The fix is trivial: use `path.to_string_lossy().to_string()` or `path.display().to_string()`.
+
+### Resolution
+**Status:** Fixed
+**Confidence verified:** Yes — finding confirmed
+**Commit:** Replace `path.to_str().unwrap()` with `path.to_string_lossy().into_owned()` in both files
+**Tests added:** 0 (defensive change; no behavioral difference for valid paths)
+**Deviations from plan:** None
+
+---
+
+## F17 — PPTX/DOCX Artifact Directory Bypasses Tauri App Data Path
+
+**Severity:** Medium
+**Confidence:** High
+**Category:** Correctness Risk / API Design Smell
+**Location:** `src-tauri/src/infrastructure/tools/documents/pptx/final.rs:260-266` and `src-tauri/src/infrastructure/tools/documents/docx/final.rs:235-241`
+
+### Description
+
+Both PPTX and DOCX finalize tools construct the artifact output directory using raw environment variables:
+
+```rust
+let home = std::env::var("HOME")
+    .or_else(|_| std::env::var("USERPROFILE"))
+    .map_err(|_| ToolError::failed("Could not determine home directory"))?;
+let artifacts_dir = PathBuf::from(home).join(".coder").join("artifacts");
+```
+
+The PDF module uses Tauri's `app_local_data_dir()` via `resolve_artifacts_dir()` (in `pdf/artifacts.rs:34-43`), which resolves to `~/.local/share/com.coder.app/artifacts` on Linux. The PDF module even has a test asserting this is correct: `"write_pdf must not read HOME directly; use resolve_artifacts_dir"`.
+
+### Impact
+
+1. **Split artifact location**: PDF artifacts go to `~/.local/share/com.coder.app/artifacts/`, PPTX/DOCX artifacts go to `~/.coder/artifacts/`. The frontend artifact store won't find them in the same place.
+2. **Windows fragility**: `HOME` is not always set on Windows; `USERPROFILE` may not exist in all contexts (e.g., services).
+3. **Inconsistency**: violates the single-source-of-truth principle for artifact storage.
+
+### Resolution
+**Status:** Fixed
+**Confidence verified:** Yes — finding confirmed
+**Commit:** Replace `$HOME/.coder/artifacts` with `resolve_artifacts_dir(app_handle)` in both PPTX and DOCX finalize tools
+**Tests added:** 0 (existing tests pass; PPTX test updated to use `generate_pptx_to_dir` with tempdir)
+**Deviations from plan:** Split `generate_pptx` into `generate_pptx` + `generate_pptx_to_dir` for testability
+
+---
+
+## F18 — `unwrap()` After Draft Store Mutation
+
+**Severity:** Low
+**Confidence:** High
+**Category:** Correctness Risk
+**Location:** `src-tauri/src/infrastructure/tools/documents/pptx/add_slide.rs:195` and `src-tauri/src/infrastructure/tools/documents/docx/add_section.rs:142`
+
+### Description
+
+Both tools call `.unwrap()` to re-fetch a draft immediately after mutating it:
+
+**pptx/add_slide.rs:195:**
+```rust
+let deck = store.get_pptx_draft(&args.deck_id).unwrap();
+```
+
+**docx/add_section.rs:142:**
+```rust
+let draft = store.get_docx_draft(&args.document_id).unwrap();
+```
+
+Similarly, `docx/start.rs:102` does:
+```rust
+let draft = store.get_docx_draft(&document_id).unwrap();
+```
+
+The assumption is that a draft that was just created or modified must still exist. This is currently true because the draft store is a simple `HashMap`, but it creates latent panic sites — if the store ever gains TTL-based eviction, concurrency, or other internal cleanup, these would panic in production.
+
+### Impact
+
+Low probability of panicking under current implementation. However, all three sites should use `.ok_or_else(|| ToolError::failed(...))` for consistency with the rest of the codebase.
+
+### Resolution
+**Status:** Fixed
+**Confidence verified:** Yes — finding confirmed
+**Commit:** Replace `.unwrap()` with `.ok_or_else(|| ToolError::failed(...))` at all three sites
+**Tests added:** 0 (defensive change; error path unreachable under current implementation)
+**Deviations from plan:** None

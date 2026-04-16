@@ -1,6 +1,6 @@
 # Code Review Summary — `src-tauri/src/`
 
-**Date:** 2026-04-16
+**Date:** 2026-04-16 (updated 2026-04-16)
 **Reviewer:** Rust Audit Pipeline
 **Branch:** `feature/pdf-authoring-tool`
 
@@ -74,6 +74,13 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | `infrastructure/tools/documents/pdf/list.rs` | List/get page tools |
 | `infrastructure/tools/documents/pdf/add_page.rs` | Add page tool; content input conversion |
 | `infrastructure/tools/documents/shared/draft_store.rs` | In-memory draft store; filename storage |
+| `infrastructure/tools/documents/pptx/start.rs` | PPTX start tool; filename not sanitized |
+| `infrastructure/tools/documents/pptx/final.rs` | PPTX finalize; path unwrap, hardcoded HOME |
+| `infrastructure/tools/documents/pptx/add_slide.rs` | Add slide tool; unwrap after mutation |
+| `infrastructure/tools/documents/docx/start.rs` | DOCX start tool; filename not sanitized |
+| `infrastructure/tools/documents/docx/final.rs` | DOCX finalize; path unwrap, hardcoded HOME |
+| `infrastructure/tools/documents/docx/add_section.rs` | Add section tool; unwrap after mutation |
+| `infrastructure/tools/documents/shared/validation.rs` | Shared validation types; clean |
 | `infrastructure/llm/streaming.rs` | Stream-to-events conversion; batcher finish bug |
 | `infrastructure/llm/streaming/batcher.rs` | Chunk batching logic; clean |
 | `infrastructure/llm/anthropic/stream.rs` | SSE parsing, stream state; clean |
@@ -111,12 +118,16 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | F12 | Medium | High | Correctness Risk | Streaming batcher final flush event dropped | **Fixed** |
 | F13 | Medium | High | Correctness Risk | Tool output serialization silently swallowed | **Fixed** |
 | F14 | Low | High | Maintainability Smell | Retry classification uses fragile string matching | **Fixed** |
+| F15 | High | High | Correctness Risk / Security | Filename path traversal in PPTX/DOCX start tools | **Fixed** |
+| F16 | Medium | High | Correctness Risk | `path.to_str().unwrap()` panic on non-UTF-8 paths | **Fixed** |
+| F17 | Medium | High | Correctness Risk / API Design | PPTX/DOCX artifact dir bypasses Tauri app data path | **Fixed** |
+| F18 | Low | High | Correctness Risk | `unwrap()` after draft store mutation | **Fixed** |
 
 ## Resolution Summary
-- Fixes implemented: 14 of 14 findings (F1–F14)
+- Fixes implemented: 18 of 18 findings (F1–F18)
 - Fixes deferred: 0
 - False positives found: 0
-- Tests added: 44 (34 from first run + 9 from second run + 1 from third run)
+- Tests added: 49 (34 from first run + 9 from second run + 1 from third run + 5 from fourth run)
 - Frontend changes required: No — IPC contracts byte-identical
 
 ### Fix Log
@@ -136,6 +147,10 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | 12 | F12 — Streaming batcher final flush dropped | Fixed | Yes | 1 (1 updated) | Changed `_final_event` → `final_event` + `yield` in `streaming.rs:90` |
 | 13 | F13 — Tool output serialization swallowed | Fixed | Yes | 0 | Replaced `unwrap_or_default()` with `unwrap_or_else` + `log::warn!` in `loop_runner.rs:215` |
 | 14 | F14 — Retry string matching | Fixed | Yes | 0 | Replaced 3-way string matching with `err.is_retryable()` in `loop_runner.rs:264` |
+| 15 | F15 — PPTX/DOCX filename path traversal | Fixed | Yes | 5 | Shared `sanitize_filename(raw, ext)` in `shared/validation.rs`; applied to PPTX, DOCX start; consolidated PDF's local copy |
+| 16 | F16 — `path.to_str().unwrap()` panic | Fixed | Yes | 0 | Replaced with `to_string_lossy().into_owned()` in PPTX and DOCX finalize |
+| 17 | F17 — Artifact dir bypasses Tauri path | Fixed | Yes | 0 | Replaced `$HOME/.coder/artifacts` with `resolve_artifacts_dir(app_handle)` in PPTX/DOCX finalize |
+| 18 | F18 — `unwrap()` after draft mutation | Fixed | Yes | 0 | Replaced 3 `.unwrap()` sites with `.ok_or_else(|| ToolError::failed(...))` |
 
 ### Pre-existing Test Failure
 - `test_derive_thread_title_long` in `sqlite/migrations/chat.rs` — assertion `result.len() <= 54` fails. Unrelated to audit findings.

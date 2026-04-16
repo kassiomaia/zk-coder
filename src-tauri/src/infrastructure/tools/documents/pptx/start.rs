@@ -1,7 +1,7 @@
 //! Start a new PPTX presentation.
 
 use crate::infrastructure::tools::{
-    documents::shared::get_draft_store,
+    documents::shared::{get_draft_store, sanitize_filename},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -92,12 +92,7 @@ impl Tool for PptxStartTool {
         Box::pin(async move {
             let args: PptxStartArgs = parse_args("pptx_start", arguments)?;
 
-            // Normalize filename to ensure .pptx extension
-            let filename = if args.filename.ends_with(".pptx") {
-                args.filename.clone()
-            } else {
-                format!("{}.pptx", args.filename)
-            };
+            let filename = sanitize_filename(&args.filename, "pptx");
 
             let draft_store = get_draft_store();
             let deck_id = {

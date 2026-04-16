@@ -22,7 +22,11 @@
 | F11 | No image size limit before decode | Medium | **Yes** | DoS: unbounded file read + decompression bomb risk |
 | F12 | Streaming batcher final flush dropped | High | **Yes** | Correctness: last stream chunk silently discarded |
 | F13 | Tool output serialization swallowed | High | **Yes** | Correctness: failed serialization invisible to debugging |
-| F14 | Retry classification by string matching | High | **Yes** | Structured `is_retryable()` already exists on the error type |
+| F14 | Retry classification by string matching | High | **EXECUTED** | Structured `is_retryable()` already exists on the error type |
+| F15 | Filename path traversal in PPTX/DOCX | High | **EXECUTED** | Security: identical to F9 but in new modules |
+| F16 | `path.to_str().unwrap()` panic | High | **EXECUTED** | Correctness: panic on non-UTF-8 paths |
+| F17 | Artifact dir bypasses Tauri path | High | **EXECUTED** | Correctness: split artifact location |
+| F18 | `unwrap()` after draft mutation | High | **EXECUTED** | Correctness: latent panic sites |
 
 ## Deferred Table
 
@@ -427,3 +431,231 @@ let is_retryable = err.is_retryable();
 ### Risk Assessment
 
 **Low risk.** The behavioral change is minimal — the same error categories are retried. The only difference is that errors whose messages happen to contain "timeout" or "rate limit" (but aren't actually those error types) will no longer be retried. This is an improvement.
+
+### Execution Status: **EXECUTED** — Fixed in prior audit run
+
+---
+
+## Fix 9 — Sanitize Filenames in PPTX/DOCX Start Tools (F15)
+
+### Root Cause
+
+`pptx/start.rs:96-100` and `docx/start.rs:88-92` only normalize the file extension but do not strip path separators or `..` components. The PDF module's `pdf/start.rs` has a `sanitize_filename()` function (added as part of F9) that the PPTX and DOCX modules were written without.
+
+### Proposed Change
+
+Extract a shared `sanitize_filename(raw: &str, extension: &str) -> String` function into `documents/shared/` and call it from all three start tools.
+
+For PPTX start.rs:
+```rust
+// Before
+let filename = if args.filename.ends_with(".pptx") {
+    args.filename.clone()
+} else {
+    format!("{}.pptx", args.filename)
+};
+
+// After
+let filename = sanitize_filename(&args.filename, "pptx");
+```
+
+Same pattern for DOCX start.rs with `"docx"` extension.
+
+The shared function:
+```rust
+pub fn sanitize_filename(raw: &str, extension: &str) -> String {
+    let trimmed = raw.trim();
+    let ext_dot = format!(".{extension}");
+    let with_ext = if trimmed.ends_with(&ext_dot) {
+        trimmed.to_string()
+    } else {
+        format!("{trimmed}.{extension}")
+    };
+    let name = std::path::Path::new(&with_ext)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(&format!("document.{extension}"));
+    let sanitized = name.replace(['/', '\\'], "_");
+    let stem = sanitized.strip_suffix(&ext_dot).unwrap_or(&sanitized);
+    let stem_clean: String = stem.chars().filter(|c| *c != '.').collect();
+    if stem_clean.trim().is_empty() {
+        format!("document.{extension}")
+    } else {
+        sanitized
+    }
+}
+```
+
+Also update `pdf/start.rs` to use the shared function instead of its local copy.
+
+### Affected Code Paths
+
+- `infrastructure/tools/documents/shared/` — new shared function (or `mod.rs`)
+- `infrastructure/tools/documents/pptx/start.rs:96-100` — call sanitize
+- `infrastructure/tools/documents/docx/start.rs:88-92` — call sanitize
+- `infrastructure/tools/documents/pdf/start.rs:131-150` — replace local copy with shared
+
+### Edge Cases
+
+Same as F9:
+- `"../../../etc/malicious.pptx"` → `"malicious.pptx"`
+- `""` → `"document.pptx"`
+- `"sub/dir/report.docx"` → `"report.docx"`
+- `"normal.pptx"` → `"normal.pptx"` (unchanged)
+
+### Test Plan
+
+1. New tests in shared module: `sanitize_filename_pptx_strips_dirs`, `sanitize_filename_docx_strips_dirs`, `sanitize_filename_empty_fallback`, `sanitize_filename_preserves_normal`
+2. Existing PDF sanitize tests continue passing
+3. All existing start tool tests pass
+
+### Risk Assessment
+
+**Very low risk.** Same pattern as the proven F9 fix, just applied to two additional modules.
+
+---
+
+## Fix 10 — Replace `path.to_str().unwrap()` with Lossy Conversion (F16)
+
+### Root Cause
+
+`pptx/final.rs:141` and `docx/final.rs:140` call `path.to_str().unwrap()` which panics if the path contains non-UTF-8 bytes (valid on Linux).
+
+### Proposed Change
+
+Replace both occurrences:
+
+```rust
+// Before
+path: path.to_str().unwrap().to_string(),
+
+// After
+path: path.to_string_lossy().into_owned(),
+```
+
+### Affected Code Paths
+
+- `infrastructure/tools/documents/pptx/final.rs:141` — single site
+- `infrastructure/tools/documents/docx/final.rs:140` — single site
+
+### Edge Cases
+
+- UTF-8 paths (99.9% of cases): no behavioral change — `to_string_lossy()` returns identical output
+- Non-UTF-8 paths: replacement character `\u{FFFD}` instead of panic
+
+### Test Plan
+
+No new tests needed — this is a defensive change. The path comes from the OS; non-UTF-8 paths are unpredictable to test reliably.
+
+### Risk Assessment
+
+**Zero risk.** Pure defensive improvement, no behavioral change for valid paths.
+
+---
+
+## Fix 11 — Use Tauri `resolve_artifacts_dir` for PPTX/DOCX (F17)
+
+### Root Cause
+
+PPTX and DOCX finalize tools construct the artifact directory from `$HOME/.coder/artifacts` instead of using Tauri's `app_local_data_dir()`. The PDF module already uses the correct pattern via `resolve_artifacts_dir()`.
+
+### Proposed Change
+
+1. Move `resolve_artifacts_dir()` from `pdf/artifacts.rs` to `documents/shared/` so all document tools can use it
+2. Update `generate_pptx()` and `generate_docx()` to accept `&AppHandle` and use `resolve_artifacts_dir()`
+3. Pass `app_handle` from the `execute()` method to the generate functions
+
+For `pptx/final.rs`:
+```rust
+// Before
+async fn generate_pptx(draft: PptxDraft) -> Result<(PathBuf, u64), ToolError> {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .map_err(|_| ToolError::failed("Could not determine home directory"))?;
+    let artifacts_dir = PathBuf::from(home).join(".coder").join("artifacts");
+
+// After
+async fn generate_pptx(draft: PptxDraft, app_handle: &AppHandle) -> Result<(PathBuf, u64), ToolError> {
+    let artifacts_dir = resolve_artifacts_dir(app_handle)?;
+```
+
+Same pattern for `docx/final.rs`.
+
+### Affected Code Paths
+
+- `infrastructure/tools/documents/pdf/artifacts.rs` — make `resolve_artifacts_dir` shared (or re-export)
+- `infrastructure/tools/documents/pptx/final.rs:258-267` — use shared function
+- `infrastructure/tools/documents/docx/final.rs:231-242` — use shared function
+
+### Edge Cases
+
+- First run: directory creation handled by `resolve_artifacts_dir()` (already does `create_dir_all`)
+- `AppHandle` availability: always available in `execute()` — just needs to be passed to the generate function
+
+### Test Plan
+
+1. Existing tests pass (test uses `$HOME` which still resolves; the function falls back gracefully)
+2. Verify PPTX/DOCX artifacts now appear alongside PDF artifacts in the same directory
+3. The PDF module's existing test `write_pdf must not read HOME directly` pattern should be replicated for PPTX/DOCX
+
+### Risk Assessment
+
+**Low risk.** Artifact path changes from `~/.coder/artifacts` to `~/.local/share/com.coder.app/artifacts`. Existing PPTX/DOCX artifacts at the old path won't be migrated, but there are no released PPTX/DOCX features yet (still on feature branch), so no migration is needed.
+
+---
+
+## Fix 12 — Replace `unwrap()` with Error Propagation After Draft Mutation (F18)
+
+### Root Cause
+
+Three sites call `.unwrap()` on draft store lookups immediately after creating or modifying a draft. While the draft is guaranteed to exist under current implementation, these are latent panic sites.
+
+### Proposed Change
+
+Replace `.unwrap()` with `.ok_or_else(|| ToolError::failed(...))` at:
+
+1. `pptx/add_slide.rs:195`:
+```rust
+// Before
+let deck = store.get_pptx_draft(&args.deck_id).unwrap();
+// After
+let deck = store.get_pptx_draft(&args.deck_id).ok_or_else(|| {
+    ToolError::failed(format!("Deck disappeared after slide add: {}", args.deck_id))
+})?;
+```
+
+2. `docx/add_section.rs:142`:
+```rust
+// Before
+let draft = store.get_docx_draft(&args.document_id).unwrap();
+// After
+let draft = store.get_docx_draft(&args.document_id).ok_or_else(|| {
+    ToolError::failed(format!("Document disappeared after section add: {}", args.document_id))
+})?;
+```
+
+3. `docx/start.rs:102`:
+```rust
+// Before
+let draft = store.get_docx_draft(&document_id).unwrap();
+// After
+let draft = store.get_docx_draft(&document_id).ok_or_else(|| {
+    ToolError::failed(format!("Document not found immediately after creation: {document_id}"))
+})?;
+```
+
+### Affected Code Paths
+
+Only the three listed sites. No callers change.
+
+### Edge Cases
+
+None — the `.ok_or_else()` path will never trigger under current implementation. This is purely defensive.
+
+### Test Plan
+
+No new tests needed — the error path is unreachable under current implementation. Existing tests pass unchanged.
+
+### Risk Assessment
+
+**Zero risk.** Replaces a panic with a graceful error return. No behavioral change for the happy path.

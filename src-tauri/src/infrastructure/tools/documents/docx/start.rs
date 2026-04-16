@@ -2,7 +2,7 @@
 
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{DraftStore, DraftStoreExt},
+    documents::shared::{sanitize_filename, DraftStore, DraftStoreExt},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -84,12 +84,7 @@ impl Tool for DocxStartTool {
             // Get the global draft store
             let draft_store = DraftStore::get_draft_store();
 
-            // Ensure filename has .docx extension
-            let filename = if args.filename.ends_with(".docx") {
-                args.filename
-            } else {
-                format!("{}.docx", args.filename)
-            };
+            let filename = sanitize_filename(&args.filename, "docx");
 
             // Create the draft
             let mut store = draft_store.lock().map_err(|e| {
@@ -99,7 +94,11 @@ impl Tool for DocxStartTool {
             let document_id = store.create_docx_draft(filename.clone());
 
             // Get draft to get created_at timestamp
-            let draft = store.get_docx_draft(&document_id).unwrap();
+            let draft = store.get_docx_draft(&document_id).ok_or_else(|| {
+                ToolError::failed(format!(
+                    "Document not found immediately after creation: {document_id}"
+                ))
+            })?;
 
             let output = DocxStartOutput {
                 document_id,

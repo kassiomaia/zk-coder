@@ -139,7 +139,12 @@ impl Tool for DocxAddSectionTool {
                 .add_docx_section(&args.document_id, args.content)
                 .map_err(|e| ToolError::failed(format!("Failed to add section: {e}")))?;
 
-            let draft = store.get_docx_draft(&args.document_id).unwrap();
+            let draft = store.get_docx_draft(&args.document_id).ok_or_else(|| {
+                ToolError::failed(format!(
+                    "Document disappeared after section add: {}",
+                    args.document_id
+                ))
+            })?;
 
             let output = DocxAddSectionOutput {
                 section_id,

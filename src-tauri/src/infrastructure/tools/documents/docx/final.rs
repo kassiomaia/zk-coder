@@ -3,6 +3,7 @@
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
+    documents::pdf::artifacts::resolve_artifacts_dir,
     documents::shared::{DocxContent, DocxDraft, DraftStore, DraftStoreExt},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
@@ -124,7 +125,7 @@ impl Tool for DocxFinalizeTool {
             let estimated_page_count = estimate_page_count(&draft);
 
             // Generate the DOCX file
-            let (path, size_bytes) = generate_docx(draft).await?;
+            let (path, size_bytes) = generate_docx(draft, &app_handle).await?;
 
             // Create artifact reference
             let artifact_id = if args.auto_save {
@@ -137,7 +138,7 @@ impl Tool for DocxFinalizeTool {
                 document_id: args.document_id,
                 filename,
                 artifact_id,
-                path: path.to_str().unwrap().to_string(),
+                path: path.to_string_lossy().into_owned(),
                 validation,
                 section_count,
                 estimated_page_count,
@@ -228,20 +229,10 @@ fn validate_docx_draft(draft: &DocxDraft) -> ValidationReport {
 }
 
 /// Generate a DOCX file from the draft using the docx-rust crate.
-async fn generate_docx(draft: DocxDraft) -> Result<(PathBuf, u64), ToolError> {
+async fn generate_docx(draft: DocxDraft, app_handle: &AppHandle) -> Result<(PathBuf, u64), ToolError> {
     use docx_rust::Docx;
 
-    // Get the home directory for artifact storage
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .map_err(|_| ToolError::failed("Could not determine home directory".to_string()))?;
-
-    // Create artifacts directory in home/.coder/artifacts
-    let artifacts_dir = PathBuf::from(home).join(".coder").join("artifacts");
-    std::fs::create_dir_all(&artifacts_dir)
-        .map_err(|e| ToolError::failed(format!("Failed to create artifacts directory: {e}")))?;
-
-    // Create output file path
+    let artifacts_dir = resolve_artifacts_dir(app_handle)?;
     let output_path = artifacts_dir.join(&draft.filename);
 
     // Create a new DOCX document
