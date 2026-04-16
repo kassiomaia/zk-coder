@@ -20,8 +20,30 @@ r = 0.0
 g = 0.0
 b = 0.0
 
+[palette.code_bg]
+r = 0.96
+g = 0.96
+b = 0.97
+
+[palette.code_text]
+r = 0.12
+g = 0.12
+b = 0.15
+
+[palette.callout_bg]
+r = 0.93
+g = 0.95
+b = 0.99
+
+[palette.callout_border]
+r = 0.28
+g = 0.44
+b = 0.78
+
 [spacing]
 block_gap = 0.4
+list_indent_mm = 6.0
+block_padding_mm = 2.5
 
 [page_defaults]
 margin_mm = 20.0

@@ -29,4 +29,20 @@ pub enum PdfModelError {
     /// An inline run text was empty.
     #[error("inline run text must not be empty")]
     EmptyInlineRun,
+
+    /// A list block was constructed with no items.
+    #[error("list block must contain at least one item")]
+    EmptyList,
+
+    /// A list item was constructed with no inline runs.
+    #[error("list item must contain at least one inline run")]
+    EmptyListItem,
+
+    /// A code block was constructed with empty source.
+    #[error("code block must not be empty")]
+    EmptyCodeBlock,
+
+    /// A callout was constructed with empty body text.
+    #[error("callout body must not be empty")]
+    EmptyCallout,
 }

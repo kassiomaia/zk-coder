@@ -34,8 +34,9 @@ pub struct Rgb {
 
 /// Colors applied by the renderer.
 ///
-/// The T1.4 renderer uses `text` only; additional slots are declared so
-/// later milestones (M2 tables, M2 code blocks) do not change the schema.
+/// `text` / `heading` drive body copy. The `code_*` and `callout_*`
+/// slots back the M2 code-block and callout surfaces — they live in the
+/// theme so the sweep test (no hex literals in the render path) holds.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub struct Palette {
@@ -43,6 +44,14 @@ pub struct Palette {
     pub text: Rgb,
     /// Heading text color.
     pub heading: Rgb,
+    /// Background fill for code blocks.
+    pub code_bg: Rgb,
+    /// Foreground text color for code blocks.
+    pub code_text: Rgb,
+    /// Background fill for callout boxes.
+    pub callout_bg: Rgb,
+    /// Border / accent color for callout boxes.
+    pub callout_border: Rgb,
 }
 
 /// Block-level spacing multipliers.
@@ -51,6 +60,10 @@ pub struct Palette {
 pub struct Spacing {
     /// Vertical gap between blocks, as a multiplier of the body leading.
     pub block_gap: f32,
+    /// Horizontal indent per list-nesting level, in mm.
+    pub list_indent_mm: f32,
+    /// Internal padding around code blocks and callouts, in mm.
+    pub block_padding_mm: f32,
 }
 
 /// Page-level defaults applied when the draft does not override them.
@@ -164,8 +177,32 @@ impl Theme {
                     g: 0.0,
                     b: 0.0,
                 },
+                code_bg: Rgb {
+                    r: 0.96,
+                    g: 0.96,
+                    b: 0.97,
+                },
+                code_text: Rgb {
+                    r: 0.12,
+                    g: 0.12,
+                    b: 0.15,
+                },
+                callout_bg: Rgb {
+                    r: 0.93,
+                    g: 0.95,
+                    b: 0.99,
+                },
+                callout_border: Rgb {
+                    r: 0.28,
+                    g: 0.44,
+                    b: 0.78,
+                },
             },
-            spacing: Spacing { block_gap: 0.4 },
+            spacing: Spacing {
+                block_gap: 0.4,
+                list_indent_mm: 6.0,
+                block_padding_mm: 2.5,
+            },
             page_defaults: PageDefaults { margin_mm: 20.0 },
             decorations: Decorations {
                 header: Some("{title}".to_string()),

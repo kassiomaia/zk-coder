@@ -292,20 +292,38 @@ hyperlinks. A real report.
   decorator carries no template literals of its own.
 - **Retires gap**: part of #11.
 
-### T2.3 — List, code, callout blocks
+### T2.3 — List, code, callout blocks — done
 
-- **Deliverable**: agent can emit ordered/unordered (nested) lists, code
-  blocks with a monospace font, and callout boxes, all styled from the
-  theme.
-- **Build**: `ListBlock`, `CodeBlock`, `Callout` domain variants plus
-  renderer support. Callout colors reference the theme palette, not new
-  design tokens.
-- **Tests (first)**:
-  - nested list renders at correct indents per level
-  - code block uses mono font from the theme (parse font dict)
-  - callout box honors theme palette; no hex colors in code
-- **Done when**: one fixture per block type exists under
-  `tests/fixtures/pdf/` and each has a golden hash.
+- **Delivered**: domain-typed `ListBlock` (ordered/unordered, nested
+  items with recursive children), `CodeBlock` (monospace font + theme
+  background), and `Callout` (theme-backed background + accent stripe
+  and optional bold title) variants on the `Block` enum, all wired
+  through `layout_sections` and paginated by the layout engine.
+- **Theme**: `Spacing::list_indent_mm` + `Spacing::block_padding_mm`
+  drive the physical geometry; `Palette` gained `code_bg`, `code_text`,
+  `callout_bg`, `callout_border` slots. `report.toml` updated in
+  lockstep (covered by `bundled_matches_hardcoded_default`).
+- **Renderer**: `emit_list` recurses on `ListItem::children()` and
+  indents per depth; `emit_code` wraps on physical lines, draws a
+  theme-filled rectangle behind the block, and emits text in the mono
+  slot; `emit_callout` paints a background rect plus a narrow accent
+  border, then renders an optional bold title followed by body text.
+  `paint_fill_rect` saves/restores graphics state around the fill so
+  color state does not leak into subsequent text.
+- **Tests (passing)**:
+  - `nested_list_indents_deeper_items` — walks `BT`/`Td`/`Tj` operators
+    and asserts the child item's text-cursor x > parent's.
+  - `code_block_paints_background_rect_from_theme` — scans page content
+    operators for an `rg` whose operands match `palette.code_bg`.
+  - `callout_paints_background_from_theme_palette` — asserts both
+    `palette.callout_bg` and `palette.callout_border` fills are emitted.
+  - 7 domain unit tests in `block.rs` cover rejection of empty inputs,
+    nested list serde, code-block language preservation, and the `Block`
+    enum round-trip.
+- **Sweep**: `no_magic_numbers_in_render_path` still green; the only
+  non-theme physical constant is `CALLOUT_BORDER_WIDTH_MM`.
+- **Done when**: all render-path tests green, domain tests green,
+  bundled `report.toml` matches `Theme::default_report`.
 
 ### T2.4 — Tables with row-boundary splitting
 

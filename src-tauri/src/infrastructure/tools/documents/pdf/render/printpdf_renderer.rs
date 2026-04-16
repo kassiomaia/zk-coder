@@ -13,11 +13,14 @@ use std::io::{Cursor, Write};
 
 use async_trait::async_trait;
 use printpdf::{
-    IndirectFontRef, Mm, PdfDocument as PrintPdfDoc, PdfDocumentReference, PdfLayerReference,
+    path::PaintMode, Color, IndirectFontRef, Mm, PdfDocument as PrintPdfDoc,
+    PdfDocumentReference, PdfLayerReference, Rect, Rgb as PrintRgb,
 };
 use ttf_parser::Face;
 
-use crate::core::documents::pdf::block::{Block, InlineRun, InlineStyle, Paragraph};
+use crate::core::documents::pdf::block::{
+    Block, Callout, CodeBlock, InlineRun, InlineStyle, ListBlock, ListItem, Paragraph,
+};
 use crate::core::documents::pdf::document::PdfDocument;
 use crate::core::documents::pdf::geometry::Orientation;
 use crate::core::documents::pdf::render::{
@@ -25,7 +28,7 @@ use crate::core::documents::pdf::render::{
     Theme,
 };
 use crate::core::documents::pdf::section::Section;
-use crate::core::documents::pdf::theme::Decorations;
+use crate::core::documents::pdf::theme::{Decorations, Rgb as ThemeRgb};
 
 use super::decorator::{expand_template, paint_decoration, section_for_page, PageContext};
 use super::font_cache::{FontCache, FontSlot, LoadedFont};
@@ -231,6 +234,11 @@ fn layout_sections(
                     emit_heading(engine, font_refs, fonts, h.text(), h.level.get(), missing)?;
                 }
                 Block::PageBreak => engine.break_page(),
+                Block::List(list) => emit_list(engine, font_refs, fonts, list, 0, missing)?,
+                Block::Code(code) => emit_code(engine, font_refs, fonts, code, missing)?,
+                Block::Callout(callout) => {
+                    emit_callout(engine, font_refs, fonts, callout, missing)?;
+                }
             }
             let gap = engine.params().block_gap_mm;
             engine.advance(gap);
@@ -377,6 +385,307 @@ fn emit_heading(
         engine.advance(leading);
     }
     Ok(())
+}
+
+/// Emits a list block. `depth` is the 0-based nesting level — the
+/// renderer indents by `params.list_indent_mm * (depth + 1)` so nested
+/// items step further right than their parent.
+fn emit_list(
+    engine: &mut LayoutEngine<'_>,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    list: &ListBlock,
+    depth: usize,
+    missing: &mut BTreeSet<char>,
+) -> Result<(), RenderError> {
+    for (idx, item) in list.items().iter().enumerate() {
+        let marker = list_marker(list.ordered, idx);
+        emit_list_item(engine, font_refs, fonts, item, &marker, depth, missing)?;
+    }
+    Ok(())
+}
+
+fn list_marker(ordered: bool, idx: usize) -> String {
+    if ordered {
+        let one_based = idx + ORDERED_INDEX_OFFSET;
+        format!("{one_based}. ")
+    } else {
+        BULLET_MARKER.to_string()
+    }
+}
+
+const ORDERED_INDEX_OFFSET: usize = 1;
+const BULLET_MARKER: &str = "\u{2022} ";
+/// Physical width of the left-edge accent stripe painted behind a
+/// callout, in mm. Kept as a physical constant rather than a theme knob
+/// — accents are intentionally uniform across themes.
+const CALLOUT_BORDER_WIDTH_MM: f32 = 1.5;
+
+fn emit_list_item(
+    engine: &mut LayoutEngine<'_>,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    item: &ListItem,
+    marker: &str,
+    depth: usize,
+    missing: &mut BTreeSet<char>,
+) -> Result<(), RenderError> {
+    let base_x = engine.params().x_mm;
+    let indent_mm = engine.params().list_indent_mm * depth_factor(depth);
+    let item_x = base_x + indent_mm;
+    let body_size_pt = engine.params().body_size_pt;
+    let body_leading_mm = engine.params().body_leading_mm;
+
+    let marker_width_pt = {
+        let face = fonts.primary_for(&InlineStyle::PLAIN).face()?;
+        measure_with_face(&face, marker, body_size_pt)
+    };
+    let marker_width_mm = marker_width_pt / POINTS_PER_MM;
+
+    let usable_width_mm = engine.params().usable_width_mm - indent_mm - marker_width_mm;
+    let usable_width_pt = usable_width_mm * POINTS_PER_MM;
+
+    let mut first_line = true;
+    for run in item.runs() {
+        let face = fonts.primary_for(&run.style).face()?;
+        let lines = wrap_with_face(&face, run.text(), body_size_pt, usable_width_pt);
+        for line in lines {
+            engine.ensure_space_for(body_leading_mm);
+            let layer = engine.current_layer();
+            let y = engine.cursor_y_mm();
+            if first_line {
+                emit_line_with_fallback(
+                    &layer,
+                    font_refs,
+                    fonts,
+                    &InlineStyle::PLAIN,
+                    marker,
+                    body_size_pt,
+                    item_x,
+                    y,
+                    missing,
+                )?;
+                first_line = false;
+            }
+            emit_line_with_fallback(
+                &layer,
+                font_refs,
+                fonts,
+                &run.style,
+                &line,
+                body_size_pt,
+                item_x + marker_width_mm,
+                y,
+                missing,
+            )?;
+            engine.advance(body_leading_mm);
+        }
+    }
+
+    for child in item.children() {
+        emit_list(engine, font_refs, fonts, child, depth + 1, missing)?;
+    }
+    Ok(())
+}
+
+#[allow(clippy::cast_precision_loss)]
+const fn depth_factor(depth: usize) -> f32 {
+    // Indent = `(depth + 1) * list_indent_mm` — depth 0 (top-level) still
+    // indents one step so list items sit inside any surrounding block.
+    (depth as f32) + 1.0_f32
+}
+
+/// Emits a code block: background rect filled from `palette.code_bg`,
+/// then the source lines rendered in the mono font using
+/// `palette.code_text`. The engine paginates if the block is too tall
+/// for the current page.
+#[allow(clippy::cast_precision_loss)]
+fn emit_code(
+    engine: &mut LayoutEngine<'_>,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    block: &CodeBlock,
+    missing: &mut BTreeSet<char>,
+) -> Result<(), RenderError> {
+    let style = InlineStyle {
+        bold: false,
+        italic: false,
+        code: true,
+    };
+    let font = fonts.primary_for(&style);
+    let face = font.face()?;
+    let body_size_pt = engine.params().body_size_pt;
+    let body_leading_mm = engine.params().body_leading_mm;
+    let padding = engine.params().block_padding_mm;
+    let usable_width_pt =
+        (engine.params().usable_width_mm - padding - padding) * POINTS_PER_MM;
+
+    let mut wrapped: Vec<String> = Vec::new();
+    for src_line in block.code().lines() {
+        let lines = wrap_with_face(&face, src_line, body_size_pt, usable_width_pt);
+        if lines.is_empty() {
+            wrapped.push(String::new());
+        } else {
+            wrapped.extend(lines);
+        }
+    }
+
+    let content_height = body_leading_mm * wrapped.len() as f32;
+    let total_height = content_height + padding + padding;
+    engine.ensure_space_for(total_height);
+    let layer = engine.current_layer();
+    let top_y = engine.cursor_y_mm() + body_leading_mm;
+    let bottom_y = top_y - total_height;
+    let x_left = engine.params().x_mm;
+    let x_right = x_left + engine.params().usable_width_mm;
+
+    paint_fill_rect(
+        &layer,
+        engine.params().palette.code_bg,
+        x_left,
+        bottom_y,
+        x_right,
+        top_y,
+    );
+
+    let text_x = x_left + padding;
+    for line in &wrapped {
+        let layer = engine.current_layer();
+        let y = engine.cursor_y_mm();
+        emit_line_with_fallback(
+            &layer,
+            font_refs,
+            fonts,
+            &style,
+            line,
+            body_size_pt,
+            text_x,
+            y,
+            missing,
+        )?;
+        engine.advance(body_leading_mm);
+    }
+    engine.advance(padding + padding);
+    Ok(())
+}
+
+/// Emits a callout: background rect filled from `palette.callout_bg`,
+/// a thin left-edge accent from `palette.callout_border`, an optional
+/// bold title, then the body text.
+#[allow(clippy::cast_precision_loss)]
+fn emit_callout(
+    engine: &mut LayoutEngine<'_>,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    callout: &Callout,
+    missing: &mut BTreeSet<char>,
+) -> Result<(), RenderError> {
+    let body_size_pt = engine.params().body_size_pt;
+    let body_leading_mm = engine.params().body_leading_mm;
+    let padding = engine.params().block_padding_mm;
+    let usable_width_pt =
+        (engine.params().usable_width_mm - padding - padding) * POINTS_PER_MM;
+
+    let plain_face = fonts.primary_for(&InlineStyle::PLAIN).face()?;
+    let bold_face = fonts.primary_for(&InlineStyle::bold()).face()?;
+
+    let title_lines: Vec<String> = match callout.title.as_deref() {
+        Some(t) => wrap_with_face(&bold_face, t, body_size_pt, usable_width_pt),
+        None => Vec::new(),
+    };
+    let mut body_lines: Vec<String> = Vec::new();
+    for src_line in callout.body().lines() {
+        let lines = wrap_with_face(&plain_face, src_line, body_size_pt, usable_width_pt);
+        if lines.is_empty() {
+            body_lines.push(String::new());
+        } else {
+            body_lines.extend(lines);
+        }
+    }
+
+    let line_count = title_lines.len() + body_lines.len();
+    let content_height = body_leading_mm * line_count as f32;
+    let total_height = content_height + padding + padding;
+    engine.ensure_space_for(total_height);
+    let layer = engine.current_layer();
+    let top_y = engine.cursor_y_mm() + body_leading_mm;
+    let bottom_y = top_y - total_height;
+    let x_left = engine.params().x_mm;
+    let x_right = x_left + engine.params().usable_width_mm;
+    let border_right = x_left + CALLOUT_BORDER_WIDTH_MM;
+
+    paint_fill_rect(
+        &layer,
+        engine.params().palette.callout_bg,
+        x_left,
+        bottom_y,
+        x_right,
+        top_y,
+    );
+    paint_fill_rect(
+        &layer,
+        engine.params().palette.callout_border,
+        x_left,
+        bottom_y,
+        border_right,
+        top_y,
+    );
+
+    let text_x = x_left + padding + CALLOUT_BORDER_WIDTH_MM;
+    for line in &title_lines {
+        let layer = engine.current_layer();
+        let y = engine.cursor_y_mm();
+        emit_line_with_fallback(
+            &layer,
+            font_refs,
+            fonts,
+            &InlineStyle::bold(),
+            line,
+            body_size_pt,
+            text_x,
+            y,
+            missing,
+        )?;
+        engine.advance(body_leading_mm);
+    }
+    for line in &body_lines {
+        let layer = engine.current_layer();
+        let y = engine.cursor_y_mm();
+        emit_line_with_fallback(
+            &layer,
+            font_refs,
+            fonts,
+            &InlineStyle::PLAIN,
+            line,
+            body_size_pt,
+            text_x,
+            y,
+            missing,
+        )?;
+        engine.advance(body_leading_mm);
+    }
+    engine.advance(padding + padding);
+    Ok(())
+}
+
+/// Paints a filled rectangle on `layer` using the theme-supplied color.
+/// Graphics state is saved/restored so the fill does not leak into
+/// subsequent text emissions.
+#[allow(clippy::similar_names)]
+fn paint_fill_rect(
+    layer: &PdfLayerReference,
+    color: ThemeRgb,
+    llx_mm: f32,
+    lly_mm: f32,
+    urx_mm: f32,
+    ury_mm: f32,
+) {
+    layer.save_graphics_state();
+    layer.set_fill_color(Color::Rgb(PrintRgb::new(color.r, color.g, color.b, None)));
+    let rect =
+        Rect::new(Mm(llx_mm), Mm(lly_mm), Mm(urx_mm), Mm(ury_mm)).with_mode(PaintMode::Fill);
+    layer.add_rect(rect);
+    layer.restore_graphics_state();
 }
 
 #[allow(clippy::too_many_arguments, clippy::trivially_copy_pass_by_ref)]
@@ -1272,6 +1581,221 @@ mod tests {
                 "page {pn} carries footer text even though decorations were cleared"
             );
         }
+    }
+
+    // ---- T2.3 integration tests: list / code / callout ----
+
+    use crate::core::documents::pdf::block::{Callout, CodeBlock, ListBlock, ListItem};
+
+    #[tokio::test]
+    async fn nested_list_indents_deeper_items() {
+        // Child items must land further right than their parent. Read
+        // the x-coordinate of the glyph run from each list-item's first
+        // `Tj`/`TJ` operand and assert monotonic increase by depth.
+        let r = renderer();
+        let inner = ListBlock::new(
+            true,
+            vec![ListItem::plain("innerchildmarker").unwrap()],
+        )
+        .unwrap();
+        let outer = ListBlock::new(
+            false,
+            vec![ListItem::plain("outerparentmarker")
+                .unwrap()
+                .with_children(vec![inner])],
+        )
+        .unwrap();
+
+        let mut doc = PdfDocument::new(Metadata::new("Nested List").unwrap());
+        let h = Heading::new(HeadingLevel::new(1).unwrap(), "Lists").unwrap();
+        let mut s = Section::new(h);
+        s.push(Block::List(outer));
+        doc.push_section(s);
+
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let font_bytes =
+            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let face = Face::parse(&font_bytes, 0).unwrap();
+        let outer_sig = gid_signature(&face, "outerparentmarker");
+        let inner_sig = gid_signature(&face, "innerchildmarker");
+        let outer_x = text_x_for_signature(&parsed, 1, &outer_sig)
+            .expect("outer item text not found");
+        let inner_x = text_x_for_signature(&parsed, 1, &inner_sig)
+            .expect("inner item text not found");
+        assert!(
+            inner_x > outer_x,
+            "nested list must indent deeper: inner_x={inner_x} outer_x={outer_x}"
+        );
+    }
+
+    #[tokio::test]
+    async fn code_block_paints_background_rect_from_theme() {
+        // Walk page content ops and assert there is a filled rect whose
+        // fill color matches `palette.code_bg`. The operator stream
+        // records the color via `rg` and the rect via `re` / `f`.
+        let r = renderer();
+        let mut doc = PdfDocument::new(Metadata::new("Code").unwrap());
+        let h = Heading::new(HeadingLevel::new(1).unwrap(), "Source").unwrap();
+        let mut s = Section::new(h);
+        s.push(Block::Code(
+            CodeBlock::new("fn main() {\n    println!(\"hi\");\n}").unwrap(),
+        ));
+        doc.push_section(s);
+
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let theme = Theme::default();
+        let expected = (
+            theme.palette.code_bg.r,
+            theme.palette.code_bg.g,
+            theme.palette.code_bg.b,
+        );
+        assert!(
+            page_has_fill_color(&parsed, 1, expected),
+            "code block must paint its theme-supplied background fill"
+        );
+    }
+
+    #[tokio::test]
+    async fn callout_paints_background_from_theme_palette() {
+        let r = renderer();
+        let mut doc = PdfDocument::new(Metadata::new("Callout").unwrap());
+        let h = Heading::new(HeadingLevel::new(1).unwrap(), "Notes").unwrap();
+        let mut s = Section::new(h);
+        s.push(Block::Callout(
+            Callout::new("Heads up, something important here.")
+                .unwrap()
+                .with_title("Important"),
+        ));
+        doc.push_section(s);
+
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let theme = Theme::default();
+        let bg = (
+            theme.palette.callout_bg.r,
+            theme.palette.callout_bg.g,
+            theme.palette.callout_bg.b,
+        );
+        let border = (
+            theme.palette.callout_border.r,
+            theme.palette.callout_border.g,
+            theme.palette.callout_border.b,
+        );
+        assert!(
+            page_has_fill_color(&parsed, 1, bg),
+            "callout must paint its theme-supplied background fill"
+        );
+        assert!(
+            page_has_fill_color(&parsed, 1, border),
+            "callout must paint its theme-supplied border accent fill"
+        );
+    }
+
+    /// Returns the x-coordinate (in points) of the first text-showing
+    /// operator on `page_number` whose operand bytes contain `needle`.
+    fn text_x_for_signature(
+        pdf: &lopdf::Document,
+        page_number: u32,
+        needle: &[u8],
+    ) -> Option<f32> {
+        let pages = pdf.get_pages();
+        let page_id = pages.get(&page_number).copied()?;
+        let content = pdf.get_and_decode_page_content(page_id).ok()?;
+        // printpdf emits `BT` … `Td tx ty` … `Tj` … `ET`. `Td` resets
+        // the text cursor relative to the text matrix, which `BT`
+        // resets to identity — so within one section the first `Td`
+        // operand is the absolute starting x in points.
+        let mut pending_x: Option<f32> = None;
+        for op in &content.operations {
+            if op.operator == "BT" {
+                pending_x = None;
+            }
+            if op.operator == "Td" && op.operands.len() >= TD_OPERAND_COUNT {
+                if let Some(x) = operand_as_f32(&op.operands[TD_X_OPERAND_INDEX]) {
+                    pending_x = Some(x);
+                }
+            }
+            if op.operator == "Tj" || op.operator == "TJ" {
+                let mut bytes: Vec<u8> = Vec::new();
+                for operand in &op.operands {
+                    collect_text_bytes(&mut bytes, operand);
+                }
+                if bytes
+                    .windows(needle.len())
+                    .any(|w| w == needle)
+                {
+                    return pending_x;
+                }
+            }
+        }
+        None
+    }
+
+    const TD_OPERAND_COUNT: usize = 2;
+    const TD_X_OPERAND_INDEX: usize = 0;
+
+    fn operand_as_f32(obj: &lopdf::Object) -> Option<f32> {
+        match obj {
+            lopdf::Object::Real(v) => Some(*v),
+            lopdf::Object::Integer(v) => {
+                let f = *v as f32;
+                Some(f)
+            }
+            _ => None,
+        }
+    }
+
+    fn page_has_fill_color(
+        pdf: &lopdf::Document,
+        page_number: u32,
+        expected: (f32, f32, f32),
+    ) -> bool {
+        let pages = pdf.get_pages();
+        let Some(page_id) = pages.get(&page_number).copied() else {
+            return false;
+        };
+        let Ok(content) = pdf.get_and_decode_page_content(page_id) else {
+            return false;
+        };
+        for op in &content.operations {
+            if (op.operator == "rg" || op.operator == "RG")
+                && op.operands.len() >= RGB_OPERAND_COUNT
+            {
+                let r = operand_as_f32(&op.operands[RGB_R_INDEX]);
+                let g = operand_as_f32(&op.operands[RGB_G_INDEX]);
+                let b = operand_as_f32(&op.operands[RGB_B_INDEX]);
+                if let (Some(rv), Some(gv), Some(bv)) = (r, g, b) {
+                    if close_enough(rv, expected.0)
+                        && close_enough(gv, expected.1)
+                        && close_enough(bv, expected.2)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    const RGB_OPERAND_COUNT: usize = 3;
+    const RGB_R_INDEX: usize = 0;
+    const RGB_G_INDEX: usize = 1;
+    const RGB_B_INDEX: usize = 2;
+    const COLOR_EPSILON: f32 = 0.01;
+
+    fn close_enough(a: f32, b: f32) -> bool {
+        (a - b).abs() < COLOR_EPSILON
     }
 
     /// Sweep test: no numeric literal (other than `0.0` / `1.0`) may

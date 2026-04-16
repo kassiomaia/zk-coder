@@ -16,6 +16,7 @@ use printpdf::{Mm, PdfDocumentReference, PdfLayerReference, PdfPageIndex};
 
 use crate::core::documents::pdf::document::PdfDocument;
 use crate::core::documents::pdf::render::Theme;
+use crate::core::documents::pdf::theme::Palette;
 
 /// PostScript points per millimetre (`72 / 25.4`).
 pub(super) const POINTS_PER_MM: f32 = 2.834_645_7;
@@ -40,6 +41,10 @@ pub(super) struct LayoutParams {
     pub heading_size_pt: f32,
     pub page_width_mm: f32,
     pub page_height_mm: f32,
+    pub list_indent_mm: f32,
+    pub block_padding_mm: f32,
+    pub usable_width_mm: f32,
+    pub palette: Palette,
 }
 
 impl LayoutParams {
@@ -61,8 +66,9 @@ impl LayoutParams {
         let line_leading = theme.typography.line_leading;
         let body_leading_mm = body_size_pt * line_leading / POINTS_PER_MM;
         let heading_leading_mm = heading_size_pt * line_leading / POINTS_PER_MM;
+        let usable_width_mm = page_width_mm - margin_left - margin_right;
         Self {
-            usable_width_pt: (page_width_mm - margin_left - margin_right) * POINTS_PER_MM,
+            usable_width_pt: usable_width_mm * POINTS_PER_MM,
             body_leading_mm,
             heading_leading_mm,
             block_gap_mm: body_leading_mm * theme.spacing.block_gap,
@@ -73,6 +79,10 @@ impl LayoutParams {
             heading_size_pt,
             page_width_mm,
             page_height_mm,
+            list_indent_mm: theme.spacing.list_indent_mm,
+            block_padding_mm: theme.spacing.block_padding_mm,
+            usable_width_mm,
+            palette: theme.palette,
         }
     }
 }
