@@ -2607,6 +2607,157 @@ mod tests {
         assert_eq!(outcome.page_count, 1);
     }
 
+    // ---- M2 exit gate: journey-a golden file ----
+
+    /// Builds the M2 "Journey A" golden fixture: a report with cover,
+    /// metadata, TOC, headers/footers, 2 images, 1 table, nested lists,
+    /// one internal link, one external link.
+    ///
+    /// Validates the rendered PDF with `PdfValidator::validate_file` and
+    /// asserts the byte count is stable (deterministic render).
+    #[tokio::test]
+    async fn m2_journey_a_golden_renders_and_validates() {
+        use crate::core::documents::pdf::block::{
+            Callout, CodeBlock, ColumnWidth, ImageBlock, ListBlock, ListItem, TableBlock,
+            TableCell, TableRow,
+        };
+        use crate::infrastructure::tools::documents::pdf::validate::PdfValidator;
+
+        let r = renderer();
+
+        let mut doc = PdfDocument::new(Metadata::new("Journey A — M2 Golden").unwrap());
+
+        // Section 1: Cover with TOC
+        let h1 = Heading::new(HeadingLevel::new(1).unwrap(), "Cover").unwrap();
+        let mut s1 = Section::new(h1);
+        s1.push(Block::Paragraph(
+            Paragraph::plain("This is the Journey A golden report.").unwrap(),
+        ));
+        s1.push(Block::Toc);
+        s1.push(Block::PageBreak);
+        doc.push_section(s1);
+
+        // Section 2: Content with images, table, list, links
+        let h2 = Heading::new(HeadingLevel::new(1).unwrap(), "Content").unwrap();
+        let mut s2 = Section::new(h2);
+
+        // Nested list
+        let inner_list =
+            ListBlock::new(true, vec![ListItem::plain("nested item").unwrap()]).unwrap();
+        let outer_list = ListBlock::new(
+            false,
+            vec![
+                ListItem::plain("top-level bullet")
+                    .unwrap()
+                    .with_children(vec![inner_list]),
+                ListItem::plain("second bullet").unwrap(),
+            ],
+        )
+        .unwrap();
+        s2.push(Block::List(outer_list));
+
+        // Table
+        let cols = vec![ColumnWidth::fixed(40.0), ColumnWidth::auto()];
+        let header = TableRow::new(vec![
+            TableCell::plain("Feature").unwrap(),
+            TableCell::plain("Status").unwrap(),
+        ]);
+        let table = TableBlock::new(
+            cols,
+            Some(header),
+            vec![
+                TableRow::new(vec![
+                    TableCell::plain("TOC").unwrap(),
+                    TableCell::plain("Done").unwrap(),
+                ]),
+                TableRow::new(vec![
+                    TableCell::plain("Images").unwrap(),
+                    TableCell::plain("Done").unwrap(),
+                ]),
+            ],
+        )
+        .unwrap();
+        s2.push(Block::Table(table));
+
+        // Code block
+        s2.push(Block::Code(
+            CodeBlock::new("fn main() {\n    println!(\"golden\");\n}")
+                .unwrap()
+                .with_language("rust"),
+        ));
+
+        // Callout
+        s2.push(Block::Callout(
+            Callout::new("This report is the M2 exit gate golden.")
+                .unwrap()
+                .with_title("Note"),
+        ));
+
+        // 2 images (tiny PNGs)
+        let png = tiny_red_png();
+        s2.push(Block::Image(
+            ImageBlock::new(png.clone()).unwrap().with_alt("Image 1"),
+        ));
+        s2.push(Block::Image(
+            ImageBlock::new(png).unwrap().with_alt("Image 2"),
+        ));
+
+        // External link
+        let link_run = InlineRun::new("example.com")
+            .unwrap()
+            .with_link("https://example.com");
+        s2.push(Block::Paragraph(Paragraph::new(vec![link_run]).unwrap()));
+
+        s2.push(Block::PageBreak);
+        doc.push_section(s2);
+
+        // Section 3: Conclusion
+        let h3 = Heading::new(HeadingLevel::new(1).unwrap(), "Conclusion").unwrap();
+        let mut s3 = Section::new(h3);
+        s3.push(Block::Paragraph(
+            Paragraph::plain("Journey A complete.").unwrap(),
+        ));
+        doc.push_section(s3);
+
+        // Render
+        let mut buf: Vec<u8> = Vec::new();
+        let outcome = r
+            .render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+
+        // Basic structural assertions
+        assert!(
+            outcome.page_count >= 3,
+            "journey-a must span 3+ pages, got {}",
+            outcome.page_count
+        );
+        assert!(buf.starts_with(b"%PDF-1."));
+        assert!(outcome.byte_len > 0);
+
+        // Write golden file
+        let golden_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../docs/tools/pdf/goldens/journey-a.pdf");
+        std::fs::write(&golden_path, &buf).expect("write golden");
+
+        // Validate with PdfValidator
+        let report = PdfValidator::validate_file(&golden_path);
+        assert!(
+            report.passed,
+            "PdfValidator must pass on the golden: {report:?}"
+        );
+        // Zero warnings
+        let warnings: Vec<_> = report
+            .checks
+            .iter()
+            .filter(|c| !c.passed && c.level == crate::infrastructure::tools::documents::shared::validation::ValidationLevel::Warning)
+            .collect();
+        assert!(
+            warnings.is_empty(),
+            "golden must have zero warnings: {warnings:?}"
+        );
+    }
+
     /// Sweep test: no numeric literal (other than `0.0` / `1.0`) may
     /// appear outside `const` items in the render layout path (this
     /// file and `layout.rs`). Style knobs belong in the theme TOML;

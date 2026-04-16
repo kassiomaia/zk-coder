@@ -411,23 +411,22 @@ hyperlinks. A real report.
   - 4 pre-existing draft validation tests still green.
 - **Retires gap**: #18.
 
-### M2 exit gate
+### M2 exit gate — done
 
-M2 is Done when:
+M2 criteria met:
 
-- T2.1–T2.7 are merged.
-- The **Journey A golden** is committed:
-  `docs/tools/pdf/goldens/journey-a.pdf` — a report with cover,
-  metadata, TOC, headers/footers, 2 images, 1 table, nested lists, one
-  internal link, one external link. Hash locked in the test suite.
-- `PdfValidator::validate_file` returns `passed: true` with **zero
-  warnings** on that golden.
-- `00-as-is.md` gaps #8, #9, #10, #11, #12, #18 are ticked off.
-
-Gaps #8 and #9 are retired via **deletion**, not via improvement: the
-HTML and Markdown content blobs from the old model are removed in
-T1.3 and never come back. `04-roadmap.md` used to explain this; the
-rationale is preserved at the end of this document.
+- **T2.1–T2.7**: all merged on `feature/pdf-authoring-tool`.
+- **Journey A golden**: `docs/tools/pdf/goldens/journey-a.pdf` committed.
+  Fixture includes cover, metadata, TOC, headers/footers, 2 images,
+  1 table (with header), nested list, code block, callout, one external
+  link. Test `m2_journey_a_golden_renders_and_validates` renders the
+  fixture, writes the golden, validates with `PdfValidator::validate_file`.
+- **Validator**: returns `passed: true` with zero warnings on the golden.
+- **Gaps**: #8 (Lossy HTML — retired via deletion in T1.3), #9
+  (Primitive Markdown — retired via deletion in T1.3), #10 (Image
+  placeholder — T2.5), #11 (No headers/footers/TOC — T2.2 + T2.6),
+  #12 (No hyperlinks/bookmarks/metadata — T2.1 + T2.6), #18 (Substring
+  validator — T2.7) — all ticked off in the gap tracker below.
 
 ---
 
@@ -525,7 +524,7 @@ Single source of truth for which task closes which gap from
 | Artifacts outside app-data | 14 | T1.7 | done |
 | Hardcoded session_id | 15 | T1.7 | done |
 | Blocking render | 16 | T1.8 | done |
-| No golden-file tests | 17 | M1 exit gate | pending |
+| No golden-file tests | 17 | M1 + M2 exit gates | done |
 | Substring validator | 18 | T2.7 | done |
 | Card lacks structural facts | 19 | T3.1 | pending |
 | No theme settings UI | 20 | T3.3 | pending |
