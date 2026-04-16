@@ -50,6 +50,10 @@ pub enum PdfModelError {
     #[error("table must have at least one column")]
     EmptyTableColumns,
 
+    /// An image block was constructed with empty data.
+    #[error("image data must not be empty")]
+    EmptyImageData,
+
     /// A table row had a cell count that differs from the column count.
     #[error("table row has {cells} cells but table defines {columns} columns")]
     TableCellCountMismatch {

@@ -13,14 +13,14 @@ use std::io::{Cursor, Write};
 
 use async_trait::async_trait;
 use printpdf::{
-    path::PaintMode, Color, IndirectFontRef, Mm, PdfDocument as PrintPdfDoc,
-    PdfDocumentReference, PdfLayerReference, Rect, Rgb as PrintRgb,
+    path::PaintMode, Color, Image as PdfImage, ImageTransform, IndirectFontRef, Mm,
+    PdfDocument as PrintPdfDoc, PdfDocumentReference, PdfLayerReference, Rect, Rgb as PrintRgb,
 };
 use ttf_parser::Face;
 
 use crate::core::documents::pdf::block::{
-    Block, Callout, CodeBlock, ColumnWidth, InlineRun, InlineStyle, ListBlock, ListItem, Paragraph,
-    TableBlock, TableRow,
+    Block, Callout, CodeBlock, ColumnWidth, ImageBlock, InlineRun, InlineStyle, ListBlock,
+    ListItem, Paragraph, TableBlock, TableRow,
 };
 use crate::core::documents::pdf::document::PdfDocument;
 use crate::core::documents::pdf::geometry::Orientation;
@@ -243,6 +243,7 @@ fn layout_sections(
                 Block::Table(table) => {
                     emit_table(engine, font_refs, fonts, table, missing)?;
                 }
+                Block::Image(img) => emit_image(engine, img)?,
             }
             let gap = engine.params().block_gap_mm;
             engine.advance(gap);
@@ -671,6 +672,48 @@ fn emit_callout(
     engine.advance(padding + padding);
     Ok(())
 }
+
+/// Emits an image block on the current page.
+///
+/// Decodes the raw bytes via `image::load_from_memory`, converts to a
+/// printpdf `Image`, and places it at the cursor. The display width
+/// defaults to the usable page width; aspect ratio is preserved.
+fn emit_image(engine: &mut LayoutEngine<'_>, block: &ImageBlock) -> Result<(), RenderError> {
+    let dynamic = image::load_from_memory(block.data())
+        .map_err(|e| RenderError::Engine(format!("image decode failed: {e}")))?;
+    let (px_w, px_h) = (dynamic.width(), dynamic.height());
+    if px_w == 0 || px_h == 0 {
+        return Ok(());
+    }
+    let aspect = px_h as f32 / px_w as f32;
+    let display_w_mm = block
+        .width_mm
+        .unwrap_or(engine.params().usable_width_mm);
+    let display_h_mm = display_w_mm * aspect;
+
+    engine.ensure_space_for(display_h_mm);
+    let layer = engine.current_layer();
+    let x_mm = engine.params().x_mm;
+    let y_mm = engine.cursor_y_mm() - display_h_mm + engine.params().body_leading_mm;
+
+    let pdf_image = PdfImage::from_dynamic_image(&dynamic);
+    let dpi = px_w as f32 / (display_w_mm / MM_PER_INCH);
+    pdf_image.add_to_layer(
+        layer,
+        ImageTransform {
+            translate_x: Some(Mm(x_mm)),
+            translate_y: Some(Mm(y_mm)),
+            dpi: Some(dpi),
+            ..ImageTransform::default()
+        },
+    );
+
+    engine.advance(display_h_mm);
+    Ok(())
+}
+
+/// Millimetres per inch, used to convert pixel DPI.
+const MM_PER_INCH: f32 = 25.4;
 
 /// Resolves [`ColumnWidth`] specs into concrete widths in mm.
 ///
@@ -2182,6 +2225,98 @@ mod tests {
             page_has_fill_color(&parsed, 1, expected),
             "table header must paint its theme-supplied background fill"
         );
+    }
+
+    // ---- T2.5 integration tests: image blocks ----
+
+    use crate::core::documents::pdf::block::ImageBlock;
+
+    /// Creates a minimal 2x2 red PNG in memory for test fixtures.
+    fn tiny_red_png() -> Vec<u8> {
+        use std::io::Cursor;
+        let mut buf = Cursor::new(Vec::new());
+        let encoder = image::codecs::png::PngEncoder::new(&mut buf);
+        // 2x2 red pixels, RGB 8-bit
+        let red: [u8; 12] = [
+            0xFF, 0x00, 0x00, 0xFF, 0x00, 0x00, 0xFF, 0x00, 0x00, 0xFF, 0x00, 0x00,
+        ];
+        image::ImageEncoder::write_image(
+            encoder,
+            &red,
+            TINY_PNG_DIM,
+            TINY_PNG_DIM,
+            image::ColorType::Rgb8.into(),
+        )
+        .expect("encode png");
+        buf.into_inner()
+    }
+
+    const TINY_PNG_DIM: u32 = 2;
+
+    #[tokio::test]
+    async fn image_block_embeds_xobject_in_pdf() {
+        let r = renderer();
+        let png = tiny_red_png();
+        let img = ImageBlock::new(png).unwrap();
+
+        let mut doc = PdfDocument::new(Metadata::new("Image Embed").unwrap());
+        let h = Heading::new(HeadingLevel::new(1).unwrap(), "Img").unwrap();
+        let mut s = Section::new(h);
+        s.push(Block::Image(img));
+        doc.push_section(s);
+
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+
+        // The rendered PDF must contain an XObject image (Subtype /Image).
+        let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
+        let mut has_image_xobj = false;
+        for (_, obj) in &parsed.objects {
+            if let lopdf::Object::Stream(stream) = obj {
+                if let Ok(lopdf::Object::Name(subtype)) = stream.dict.get(b"Subtype") {
+                    if subtype == b"Image" {
+                        has_image_xobj = true;
+                    }
+                }
+            }
+        }
+        assert!(
+            has_image_xobj,
+            "rendered PDF must contain an image XObject"
+        );
+    }
+
+    #[tokio::test]
+    async fn image_block_no_placeholder_text_in_output() {
+        let r = renderer();
+        let png = tiny_red_png();
+        let img = ImageBlock::new(png).unwrap();
+
+        let mut doc = PdfDocument::new(Metadata::new("No Placeholder").unwrap());
+        let h = Heading::new(HeadingLevel::new(1).unwrap(), "Img").unwrap();
+        let mut s = Section::new(h);
+        s.push(Block::Image(img));
+        doc.push_section(s);
+
+        let mut buf: Vec<u8> = Vec::new();
+        r.render(&doc, &Theme::default(), &mut buf, None)
+            .await
+            .expect("render");
+
+        // The literal "[Image:" placeholder must not appear anywhere.
+        let as_str = String::from_utf8_lossy(&buf);
+        assert!(
+            !as_str.contains("[Image:"),
+            "rendered PDF must not contain placeholder text '[Image:'"
+        );
+    }
+
+    #[test]
+    fn image_block_empty_data_returns_error() {
+        let err = ImageBlock::new(vec![]);
+        assert!(err.is_err());
     }
 
     /// Sweep test: no numeric literal (other than `0.0` / `1.0`) may

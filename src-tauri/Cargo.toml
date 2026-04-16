@@ -70,7 +70,8 @@ sha2 = "0.10"
 # Document generation
 pptx = "0.1"
 docx-rust = "0.1"
-printpdf = "0.7"
+printpdf = { version = "0.7", features = ["embedded_images"] }
+image = { version = "0.24", default-features = false, features = ["jpeg", "png"] }
 ttf-parser = "0.20"
 toml = "0.8"
 

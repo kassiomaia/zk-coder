@@ -337,6 +337,64 @@ impl Callout {
     }
 }
 
+/// Embedded image rendered inline.
+///
+/// The block carries the raw image bytes (PNG, JPEG, BMP) and an
+/// optional display width in mm. When the display width is `None` the
+/// renderer picks a default fitting the usable page width.
+///
+/// Serde skips the heavy `data` field so JSON round-trips describe the
+/// _structure_ without carrying megabytes of pixel data.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ImageBlock {
+    /// Optional alt-text / caption for accessibility.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alt: Option<String>,
+    /// Display width in mm. `None` → fit to usable page width.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width_mm: Option<f32>,
+    /// Raw image bytes (PNG / JPEG / BMP).
+    #[serde(skip)]
+    data: Vec<u8>,
+}
+
+impl ImageBlock {
+    /// Builds an image block from raw bytes.
+    ///
+    /// # Errors
+    /// Returns [`PdfModelError::EmptyImageData`] if `data` is empty.
+    pub fn new(data: Vec<u8>) -> Result<Self, PdfModelError> {
+        if data.is_empty() {
+            return Err(PdfModelError::EmptyImageData);
+        }
+        Ok(Self {
+            alt: None,
+            width_mm: None,
+            data,
+        })
+    }
+
+    /// Attaches alt-text.
+    #[must_use]
+    pub fn with_alt(mut self, alt: impl Into<String>) -> Self {
+        self.alt = Some(alt.into());
+        self
+    }
+
+    /// Overrides the display width.
+    #[must_use]
+    pub const fn with_width_mm(mut self, mm: f32) -> Self {
+        self.width_mm = Some(mm);
+        self
+    }
+
+    /// Returns the raw image bytes.
+    #[must_use]
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+}
+
 /// Column width specification for a [`TableBlock`].
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -524,6 +582,8 @@ pub enum Block {
     Callout(Callout),
     /// Table with optional repeating header.
     Table(TableBlock),
+    /// Embedded image.
+    Image(ImageBlock),
 }
 
 #[cfg(test)]
@@ -728,6 +788,25 @@ mod tests {
         let cols = vec![ColumnWidth::auto()];
         let table = TableBlock::new(cols, None, vec![]).unwrap();
         assert!(table.rows().is_empty());
+    }
+
+    #[test]
+    fn image_block_rejects_empty_data() {
+        assert_eq!(
+            ImageBlock::new(vec![]).unwrap_err(),
+            PdfModelError::EmptyImageData
+        );
+    }
+
+    #[test]
+    fn image_block_stores_data_and_alt() {
+        let img = ImageBlock::new(vec![0xFF, 0xD8])
+            .unwrap()
+            .with_alt("logo")
+            .with_width_mm(50.0);
+        assert_eq!(img.data(), &[0xFF, 0xD8]);
+        assert_eq!(img.alt.as_deref(), Some("logo"));
+        assert_eq!(img.width_mm, Some(50.0));
     }
 
     #[test]

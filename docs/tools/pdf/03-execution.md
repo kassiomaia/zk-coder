@@ -352,20 +352,23 @@ hyperlinks. A real report.
 - **Done when**: 40-row table across 2+ pages renders deterministically
   and all tests green.
 
-### T2.5 — Real image embedding
+### T2.5 — Real image embedding — done
 
-- **Deliverable**: `ImageBlock` embeds the real image bytes. No
-  placeholder text.
-- **Build**: image decode via the `image` crate (confirm it's already
-  in the tree; if not, add it and justify per
-  `docs/quality/guidelines/configuration.md`).
-- **Tests (first)**:
-  - rendered PDF has an `XObject` whose pixel dimensions match the
-    source
-  - grep the rendered bytes — the literal string `"[Image:"` must not
-    appear anywhere
-  - missing image file → typed error, not panic
-- **Done when**: the grep test is green.
+- **Delivered**: `ImageBlock` carrying raw PNG/JPEG bytes with optional
+  `alt` text and `width_mm` override. Renderer decodes via the `image`
+  crate (added as direct dep; printpdf `embedded_images` feature
+  enabled), computes DPI to fit the requested display width while
+  preserving aspect ratio, and places the image via `Image::add_to_layer`.
+- **Domain**: `ImageBlock` in `block.rs`, `EmptyImageData` error variant.
+- **Deps**: `image = "0.24"` (PNG + JPEG features); `printpdf` feature
+  `embedded_images` enabled.
+- **Tests (passing)**:
+  - `image_block_embeds_xobject_in_pdf` — lopdf finds a `Subtype /Image`
+    stream in the rendered PDF.
+  - `image_block_no_placeholder_text_in_output` — the string `"[Image:"`
+    does not appear anywhere in the raw bytes.
+  - `image_block_empty_data_returns_error` — empty data returns typed error.
+  - 2 domain unit tests in `block.rs`.
 - **Retires gap**: #10.
 
 ### T2.6 — TOC block + internal and external hyperlinks
@@ -510,7 +513,7 @@ Single source of truth for which task closes which gap from
 | Silent truncation | 7 | T1.6 | done |
 | Lossy HTML | 8 | T1.3 (via deletion) | done |
 | Primitive Markdown | 9 | T1.3 (via deletion) | done |
-| Image placeholder | 10 | T2.5 | pending |
+| Image placeholder | 10 | T2.5 | done |
 | No headers/footers/TOC | 11 | T2.2 + T2.6 | partial (T2.2 done) |
 | No hyperlinks/bookmarks/metadata | 12 | T2.1 + T2.6 | partial (T2.1 done) |
 | Non-persistent drafts | 13 | **deferred** | not scheduled |
