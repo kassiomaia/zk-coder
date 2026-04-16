@@ -11,8 +11,11 @@ pub mod documents;
 pub mod llm;
 pub mod nlp;
 
-// Re-export commonly used types
-pub use chat::entities::*;
+// Re-export commonly used chat types (explicit to avoid name collisions with llm::entities)
+pub use chat::entities::{
+    ChatDomainError, ChatMessage, Conversation, ConversationSettings, MessageFeedback,
+    MessageMetadata, MessageRole, MessageStatus, Thread, ThreadMetadata, ThreadPriority,
+};
 
 // Re-export config types for convenience
 pub use config::*;

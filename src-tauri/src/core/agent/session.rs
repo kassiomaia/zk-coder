@@ -96,9 +96,21 @@ impl AgentSession {
     }
 
     /// Transitions the session to a new state and updates the `updated_at` timestamp.
-    pub fn set_state(&mut self, state: SessionState) {
+    ///
+    /// Returns `Err` with a description if the transition is not valid according
+    /// to the session state machine. Terminal states (`Finished`, `Cancelled`,
+    /// unrecoverable `Error`) cannot transition to any other state.
+    pub fn set_state(&mut self, state: SessionState) -> Result<(), String> {
+        if !self.state.can_transition_to(&state) {
+            return Err(format!(
+                "Invalid session state transition: {:?} -> {:?}",
+                self.state.variant_name(),
+                state.variant_name(),
+            ));
+        }
         self.state = state;
         self.updated_at = Utc::now();
+        Ok(())
     }
 }
 
@@ -163,6 +175,78 @@ pub enum SessionState {
     },
 }
 
+impl SessionState {
+    /// Returns the short variant name for diagnostics.
+    #[must_use]
+    pub const fn variant_name(&self) -> &'static str {
+        match self {
+            Self::Launching => "Launching",
+            Self::Running { .. } => "Running",
+            Self::WaitForRequest { .. } => "WaitForRequest",
+            Self::UserInputRequired { .. } => "UserInputRequired",
+            Self::Finished { .. } => "Finished",
+            Self::Cancelled { .. } => "Cancelled",
+            Self::Error { .. } => "Error",
+            Self::Paused { .. } => "Paused",
+        }
+    }
+
+    /// Checks whether transitioning from `self` to `target` is valid.
+    ///
+    /// Terminal states (`Finished`, `Cancelled`, unrecoverable `Error`) cannot
+    /// transition further. Recoverable errors may transition back to `Running`
+    /// or to `Cancelled`.
+    #[must_use]
+    pub fn can_transition_to(&self, target: &Self) -> bool {
+        match self {
+            // Launching can proceed to Running, or terminate early
+            Self::Launching => matches!(
+                target,
+                Self::Running { .. } | Self::Error { .. } | Self::Cancelled { .. }
+            ),
+            // Running can go to many states
+            Self::Running { .. } => matches!(
+                target,
+                Self::WaitForRequest { .. }
+                    | Self::UserInputRequired { .. }
+                    | Self::Finished { .. }
+                    | Self::Error { .. }
+                    | Self::Cancelled { .. }
+                    | Self::Paused { .. }
+            ),
+            // WaitForRequest can resume or terminate
+            Self::WaitForRequest { .. } => matches!(
+                target,
+                Self::Running { .. }
+                    | Self::Finished { .. }
+                    | Self::Error { .. }
+                    | Self::Cancelled { .. }
+                    | Self::Paused { .. }
+            ),
+            // UserInputRequired resolves to Running or terminates
+            Self::UserInputRequired { .. } => matches!(
+                target,
+                Self::Running { .. } | Self::Error { .. } | Self::Cancelled { .. }
+            ),
+            // Paused can resume or terminate
+            Self::Paused { .. } => matches!(
+                target,
+                Self::Running { .. } | Self::Error { .. } | Self::Cancelled { .. }
+            ),
+            // Recoverable errors can retry or be cancelled
+            Self::Error { recoverable, .. } => {
+                if *recoverable {
+                    matches!(target, Self::Running { .. } | Self::Cancelled { .. })
+                } else {
+                    false
+                }
+            }
+            // Terminal states
+            Self::Finished { .. } | Self::Cancelled { .. } => false,
+        }
+    }
+}
+
 /// Represents a pending action that is awaiting user approval.
 ///
 /// When an agent needs to perform a sensitive action, it creates a `PendingAction`
@@ -215,5 +299,183 @@ impl PendingAction {
     pub fn with_preview(mut self, preview: ActionPreview) -> Self {
         self.preview = Some(preview);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn make_session(state: SessionState) -> AgentSession {
+        let mut session = AgentSession::new(
+            AgentId::new("test"),
+            "Test Agent".to_string(),
+            "conv-1".to_string(),
+            "thread-1".to_string(),
+            Some(PathBuf::from("/workspace")),
+            None,
+        );
+        // Force the initial state for testing.
+        session.state = state;
+        session
+    }
+
+    fn running() -> SessionState {
+        SessionState::Running {
+            current_step: 1,
+            context_usage: 0.5,
+        }
+    }
+
+    fn wait_for_request() -> SessionState {
+        SessionState::WaitForRequest {
+            last_action_at: Utc::now(),
+        }
+    }
+
+    fn finished() -> SessionState {
+        SessionState::Finished {
+            completed_at: Utc::now(),
+        }
+    }
+
+    fn cancelled() -> SessionState {
+        SessionState::Cancelled {
+            reason: "user cancelled".to_string(),
+        }
+    }
+
+    fn recoverable_error() -> SessionState {
+        SessionState::Error {
+            message: "timeout".to_string(),
+            recoverable: true,
+        }
+    }
+
+    fn unrecoverable_error() -> SessionState {
+        SessionState::Error {
+            message: "fatal".to_string(),
+            recoverable: false,
+        }
+    }
+
+    fn paused() -> SessionState {
+        SessionState::Paused {
+            paused_at: Utc::now(),
+            message: "paused".to_string(),
+            current_subtask_id: None,
+        }
+    }
+
+    fn user_input_required() -> SessionState {
+        SessionState::UserInputRequired {
+            pending_action_ids: vec!["action-1".to_string()],
+        }
+    }
+
+    // ---- Valid transitions ----
+
+    #[test]
+    fn launching_to_running_is_valid() {
+        let mut session = make_session(SessionState::Launching);
+        assert!(session.set_state(running()).is_ok());
+    }
+
+    #[test]
+    fn launching_to_error_is_valid() {
+        let mut session = make_session(SessionState::Launching);
+        assert!(session.set_state(unrecoverable_error()).is_ok());
+    }
+
+    #[test]
+    fn running_to_finished_is_valid() {
+        let mut session = make_session(running());
+        assert!(session.set_state(finished()).is_ok());
+    }
+
+    #[test]
+    fn running_to_paused_is_valid() {
+        let mut session = make_session(running());
+        assert!(session.set_state(paused()).is_ok());
+    }
+
+    #[test]
+    fn running_to_user_input_required_is_valid() {
+        let mut session = make_session(running());
+        assert!(session.set_state(user_input_required()).is_ok());
+    }
+
+    #[test]
+    fn wait_for_request_to_running_is_valid() {
+        let mut session = make_session(wait_for_request());
+        assert!(session.set_state(running()).is_ok());
+    }
+
+    #[test]
+    fn paused_to_running_is_valid() {
+        let mut session = make_session(paused());
+        assert!(session.set_state(running()).is_ok());
+    }
+
+    #[test]
+    fn recoverable_error_to_running_is_valid() {
+        let mut session = make_session(recoverable_error());
+        assert!(session.set_state(running()).is_ok());
+    }
+
+    #[test]
+    fn recoverable_error_to_cancelled_is_valid() {
+        let mut session = make_session(recoverable_error());
+        assert!(session.set_state(cancelled()).is_ok());
+    }
+
+    #[test]
+    fn user_input_required_to_running_is_valid() {
+        let mut session = make_session(user_input_required());
+        assert!(session.set_state(running()).is_ok());
+    }
+
+    // ---- Invalid transitions ----
+
+    #[test]
+    fn finished_to_running_is_invalid() {
+        let mut session = make_session(finished());
+        assert!(session.set_state(running()).is_err());
+    }
+
+    #[test]
+    fn cancelled_to_running_is_invalid() {
+        let mut session = make_session(cancelled());
+        assert!(session.set_state(running()).is_err());
+    }
+
+    #[test]
+    fn unrecoverable_error_to_running_is_invalid() {
+        let mut session = make_session(unrecoverable_error());
+        assert!(session.set_state(running()).is_err());
+    }
+
+    #[test]
+    fn launching_to_finished_is_invalid() {
+        let mut session = make_session(SessionState::Launching);
+        assert!(session.set_state(finished()).is_err());
+    }
+
+    #[test]
+    fn launching_to_paused_is_invalid() {
+        let mut session = make_session(SessionState::Launching);
+        assert!(session.set_state(paused()).is_err());
+    }
+
+    // ---- variant_name ----
+
+    #[test]
+    fn variant_name_returns_correct_names() {
+        assert_eq!(SessionState::Launching.variant_name(), "Launching");
+        assert_eq!(running().variant_name(), "Running");
+        assert_eq!(finished().variant_name(), "Finished");
+        assert_eq!(cancelled().variant_name(), "Cancelled");
+        assert_eq!(paused().variant_name(), "Paused");
     }
 }

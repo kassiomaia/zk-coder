@@ -2,27 +2,75 @@
 //!
 //! This module provides regex-based pattern matching to quickly classify
 //! common intent patterns before falling back to AI classification.
+//!
+//! Regex patterns are compiled exactly once via `LazyLock` and shared across
+//! all `IntentPatterns` instances.
+
+use std::sync::LazyLock;
 
 use regex::Regex;
 
 use super::intent::Intent;
 
+/// Compiled intent patterns, initialized once on first access.
+static COMPILED_PATTERNS: LazyLock<Vec<(Intent, Vec<Regex>)>> =
+    LazyLock::new(build_patterns);
+
 /// Pattern matcher for intent recognition.
 pub struct IntentPatterns {
-    /// List of (intent, patterns) pairs
-    patterns: Vec<(Intent, Vec<Regex>)>,
+    /// Reference to the shared, lazily-compiled patterns.
+    patterns: &'static [(Intent, Vec<Regex>)],
 }
 
 impl IntentPatterns {
     /// Creates a new pattern matcher with built-in patterns.
+    ///
+    /// The underlying regex patterns are compiled exactly once (on first call)
+    /// and shared across all instances.
     #[must_use]
     pub fn new() -> Self {
         Self {
-            patterns: Self::build_patterns(),
+            patterns: &COMPILED_PATTERNS,
         }
     }
 
-    fn build_patterns() -> Vec<(Intent, Vec<Regex>)> {
+    /// Matches input against patterns and returns the first matching intent.
+    #[must_use]
+    pub fn match_input(&self, input: &str) -> Option<&Intent> {
+        for (intent, patterns) in self.patterns {
+            if patterns.iter().any(|p| p.is_match(input)) {
+                return Some(intent);
+            }
+        }
+        None
+    }
+
+    /// Returns all matching intents with confidence scores.
+    #[must_use]
+    pub fn match_all(&self, input: &str) -> Vec<(&Intent, f64)> {
+        let mut matches = Vec::new();
+
+        for (intent, patterns) in self.patterns {
+            let match_count = patterns.iter().filter(|p| p.is_match(input)).count();
+            if match_count > 0 {
+                // More pattern matches = higher confidence
+                let confidence = (0.9_f64).min((match_count as f64).mul_add(0.05, 0.8));
+                matches.push((intent, confidence));
+            }
+        }
+
+        // Sort by confidence descending
+        matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        matches
+    }
+}
+
+/// Builds the intent-to-regex mapping. Called once by `LazyLock`.
+///
+/// Each `unwrap()` is acceptable here because the patterns are static string
+/// literals — a regex syntax error would be a programmer bug caught on first
+/// use, not a runtime data issue.
+fn build_patterns() -> Vec<(Intent, Vec<Regex>)> {
         vec![
             // Code generation
             (
@@ -219,37 +267,6 @@ impl IntentPatterns {
             ),
         ]
     }
-
-    /// Matches input against patterns and returns the first matching intent.
-    #[must_use]
-    pub fn match_input(&self, input: &str) -> Option<&Intent> {
-        for (intent, patterns) in &self.patterns {
-            if patterns.iter().any(|p| p.is_match(input)) {
-                return Some(intent);
-            }
-        }
-        None
-    }
-
-    /// Returns all matching intents with confidence scores.
-    #[must_use]
-    pub fn match_all(&self, input: &str) -> Vec<(&Intent, f64)> {
-        let mut matches = Vec::new();
-
-        for (intent, patterns) in &self.patterns {
-            let match_count = patterns.iter().filter(|p| p.is_match(input)).count();
-            if match_count > 0 {
-                // More pattern matches = higher confidence
-                let confidence = (0.9_f64).min((match_count as f64).mul_add(0.05, 0.8));
-                matches.push((intent, confidence));
-            }
-        }
-
-        // Sort by confidence descending
-        matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        matches
-    }
-}
 
 impl Default for IntentPatterns {
     fn default() -> Self {
