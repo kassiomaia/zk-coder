@@ -4,6 +4,8 @@
 pub const LLM_MAX_RETRIES: usize = 2;
 /// The base delay in milliseconds for LLM retry backoff.
 pub const LLM_RETRY_BASE_MS: u64 = 1000;
+/// The default maximum number of output tokens for agent LLM calls.
+pub const LLM_MAX_OUTPUT_TOKENS: u32 = 16384;
 /// The default temperature for the agent's LLM calls.
 pub const DEFAULT_AGENT_TEMPERATURE: f32 = 0.0;
 /// The environment variable for overriding the agent's temperature.

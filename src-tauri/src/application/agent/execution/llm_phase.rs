@@ -11,7 +11,9 @@ use serde_json::json;
 
 use super::deps::ExecutionDeps;
 use super::state::{ExecutionContext, LlmCallResult, ResolvedContext};
-use super::utils::{agent_temperature, truncate_text, LLM_MAX_RETRIES, LLM_RETRY_BASE_MS};
+use super::utils::{
+    agent_temperature, truncate_text, LLM_MAX_OUTPUT_TOKENS, LLM_MAX_RETRIES, LLM_RETRY_BASE_MS,
+};
 use crate::core::agent::execution::{ExecutionPhase, LlmTracePayload, RuntimeTraceType};
 use crate::core::llm::entities::ChatRequest;
 use crate::infrastructure::agent::runtime::client::LlmRetryConfig;
@@ -47,7 +49,7 @@ pub async fn call_llm(
     let mut chat_request = ChatRequest::new(&ctx.model_name, ctx.llm_context.clone())
         .with_system(&resolved.system_prompt)
         .with_temperature(agent_temperature())
-        .with_max_tokens(4096);
+        .with_max_tokens(LLM_MAX_OUTPUT_TOKENS);
     if !resolved.tool_definitions.is_empty() {
         chat_request = chat_request.with_tools(resolved.tool_definitions.clone());
     }
@@ -56,7 +58,7 @@ pub async fn call_llm(
         model: ctx.model_name.clone(),
         attempt: 0,
         temperature: agent_temperature(),
-        max_tokens: 4096,
+        max_tokens: LLM_MAX_OUTPUT_TOKENS,
         context_message_count: chat_request.messages.len(),
         estimated_context_tokens: estimate_context_tokens(&ctx.llm_context),
         active_subtask: resolved
@@ -142,7 +144,7 @@ pub async fn call_llm(
         model: response.model.clone(),
         attempt: 0,
         temperature: agent_temperature(),
-        max_tokens: 4096,
+        max_tokens: LLM_MAX_OUTPUT_TOKENS,
         context_message_count: chat_request.messages.len(),
         estimated_context_tokens: estimate_context_tokens(&ctx.llm_context),
         active_subtask: resolved

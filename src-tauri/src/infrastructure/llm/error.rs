@@ -62,6 +62,10 @@ pub enum LlmError {
         seconds: u64,
     },
 
+    /// Output truncated (hit max_tokens limit)
+    #[error("Output truncated: {0}")]
+    Truncated(String),
+
     /// Internal error
     #[error("Internal error: {0}")]
     Internal(String),
@@ -121,6 +125,7 @@ impl LlmError {
             Self::RateLimit { .. } => true,
             Self::Timeout { .. } => true,
             Self::Api { status, .. } => *status >= 500,
+            Self::Truncated(_) => true,
             _ => false,
         }
     }
@@ -178,6 +183,10 @@ mod tests {
         let config_err = LlmError::config("Invalid model");
         assert!(matches!(config_err, LlmError::Configuration(_)));
 
+        // Truncated error
+        let trunc_err = LlmError::Truncated("output cut off".to_string());
+        assert!(matches!(trunc_err, LlmError::Truncated(_)));
+
         // Streaming error
         let stream_err = LlmError::streaming("Connection lost");
         assert!(matches!(stream_err, LlmError::Streaming(_)));
@@ -228,6 +237,10 @@ mod tests {
                 "Status {status} should not be retryable"
             );
         }
+
+        // Truncated errors are retryable
+        let err = LlmError::Truncated("output cut off".to_string());
+        assert!(err.is_retryable());
 
         // Parse errors are not retryable
         let err = LlmError::parse("Invalid JSON");
@@ -339,6 +352,11 @@ mod tests {
         assert_eq!(
             LlmError::Internal("Unknown error".to_string()).to_string(),
             "Internal error: Unknown error"
+        );
+
+        assert_eq!(
+            LlmError::Truncated("output cut off".to_string()).to_string(),
+            "Output truncated: output cut off"
         );
     }
 

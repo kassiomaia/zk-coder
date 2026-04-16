@@ -481,6 +481,13 @@ impl OpenAiClient {
             .or(message.reasoning_content.clone())
             .unwrap_or_default();
 
+        let finish_reason = openai_response
+            .choices
+            .first()
+            .and_then(|c| c.finish_reason.clone());
+
+        let was_truncated = finish_reason.as_deref() == Some("length");
+
         // Parse tool calls with proper error handling
         let tool_calls = if let Some(calls) = &message.tool_calls {
             calls
@@ -490,12 +497,25 @@ impl OpenAiClient {
                         match serde_json::from_str::<serde_json::Value>(&call.function.arguments) {
                             Ok(value) => value,
                             Err(e) => {
-                                let truncated = truncate_text(&call.function.arguments, 500);
+                                let truncated_args =
+                                    truncate_text(&call.function.arguments, 500);
+                                if was_truncated {
+                                    log::warn!(
+                                        "Tool arguments for '{}' truncated due to max_tokens limit (finish_reason=length). Arguments: {}",
+                                        call.function.name,
+                                        truncated_args
+                                    );
+                                    return Err(LlmError::Truncated(format!(
+                                        "LLM output truncated (hit max_tokens limit) while generating tool call '{}'. \
+                                         The response was cut off before the JSON arguments could be completed.",
+                                        call.function.name
+                                    )));
+                                }
                                 log::error!(
                                     "Failed to parse tool arguments for '{}': {}. Arguments: {}",
                                     call.function.name,
                                     e,
-                                    truncated
+                                    truncated_args
                                 );
                                 return Err(LlmError::parse(format!(
                                     "Provider returned malformed tool arguments for '{}': {}. Arguments JSON could not be parsed.",
@@ -513,11 +533,6 @@ impl OpenAiClient {
         } else {
             Vec::new()
         };
-
-        let finish_reason = openai_response
-            .choices
-            .first()
-            .and_then(|c| c.finish_reason.clone());
 
         let usage = openai_response.usage.map(|u| UsageStats {
             input_tokens: u.prompt_tokens,
