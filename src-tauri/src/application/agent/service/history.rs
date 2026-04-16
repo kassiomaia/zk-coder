@@ -1,10 +1,9 @@
-use crate::application::agent::conversions::core_session_to_agent_session;
-use crate::core::agent::entities::{AgentDomainError, SessionState as CoreSessionState};
+use crate::core::agent::entities::AgentDomainError;
 use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::services::{
     ExecutionStep, FileAction, FileChange, SessionDetails, TerminalLine,
 };
-use crate::core::agent::session::AgentSession;
+use crate::core::agent::session::{AgentSession, SessionState};
 use crate::core::agent::task::StepAction;
 
 use super::store_error_to_domain;
@@ -22,13 +21,12 @@ impl AgentServiceImpl {
             .filter(|session| {
                 matches!(
                     session.state,
-                    CoreSessionState::Finished { .. }
-                        | CoreSessionState::Error { .. }
-                        | CoreSessionState::Cancelled { .. }
-                        | CoreSessionState::Paused { .. }
+                    SessionState::Finished { .. }
+                        | SessionState::Error { .. }
+                        | SessionState::Cancelled { .. }
+                        | SessionState::Paused { .. }
                 )
             })
-            .map(core_session_to_agent_session)
             .collect())
     }
 

@@ -3,14 +3,10 @@ use std::path::PathBuf;
 use chrono::Utc;
 use log::info;
 
-use crate::core::agent::entities::{
-    AgentDomainError, SessionId as CoreSessionId, SessionState as CoreSessionState,
-};
+use crate::core::agent::entities::AgentDomainError;
 use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::services::{CreateSessionRequest, SendAgentRequestRequest};
 use crate::core::agent::session::{AgentSession, SessionId, SessionState};
-
-use crate::application::agent::conversions::core_session_to_agent_session;
 
 use super::AgentServiceImpl;
 
@@ -36,49 +32,36 @@ impl AgentServiceImpl {
             request.model_id,
         );
 
-        let core_session: crate::core::agent::entities::AgentSession = session.clone().into();
-        self.session_repo.create_session(&core_session)?;
+        self.session_repo.create_session(&session)?;
 
         let new_state = SessionState::WaitForRequest {
             last_action_at: Utc::now(),
         };
-        let core_state: crate::core::agent::entities::SessionState = new_state.into();
-        self.session_repo
-            .update_state(&CoreSessionId(session.id.0.clone()), &core_state)?;
+        self.session_repo.update_state(&session.id, &new_state)?;
 
-        let core = self
-            .session_repo
-            .get_session(&CoreSessionId(session.id.0))?;
-        Ok(core_session_to_agent_session(core))
+        self.session_repo.get_session(&session.id)
     }
 
     pub(super) fn get_session_impl(&self, session_id: &str) -> RepositoryResult<AgentSession> {
-        let core = self
-            .session_repo
-            .get_session(&CoreSessionId(session_id.to_string()))?;
-        Ok(core_session_to_agent_session(core))
+        self.session_repo
+            .get_session(&SessionId(session_id.to_string()))
     }
 
     pub(super) fn get_conversation_sessions_impl(
         &self,
         conversation_id: &str,
     ) -> RepositoryResult<Vec<AgentSession>> {
-        Ok(self
-            .session_repo
-            .get_sessions_for_conversation(conversation_id)?
-            .into_iter()
-            .map(core_session_to_agent_session)
-            .collect())
+        self.session_repo
+            .get_sessions_for_conversation(conversation_id)
     }
 
     pub(super) fn cancel_session_impl(&self, session_id: &str) -> RepositoryResult<()> {
         let new_state = SessionState::Cancelled {
             reason: "User cancelled".to_string(),
         };
-        let core_state: crate::core::agent::entities::SessionState = new_state.into();
 
         self.session_repo
-            .update_state(&CoreSessionId(session_id.to_string()), &core_state)?;
+            .update_state(&SessionId(session_id.to_string()), &new_state)?;
         self.block_on(self.approval_queue.clear_session(session_id));
         self.file_snapshot_registry.clear_session(session_id);
 
@@ -89,7 +72,7 @@ impl AgentServiceImpl {
         self.block_on(self.approval_queue.clear_session(session_id));
         self.block_on(self.abort_execution(session_id));
         self.session_repo
-            .delete_session(&CoreSessionId(session_id.to_string()))?;
+            .delete_session(&SessionId(session_id.to_string()))?;
         self.file_snapshot_registry.clear_session(session_id);
         Ok(())
     }
@@ -100,7 +83,7 @@ impl AgentServiceImpl {
         workspace_root: &str,
     ) -> RepositoryResult<()> {
         self.session_repo
-            .update_workspace(&CoreSessionId(session_id.to_string()), workspace_root)
+            .update_workspace(&SessionId(session_id.to_string()), workspace_root)
     }
 
     pub(super) fn update_session_model_impl(
@@ -109,7 +92,7 @@ impl AgentServiceImpl {
         model_id: &str,
     ) -> RepositoryResult<()> {
         self.session_repo
-            .update_model_id(&CoreSessionId(session_id.to_string()), model_id)
+            .update_model_id(&SessionId(session_id.to_string()), model_id)
     }
 
     pub(super) fn send_request_impl(
@@ -118,7 +101,7 @@ impl AgentServiceImpl {
     ) -> RepositoryResult<SessionId> {
         let session = self
             .session_repo
-            .get_session(&CoreSessionId(request.session_id.clone()))?;
+            .get_session(&SessionId(request.session_id.clone()))?;
 
         if self.block_on(self.is_execution_active(&request.session_id)) {
             return Err(AgentDomainError::InvalidInput {
@@ -127,20 +110,21 @@ impl AgentServiceImpl {
         }
 
         match session.state {
-            CoreSessionState::Processing { .. } | CoreSessionState::AwaitingApproval { .. } => {
+            SessionState::Running { .. } | SessionState::UserInputRequired { .. } => {
                 return Err(AgentDomainError::InvalidInput {
                     reason: "This session is already processing a request".to_string(),
                 });
             }
-            CoreSessionState::Cancelled { .. } => {
+            SessionState::Cancelled { .. } => {
                 return Err(AgentDomainError::InvalidInput {
                     reason: "This session was cancelled and cannot accept new requests".to_string(),
                 });
             }
-            CoreSessionState::WaitForRequest { .. }
-            | CoreSessionState::Finished { .. }
-            | CoreSessionState::Error { .. }
-            | CoreSessionState::Paused { .. } => {}
+            SessionState::Launching
+            | SessionState::WaitForRequest { .. }
+            | SessionState::Finished { .. }
+            | SessionState::Error { .. }
+            | SessionState::Paused { .. } => {}
         }
 
         info!(

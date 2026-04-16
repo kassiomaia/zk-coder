@@ -96,13 +96,13 @@ pub async fn run_tools(
 
     let session = deps
         .session_repo
-        .get_session(&crate::core::agent::entities::SessionId(
+        .get_session(&crate::core::agent::session::SessionId(
             ctx.session_id.clone(),
         ))
         .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
     if matches!(
         session.state,
-        crate::core::agent::entities::SessionState::Cancelled { .. }
+        crate::core::agent::session::SessionState::Cancelled { .. }
     ) {
         cancel_execution(deps, ctx, "session_cancelled_after_tools")?;
         return Ok(ToolPhaseOutcome::Cancelled);

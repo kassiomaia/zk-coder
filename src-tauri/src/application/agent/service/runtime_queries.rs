@@ -1,14 +1,13 @@
 use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
-use crate::application::agent::conversions::core_task_to_runtime_task;
 use crate::application::agent::read_models::{
     AgentCatalog, AgentExecutionContext, AgentExecutionDebugDetails, AgentSessionRuntimeDetails,
     FileTouchedView, PendingActionsView, TerminalLineView, ToolCallView,
 };
-use crate::core::agent::entities::{AgentDomainError, SessionState as CoreSessionState};
+use crate::core::agent::entities::AgentDomainError;
 use crate::core::agent::repositories::RepositoryResult;
-use crate::core::agent::session::SessionId;
+use crate::core::agent::session::{SessionId, SessionState};
 use crate::core::agent::task::AgentRequest;
 use crate::core::agent::types::Agent;
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
@@ -25,9 +24,9 @@ impl AgentServiceImpl {
         content: String,
         app_handle: AppHandle,
     ) -> RepositoryResult<String> {
-        let core_session = self
+        let session = self
             .session_repo
-            .get_session(&crate::core::agent::entities::SessionId(session_id.clone()))?;
+            .get_session(&SessionId(session_id.clone()))?;
 
         if self.is_execution_active(&session_id).await {
             return Err(AgentDomainError::InvalidInput {
@@ -35,21 +34,22 @@ impl AgentServiceImpl {
             });
         }
 
-        match &core_session.state {
-            CoreSessionState::Processing { .. } | CoreSessionState::AwaitingApproval { .. } => {
+        match &session.state {
+            SessionState::Running { .. } | SessionState::UserInputRequired { .. } => {
                 return Err(AgentDomainError::InvalidInput {
                     reason: "This session is already processing a request".to_string(),
                 });
             }
-            CoreSessionState::Cancelled { .. } => {
+            SessionState::Cancelled { .. } => {
                 return Err(AgentDomainError::InvalidInput {
                     reason: "This session was cancelled and cannot accept new requests".to_string(),
                 });
             }
-            CoreSessionState::WaitForRequest { .. }
-            | CoreSessionState::Finished { .. }
-            | CoreSessionState::Error { .. }
-            | CoreSessionState::Paused { .. } => {}
+            SessionState::Launching
+            | SessionState::WaitForRequest { .. }
+            | SessionState::Finished { .. }
+            | SessionState::Error { .. }
+            | SessionState::Paused { .. } => {}
         }
 
         let sid = SessionId(session_id.clone());
@@ -163,30 +163,16 @@ impl AgentServiceImpl {
             .map(|step| serde_json::to_value(step).map_err(store_error_to_domain))
             .collect::<Result<Vec<_>, _>>()?;
 
-        // Load tasks and their subtasks
-        let core_tasks = self.task_repo.get_session_tasks(&sid.0)?;
-        let tasks = core_tasks
+        // Load tasks and their subtasks. Task repo now returns canonical NEWER
+        // types, so no conversion is required.
+        let tasks = self
+            .task_repo
+            .get_session_tasks(&sid.0)?
             .into_iter()
-            .map(|core_task| {
-                // Load subtasks for this task
-                let subtasks = self
-                    .task_repo
-                    .get_subtasks(&core_task.id)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|core_subtask| {
-                        // Convert core subtask (AgentTask entity) to runtime SubTask
-                        crate::infrastructure::agent::runtime::permissions::core_task_to_event_subtask(
-                            core_subtask,
-                            &core_task.id,
-                        )
-                    })
-                    .collect();
-
-                // Convert core task to runtime task and attach subtasks
-                let mut runtime_task = core_task_to_runtime_task(core_task);
-                runtime_task.subtasks = Some(subtasks);
-                runtime_task
+            .map(|mut task| {
+                let subtasks = self.task_repo.get_subtasks(&task.id).unwrap_or_default();
+                task.subtasks = Some(subtasks);
+                task
             })
             .collect();
 

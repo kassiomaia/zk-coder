@@ -1,10 +1,9 @@
 use chrono::Utc;
 use log::{info, warn};
 
-use crate::core::agent::entities::{
-    SessionState as CoreSessionState, TaskStatus as CoreTaskStatus,
-};
 use crate::core::agent::repositories::RepositoryResult;
+use crate::core::agent::session::SessionState;
+use crate::core::agent::task::TaskStatus;
 
 use super::AgentServiceImpl;
 
@@ -34,8 +33,8 @@ impl AgentServiceImpl {
 
         for session in sessions {
             let reason = match &session.state {
-                CoreSessionState::Processing { .. } => RECOVERY_REASON_RUNNING,
-                CoreSessionState::AwaitingApproval { .. } => RECOVERY_REASON_AWAITING_APPROVAL,
+                SessionState::Running { .. } => RECOVERY_REASON_RUNNING,
+                SessionState::UserInputRequired { .. } => RECOVERY_REASON_AWAITING_APPROVAL,
                 _ => continue,
             };
 
@@ -49,9 +48,10 @@ impl AgentServiceImpl {
             let now = Utc::now();
             if let Err(e) = self.session_repo.update_state(
                 &session.id,
-                &CoreSessionState::Paused {
+                &SessionState::Paused {
                     paused_at: now,
                     message: RECOVERY_MESSAGE.to_string(),
+                    current_subtask_id: None,
                 },
             ) {
                 warn!(
@@ -92,16 +92,16 @@ impl AgentServiceImpl {
         let tasks = self.task_repo.get_session_tasks(session_id)?;
 
         for task in tasks {
-            if is_non_terminal(task.status) {
+            if is_non_terminal(&task.status) {
                 self.task_repo
-                    .update_task_status(&task.id, CoreTaskStatus::Failed)?;
+                    .update_task_status(&task.id, TaskStatus::Failed)?;
             }
 
             if let Ok(subtasks) = self.task_repo.get_subtasks(&task.id) {
                 for subtask in subtasks {
-                    if is_non_terminal(subtask.status) {
+                    if is_non_terminal(&subtask.status) {
                         self.task_repo
-                            .update_subtask_status(&subtask.id, CoreTaskStatus::Failed)?;
+                            .update_subtask_status(&subtask.id, TaskStatus::Failed)?;
                     }
                 }
             }
@@ -111,6 +111,6 @@ impl AgentServiceImpl {
     }
 }
 
-const fn is_non_terminal(status: CoreTaskStatus) -> bool {
-    matches!(status, CoreTaskStatus::Pending | CoreTaskStatus::InProgress)
+fn is_non_terminal(status: &TaskStatus) -> bool {
+    matches!(status, TaskStatus::Pending | TaskStatus::InProgress)
 }

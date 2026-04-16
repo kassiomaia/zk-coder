@@ -148,12 +148,8 @@ impl AgentRuntime {
         state: crate::core::agent::session::SessionState,
         app_handle: &AppHandle,
     ) -> Result<(), AgentRuntimeError> {
-        let core_state: crate::core::agent::entities::SessionState = state.clone().into();
         self.session_repo
-            .update_state(
-                &crate::core::agent::entities::SessionId(session_id.0.clone()),
-                &core_state,
-            )
+            .update_state(session_id, &state)
             .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
 
         let _ = app_handle.emit(

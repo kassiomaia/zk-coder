@@ -63,7 +63,7 @@ pub async fn resolve_context(
             let total = subtasks.len();
             if let Some(current) = subtasks
                 .iter()
-                .find(|st| st.status == crate::core::agent::entities::TaskStatus::InProgress)
+                .find(|st| st.status == crate::core::agent::task::TaskStatus::InProgress)
             {
                 let summary = SubtaskSummary::from_subtask(current);
                 let allowed = summary
@@ -79,9 +79,9 @@ pub async fn resolve_context(
                     && subtasks.iter().all(|st| {
                         matches!(
                             st.status,
-                            crate::core::agent::entities::TaskStatus::Completed
-                                | crate::core::agent::entities::TaskStatus::Failed
-                                | crate::core::agent::entities::TaskStatus::Cancelled
+                            crate::core::agent::task::TaskStatus::Completed
+                                | crate::core::agent::task::TaskStatus::Failed
+                                | crate::core::agent::task::TaskStatus::Cancelled
                         )
                     });
                 (

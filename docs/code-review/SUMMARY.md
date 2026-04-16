@@ -82,7 +82,7 @@ All ~170 Rust source files under `src-tauri/src/`, covering:
 | F4 | Medium | High | Correctness Risk | Regex `unwrap()` in production code path | **Fixed** |
 | F5 | Low | High | API Design Smell | Inherent `from_str` shadows `std::str::FromStr` | Deferred |
 | F6 | Low | High | Correctness Risk | `TaskMode` vs `SubTaskMode` tool list divergence | Deferred |
-| F7 | Medium | High | Correctness Risk | Inconsistent path traversal validation | New |
+| F7 | Medium | High | Correctness Risk | Inconsistent path traversal validation | **Fixed** |
 
 ## Resolution Summary
 - Fixes implemented: 4 of 4 planned (F2, F3, F4, F7)

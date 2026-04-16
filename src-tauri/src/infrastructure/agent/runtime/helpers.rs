@@ -1,6 +1,6 @@
 //! Helper functions for agent runtime.
 
-use crate::core::agent::entities::TaskStatus;
+use crate::core::agent::task::TaskStatus;
 use crate::core::agent::types::ActionType;
 #[allow(unused_imports)]
 use serde_json::json;
@@ -332,7 +332,7 @@ mod tests {
         let base_prompt = "You are a helpful assistant.";
         let summary = SubtaskSummary {
             title: "Test task".to_string(),
-            mode: crate::core::agent::entities::TaskMode::Read,
+            mode: crate::core::agent::task::SubTaskMode::Read,
             status: TaskStatus::InProgress,
             order: 0,
         };
@@ -348,7 +348,7 @@ mod tests {
         let base_prompt = "You are a helpful assistant.";
         let summary = SubtaskSummary {
             title: "Test task".to_string(),
-            mode: crate::core::agent::entities::TaskMode::Read,
+            mode: crate::core::agent::task::SubTaskMode::Read,
             status: TaskStatus::Pending,
             order: 0,
         };
@@ -364,14 +364,14 @@ mod tests {
         let base_prompt = "You are a helpful assistant.";
 
         for mode in &[
-            crate::core::agent::entities::TaskMode::Read,
-            crate::core::agent::entities::TaskMode::Write,
-            crate::core::agent::entities::TaskMode::Execute,
-            crate::core::agent::entities::TaskMode::FullAccess,
+            crate::core::agent::task::SubTaskMode::Read,
+            crate::core::agent::task::SubTaskMode::Write,
+            crate::core::agent::task::SubTaskMode::Execute,
+            crate::core::agent::task::SubTaskMode::FullAccess,
         ] {
             let summary = SubtaskSummary {
                 title: "Test task".to_string(),
-                mode: *mode,
+                mode: mode.clone(),
                 status: TaskStatus::InProgress,
                 order: 0,
             };
@@ -390,7 +390,7 @@ mod tests {
         // Test with 5 subtasks, current is 3rd
         let summary = SubtaskSummary {
             title: "Third task".to_string(),
-            mode: crate::core::agent::entities::TaskMode::Write,
+            mode: crate::core::agent::task::SubTaskMode::Write,
             status: TaskStatus::InProgress,
             order: 2, // 0-indexed, so this is the 3rd subtask
         };

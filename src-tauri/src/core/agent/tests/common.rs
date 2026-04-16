@@ -1,8 +1,8 @@
 //! Common test utilities for agent tests.
 
-use crate::core::agent::entities::{AgentTask, TaskMode, TaskStatus};
 use crate::core::agent::repositories::TaskRepository;
 use crate::core::agent::session::{AgentSession, SessionId};
+use crate::core::agent::task::{AgentRequest, AgentTask};
 use crate::core::agent::types::AgentId;
 use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
 
@@ -23,16 +23,14 @@ pub fn make_test_session(store: &SqliteSessionRepository) -> SessionId {
 
 /// Create a test task for subtask tests.
 pub fn make_test_task(store: &SqliteSessionRepository, task_id: &str, session_id: &SessionId) {
-    let task = AgentTask {
-        id: task_id.to_string(),
-        session_id: session_id.0.clone(),
-        parent_task_id: None,
-        title: "Test request".to_string(),
-        description: None,
-        status: TaskStatus::Pending,
-        order: 0,
-        mode: Some(TaskMode::FullAccess),
-        needs_review: false,
-    };
+    let mut task = AgentTask::new(
+        session_id.clone(),
+        AgentRequest {
+            content: "Test request".to_string(),
+            attachments: vec![],
+            context: None,
+        },
+    );
+    task.id = task_id.to_string();
     TaskRepository::create_task(store, &task).unwrap();
 }

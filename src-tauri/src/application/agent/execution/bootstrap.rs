@@ -6,10 +6,9 @@
 
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::session::{AgentSession, SessionState};
-use crate::core::agent::task::{AgentRequest, AgentTask};
+use crate::core::agent::task::{AgentRequest, AgentTask, TaskStatus};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::client::{build_llm_context, create_llm_client};
-use crate::infrastructure::agent::runtime::permissions::core_task_to_event_subtask;
 use crate::infrastructure::agent::runtime::AgentRuntimeError;
 use chrono::Utc;
 use tauri::Emitter;
@@ -85,19 +84,11 @@ pub async fn start_execution(
     .await
     .map_err(|e| AgentRuntimeError::Repository(format!("Planning failed: {e}")))?;
 
-    // Step 2: Create root task with LLM-generated title and description
+    // Step 2: Create root task with LLM-generated title and description.
+    // Store the generated title/description on the AgentRequest's context so
+    // the task repo serializes them alongside the request content.
     let mut task = AgentTask::new(session.id.clone(), request.clone());
-    let core_task = crate::core::agent::entities::AgentTask {
-        id: task.id.clone(),
-        session_id: task.session_id.0.clone(),
-        parent_task_id: None,
-        title: plan.title.clone(),
-        description: Some(plan.description.clone()),
-        status: crate::core::agent::entities::TaskStatus::Pending,
-        order: 0,
-        mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
-        needs_review: false,
-    };
+    task.title = Some(plan.title.clone());
 
     // Emit TaskPlanGenerated event so frontend immediately knows the LLM-generated title
     let _ = deps.app_handle.emit(
@@ -113,7 +104,7 @@ pub async fn start_execution(
     );
 
     deps.task_repo
-        .create_task(&core_task)
+        .create_task(&task)
         .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
 
     // Step 3: Create all subtasks at once if non-trivial
@@ -122,41 +113,34 @@ pub async fn start_execution(
     if plan.is_non_trivial && !plan.subtasks.is_empty() {
         for subtask_plan in &plan.subtasks {
             let mut subtask =
-                subtask_plan_to_agent_task(subtask_plan, &core_task.session_id, &core_task.id);
+                subtask_plan_to_agent_task(subtask_plan, &task.session_id.0, &task.id);
 
             // Mark first subtask as InProgress, others as Pending
             if subtask_plan.order == 0 {
-                subtask.status = crate::core::agent::entities::TaskStatus::InProgress;
+                subtask.status = TaskStatus::InProgress;
+                subtask.started_at = Some(Utc::now());
                 first_subtask_id = Some(subtask.id.clone());
             }
 
             deps.task_repo
-                .create_subtask(&core_task.id, &subtask)
+                .create_subtask(&subtask)
                 .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
 
-            // Build event subtask for collection and emission
-            let mut event_subtask = core_task_to_event_subtask(subtask, &core_task.id);
-            if subtask_plan.order == 0 {
-                event_subtask.status = crate::core::agent::task::TaskStatus::InProgress;
-                event_subtask.started_at = Some(Utc::now());
-            }
-
             // Collect for TaskCreated payload before emitting
-            collected_subtasks.push(event_subtask.clone());
+            collected_subtasks.push(subtask.clone());
 
             // Emit SubtaskCreated for status-tracking purposes
             let _ = deps.app_handle.emit(
                 AGENT_EVENT_NAME,
                 AgentEvent::SubtaskCreated {
                     session_id: session_id.clone(),
-                    subtask: event_subtask,
+                    subtask,
                 },
             );
         }
     }
 
     // Set LLM-generated title and subtasks on the task before emitting TaskCreated
-    task.title = Some(plan.title.clone());
     if !collected_subtasks.is_empty() {
         task.subtasks = Some(collected_subtasks);
     }
@@ -207,10 +191,7 @@ pub async fn start_execution(
     context.llm_context = build_llm_context(session, request, deps.app_handle).await?;
 
     deps.task_repo
-        .update_task_status(
-            &context.task_id,
-            crate::core::agent::entities::TaskStatus::InProgress,
-        )
+        .update_task_status(&context.task_id, TaskStatus::InProgress)
         .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
 
     // Emit TaskUpdated event so frontend knows the root task is now InProgress

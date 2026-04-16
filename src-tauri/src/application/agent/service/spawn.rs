@@ -3,9 +3,9 @@
 use tauri::AppHandle;
 
 use crate::application::agent::execution::tracing::RuntimeTraceService;
-use crate::core::agent::entities::{SessionId as CoreSessionId, TaskStatus};
 use crate::core::agent::execution::RuntimeTraceType;
-use crate::core::agent::session::{SessionId, SessionState as CoreSessionState};
+use crate::core::agent::session::{SessionId, SessionState};
+use crate::core::agent::task::TaskStatus;
 use crate::infrastructure::agent::runtime::spawn::{
     SpawnEngine, SpawnError, SpawnObserver, SpawnOutcome, SpawnRequest,
 };
@@ -47,7 +47,7 @@ impl SpawnObserver for SpawnTraceObserver<'_> {
             .get_session(&SessionId(self.session_id.clone()))
             .ok()
             .flatten()
-            .map(|session| matches!(session.state, CoreSessionState::Cancelled { .. }))
+            .map(|session| matches!(session.state, SessionState::Cancelled { .. }))
             .unwrap_or(false)
     }
 }
@@ -99,7 +99,7 @@ impl AgentServiceImpl {
     ) -> Result<SpawnOutcome, SpawnError> {
         let observer = self
             .session_repo
-            .get_session(&CoreSessionId(request.session_id.clone()))
+            .get_session(&SessionId(request.session_id.clone()))
             .ok()
             .map(|_| {
                 let (task_id, subtask_id, step_number) =

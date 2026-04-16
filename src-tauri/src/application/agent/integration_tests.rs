@@ -6,7 +6,7 @@
 use crate::application::agent::service::planner::{
     build_planning_system_prompt, subtask_plan_to_agent_task, SubtaskPlan, TaskPlan,
 };
-use crate::core::agent::entities::{AgentTask, TaskMode, TaskStatus};
+use crate::core::agent::task::{SubTask, TaskStatus};
 use crate::core::llm::entities::{ChatMessage, ChatRequest, MessageContent, MessageRole};
 use crate::infrastructure::llm::mock::MockLlmClient;
 use crate::infrastructure::llm::LlmClient;
@@ -97,7 +97,7 @@ async fn test_full_flow_complex_message_creates_task_with_clean_title() {
     let session_id = "test-session";
     let task_id = "test-task";
 
-    let subtask_entities: Vec<AgentTask> = plan
+    let subtask_entities: Vec<SubTask> = plan
         .subtasks
         .iter()
         .map(|st| subtask_plan_to_agent_task(st, session_id, task_id))

@@ -1,7 +1,6 @@
 //! Types and error definitions for agent runtime.
 
-use crate::core::agent::entities::TaskMode as CoreTaskMode;
-use crate::core::agent::entities::TaskStatus;
+use crate::core::agent::task::{SubTask, SubTaskMode, TaskStatus};
 
 /// Agent runtime errors.
 #[derive(Debug, thiserror::Error)]
@@ -46,7 +45,7 @@ pub struct SubtaskSummary {
     /// Title of the subtask.
     pub title: String,
     /// Execution mode for the subtask.
-    pub mode: CoreTaskMode,
+    pub mode: SubTaskMode,
     /// Current status of the subtask.
     pub status: TaskStatus,
     /// Order of the subtask in the task list.
@@ -54,15 +53,15 @@ pub struct SubtaskSummary {
 }
 
 impl SubtaskSummary {
-    /// Creates a subtask summary from a full agent task.
+    /// Creates a subtask summary from a full subtask.
     ///
     /// # Arguments
     ///
-    /// * `subtask` - The agent task to create a summary from.
-    pub fn from_subtask(subtask: &crate::core::agent::entities::AgentTask) -> Self {
+    /// * `subtask` - The subtask to create a summary from.
+    pub fn from_subtask(subtask: &SubTask) -> Self {
         Self {
             title: subtask.title.clone(),
-            mode: subtask.mode.unwrap_or(CoreTaskMode::FullAccess),
+            mode: subtask.mode.clone(),
             status: subtask.status.clone(),
             order: subtask.order,
         }
@@ -72,54 +71,45 @@ impl SubtaskSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::agent::entities::{AgentTask, TaskMode};
     use chrono::Utc;
+
+    fn make_subtask(title: &str, mode: SubTaskMode, status: TaskStatus, order: i32) -> SubTask {
+        SubTask {
+            id: "test-id".to_string(),
+            task_id: "parent-task".to_string(),
+            title: title.to_string(),
+            description: None,
+            mode,
+            status,
+            order,
+            created_at: Utc::now(),
+            started_at: None,
+            completed_at: None,
+        }
+    }
 
     #[test]
     fn test_subtask_summary_from_subtask() {
-        let subtask = AgentTask {
-            id: "test-id".to_string(),
-            session_id: "task-id".to_string(),
-            parent_task_id: Some("parent-task".to_string()),
-            title: "Test Subtask".to_string(),
-            description: None,
-            order: 1,
-            status: TaskStatus::Pending,
-            mode: Some(TaskMode::Read),
-            needs_review: false,
-        };
+        let subtask = make_subtask("Test Subtask", SubTaskMode::Read, TaskStatus::Pending, 1);
 
         let summary = SubtaskSummary::from_subtask(&subtask);
         assert_eq!(summary.title, "Test Subtask");
         assert_eq!(summary.order, 1);
         assert_eq!(summary.status, TaskStatus::Pending);
-        assert!(matches!(summary.mode, TaskMode::Read));
+        assert!(matches!(summary.mode, SubTaskMode::Read));
     }
 
     #[test]
     fn test_subtask_summary_with_all_statuses() {
-        let subtask_base = AgentTask {
-            id: "test-id".to_string(),
-            session_id: "task-id".to_string(),
-            parent_task_id: Some("parent-task".to_string()),
-            title: "Test".to_string(),
-            description: None,
-            mode: Some(TaskMode::Read),
-            status: TaskStatus::Pending,
-            order: 0,
-            needs_review: false,
-        };
-
         for status in &[
             TaskStatus::Pending,
             TaskStatus::InProgress,
+            TaskStatus::WaitingApproval,
             TaskStatus::Completed,
             TaskStatus::Failed,
             TaskStatus::Cancelled,
-            TaskStatus::Aborted,
         ] {
-            let mut subtask = subtask_base.clone();
-            subtask.status = status.clone();
+            let subtask = make_subtask("Test", SubTaskMode::Read, status.clone(), 0);
             let summary = SubtaskSummary::from_subtask(&subtask);
             assert_eq!(summary.status, *status);
         }
@@ -127,26 +117,13 @@ mod tests {
 
     #[test]
     fn test_subtask_summary_with_all_modes() {
-        let subtask_base = AgentTask {
-            id: "test-id".to_string(),
-            session_id: "task-id".to_string(),
-            parent_task_id: Some("parent-task".to_string()),
-            title: "Test".to_string(),
-            description: None,
-            mode: Some(TaskMode::Read),
-            status: TaskStatus::Pending,
-            order: 0,
-            needs_review: false,
-        };
-
         for mode in &[
-            TaskMode::Read,
-            TaskMode::Write,
-            TaskMode::Execute,
-            TaskMode::FullAccess,
+            SubTaskMode::Read,
+            SubTaskMode::Write,
+            SubTaskMode::Execute,
+            SubTaskMode::FullAccess,
         ] {
-            let mut subtask = subtask_base.clone();
-            subtask.mode = Some(*mode);
+            let subtask = make_subtask("Test", mode.clone(), TaskStatus::Pending, 0);
             let summary = SubtaskSummary::from_subtask(&subtask);
             assert_eq!(summary.mode, *mode);
         }
@@ -155,18 +132,7 @@ mod tests {
     #[test]
     fn test_subtask_summary_order_preserved() {
         for order in [0, 1, 5, 10, 100] {
-            let subtask = AgentTask {
-                id: "test-id".to_string(),
-                session_id: "task-id".to_string(),
-                parent_task_id: Some("parent-task".to_string()),
-                title: "Test".to_string(),
-                description: None,
-                order,
-                status: TaskStatus::Pending,
-                mode: Some(TaskMode::Read),
-                needs_review: false,
-            };
-
+            let subtask = make_subtask("Test", SubTaskMode::Read, TaskStatus::Pending, order);
             let summary = SubtaskSummary::from_subtask(&subtask);
             assert_eq!(summary.order, order);
         }
@@ -197,17 +163,7 @@ mod tests {
 
     #[test]
     fn test_subtask_summary_clone() {
-        let subtask = AgentTask {
-            id: "test-id".to_string(),
-            session_id: "task-id".to_string(),
-            parent_task_id: Some("parent-task".to_string()),
-            title: "Test Subtask".to_string(),
-            description: None,
-            order: 1,
-            status: TaskStatus::Pending,
-            mode: Some(TaskMode::Read),
-            needs_review: false,
-        };
+        let subtask = make_subtask("Test Subtask", SubTaskMode::Read, TaskStatus::Pending, 1);
 
         let summary1 = SubtaskSummary::from_subtask(&subtask);
         let summary2 = summary1.clone();
@@ -222,7 +178,7 @@ mod tests {
     fn test_subtask_summary_debug_format() {
         let summary = SubtaskSummary {
             title: "Test".to_string(),
-            mode: CoreTaskMode::Read,
+            mode: SubTaskMode::Read,
             status: TaskStatus::InProgress,
             order: 0,
         };
@@ -241,8 +197,8 @@ mod tests {
 
     #[test]
     fn test_subtask_mode_equality() {
-        assert_eq!(CoreTaskMode::Read, CoreTaskMode::Read);
-        assert_eq!(CoreTaskMode::Write, CoreTaskMode::Write);
-        assert_ne!(CoreTaskMode::Read, CoreTaskMode::Write);
+        assert_eq!(SubTaskMode::Read, SubTaskMode::Read);
+        assert_eq!(SubTaskMode::Write, SubTaskMode::Write);
+        assert_ne!(SubTaskMode::Read, SubTaskMode::Write);
     }
 }

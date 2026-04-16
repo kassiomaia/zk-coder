@@ -4,7 +4,7 @@
 //! - Single-shot planning at task creation (title, description, subtasks)
 //! - Replanning for interrupted tasks (review progress, update plan)
 
-use crate::core::agent::entities::{AgentTask, TaskMode, TaskStatus};
+use crate::core::agent::task::{SubTask, SubTaskMode, TaskStatus};
 use crate::core::llm::entities::{ChatMessage, ChatRequest, MessageContent, MessageRole};
 use crate::infrastructure::agent::runtime::client::create_llm_client;
 use log::{info, warn};
@@ -304,8 +304,8 @@ pub async fn plan_new_task(
 /// This is called when a user sends a message while a task is incomplete.
 pub async fn review_and_replan(
     app_handle: &AppHandle,
-    current_task: &AgentTask,
-    subtasks: &[AgentTask],
+    current_task: &crate::core::agent::task::AgentTask,
+    subtasks: &[SubTask],
     user_message: &str,
     progress_summary: &str,
     model_id: Option<&str>,
@@ -317,8 +317,13 @@ pub async fn review_and_replan(
 
     // Build current plan summary
     let current_plan = TaskPlan {
-        title: current_task.title.clone(),
-        description: current_task.description.clone().unwrap_or_default(),
+        title: current_task.title.clone().unwrap_or_default(),
+        description: current_task
+            .request
+            .context
+            .as_ref()
+            .and_then(|ctx| ctx.selection.clone())
+            .unwrap_or_default(),
         is_non_trivial: !subtasks.is_empty(),
         subtasks: subtasks
             .iter()
@@ -451,19 +456,20 @@ Return ONLY the JSON object, nothing else. Do not include reasoning tags like <t
 #[must_use]
 pub fn subtask_plan_to_agent_task(
     subtask_plan: &SubtaskPlan,
-    session_id: &str,
+    _session_id: &str,
     parent_task_id: &str,
-) -> AgentTask {
-    AgentTask {
+) -> SubTask {
+    SubTask {
         id: uuid::Uuid::new_v4().to_string(),
-        session_id: session_id.to_string(),
-        parent_task_id: Some(parent_task_id.to_string()),
+        task_id: parent_task_id.to_string(),
         title: subtask_plan.title.clone(),
         description: subtask_plan.description.clone(),
+        mode: SubTaskMode::FullAccess,
         status: TaskStatus::Pending,
         order: subtask_plan.order,
-        mode: Some(TaskMode::FullAccess),
-        needs_review: false,
+        created_at: chrono::Utc::now(),
+        started_at: None,
+        completed_at: None,
     }
 }
 
@@ -534,10 +540,10 @@ mod tests {
 
         assert_eq!(task.title, "Test subtask");
         assert_eq!(task.description, Some("Test description".to_string()));
-        assert_eq!(task.session_id, "session-123");
-        assert_eq!(task.parent_task_id, Some("task-456".to_string()));
+        assert_eq!(task.task_id, "task-456");
         assert_eq!(task.order, 0);
         assert_eq!(task.status, TaskStatus::Pending);
+        assert!(matches!(task.mode, SubTaskMode::FullAccess));
     }
 
     // ========================================================================
@@ -1025,38 +1031,50 @@ Some prose after"#;
     // Test Helper Functions
     // ========================================================================
 
-    fn create_test_task(title: &str) -> AgentTask {
-        AgentTask {
-            id: "task-1".to_string(),
-            session_id: "session-1".to_string(),
-            parent_task_id: None,
-            title: title.to_string(),
-            description: Some("Test task".to_string()),
-            status: TaskStatus::InProgress,
-            order: 0,
-            mode: Some(TaskMode::FullAccess),
-            needs_review: false,
-        }
+    fn create_test_task(title: &str) -> crate::core::agent::task::AgentTask {
+        use crate::core::agent::session::SessionId;
+        use crate::core::agent::task::{AgentRequest, AgentTask, RequestContext};
+        let mut task = AgentTask::new(
+            SessionId("session-1".to_string()),
+            AgentRequest {
+                content: title.to_string(),
+                attachments: vec![],
+                context: Some(RequestContext {
+                    file_path: None,
+                    selection: Some("Test task".to_string()),
+                }),
+            },
+        );
+        task.id = "task-1".to_string();
+        task.title = Some(title.to_string());
+        task.status = TaskStatus::InProgress;
+        task
     }
 
-    fn create_test_subtask(title: &str, order: i32) -> AgentTask {
-        AgentTask {
-            id: format!("subtask-{}", order),
-            session_id: "session-1".to_string(),
-            parent_task_id: Some("task-1".to_string()),
-            title: title.to_string(),
-            description: None,
-            status: TaskStatus::Completed,
+    fn create_test_subtask(title: &str, order: i32) -> SubTask {
+        let mut subtask = SubTask::new(
+            "task-1".to_string(),
+            title.to_string(),
+            SubTaskMode::FullAccess,
             order,
-            mode: Some(TaskMode::FullAccess),
-            needs_review: false,
-        }
+        );
+        subtask.id = format!("subtask-{}", order);
+        subtask.status = TaskStatus::Completed;
+        subtask
     }
 
-    fn build_plan_from_task(task: &AgentTask, subtasks: &[AgentTask]) -> TaskPlan {
+    fn build_plan_from_task(
+        task: &crate::core::agent::task::AgentTask,
+        subtasks: &[SubTask],
+    ) -> TaskPlan {
         TaskPlan {
-            title: task.title.clone(),
-            description: task.description.clone().unwrap_or_default(),
+            title: task.title.clone().unwrap_or_default(),
+            description: task
+                .request
+                .context
+                .as_ref()
+                .and_then(|ctx| ctx.selection.clone())
+                .unwrap_or_default(),
             is_non_trivial: !subtasks.is_empty(),
             subtasks: subtasks
                 .iter()

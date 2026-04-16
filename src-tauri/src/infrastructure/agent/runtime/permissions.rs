@@ -53,52 +53,6 @@ impl PendingActionExt for PendingAction {
     }
 }
 
-fn runtime_session_state_from_core(
-    state: &crate::core::agent::entities::SessionState,
-) -> crate::core::agent::session::SessionState {
-    match state {
-        crate::core::agent::entities::SessionState::WaitForRequest { last_action_at } => {
-            crate::core::agent::session::SessionState::WaitForRequest {
-                last_action_at: *last_action_at,
-            }
-        }
-        crate::core::agent::entities::SessionState::Processing { .. } => {
-            crate::core::agent::session::SessionState::Running {
-                current_step: 0,
-                context_usage: 0.0,
-            }
-        }
-        crate::core::agent::entities::SessionState::AwaitingApproval { action_id, .. } => {
-            crate::core::agent::session::SessionState::UserInputRequired {
-                pending_action_ids: vec![action_id.clone()],
-            }
-        }
-        crate::core::agent::entities::SessionState::Finished { completed_at, .. } => {
-            crate::core::agent::session::SessionState::Finished {
-                completed_at: *completed_at,
-            }
-        }
-        crate::core::agent::entities::SessionState::Error { error, .. } => {
-            crate::core::agent::session::SessionState::Error {
-                message: error.clone(),
-                recoverable: false,
-            }
-        }
-        crate::core::agent::entities::SessionState::Cancelled { reason, .. } => {
-            crate::core::agent::session::SessionState::Cancelled {
-                reason: reason.clone(),
-            }
-        }
-        crate::core::agent::entities::SessionState::Paused { paused_at, message } => {
-            crate::core::agent::session::SessionState::Paused {
-                paused_at: *paused_at,
-                message: message.clone(),
-                current_subtask_id: None,
-            }
-        }
-    }
-}
-
 fn emit_persisted_streaming_message(
     app_handle: &AppHandle,
     session: &AgentSession,
@@ -152,7 +106,7 @@ pub async fn process_tool_calls_with_permissions(
         let current_subtask_id = if let Ok(subtasks) = task_repo.get_subtasks(&task_id) {
             subtasks
                 .iter()
-                .find(|st| st.status == crate::core::agent::entities::TaskStatus::InProgress)
+                .find(|st| st.status == crate::core::agent::task::TaskStatus::InProgress)
                 .map(|st| st.id.clone())
         } else {
             None
@@ -369,7 +323,7 @@ async fn execute_with_approval(
 ) -> Result<OrchestratorToolResult, AgentRuntimeError> {
     let action_type = infer_action_type(&call.name, &call.arguments);
     let resume_core_state = session_repo
-        .get_session(&crate::core::agent::entities::SessionId(
+        .get_session(&crate::core::agent::session::SessionId(
             session.id.0.clone(),
         ))
         .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?
@@ -432,14 +386,14 @@ async fn execute_with_approval(
     let action_id = pending.id.clone();
 
     // Update session state to waiting for input
-    let core_state: crate::core::agent::entities::SessionState =
+    let core_state: crate::core::agent::session::SessionState =
         crate::core::agent::session::SessionState::UserInputRequired {
             pending_action_ids: vec![action_id.clone()],
         }
         .into();
     session_repo
         .update_state(
-            &crate::core::agent::entities::SessionId(session.id.0.clone()),
+            &crate::core::agent::session::SessionId(session.id.0.clone()),
             &core_state,
         )
         .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
@@ -466,11 +420,11 @@ async fn execute_with_approval(
         tokio::select! {
             _ = cancellation_poll.tick() => {
                 let current_session = session_repo
-                    .get_session(&crate::core::agent::entities::SessionId(session.id.0.clone()))
+                    .get_session(&crate::core::agent::session::SessionId(session.id.0.clone()))
                     .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
                 if matches!(
                     current_session.state,
-                    crate::core::agent::entities::SessionState::Cancelled { .. }
+                    crate::core::agent::session::SessionState::Cancelled { .. }
                 ) {
                     approval_queue.clear_session(&session.id.0).await;
                     return Err(AgentRuntimeError::Cancelled);
@@ -484,7 +438,7 @@ async fn execute_with_approval(
                         info!("[AgentRuntime] Action {} approved", action_id);
                         session_repo
                             .update_state(
-                                &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                                &crate::core::agent::session::SessionId(session.id.0.clone()),
                                 &resume_core_state,
                             )
                             .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
@@ -492,7 +446,7 @@ async fn execute_with_approval(
                             AGENT_EVENT_NAME,
                             AgentEvent::SessionStateChanged {
                                 session_id: session.id.0.clone(),
-                                state: runtime_session_state_from_core(&resume_core_state),
+                                state: resume_core_state.clone(),
                             },
                         );
                         return Ok(execute_tool(
@@ -513,7 +467,7 @@ async fn execute_with_approval(
                         info!("[AgentRuntime] Action {} denied", action_id);
                         session_repo
                             .update_state(
-                                &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                                &crate::core::agent::session::SessionId(session.id.0.clone()),
                                 &resume_core_state,
                             )
                             .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
@@ -521,7 +475,7 @@ async fn execute_with_approval(
                             AGENT_EVENT_NAME,
                             AgentEvent::SessionStateChanged {
                                 session_id: session.id.0.clone(),
-                                state: runtime_session_state_from_core(&resume_core_state),
+                                state: resume_core_state.clone(),
                             },
                         );
                         return Ok(OrchestratorToolResult {
@@ -539,7 +493,7 @@ async fn execute_with_approval(
                         warn!("[AgentRuntime] Action {} timed out", action_id);
                         session_repo
                             .update_state(
-                                &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                                &crate::core::agent::session::SessionId(session.id.0.clone()),
                                 &resume_core_state,
                             )
                             .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
@@ -547,7 +501,7 @@ async fn execute_with_approval(
                             AGENT_EVENT_NAME,
                             AgentEvent::SessionStateChanged {
                                 session_id: session.id.0.clone(),
-                                state: runtime_session_state_from_core(&resume_core_state),
+                                state: resume_core_state.clone(),
                             },
                         );
                         return Ok(OrchestratorToolResult {
@@ -570,14 +524,14 @@ async fn execute_with_approval(
                 // Clean up the pending action
                 approval_queue.deny(&action_id).await;
                 let _ = session_repo.update_state(
-                    &crate::core::agent::entities::SessionId(session.id.0.clone()),
+                    &crate::core::agent::session::SessionId(session.id.0.clone()),
                     &resume_core_state,
                 );
                 let _ = app_handle.emit(
                     AGENT_EVENT_NAME,
                     AgentEvent::SessionStateChanged {
                         session_id: session.id.0.clone(),
-                        state: runtime_session_state_from_core(&resume_core_state),
+                        state: resume_core_state.clone(),
                     },
                 );
                 return Err(AgentRuntimeError::ApprovalTimeout);
@@ -712,19 +666,17 @@ fn handle_plan_subtasks(
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
 
-        let core_subtask = crate::core::agent::entities::AgentTask {
-            id: uuid::Uuid::new_v4().to_string(),
-            session_id: session.id.0.clone(),
-            parent_task_id: Some(task_id.to_string()),
-            title: title.clone(),
-            description: description.clone(),
-            status: crate::core::agent::entities::TaskStatus::Pending,
-            order: idx as i32,
-            mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
-            needs_review: false,
-        };
+        let mut subtask = crate::core::agent::task::SubTask::new(
+            task_id.to_string(),
+            title.clone(),
+            crate::core::agent::task::SubTaskMode::FullAccess,
+            idx as i32,
+        );
+        if let Some(ref desc) = description {
+            subtask.description = Some(desc.clone());
+        }
 
-        if let Err(e) = task_repo.create_subtask(task_id, &core_subtask) {
+        if let Err(e) = task_repo.create_subtask(&subtask) {
             warn!("[AgentRuntime] Failed to create subtask: {e}");
             return OrchestratorToolResult {
                 call_id: call.id.clone(),
@@ -736,13 +688,7 @@ fn handle_plan_subtasks(
             };
         }
 
-        let mut event_subtask = crate::core::agent::task::SubTask::new(
-            task_id.to_string(),
-            title,
-            crate::core::agent::task::SubTaskMode::FullAccess,
-            idx as i32,
-        );
-        event_subtask.id = core_subtask.id.clone();
+        let mut event_subtask = subtask.clone();
         if let Some(desc) = description {
             event_subtask.description = Some(desc);
         }
@@ -763,7 +709,7 @@ fn handle_plan_subtasks(
         if let Some(first) = created_subtasks.iter().find(|st| st.order == 0).cloned() {
             let _ = task_repo.update_subtask_status(
                 &first.id,
-                crate::core::agent::entities::TaskStatus::InProgress,
+                crate::core::agent::task::TaskStatus::InProgress,
             );
 
             let mut updated = core_task_to_event_subtask(first, task_id);
@@ -818,7 +764,7 @@ fn handle_advance_subtask(
 
     let current_index = subtasks
         .iter()
-        .position(|st| st.status == crate::core::agent::entities::TaskStatus::InProgress);
+        .position(|st| st.status == crate::core::agent::task::TaskStatus::InProgress);
 
     let Some(current_pos) = current_index else {
         return OrchestratorToolResult {
@@ -847,7 +793,7 @@ fn handle_advance_subtask(
 
     if let Err(e) = task_repo.update_subtask_status(
         &current.id,
-        crate::core::agent::entities::TaskStatus::Completed,
+        crate::core::agent::task::TaskStatus::Completed,
     ) {
         warn!("[AgentRuntime] Failed to complete subtask: {e}");
         return OrchestratorToolResult {
@@ -874,13 +820,13 @@ fn handle_advance_subtask(
     let next = subtasks
         .iter()
         .skip(current_pos + 1)
-        .find(|st| st.status == crate::core::agent::entities::TaskStatus::Pending)
+        .find(|st| st.status == crate::core::agent::task::TaskStatus::Pending)
         .cloned();
 
     if let Some(next) = next {
         if let Err(e) = task_repo.update_subtask_status(
             &next.id,
-            crate::core::agent::entities::TaskStatus::InProgress,
+            crate::core::agent::task::TaskStatus::InProgress,
         ) {
             warn!("[AgentRuntime] Failed to start subtask: {e}");
             return OrchestratorToolResult {
@@ -916,7 +862,7 @@ fn handle_advance_subtask(
     }
 
     let _ =
-        task_repo.update_task_status(task_id, crate::core::agent::entities::TaskStatus::Completed);
+        task_repo.update_task_status(task_id, crate::core::agent::task::TaskStatus::Completed);
     let _ = app_handle.emit(
         AGENT_EVENT_NAME,
         AgentEvent::TaskUpdated {
@@ -1115,24 +1061,24 @@ fn handle_narrate(
 fn parse_status(
     status: &str,
 ) -> Option<(
-    crate::core::agent::entities::TaskStatus,
+    crate::core::agent::task::TaskStatus,
     crate::core::agent::task::TaskStatus,
 )> {
     match status {
         "pending" => Some((
-            crate::core::agent::entities::TaskStatus::Pending,
+            crate::core::agent::task::TaskStatus::Pending,
             crate::core::agent::task::TaskStatus::Pending,
         )),
         "in_progress" => Some((
-            crate::core::agent::entities::TaskStatus::InProgress,
+            crate::core::agent::task::TaskStatus::InProgress,
             crate::core::agent::task::TaskStatus::InProgress,
         )),
         "completed" => Some((
-            crate::core::agent::entities::TaskStatus::Completed,
+            crate::core::agent::task::TaskStatus::Completed,
             crate::core::agent::task::TaskStatus::Completed,
         )),
         "failed" => Some((
-            crate::core::agent::entities::TaskStatus::Failed,
+            crate::core::agent::task::TaskStatus::Failed,
             crate::core::agent::task::TaskStatus::Failed,
         )),
         _ => None,
@@ -1242,7 +1188,7 @@ fn detect_code_change_intent(
         .get_session_tasks(&session.id.0)
         .ok()
         .and_then(|tasks| tasks.into_iter().find(|t| t.id == task_id))
-        .map(|t| t.title.to_lowercase())
+        .and_then(|t| t.title.map(|title| title.to_lowercase()))
         .unwrap_or_default();
 
     let keywords = [
@@ -1348,48 +1294,36 @@ fn auto_decompose_failed_subtask(
 
     let mut created_ids: Vec<String> = Vec::new();
     for (idx, title) in titles.iter().enumerate() {
-        let core_subtask = crate::core::agent::entities::AgentTask {
-            id: uuid::Uuid::new_v4().to_string(),
-            session_id: session.id.0.clone(),
-            parent_task_id: Some(task_id.to_string()),
-            title: title.clone(),
-            description: Some(format!(
-                "Auto-decomposed from failed subtask '{}' ({})",
-                failed_subtask.title, failed_subtask.id
-            )),
-            status: crate::core::agent::entities::TaskStatus::Pending,
-            order: base_order + idx as i32,
-            mode: Some(crate::core::agent::entities::TaskMode::FullAccess),
-            needs_review: false,
-        };
-        if let Err(e) = task_repo.create_subtask(task_id, &core_subtask) {
+        let mut subtask = crate::core::agent::task::SubTask::new(
+            task_id.to_string(),
+            title.clone(),
+            crate::core::agent::task::SubTaskMode::FullAccess,
+            base_order + idx as i32,
+        );
+        subtask.description = Some(format!(
+            "Auto-decomposed from failed subtask '{}' ({})",
+            failed_subtask.title, failed_subtask.id
+        ));
+
+        if let Err(e) = task_repo.create_subtask(&subtask) {
             warn!("[AgentRuntime] Failed to auto-create decomposed subtask: {e}");
             continue;
         }
-
-        let mut event_subtask = crate::core::agent::task::SubTask::new(
-            task_id.to_string(),
-            core_subtask.title.clone(),
-            crate::core::agent::task::SubTaskMode::FullAccess,
-            core_subtask.order,
-        );
-        event_subtask.id = core_subtask.id.clone();
-        event_subtask.description = core_subtask.description.clone();
 
         let _ = app_handle.emit(
             AGENT_EVENT_NAME,
             AgentEvent::SubtaskCreated {
                 session_id: session.id.0.clone(),
-                subtask: event_subtask,
+                subtask: subtask.clone(),
             },
         );
-        created_ids.push(core_subtask.id.clone());
+        created_ids.push(subtask.id);
     }
 
     if let Some(first_id) = created_ids.first() {
         let _ = task_repo.update_subtask_status(
             first_id,
-            crate::core::agent::entities::TaskStatus::InProgress,
+            crate::core::agent::task::TaskStatus::InProgress,
         );
         let refreshed = task_repo.get_subtasks(task_id).ok().unwrap_or_default();
         if let Some(first) = refreshed.iter().find(|s| &s.id == first_id).cloned() {
@@ -1407,63 +1341,19 @@ fn auto_decompose_failed_subtask(
     }
 }
 
-/// Convert a database agent task entity to an event subtask.
-///
-/// This is used when emitting subtask-related events to the frontend.
+/// Ensures a subtask has its `task_id` set, defaulting to the caller-supplied
+/// parent when the field is empty. Post type-consolidation this is a thin
+/// pass-through — the task repo already returns canonical [`SubTask`] values,
+/// so no field translation is required. Kept as a helper so call sites read
+/// intention-first.
 pub fn core_task_to_event_subtask(
-    task: crate::core::agent::entities::AgentTask,
+    mut subtask: crate::core::agent::task::SubTask,
     task_id: &str,
 ) -> crate::core::agent::task::SubTask {
-    let mode = match task
-        .mode
-        .unwrap_or(crate::core::agent::entities::TaskMode::FullAccess)
-    {
-        crate::core::agent::entities::TaskMode::Read => crate::core::agent::task::SubTaskMode::Read,
-        crate::core::agent::entities::TaskMode::Write => {
-            crate::core::agent::task::SubTaskMode::Write
-        }
-        crate::core::agent::entities::TaskMode::Execute => {
-            crate::core::agent::task::SubTaskMode::Execute
-        }
-        crate::core::agent::entities::TaskMode::FullAccess => {
-            crate::core::agent::task::SubTaskMode::FullAccess
-        }
-    };
-
-    // Convert status from core entity to runtime type
-    let status = match task.status {
-        crate::core::agent::entities::TaskStatus::Pending => {
-            crate::core::agent::task::TaskStatus::Pending
-        }
-        crate::core::agent::entities::TaskStatus::InProgress => {
-            crate::core::agent::task::TaskStatus::InProgress
-        }
-        crate::core::agent::entities::TaskStatus::Completed => {
-            crate::core::agent::task::TaskStatus::Completed
-        }
-        crate::core::agent::entities::TaskStatus::Failed => {
-            crate::core::agent::task::TaskStatus::Failed
-        }
-        crate::core::agent::entities::TaskStatus::Cancelled => {
-            crate::core::agent::task::TaskStatus::Cancelled
-        }
-        crate::core::agent::entities::TaskStatus::Aborted => {
-            crate::core::agent::task::TaskStatus::Cancelled
-        }
-    };
-
-    crate::core::agent::task::SubTask {
-        id: task.id,
-        task_id: task.parent_task_id.unwrap_or_else(|| task_id.to_string()),
-        title: task.title,
-        description: task.description,
-        mode,
-        status,
-        order: task.order,
-        created_at: Utc::now(),
-        started_at: None,
-        completed_at: None,
+    if subtask.task_id.is_empty() {
+        subtask.task_id = task_id.to_string();
     }
+    subtask
 }
 
 /// Emits file-related events after successful tool execution.
@@ -2018,19 +1908,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_runtime_session_state_from_core_processing_maps_to_running() {
-        let runtime = runtime_session_state_from_core(
-            &crate::core::agent::entities::SessionState::Processing {
-                started_at: Utc::now(),
-            },
-        );
-
-        match runtime {
-            crate::core::agent::session::SessionState::Running { .. } => {}
-            other => panic!("Expected Running state, got {:?}", other),
-        }
-    }
     // === ActionPreview Tests ===
 
     #[test]

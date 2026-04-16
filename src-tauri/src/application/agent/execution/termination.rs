@@ -23,12 +23,8 @@ pub fn update_session_state(
     session_id: &SessionId,
     state: SessionState,
 ) -> Result<(), AgentRuntimeError> {
-    let core_state: crate::core::agent::entities::SessionState = state.clone().into();
     deps.session_repo
-        .update_state(
-            &crate::core::agent::entities::SessionId(session_id.0.clone()),
-            &core_state,
-        )
+        .update_state(session_id, &state)
         .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
 
     let _ = deps.app_handle.emit(
@@ -69,7 +65,7 @@ pub fn cancel_execution(
     );
     let _ = deps.task_repo.update_task_status(
         &ctx.task_id,
-        crate::core::agent::entities::TaskStatus::Cancelled,
+        crate::core::agent::task::TaskStatus::Cancelled,
     );
     let _ = deps.app_handle.emit(
         AGENT_EVENT_NAME,
@@ -104,7 +100,7 @@ pub fn fail_execution(
 
     let _ = deps.task_repo.update_task_status(
         &ctx.task_id,
-        crate::core::agent::entities::TaskStatus::Failed,
+        crate::core::agent::task::TaskStatus::Failed,
     );
     let _ = deps.app_handle.emit(
         AGENT_EVENT_NAME,
@@ -314,7 +310,7 @@ pub(super) fn auto_complete_in_progress_subtasks(
 
     let in_progress: Vec<_> = subtasks
         .into_iter()
-        .filter(|st| st.status == crate::core::agent::entities::TaskStatus::InProgress)
+        .filter(|st| st.status == crate::core::agent::task::TaskStatus::InProgress)
         .collect();
 
     let count = in_progress.len();
@@ -327,7 +323,7 @@ pub(super) fn auto_complete_in_progress_subtasks(
         );
         let _ = deps.task_repo.update_subtask_status(
             &subtask.id,
-            crate::core::agent::entities::TaskStatus::Completed,
+            crate::core::agent::task::TaskStatus::Completed,
         );
 
         let mut event_subtask = core_task_to_event_subtask(subtask.clone(), task_id);
@@ -352,7 +348,7 @@ fn has_remaining_in_progress_subtasks(deps: &ExecutionDeps<'_>, task_id: &str) -
         .map(|subtasks| {
             subtasks
                 .iter()
-                .any(|st| st.status == crate::core::agent::entities::TaskStatus::InProgress)
+                .any(|st| st.status == crate::core::agent::task::TaskStatus::InProgress)
         })
         .unwrap_or(false)
 }
@@ -374,14 +370,14 @@ pub(super) fn advance_next_pending_subtask(
 
     let Some(next) = subtasks
         .into_iter()
-        .find(|st| st.status == crate::core::agent::entities::TaskStatus::Pending)
+        .find(|st| st.status == crate::core::agent::task::TaskStatus::Pending)
     else {
         return false;
     };
 
     if deps
         .task_repo
-        .update_subtask_status(&next.id, crate::core::agent::entities::TaskStatus::InProgress)
+        .update_subtask_status(&next.id, crate::core::agent::task::TaskStatus::InProgress)
         .is_err()
     {
         return false;
@@ -543,7 +539,7 @@ pub async fn complete_execution(
     )?;
     let _ = deps.task_repo.update_task_status(
         &ctx.task_id,
-        crate::core::agent::entities::TaskStatus::Completed,
+        crate::core::agent::task::TaskStatus::Completed,
     );
 
     let tracer = deps.tracer();
@@ -829,10 +825,11 @@ mod tests {
 /// 3. Task completion is accurately reflected in subtask status
 #[cfg(test)]
 mod subtask_autocompletion_tests {
-    use crate::core::agent::entities::{AgentTask as CoreAgentTask, TaskMode, TaskStatus};
     use crate::core::agent::repositories::TaskRepository;
     use crate::core::agent::session::AgentSession;
-    use crate::core::agent::task::{SubTask, SubTaskMode, TaskStatus as TaskTaskStatus};
+    use crate::core::agent::task::{
+        AgentRequest, AgentTask, SubTask, SubTaskMode, TaskStatus,
+    };
     use crate::core::agent::types::AgentId;
     use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
 
@@ -856,17 +853,17 @@ mod subtask_autocompletion_tests {
         let session_id = session.id.clone();
         store.create_session(&session).unwrap();
 
-        let task = CoreAgentTask {
-            id: "task-1".to_string(),
-            session_id: session_id.0.clone(),
-            parent_task_id: None,
-            title: "Test Task".to_string(),
-            description: None,
-            status: TaskStatus::InProgress,
-            order: 0,
-            mode: Some(TaskMode::FullAccess),
-            needs_review: false,
-        };
+        let mut task = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "Test Task".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+        task.id = "task-1".to_string();
+        task.title = Some("Test Task".to_string());
+        task.status = TaskStatus::InProgress;
         TaskRepository::create_task(&store, &task).unwrap();
 
         // Create 3 subtasks (using SubTask type for store.create_subtask)
@@ -895,30 +892,30 @@ mod subtask_autocompletion_tests {
 
         // Mark first two as Completed, leave third as InProgress
         store
-            .update_subtask_status(&subtask1.id, &TaskTaskStatus::Completed)
+            .update_subtask_status(&subtask1.id, &TaskStatus::Completed)
             .unwrap();
         store
-            .update_subtask_status(&subtask2.id, &TaskTaskStatus::Completed)
+            .update_subtask_status(&subtask2.id, &TaskStatus::Completed)
             .unwrap();
         store
-            .update_subtask_status(&subtask3.id, &TaskTaskStatus::InProgress)
+            .update_subtask_status(&subtask3.id, &TaskStatus::InProgress)
             .unwrap();
 
         // Verify initial state: subtask3 is InProgress
         let subtasks_before = store.get_subtasks("task-1").unwrap();
-        assert_eq!(subtasks_before[2].status, TaskTaskStatus::InProgress);
+        assert_eq!(subtasks_before[2].status, TaskStatus::InProgress);
 
         // SIMULATE: Task completes and auto-completion runs
         // (This is what complete_execution now does)
         store
-            .update_subtask_status(&subtask3.id, &TaskTaskStatus::Completed)
+            .update_subtask_status(&subtask3.id, &TaskStatus::Completed)
             .unwrap();
 
         // Verify: All subtasks are now Completed
         let subtasks_after = store.get_subtasks("task-1").unwrap();
-        assert_eq!(subtasks_after[0].status, TaskTaskStatus::Completed);
-        assert_eq!(subtasks_after[1].status, TaskTaskStatus::Completed);
-        assert_eq!(subtasks_after[2].status, TaskTaskStatus::Completed);
+        assert_eq!(subtasks_after[0].status, TaskStatus::Completed);
+        assert_eq!(subtasks_after[1].status, TaskStatus::Completed);
+        assert_eq!(subtasks_after[2].status, TaskStatus::Completed);
     }
 
     /// Test that only InProgress subtasks are auto-completed.
@@ -939,17 +936,17 @@ mod subtask_autocompletion_tests {
         let session_id = session.id.clone();
         store.create_session(&session).unwrap();
 
-        let task = CoreAgentTask {
-            id: "task-1".to_string(),
-            session_id: session_id.0.clone(),
-            parent_task_id: None,
-            title: "Test Task".to_string(),
-            description: None,
-            status: TaskStatus::InProgress,
-            order: 0,
-            mode: Some(TaskMode::FullAccess),
-            needs_review: false,
-        };
+        let mut task = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "Test Task".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+        task.id = "task-1".to_string();
+        task.title = Some("Test Task".to_string());
+        task.status = TaskStatus::InProgress;
         TaskRepository::create_task(&store, &task).unwrap();
 
         // Create 3 subtasks: Completed, InProgress, and Pending
@@ -978,32 +975,32 @@ mod subtask_autocompletion_tests {
 
         // Mark first as Completed, second as InProgress, third remains Pending
         store
-            .update_subtask_status(&subtask1.id, &TaskTaskStatus::Completed)
+            .update_subtask_status(&subtask1.id, &TaskStatus::Completed)
             .unwrap();
         store
-            .update_subtask_status(&subtask2.id, &TaskTaskStatus::InProgress)
+            .update_subtask_status(&subtask2.id, &TaskStatus::InProgress)
             .unwrap();
 
         // SIMULATE: Task completes, auto-completion finds InProgress subtask
         let subtasks = store.get_subtasks("task-1").unwrap();
         let in_progress = subtasks
             .iter()
-            .find(|st| st.status == TaskTaskStatus::InProgress);
+            .find(|st| st.status == TaskStatus::InProgress);
 
         assert!(in_progress.is_some(), "Should find an InProgress subtask");
 
         // Only the InProgress subtask should be completed
         if let Some(st) = in_progress {
             store
-                .update_subtask_status(&st.id, &TaskTaskStatus::Completed)
+                .update_subtask_status(&st.id, &TaskStatus::Completed)
                 .unwrap();
         }
 
         // Verify: Only the InProgress subtask was completed, Pending remains
         let subtasks_after = store.get_subtasks("task-1").unwrap();
-        assert_eq!(subtasks_after[0].status, TaskTaskStatus::Completed); // Was already done
-        assert_eq!(subtasks_after[1].status, TaskTaskStatus::Completed); // Auto-completed
-        assert_eq!(subtasks_after[2].status, TaskTaskStatus::Pending); // Still Pending
+        assert_eq!(subtasks_after[0].status, TaskStatus::Completed); // Was already done
+        assert_eq!(subtasks_after[1].status, TaskStatus::Completed); // Auto-completed
+        assert_eq!(subtasks_after[2].status, TaskStatus::Pending); // Still Pending
     }
 
     /// Test that if no subtask is InProgress, no auto-completion occurs.
@@ -1022,17 +1019,17 @@ mod subtask_autocompletion_tests {
         let session_id = session.id.clone();
         store.create_session(&session).unwrap();
 
-        let task = CoreAgentTask {
-            id: "task-1".to_string(),
-            session_id: session_id.0.clone(),
-            parent_task_id: None,
-            title: "Test Task".to_string(),
-            description: None,
-            status: TaskStatus::InProgress,
-            order: 0,
-            mode: Some(TaskMode::FullAccess),
-            needs_review: false,
-        };
+        let mut task = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "Test Task".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+        task.id = "task-1".to_string();
+        task.title = Some("Test Task".to_string());
+        task.status = TaskStatus::InProgress;
         TaskRepository::create_task(&store, &task).unwrap();
 
         // Create 2 subtasks: both Completed (agent properly advanced through them)
@@ -1054,17 +1051,17 @@ mod subtask_autocompletion_tests {
 
         // Mark both as Completed
         store
-            .update_subtask_status(&subtask1.id, &TaskTaskStatus::Completed)
+            .update_subtask_status(&subtask1.id, &TaskStatus::Completed)
             .unwrap();
         store
-            .update_subtask_status(&subtask2.id, &TaskTaskStatus::Completed)
+            .update_subtask_status(&subtask2.id, &TaskStatus::Completed)
             .unwrap();
 
         // SIMULATE: Check for InProgress subtask
         let subtasks = store.get_subtasks("task-1").unwrap();
         let in_progress = subtasks
             .iter()
-            .find(|st| st.status == TaskTaskStatus::InProgress);
+            .find(|st| st.status == TaskStatus::InProgress);
 
         assert!(
             in_progress.is_none(),
@@ -1075,7 +1072,7 @@ mod subtask_autocompletion_tests {
         let subtasks_after = store.get_subtasks("task-1").unwrap();
         assert!(subtasks_after
             .iter()
-            .all(|st| st.status == TaskTaskStatus::Completed));
+            .all(|st| st.status == TaskStatus::Completed));
     }
 
     /// Test that Pending subtasks are identified and available for advancement.
@@ -1098,17 +1095,17 @@ mod subtask_autocompletion_tests {
         let session_id = session.id.clone();
         store.create_session(&session).unwrap();
 
-        let task = CoreAgentTask {
-            id: "task-1".to_string(),
-            session_id: session_id.0.clone(),
-            parent_task_id: None,
-            title: "Test Task".to_string(),
-            description: None,
-            status: TaskStatus::InProgress,
-            order: 0,
-            mode: Some(TaskMode::FullAccess),
-            needs_review: false,
-        };
+        let mut task = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "Test Task".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+        task.id = "task-1".to_string();
+        task.title = Some("Test Task".to_string());
+        task.status = TaskStatus::InProgress;
         TaskRepository::create_task(&store, &task).unwrap();
 
         // Create 3 subtasks: first is Completed, others are Pending
@@ -1137,14 +1134,14 @@ mod subtask_autocompletion_tests {
 
         // Mark first as Completed, rest stay Pending
         store
-            .update_subtask_status(&subtask1.id, &TaskTaskStatus::Completed)
+            .update_subtask_status(&subtask1.id, &TaskStatus::Completed)
             .unwrap();
 
         // Verify initial state: subtask2 and subtask3 are Pending
         let subtasks = store.get_subtasks("task-1").unwrap();
         let pending = subtasks
             .iter()
-            .filter(|st| st.status == TaskTaskStatus::Pending)
+            .filter(|st| st.status == TaskStatus::Pending)
             .collect::<Vec<_>>();
 
         assert_eq!(pending.len(), 2, "Should have 2 Pending subtasks");
@@ -1153,17 +1150,17 @@ mod subtask_autocompletion_tests {
 
         // Advance the first pending to InProgress
         store
-            .update_subtask_status(&subtask2.id, &TaskTaskStatus::InProgress)
+            .update_subtask_status(&subtask2.id, &TaskStatus::InProgress)
             .unwrap();
 
         // Verify: subtask2 is now InProgress, subtask3 still Pending
         let subtasks_after = store.get_subtasks("task-1").unwrap();
         assert_eq!(
-            subtasks_after[1].status, TaskTaskStatus::InProgress,
+            subtasks_after[1].status, TaskStatus::InProgress,
             "Subtask 2 should be InProgress"
         );
         assert_eq!(
-            subtasks_after[2].status, TaskTaskStatus::Pending,
+            subtasks_after[2].status, TaskStatus::Pending,
             "Subtask 3 should still be Pending"
         );
     }

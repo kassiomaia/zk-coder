@@ -4,10 +4,11 @@
 //! agent sessions, approvals, tasks, and execution data. These interfaces
 //! decouple the core agent logic from specific database implementations.
 
-use super::entities::{
-    Agent, AgentDomainError, AgentSession, AgentTask, PendingAction, SessionId, TaskStatus,
-};
+use super::entities::AgentDomainError;
 use super::execution::{ExecutionSnapshot, RuntimeTrace};
+use super::session::{AgentSession, PendingAction, SessionId, SessionState};
+use super::task::{AgentTask, SubTask, TaskStatus};
+use super::types::{Agent, AgentId};
 use chrono::{DateTime, Utc};
 
 /// A specialized `Result` type for repository operations.
@@ -31,11 +32,7 @@ pub trait SessionRepository: Send + Sync {
     fn list_sessions(&self) -> RepositoryResult<Vec<AgentSession>>;
 
     /// Updates the state of a specific agent session.
-    fn update_state(
-        &self,
-        id: &SessionId,
-        state: &super::entities::SessionState,
-    ) -> RepositoryResult<()>;
+    fn update_state(&self, id: &SessionId, state: &SessionState) -> RepositoryResult<()>;
 
     /// Updates the workspace directory for a specific session.
     fn update_workspace(&self, id: &SessionId, workspace: &str) -> RepositoryResult<()>;
@@ -58,7 +55,7 @@ pub trait SessionRepository: Send + Sync {
 /// A repository for managing agent definitions.
 pub trait AgentRepository: Send + Sync {
     /// Retrieves an agent definition by its unique ID.
-    fn get_agent(&self, id: &super::entities::AgentId) -> RepositoryResult<Agent>;
+    fn get_agent(&self, id: &AgentId) -> RepositoryResult<Agent>;
 
     /// Lists all available agent definitions.
     fn list_agents(&self) -> RepositoryResult<Vec<Agent>>;
@@ -91,13 +88,13 @@ pub trait TaskRepository: Send + Sync {
     fn create_task(&self, task: &AgentTask) -> RepositoryResult<()>;
 
     /// Creates a new subtask associated with a parent task.
-    fn create_subtask(&self, parent_task_id: &str, task: &AgentTask) -> RepositoryResult<()>;
+    fn create_subtask(&self, subtask: &SubTask) -> RepositoryResult<()>;
 
     /// Retrieves all tasks for a specific session.
     fn get_session_tasks(&self, session_id: &str) -> RepositoryResult<Vec<AgentTask>>;
 
     /// Retrieves all subtasks for a specific parent task.
-    fn get_subtasks(&self, parent_task_id: &str) -> RepositoryResult<Vec<AgentTask>>;
+    fn get_subtasks(&self, parent_task_id: &str) -> RepositoryResult<Vec<SubTask>>;
 
     /// Updates the status of a specific task.
     fn update_task_status(&self, task_id: &str, status: TaskStatus) -> RepositoryResult<()>;

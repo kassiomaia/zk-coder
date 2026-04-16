@@ -1,8 +1,9 @@
 use log::info;
 use tauri::{AppHandle, Emitter};
 
-use crate::core::agent::entities::{AgentDomainError, SessionState as CoreSessionState};
+use crate::core::agent::entities::AgentDomainError;
 use crate::core::agent::repositories::RepositoryResult;
+use crate::core::agent::session::{SessionId, SessionState};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 
 use super::AgentServiceImpl;
@@ -14,12 +15,12 @@ impl AgentServiceImpl {
         session_id: String,
         app_handle: AppHandle,
     ) -> RepositoryResult<String> {
-        let sid = crate::core::agent::entities::SessionId(session_id.clone());
+        let sid = SessionId(session_id.clone());
         let session = self.session_repo.get_session(&sid)?;
 
         if matches!(
             session.state,
-            CoreSessionState::Processing { .. } | CoreSessionState::AwaitingApproval { .. }
+            SessionState::Running { .. } | SessionState::UserInputRequired { .. }
         ) {
             return Err(AgentDomainError::InvalidInput {
                 reason: "Cannot retry while session is still processing".to_string(),
@@ -39,9 +40,12 @@ impl AgentServiceImpl {
             })?;
 
         let content = latest
-            .description
-            .clone()
-            .unwrap_or_else(|| latest.title.clone())
+            .request
+            .context
+            .as_ref()
+            .and_then(|ctx| ctx.selection.clone())
+            .or_else(|| latest.title.clone())
+            .unwrap_or_else(|| latest.request.content.clone())
             .trim()
             .to_string();
 
@@ -78,11 +82,11 @@ impl AgentServiceImpl {
         session_id: String,
         app_handle: AppHandle,
     ) -> RepositoryResult<String> {
-        let sid = crate::core::agent::entities::SessionId(session_id.clone());
+        let sid = SessionId(session_id.clone());
         let session = self.session_repo.get_session(&sid)?;
 
         // Verify session is in Paused state
-        if !matches!(session.state, CoreSessionState::Paused { .. }) {
+        if !matches!(session.state, SessionState::Paused { .. }) {
             return Err(AgentDomainError::InvalidInput {
                 reason: "Can only continue from a paused session".to_string(),
             });
@@ -110,11 +114,11 @@ impl AgentServiceImpl {
         session_id: String,
         app_handle: AppHandle,
     ) -> RepositoryResult<String> {
-        let sid = crate::core::agent::entities::SessionId(session_id.clone());
+        let sid = SessionId(session_id.clone());
         let session = self.session_repo.get_session(&sid)?;
 
         // Verify session is in Paused state
-        if !matches!(session.state, CoreSessionState::Paused { .. }) {
+        if !matches!(session.state, SessionState::Paused { .. }) {
             return Err(AgentDomainError::InvalidInput {
                 reason: "Can only replan from a paused session".to_string(),
             });

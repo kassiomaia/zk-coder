@@ -7,7 +7,7 @@
 //! 4. Errors during planning are properly handled
 
 use crate::application::agent::service::planner::{SubtaskPlan, TaskPlan};
-use crate::core::agent::entities::{AgentTask, TaskMode, TaskStatus};
+use crate::core::agent::task::{SubTaskMode, TaskStatus};
 
 // ========================================================================
 // Behavior Documentation Tests
@@ -150,10 +150,8 @@ fn test_subtask_plan_to_agent_task_converts_status_correctly() {
 
     assert_eq!(task.status, TaskStatus::Pending);
     assert_eq!(task.order, 0);
-    assert_eq!(task.session_id, "session-123");
-    assert_eq!(task.parent_task_id, Some("task-456".to_string()));
-    assert_eq!(task.mode, Some(TaskMode::FullAccess));
-    assert_eq!(task.needs_review, false);
+    assert_eq!(task.task_id, "task-456");
+    assert!(matches!(task.mode, SubTaskMode::FullAccess));
 }
 
 #[test]

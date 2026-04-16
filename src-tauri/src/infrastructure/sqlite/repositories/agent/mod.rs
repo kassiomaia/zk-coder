@@ -14,8 +14,9 @@ use crate::core::agent::repositories::{
     ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
     TaskRepository,
 };
+use crate::core::agent::session as agent_session;
+use crate::core::agent::task as agent_task;
 
-pub mod conversions;
 pub mod execution_debug;
 pub mod runtime_data;
 pub mod sessions;
@@ -63,13 +64,6 @@ impl From<SessionRepositoryError> for core_entities::AgentDomainError {
 pub struct SqliteSessionRepository {
     pub(crate) conn: Mutex<Connection>,
 }
-
-/// Re-export conversion functions from the conversions module.
-pub use conversions::{
-    agents_task_to_core, core_task_to_agents, session_from_core, session_state_to_agents,
-    session_state_to_core, session_to_core, task_mode_to_agents, task_mode_to_core,
-    task_status_to_agents, task_status_to_core,
-};
 
 impl SqliteSessionRepository {
     /// Create a new session store at the given database path.
@@ -550,173 +544,116 @@ impl SqliteSessionRepository {
 // ============================================================================
 
 impl SessionRepository for SqliteSessionRepository {
-    fn create_session(&self, session: &core_entities::AgentSession) -> RepositoryResult<()> {
-        let internal = session_from_core(session);
-        Self::create_session(self, &internal).map_err(Into::into)
+    fn create_session(&self, session: &agent_session::AgentSession) -> RepositoryResult<()> {
+        Self::create_session(self, session).map_err(Into::into)
     }
 
     fn get_session(
         &self,
-        id: &core_entities::SessionId,
-    ) -> RepositoryResult<core_entities::AgentSession> {
-        let internal_id = crate::core::agent::session::SessionId(id.0.clone());
-        let session = Self::get_session(self, &internal_id)
+        id: &agent_session::SessionId,
+    ) -> RepositoryResult<agent_session::AgentSession> {
+        Self::get_session(self, id)
             .map_err(core_entities::AgentDomainError::from)?
-            .ok_or_else(|| core_entities::AgentDomainError::SessionNotFound { id: id.0.clone() })?;
-
-        Ok(session_to_core(session))
+            .ok_or_else(|| core_entities::AgentDomainError::SessionNotFound { id: id.0.clone() })
     }
 
     fn get_sessions_for_conversation(
         &self,
         conversation_id: &str,
-    ) -> RepositoryResult<Vec<core_entities::AgentSession>> {
-        let sessions = Self::get_sessions_for_conversation(self, conversation_id)
-            .map_err(core_entities::AgentDomainError::from)?;
-
-        Ok(sessions.into_iter().map(session_to_core).collect())
+    ) -> RepositoryResult<Vec<agent_session::AgentSession>> {
+        Self::get_sessions_for_conversation(self, conversation_id)
+            .map_err(core_entities::AgentDomainError::from)
     }
 
-    fn list_sessions(&self) -> RepositoryResult<Vec<core_entities::AgentSession>> {
-        let sessions = Self::list_sessions(self).map_err(core_entities::AgentDomainError::from)?;
-        Ok(sessions.into_iter().map(session_to_core).collect())
+    fn list_sessions(&self) -> RepositoryResult<Vec<agent_session::AgentSession>> {
+        Self::list_sessions(self).map_err(core_entities::AgentDomainError::from)
     }
 
     fn update_state(
         &self,
-        id: &core_entities::SessionId,
-        state: &core_entities::SessionState,
+        id: &agent_session::SessionId,
+        state: &agent_session::SessionState,
     ) -> RepositoryResult<()> {
-        let internal_id = crate::core::agent::session::SessionId(id.0.clone());
-        let internal_state = session_state_to_agents(state);
-        Self::update_state(self, &internal_id, &internal_state)
-            .map_err(core_entities::AgentDomainError::from)
+        Self::update_state(self, id, state).map_err(core_entities::AgentDomainError::from)
     }
 
     fn update_workspace(
         &self,
-        id: &core_entities::SessionId,
+        id: &agent_session::SessionId,
         workspace: &str,
     ) -> RepositoryResult<()> {
-        let internal_id = crate::core::agent::session::SessionId(id.0.clone());
-        Self::update_workspace(self, &internal_id, workspace)
-            .map_err(core_entities::AgentDomainError::from)
+        Self::update_workspace(self, id, workspace).map_err(core_entities::AgentDomainError::from)
     }
 
     fn update_model_id(
         &self,
-        id: &core_entities::SessionId,
+        id: &agent_session::SessionId,
         model_id: &str,
     ) -> RepositoryResult<()> {
-        let internal_id = crate::core::agent::session::SessionId(id.0.clone());
-        Self::update_model_id(self, &internal_id, model_id)
-            .map_err(core_entities::AgentDomainError::from)
+        Self::update_model_id(self, id, model_id).map_err(core_entities::AgentDomainError::from)
     }
 
-    fn delete_session(&self, id: &core_entities::SessionId) -> RepositoryResult<()> {
-        let internal_id = crate::core::agent::session::SessionId(id.0.clone());
-        Self::delete_session(self, &internal_id).map_err(core_entities::AgentDomainError::from)
+    fn delete_session(&self, id: &agent_session::SessionId) -> RepositoryResult<()> {
+        Self::delete_session(self, id).map_err(core_entities::AgentDomainError::from)
     }
 
     fn record_recovery_event(
         &self,
-        session_id: &core_entities::SessionId,
+        session_id: &agent_session::SessionId,
         reason: &str,
         recovered_at: DateTime<Utc>,
     ) -> RepositoryResult<()> {
-        let internal_id = crate::core::agent::session::SessionId(session_id.0.clone());
-        Self::record_recovery_event(self, &internal_id, reason, recovered_at)
+        Self::record_recovery_event(self, session_id, reason, recovered_at)
             .map_err(core_entities::AgentDomainError::from)
     }
 }
 
 impl TaskRepository for SqliteSessionRepository {
-    fn create_task(&self, task: &core_entities::AgentTask) -> RepositoryResult<()> {
-        let internal = core_task_to_agents(task);
-        Self::create_task(
-            self,
-            &internal,
-            Some(task.title.as_str()),
-            task.description.as_deref(),
-        )
-        .map_err(core_entities::AgentDomainError::from)
+    fn create_task(&self, task: &agent_task::AgentTask) -> RepositoryResult<()> {
+        let title = task.title.as_deref().unwrap_or("");
+        let description = task
+            .request
+            .context
+            .as_ref()
+            .and_then(|ctx| ctx.selection.as_deref());
+        Self::create_task(self, task, Some(title), description)
+            .map_err(core_entities::AgentDomainError::from)
     }
 
-    fn create_subtask(
-        &self,
-        parent_task_id: &str,
-        task: &core_entities::AgentTask,
-    ) -> RepositoryResult<()> {
-        let internal = crate::core::agent::task::SubTask {
-            id: task.id.clone(),
-            task_id: parent_task_id.to_string(),
-            title: task.title.clone(),
-            description: task.description.clone(),
-            mode: task.mode.map_or(
-                crate::core::agent::task::SubTaskMode::FullAccess,
-                task_mode_to_agents,
-            ),
-            status: task_status_to_agents(task.status),
-            order: task.order,
-            created_at: chrono::Utc::now(),
-            started_at: None,
-            completed_at: None,
-        };
-
-        Self::create_subtask(self, &internal).map_err(core_entities::AgentDomainError::from)
+    fn create_subtask(&self, subtask: &agent_task::SubTask) -> RepositoryResult<()> {
+        Self::create_subtask(self, subtask).map_err(core_entities::AgentDomainError::from)
     }
 
     fn get_session_tasks(
         &self,
         session_id: &str,
-    ) -> RepositoryResult<Vec<core_entities::AgentTask>> {
-        let internal_id = crate::core::agent::session::SessionId(session_id.to_string());
-        let tasks = Self::get_session_tasks(self, &internal_id)
-            .map_err(core_entities::AgentDomainError::from)?;
-
-        Ok(tasks.iter().map(agents_task_to_core).collect())
+    ) -> RepositoryResult<Vec<agent_task::AgentTask>> {
+        let internal_id = agent_session::SessionId(session_id.to_string());
+        Self::get_session_tasks(self, &internal_id).map_err(core_entities::AgentDomainError::from)
     }
 
     fn get_subtasks(
         &self,
         parent_task_id: &str,
-    ) -> RepositoryResult<Vec<core_entities::AgentTask>> {
-        let subtasks = Self::get_subtasks(self, parent_task_id)
-            .map_err(core_entities::AgentDomainError::from)?;
-
-        Ok(subtasks
-            .iter()
-            .map(|subtask| core_entities::AgentTask {
-                id: subtask.id.clone(),
-                session_id: String::new(),
-                parent_task_id: Some(subtask.task_id.clone()),
-                title: subtask.title.clone(),
-                description: subtask.description.clone(),
-                status: task_status_to_core(subtask.status.clone()),
-                order: subtask.order,
-                mode: Some(task_mode_to_core(subtask.mode.clone())),
-                needs_review: false,
-            })
-            .collect())
+    ) -> RepositoryResult<Vec<agent_task::SubTask>> {
+        Self::get_subtasks(self, parent_task_id).map_err(core_entities::AgentDomainError::from)
     }
 
     fn update_task_status(
         &self,
         task_id: &str,
-        status: core_entities::TaskStatus,
+        status: agent_task::TaskStatus,
     ) -> RepositoryResult<()> {
-        let internal_status = task_status_to_agents(status);
-        Self::update_task_status(self, task_id, &internal_status)
+        Self::update_task_status(self, task_id, &status)
             .map_err(core_entities::AgentDomainError::from)
     }
 
     fn update_subtask_status(
         &self,
         subtask_id: &str,
-        status: core_entities::TaskStatus,
+        status: agent_task::TaskStatus,
     ) -> RepositoryResult<()> {
-        let internal_status = task_status_to_agents(status);
-        Self::update_subtask_status(self, subtask_id, &internal_status)
+        Self::update_subtask_status(self, subtask_id, &status)
             .map_err(core_entities::AgentDomainError::from)
     }
 }
