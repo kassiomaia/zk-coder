@@ -1,6 +1,5 @@
 use tauri::Emitter;
 
-use crate::application::agent::conversions::core_session_to_agent_session;
 use crate::commands::ChatState;
 use crate::core::agent::services::{AgentService, CreateSessionRequest};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
@@ -49,7 +48,7 @@ pub async fn create_agent_session(
         },
     );
 
-    Ok(core_session_to_agent_session(session))
+    Ok(session)
 }
 
 /// Get session state by ID.
@@ -61,7 +60,6 @@ pub async fn get_agent_session(
     state
         .service
         .get_session(&session_id)
-        .map(core_session_to_agent_session)
         .map_err(|e| e.to_string())
 }
 
@@ -74,12 +72,6 @@ pub async fn get_agent_sessions_for_conversation(
     state
         .service
         .get_conversation_sessions(&conversation_id)
-        .map(|sessions| {
-            sessions
-                .into_iter()
-                .map(core_session_to_agent_session)
-                .collect()
-        })
         .map_err(|e| e.to_string())
 }
 

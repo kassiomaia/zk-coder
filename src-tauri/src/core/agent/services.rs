@@ -4,8 +4,10 @@
 //! functionalities for managing agent sessions, handling requests, and other
 //! agent-related operations.
 
-use super::entities::{Agent, AgentSession, AgentTask, PendingAction, SessionId, TaskStatus};
 use super::repositories::RepositoryResult;
+use super::session::{AgentSession, PendingAction, SessionId};
+use super::task::{SubTask, TaskStatus};
+use super::types::Agent;
 
 /// A request to create a new agent session.
 #[derive(Debug, Clone)]
@@ -184,7 +186,7 @@ pub trait AgentService: Send + Sync {
         -> RepositoryResult<()>;
 
     /// Retrieves all subtasks for a given parent task.
-    fn get_subtasks(&self, task_id: &str) -> RepositoryResult<Vec<AgentTask>>;
+    fn get_subtasks(&self, task_id: &str) -> RepositoryResult<Vec<SubTask>>;
 
     // ========================================================================
     // History Operations

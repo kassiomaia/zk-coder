@@ -1,10 +1,10 @@
-use crate::core::agent::entities::{
-    AgentDomainError, AgentSession as CoreAgentSession, SessionState as CoreSessionState,
-};
+use crate::application::agent::conversions::core_session_to_agent_session;
+use crate::core::agent::entities::{AgentDomainError, SessionState as CoreSessionState};
 use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::services::{
     ExecutionStep, FileAction, FileChange, SessionDetails, TerminalLine,
 };
+use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::StepAction;
 
 use super::store_error_to_domain;
@@ -14,7 +14,7 @@ impl AgentServiceImpl {
     pub(super) fn get_conversation_history_impl(
         &self,
         conversation_id: &str,
-    ) -> RepositoryResult<Vec<CoreAgentSession>> {
+    ) -> RepositoryResult<Vec<AgentSession>> {
         Ok(self
             .session_repo
             .get_sessions_for_conversation(conversation_id)?
@@ -28,6 +28,7 @@ impl AgentServiceImpl {
                         | CoreSessionState::Paused { .. }
                 )
             })
+            .map(core_session_to_agent_session)
             .collect())
     }
 
@@ -131,7 +132,7 @@ impl AgentServiceImpl {
             .unwrap_or_default();
 
         Ok(SessionDetails {
-            session: session.into(),
+            session,
             files_touched,
             terminal_output,
             execution_steps,

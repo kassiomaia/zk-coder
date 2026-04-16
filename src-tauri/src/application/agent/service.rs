@@ -23,9 +23,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 use crate::core::agent::entities::{
-    Agent as CoreAgent, AgentDomainError, AgentSession as CoreAgentSession,
-    AgentTask as CoreAgentTask, PendingAction as CorePendingAction, SessionId as CoreSessionId,
-    TaskStatus as CoreTaskStatus,
+    Agent as CoreAgent, AgentDomainError, TaskStatus as CoreTaskStatus,
 };
 use crate::core::agent::repositories::{
     ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
@@ -34,9 +32,9 @@ use crate::core::agent::repositories::{
 use crate::core::agent::services::{
     AgentService, CreateSessionRequest, FileChange, SendAgentRequestRequest, SessionDetails,
 };
-use crate::core::agent::session::SessionId;
-use crate::core::agent::task::TaskStatus;
-use crate::core::agent::types::{Agent as AgentEntity, AgentId};
+use crate::core::agent::session::{AgentSession, PendingAction, SessionId};
+use crate::core::agent::task::{SubTask, TaskStatus};
+use crate::core::agent::types::{Agent, AgentId};
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
 use crate::infrastructure::agent::registry::AgentRegistry;
@@ -185,7 +183,7 @@ impl AgentServiceImpl {
     }
 
     #[cfg(test)]
-    pub(crate) fn to_core_agent(&self, agent: AgentEntity) -> CoreAgent {
+    pub(crate) fn to_core_agent(&self, agent: Agent) -> CoreAgent {
         agent.into()
     }
 
@@ -210,18 +208,18 @@ impl AgentServiceImpl {
 }
 
 impl AgentService for AgentServiceImpl {
-    fn create_session(&self, request: CreateSessionRequest) -> RepositoryResult<CoreAgentSession> {
+    fn create_session(&self, request: CreateSessionRequest) -> RepositoryResult<AgentSession> {
         self.create_session_impl(request)
     }
 
-    fn get_session(&self, session_id: &str) -> RepositoryResult<CoreAgentSession> {
+    fn get_session(&self, session_id: &str) -> RepositoryResult<AgentSession> {
         self.get_session_impl(session_id)
     }
 
     fn get_conversation_sessions(
         &self,
         conversation_id: &str,
-    ) -> RepositoryResult<Vec<CoreAgentSession>> {
+    ) -> RepositoryResult<Vec<AgentSession>> {
         self.get_conversation_sessions_impl(conversation_id)
     }
 
@@ -249,11 +247,11 @@ impl AgentService for AgentServiceImpl {
         self.update_session_model_impl(session_id, model_id)
     }
 
-    fn send_request(&self, request: SendAgentRequestRequest) -> RepositoryResult<CoreSessionId> {
+    fn send_request(&self, request: SendAgentRequestRequest) -> RepositoryResult<SessionId> {
         self.send_request_impl(request)
     }
 
-    fn get_pending_actions(&self, session_id: &str) -> RepositoryResult<Vec<CorePendingAction>> {
+    fn get_pending_actions(&self, session_id: &str) -> RepositoryResult<Vec<PendingAction>> {
         self.get_pending_actions_impl(session_id)
     }
 
@@ -265,11 +263,11 @@ impl AgentService for AgentServiceImpl {
         self.deny_action_impl(action_id)
     }
 
-    fn list_agents(&self) -> RepositoryResult<Vec<CoreAgent>> {
+    fn list_agents(&self) -> RepositoryResult<Vec<Agent>> {
         self.list_agents_impl()
     }
 
-    fn get_agent(&self, agent_id: &str) -> RepositoryResult<CoreAgent> {
+    fn get_agent(&self, agent_id: &str) -> RepositoryResult<Agent> {
         self.get_agent_impl(agent_id)
     }
 
@@ -286,19 +284,19 @@ impl AgentService for AgentServiceImpl {
     fn update_subtask_status(
         &self,
         subtask_id: String,
-        status: CoreTaskStatus,
+        status: TaskStatus,
     ) -> RepositoryResult<()> {
         self.update_subtask_status_impl(subtask_id, status)
     }
 
-    fn get_subtasks(&self, task_id: &str) -> RepositoryResult<Vec<CoreAgentTask>> {
+    fn get_subtasks(&self, task_id: &str) -> RepositoryResult<Vec<SubTask>> {
         self.get_subtasks_impl(task_id)
     }
 
     fn get_conversation_history(
         &self,
         conversation_id: &str,
-    ) -> RepositoryResult<Vec<CoreAgentSession>> {
+    ) -> RepositoryResult<Vec<AgentSession>> {
         self.get_conversation_history_impl(conversation_id)
     }
 

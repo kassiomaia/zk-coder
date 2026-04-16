@@ -1,6 +1,7 @@
-use crate::core::agent::entities::{AgentTask as CoreAgentTask, TaskStatus as CoreTaskStatus};
+use crate::application::agent::conversions::core_task_to_subtask;
+use crate::core::agent::entities::AgentTask as CoreAgentTask;
 use crate::core::agent::repositories::RepositoryResult;
-use crate::core::agent::task::{SubTask, SubTaskMode};
+use crate::core::agent::task::{SubTask, SubTaskMode, TaskStatus};
 
 use super::AgentServiceImpl;
 
@@ -41,12 +42,19 @@ impl AgentServiceImpl {
     pub(super) fn update_subtask_status_impl(
         &self,
         subtask_id: String,
-        status: CoreTaskStatus,
+        status: TaskStatus,
     ) -> RepositoryResult<()> {
-        self.task_repo.update_subtask_status(&subtask_id, status)
+        let core_status: crate::core::agent::entities::TaskStatus = status.into();
+        self.task_repo
+            .update_subtask_status(&subtask_id, core_status)
     }
 
-    pub(super) fn get_subtasks_impl(&self, task_id: &str) -> RepositoryResult<Vec<CoreAgentTask>> {
-        self.task_repo.get_subtasks(task_id)
+    pub(super) fn get_subtasks_impl(&self, task_id: &str) -> RepositoryResult<Vec<SubTask>> {
+        Ok(self
+            .task_repo
+            .get_subtasks(task_id)?
+            .into_iter()
+            .map(core_task_to_subtask)
+            .collect())
     }
 }

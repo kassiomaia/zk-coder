@@ -1,6 +1,5 @@
-use crate::application::agent::conversions::core_task_to_subtask;
-use crate::core::agent::entities::TaskStatus as CoreTaskStatus;
 use crate::core::agent::services::AgentService;
+use crate::core::agent::task::TaskStatus;
 
 use super::AgentState;
 
@@ -26,7 +25,7 @@ pub async fn update_subtask_status(
     status: String,
     state: tauri::State<'_, AgentState>,
 ) -> Result<(), String> {
-    let task_status: CoreTaskStatus =
+    let task_status: TaskStatus =
         serde_json::from_str(&status).map_err(|e| format!("Invalid status: {e}"))?;
 
     state
@@ -44,6 +43,5 @@ pub async fn get_subtasks(
     state
         .service
         .get_subtasks(&task_id)
-        .map(|tasks| tasks.into_iter().map(core_task_to_subtask).collect())
         .map_err(|e| e.to_string())
 }

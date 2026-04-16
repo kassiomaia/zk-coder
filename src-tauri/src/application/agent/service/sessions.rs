@@ -4,12 +4,13 @@ use chrono::Utc;
 use log::info;
 
 use crate::core::agent::entities::{
-    AgentDomainError, AgentSession as CoreAgentSession, SessionId as CoreSessionId,
-    SessionState as CoreSessionState,
+    AgentDomainError, SessionId as CoreSessionId, SessionState as CoreSessionState,
 };
 use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::services::{CreateSessionRequest, SendAgentRequestRequest};
-use crate::core::agent::session::{AgentSession, SessionState};
+use crate::core::agent::session::{AgentSession, SessionId, SessionState};
+
+use crate::application::agent::conversions::core_session_to_agent_session;
 
 use super::AgentServiceImpl;
 
@@ -17,7 +18,7 @@ impl AgentServiceImpl {
     pub(super) fn create_session_impl(
         &self,
         request: CreateSessionRequest,
-    ) -> RepositoryResult<CoreAgentSession> {
+    ) -> RepositoryResult<AgentSession> {
         info!(
             "[AgentService] Creating session for agent: {}",
             request.agent_id
@@ -35,7 +36,7 @@ impl AgentServiceImpl {
             request.model_id,
         );
 
-        let core_session: CoreAgentSession = session.clone().into();
+        let core_session: crate::core::agent::entities::AgentSession = session.clone().into();
         self.session_repo.create_session(&core_session)?;
 
         let new_state = SessionState::WaitForRequest {
@@ -45,20 +46,29 @@ impl AgentServiceImpl {
         self.session_repo
             .update_state(&CoreSessionId(session.id.0.clone()), &core_state)?;
 
-        self.session_repo.get_session(&CoreSessionId(session.id.0))
+        let core = self
+            .session_repo
+            .get_session(&CoreSessionId(session.id.0))?;
+        Ok(core_session_to_agent_session(core))
     }
 
-    pub(super) fn get_session_impl(&self, session_id: &str) -> RepositoryResult<CoreAgentSession> {
-        self.session_repo
-            .get_session(&CoreSessionId(session_id.to_string()))
+    pub(super) fn get_session_impl(&self, session_id: &str) -> RepositoryResult<AgentSession> {
+        let core = self
+            .session_repo
+            .get_session(&CoreSessionId(session_id.to_string()))?;
+        Ok(core_session_to_agent_session(core))
     }
 
     pub(super) fn get_conversation_sessions_impl(
         &self,
         conversation_id: &str,
-    ) -> RepositoryResult<Vec<CoreAgentSession>> {
-        self.session_repo
-            .get_sessions_for_conversation(conversation_id)
+    ) -> RepositoryResult<Vec<AgentSession>> {
+        Ok(self
+            .session_repo
+            .get_sessions_for_conversation(conversation_id)?
+            .into_iter()
+            .map(core_session_to_agent_session)
+            .collect())
     }
 
     pub(super) fn cancel_session_impl(&self, session_id: &str) -> RepositoryResult<()> {
@@ -105,7 +115,7 @@ impl AgentServiceImpl {
     pub(super) fn send_request_impl(
         &self,
         request: SendAgentRequestRequest,
-    ) -> RepositoryResult<CoreSessionId> {
+    ) -> RepositoryResult<SessionId> {
         let session = self
             .session_repo
             .get_session(&CoreSessionId(request.session_id.clone()))?;
@@ -138,6 +148,6 @@ impl AgentServiceImpl {
             request.session_id
         );
 
-        Ok(CoreSessionId(request.session_id))
+        Ok(SessionId(request.session_id))
     }
 }

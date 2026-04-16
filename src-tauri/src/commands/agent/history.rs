@@ -1,4 +1,3 @@
-use crate::application::agent::conversions::core_session_to_agent_session;
 use crate::core::agent::services::AgentService;
 
 use super::AgentState;
@@ -38,12 +37,6 @@ pub async fn get_conversation_session_history(
     state
         .service
         .get_conversation_history(&conversation_id)
-        .map(|sessions| {
-            sessions
-                .into_iter()
-                .map(core_session_to_agent_session)
-                .collect()
-        })
         .map_err(|e| e.to_string())
 }
 

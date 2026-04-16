@@ -1,5 +1,6 @@
-use crate::core::agent::entities::{AgentDomainError, PendingAction as CorePendingAction};
+use crate::core::agent::entities::AgentDomainError;
 use crate::core::agent::repositories::RepositoryResult;
+use crate::core::agent::session::PendingAction;
 
 use super::AgentServiceImpl;
 
@@ -50,12 +51,8 @@ impl AgentServiceImpl {
     pub(super) fn get_pending_actions_impl(
         &self,
         session_id: &str,
-    ) -> RepositoryResult<Vec<CorePendingAction>> {
-        Ok(self
-            .block_on(self.approval_queue.get_pending_for_session(session_id))
-            .into_iter()
-            .map(crate::core::agent::entities::PendingAction::from)
-            .collect())
+    ) -> RepositoryResult<Vec<PendingAction>> {
+        Ok(self.block_on(self.approval_queue.get_pending_for_session(session_id)))
     }
 
     pub(super) fn approve_action_impl(&self, action_id: &str) -> RepositoryResult<()> {
