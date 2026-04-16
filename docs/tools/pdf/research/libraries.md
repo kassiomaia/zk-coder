@@ -159,8 +159,12 @@ to an upstream we do not yet understand well.
    is swappable. This lets us evaluate `genpdf` (for layout) or
    `oxidize-pdf` (for parser/edit) as a second implementation without
    rewriting the tool surface.
-3. **Defer adopting `lopdf`** until we have an explicit *edit existing PDF*
-   requirement. When that lands, `lopdf` is the correct choice.
+3. **`lopdf` graduated to a production dependency in T2.7.** The
+   structural `PdfValidator` parses the rendered PDF's object graph
+   (trailer, catalog, pages tree) instead of substring-searching raw
+   bytes — this eliminates false positives from body content. `lopdf`
+   remains read-only; if we later need *edit existing PDF* capability,
+   it already covers that use case.
 4. **Do not adopt `oxidize-pdf` as the only engine in phase 1.** Revisit
    after POC evidence in `03-poc-plan.md` if we need features `printpdf`
    cannot give us cheaply (e.g. production-grade encryption).

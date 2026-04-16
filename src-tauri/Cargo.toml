@@ -72,13 +72,13 @@ pptx = "0.1"
 docx-rust = "0.1"
 printpdf = { version = "0.7", features = ["embedded_images"] }
 image = { version = "0.24", default-features = false, features = ["jpeg", "png"] }
+lopdf = "0.32"
 ttf-parser = "0.20"
 toml = "0.8"
 
 [dev-dependencies]
 tempfile = "3"
 wiremock = "0.6"
-lopdf = "0.32"
 
 [lints.clippy]
 pedantic = "warn"

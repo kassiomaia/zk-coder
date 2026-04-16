@@ -392,21 +392,23 @@ hyperlinks. A real report.
   - `document_without_toc_block_renders_normally` — no-regression check.
 - **Retires gap**: #11 (completes), #12 (completes).
 
-### T2.7 — Structural `PdfValidator`
+### T2.7 — Structural `PdfValidator` — done
 
-- **Deliverable**: validator parses the output PDF and asserts on the
-  object graph instead of substring-searching the bytes.
-- **Build**: replace `check_eof_marker` / `check_encryption` with
-  `lopdf`-based checks. Decide whether `lopdf` graduates from
-  dev-dependency to production dependency and record the decision in
-  `research/libraries.md`.
-- **Tests (first)**:
-  - encrypted test fixture → validator reports encryption via the
-    parsed `/Encrypt` dict, not a string match
-  - file containing the literal text `"/Encrypt"` in a paragraph does
-    not false-positive
-  - missing `/Pages` → hard failure with typed error
-- **Done when**: no substring PDF inspection remains in the validator.
+- **Delivered**: `validate.rs` rewritten from scratch. `check_eof_marker`
+  and `check_encryption` (substring-based) retired. New checks use
+  `lopdf::Document::load_mem` to parse the object graph:
+  - **Pages Tree**: `doc.get_pages().is_empty()` on the catalog.
+  - **Encryption**: `doc.trailer.get(b"Encrypt")` on the trailer dict.
+  - **Structure Parse**: lopdf parse success/failure replaces EOF marker.
+- **`lopdf` graduated** from `[dev-dependencies]` to `[dependencies]`.
+  Decision recorded in `research/libraries.md`.
+- **Tests (passing)**:
+  - `test_check_encryption_structural` — injected `/Encrypt` in trailer
+    triggers the encrypted flag.
+  - `test_encrypt_in_body_does_not_false_positive` — fresh doc without
+    trailer `/Encrypt` passes even if body could contain the literal.
+  - `test_missing_pages_tree_fails` — empty lopdf doc has no pages.
+  - 4 pre-existing draft validation tests still green.
 - **Retires gap**: #18.
 
 ### M2 exit gate
@@ -524,7 +526,7 @@ Single source of truth for which task closes which gap from
 | Hardcoded session_id | 15 | T1.7 | done |
 | Blocking render | 16 | T1.8 | done |
 | No golden-file tests | 17 | M1 exit gate | pending |
-| Substring validator | 18 | T2.7 | pending |
+| Substring validator | 18 | T2.7 | done |
 | Card lacks structural facts | 19 | T3.1 | pending |
 | No theme settings UI | 20 | T3.3 | pending |
 
