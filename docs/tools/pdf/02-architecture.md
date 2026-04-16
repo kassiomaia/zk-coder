@@ -1,7 +1,7 @@
 # PDF Authoring Tool — Proposed Architecture
 
-**Status**: DRAFT
-**Last reviewed**: 2026-04-15
+**Status**: COMPLETE
+**Completed**: 2026-04-16
 **Purpose**: Describe the layered shape the PDF tool should grow into to
 reach the vision in `01-vision.md`, mapped onto the existing Rust / Tauri /
 Svelte layering rules in `docs/quality/guidelines/rust-backend.md`.

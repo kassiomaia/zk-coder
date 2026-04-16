@@ -1,7 +1,7 @@
 # PDF Authoring Tool — Vision and Goals
 
-**Status**: DRAFT
-**Last reviewed**: 2026-04-15
+**Status**: COMPLETE
+**Completed**: 2026-04-16
 **Purpose**: Define what "production-grade PDF authoring tool for an AI
 agent" means for this repository. Bound the scope so later phases do not
 drift.

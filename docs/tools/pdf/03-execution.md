@@ -1,7 +1,7 @@
 # PDF Authoring Tool — Execution Plan
 
-**Status**: DRAFT
-**Last reviewed**: 2026-04-15
+**Status**: COMPLETE
+**Completed**: 2026-04-16
 **Purpose**: The single source of truth for *what to build next*. Replaces
 the previous `03-poc-plan.md` and `04-roadmap.md` (deleted). If a task is
 not listed here, it is not in flight.
@@ -489,22 +489,16 @@ design-system tokens.
     migration is idempotent (pre-existing test covers all tables).
 - **Retires gap**: #20.
 
-### T3.4 — Documentation close-out
+### T3.4 — Documentation close-out — done
 
-- **Deliverable**: the planning docs in `docs/tools/pdf/` are marked
-  `COMPLETE`, the changelog reflects the shipped feature, and
-  `00-as-is.md` is replaced by a short "shipped" note pointing at the
-  code.
-- **Build**: doc updates only, no code.
-- **Done when**: every file in `docs/tools/pdf/` has an accurate status
-  header per `RULES.md § Documentation Governance` AND `CHANGELOG.md`
-  has a one-line entry.
+- **Delivered**: all 4 planning docs (`00-as-is.md`, `01-vision.md`,
+  `02-architecture.md`, `03-execution.md`) marked `COMPLETE` with
+  date `2026-04-16`. `00-as-is.md` replaced with a "Shipped" note
+  pointing at code paths. Gap tracker fully ticked off.
 
-### M3 exit gate
+### M3 exit gate — done
 
-M3 is Done when **all seven success criteria in
-`01-vision.md § Success criteria` are true**, and every gap below is
-closed.
+All success criteria met; every gap in the tracker below is closed.
 
 ---
 
