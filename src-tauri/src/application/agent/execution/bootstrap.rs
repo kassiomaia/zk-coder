@@ -4,6 +4,9 @@
 //! request is received, including planning the task, creating the necessary
 //! data structures, and initializing the execution context.
 
+use crate::application::agent::harness::{
+    passed_startup_verification, running_startup_verification,
+};
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::session::{AgentSession, SessionState};
 use crate::core::agent::task::{AgentRequest, AgentTask, TaskStatus};
@@ -14,6 +17,7 @@ use chrono::Utc;
 use tauri::Emitter;
 
 use super::deps::ExecutionDeps;
+use super::harness_events::emit_harness_state_updated;
 use super::state::ExecutionContext;
 use super::termination::update_session_state;
 use super::utils::truncate_text;
@@ -57,6 +61,11 @@ pub async fn start_execution(
     trust_mode: crate::core::agent::types::TrustMode,
 ) -> Result<BootstrapResult, AgentRuntimeError> {
     let session_id = session.id.0.clone();
+
+    deps.harness_state_store.record_startup_verification(
+        &session_id,
+        running_startup_verification("Bootstrapping session"),
+    );
 
     update_session_state(
         deps,
@@ -198,11 +207,24 @@ pub async fn start_execution(
     let _ = deps.app_handle.emit(
         AGENT_EVENT_NAME,
         AgentEvent::TaskUpdated {
-            session_id,
+            session_id: session_id.clone(),
             task_id: context.task_id.clone(),
             status: crate::core::agent::task::TaskStatus::InProgress,
         },
     );
+
+    let passed_details = (!plan.subtasks.is_empty()).then(|| {
+        vec![format!(
+            "Plan generated with {} subtask{}",
+            plan.subtasks.len(),
+            if plan.subtasks.len() == 1 { "" } else { "s" },
+        )]
+    });
+    deps.harness_state_store.record_startup_verification(
+        &session_id,
+        passed_startup_verification("Session ready", passed_details),
+    );
+    let _ = emit_harness_state_updated(deps, &session.id);
 
     Ok(BootstrapResult { context, client })
 }

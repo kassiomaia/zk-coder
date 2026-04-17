@@ -8,6 +8,7 @@ use super::deps::ExecutionDeps;
 use super::harness_events::emit_harness_state_updated;
 use super::message_ids::{streaming_message_id, StreamingMessageIdInput, StreamingPhase};
 use super::state::ExecutionContext;
+use crate::application::agent::harness::failed_startup_verification;
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::session::{SessionId, SessionState};
 use crate::core::agent::task::{AgentExecutionResult, TaskStatus, UsageStats};
@@ -92,6 +93,11 @@ pub fn fail_execution(
     kind: &str,
     last_model: Option<String>,
 ) -> Result<(), AgentRuntimeError> {
+    deps.harness_state_store.record_startup_verification(
+        &ctx.session_id,
+        failed_startup_verification("Session needs verification before resuming", error),
+    );
+
     update_session_state(
         deps,
         &SessionId(ctx.session_id.clone()),
