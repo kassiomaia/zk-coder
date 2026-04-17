@@ -190,6 +190,22 @@ pub struct LlmTracePayload {
     pub active_subtask: Option<String>,
     /// The list of tools that were allowed for this request.
     pub allowed_tools: Vec<String>,
+    /// The number of tools in the catalog for this request (duplicates
+    /// `allowed_tools.len()` but is the canonical field consumers should read
+    /// when looking at request-shape stability).
+    pub tool_count: usize,
+    /// Hex-encoded SHA-256 of the system prompt. Stable inputs produce a
+    /// stable hash; any drift in this value means the system prompt changed
+    /// between adjacent steps, which invalidates the prompt-prefix cache.
+    pub system_prompt_hash: String,
+    /// Hex-encoded SHA-256 of the sorted tool catalog. A change in this hash
+    /// between adjacent steps means the visible tool catalog was mutated.
+    pub tool_catalog_hash: String,
+    /// Hex-encoded SHA-256 of the message prefix (all messages except the
+    /// final one). Stable prefix hash across adjacent steps means the
+    /// provider-side prompt cache can stay warm; drift means an earlier
+    /// message was mutated.
+    pub message_prefix_hash: String,
     /// The system prompt that was used.
     pub system_prompt: String,
     /// The messages that were part of the request.

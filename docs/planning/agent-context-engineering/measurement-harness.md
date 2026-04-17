@@ -34,9 +34,8 @@ The plan lists five core signals. Each one is tracked here with:
 
 - **Measures**: how often the model's visible tool catalog changes between adjacent LLM requests.
 - **Why it matters**: cache stability and Manus's "don't churn the tool catalog" rule. Every change invalidates the prompt prefix cache.
-- **Source today**: **not yet implemented**. M1.2 adds the tool catalog hash to trace payloads; until it lands, this signal is estimated manually by inspecting which tools are present in `subtask.mode` transitions.
-- **Source once M1.2 lands**: `llm_request_prepared` runtime trace → `payloadJson.toolCatalogHash` per step.
-- **Collection recipe once available**: select step-to-step hash transitions from `agent_runtime_traces` for a single task; count transitions where the hash changes and the session catalog did not.
+- **Source today**: `llm_request_prepared` runtime trace → `payloadJson.toolCatalogHash` per step. Landed in M1.2. The companion `systemPromptHash` and `messagePrefixHash` fields cover the adjacent cache-sensitive surfaces.
+- **Collection recipe**: select step-to-step `toolCatalogHash` transitions from `agent_runtime_traces` for a single task; count transitions where the hash changes and the session catalog was not actually edited.
 - **Target**: 0 churn events between adjacent steps in the same subtask mode. Any non-zero churn needs a recorded reason (subtask transition, session catalog edit).
 
 ### 2. Narration-loop incidence
@@ -59,8 +58,7 @@ The plan lists five core signals. Each one is tracked here with:
 
 - **Measures**: size of the prepared context at each LLM request boundary.
 - **Why it matters**: if the budget drifts up without proportional task growth, the working-memory or compaction policy is failing silently.
-- **Source today**: `ExecutionSnapshot.totalInputTokens` and `ExecutionSnapshot.contextUsagePercent` per step, plus the current session's `state.contextUsage` during `running`.
-- **Source once M1.2 lands**: `llm_request_prepared` trace → `payloadJson.contextTokenEstimate`.
+- **Source today**: `ExecutionSnapshot.totalInputTokens` and `ExecutionSnapshot.contextUsagePercent` per step, plus the current session's `state.contextUsage` during `running`. The `llm_request_prepared` trace also carries `payloadJson.estimatedContextTokens` (pre-existing) and `payloadJson.toolCount` (added in M1.2).
 - **Collection recipe**: for a representative workflow, plot per-step context tokens as a series; compare to baseline (same workflow before the change).
 - **Target**: monotonic non-decreasing within a single long-horizon task is acceptable; a step-to-step *spike* without a new subtask or retrieval is a regression signal.
 
@@ -118,12 +116,12 @@ Each entry pins the workflow, the commit, and the five signals. Add a new entry 
 - **Commit**: `f81346e` (post-Slice 9)
 - **Date**: 2026-04-17
 - **Steps executed**: pending
-- **Signal 1 (tool catalog churn)**: pending — blocked on M1.2 (tool catalog hash in trace payload)
+- **Signal 1 (tool catalog churn)**: pending — telemetry landed in M1.2, first representative-workflow measurement still to run
 - **Signal 2 (narration loops)**: pending
 - **Signal 3 (repeated tool calls)**: pending
 - **Signal 4 (context token budget)**: pending
 - **Signal 5 (compaction)**: pending
-- **Notes**: Captured before a representative workflow has been rerun under the Slice 10 event-handling changes. Slice 10 itself does not change backend execution behavior — it only re-homes harness event mapping and adds this measurement contract — so the frontend side of the workflow should show identical runtime signals pre/post Slice 10. The first meaningful before/after comparison will come with the next backend behavior change (expected: M1.2 or M4.1).
+- **Notes**: Captured before a representative workflow has been rerun under the Slice 10 event-handling changes. Slice 10 itself does not change backend execution behavior — it only re-homes harness event mapping and adds this measurement contract — so the frontend side of the workflow should show identical runtime signals pre/post Slice 10. M1.2 (commit after `0d9a654`) wires `toolCatalogHash`, `systemPromptHash`, `messagePrefixHash`, and `toolCount` into the `llm_request_prepared` trace, unblocking signal 1's automatic collection path.
 
 ### Post-Slice 10 smoke measurement
 

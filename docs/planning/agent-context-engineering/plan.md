@@ -432,6 +432,11 @@ Implement the work in small reviewable slices. Do not combine unrelated refactor
   - tool-choice forcing
   - external memory
   - frontend workflow changes
+- Delivered:
+  - M1.1: `ToolRegistry::definitions()` now sorts by tool name; three characterization tests pin the canonical order and its preservation under filtering
+  - M1.2: new `infrastructure::agent::runtime::request_shape` module with `system_prompt_hash`, `tool_catalog_hash`, `message_prefix_hash`; these plus `tool_count` are now fields on `LlmTracePayload` and populated on every `LlmRequestPrepared` / `LlmResponseReceived` trace
+  - 9 request_shape unit tests cover determinism, tool-add / description-change / order drift, and message-prefix stability when only the last message changes
+  - measurement-harness.md signal 1 is now marked as unblocked (telemetry present; representative-workflow measurement still outstanding)
 
 ### Slice 2 — Prompt assembly stabilization
 

@@ -17,6 +17,7 @@ pub mod execution;
 pub mod helpers;
 pub mod loop_detection;
 pub mod permissions;
+pub mod request_shape;
 pub mod spawn;
 pub mod summarizer;
 mod tool_feedback;

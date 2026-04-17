@@ -18,6 +18,9 @@ use crate::core::agent::execution::{ExecutionPhase, LlmTracePayload, RuntimeTrac
 use crate::core::llm::entities::ChatRequest;
 use crate::infrastructure::agent::runtime::client::LlmRetryConfig;
 use crate::infrastructure::agent::runtime::context::estimate_context_tokens;
+use crate::infrastructure::agent::runtime::request_shape::{
+    message_prefix_hash, system_prompt_hash, tool_catalog_hash,
+};
 use crate::infrastructure::agent::runtime::{chat_with_retry, AgentRuntimeError};
 
 /// Makes a call to the LLM with the resolved context.
@@ -70,6 +73,10 @@ pub async fn call_llm(
             .iter()
             .map(|tool| tool.name.clone())
             .collect(),
+        tool_count: resolved.tool_definitions.len(),
+        system_prompt_hash: system_prompt_hash(&resolved.system_prompt),
+        tool_catalog_hash: tool_catalog_hash(&resolved.tool_definitions),
+        message_prefix_hash: message_prefix_hash(&chat_request.messages),
         system_prompt: truncate_text(&resolved.system_prompt, 12000),
         request_messages: chat_request
             .messages
@@ -156,6 +163,10 @@ pub async fn call_llm(
             .iter()
             .map(|tool| tool.name.clone())
             .collect(),
+        tool_count: resolved.tool_definitions.len(),
+        system_prompt_hash: system_prompt_hash(&resolved.system_prompt),
+        tool_catalog_hash: tool_catalog_hash(&resolved.tool_definitions),
+        message_prefix_hash: message_prefix_hash(&chat_request.messages),
         system_prompt: truncate_text(&resolved.system_prompt, 12000),
         request_messages: chat_request
             .messages
