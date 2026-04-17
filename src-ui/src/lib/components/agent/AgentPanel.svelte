@@ -12,6 +12,7 @@
 	import AgentPanelActivitySection from './AgentPanelActivitySection.svelte';
 	import AgentPanelRequestsSection from './AgentPanelRequestsSection.svelte';
 	import AgentPanelFilesSection from './AgentPanelFilesSection.svelte';
+	import AgentSessionSummarySection from './AgentSessionSummarySection.svelte';
 	import type { AgentSession, PendingAction } from '$lib/types/agent';
 	import TaskList from './TaskList.svelte';
 	import RequestsList from './RequestsList.svelte';
@@ -33,6 +34,8 @@
 		onCreateSession?: () => void;
 		onChangeAgent?: (agentId: string) => void;
 		onRetryLastRequest?: (sessionId: string) => void;
+		onContinueExecution?: (sessionId: string) => void;
+		onReplanExecution?: (sessionId: string) => void;
 		onclose: () => void;
 	}
 
@@ -48,6 +51,8 @@
 		onCreateSession,
 		onChangeAgent,
 		onRetryLastRequest,
+		onContinueExecution,
+		onReplanExecution,
 		onclose
 	}: Props = $props();
 
@@ -67,9 +72,11 @@
 		return latestStep.result?.tokensUsed ?? 0;
 	});
 	let harnessState = $derived(session.harnessState);
-	let verificationSummary = $derived(harnessState?.startupVerification);
-	let handoffSummary = $derived(harnessState?.handoff);
-	let hasSessionSummary = $derived(!!verificationSummary || !!handoffSummary);
+	let hasSessionSummary = $derived(
+		!!harnessState?.startupVerification ||
+			!!harnessState?.handoff ||
+			!!(harnessState?.cleanExitRecorded && session.state.type === 'finished')
+	);
 
 	async function handleFileClick(path: string) {
 		if (!session.workspaceRoot) return;
@@ -122,56 +129,14 @@
 					/>
 				{/if}
 
-				{#if hasSessionSummary}
-					<section class="panel-section session-summary-section" aria-label="Session summary">
-						<div class="summary-header-row">
-							<div>
-								<h4 class="summary-title">Session Summary</h4>
-								<p class="summary-subtitle">
-									Durable handoff and verification context for this session.
-								</p>
-							</div>
-							{#if harnessState}
-								<span class="summary-mode">{harnessState.mode.replace('_', ' ')}</span>
-							{/if}
-						</div>
-
-						<div class="summary-grid">
-							{#if verificationSummary}
-								<div class="summary-item">
-									<span class="summary-label">Verification</span>
-									<span class="summary-value">{verificationSummary.headline}</span>
-								</div>
-							{/if}
-
-							{#if handoffSummary}
-								<div class="summary-item">
-									<span class="summary-label">Current objective</span>
-									<span class="summary-value">{handoffSummary.currentObjective}</span>
-								</div>
-								<div class="summary-item">
-									<span class="summary-label">Next action</span>
-									<span class="summary-value">{handoffSummary.nextRecommendedAction}</span>
-								</div>
-								<div class="summary-item">
-									<span class="summary-label">Last increment</span>
-									<span class="summary-value">{handoffSummary.lastCompletedIncrement}</span>
-								</div>
-								<div class="summary-item">
-									<span class="summary-label">Environment</span>
-									<span class="summary-value">
-										{handoffSummary.environmentHealth.replace('_', ' ')}
-									</span>
-								</div>
-								{#if handoffSummary.openIssues.length > 0}
-									<div class="summary-item summary-item-wide">
-										<span class="summary-label">Open issues</span>
-										<span class="summary-value">{handoffSummary.openIssues.join(' • ')}</span>
-									</div>
-								{/if}
-							{/if}
-						</div>
-					</section>
+				{#if hasSessionSummary && harnessState}
+					<AgentSessionSummarySection
+						sessionId={session.id}
+						sessionState={session.state}
+						{harnessState}
+						onContinue={onContinueExecution}
+						onReplan={onReplanExecution}
+					/>
 				{/if}
 
 				<AgentPanelActivitySection
@@ -273,78 +238,6 @@
 		border-bottom: 1px solid var(--color-border-primary);
 		transition: background var(--transition-fast);
 		animation: section-fade-in 0.4s var(--ease-out) backwards;
-	}
-
-	.session-summary-section {
-		padding: var(--space-3);
-		background: var(--depth-bg-1);
-	}
-
-	.summary-header-row {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: var(--space-3);
-		margin-bottom: var(--space-3);
-	}
-
-	.summary-title {
-		margin: 0;
-		font-size: var(--text-sm);
-		font-weight: var(--font-semibold);
-		color: var(--color-text-primary);
-	}
-
-	.summary-subtitle {
-		margin: var(--space-1) 0 0;
-		font-size: var(--text-xs);
-		color: var(--color-text-secondary);
-	}
-
-	.summary-mode {
-		display: inline-flex;
-		align-items: center;
-		padding: 0 var(--space-2);
-		height: 22px;
-		border-radius: var(--radius-full);
-		background: var(--color-surface-hover);
-		color: var(--color-text-secondary);
-		font-size: var(--text-2xs);
-		font-weight: var(--font-medium);
-		text-transform: capitalize;
-		white-space: nowrap;
-	}
-
-	.summary-grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--space-2) var(--space-3);
-	}
-
-	.summary-item {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-0-5);
-		min-width: 0;
-	}
-
-	.summary-item-wide {
-		grid-column: 1 / -1;
-	}
-
-	.summary-label {
-		font-size: var(--text-2xs);
-		font-weight: var(--font-medium);
-		color: var(--color-text-muted);
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-	}
-
-	.summary-value {
-		font-size: var(--text-xs);
-		color: var(--color-text-primary);
-		line-height: 1.4;
-		word-break: break-word;
 	}
 
 	@keyframes section-fade-in {

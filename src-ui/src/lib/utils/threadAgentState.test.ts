@@ -141,4 +141,104 @@ describe('getThreadAgentState', () => {
 		expect(verifyingState.isWorking).toBe(true);
 		expect(verifyingState.status?.text).toBe('Checking workspace state');
 	});
+
+	it('shows resuming-from-handoff while a resume_verifier session is running', () => {
+		const resumingState = getThreadAgentState(thread, [
+			{
+				...session,
+				state: {
+					type: 'running',
+					currentStep: 1,
+					contextUsage: 0.2
+				},
+				harnessState: {
+					mode: 'resume_verifier',
+					startupVerification: {
+						state: 'passed',
+						headline: 'Workspace verified'
+					},
+					cleanExitRecorded: false
+				}
+			}
+		]);
+
+		expect(resumingState.isWorking).toBe(true);
+		expect(resumingState.status?.text).toBe('Workspace verified');
+		expect(resumingState.status?.icon).toBe('scan');
+	});
+
+	it('shows resume-blocked when paused with failed verification', () => {
+		const blockedState = getThreadAgentState(thread, [
+			{
+				...session,
+				state: {
+					type: 'paused',
+					pausedAt: '2024-01-01T12:02:00Z',
+					message: 'Interrupted'
+				},
+				harnessState: {
+					mode: 'resume_verifier',
+					startupVerification: {
+						state: 'failed',
+						headline: 'Missing workspace root'
+					},
+					cleanExitRecorded: false
+				}
+			}
+		]);
+
+		expect(blockedState.isWorking).toBe(false);
+		expect(blockedState.status?.text).toBe('Resume blocked: Missing workspace root');
+	});
+
+	it('surfaces environment-blocked when paused with blocked environment health', () => {
+		const envBlocked = getThreadAgentState(thread, [
+			{
+				...session,
+				state: {
+					type: 'paused',
+					pausedAt: '2024-01-01T12:02:00Z',
+					message: 'Interrupted'
+				},
+				harnessState: {
+					mode: 'resume_verifier',
+					startupVerification: {
+						state: 'passed',
+						headline: 'Workspace verified'
+					},
+					handoff: {
+						lastCompletedIncrement: 'Stabilized tool catalog ordering',
+						currentObjective: 'Add typed harness state',
+						nextRecommendedAction: 'Investigate external dependency',
+						openIssues: ['External service unreachable'],
+						environmentHealth: 'blocked'
+					},
+					cleanExitRecorded: false
+				}
+			}
+		]);
+
+		expect(envBlocked.isWorking).toBe(false);
+		expect(envBlocked.status?.text).toMatch(/environment blocked/i);
+	});
+
+	it('shows clean-handoff-saved for finished sessions with clean exit recorded', () => {
+		const handedOff = getThreadAgentState(thread, [
+			{
+				...session,
+				state: {
+					type: 'finished',
+					completedAt: '2024-01-01T12:10:00Z'
+				},
+				harnessState: {
+					mode: 'worker',
+					cleanExitRecorded: true
+				}
+			}
+		]);
+
+		expect(handedOff.isWorking).toBe(false);
+		expect(handedOff.status?.text).toBe('Clean handoff saved');
+		expect(handedOff.status?.icon).toBe('check');
+	});
 });

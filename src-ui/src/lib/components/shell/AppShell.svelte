@@ -426,6 +426,8 @@
 						onSelectSession={(id) => onSelectSession?.(id)}
 						onCreateSession={() => onCreateSession?.()}
 						onRetryLastRequest={(id) => onRetryLastRequest?.(id)}
+						onContinueExecution={(id) => onContinueExecution?.(id)}
+						onReplanExecution={(id) => onReplanExecution?.(id)}
 						onclose={() => onToggleAgentPanel?.()}
 					/>
 				{:else}

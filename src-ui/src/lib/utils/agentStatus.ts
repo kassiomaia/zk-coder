@@ -81,17 +81,45 @@ function harnessToStatus(
 	if (!harnessState) return null;
 
 	const verification = harnessState.startupVerification;
-	if (verification?.state === 'running') {
+	const environmentBlocked = harnessState.handoff?.environmentHealth === 'blocked';
+
+	if (state?.type === 'running' && harnessState.mode === 'resume_verifier') {
 		return {
-			text: verification.headline || 'Verifying workspace...',
+			text: verification?.headline || 'Resuming from handoff...',
 			icon: 'scan',
 			active: true
+		};
+	}
+
+	if (verification?.state === 'running') {
+		return {
+			text: verification.headline || 'Verifying environment...',
+			icon: 'scan',
+			active: true
+		};
+	}
+
+	if (state?.type === 'paused' && verification?.state === 'failed') {
+		return {
+			text: verification.headline
+				? `Resume blocked: ${verification.headline}`
+				: 'Resume blocked',
+			icon: 'wait',
+			active: false
 		};
 	}
 
 	if (verification?.state === 'failed') {
 		return {
 			text: verification.headline || 'Verification failed',
+			icon: 'wait',
+			active: false
+		};
+	}
+
+	if (state?.type === 'paused' && environmentBlocked) {
+		return {
+			text: 'Environment blocked — investigate before resuming',
 			icon: 'wait',
 			active: false
 		};
@@ -107,7 +135,7 @@ function harnessToStatus(
 
 	if (state?.type === 'finished' && harnessState.cleanExitRecorded) {
 		return {
-			text: 'Progress saved for handoff',
+			text: 'Clean handoff saved',
 			icon: 'check',
 			active: false
 		};

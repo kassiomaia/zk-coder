@@ -192,6 +192,102 @@ describe('AgentPanel', () => {
 			expect(screen.getByText('Add live harness updates')).toBeInTheDocument();
 			expect(screen.getByText('Resume after verification')).toBeInTheDocument();
 		});
+
+		it('renders Continue and Replan actions when paused with resume_verifier mode', async () => {
+			const onContinueExecution = vi.fn();
+			const onReplanExecution = vi.fn();
+
+			render(AgentPanel, {
+				...defaultProps,
+				onContinueExecution,
+				onReplanExecution,
+				session: {
+					...mockSession,
+					state: {
+						type: 'paused',
+						pausedAt: '2024-01-01T00:00:00Z',
+						message: 'Interrupted'
+					},
+					harnessState: {
+						mode: 'resume_verifier',
+						startupVerification: {
+							state: 'passed',
+							headline: 'Workspace verified'
+						},
+						handoff: {
+							lastCompletedIncrement: 'Shipped typed harness state',
+							currentObjective: 'Resume panel workflow',
+							nextRecommendedAction: 'Continue resume verification',
+							openIssues: [],
+							environmentHealth: 'healthy'
+						},
+						cleanExitRecorded: false
+					}
+				}
+			});
+
+			const continueBtn = screen.getByRole('button', { name: /continue session/i });
+			const replanBtn = screen.getByRole('button', { name: /replan session/i });
+			expect(continueBtn).toBeInTheDocument();
+			expect(replanBtn).toBeInTheDocument();
+
+			await fireEvent.click(continueBtn);
+			expect(onContinueExecution).toHaveBeenCalledWith('session-1');
+
+			await fireEvent.click(replanBtn);
+			expect(onReplanExecution).toHaveBeenCalledWith('session-1');
+		});
+
+		it('disables Continue when verification is failed (resume blocked)', () => {
+			render(AgentPanel, {
+				...defaultProps,
+				onContinueExecution: vi.fn(),
+				onReplanExecution: vi.fn(),
+				session: {
+					...mockSession,
+					state: {
+						type: 'paused',
+						pausedAt: '2024-01-01T00:00:00Z',
+						message: 'Interrupted'
+					},
+					harnessState: {
+						mode: 'resume_verifier',
+						startupVerification: {
+							state: 'failed',
+							headline: 'Workspace missing'
+						},
+						cleanExitRecorded: false
+					}
+				}
+			});
+
+			const continueBtn = screen.getByRole('button', { name: /continue session/i });
+			expect(continueBtn).toBeDisabled();
+			// Replan remains enabled so the user can still recover from a blocked resume.
+			const replanBtn = screen.getByRole('button', { name: /replan session/i });
+			expect(replanBtn).not.toBeDisabled();
+		});
+
+		it('shows clean handoff summary when session is finished with clean exit recorded', () => {
+			render(AgentPanel, {
+				...defaultProps,
+				session: {
+					...mockSession,
+					state: {
+						type: 'finished',
+						completedAt: '2024-01-01T00:00:00Z'
+					},
+					harnessState: {
+						mode: 'worker',
+						cleanExitRecorded: true
+					}
+				}
+			});
+
+			expect(
+				screen.getByText('Clean handoff saved for the next session.')
+			).toBeInTheDocument();
+		});
 	});
 
 	describe('view switching', () => {
