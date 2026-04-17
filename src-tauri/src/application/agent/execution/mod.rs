@@ -23,3 +23,7 @@ pub mod yolo;
 #[cfg(test)]
 #[path = "bootstrap_tests.rs"]
 mod bootstrap_tests;
+
+#[cfg(test)]
+#[path = "prompt_stability_tests.rs"]
+mod prompt_stability_tests;

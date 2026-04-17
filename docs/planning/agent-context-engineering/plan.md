@@ -446,6 +446,10 @@ Implement the work in small reviewable slices. Do not combine unrelated refactor
 - Keep out:
   - session handoff artifacts
   - frontend contract changes
+- Delivered:
+  - audit of prompt assembly for dynamic fields: no timestamps / UUIDs / env values leak into `derive_system_prompt` or ContextPolicyV2 blocks; the base agent system prompt is a `const fn` returning `&'static str`; the only legitimate dynamic input is the retrieval pass, gated by threshold breach or subtask change
+  - measurement-harness.md now documents per-hash which runtime transitions are allowed to move `system_prompt_hash`, `tool_catalog_hash`, and `message_prefix_hash`, making drift outside those transitions an explicit regression signal
+  - new `src-tauri/src/application/agent/execution/prompt_stability_tests.rs` locks in the pipeline invariants with 9 characterization tests: identical session state produces identical hashes; subtask transitions move only the expected components (system prompt hash moves, tool catalog hash stays when mode unchanged, message prefix hash stays when only the tail message is appended); subtask leaving InProgress collapses back to the base-prompt hash
 
 ### Slice 3 — Tool-choice runtime state
 

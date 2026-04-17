@@ -138,6 +138,79 @@ Each entry pins the workflow, the commit, and the five signals. Add a new entry 
 
 ---
 
+## Runtime transitions allowed to change request shape
+
+M1.3 audited prompt assembly for avoidable dynamic fields (timestamps, UUIDs,
+env-derived strings leaking into the system prompt or context packing). The
+audit found none — `derive_system_prompt` is a pure function over
+`(agent_system_prompt, Option<(SubtaskSummary, total)>)`, the base agent system
+prompt is a `const fn` returning `&'static str`, and the ContextPolicyV2
+blocks are deterministic given the same `ContextPolicyInput`.
+
+Given that baseline, the following — and only the following — runtime
+transitions are allowed to change each hash. Any other drift is a regression
+signal and should be recorded under **Notes** in the entry that surfaces it.
+
+### `system_prompt_hash`
+
+Allowed causes of drift:
+
+- **Subtask transition** — `derive_system_prompt` inlines the current subtask
+  title, mode instructions, and order. Any change to `SubtaskSummary` produced
+  by `context_phase::resolve_context` changes this hash by design.
+- **Subtask status change** — moving from `InProgress` to a terminal status
+  reverts the prompt to the bare `agent_system_prompt`, which is a different
+  hash from the in-progress variant.
+
+Not allowed:
+
+- Same subtask state producing different hashes across adjacent steps. Every
+  input to `derive_system_prompt` is either static (`agent_system_prompt`
+  from `registry.rs`) or derived from the current subtask record.
+
+### `tool_catalog_hash`
+
+Allowed causes of drift:
+
+- **Session-visible catalog change** — if a tool is added to or removed from
+  `ToolRegistry` between steps, the catalog hash changes. This is rare in
+  practice since registry construction happens once per runtime.
+- **Subtask mode change (current behavior)** — the per-step filter in
+  `context_phase::resolve_context` still derives allowed tools from
+  `SubTaskMode::allowed_tools()`. A mode transition that changes the allowed
+  set changes the filtered catalog hash. M2.2 will remove this coupling so
+  that subtask transitions no longer mutate the visible catalog.
+
+Not allowed:
+
+- Same subtask mode producing different filtered catalogs across steps. M1.1
+  guarantees canonical ordering, so identical allowed-tool sets yield
+  identical hashes.
+- Adding a tool to or removing a tool from the filtered catalog without a
+  corresponding session-level catalog or subtask-mode transition.
+
+### `message_prefix_hash`
+
+Allowed causes of drift:
+
+- **Context compaction** — `apply_context_policy_v2` and `maybe_compact_context`
+  explicitly rewrite the prefix (task summary, active subtask, file relevance,
+  failure memory, pre-computed summary, recent dialogue tail). Compaction is
+  the single most common legitimate prefix mutation. Each compaction emits a
+  `ContextPolicyEvaluated` trace so the hash change is traceable.
+- **Retrieval pass** — when `usage_ratio >= threshold` or the subtask changed,
+  `run_retrieval_pass` adds fresh snippets to the packed context via the
+  file-relevance block. This is gated behavior, not every-step drift.
+- **Subtask transition packing** — `force_pack = subtask_changed` rewrites the
+  packed blocks on subtask transitions, which changes the prefix.
+
+Not allowed:
+
+- Identical session state producing different prefix hashes across adjacent
+  steps outside of the triggers above. Appending a single new message should
+  leave the prefix hash unchanged — that is the cache-warmth invariant the
+  hash is built to observe.
+
 ## Measurement rules
 
 - **Append, do not rewrite**. An entry is a timestamped measurement. Keep the history intact so a later reader can see drift.
