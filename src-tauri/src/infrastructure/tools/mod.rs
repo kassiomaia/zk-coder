@@ -84,9 +84,15 @@ impl ToolRegistry {
     }
 
     /// Get all tool definitions for the LLM.
+    ///
+    /// Definitions are returned sorted by name so adjacent LLM requests see a
+    /// stable tool catalog (M1.1). Call sites that filter or copy this list
+    /// must preserve the canonical order — the plain `Vec::iter().filter(...)`
+    /// pattern is sufficient and is the only downstream shape used today.
     #[must_use]
     pub fn definitions(&self) -> Vec<ToolDefinition> {
-        self.tools
+        let mut defs: Vec<ToolDefinition> = self
+            .tools
             .values()
             .filter(|tool| self.is_tool_enabled(tool.as_ref()))
             .map(|tool| {
@@ -97,7 +103,9 @@ impl ToolRegistry {
                     input_schema: meta.input_schema,
                 }
             })
-            .collect()
+            .collect();
+        defs.sort_by(|a, b| a.name.cmp(&b.name));
+        defs
     }
 
     /// Execute a tool by name.
@@ -246,6 +254,74 @@ mod tests {
                 def.name
             );
         }
+    }
+
+    #[test]
+    fn test_tool_definitions_are_sorted_by_name() {
+        // M1.1: adjacent LLM requests must see a deterministic tool catalog so
+        // the prompt-prefix cache stays warm. This test pins that contract at
+        // the registry level — if a future refactor swaps the canonical order
+        // (e.g., for category-first grouping), this assertion must be updated
+        // in the same change that adjusts downstream hashing.
+        let registry = ToolRegistry::new().unwrap();
+        let names: Vec<_> = registry
+            .definitions()
+            .iter()
+            .map(|d| d.name.clone())
+            .collect();
+
+        let mut expected = names.clone();
+        expected.sort();
+
+        assert_eq!(
+            names, expected,
+            "definitions() must return tool definitions sorted by name"
+        );
+    }
+
+    #[test]
+    fn test_repeated_registry_construction_yields_identical_ordering() {
+        // HashMap-backed storage historically produced a different iteration
+        // order on each construction. After M1.1 the observed order must be
+        // stable across constructions in the same process — this is the
+        // characterization test behind the "tool-catalog hash churn" signal
+        // in docs/planning/agent-context-engineering/measurement-harness.md.
+        let first = ToolRegistry::new().unwrap();
+        let second = ToolRegistry::new().unwrap();
+
+        let first_names: Vec<_> = first.definitions().iter().map(|d| d.name.clone()).collect();
+        let second_names: Vec<_> = second
+            .definitions()
+            .iter()
+            .map(|d| d.name.clone())
+            .collect();
+
+        assert_eq!(first_names, second_names);
+    }
+
+    #[test]
+    fn test_filter_over_definitions_preserves_canonical_order() {
+        // Downstream sites (context_phase::resolve_context) filter the catalog
+        // by a subset of tool names. `Vec::iter().filter(...)` preserves source
+        // order, so the filtered output must also be sorted.
+        let registry = ToolRegistry::new().unwrap();
+        let all = registry.definitions();
+
+        // Pick an arbitrary subset in non-sorted order.
+        let subset_names = ["fs_write_file", "agent_emit_status", "fs_read_file"];
+        let filtered: Vec<_> = all
+            .iter()
+            .filter(|def| subset_names.iter().any(|name| *name == def.name))
+            .map(|def| def.name.clone())
+            .collect();
+
+        let mut expected = filtered.clone();
+        expected.sort();
+
+        assert_eq!(
+            filtered, expected,
+            "filter over definitions() must yield a sorted subset"
+        );
     }
 
     #[test]
