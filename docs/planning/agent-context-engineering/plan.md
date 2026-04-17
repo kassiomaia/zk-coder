@@ -459,6 +459,13 @@ Implement the work in small reviewable slices. Do not combine unrelated refactor
   - minimal trace support for forced tool-choice state
 - Keep out:
   - stable session-wide catalog refactor if it makes the PR too large
+- Delivered:
+  - M2.1: new `ToolChoiceMode` enum (`Auto` default, `Required`, `None`) and `ChatRequest::with_tool_choice` builder; `tool_choice` field plumbed through the core entity, the application-layer request conversion, the planner, the summarizer, and the orchestrator
+  - OpenAI adapter maps `Auto`/`Required`/`None` → `"auto"` / `"required"` / `"none"` when tools are present; omits `tool_choice` entirely when no tools are sent (final-summary path)
+  - Anthropic adapter maps `Auto`/`Required`/`None` → `{"type":"auto"}` / `{"type":"any"}` / `{"type":"none"}` with the same no-tools-means-no-choice fallback
+  - 8 new adapter tests (4 per provider) cover each mode plus the final-summary no-tools path
+  - `LlmTracePayload.tool_choice_mode` records the mode on every `LlmRequestPrepared` / `LlmResponseReceived` trace so a consumer can distinguish "model chose not to call a tool" from "runtime disallowed tool calls"
+  - no runtime caller yet forces a non-`Auto` mode — that is M2.3's scope in Slice 4
 
 ### Slice 4 — Stable session-visible tool catalog
 

@@ -80,6 +80,7 @@ impl Planner {
             top_p: None,
             stop: None,
             stream: false,
+            tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
         };
 
         let response = client.chat(request).await.map_err(|e| {

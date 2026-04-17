@@ -78,6 +78,7 @@ pub async fn summarize_dropped_messages(
         stop: None,
         stream: false,
         tools: Vec::new(),
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
     };
 
     match client.chat(request).await {

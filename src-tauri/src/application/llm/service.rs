@@ -297,6 +297,7 @@ mod tests {
             stop: None,
             stream: false,
             tools: vec![],
+            tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
         };
 
         let llm_req = LlmServiceImpl::convert_request(core_req);
@@ -320,6 +321,7 @@ mod tests {
             stop: None,
             stream: false,
             tools: vec![],
+            tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
         };
 
         let llm_req = LlmServiceImpl::convert_request(core_req);
@@ -346,6 +348,7 @@ mod tests {
                 description: "Read a file".to_string(),
                 input_schema: serde_json::json!({"type": "object"}),
             }],
+            tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
         };
 
         let llm_req = LlmServiceImpl::convert_request(core_req);
@@ -557,6 +560,7 @@ mod tests {
             stop: None,
             stream: true,
             tools: vec![],
+            tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
         };
 
         let llm_req = LlmServiceImpl::convert_request(core_req);

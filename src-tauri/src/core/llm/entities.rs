@@ -282,6 +282,29 @@ pub struct ToolResult {
     pub is_error: bool,
 }
 
+/// Runtime-controlled tool-choice intent for a chat request.
+///
+/// The runtime decides, per step, whether the model is free to call any tool
+/// (`Auto`), must call one (`Required`), or must not call any (`None`).
+/// Provider adapters translate this enum into the native wire format — see
+/// each adapter's `convert_request` for the mapping.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolChoiceMode {
+    /// Model may call zero or more of the available tools. This is the
+    /// historical default and is what the runtime sends when no other
+    /// intent is expressed.
+    #[default]
+    Auto,
+    /// Model must call at least one tool on this turn. Used by the
+    /// runtime to break narration loops when the session state is
+    /// known to require tool progress.
+    Required,
+    /// Model must not call any tools on this turn. Used on the
+    /// final-summary path and other "respond only" moments.
+    None,
+}
+
 /// A request to generate a chat completion.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatRequest {
@@ -310,6 +333,11 @@ pub struct ChatRequest {
     /// A list of tool definitions available to the model.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tools: Vec<ToolDefinition>,
+    /// Runtime intent about whether the model should call tools on this
+    /// turn. Provider adapters translate this into the native tool-choice
+    /// wire format. Defaults to [`ToolChoiceMode::Auto`].
+    #[serde(default)]
+    pub tool_choice: ToolChoiceMode,
 }
 
 impl ChatRequest {
@@ -325,6 +353,7 @@ impl ChatRequest {
             stop: None,
             stream: false,
             tools: Vec::new(),
+            tool_choice: ToolChoiceMode::Auto,
         }
     }
 
@@ -359,6 +388,13 @@ impl ChatRequest {
     #[must_use]
     pub fn with_tools(mut self, tools: Vec<ToolDefinition>) -> Self {
         self.tools = tools;
+        self
+    }
+
+    /// Sets the runtime tool-choice intent for the request.
+    #[must_use]
+    pub const fn with_tool_choice(mut self, tool_choice: ToolChoiceMode) -> Self {
+        self.tool_choice = tool_choice;
         self
     }
 }

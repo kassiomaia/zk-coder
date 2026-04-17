@@ -146,6 +146,7 @@ fn test_orchestrated_conversation_runner_creation() {
             top_p: None,
             stop: None,
             tools: vec![],
+            tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
             stream: false,
         })
         .is_ok());
@@ -428,6 +429,7 @@ async fn test_retry_with_timeout_error() {
         top_p: None,
         stop: None,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
         stream: false,
     };
 
@@ -452,6 +454,7 @@ async fn test_retry_with_rate_limit_error() {
         top_p: None,
         stop: None,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
         stream: false,
     };
 
@@ -475,6 +478,7 @@ async fn test_no_retry_for_permanent_errors() {
         top_p: None,
         stop: None,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
         stream: false,
     };
 

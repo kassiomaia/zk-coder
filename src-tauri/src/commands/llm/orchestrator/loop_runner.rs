@@ -159,6 +159,7 @@ pub async fn run_orchestrated_loop(
             stop: None,
             tools: core_tools,
             stream: false,
+            tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
         };
 
         let response: CoreChatResponse =

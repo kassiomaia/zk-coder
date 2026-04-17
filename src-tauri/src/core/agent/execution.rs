@@ -201,6 +201,13 @@ pub struct LlmTracePayload {
     /// Hex-encoded SHA-256 of the sorted tool catalog. A change in this hash
     /// between adjacent steps means the visible tool catalog was mutated.
     pub tool_catalog_hash: String,
+    /// Runtime tool-choice intent for this request
+    /// (`auto` / `required` / `none`). When the runtime forces a non-auto
+    /// mode (for example on the final-summary path or narration-loop
+    /// recovery), this field records that decision so a trace consumer can
+    /// separate "model chose not to call a tool" from "runtime disallowed
+    /// tool calls".
+    pub tool_choice_mode: String,
     /// Hex-encoded SHA-256 of the message prefix (all messages except the
     /// final one). Stable prefix hash across adjacent steps means the
     /// provider-side prompt cache can stay warm; drift means an earlier

@@ -73,6 +73,7 @@ fn create_test_request(model: &str, content: &str) -> ChatRequest {
         stop: None,
         stream: false,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
     }
 }
 
@@ -447,6 +448,7 @@ fn test_convert_request_basic() {
         stop: None,
         stream: false,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
     };
 
     let llm_req = LlmServiceImpl::convert_request(core_req);
@@ -470,6 +472,7 @@ fn test_convert_request_with_system() {
         stop: None,
         stream: false,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
     };
 
     let llm_req = LlmServiceImpl::convert_request(core_req);
@@ -498,6 +501,7 @@ fn test_convert_request_with_tools() {
             description: "Read a file".to_string(),
             input_schema: serde_json::json!({"type": "object"}),
         }],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
     };
 
     let llm_req = LlmServiceImpl::convert_request(core_req);
@@ -519,6 +523,7 @@ fn test_convert_request_streaming() {
         stop: None,
         stream: true,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
     };
 
     let llm_req = LlmServiceImpl::convert_request(core_req);
@@ -551,6 +556,7 @@ fn test_request_conversion_preserves_all_fields() {
         stop: None,
         stream: true,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
     };
 
     let llm_req = LlmServiceImpl::convert_request(core_req);
@@ -832,6 +838,7 @@ fn test_empty_request_messages() {
         stop: None,
         stream: false,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
     };
 
     let llm_req = LlmServiceImpl::convert_request(core_req);
@@ -851,6 +858,7 @@ fn test_request_with_all_optional_fields() {
         stop: None,
         stream: true,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
     };
 
     let llm_req = LlmServiceImpl::convert_request(core_req);
@@ -873,6 +881,7 @@ fn test_request_with_all_optional_fields_none() {
         stop: None,
         stream: false,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
     };
 
     let llm_req = LlmServiceImpl::convert_request(core_req);
@@ -985,6 +994,7 @@ fn test_request_response_conversion_consistency() {
         stop: None,
         stream: true,
         tools: vec![],
+        tool_choice: crate::core::llm::entities::ToolChoiceMode::Auto,
     };
 
     let llm_req = LlmServiceImpl::convert_request(core_req);

@@ -93,6 +93,7 @@ impl LlmServiceImpl {
             stop: req.stop,
             stream: req.stream,
             tools: req.tools.into_iter().collect(),
+            tool_choice: req.tool_choice,
         }
     }
 

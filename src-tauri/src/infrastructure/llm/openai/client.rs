@@ -187,6 +187,7 @@ impl OpenAiClient {
             stop,
             stream,
             tools: request_tools,
+            tool_choice: requested_tool_choice,
         } = request;
         let mut messages = Vec::new();
         let mut folded_system_segments = Vec::new();
@@ -321,7 +322,11 @@ impl OpenAiClient {
 
         let tools = super::convert_tools(request_tools);
         let tool_choice = if include_tool_choice {
-            tools.as_ref().map(|_| "auto".to_string())
+            tools.as_ref().map(|_| match requested_tool_choice {
+                crate::core::llm::entities::ToolChoiceMode::Auto => "auto".to_string(),
+                crate::core::llm::entities::ToolChoiceMode::Required => "required".to_string(),
+                crate::core::llm::entities::ToolChoiceMode::None => "none".to_string(),
+            })
         } else {
             None
         };
@@ -1017,6 +1022,65 @@ mod tests {
 
         let openai_request = client.convert_request_with_tool_choice(request, false);
         assert!(openai_request.tools.is_some());
+        assert!(openai_request.tool_choice.is_none());
+    }
+
+    fn build_request_with_tool_choice_mode(
+        mode: crate::core::llm::entities::ToolChoiceMode,
+    ) -> ChatRequest {
+        ChatRequest::new("gpt-4.1", vec![Message::user("Hello")])
+            .with_tools(vec![ToolDefinition {
+                name: "read_workspace_file".to_string(),
+                description: "Read a UTF-8 file from the workspace".to_string(),
+                input_schema: serde_json::json!({"type": "object"}),
+            }])
+            .with_tool_choice(mode)
+    }
+
+    #[test]
+    fn test_convert_request_tool_choice_mode_auto_maps_to_auto() {
+        use crate::core::llm::entities::ToolChoiceMode;
+        let client = OpenAiClient::new("test-key".to_string(), None);
+        let openai_request = client.convert_request(build_request_with_tool_choice_mode(
+            ToolChoiceMode::Auto,
+        ));
+        assert_eq!(openai_request.tool_choice.as_deref(), Some("auto"));
+    }
+
+    #[test]
+    fn test_convert_request_tool_choice_mode_required_maps_to_required() {
+        use crate::core::llm::entities::ToolChoiceMode;
+        let client = OpenAiClient::new("test-key".to_string(), None);
+        let openai_request = client.convert_request(build_request_with_tool_choice_mode(
+            ToolChoiceMode::Required,
+        ));
+        assert_eq!(openai_request.tool_choice.as_deref(), Some("required"));
+    }
+
+    #[test]
+    fn test_convert_request_tool_choice_mode_none_maps_to_none() {
+        use crate::core::llm::entities::ToolChoiceMode;
+        let client = OpenAiClient::new("test-key".to_string(), None);
+        let openai_request = client.convert_request(build_request_with_tool_choice_mode(
+            ToolChoiceMode::None,
+        ));
+        // The tools are still sent so the provider-side prompt cache can stay
+        // warm; only the tool_choice field tells the model not to call them.
+        assert!(openai_request.tools.is_some());
+        assert_eq!(openai_request.tool_choice.as_deref(), Some("none"));
+    }
+
+    #[test]
+    fn test_convert_request_without_tools_omits_tool_choice_regardless_of_mode() {
+        use crate::core::llm::entities::ToolChoiceMode;
+        let client = OpenAiClient::new("test-key".to_string(), None);
+        // Final-summary path: the runtime drops tools entirely. Even with an
+        // explicit mode set, the adapter must not send a tool_choice field
+        // when there are no tools.
+        let request = ChatRequest::new("gpt-4.1", vec![Message::user("summarize")])
+            .with_tool_choice(ToolChoiceMode::None);
+        let openai_request = client.convert_request(request);
+        assert!(openai_request.tools.is_none());
         assert!(openai_request.tool_choice.is_none());
     }
 

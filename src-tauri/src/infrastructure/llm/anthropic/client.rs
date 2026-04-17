@@ -193,8 +193,17 @@ impl AnthropicClient {
 
         let tools = super::convert_tools(request.tools);
         let tool_choice = if include_tool_choice {
-            tools.as_ref().map(|_| AnthropicToolChoice {
-                choice_type: "auto".to_string(),
+            tools.as_ref().map(|_| {
+                let choice_type = match request.tool_choice {
+                    crate::core::llm::entities::ToolChoiceMode::Auto => "auto",
+                    // Anthropic uses "any" to force *some* tool call; this is
+                    // the semantic match for our `Required` mode.
+                    crate::core::llm::entities::ToolChoiceMode::Required => "any",
+                    crate::core::llm::entities::ToolChoiceMode::None => "none",
+                };
+                AnthropicToolChoice {
+                    choice_type: choice_type.to_string(),
+                }
             })
         } else {
             None
@@ -650,6 +659,83 @@ mod tests {
 
         let anthropic_request = client.convert_request_with_tool_choice(request, false);
         assert!(anthropic_request.tools.is_some());
+        assert!(anthropic_request.tool_choice.is_none());
+    }
+
+    fn build_anthropic_request_with_mode(
+        mode: crate::core::llm::entities::ToolChoiceMode,
+    ) -> ChatRequest {
+        ChatRequest::new("claude-3-5-sonnet-20241022", vec![Message::user("Hello")])
+            .with_tools(vec![ToolDefinition {
+                name: "list_workspace_files".to_string(),
+                description: "List files in workspace".to_string(),
+                input_schema: serde_json::json!({"type": "object"}),
+            }])
+            .with_tool_choice(mode)
+    }
+
+    #[test]
+    fn test_convert_request_tool_choice_mode_auto_maps_to_auto() {
+        use crate::core::llm::entities::ToolChoiceMode;
+        let client = AnthropicClient::new("test-key".to_string(), None);
+        let anthropic_request =
+            client.convert_request(build_anthropic_request_with_mode(ToolChoiceMode::Auto));
+        assert_eq!(
+            anthropic_request
+                .tool_choice
+                .as_ref()
+                .map(|choice| choice.choice_type.as_str()),
+            Some("auto")
+        );
+    }
+
+    #[test]
+    fn test_convert_request_tool_choice_mode_required_maps_to_any() {
+        // Anthropic's equivalent of "the model must call some tool" is
+        // `{"type": "any"}`. The runtime mode is called `Required` to match
+        // OpenAI's vocabulary; the adapter is responsible for the translation.
+        use crate::core::llm::entities::ToolChoiceMode;
+        let client = AnthropicClient::new("test-key".to_string(), None);
+        let anthropic_request =
+            client.convert_request(build_anthropic_request_with_mode(ToolChoiceMode::Required));
+        assert_eq!(
+            anthropic_request
+                .tool_choice
+                .as_ref()
+                .map(|choice| choice.choice_type.as_str()),
+            Some("any")
+        );
+    }
+
+    #[test]
+    fn test_convert_request_tool_choice_mode_none_maps_to_none() {
+        use crate::core::llm::entities::ToolChoiceMode;
+        let client = AnthropicClient::new("test-key".to_string(), None);
+        let anthropic_request =
+            client.convert_request(build_anthropic_request_with_mode(ToolChoiceMode::None));
+        // Tools stay in the request so the prompt-prefix cache can stay warm;
+        // only the choice_type field forbids calling them.
+        assert!(anthropic_request.tools.is_some());
+        assert_eq!(
+            anthropic_request
+                .tool_choice
+                .as_ref()
+                .map(|choice| choice.choice_type.as_str()),
+            Some("none")
+        );
+    }
+
+    #[test]
+    fn test_convert_request_without_tools_omits_tool_choice_regardless_of_mode() {
+        use crate::core::llm::entities::ToolChoiceMode;
+        let client = AnthropicClient::new("test-key".to_string(), None);
+        let request = ChatRequest::new(
+            "claude-3-5-sonnet-20241022",
+            vec![Message::user("summarize")],
+        )
+        .with_tool_choice(ToolChoiceMode::None);
+        let anthropic_request = client.convert_request(request);
+        assert!(anthropic_request.tools.is_none());
         assert!(anthropic_request.tool_choice.is_none());
     }
 

@@ -15,13 +15,21 @@ use super::utils::{
     agent_temperature, truncate_text, LLM_MAX_OUTPUT_TOKENS, LLM_MAX_RETRIES, LLM_RETRY_BASE_MS,
 };
 use crate::core::agent::execution::{ExecutionPhase, LlmTracePayload, RuntimeTraceType};
-use crate::core::llm::entities::ChatRequest;
+use crate::core::llm::entities::{ChatRequest, ToolChoiceMode};
 use crate::infrastructure::agent::runtime::client::LlmRetryConfig;
 use crate::infrastructure::agent::runtime::context::estimate_context_tokens;
 use crate::infrastructure::agent::runtime::request_shape::{
     message_prefix_hash, system_prompt_hash, tool_catalog_hash,
 };
 use crate::infrastructure::agent::runtime::{chat_with_retry, AgentRuntimeError};
+
+fn tool_choice_label(mode: ToolChoiceMode) -> String {
+    match mode {
+        ToolChoiceMode::Auto => "auto".to_string(),
+        ToolChoiceMode::Required => "required".to_string(),
+        ToolChoiceMode::None => "none".to_string(),
+    }
+}
 
 /// Makes a call to the LLM with the resolved context.
 ///
@@ -76,6 +84,7 @@ pub async fn call_llm(
         tool_count: resolved.tool_definitions.len(),
         system_prompt_hash: system_prompt_hash(&resolved.system_prompt),
         tool_catalog_hash: tool_catalog_hash(&resolved.tool_definitions),
+        tool_choice_mode: tool_choice_label(chat_request.tool_choice),
         message_prefix_hash: message_prefix_hash(&chat_request.messages),
         system_prompt: truncate_text(&resolved.system_prompt, 12000),
         request_messages: chat_request
@@ -166,6 +175,7 @@ pub async fn call_llm(
         tool_count: resolved.tool_definitions.len(),
         system_prompt_hash: system_prompt_hash(&resolved.system_prompt),
         tool_catalog_hash: tool_catalog_hash(&resolved.tool_definitions),
+        tool_choice_mode: tool_choice_label(chat_request.tool_choice),
         message_prefix_hash: message_prefix_hash(&chat_request.messages),
         system_prompt: truncate_text(&resolved.system_prompt, 12000),
         request_messages: chat_request
