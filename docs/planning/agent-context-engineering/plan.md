@@ -511,6 +511,11 @@ Implement the work in small reviewable slices. Do not combine unrelated refactor
   - M4.3
   - before/after workflow measurements
   - implementation notes tying measured behavior back to the Manus and Anthropic design inputs
+- Delivered:
+  - harness event mapping extracted into `src-ui/src/lib/stores/agent/events/harnessEvents.ts` — keeps sessionEvents.ts as the pure session-state mapping layer (FWA.4 guardrail)
+  - dedicated store-event tests in `src-ui/src/lib/stores/agent/events/harnessEvents.test.ts` covering recovery (session_paused), startup verification (running/failed/cleanExit), and handoff updates
+  - measurement contract in [measurement-harness.md](./measurement-harness.md) — defines the five M4.3 signals, sources today vs. blocked-on-upstream, manual-run checklist, append-only recorded-measurement log, and the tie back to Manus / Anthropic design inputs
+  - Slice 10 itself does not change backend runtime behavior; the first non-"not applicable" measurement will come with the next slice that moves runtime signals (expected M1.2 or M4.1)
 
 ### Slice sequencing rules
 

@@ -6,6 +6,7 @@
 import type { AgentEvent } from '$lib/types/agent';
 import type { AgentState } from '../state';
 import * as SessionEvents from './sessionEvents';
+import * as HarnessEvents from './harnessEvents';
 import * as ToolEvents from './toolEvents';
 import * as TerminalEvents from './terminalEvents';
 import * as TaskEvents from './taskEvents';
@@ -26,7 +27,7 @@ export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentSta
 			SessionEvents.handleSessionStateChanged(state, event);
 			break;
 		case 'harness_state_updated':
-			SessionEvents.handleHarnessStateUpdated(state, event);
+			HarnessEvents.handleHarnessStateUpdated(state, event);
 			break;
 		case 'approval_required':
 			SessionEvents.handleApprovalRequired(state, event);
@@ -101,13 +102,13 @@ export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentSta
 			SessionEvents.handleArtifactCreated(state, event);
 			break;
 		case 'session_paused':
-			SessionEvents.handleSessionPaused(state, event);
+			HarnessEvents.handleSessionPaused(state, event);
 			break;
 		case 'recovery_continue':
-			SessionEvents.handleRecoveryContinue(state, event);
+			HarnessEvents.handleRecoveryContinue(state, event);
 			break;
 		case 'recovery_replan':
-			SessionEvents.handleRecoveryReplan(state, event);
+			HarnessEvents.handleRecoveryReplan(state, event);
 			break;
 	}
 
