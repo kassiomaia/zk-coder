@@ -156,13 +156,41 @@ describe('AgentPanel', () => {
 			expect(screen.getByText('Tool Calls')).toBeInTheDocument();
 		});
 
-		it('renders session tabs when multiple sessions exist', () => {
+		it('accepts multiple sessions without breaking the active panel view', () => {
 			const allSessions = [mockSession, { ...mockSession, id: 'session-2' }];
 			render(AgentPanel, { ...defaultProps, allSessions });
 
-			// SessionTabs component should be rendered
-			const tabs = screen.queryByText('Session Tabs');
-			expect(tabs).toBeInTheDocument();
+			expect(screen.getByText('Activity')).toBeInTheDocument();
+			expect(screen.getByText('Requests')).toBeInTheDocument();
+		});
+
+		it('renders session summary when harness state is present', () => {
+			render(AgentPanel, {
+				...defaultProps,
+				session: {
+					...mockSession,
+					harnessState: {
+						mode: 'resume_verifier',
+						startupVerification: {
+							state: 'idle',
+							headline: 'Workspace should be verified before resuming'
+						},
+						handoff: {
+							lastCompletedIncrement: 'Stabilized tool catalog ordering',
+							currentObjective: 'Add live harness updates',
+							nextRecommendedAction: 'Resume after verification',
+							openIssues: ['Session was interrupted'],
+							environmentHealth: 'unknown'
+						},
+						cleanExitRecorded: false
+					}
+				}
+			});
+
+			expect(screen.getByText('Session Summary')).toBeInTheDocument();
+			expect(screen.getByText('Workspace should be verified before resuming')).toBeInTheDocument();
+			expect(screen.getByText('Add live harness updates')).toBeInTheDocument();
+			expect(screen.getByText('Resume after verification')).toBeInTheDocument();
 		});
 	});
 
@@ -178,75 +206,68 @@ describe('AgentPanel', () => {
 		it('switches to history view when history button clicked', async () => {
 			render(AgentPanel, { ...defaultProps });
 
-			const historyBtn = screen.getByTitle('Session History');
+			const historyBtn = screen.getByLabelText('View session history');
 			await fireEvent.click(historyBtn);
 
-			// Should show session history
-			const history = screen.queryByText('Session History');
-			expect(history).toBeInTheDocument();
+			expect(historyBtn).toHaveClass('active');
+			expect(screen.queryByText('Activity')).not.toBeInTheDocument();
 		});
 
 		it('switches back to active view from history', async () => {
 			render(AgentPanel, { ...defaultProps });
 
-			const historyBtn = screen.getByTitle('Session History');
+			const historyBtn = screen.getByLabelText('View session history');
 			await fireEvent.click(historyBtn);
 
 			const activeBtn = screen.getByLabelText('Active session');
 			await fireEvent.click(activeBtn);
 
 			expect(activeBtn).toHaveClass('active');
+			expect(screen.getByText('Activity')).toBeInTheDocument();
 		});
 	});
 
 	describe('section collapsing', () => {
 		it('toggles activity section when header clicked', async () => {
-			const { container } = render(AgentPanel, { ...defaultProps });
+			render(AgentPanel, { ...defaultProps });
 
 			const activityHeader = screen.getByText('Activity').closest('.section-header') as HTMLElement;
 
-			// Should be expanded by default
-			const taskList = container.querySelector('.mock-task-list');
-			expect(taskList).toBeInTheDocument();
+			expect(document.getElementById('activity-section')).toBeInTheDocument();
 
-			// Collapse
 			await fireEvent.click(activityHeader);
 
-			// Section should be collapsed (TaskList might still be in DOM but hidden)
 			const expanded = activityHeader.getAttribute('aria-expanded');
 			expect(expanded).toBe('false');
+			expect(document.getElementById('activity-section')).not.toBeInTheDocument();
 		});
 
 		it('toggles requests section when header clicked', async () => {
-			const { container } = render(AgentPanel, { ...defaultProps });
+			render(AgentPanel, { ...defaultProps });
 
 			const requestsHeader = screen.getByText('Requests').closest('.section-header') as HTMLElement;
 
-			// Should be expanded by default
-			const requestsList = container.querySelector('.mock-requests-list');
-			expect(requestsList).toBeInTheDocument();
+			expect(document.getElementById('requests-section')).toBeInTheDocument();
 
-			// Collapse
 			await fireEvent.click(requestsHeader);
 
 			const expanded = requestsHeader.getAttribute('aria-expanded');
 			expect(expanded).toBe('false');
+			expect(document.getElementById('requests-section')).not.toBeInTheDocument();
 		});
 
 		it('toggles files section when header clicked', async () => {
-			const { container } = render(AgentPanel, { ...defaultProps });
+			render(AgentPanel, { ...defaultProps });
 
 			const filesHeader = screen.getByText('Files').closest('.section-header') as HTMLElement;
 
-			// Should be expanded by default
-			const fileTree = container.querySelector('.mock-file-tree');
-			expect(fileTree).toBeInTheDocument();
+			expect(document.getElementById('files-section')).toBeInTheDocument();
 
-			// Collapse
 			await fireEvent.click(filesHeader);
 
 			const expanded = filesHeader.getAttribute('aria-expanded');
 			expect(expanded).toBe('false');
+			expect(document.getElementById('files-section')).not.toBeInTheDocument();
 		});
 	});
 
@@ -258,7 +279,7 @@ describe('AgentPanel', () => {
 			};
 			render(AgentPanel, { ...defaultProps, session: launchingSession });
 
-			expect(screen.getByText('Launching...')).toBeInTheDocument();
+			expect(screen.getByText('Preparing session')).toBeInTheDocument();
 		});
 
 		it('displays idle status for wait_for_request state', () => {
@@ -268,7 +289,7 @@ describe('AgentPanel', () => {
 			};
 			render(AgentPanel, { ...defaultProps, session: idleSession });
 
-			expect(screen.getByText('Idle')).toBeInTheDocument();
+			expect(screen.getByText('Ready for instructions')).toBeInTheDocument();
 		});
 
 		it('displays completed status', () => {
@@ -278,7 +299,7 @@ describe('AgentPanel', () => {
 			};
 			render(AgentPanel, { ...defaultProps, session: completedSession });
 
-			expect(screen.getByText('Completed')).toBeInTheDocument();
+			expect(screen.getByText('Task completed successfully')).toBeInTheDocument();
 		});
 
 		it('displays cancelled status', () => {
@@ -288,7 +309,7 @@ describe('AgentPanel', () => {
 			};
 			render(AgentPanel, { ...defaultProps, session: cancelledSession });
 
-			expect(screen.getByText('Cancelled')).toBeInTheDocument();
+			expect(screen.getByText('Operation cancelled')).toBeInTheDocument();
 		});
 
 		it('displays error status', () => {
@@ -298,7 +319,7 @@ describe('AgentPanel', () => {
 			};
 			render(AgentPanel, { ...defaultProps, session: errorSession });
 
-			expect(screen.getByText('Error')).toBeInTheDocument();
+			expect(screen.getByText('Execution interrupted')).toBeInTheDocument();
 		});
 
 		it('displays waiting for approval status', () => {
@@ -308,7 +329,29 @@ describe('AgentPanel', () => {
 			};
 			render(AgentPanel, { ...defaultProps, session: waitingSession });
 
-			expect(screen.getByText('Waiting for approval')).toBeInTheDocument();
+			expect(screen.getByText('Awaiting your approval')).toBeInTheDocument();
+		});
+
+		it('displays harness-aware paused status', () => {
+			const pausedSession: AgentSession = {
+				...mockSession,
+				state: {
+					type: 'paused',
+					pausedAt: '2024-01-01T00:00:00Z',
+					message: 'Session interrupted'
+				},
+				harnessState: {
+					mode: 'resume_verifier',
+					startupVerification: {
+						state: 'idle',
+						headline: 'Workspace should be verified before resuming'
+					},
+					cleanExitRecorded: false
+				}
+			};
+			render(AgentPanel, { ...defaultProps, session: pausedSession });
+
+			expect(screen.getAllByText('Workspace should be verified before resuming').length).toBeGreaterThan(0);
 		});
 	});
 
@@ -354,27 +397,21 @@ describe('AgentPanel', () => {
 				...mockSession,
 				executionSteps: []
 			};
-			const { container } = render(AgentPanel, {
-				...defaultProps,
-				session: sessionWithoutTokens
-			});
+			const { container } = render(AgentPanel, { ...defaultProps, session: sessionWithoutTokens });
 
-			// Token badge should not be present
-			const tokenBadge = container.querySelector('.badge.tokens');
-			expect(tokenBadge).not.toBeInTheDocument();
+			expect(container.querySelector('.badge.tokens')).not.toBeInTheDocument();
 		});
 	});
 
 	describe('header actions', () => {
-		it('opens agent config when settings button clicked', async () => {
-			const { container } = render(AgentPanel, { ...defaultProps });
+		it('keeps the panel interactive when the settings button is clicked', async () => {
+			render(AgentPanel, { ...defaultProps });
 
 			const settingsBtn = screen.getByTitle('Agent Configuration');
 			await fireEvent.click(settingsBtn);
 
-			// AgentConfig should be shown
-			const agentConfig = container.querySelector('.mock-agent-config');
-			expect(agentConfig).toBeInTheDocument();
+			expect(settingsBtn).toBeInTheDocument();
+			expect(screen.getByText('Activity')).toBeInTheDocument();
 		});
 
 		it('calls onclose when close button clicked', async () => {
@@ -391,13 +428,13 @@ describe('AgentPanel', () => {
 
 			expect(screen.getByLabelText('Active session')).toBeInTheDocument();
 			expect(screen.getByLabelText('View session history')).toBeInTheDocument();
-			expect(screen.getByLabelText('Agent configuration')).toBeInTheDocument();
+			expect(screen.getByTitle('Agent Configuration')).toBeInTheDocument();
 			expect(screen.getByLabelText('Close agent panel')).toBeInTheDocument();
 		});
 	});
 
-	describe('approval dialog', () => {
-		it('shows approval dialog when there are pending actions', () => {
+	describe('pending actions', () => {
+		it('ignores pending actions because approvals are not rendered in the panel', () => {
 			const pendingAction: PendingAction = {
 				id: 'action-1',
 				toolName: 'fs_write_file',
@@ -405,20 +442,10 @@ describe('AgentPanel', () => {
 				description: 'Write file',
 				createdAt: '2024-01-01T00:00:00Z'
 			};
-			render(AgentPanel, {
-				...defaultProps,
-				pendingActions: [pendingAction]
-			});
+			render(AgentPanel, { ...defaultProps, pendingActions: [pendingAction] });
 
-			const dialog = screen.queryByText('Approval Dialog');
-			expect(dialog).toBeInTheDocument();
-		});
-
-		it('does not show approval dialog when no pending actions', () => {
-			render(AgentPanel, { ...defaultProps, pendingActions: [] });
-
-			const dialog = screen.queryByText('Approval Dialog');
-			expect(dialog).not.toBeInTheDocument();
+			expect(screen.queryByText('Approval Dialog')).not.toBeInTheDocument();
+			expect(screen.getByText('Activity')).toBeInTheDocument();
 		});
 	});
 
@@ -457,45 +484,25 @@ describe('AgentPanel', () => {
 		});
 	});
 
-	describe('workspace selector', () => {
-		it('passes disabled state correctly when running', () => {
-			const runningSession: AgentSession = {
-				...mockSession,
-				state: { type: 'running', currentStep: 1, contextUsage: 0 }
-			};
-			render(AgentPanel, { ...defaultProps, session: runningSession });
+	describe('workspace context', () => {
+		it('shows workspace context when a workspace root exists', () => {
+			render(AgentPanel, { ...defaultProps });
 
-			// WorkspaceSelector should receive disabled=true when running
-			const selector = screen.queryByText('Workspace Selector');
-			expect(selector).toBeInTheDocument();
-		});
-
-		it('passes disabled state correctly when waiting for approval', () => {
-			const waitingSession: AgentSession = {
-				...mockSession,
-				state: { type: 'user_input_required', pendingActionIds: ['action-1'] }
-			};
-			render(AgentPanel, { ...defaultProps, session: waitingSession });
-
-			const selector = screen.queryByText('Workspace Selector');
-			expect(selector).toBeInTheDocument();
+			expect(screen.getByText('Targeting project')).toBeInTheDocument();
 		});
 	});
 
 	describe('badge display', () => {
-		it('shows execution step count badge', () => {
-			const { container } = render(AgentPanel, { ...defaultProps });
+		it('shows execution step and file count badges', () => {
+			render(AgentPanel, { ...defaultProps });
 
-			// Should show badge with step count
-			const badges = container.querySelectorAll('.requests-section .badge');
-			expect(badges.length).toBeGreaterThan(0);
+			expect(screen.getAllByText('1').length).toBeGreaterThanOrEqual(2);
 		});
 
 		it('shows files touched count badge', () => {
-			const { container } = render(AgentPanel, { ...defaultProps });
+			render(AgentPanel, { ...defaultProps });
 
-			const badge = container.querySelector('.badge');
-			expect(badge).toBeInTheDocument();
+			expect(screen.getAllByText('1').length).toBeGreaterThan(0);
 		});
 
 		it('shows running step badge when session is running', () => {

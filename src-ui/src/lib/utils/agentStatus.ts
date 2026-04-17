@@ -3,7 +3,13 @@
  * Convert agent events and state into user-friendly status messages.
  */
 
-import type { AgentEvent, ExecutionStep, SessionState, SubTask } from '$lib/types/agent';
+import type {
+	AgentEvent,
+	AgentSessionHarnessState,
+	ExecutionStep,
+	SessionState,
+	SubTask
+} from '$lib/types/agent';
 
 /** Current agent status with icon hint */
 export interface AgentStatus {
@@ -66,6 +72,48 @@ export function stateToStatus(state: SessionState): AgentStatus {
 		case 'error':
 			return { text: 'Something went wrong', icon: 'check', active: false };
 	}
+}
+
+function harnessToStatus(
+	state: SessionState | null,
+	harnessState: AgentSessionHarnessState | undefined
+): AgentStatus | null {
+	if (!harnessState) return null;
+
+	const verification = harnessState.startupVerification;
+	if (verification?.state === 'running') {
+		return {
+			text: verification.headline || 'Verifying workspace...',
+			icon: 'scan',
+			active: true
+		};
+	}
+
+	if (verification?.state === 'failed') {
+		return {
+			text: verification.headline || 'Verification failed',
+			icon: 'wait',
+			active: false
+		};
+	}
+
+	if (state?.type === 'paused' && harnessState.mode === 'resume_verifier') {
+		return {
+			text: verification?.headline || 'Ready to verify and resume',
+			icon: 'wait',
+			active: false
+		};
+	}
+
+	if (state?.type === 'finished' && harnessState.cleanExitRecorded) {
+		return {
+			text: 'Progress saved for handoff',
+			icon: 'check',
+			active: false
+		};
+	}
+
+	return null;
 }
 
 /**
@@ -169,7 +217,8 @@ export function getAgentStatus(
 	hasPendingApproval: boolean,
 	statusPhrases?: string[],
 	contextUsage?: number,
-	lastActivityAt?: Date | null
+	lastActivityAt?: Date | null,
+	harnessState?: AgentSessionHarnessState
 ): AgentStatus {
 	// Extract context usage from state if not provided
 	const usage = contextUsage ?? (state?.type === 'running' ? state.contextUsage : 0);
@@ -205,6 +254,18 @@ export function getAgentStatus(
 	// Approval pending takes priority
 	if (hasPendingApproval) {
 		return WAITING_STATUS;
+	}
+
+	const harnessStatus = harnessToStatus(state, harnessState);
+	if (harnessStatus) {
+		if (usage > 50 && harnessStatus.active) {
+			return addStallInfo({
+				...harnessStatus,
+				text: `${harnessStatus.text} (${Math.round(usage)}%)`,
+				contextUsage: usage
+			});
+		}
+		return addStallInfo(harnessStatus);
 	}
 
 	// Once the session is no longer actively running, ignore stale execution steps and phrases.

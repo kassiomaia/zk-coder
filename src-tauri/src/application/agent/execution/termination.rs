@@ -5,6 +5,7 @@ use serde_json::json;
 use tauri::Emitter;
 
 use super::deps::ExecutionDeps;
+use super::harness_events::emit_harness_state_updated;
 use super::message_ids::{streaming_message_id, StreamingMessageIdInput, StreamingPhase};
 use super::state::ExecutionContext;
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
@@ -34,6 +35,8 @@ pub fn update_session_state(
             state,
         },
     );
+
+    let _ = emit_harness_state_updated(deps, session_id);
 
     Ok(())
 }

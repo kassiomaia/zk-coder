@@ -164,7 +164,22 @@ describe('agentStore', () => {
 					}
 				],
 				executionSteps: [],
-				statusPhrases: []
+				statusPhrases: [],
+				harnessState: {
+					mode: 'worker',
+					startupVerification: {
+						state: 'passed',
+						headline: 'Workspace check passed'
+					},
+					handoff: {
+						lastCompletedIncrement: 'Stabilized tool catalog ordering',
+						currentObjective: 'Add typed harness state',
+						nextRecommendedAction: 'Update store mapping',
+						openIssues: [],
+						environmentHealth: 'healthy'
+					},
+					cleanExitRecorded: false
+				}
 			});
 
 			const result = await agentStore.loadSession('session-1');
@@ -177,6 +192,10 @@ describe('agentStore', () => {
 				tool: 'fs_write_file',
 				durationMs: 42,
 				timestamp: '2024-01-01T00:01:00Z'
+			});
+			expect(result?.harnessState).toMatchObject({
+				mode: 'worker',
+				cleanExitRecorded: false
 			});
 		});
 
@@ -198,6 +217,69 @@ describe('agentStore', () => {
 
 			expect(result?.id).toBe('session-1');
 			expect(mockInvoke).not.toHaveBeenCalled();
+		});
+
+		it('loadSession accepts sessions without harnessState', async () => {
+			mockInvoke.mockResolvedValue({
+				...mockSession,
+				filesTouched: [],
+				terminalOutput: [],
+				tasks: [],
+				toolCalls: [],
+				executionSteps: [],
+				statusPhrases: []
+			});
+
+			const result = await agentStore.loadSession('session-1');
+
+			expect(result?.harnessState).toBeUndefined();
+		});
+
+		it('updates session harnessState when harness_state_updated event is received', async () => {
+			const unlisten = vi.fn();
+			mockListen.mockResolvedValue(unlisten);
+			mockInvoke.mockResolvedValue(0);
+			await agentStore.initialize();
+
+			mockInvoke.mockClear();
+			mockInvoke.mockResolvedValue({
+				...mockSession,
+				filesTouched: [],
+				terminalOutput: [],
+				tasks: [],
+				toolCalls: [],
+				executionSteps: [],
+				statusPhrases: []
+			});
+			await agentStore.loadSession('session-1');
+
+			const eventHandler = mockListen.mock.calls[0]?.[1];
+			expect(eventHandler).toBeTypeOf('function');
+
+			eventHandler({
+				payload: {
+					type: 'harness_state_updated',
+					sessionId: 'session-1',
+					harnessState: {
+						mode: 'resume_verifier',
+						startupVerification: {
+							state: 'running',
+							headline: 'Checking workspace state'
+						},
+						cleanExitRecorded: false
+					}
+				}
+			});
+
+			const state = get(agentStore);
+			expect(state.sessions.get('session-1')?.harnessState).toMatchObject({
+				mode: 'resume_verifier',
+				startupVerification: {
+					state: 'running',
+					headline: 'Checking workspace state'
+				},
+				cleanExitRecorded: false
+			});
 		});
 
 		it('loadSession fetches from backend if not loaded', async () => {

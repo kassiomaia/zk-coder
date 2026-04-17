@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::application::agent::read_models::AgentSessionHarnessState;
 use crate::application::agent::service::planner::SubtaskPlan as SubTaskPlan;
 use crate::core::agent::session::{PendingAction, SessionState};
 use crate::core::agent::task::{
@@ -65,6 +66,16 @@ pub enum AgentEvent {
         /// The session ID.
         #[serde(rename = "sessionId")]
         session_id: String,
+    },
+
+    /// Session-facing long-running harness state changed.
+    HarnessStateUpdated {
+        /// The session ID.
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        /// Current harness state snapshot for the session.
+        #[serde(rename = "harnessState")]
+        harness_state: AgentSessionHarnessState,
     },
 
     /// Agent started executing a request.

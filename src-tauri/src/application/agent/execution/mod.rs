@@ -8,6 +8,7 @@ pub mod bootstrap;
 pub mod context_phase;
 pub mod coordinator;
 pub mod deps;
+pub mod harness_events;
 pub mod llm_phase;
 pub mod message_ids;
 pub mod response_phase;

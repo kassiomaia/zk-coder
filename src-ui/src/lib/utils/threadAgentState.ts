@@ -55,7 +55,8 @@ export function getThreadAgentState(
 		hasPendingApproval,
 		session.statusPhrases,
 		contextUsage,
-		lastActivityAt
+		lastActivityAt,
+		session.harnessState
 	);
 
 	return {

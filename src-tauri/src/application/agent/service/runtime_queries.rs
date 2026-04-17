@@ -2,8 +2,9 @@ use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
 use crate::application::agent::read_models::{
-    AgentCatalog, AgentExecutionContext, AgentExecutionDebugDetails, AgentSessionRuntimeDetails,
-    FileTouchedView, PendingActionsView, TerminalLineView, ToolCallView,
+    derive_harness_state, AgentCatalog, AgentExecutionContext, AgentExecutionDebugDetails,
+    AgentSessionRuntimeDetails, FileTouchedView, PendingActionsView, TerminalLineView,
+    ToolCallView,
 };
 use crate::core::agent::errors::AgentDomainError;
 use crate::core::agent::repositories::RepositoryResult;
@@ -174,9 +175,10 @@ impl AgentServiceImpl {
                 task.subtasks = Some(subtasks);
                 task
             })
-            .collect();
+            .collect::<Vec<_>>();
 
         Ok(AgentSessionRuntimeDetails {
+            harness_state: Some(derive_harness_state(&session, &tasks)),
             session,
             files_touched: self
                 .telemetry_repo
@@ -300,6 +302,7 @@ mod tests {
 
     use super::*;
     use crate::application::ChatServiceImpl;
+    use crate::application::agent::read_models::{HarnessMode, StartupVerificationState};
     use crate::core::agent::services::{AgentService, CreateSessionRequest};
     use crate::core::chat::services::ChatService;
     use crate::infrastructure::agent::approval::ApprovalQueue;
@@ -407,5 +410,58 @@ mod tests {
         );
         assert_eq!(details.tool_calls[0].duration_ms, Some(17));
         assert!(!details.tool_calls[0].timestamp.is_empty());
+        assert!(details.harness_state.is_some());
+        assert_eq!(
+            details.harness_state.as_ref().map(|state| &state.mode),
+            Some(&HarnessMode::Worker)
+        );
+    }
+
+    #[test]
+    fn load_session_runtime_details_derives_resume_verifier_state_for_paused_sessions() {
+        let service = create_test_service();
+        let mut session = service
+            .create_session(CreateSessionRequest {
+                agent_id: "code-agent".to_string(),
+                conversation_id: "conv-paused".to_string(),
+                thread_id: "thread-paused".to_string(),
+                workspace_root: Some("/workspace".to_string()),
+                model_id: None,
+            })
+            .expect("failed to create session");
+
+        session
+            .set_state(SessionState::Paused {
+                paused_at: chrono::Utc::now(),
+                message: "Interrupted while updating status handling".to_string(),
+                current_subtask_id: None,
+            })
+            .expect("paused transition should be valid");
+
+        service
+            .session_repo
+            .update_state(&session.id, &session.state)
+            .expect("failed to persist paused session state");
+
+        let details = service
+            .load_session_runtime_details(&session.id.0)
+            .expect("failed to load paused session details");
+
+        let harness_state = details.harness_state.expect("harness state should exist");
+        assert_eq!(harness_state.mode, HarnessMode::ResumeVerifier);
+        assert_eq!(
+            harness_state
+                .startup_verification
+                .as_ref()
+                .map(|summary| &summary.state),
+            Some(&StartupVerificationState::Idle)
+        );
+        assert_eq!(
+            harness_state
+                .handoff
+                .as_ref()
+                .map(|handoff| handoff.next_recommended_action.as_str()),
+            Some("Verify workspace state, then resume or replan")
+        );
     }
 }

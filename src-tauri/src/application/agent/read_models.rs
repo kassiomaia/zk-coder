@@ -8,8 +8,205 @@ use serde::Serialize;
 
 use crate::core::agent::execution::{ExecutionSnapshot, RuntimeTrace};
 use crate::core::agent::session::{AgentSession, PendingAction};
-use crate::core::agent::task::AgentTask;
+use crate::core::agent::session::SessionState;
+use crate::core::agent::task::{AgentTask, SubTask, TaskStatus};
 use crate::core::agent::types::Agent;
+
+/// Long-running harness role for a session.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum HarnessMode {
+    /// Session is bootstrapping and preparing an execution context.
+    Initializer,
+    /// Session is performing normal work within an active or completed run.
+    Worker,
+    /// Session is orienting itself for a resumed run after interruption or pause.
+    ResumeVerifier,
+}
+
+/// Environment health summary for session handoff.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum EnvironmentHealth {
+    /// No health assessment has been recorded yet.
+    Unknown,
+    /// Environment is healthy for continued work.
+    Healthy,
+    /// Environment is usable but needs attention.
+    Degraded,
+    /// Environment is blocked and should not resume unchanged.
+    Blocked,
+}
+
+/// Startup verification lifecycle summary.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StartupVerificationState {
+    /// No verification has run yet.
+    Idle,
+    /// Verification is currently in progress.
+    Running,
+    /// Verification completed successfully.
+    Passed,
+    /// Verification completed with a blocking or notable failure.
+    Failed,
+}
+
+/// Session-facing summary of startup verification.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupVerificationSummary {
+    /// Current verification state.
+    pub state: StartupVerificationState,
+    /// Short user-facing headline.
+    pub headline: String,
+    /// Optional detail lines explaining the result.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<Vec<String>>,
+    /// Timestamp of the latest completed check.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checked_at: Option<String>,
+}
+
+/// Session-facing handoff summary for long-running work.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionHandoffSummary {
+    /// Most recent completed unit of work.
+    pub last_completed_increment: String,
+    /// Current durable objective.
+    pub current_objective: String,
+    /// Recommended next action when resuming.
+    pub next_recommended_action: String,
+    /// Open issues or blockers.
+    pub open_issues: Vec<String>,
+    /// Health of the environment at handoff time.
+    pub environment_health: EnvironmentHealth,
+    /// Timestamp when the handoff was recorded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recorded_at: Option<String>,
+}
+
+/// Aggregate long-running harness state exposed to the frontend.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSessionHarnessState {
+    /// Current harness role for the active session window.
+    pub mode: HarnessMode,
+    /// Summary of startup verification if available.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub startup_verification: Option<StartupVerificationSummary>,
+    /// Summary of the latest durable handoff if available.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handoff: Option<SessionHandoffSummary>,
+    /// Whether a clean exit summary has been recorded.
+    pub clean_exit_recorded: bool,
+}
+
+fn most_relevant_subtask(tasks: &[AgentTask]) -> Option<&SubTask> {
+    tasks.iter()
+        .flat_map(|task| task.subtasks.iter().flat_map(|subtasks| subtasks.iter()))
+        .find(|subtask| subtask.status == TaskStatus::InProgress)
+        .or_else(|| {
+            tasks.iter()
+                .flat_map(|task| task.subtasks.iter().flat_map(|subtasks| subtasks.iter()))
+                .filter(|subtask| subtask.status == TaskStatus::Completed)
+                .last()
+        })
+}
+
+fn latest_completed_title(tasks: &[AgentTask]) -> Option<String> {
+    tasks.iter()
+        .flat_map(|task| {
+            task.subtasks
+                .iter()
+                .flat_map(|subtasks| subtasks.iter())
+                .filter(|subtask| subtask.status == TaskStatus::Completed)
+                .map(|subtask| subtask.title.clone())
+        })
+        .last()
+        .or_else(|| {
+            tasks.iter()
+                .rev()
+                .find(|task| task.status == TaskStatus::Completed)
+                .and_then(|task| task.title.clone())
+        })
+}
+
+/// Derive additive long-running harness state from the current session and task snapshot.
+#[must_use]
+pub fn derive_harness_state(
+    session: &AgentSession,
+    tasks: &[AgentTask],
+) -> AgentSessionHarnessState {
+    let mode = match session.state {
+        SessionState::Launching => HarnessMode::Initializer,
+        SessionState::Paused { .. } => HarnessMode::ResumeVerifier,
+        _ => HarnessMode::Worker,
+    };
+
+    let startup_verification = match &session.state {
+        SessionState::Launching => Some(StartupVerificationSummary {
+            state: StartupVerificationState::Running,
+            headline: "Preparing session".to_string(),
+            details: None,
+            checked_at: None,
+        }),
+        SessionState::Paused { paused_at, .. } => Some(StartupVerificationSummary {
+            state: StartupVerificationState::Idle,
+            headline: "Workspace should be verified before resuming".to_string(),
+            details: None,
+            checked_at: Some(paused_at.to_rfc3339()),
+        }),
+        SessionState::Error {
+            message,
+            recoverable: true,
+        } => Some(StartupVerificationSummary {
+            state: StartupVerificationState::Failed,
+            headline: "Session needs verification before resuming".to_string(),
+            details: Some(vec![message.clone()]),
+            checked_at: Some(session.updated_at.to_rfc3339()),
+        }),
+        _ => None,
+    };
+
+    let handoff = match &session.state {
+        SessionState::Paused {
+            paused_at, message, ..
+        } => {
+            let current_subtask = most_relevant_subtask(tasks);
+            Some(SessionHandoffSummary {
+                last_completed_increment: latest_completed_title(tasks)
+                    .unwrap_or_else(|| "No completed increment recorded yet".to_string()),
+                current_objective: current_subtask
+                    .map(|subtask| subtask.title.clone())
+                    .unwrap_or_else(|| message.clone()),
+                next_recommended_action: "Verify workspace state, then resume or replan"
+                    .to_string(),
+                open_issues: vec![message.clone()],
+                environment_health: EnvironmentHealth::Unknown,
+                recorded_at: Some(paused_at.to_rfc3339()),
+            })
+        }
+        SessionState::Finished { completed_at } => Some(SessionHandoffSummary {
+            last_completed_increment: latest_completed_title(tasks)
+                .unwrap_or_else(|| "Latest run completed".to_string()),
+            current_objective: "Awaiting the next request".to_string(),
+            next_recommended_action: "Start the next bounded task".to_string(),
+            open_issues: vec![],
+            environment_health: EnvironmentHealth::Healthy,
+            recorded_at: Some(completed_at.to_rfc3339()),
+        }),
+        _ => None,
+    };
+
+    AgentSessionHarnessState {
+        mode,
+        startup_verification,
+        handoff,
+        clean_exit_recorded: matches!(session.state, SessionState::Finished { .. }),
+    }
+}
 
 /// Rich runtime view of a session for frontend inspection.
 #[derive(Debug, Clone)]
@@ -28,6 +225,8 @@ pub struct AgentSessionRuntimeDetails {
     pub tasks: Vec<AgentTask>,
     /// Tool calls made during the session.
     pub tool_calls: Vec<ToolCallView>,
+    /// Long-running harness session metadata for UI workflow alignment.
+    pub harness_state: Option<AgentSessionHarnessState>,
 }
 
 /// Deep execution debug data used by the development trace window.

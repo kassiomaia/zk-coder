@@ -33,7 +33,8 @@ function mergeSessionDetails(
 		...existingSession,
 		...hydratedSession,
 		streamingMessages: existingSession.streamingMessages ?? hydratedSession.streamingMessages,
-		artifacts: existingSession.artifacts ?? hydratedSession.artifacts
+		artifacts: existingSession.artifacts ?? hydratedSession.artifacts,
+		harnessState: existingSession.harnessState ?? hydratedSession.harnessState
 	};
 }
 

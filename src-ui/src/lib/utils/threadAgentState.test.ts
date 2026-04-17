@@ -98,4 +98,47 @@ describe('getThreadAgentState', () => {
 		expect(idleState.isWorking).toBe(false);
 		expect(idleState.status?.text).toBe('Ready');
 	});
+
+	it('surfaces resume verifier state for paused sessions with harness metadata', () => {
+		const pausedState = getThreadAgentState(thread, [
+			{
+				...session,
+				state: {
+					type: 'paused',
+					pausedAt: '2024-01-01T12:02:00Z',
+					message: 'Interrupted while updating status handling'
+				},
+				harnessState: {
+					mode: 'resume_verifier',
+					startupVerification: {
+						state: 'idle',
+						headline: 'Workspace should be verified before resuming'
+					},
+					cleanExitRecorded: false
+				}
+			}
+		]);
+
+		expect(pausedState.isWorking).toBe(false);
+		expect(pausedState.status?.text).toBe('Workspace should be verified before resuming');
+	});
+
+	it('surfaces startup verification progress before generic running text', () => {
+		const verifyingState = getThreadAgentState(thread, [
+			{
+				...session,
+				harnessState: {
+					mode: 'resume_verifier',
+					startupVerification: {
+						state: 'running',
+						headline: 'Checking workspace state'
+					},
+					cleanExitRecorded: false
+				}
+			}
+		]);
+
+		expect(verifyingState.isWorking).toBe(true);
+		expect(verifyingState.status?.text).toBe('Checking workspace state');
+	});
 });

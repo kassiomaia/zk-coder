@@ -25,6 +25,9 @@ export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentSta
 		case 'session_state_changed':
 			SessionEvents.handleSessionStateChanged(state, event);
 			break;
+		case 'harness_state_updated':
+			SessionEvents.handleHarnessStateUpdated(state, event);
+			break;
 		case 'approval_required':
 			SessionEvents.handleApprovalRequired(state, event);
 			break;

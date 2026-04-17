@@ -28,8 +28,25 @@
 	}: Props = $props();
 
 	let canRetryRecovered = $derived(session.state.type === 'error' && session.state.recoverable);
+	let verificationHeadline = $derived(session.harnessState?.startupVerification?.headline);
 
 	function getStatusLabel(session: AgentSession): string {
+		if (session.harnessState?.startupVerification?.state === 'running') {
+			return verificationHeadline || 'Verifying workspace';
+		}
+
+		if (
+			session.state.type === 'paused' &&
+			session.harnessState?.mode === 'resume_verifier' &&
+			verificationHeadline
+		) {
+			return verificationHeadline;
+		}
+
+		if (session.state.type === 'finished' && session.harnessState?.cleanExitRecorded) {
+			return 'Handoff ready';
+		}
+
 		switch (session.state.type) {
 			case 'launching':
 				return 'Preparing session';

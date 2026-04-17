@@ -24,6 +24,22 @@ export function handleSessionStateChanged(
 }
 
 /**
+ * Handle harness_state_updated event.
+ */
+export function handleHarnessStateUpdated(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'harness_state_updated' }>
+) {
+	const session = state.sessions.get(event.sessionId);
+	if (session) {
+		state.sessions.set(event.sessionId, {
+			...session,
+			harnessState: event.harnessState
+		});
+	}
+}
+
+/**
  * Handle execution_started event.
  */
 export function handleExecutionStarted(

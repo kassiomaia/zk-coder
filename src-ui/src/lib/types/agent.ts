@@ -48,6 +48,41 @@ export interface ArtifactReference {
 	createdAt: string;
 }
 
+/** Long-running harness role for a session window. */
+export type HarnessMode = 'initializer' | 'worker' | 'resume_verifier';
+
+/** Startup verification lifecycle state. */
+export type StartupVerificationState = 'idle' | 'running' | 'passed' | 'failed';
+
+/** Environment health summary for session handoff. */
+export type EnvironmentHealth = 'unknown' | 'healthy' | 'degraded' | 'blocked';
+
+/** Session-facing startup verification summary. */
+export interface StartupVerificationSummary {
+	state: StartupVerificationState;
+	headline: string;
+	details?: string[];
+	checkedAt?: string;
+}
+
+/** Session-facing handoff summary for long-running work. */
+export interface SessionHandoffSummary {
+	lastCompletedIncrement: string;
+	currentObjective: string;
+	nextRecommendedAction: string;
+	openIssues: string[];
+	environmentHealth: EnvironmentHealth;
+	recordedAt?: string;
+}
+
+/** Additive harness metadata grouped beside coarse session lifecycle state. */
+export interface AgentSessionHarnessState {
+	mode: HarnessMode;
+	startupVerification?: StartupVerificationSummary;
+	handoff?: SessionHandoffSummary;
+	cleanExitRecorded: boolean;
+}
+
 /**
  * Agent session (runtime instance)
  */
@@ -68,6 +103,7 @@ export interface AgentSession {
 	statusPhrases?: string[]; // Accumulated status phrases for rotation
 	streamingMessages?: Record<string, string>; // Accumulated content for active streaming assistant messages
 	artifacts?: ArtifactReference[]; // Artifacts created during this session
+	harnessState?: AgentSessionHarnessState; // Long-running harness metadata
 	createdAt: string;
 	updatedAt: string;
 }
@@ -310,6 +346,7 @@ export interface ActionPreview {
 export type AgentEvent =
 	| { type: 'session_created'; sessionId: string; agentId: string }
 	| { type: 'session_state_changed'; sessionId: string; state: SessionState }
+	| { type: 'harness_state_updated'; sessionId: string; harnessState: AgentSessionHarnessState }
 	| {
 			type: 'session_paused';
 			sessionId: string;
