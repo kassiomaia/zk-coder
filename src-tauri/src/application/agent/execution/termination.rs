@@ -533,6 +533,9 @@ pub async fn complete_execution(
         return Ok((result, true));
     }
 
+    deps.harness_state_store
+        .record_clean_exit(&ctx.session_id, true);
+
     update_session_state(
         deps,
         &SessionId(ctx.session_id.clone()),

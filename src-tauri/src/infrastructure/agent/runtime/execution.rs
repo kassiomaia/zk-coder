@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use tauri::AppHandle;
 
+use crate::application::agent::harness::HarnessStateStore;
 use crate::core::agent::repositories::{
     ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
@@ -39,6 +40,7 @@ pub async fn execute(
     approval_queue: &Arc<ApprovalQueue>,
     tool_registry: &Arc<ToolRegistry>,
     file_snapshot_registry: &Arc<FileSnapshotRegistry>,
+    harness_state_store: &Arc<dyn HarnessStateStore>,
     all_tool_definitions: &[ToolDefinition],
 ) -> Result<AgentExecutionResult, AgentRuntimeError> {
     crate::application::agent::execution::coordinator::execute(
@@ -56,6 +58,7 @@ pub async fn execute(
         approval_queue,
         tool_registry,
         file_snapshot_registry,
+        harness_state_store,
         all_tool_definitions,
     )
     .await

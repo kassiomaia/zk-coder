@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tauri::AppHandle;
 
 use super::tracing::RuntimeTraceService;
+use crate::application::agent::harness::HarnessStateStore;
 use crate::core::agent::repositories::{
     ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
@@ -41,6 +42,8 @@ pub struct ExecutionDeps<'a> {
     pub tool_registry: &'a Arc<ToolRegistry>,
     /// The registry for file snapshots.
     pub file_snapshot_registry: &'a Arc<FileSnapshotRegistry>,
+    /// The durable harness-state store shared with the application service.
+    pub harness_state_store: &'a Arc<dyn HarnessStateStore>,
     /// A slice of all available tool definitions.
     pub all_tool_definitions: &'a [ToolDefinition],
 }

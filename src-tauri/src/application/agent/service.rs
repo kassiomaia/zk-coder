@@ -22,6 +22,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
+use crate::application::agent::harness::HarnessStateStore;
 use crate::core::agent::errors::AgentDomainError;
 use crate::core::agent::repositories::{
     ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
@@ -59,6 +60,7 @@ pub struct AgentServiceImpl {
     trace_repo: Arc<dyn RuntimeTraceRepository>,
     approval_queue: Arc<ApprovalQueue>,
     runtime: Arc<AgentRuntime>,
+    harness_state_store: Arc<dyn HarnessStateStore>,
     file_snapshot_registry: Arc<FileSnapshotRegistry>,
     active_executions: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
     runtime_handle: tokio::runtime::Runtime,
@@ -86,6 +88,7 @@ impl AgentServiceImpl {
             .map_err(|e| format!("Failed to create runtime: {e}"))?;
 
         let file_snapshot_registry = runtime.file_snapshot_registry().clone();
+        let harness_state_store = runtime.harness_state_store().clone();
 
         Ok(Self {
             registry,
@@ -96,6 +99,7 @@ impl AgentServiceImpl {
             trace_repo,
             approval_queue,
             runtime,
+            harness_state_store,
             file_snapshot_registry,
             active_executions: Arc::new(Mutex::new(HashMap::new())),
             runtime_handle,

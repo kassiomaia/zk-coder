@@ -28,7 +28,8 @@ pub fn emit_harness_state_updated(
         })
         .collect::<Vec<_>>();
 
-    let harness_state = derive_harness_state(&session, &tasks);
+    let overrides = deps.harness_state_store.get(&session_id.0);
+    let harness_state = derive_harness_state(&session, &tasks, Some(&overrides));
     let _ = deps.app_handle.emit(
         AGENT_EVENT_NAME,
         AgentEvent::HarnessStateUpdated {

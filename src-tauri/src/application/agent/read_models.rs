@@ -6,6 +6,7 @@
 
 use serde::Serialize;
 
+use crate::application::agent::harness::HarnessStateOverrides;
 use crate::core::agent::execution::{ExecutionSnapshot, RuntimeTrace};
 use crate::core::agent::session::{AgentSession, PendingAction};
 use crate::core::agent::session::SessionState;
@@ -134,18 +135,23 @@ fn latest_completed_title(tasks: &[AgentTask]) -> Option<String> {
 }
 
 /// Derive additive long-running harness state from the current session and task snapshot.
+///
+/// `overrides`, when provided, replaces each corresponding derived field that
+/// it has recorded. Fields the store has not recorded stay at the conservative
+/// derived value, so callers without a store still get the same behavior.
 #[must_use]
 pub fn derive_harness_state(
     session: &AgentSession,
     tasks: &[AgentTask],
+    overrides: Option<&HarnessStateOverrides>,
 ) -> AgentSessionHarnessState {
-    let mode = match session.state {
+    let derived_mode = match session.state {
         SessionState::Launching => HarnessMode::Initializer,
         SessionState::Paused { .. } => HarnessMode::ResumeVerifier,
         _ => HarnessMode::Worker,
     };
 
-    let startup_verification = match &session.state {
+    let derived_startup_verification = match &session.state {
         SessionState::Launching => Some(StartupVerificationSummary {
             state: StartupVerificationState::Running,
             headline: "Preparing session".to_string(),
@@ -170,7 +176,7 @@ pub fn derive_harness_state(
         _ => None,
     };
 
-    let handoff = match &session.state {
+    let derived_handoff = match &session.state {
         SessionState::Paused {
             paused_at, message, ..
         } => {
@@ -200,11 +206,31 @@ pub fn derive_harness_state(
         _ => None,
     };
 
+    let derived_clean_exit = matches!(session.state, SessionState::Finished { .. });
+
+    let (mode, startup_verification, handoff, clean_exit_recorded) = match overrides {
+        Some(values) => (
+            values.mode.clone().unwrap_or(derived_mode),
+            values
+                .startup_verification
+                .clone()
+                .or(derived_startup_verification),
+            values.handoff.clone().or(derived_handoff),
+            values.clean_exit_recorded.unwrap_or(derived_clean_exit),
+        ),
+        None => (
+            derived_mode,
+            derived_startup_verification,
+            derived_handoff,
+            derived_clean_exit,
+        ),
+    };
+
     AgentSessionHarnessState {
         mode,
         startup_verification,
         handoff,
-        clean_exit_recorded: matches!(session.state, SessionState::Finished { .. }),
+        clean_exit_recorded,
     }
 }
 
@@ -313,4 +339,127 @@ pub struct ToolCallView {
     pub subtask_id: Option<String>,
     /// Timestamp when this tool call was recorded.
     pub timestamp: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::application::agent::harness::HarnessStateOverrides;
+    use crate::core::agent::session::{AgentSession, SessionState};
+    use crate::core::agent::types::AgentId;
+    use chrono::Utc;
+
+    fn running_session() -> AgentSession {
+        let mut session = AgentSession::new(
+            AgentId::new("test-agent"),
+            "Test Agent".to_string(),
+            "conv-1".to_string(),
+            "thread-1".to_string(),
+            None,
+            None,
+        );
+        session
+            .set_state(SessionState::Running {
+                current_step: 1,
+                context_usage: 0.0,
+            })
+            .expect("running transition should be valid");
+        session
+    }
+
+    fn finished_session() -> AgentSession {
+        let mut session = running_session();
+        session
+            .set_state(SessionState::Finished {
+                completed_at: Utc::now(),
+            })
+            .expect("finished transition should be valid");
+        session
+    }
+
+    fn sample_startup_verification() -> StartupVerificationSummary {
+        StartupVerificationSummary {
+            state: StartupVerificationState::Passed,
+            headline: "Recorded workspace check".to_string(),
+            details: Some(vec!["cargo check ok".to_string()]),
+            checked_at: Some("2026-04-17T12:00:00Z".to_string()),
+        }
+    }
+
+    fn sample_handoff() -> SessionHandoffSummary {
+        SessionHandoffSummary {
+            last_completed_increment: "Recorded slice landed".to_string(),
+            current_objective: "Expose handoff in session summary".to_string(),
+            next_recommended_action: "Run validation".to_string(),
+            open_issues: vec![],
+            environment_health: EnvironmentHealth::Healthy,
+            recorded_at: Some("2026-04-17T12:05:00Z".to_string()),
+        }
+    }
+
+    #[test]
+    fn derive_without_overrides_produces_derived_defaults_for_running_session() {
+        let session = running_session();
+        let state = derive_harness_state(&session, &[], None);
+        assert_eq!(state.mode, HarnessMode::Worker);
+        assert!(state.startup_verification.is_none());
+        assert!(state.handoff.is_none());
+        assert!(!state.clean_exit_recorded);
+    }
+
+    #[test]
+    fn derive_without_overrides_marks_finished_session_as_clean_exit() {
+        let session = finished_session();
+        let state = derive_harness_state(&session, &[], None);
+        assert!(state.clean_exit_recorded);
+        assert!(state.handoff.is_some());
+    }
+
+    #[test]
+    fn overrides_replace_each_recorded_field() {
+        let session = running_session();
+        let overrides = HarnessStateOverrides {
+            mode: Some(HarnessMode::ResumeVerifier),
+            startup_verification: Some(sample_startup_verification()),
+            handoff: Some(sample_handoff()),
+            clean_exit_recorded: Some(true),
+        };
+        let state = derive_harness_state(&session, &[], Some(&overrides));
+        assert_eq!(state.mode, HarnessMode::ResumeVerifier);
+        assert_eq!(state.startup_verification, Some(sample_startup_verification()));
+        assert_eq!(state.handoff, Some(sample_handoff()));
+        assert!(state.clean_exit_recorded);
+    }
+
+    #[test]
+    fn empty_overrides_preserve_derived_defaults() {
+        let session = finished_session();
+        let overrides = HarnessStateOverrides::default();
+        let state = derive_harness_state(&session, &[], Some(&overrides));
+        assert_eq!(state.mode, HarnessMode::Worker);
+        assert!(state.clean_exit_recorded);
+        assert!(state.handoff.is_some());
+    }
+
+    #[test]
+    fn partial_overrides_keep_unrecorded_fields_at_derived_values() {
+        let session = finished_session();
+        let overrides = HarnessStateOverrides {
+            mode: None,
+            startup_verification: Some(sample_startup_verification()),
+            handoff: None,
+            clean_exit_recorded: None,
+        };
+        let state = derive_harness_state(&session, &[], Some(&overrides));
+        // mode and clean_exit_recorded stay derived.
+        assert_eq!(state.mode, HarnessMode::Worker);
+        assert!(state.clean_exit_recorded);
+        // startup_verification replaced.
+        assert_eq!(state.startup_verification, Some(sample_startup_verification()));
+        // handoff stays at the derived "finished" summary.
+        assert!(
+            state.handoff.is_some(),
+            "handoff should keep the derived finished summary"
+        );
+    }
 }

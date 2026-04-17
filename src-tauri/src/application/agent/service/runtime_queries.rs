@@ -177,8 +177,13 @@ impl AgentServiceImpl {
             })
             .collect::<Vec<_>>();
 
+        let harness_overrides = self.harness_state_store.get(&sid.0);
         Ok(AgentSessionRuntimeDetails {
-            harness_state: Some(derive_harness_state(&session, &tasks)),
+            harness_state: Some(derive_harness_state(
+                &session,
+                &tasks,
+                Some(&harness_overrides),
+            )),
             session,
             files_touched: self
                 .telemetry_repo
@@ -462,6 +467,39 @@ mod tests {
                 .as_ref()
                 .map(|handoff| handoff.next_recommended_action.as_str()),
             Some("Verify workspace state, then resume or replan")
+        );
+    }
+
+    #[test]
+    fn load_session_runtime_details_reflects_recorded_clean_exit_override() {
+        use crate::application::agent::harness::HarnessStateStore;
+
+        let service = create_test_service();
+        let session = service
+            .create_session(CreateSessionRequest {
+                agent_id: "code-agent".to_string(),
+                conversation_id: "conv-clean-exit".to_string(),
+                thread_id: "thread-clean-exit".to_string(),
+                workspace_root: Some("/workspace".to_string()),
+                model_id: None,
+            })
+            .expect("failed to create session");
+
+        // Record the clean-exit marker before the session transitions — the
+        // derived default for a still-running session is `false`, so the
+        // override must visibly flip it to `true`.
+        service
+            .harness_state_store
+            .record_clean_exit(&session.id.0, true);
+
+        let details = service
+            .load_session_runtime_details(&session.id.0)
+            .expect("failed to load session details");
+
+        let harness_state = details.harness_state.expect("harness state should exist");
+        assert!(
+            harness_state.clean_exit_recorded,
+            "override should flip clean_exit_recorded to true"
         );
     }
 }

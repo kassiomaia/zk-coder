@@ -26,6 +26,7 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter};
 
+use crate::application::agent::harness::{HarnessStateStore, InMemoryHarnessStateStore};
 use crate::core::agent::repositories::{
     ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
@@ -71,6 +72,7 @@ pub struct AgentRuntime {
     approval_queue: Arc<ApprovalQueue>,
     tool_registry: Arc<ToolRegistry>,
     file_snapshot_registry: Arc<FileSnapshotRegistry>,
+    harness_state_store: Arc<dyn HarnessStateStore>,
 }
 
 impl AgentRuntime {
@@ -95,12 +97,21 @@ impl AgentRuntime {
             approval_queue,
             tool_registry,
             file_snapshot_registry: Arc::new(FileSnapshotRegistry::new()),
+            harness_state_store: Arc::new(InMemoryHarnessStateStore::new()),
         }
     }
 
     /// Get the file snapshot registry for external access (e.g., Tauri commands).
     pub fn file_snapshot_registry(&self) -> &Arc<FileSnapshotRegistry> {
         &self.file_snapshot_registry
+    }
+
+    /// Get the harness state store for external access.
+    ///
+    /// Shared with the application service so query and execution paths see
+    /// the same authoritative overrides.
+    pub fn harness_state_store(&self) -> &Arc<dyn HarnessStateStore> {
+        &self.harness_state_store
     }
 
     /// Execute an agent request within a session.
@@ -136,6 +147,7 @@ impl AgentRuntime {
             &self.approval_queue,
             &self.tool_registry,
             &self.file_snapshot_registry,
+            &self.harness_state_store,
             &all_tool_definitions,
         )
         .await
