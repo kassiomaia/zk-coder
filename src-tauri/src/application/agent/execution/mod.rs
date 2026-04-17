@@ -27,3 +27,7 @@ mod bootstrap_tests;
 #[cfg(test)]
 #[path = "prompt_stability_tests.rs"]
 mod prompt_stability_tests;
+
+#[cfg(test)]
+#[path = "runtime_enforcement_tests.rs"]
+mod runtime_enforcement_tests;

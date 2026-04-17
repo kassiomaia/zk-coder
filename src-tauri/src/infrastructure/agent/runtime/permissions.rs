@@ -74,12 +74,20 @@ fn emit_persisted_streaming_message(
 }
 
 /// Process tool calls with permission checks, requesting approval as needed.
+///
+/// `allowed_tool_names`, when `Some`, restricts which tool names may actually
+/// be invoked. Calls whose name is not in the list are rejected at runtime with
+/// an error result — the LLM still saw the tool in its catalog (M2.2 stable
+/// session-visible catalog), but the subtask mode or final-summary path
+/// disallows calling it. `None` means no runtime restriction.
+#[allow(clippy::too_many_arguments)]
 pub async fn process_tool_calls_with_permissions(
     tool_calls: &[ToolCall],
     session: &AgentSession,
     task_id: &str,
     permission_resolver: &crate::core::agent::permissions::PermissionResolver,
     yolo_mode_provider: &dyn YoloModeProvider,
+    allowed_tool_names: Option<&[String]>,
     app_handle: &AppHandle,
     approval_queue: &ApprovalQueue,
     tool_registry: &ToolRegistry,
@@ -91,6 +99,9 @@ pub async fn process_tool_calls_with_permissions(
     let mut results = Vec::with_capacity(tool_calls.len());
 
     for call in tool_calls {
+        let disallowed_by_mode = allowed_tool_names
+            .is_some_and(|allowed| !allowed.iter().any(|name| name == &call.name));
+
         let action_type = infer_action_type(&call.name, &call.arguments);
         let mut permission = permission_resolver.check(&call.name, &action_type);
         if yolo_mode_provider.is_yolo_enabled(&session.thread_id)
@@ -142,43 +153,62 @@ pub async fn process_tool_calls_with_permissions(
             },
         );
 
-        let result = match permission {
-            crate::core::agent::types::PermissionLevel::AutoRun => {
-                execute_tool(
-                    call,
-                    session,
-                    task_id,
-                    app_handle,
-                    tool_registry,
-                    file_snapshot_registry,
-                    telemetry_repo,
-                    task_repo,
-                )
-                .await
-            }
-            crate::core::agent::types::PermissionLevel::ApprovalRequired => {
-                execute_with_approval(
-                    call,
-                    session,
-                    task_id,
-                    app_handle,
-                    approval_queue,
-                    tool_registry,
-                    file_snapshot_registry,
-                    session_repo,
-                    telemetry_repo,
-                    task_repo,
-                )
-                .await?
-            }
-            crate::core::agent::types::PermissionLevel::Disabled => OrchestratorToolResult {
+        let result = if disallowed_by_mode {
+            OrchestratorToolResult {
                 call_id: call.id.clone(),
                 name: call.name.clone(),
                 output: serde_json::json!({
-                    "error": "This tool is disabled by the agent's permission policy"
+                    "error": format!(
+                        "Tool '{}' is not permitted under the current subtask mode. \
+                         Call a tool from the allowed set, or call \
+                         `agent_advance_to_next_subtask` to move to a subtask whose \
+                         mode allows this tool.",
+                        call.name
+                    ),
+                    "reason": "subtask_mode_disallowed",
+                    "allowedToolNames": allowed_tool_names.unwrap_or(&[]),
                 }),
                 is_error: true,
-            },
+            }
+        } else {
+            match permission {
+                crate::core::agent::types::PermissionLevel::AutoRun => {
+                    execute_tool(
+                        call,
+                        session,
+                        task_id,
+                        app_handle,
+                        tool_registry,
+                        file_snapshot_registry,
+                        telemetry_repo,
+                        task_repo,
+                    )
+                    .await
+                }
+                crate::core::agent::types::PermissionLevel::ApprovalRequired => {
+                    execute_with_approval(
+                        call,
+                        session,
+                        task_id,
+                        app_handle,
+                        approval_queue,
+                        tool_registry,
+                        file_snapshot_registry,
+                        session_repo,
+                        telemetry_repo,
+                        task_repo,
+                    )
+                    .await?
+                }
+                crate::core::agent::types::PermissionLevel::Disabled => OrchestratorToolResult {
+                    call_id: call.id.clone(),
+                    name: call.name.clone(),
+                    output: serde_json::json!({
+                        "error": "This tool is disabled by the agent's permission policy"
+                    }),
+                    is_error: true,
+                },
+            }
         };
 
         // Persist result and emit tool result event

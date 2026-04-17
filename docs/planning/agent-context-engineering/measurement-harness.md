@@ -175,19 +175,28 @@ Allowed causes of drift:
 - **Session-visible catalog change** — if a tool is added to or removed from
   `ToolRegistry` between steps, the catalog hash changes. This is rare in
   practice since registry construction happens once per runtime.
-- **Subtask mode change (current behavior)** — the per-step filter in
-  `context_phase::resolve_context` still derives allowed tools from
-  `SubTaskMode::allowed_tools()`. A mode transition that changes the allowed
-  set changes the filtered catalog hash. M2.2 will remove this coupling so
-  that subtask transitions no longer mutate the visible catalog.
 
-Not allowed:
+Not allowed (as of M2.2):
 
+- **Subtask mode change** — after M2.2, `context_phase::resolve_context`
+  always sends the full session catalog. Permission filtering moved to
+  runtime enforcement in `tool_phase` via `ctx.current_allowed_tool_names`.
+  A subtask mode transition therefore must *not* change the visible catalog
+  hash. Any drift on a mode transition is a regression signal.
 - Same subtask mode producing different filtered catalogs across steps. M1.1
   guarantees canonical ordering, so identical allowed-tool sets yield
   identical hashes.
-- Adding a tool to or removing a tool from the filtered catalog without a
-  corresponding session-level catalog or subtask-mode transition.
+- Adding a tool to or removing a tool from the visible catalog without a
+  corresponding session-level catalog change.
+
+Runtime enforcement observability:
+
+- When the LLM calls a tool that is outside the current subtask mode's
+  allowed set, `tool_phase::run_tools` emits a `ToolBatchStarted` trace whose
+  payload includes `disallowedByMode` (the rejected tool names) and
+  `allowedToolNames`. The synthesized tool result carries
+  `reason: "subtask_mode_disallowed"` and the allowed-tools list so the model
+  can recover by choosing a permitted tool or advancing the subtask.
 
 ### `message_prefix_hash`
 

@@ -57,12 +57,20 @@ pub async fn call_llm(
     ctx.current_phase = ExecutionPhase::CallingLlm;
     ctx.current_subtask_id = resolved.current_subtask_id.clone();
 
+    // Consume any one-shot tool-choice override set by an earlier phase
+    // (final-summary path or narration-loop nudge). Default is `Auto` so every
+    // normal step leaves the model free to decide.
+    let forced_tool_choice = ctx.pending_tool_choice_override.take();
+
     let mut chat_request = ChatRequest::new(&ctx.model_name, ctx.llm_context.clone())
         .with_system(&resolved.system_prompt)
         .with_temperature(agent_temperature())
         .with_max_tokens(LLM_MAX_OUTPUT_TOKENS);
     if !resolved.tool_definitions.is_empty() {
         chat_request = chat_request.with_tools(resolved.tool_definitions.clone());
+    }
+    if let Some(mode) = forced_tool_choice {
+        chat_request = chat_request.with_tool_choice(mode);
     }
 
     let request_payload = LlmTracePayload {

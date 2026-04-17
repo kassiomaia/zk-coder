@@ -8,7 +8,7 @@ use chrono::Utc;
 
 use crate::core::agent::execution::{ExecutionPhase, ExecutionSnapshot, LlmTracePayload};
 use crate::core::agent::task::ExecutionStep;
-use crate::core::llm::entities::{ChatMessage as Message, ChatResponse, ToolDefinition};
+use crate::core::llm::entities::{ChatMessage as Message, ChatResponse, ToolChoiceMode, ToolDefinition};
 use crate::infrastructure::agent::runtime::SubtaskSummary;
 
 /// Holds all the runtime state for an agent's execution.
@@ -45,6 +45,18 @@ pub struct ExecutionContext {
     /// progress. Reset to `0` on any iteration that finishes execution or
     /// runs tools.
     pub consecutive_empty_tool_iterations: u32,
+    /// Set by `resolve_context` each step to the list of tools that the
+    /// current subtask mode permits. `None` when no active subtask or when the
+    /// runtime has no mode-based restriction (legacy behavior where all tools
+    /// are allowed). `Some(vec![])` forces a no-tool state (final-summary
+    /// path). Runtime enforcement in `tool_phase` rejects calls whose name is
+    /// not in this list without invoking the tool executor.
+    pub current_allowed_tool_names: Option<Vec<String>>,
+    /// One-shot override for the next LLM request's tool-choice mode. Consumed
+    /// (via `.take()`) inside `llm_phase::call_llm`. Producers: the
+    /// final-summary path in `coordinator` (forces `None`) and the narration-
+    /// loop `EmitFillerAndNudge` stage in `response_phase` (forces `Required`).
+    pub pending_tool_choice_override: Option<ToolChoiceMode>,
 }
 
 impl ExecutionContext {

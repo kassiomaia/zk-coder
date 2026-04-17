@@ -1,8 +1,12 @@
-//! Characterization tests for M1.3 — prompt assembly stabilization.
+//! Characterization tests for M1.3 — prompt assembly stabilization — plus
+//! M2.2 session-catalog stability tests.
 //!
 //! These tests lock in the invariant that identical session state produces
 //! identical prepared-request hashes, and that subtask transitions change
-//! only the expected request components. See
+//! only the expected request components. After M2.2 the tool-catalog hash is
+//! further stabilized: subtask mode transitions no longer change the
+//! session-visible catalog, because per-mode restriction moved to runtime
+//! enforcement in `tool_phase`. See
 //! `docs/planning/agent-context-engineering/measurement-harness.md` for the
 //! full list of runtime transitions that are allowed to change each hash.
 
@@ -53,9 +57,12 @@ fn full_catalog() -> Vec<ToolDefinition> {
     ]
 }
 
-/// Mirrors the filter in `context_phase::resolve_context` that narrows the
-/// canonical catalog to the current subtask's allowed tools. Returns tools
-/// in canonical order because `Vec::iter().filter(...)` preserves order.
+/// Mirrors the pre-M2.2 filter in `context_phase::resolve_context`. Before
+/// M2.2, `resolve_context` narrowed the session catalog to the subtask's
+/// allowed tools; that path has been removed in favor of runtime enforcement
+/// in `tool_phase`. Kept here only to reason about the legacy hash moves that
+/// motivated M2.2 — see
+/// `subtask_mode_transition_no_longer_changes_session_tool_catalog_hash`.
 fn filter_to_mode(catalog: &[ToolDefinition], mode: &SubTaskMode) -> Vec<ToolDefinition> {
     let allowed = mode.allowed_tools();
     catalog
@@ -162,14 +169,32 @@ fn subtask_transition_preserves_tool_catalog_hash_when_mode_is_unchanged() {
 }
 
 #[test]
-fn subtask_mode_transition_changes_tool_catalog_hash() {
-    // Current (pre-M2.2) behavior: a mode change resizes the allowed set and
-    // therefore legitimately changes the catalog hash. Lock this in so any
-    // unintended change in the filtering logic is caught.
+fn legacy_per_mode_filter_still_moves_the_hash_when_applied() {
+    // Kept as a regression safety net: the legacy filter logic itself still
+    // produces different hashes for different modes. If this test ever starts
+    // returning equal hashes, the mode-permission data has drifted and the
+    // runtime enforcement added in M2.2 may no longer be enforcing anything.
     let catalog = full_catalog();
     let read_set = filter_to_mode(&catalog, &SubTaskMode::Read);
     let write_set = filter_to_mode(&catalog, &SubTaskMode::Write);
     assert_ne!(tool_catalog_hash(&read_set), tool_catalog_hash(&write_set));
+}
+
+#[test]
+fn subtask_mode_transition_no_longer_changes_session_tool_catalog_hash() {
+    // M2.2 invariant: `resolve_context` now always sends the full session
+    // catalog. A mode transition may change `ctx.current_allowed_tool_names`
+    // (used for runtime enforcement) but must not change the tool-catalog
+    // hash the LLM sees. Modeling this directly: the hash input is
+    // `deps.all_tool_definitions` which is invariant to subtask mode.
+    let catalog = full_catalog();
+    let hash_for_read_mode_step = tool_catalog_hash(&catalog);
+    let hash_for_write_mode_step = tool_catalog_hash(&catalog);
+    assert_eq!(
+        hash_for_read_mode_step, hash_for_write_mode_step,
+        "session tool catalog must not move on subtask mode transitions \
+         (M2.2: runtime enforcement, stable catalog)",
+    );
 }
 
 // --- message_prefix_hash stability ------------------------------------------

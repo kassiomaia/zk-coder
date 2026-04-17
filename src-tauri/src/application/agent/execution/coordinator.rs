@@ -8,6 +8,7 @@ use tauri::AppHandle;
 
 use crate::application::agent::harness::HarnessStateStore;
 use crate::core::agent::permissions::PermissionResolver;
+use crate::core::agent::execution::RuntimeTraceType;
 use crate::core::agent::repositories::{
     ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
@@ -15,7 +16,7 @@ use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::{AgentExecutionResult, AgentRequest};
 use crate::core::agent::types::TrustMode;
 use crate::core::chat::services::ChatService;
-use crate::core::llm::entities::{ChatMessage as Message, ToolDefinition};
+use crate::core::llm::entities::{ChatMessage as Message, ToolChoiceMode, ToolDefinition};
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
 use crate::infrastructure::agent::runtime::AgentRuntimeError;
@@ -111,7 +112,12 @@ pub async fn execute(
         let resolved =
             resolve_context(&deps, &mut ctx, session, &request, agent_system_prompt, client.as_ref()).await?;
 
-        // All subtasks are in a terminal state — ask the LLM for a finish summary.
+        // All subtasks are in a terminal state — ask the LLM for a finish
+        // summary. Keep the session-visible tool catalog stable (M2.2) but
+        // force `ToolChoiceMode::None` for this step (M2.3) so the model is
+        // explicitly told not to call any tool. Also set the runtime-level
+        // allow-list to empty so any call that slips through is rejected as
+        // disallowed by mode.
         if resolved.all_subtasks_completed {
             log::info!(
                 "[AgentExecution] All subtasks completed for task {} – requesting finish summary",
@@ -120,8 +126,19 @@ pub async fn execute(
             ctx.llm_context.push(Message::user(
                 "All subtasks have been completed. Provide a concise summary of what was accomplished, key findings, and any important results.",
             ));
-            let mut resolved = resolved;
-            resolved.tool_definitions = vec![];
+            ctx.current_allowed_tool_names = Some(Vec::new());
+            ctx.pending_tool_choice_override = Some(ToolChoiceMode::None);
+            let _ = deps.tracer().append_trace(
+                &ctx.session_id,
+                &ctx.task_id,
+                ctx.current_subtask_id.as_deref(),
+                ctx.step_number,
+                RuntimeTraceType::LlmResponseClassified,
+                serde_json::json!({
+                    "forcedToolChoiceMode": "none",
+                    "reason": "all_subtasks_completed_final_summary",
+                }),
+            );
             let llm_result = call_llm(&deps, &mut ctx, &resolved, client.as_ref()).await?;
             match handle_response(&deps, &mut ctx, session, llm_result).await? {
                 ResponseDecision::Finished(result) => return Ok(result),

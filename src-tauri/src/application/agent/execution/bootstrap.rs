@@ -169,6 +169,8 @@ pub async fn start_execution(
         current_phase: ExecutionPhase::Bootstrapping,
         context_usage_percent: 0.0,
         consecutive_empty_tool_iterations: 0,
+        current_allowed_tool_names: None,
+        pending_tool_choice_override: None,
     };
 
     let tracer = deps.tracer();

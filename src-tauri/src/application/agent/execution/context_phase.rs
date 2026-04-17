@@ -58,53 +58,51 @@ pub async fn resolve_context(
     ctx.current_phase = ExecutionPhase::ResolvingContext;
     let tracer = deps.tracer();
 
-    let (current_subtask_summary, current_subtask_id, tool_names, all_subtasks_completed) =
-        if let Ok(subtasks) = deps.task_repo.get_subtasks(&ctx.task_id) {
-            let total = subtasks.len();
-            if let Some(current) = subtasks
-                .iter()
-                .find(|st| st.status == crate::core::agent::task::TaskStatus::InProgress)
-            {
-                let summary = SubtaskSummary::from_subtask(current);
-                let allowed = summary
-                    .mode
-                    .allowed_tools()
-                    .into_iter()
-                    .map(std::string::ToString::to_string)
-                    .collect::<Vec<_>>();
-                (Some((summary, total)), Some(current.id.clone()), allowed, false)
-            } else {
-                // No InProgress subtask — check if all are in a terminal state
-                let all_done = !subtasks.is_empty()
-                    && subtasks.iter().all(|st| {
-                        matches!(
-                            st.status,
-                            crate::core::agent::task::TaskStatus::Completed
-                                | crate::core::agent::task::TaskStatus::Failed
-                                | crate::core::agent::task::TaskStatus::Cancelled
-                        )
-                    });
-                (
-                    None,
-                    None,
-                    deps.all_tool_definitions
-                        .iter()
-                        .map(|tool| tool.name.clone())
-                        .collect::<Vec<_>>(),
-                    all_done,
-                )
-            }
-        } else {
+    // The session-visible tool catalog is always the full canonical list from
+    // `deps.all_tool_definitions`. Per-subtask permission filtering used to
+    // happen here — it now lives in the runtime (tool_phase) via
+    // `ctx.current_allowed_tool_names`, so the visible catalog and its hash
+    // stay stable across subtask transitions (M2.2).
+    let (
+        current_subtask_summary,
+        current_subtask_id,
+        allowed_tool_names,
+        all_subtasks_completed,
+    ) = if let Ok(subtasks) = deps.task_repo.get_subtasks(&ctx.task_id) {
+        let total = subtasks.len();
+        if let Some(current) = subtasks
+            .iter()
+            .find(|st| st.status == crate::core::agent::task::TaskStatus::InProgress)
+        {
+            let summary = SubtaskSummary::from_subtask(current);
+            let allowed = summary
+                .mode
+                .allowed_tools()
+                .into_iter()
+                .map(std::string::ToString::to_string)
+                .collect::<Vec<_>>();
             (
-                None,
-                None,
-                deps.all_tool_definitions
-                    .iter()
-                    .map(|tool| tool.name.clone())
-                    .collect::<Vec<_>>(),
+                Some((summary, total)),
+                Some(current.id.clone()),
+                Some(allowed),
                 false,
             )
-        };
+        } else {
+            let all_done = !subtasks.is_empty()
+                && subtasks.iter().all(|st| {
+                    matches!(
+                        st.status,
+                        crate::core::agent::task::TaskStatus::Completed
+                            | crate::core::agent::task::TaskStatus::Failed
+                            | crate::core::agent::task::TaskStatus::Cancelled
+                    )
+                });
+            (None, None, None, all_done)
+        }
+    } else {
+        (None, None, None, false)
+    };
+    ctx.current_allowed_tool_names = allowed_tool_names.clone();
 
     let current_order = current_subtask_summary
         .as_ref()
@@ -126,7 +124,7 @@ pub async fn resolve_context(
                 "order": summary.order,
                 "total": total,
             })),
-            "allowedToolNames": tool_names,
+            "allowedToolNames": allowed_tool_names,
         }),
     );
 
@@ -230,12 +228,10 @@ pub async fn resolve_context(
         }
     );
 
-    let tool_definitions: Vec<ToolDefinition> = deps
-        .all_tool_definitions
-        .iter()
-        .filter(|tool| tool_names.iter().any(|name| name == &tool.name))
-        .cloned()
-        .collect();
+    // Session-stable tool catalog (M2.2): the model always sees every tool the
+    // registry exposes. Runtime enforcement in `tool_phase` rejects calls that
+    // fall outside the current subtask mode's permitted set.
+    let tool_definitions: Vec<ToolDefinition> = deps.all_tool_definitions.to_vec();
     let _ = tracer.append_trace(
         &ctx.session_id,
         &ctx.task_id,
@@ -245,6 +241,7 @@ pub async fn resolve_context(
         json!({
             "toolCount": tool_definitions.len(),
             "tools": tool_definitions.iter().map(|tool| tool.name.clone()).collect::<Vec<_>>(),
+            "allowedToolNames": allowed_tool_names,
         }),
     );
 

@@ -17,7 +17,7 @@ use super::termination::{
 };
 use crate::core::agent::execution::RuntimeTraceType;
 use crate::core::agent::task::{AgentExecutionResult, ExecutionStep, StepAction, StepResult};
-use crate::core::llm::entities::ChatMessage as Message;
+use crate::core::llm::entities::{ChatMessage as Message, ToolChoiceMode};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::{
     detect_repetitive_loop, AgentRuntimeError, MAX_REPETITIONS,
@@ -270,6 +270,23 @@ async fn handle_narration_loop_escalation(
             emit_continuation_filler(deps, ctx, session).await;
             ctx.llm_context
                 .push(Message::user(NARRATION_LOOP_NUDGE.to_string()));
+            // Force the next LLM call to require a tool (M2.3). Provider
+            // adapters map this to `tool_choice: required` (OpenAI) or
+            // `{"type":"any"}` (Anthropic). The nudge text alone has proven
+            // insufficient in practice; forcing tool use raises the recovery
+            // probability while still allowing the model to pick which tool.
+            ctx.pending_tool_choice_override = Some(ToolChoiceMode::Required);
+            let _ = deps.tracer().append_trace(
+                &ctx.session_id,
+                &ctx.task_id,
+                ctx.current_subtask_id.as_deref(),
+                ctx.step_number,
+                RuntimeTraceType::LlmResponseClassified,
+                json!({
+                    "forcedToolChoiceMode": "required",
+                    "reason": "narration_loop_nudge",
+                }),
+            );
             Ok(ResponseDecision::ContinueWithNextSubtask)
         }
         NarrationLoopStage::ForceAdvance => {

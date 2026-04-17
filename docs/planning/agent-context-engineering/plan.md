@@ -476,6 +476,14 @@ Implement the work in small reviewable slices. Do not combine unrelated refactor
 - Keep out:
   - external memory
   - startup verification
+- Delivered:
+  - M2.2: `context_phase::resolve_context` no longer filters `tool_definitions` by `SubTaskMode::allowed_tools()`. The LLM always sees the full canonical session catalog from `deps.all_tool_definitions`, so the `tool_catalog_hash` stays stable across subtask transitions (the mode-change allowance documented in measurement-harness.md was removed)
+  - M2.2 runtime enforcement: `ExecutionContext.current_allowed_tool_names: Option<Vec<String>>` carries the per-step permitted set; `process_tool_calls_with_permissions` accepts `allowed_tool_names: Option<&[String]>` and returns a structured `is_error: true` result with `reason: "subtask_mode_disallowed"` + `allowedToolNames` for any disallowed call, without invoking the tool executor. `tool_phase::run_tools` enriches the `ToolBatchStarted` / `ToolBatchCompleted` traces with `disallowedByMode` names and counts
+  - M2.3: `ExecutionContext.pending_tool_choice_override: Option<ToolChoiceMode>` is a one-shot override consumed (`.take()`) by `llm_phase::call_llm`. Two runtime sites now drive it:
+    - final-summary path in `coordinator` sets `ToolChoiceMode::None` + empty `current_allowed_tool_names` (defense-in-depth) when `all_subtasks_completed`; emits a trace with `forcedToolChoiceMode: "none"` and reason `all_subtasks_completed_final_summary`
+    - narration-loop `EmitFillerAndNudge` stage sets `ToolChoiceMode::Required` alongside the existing user-facing nudge; emits a trace with `forcedToolChoiceMode: "required"` and reason `narration_loop_nudge`
+  - 21 passing tests cover the slice: the 10 prompt-stability tests now include `subtask_mode_transition_no_longer_changes_session_tool_catalog_hash` (the M2.2 invariant) plus 11 new `runtime_enforcement_tests` covering the allow-list predicate (allowed/disallowed/empty/None cases) and the one-shot `ToolChoiceMode` plumbing through `ChatRequest::with_tool_choice`
+  - measurement-harness.md updated: the "subtask mode change currently changes `tool_catalog_hash`" allowance is gone; a new "runtime enforcement observability" block documents the `disallowedByMode` trace fields and the `reason` code consumed by the tool result
 
 ### Slice 5 — Runtime-owned working-memory artifact
 

@@ -66,6 +66,20 @@ pub async fn run_tools(
         Some(response.model.clone()),
         None,
     ));
+
+    let disallowed_by_mode: Vec<String> = ctx
+        .current_allowed_tool_names
+        .as_ref()
+        .map(|allowed| {
+            response
+                .tool_calls
+                .iter()
+                .filter(|call| !allowed.iter().any(|name| name == &call.name))
+                .map(|call| call.name.clone())
+                .collect()
+        })
+        .unwrap_or_default();
+
     let _ = tracer.append_trace(
         &ctx.session_id,
         &ctx.task_id,
@@ -75,6 +89,8 @@ pub async fn run_tools(
         json!({
             "toolCallCount": response.tool_calls.len(),
             "toolNames": response.tool_calls.iter().map(|call| call.name.clone()).collect::<Vec<_>>(),
+            "disallowedByMode": disallowed_by_mode,
+            "allowedToolNames": ctx.current_allowed_tool_names,
         }),
     );
 
@@ -84,6 +100,7 @@ pub async fn run_tools(
         &ctx.task_id,
         permission_resolver,
         yolo_mode_provider,
+        ctx.current_allowed_tool_names.as_deref(),
         deps.app_handle,
         deps.approval_queue,
         deps.tool_registry,
@@ -124,6 +141,7 @@ pub async fn run_tools(
         json!({
             "resultCount": tool_results.len(),
             "errors": tool_results.iter().filter(|result| result.is_error).count(),
+            "disallowedByModeCount": disallowed_by_mode.len(),
         }),
     );
     let _ = tracer.append_trace(
