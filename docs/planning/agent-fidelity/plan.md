@@ -1,7 +1,16 @@
 # Agent Fidelity — Execution Plan
 
-**Status**: PLAN
+**Status**: IN PROGRESS
 **Last reviewed**: 2026-04-18
+
+## Progress
+
+- **Phase 1 — DELIVERED (commit `7df7589`)**: A (rehydration fidelity: title + description round-trip), H.1 (prompt split into harness_contract + quality_baseline + default_code_framing with SystemPromptBuilder), H.4 (prompt stability attribution helpers), H.5 (runtime telemetry emits three section hashes alongside systemPromptHash).
+- Phase 2 — pending: C + D + H.6
+- Phase 3 — pending: B
+- Phase 4 — pending: E + H.2
+- Phase 5 — pending: F + H.3
+- Phase 6 — pending: G
 **Purpose**: Close the gap between the harness's mechanical correctness and the agent's actual fidelity to the user-authored plan. The context-engineering work in `../agent-context-engineering/` delivered stable prompts, deterministic packing, and measurement signals. This plan addresses the behaviors those signals exposed: subtask scope drift, stale failure memory, reload rehydration loss, and fabrication in the absence of user replies.
 
 ---
