@@ -285,6 +285,14 @@ pub fn delete_session(conn: &Connection, id: &SessionId) -> Result<(), SessionRe
         params![id.0],
     )?;
 
+    // Remove any session-owned working memory (M3.1). The schema's
+    // CASCADE is decorative without PRAGMA foreign_keys=ON, so the
+    // cleanup is explicit here.
+    conn.execute(
+        "DELETE FROM agent_session_memory WHERE session_id = ?1",
+        params![id.0],
+    )?;
+
     // Finally delete the session
     conn.execute("DELETE FROM agent_sessions WHERE id = ?1", params![id.0])?;
     Ok(())

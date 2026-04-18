@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 
 use crate::core::agent::errors::AgentDomainError;
+use crate::core::agent::memory::{MemoryRepository, SessionMemory};
 use crate::core::agent::repositories::{
     ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
     TaskRepository,
@@ -18,6 +19,7 @@ use crate::core::agent::session as agent_session;
 use crate::core::agent::task as agent_task;
 
 pub mod execution_debug;
+pub mod memory;
 pub mod runtime_data;
 pub mod sessions;
 pub mod tasks;
@@ -677,6 +679,41 @@ impl ExecutionRepository for SqliteSessionRepository {
     fn clear_execution_snapshot(&self, session_id: &str) -> RepositoryResult<()> {
         Self::clear_execution_snapshot(self, session_id)
             .map_err(AgentDomainError::from)
+    }
+}
+
+impl MemoryRepository for SqliteSessionRepository {
+    fn get_memory(
+        &self,
+        session_id: &agent_session::SessionId,
+    ) -> RepositoryResult<Option<SessionMemory>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AgentDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            })?;
+        memory::get_memory(&conn, session_id).map_err(AgentDomainError::from)
+    }
+
+    fn upsert_memory(&self, memory: &SessionMemory) -> RepositoryResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AgentDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            })?;
+        memory::upsert_memory(&conn, memory).map_err(AgentDomainError::from)
+    }
+
+    fn delete_memory(&self, session_id: &agent_session::SessionId) -> RepositoryResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AgentDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            })?;
+        memory::delete_memory(&conn, session_id).map_err(AgentDomainError::from)
     }
 }
 

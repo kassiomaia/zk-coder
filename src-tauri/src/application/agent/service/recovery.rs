@@ -179,6 +179,7 @@ mod tests {
             session_store.clone(),
             session_store.clone(),
             session_store.clone(),
+            session_store.clone(),
             approval_queue.clone(),
             tool_registry,
         ));

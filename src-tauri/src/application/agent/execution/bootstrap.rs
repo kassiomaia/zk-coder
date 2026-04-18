@@ -8,6 +8,7 @@ use crate::application::agent::harness::{
     passed_startup_verification, running_startup_verification,
 };
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
+use crate::core::agent::memory::SessionMemory;
 use crate::core::agent::session::{AgentSession, SessionState};
 use crate::core::agent::task::{AgentRequest, AgentTask, TaskStatus};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
@@ -154,6 +155,40 @@ pub async fn start_execution(
         task.subtasks = Some(collected_subtasks);
     }
 
+    // M3.1: initialize the session's durable working-memory artifact when
+    // the task is non-trivial. Trivial tasks do not need externalized
+    // memory — the whole request fits in the prompt window — so we skip
+    // the upsert to avoid a mostly-empty row. The artifact stays in
+    // backend orchestration's hands; future refresh points (M3.3) are
+    // out of scope for this slice.
+    if plan.is_non_trivial && !plan.subtasks.is_empty() {
+        let active_plan_summary = plan
+            .subtasks
+            .iter()
+            .map(|s| s.title.clone())
+            .collect::<Vec<_>>()
+            .join("; ");
+        let memory = SessionMemory::new(
+            session.id.clone(),
+            task.id.clone(),
+            plan.description.clone(),
+            active_plan_summary,
+        );
+        if let Err(err) = deps.memory_repo.upsert_memory(&memory) {
+            log::warn!(
+                "[AgentRuntime] Failed to initialize session memory for {session_id}: {err}",
+                session_id = session_id,
+            );
+        } else {
+            log::info!(
+                "[AgentRuntime] Initialized session memory for {session_id} (task={task_id}, subtasks={count})",
+                session_id = session_id,
+                task_id = task.id,
+                count = plan.subtasks.len(),
+            );
+        }
+    }
+
     let mut context = ExecutionContext {
         session_id: session_id.clone(),
         task_id: task.id.clone(),
@@ -171,6 +206,8 @@ pub async fn start_execution(
         consecutive_empty_tool_iterations: 0,
         current_allowed_tool_names: None,
         pending_tool_choice_override: None,
+        retrieval_count_in_current_subtask: 0,
+        last_completed_subtask_for_memory: None,
     };
 
     let tracer = deps.tracer();

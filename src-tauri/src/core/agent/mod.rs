@@ -4,6 +4,7 @@
 
 pub mod errors;
 pub mod execution;
+pub mod memory;
 pub mod permissions;
 pub mod repositories;
 pub mod services;
@@ -26,6 +27,7 @@ pub use execution::{
     ExecutionPhase, ExecutionSnapshot, ExecutionTransition, LlmTracePayload, RuntimeTrace,
     RuntimeTraceType,
 };
+pub use memory::{MemoryRepository, SessionMemory};
 pub use repositories::{
     AgentRepository, ApprovalRepository, ExecutionRepository, RepositoryResult,
     RuntimeTraceRepository, SessionRepository, TaskRepository,

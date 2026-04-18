@@ -28,6 +28,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
 use crate::application::agent::harness::{HarnessStateStore, InMemoryHarnessStateStore};
+use crate::core::agent::memory::MemoryRepository;
 use crate::core::agent::repositories::{
     ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
@@ -70,6 +71,7 @@ pub struct AgentRuntime {
     telemetry_repo: Arc<dyn AgentTelemetryRepository>,
     execution_repo: Arc<dyn ExecutionRepository>,
     trace_repo: Arc<dyn RuntimeTraceRepository>,
+    memory_repo: Arc<dyn MemoryRepository>,
     approval_queue: Arc<ApprovalQueue>,
     tool_registry: Arc<ToolRegistry>,
     file_snapshot_registry: Arc<FileSnapshotRegistry>,
@@ -78,6 +80,7 @@ pub struct AgentRuntime {
 
 impl AgentRuntime {
     /// Create a new agent runtime.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         session_repo: Arc<dyn SessionRepository>,
         chat_service: Arc<dyn ChatService>,
@@ -85,6 +88,7 @@ impl AgentRuntime {
         telemetry_repo: Arc<dyn AgentTelemetryRepository>,
         execution_repo: Arc<dyn ExecutionRepository>,
         trace_repo: Arc<dyn RuntimeTraceRepository>,
+        memory_repo: Arc<dyn MemoryRepository>,
         approval_queue: Arc<ApprovalQueue>,
         tool_registry: Arc<ToolRegistry>,
     ) -> Self {
@@ -95,6 +99,7 @@ impl AgentRuntime {
             telemetry_repo,
             execution_repo,
             trace_repo,
+            memory_repo,
             approval_queue,
             tool_registry,
             file_snapshot_registry: Arc::new(FileSnapshotRegistry::new()),
@@ -145,6 +150,7 @@ impl AgentRuntime {
             self.telemetry_repo.as_ref(),
             self.execution_repo.as_ref(),
             self.trace_repo.as_ref(),
+            self.memory_repo.as_ref(),
             &self.approval_queue,
             &self.tool_registry,
             &self.file_snapshot_registry,

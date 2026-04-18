@@ -57,6 +57,19 @@ pub struct ExecutionContext {
     /// final-summary path in `coordinator` (forces `None`) and the narration-
     /// loop `EmitFillerAndNudge` stage in `response_phase` (forces `Required`).
     pub pending_tool_choice_override: Option<ToolChoiceMode>,
+    /// Rolling count of retrievals that have fired within the current
+    /// subtask since the last memory refresh (M3.3). Reset to 0 on every
+    /// subtask change; incremented by `context_phase` whenever a
+    /// retrieval pass runs. When it crosses
+    /// `memory_refresh::RETRIEVAL_BURST_THRESHOLD` the runtime fires a
+    /// `RetrievalBurst` trigger and resets the counter.
+    pub retrieval_count_in_current_subtask: u32,
+    /// Snapshot of the last subtask id that `context_phase` observed as
+    /// `Completed` and successfully fed into a `SubtaskCompleted` memory
+    /// refresh. Guards against re-firing the trigger on every subsequent
+    /// step that happens to have the same completed subtask still
+    /// visible via `ctx.current_subtask_id`.
+    pub last_completed_subtask_for_memory: Option<String>,
 }
 
 impl ExecutionContext {

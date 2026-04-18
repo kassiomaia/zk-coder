@@ -63,6 +63,14 @@ pub const BUDGET_FILE_RELEVANCE_TOKENS: usize = 800;
 pub const BUDGET_FAILURE_MEMORY_TOKENS: usize = 140;
 /// Hard token budgets for ContextPolicyV2 blocks.
 pub const BUDGET_RECENT_DIALOGUE_TOKENS: usize = 1600;
+/// Hard token budget for the ContextPolicyV2 memory reference block (M3.2).
+/// Sized to carry a compact identifier, a truncated active-plan summary, and
+/// knowledge-item counts without inlining full memory contents.
+pub const BUDGET_MEMORY_REFERENCE_TOKENS: usize = 180;
+/// Hard token budget for the ContextPolicyV2 execution brief block (M4.1).
+/// Sized to carry goal / active / recent / next / blocker lines near the
+/// attention tail without letting any single field dominate the prompt.
+pub const BUDGET_EXECUTION_BRIEF_TOKENS: usize = 240;
 
 /// Flat token overhead per message (role + metadata framing).
 pub const PER_MESSAGE_OVERHEAD: usize = 10;
@@ -134,6 +142,57 @@ fn classify_outcome(
     }
 }
 
+/// Compact descriptor of a session's durable working-memory artifact
+/// (Milestone 3.2). Used by `ContextPolicyV2` to inline a deterministic
+/// reference block instead of copying the full memory body into every
+/// prompt.
+///
+/// All fields must be bounded: `task_goal` and `active_plan` are
+/// truncated inside the packer; the three `_count` fields replace the
+/// unbounded `Vec<String>` fields on `SessionMemory` so the block stays
+/// within its token budget even as the memory grows.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MemoryReference {
+    /// The session the memory is attached to.
+    pub session_id: String,
+    /// Task goal (short user-facing sentence). Truncated by the packer.
+    pub task_goal: String,
+    /// A textual summary of the active plan. Truncated by the packer.
+    pub active_plan: String,
+    /// Number of completed findings recorded.
+    pub completed_findings_count: usize,
+    /// Number of open questions recorded.
+    pub open_questions_count: usize,
+    /// Number of high-value extracted facts recorded.
+    pub extracted_facts_count: usize,
+    /// RFC 3339 timestamp of the last memory update. Stable across
+    /// packing passes when the underlying memory has not changed, so it
+    /// can be used to reason about cache hits.
+    pub updated_at_rfc3339: String,
+}
+
+/// Compact "what matters now" snapshot inlined near the recent-context
+/// tail by `apply_context_policy_v2` (Milestone 4.1). The brief
+/// reintroduces the current objective close to the model's attention
+/// tail so long-running execution does not lose its goal across
+/// compaction. All free-text fields are truncated inside the packer.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ExecutionBrief {
+    /// The overall task goal (short user-facing sentence).
+    pub task_goal: String,
+    /// Title of the currently in-progress subtask, if any.
+    pub active_subtask: Option<String>,
+    /// Short list of the most recent completed work items (successful
+    /// tool calls, completed subtask titles). Order is oldest → newest.
+    pub recently_completed: Vec<String>,
+    /// The next intended action (typically the next pending subtask
+    /// title). Empty when no further action is planned.
+    pub next_intended_action: Option<String>,
+    /// The current blocker, if any (usually a normalized error summary
+    /// from `build_failure_memory`). Empty when unblocked.
+    pub current_blocker: Option<String>,
+}
+
 /// Inputs for ContextPolicyV2 deterministic packing.
 #[derive(Debug, Clone, Default)]
 pub struct ContextPolicyInput {
@@ -149,6 +208,15 @@ pub struct ContextPolicyInput {
     pub model_name: String,
     /// Pre-computed summary of dropped messages (if available).
     pub pre_computed_summary: Option<String>,
+    /// Compact reference to the session's durable working memory
+    /// artifact. When `Some`, the packer inlines a single bounded block
+    /// that identifies the memory without copying its full contents;
+    /// compaction rebuilds the block from this reference on every pass.
+    pub memory_reference: Option<MemoryReference>,
+    /// "What matters now" brief inlined near the attention tail
+    /// (Milestone 4.1). When `Some`, the packer emits a single
+    /// deterministic block derived from this snapshot.
+    pub execution_brief: Option<ExecutionBrief>,
 }
 
 /// Estimates the token count for a message context.
@@ -286,10 +354,20 @@ pub fn apply_context_policy_v2(
     // Skip packing when the context is tiny and packing was merely forced by
     // a subtask transition. Repacking a near-empty context cannot yield a
     // meaningful reduction and the synthetic blocks can even grow it.
+    //
+    // Exception (M3.2): when a memory reference exists, the packer must
+    // still run so the reference block is inlined — otherwise compaction
+    // could silently drop the only pointer to durable memory.
+    //
+    // Exception (M4.1): the same applies to the execution brief — it is
+    // the mechanism that reintroduces the objective near the tail; a
+    // tiny-context skip would suppress it on subtask transitions.
     if input.force_pack
         && usage_ratio < TINY_CONTEXT_RATIO
         && input.retrieval_snippets.is_empty()
         && input.pre_computed_summary.is_none()
+        && input.memory_reference.is_none()
+        && input.execution_brief.is_none()
     {
         return None;
     }
@@ -367,6 +445,23 @@ pub fn apply_context_policy_v2(
                 "ContextPolicyV2 LLM summary:\n{}",
                 text
             )));
+        }
+    }
+
+    if let Some(ref memory) = input.memory_reference {
+        let block = format_memory_reference_block(memory);
+        if !block.is_empty() {
+            packed.push(Message::system(block));
+        }
+    }
+
+    // M4.1 execution brief sits last among the synthetic blocks so the
+    // "what matters now" summary is as close to the attention tail as
+    // possible without being interleaved with live dialogue.
+    if let Some(ref brief) = input.execution_brief {
+        let block = format_execution_brief_block(brief);
+        if !block.is_empty() {
+            packed.push(Message::system(block));
         }
     }
 
@@ -557,42 +652,193 @@ fn extract_last_tool_error(context: &[Message]) -> Option<String> {
     None
 }
 
-fn build_failure_memory(context: &[Message]) -> Option<String> {
-    let last_error = extract_last_tool_error(context)?;
-    let mut attempts: Vec<String> = Vec::new();
+/// Normalized classification of a tool failure. Drives the retryability
+/// verdict carried by the M4.2 failure-memory block.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FailureClass {
+    /// Target path / resource not found.
+    FileNotFound,
+    /// Access denied / not authorized.
+    PermissionDenied,
+    /// Operation exceeded its time budget.
+    Timeout,
+    /// Arguments failed validation (schema, format, range, etc.).
+    ValidationFailed,
+    /// Subtask mode rejected the call at runtime (M2.2 enforcement).
+    NotAllowed,
+    /// Default bucket when no specific class matches.
+    Other,
+}
 
-    let mut seen_error = false;
-    for msg in context.iter().rev() {
+impl FailureClass {
+    /// Classifies an error message using bounded case-insensitive
+    /// substring matching. Substring rules over parsing because tool
+    /// errors arrive in many shapes; classification degrades to
+    /// `Other` rather than failing.
+    fn classify(error_text: &str) -> Self {
+        let lower = error_text.to_lowercase();
+        if lower.contains("subtask_mode_disallowed") || lower.contains("not allowed") {
+            return Self::NotAllowed;
+        }
+        if lower.contains("no such file")
+            || lower.contains("not found")
+            || lower.contains("does not exist")
+            || lower.contains("enoent")
+        {
+            return Self::FileNotFound;
+        }
+        if lower.contains("permission denied")
+            || lower.contains("forbidden")
+            || lower.contains("unauthorized")
+            || lower.contains("eacces")
+        {
+            return Self::PermissionDenied;
+        }
+        if lower.contains("timed out") || lower.contains("timeout") {
+            return Self::Timeout;
+        }
+        if lower.contains("invalid")
+            || lower.contains("validation")
+            || lower.contains("schema")
+            || lower.contains("missing required")
+        {
+            return Self::ValidationFailed;
+        }
+        Self::Other
+    }
+
+    /// Stable snake_case label emitted into the failure-memory block.
+    fn label(self) -> &'static str {
+        match self {
+            Self::FileNotFound => "file_not_found",
+            Self::PermissionDenied => "permission_denied",
+            Self::Timeout => "timeout",
+            Self::ValidationFailed => "validation_failed",
+            Self::NotAllowed => "not_allowed",
+            Self::Other => "other",
+        }
+    }
+
+    /// Whether it is safe to retry the same call with the same args.
+    /// Conservative: classes that are known to be transient (Timeout)
+    /// or unclassified (Other) are marked retryable; classes whose
+    /// resolution requires changing the call (missing file, bad args,
+    /// denied access, disallowed by mode) are marked non-retryable.
+    fn retryable_unchanged(self) -> bool {
+        matches!(self, Self::Timeout | Self::Other)
+    }
+}
+
+/// Short stable fingerprint of a tool-call arguments JSON blob. The
+/// output is 8 lowercase hex chars derived from the canonicalized JSON
+/// so equivalent argument objects produce the same fingerprint across
+/// runs. Used by M4.2 to detect "identical call retried" patterns.
+fn arguments_fingerprint(args: &JsonValue) -> String {
+    let canonical = serde_json::to_string(args).unwrap_or_default();
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in canonical.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100_0000_01b3);
+    }
+    format!("{:08x}", hash as u32)
+}
+
+/// Structured breakdown of the most recent failure, used by
+/// `build_failure_memory` to emit a bounded, typed M4.2 block and by
+/// callers that want the components individually (for example the
+/// execution brief's `current_blocker` field).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FailureRecord {
+    /// Failing tool name (or `"tool"` if the paired call could not be
+    /// located in context).
+    pub tool_name: String,
+    /// Stable 8-char fingerprint of the call's arguments.
+    pub args_fingerprint: String,
+    /// Normalized class of the failure.
+    pub class: FailureClass,
+    /// Truncated error message extracted from the tool result.
+    pub message: String,
+    /// True when a previous call with the same tool + args fingerprint
+    /// already failed earlier in the same context.
+    pub repeat_detected: bool,
+}
+
+/// Walks the context backwards to find the most recent `is_error` tool
+/// result and extract a structured `FailureRecord`. Returns `None` when
+/// no tool error is visible. Detects repeat-failure patterns by
+/// scanning earlier context for the same `tool + args_fingerprint`
+/// pair paired with another error result.
+pub fn extract_failure_record(context: &[Message]) -> Option<FailureRecord> {
+    let mut call_map: std::collections::HashMap<String, (String, JsonValue)> =
+        std::collections::HashMap::new();
+    for msg in context {
+        for call in &msg.tool_calls {
+            call_map.insert(call.id.clone(), (call.name.clone(), call.arguments.clone()));
+        }
+    }
+
+    // Error results (call_id, error_text) collected oldest → newest so
+    // we can scan for prior occurrences of the latest error's
+    // tool/args fingerprint.
+    let mut error_results: Vec<(String, String)> = Vec::new();
+    for msg in context {
         if let Some(result) = &msg.tool_result {
             if result.is_error {
-                seen_error = true;
-                continue;
+                let error_text = result
+                    .output
+                    .get("error")
+                    .and_then(|v| v.as_str())
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| truncate_text(&result.output.to_string(), 160));
+                error_results.push((result.call_id.clone(), error_text));
             }
         }
-        if !seen_error {
-            continue;
-        }
-        for call in &msg.tool_calls {
-            attempts.push(call.name.clone());
-            if attempts.len() >= 3 {
+    }
+    let (last_call_id, last_error_text) = error_results.last()?.clone();
+    let (tool_name, args) = call_map
+        .get(&last_call_id)
+        .cloned()
+        .unwrap_or_else(|| ("tool".to_string(), JsonValue::Null));
+    let args_fingerprint = arguments_fingerprint(&args);
+    let class = FailureClass::classify(&last_error_text);
+    let message = truncate_text(&last_error_text, 160);
+
+    let mut repeat_detected = false;
+    for (call_id, _error) in error_results.iter().take(error_results.len() - 1) {
+        if let Some((prev_tool, prev_args)) = call_map.get(call_id) {
+            if prev_tool == &tool_name && arguments_fingerprint(prev_args) == args_fingerprint {
+                repeat_detected = true;
                 break;
             }
         }
-        if attempts.len() >= 3 {
-            break;
-        }
     }
-    attempts.reverse();
 
-    if attempts.is_empty() {
-        Some(format!("Last actionable error: {}", last_error))
+    Some(FailureRecord {
+        tool_name,
+        args_fingerprint,
+        class,
+        message,
+        repeat_detected,
+    })
+}
+
+fn build_failure_memory(context: &[Message]) -> Option<String> {
+    let record = extract_failure_record(context)?;
+    let retry_line = if record.class.retryable_unchanged() {
+        "retry: safe to retry (likely transient)"
     } else {
-        Some(format!(
-            "Last actionable error: {}. Attempted fixes: {}",
-            last_error,
-            attempts.join(", ")
-        ))
+        "retry: change args before retry"
+    };
+    let mut out = String::from("Last error:");
+    out.push_str(&format!("\ntool: {}", record.tool_name));
+    out.push_str(&format!("\nargs_fp: {}", record.args_fingerprint));
+    out.push_str(&format!("\ntype: {}", record.class.label()));
+    out.push_str(&format!("\nmessage: {}", record.message));
+    out.push_str(&format!("\n{retry_line}"));
+    if record.repeat_detected {
+        out.push_str("\nnote: identical call has failed before — do not retry unchanged");
     }
+    Some(out)
 }
 
 fn rank_retrieval_snippets(snippets: &[String]) -> Vec<String> {
@@ -677,6 +923,90 @@ fn estimate_text_tokens(text: &str) -> usize {
 fn truncate_to_token_budget(text: &str, max_tokens: usize) -> String {
     let max_chars = max_tokens.saturating_mul(4);
     truncate_text(text.trim(), max_chars)
+}
+
+/// Builds the deterministic text of the ContextPolicyV2 memory reference
+/// block. The format is fixed so the same `MemoryReference` yields the
+/// same bytes across packing passes — important for message-prefix hash
+/// stability. Content is bounded to `BUDGET_MEMORY_REFERENCE_TOKENS`.
+fn format_memory_reference_block(memory: &MemoryReference) -> String {
+    // Roughly split the budget between the two free-text fields and the
+    // metadata line. The metadata line is short and fixed-shape, so
+    // `BUDGET_MEMORY_REFERENCE_TOKENS - 60` is a generous cap for the
+    // free-text portions combined.
+    let goal_budget = BUDGET_MEMORY_REFERENCE_TOKENS / 3;
+    let plan_budget = BUDGET_MEMORY_REFERENCE_TOKENS / 3;
+    let goal = truncate_to_token_budget(&memory.task_goal, goal_budget);
+    let plan = truncate_to_token_budget(&memory.active_plan, plan_budget);
+    let mut out = String::from("ContextPolicyV2 session memory reference:\n");
+    out.push_str(&format!(
+        "session={} updated_at={} findings={} questions={} facts={}",
+        memory.session_id,
+        memory.updated_at_rfc3339,
+        memory.completed_findings_count,
+        memory.open_questions_count,
+        memory.extracted_facts_count,
+    ));
+    if !goal.is_empty() {
+        out.push_str("\ngoal: ");
+        out.push_str(&goal);
+    }
+    if !plan.is_empty() {
+        out.push_str("\nplan: ");
+        out.push_str(&plan);
+    }
+    out
+}
+
+/// Builds the deterministic text of the ContextPolicyV2 execution brief
+/// block (M4.1). Missing fields are omitted, not rendered with empty
+/// values, so the block only grows when the state behind it exists.
+/// The total block is capped at `BUDGET_EXECUTION_BRIEF_TOKENS`; each
+/// free-text field gets a proportional sub-budget.
+fn format_execution_brief_block(brief: &ExecutionBrief) -> String {
+    let per_field_budget = BUDGET_EXECUTION_BRIEF_TOKENS / 4;
+    let mut out = String::from("ContextPolicyV2 execution brief:");
+    let goal = truncate_to_token_budget(&brief.task_goal, per_field_budget);
+    if !goal.is_empty() {
+        out.push_str("\ngoal: ");
+        out.push_str(&goal);
+    }
+    if let Some(ref active) = brief.active_subtask {
+        let text = truncate_to_token_budget(active, per_field_budget);
+        if !text.is_empty() {
+            out.push_str("\nactive: ");
+            out.push_str(&text);
+        }
+    }
+    if !brief.recently_completed.is_empty() {
+        let joined = brief
+            .recently_completed
+            .iter()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join("; ");
+        let text = truncate_to_token_budget(&joined, per_field_budget);
+        if !text.is_empty() {
+            out.push_str("\nrecent: ");
+            out.push_str(&text);
+        }
+    }
+    if let Some(ref next) = brief.next_intended_action {
+        let text = truncate_to_token_budget(next, per_field_budget);
+        if !text.is_empty() {
+            out.push_str("\nnext: ");
+            out.push_str(&text);
+        }
+    }
+    if let Some(ref blocker) = brief.current_blocker {
+        let text = truncate_to_token_budget(blocker, per_field_budget);
+        if !text.is_empty() {
+            out.push_str("\nblocker: ");
+            out.push_str(&text);
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -1072,6 +1402,178 @@ mod tests {
         );
     }
 
+    fn sample_memory_reference() -> MemoryReference {
+        MemoryReference {
+            session_id: "sess-42".to_string(),
+            task_goal: "investigate auth regression".to_string(),
+            active_plan: "review auth.rs; patch login flow; add tests".to_string(),
+            completed_findings_count: 2,
+            open_questions_count: 1,
+            extracted_facts_count: 3,
+            updated_at_rfc3339: "2026-04-17T12:00:00+00:00".to_string(),
+        }
+    }
+
+    fn memory_block_from(messages: &[Message]) -> Option<&str> {
+        messages.iter().find_map(|m| match &m.content {
+            MessageContent::Text(text)
+                if m.role == MessageRole::System
+                    && text.starts_with("ContextPolicyV2 session memory reference:") =>
+            {
+                Some(text.as_str())
+            }
+            _ => None,
+        })
+    }
+
+    fn build_above_threshold_context() -> Vec<Message> {
+        // Large enough to exceed the 70% threshold for gpt-4 so the
+        // packer runs without needing `force_pack`.
+        let padding = "x".repeat(400);
+        let mut context = vec![Message::system("System")];
+        for i in 0..1_000 {
+            context.push(Message::user(format!("msg {i} {padding}")));
+        }
+        context
+    }
+
+    #[test]
+    fn policy_v2_inlines_memory_reference_block_when_provided() {
+        let mut context = build_above_threshold_context();
+        let input = ContextPolicyInput {
+            model_name: "gpt-4".to_string(),
+            memory_reference: Some(sample_memory_reference()),
+            ..ContextPolicyInput::default()
+        };
+        let result = apply_context_policy_v2(&mut context, &input);
+        assert!(result.is_some(), "large context should pack");
+        let block = memory_block_from(&context).expect("memory block must be present");
+        assert!(block.contains("session=sess-42"));
+        assert!(block.contains("findings=2"));
+        assert!(block.contains("questions=1"));
+        assert!(block.contains("facts=3"));
+        assert!(block.contains("investigate auth regression"));
+    }
+
+    #[test]
+    fn policy_v2_omits_memory_reference_block_when_none() {
+        let mut context = build_above_threshold_context();
+        let input = ContextPolicyInput {
+            model_name: "gpt-4".to_string(),
+            memory_reference: None,
+            ..ContextPolicyInput::default()
+        };
+        let result = apply_context_policy_v2(&mut context, &input);
+        assert!(result.is_some());
+        assert!(
+            memory_block_from(&context).is_none(),
+            "no memory reference input => no memory block in packed context",
+        );
+    }
+
+    #[test]
+    fn policy_v2_memory_reference_block_is_deterministic() {
+        // Two independent packing passes with the same MemoryReference
+        // must produce byte-identical blocks. Drives message_prefix_hash
+        // stability (Milestone 1.3 invariant).
+        let mut ctx_a = build_above_threshold_context();
+        let mut ctx_b = build_above_threshold_context();
+        let input_a = ContextPolicyInput {
+            model_name: "gpt-4".to_string(),
+            memory_reference: Some(sample_memory_reference()),
+            ..ContextPolicyInput::default()
+        };
+        let input_b = input_a.clone();
+        apply_context_policy_v2(&mut ctx_a, &input_a).unwrap();
+        apply_context_policy_v2(&mut ctx_b, &input_b).unwrap();
+        assert_eq!(memory_block_from(&ctx_a), memory_block_from(&ctx_b));
+    }
+
+    #[test]
+    fn policy_v2_memory_reference_block_truncates_oversized_fields() {
+        let huge = "y".repeat(10_000);
+        let memory = MemoryReference {
+            task_goal: huge.clone(),
+            active_plan: huge,
+            ..sample_memory_reference()
+        };
+        let mut context = build_above_threshold_context();
+        let input = ContextPolicyInput {
+            model_name: "gpt-4".to_string(),
+            memory_reference: Some(memory),
+            ..ContextPolicyInput::default()
+        };
+        apply_context_policy_v2(&mut context, &input).unwrap();
+        let block = memory_block_from(&context).expect("memory block must exist");
+        // Budget (180) split in thirds => ~60 tokens each => ~240 chars each;
+        // a 10_000-char field must be truncated well below its own length.
+        // 1_500 chars is a generous upper bound that still proves truncation.
+        assert!(
+            block.len() < 1_500,
+            "memory block should be truncated; got {} chars",
+            block.len()
+        );
+    }
+
+    #[test]
+    fn policy_v2_tiny_forced_context_packs_when_memory_reference_is_present() {
+        // Without a memory_reference, a tiny forced context short-circuits
+        // and skips packing. With one, the packer must run so the memory
+        // block is inlined — otherwise compaction could silently drop the
+        // only pointer to durable memory.
+        let mut context = vec![
+            Message::system("System"),
+            Message::user("Hi"),
+            Message::assistant("Hello"),
+        ];
+        let input = ContextPolicyInput {
+            force_pack: true,
+            model_name: "gpt-4".to_string(),
+            memory_reference: Some(sample_memory_reference()),
+            ..ContextPolicyInput::default()
+        };
+        let result = apply_context_policy_v2(&mut context, &input);
+        assert!(result.is_some(), "memory-bearing tiny forced pack must run");
+        assert!(
+            memory_block_from(&context).is_some(),
+            "memory reference must survive the packing pass",
+        );
+    }
+
+    #[test]
+    fn policy_v2_repeated_packing_does_not_duplicate_memory_reference_block() {
+        // Safety net against an earlier pass's ContextPolicyV2 block
+        // leaking through into the next pack, causing the memory
+        // reference to appear twice. The tail collector filters out
+        // existing "ContextPolicyV2 " system messages; this test pins
+        // that invariant end-to-end for the memory block.
+        //
+        // The second call uses force_pack so it runs even when the
+        // first pass already shrank the context below the compaction
+        // threshold.
+        let mut context = build_above_threshold_context();
+        let input = ContextPolicyInput {
+            model_name: "gpt-4".to_string(),
+            memory_reference: Some(sample_memory_reference()),
+            ..ContextPolicyInput::default()
+        };
+        apply_context_policy_v2(&mut context, &input).unwrap();
+        let force_input = ContextPolicyInput {
+            force_pack: true,
+            ..input
+        };
+        apply_context_policy_v2(&mut context, &force_input).unwrap();
+        let count = context
+            .iter()
+            .filter(|m| {
+                m.role == MessageRole::System
+                    && m.as_text()
+                        .is_some_and(|t| t.starts_with("ContextPolicyV2 session memory reference:"))
+            })
+            .count();
+        assert_eq!(count, 1, "memory block must not duplicate across packs");
+    }
+
     #[test]
     fn test_apply_policy_v2_skips_tiny_forced_context() {
         let mut context = vec![
@@ -1317,5 +1819,399 @@ mod tests {
             orphans.is_empty(),
             "session 0ceae112 incident must not repeat: orphan tool_call_ids in tail: {orphans:?}; tail: {tail:#?}",
         );
+    }
+
+    // --- M4.1 execution brief tests ---
+
+    fn sample_execution_brief() -> ExecutionBrief {
+        ExecutionBrief {
+            task_goal: "fix failing login flow".to_string(),
+            active_subtask: Some("patch token refresh".to_string()),
+            recently_completed: vec![
+                "audit auth.rs".to_string(),
+                "repro failing test".to_string(),
+            ],
+            next_intended_action: Some("add regression test".to_string()),
+            current_blocker: None,
+        }
+    }
+
+    fn brief_block_from(messages: &[Message]) -> Option<&str> {
+        messages.iter().find_map(|m| match &m.content {
+            MessageContent::Text(text)
+                if m.role == MessageRole::System
+                    && text.starts_with("ContextPolicyV2 execution brief:") =>
+            {
+                Some(text.as_str())
+            }
+            _ => None,
+        })
+    }
+
+    #[test]
+    fn policy_v2_inlines_execution_brief_block_when_provided() {
+        let mut context = build_above_threshold_context();
+        let input = ContextPolicyInput {
+            model_name: "gpt-4".to_string(),
+            execution_brief: Some(sample_execution_brief()),
+            ..ContextPolicyInput::default()
+        };
+        apply_context_policy_v2(&mut context, &input).expect("large context should pack");
+        let block = brief_block_from(&context).expect("brief block must be present");
+        assert!(block.contains("goal: fix failing login flow"));
+        assert!(block.contains("active: patch token refresh"));
+        assert!(block.contains("recent: audit auth.rs; repro failing test"));
+        assert!(block.contains("next: add regression test"));
+        assert!(
+            !block.contains("blocker:"),
+            "brief without blocker must not emit a blocker line; got {block}",
+        );
+    }
+
+    #[test]
+    fn policy_v2_omits_execution_brief_block_when_none() {
+        let mut context = build_above_threshold_context();
+        let input = ContextPolicyInput {
+            model_name: "gpt-4".to_string(),
+            execution_brief: None,
+            ..ContextPolicyInput::default()
+        };
+        apply_context_policy_v2(&mut context, &input).expect("large context should pack");
+        assert!(
+            brief_block_from(&context).is_none(),
+            "no execution brief input => no brief block in packed context",
+        );
+    }
+
+    #[test]
+    fn policy_v2_execution_brief_block_is_deterministic() {
+        let mut ctx_a = build_above_threshold_context();
+        let mut ctx_b = build_above_threshold_context();
+        let input_a = ContextPolicyInput {
+            model_name: "gpt-4".to_string(),
+            execution_brief: Some(sample_execution_brief()),
+            ..ContextPolicyInput::default()
+        };
+        let input_b = input_a.clone();
+        apply_context_policy_v2(&mut ctx_a, &input_a).unwrap();
+        apply_context_policy_v2(&mut ctx_b, &input_b).unwrap();
+        assert_eq!(brief_block_from(&ctx_a), brief_block_from(&ctx_b));
+    }
+
+    #[test]
+    fn policy_v2_execution_brief_omits_missing_optional_fields() {
+        let brief = ExecutionBrief {
+            task_goal: "audit".to_string(),
+            active_subtask: None,
+            recently_completed: vec![],
+            next_intended_action: None,
+            current_blocker: None,
+        };
+        let mut context = build_above_threshold_context();
+        let input = ContextPolicyInput {
+            model_name: "gpt-4".to_string(),
+            execution_brief: Some(brief),
+            ..ContextPolicyInput::default()
+        };
+        apply_context_policy_v2(&mut context, &input).unwrap();
+        let block = brief_block_from(&context).expect("brief block must be present");
+        assert!(block.contains("goal: audit"));
+        assert!(!block.contains("\nactive:"));
+        assert!(!block.contains("\nrecent:"));
+        assert!(!block.contains("\nnext:"));
+        assert!(!block.contains("\nblocker:"));
+    }
+
+    #[test]
+    fn policy_v2_execution_brief_reflects_changed_active_subtask() {
+        let brief_v1 = ExecutionBrief {
+            active_subtask: Some("read code".to_string()),
+            ..sample_execution_brief()
+        };
+        let brief_v2 = ExecutionBrief {
+            active_subtask: Some("write fix".to_string()),
+            ..sample_execution_brief()
+        };
+        let mut ctx_a = build_above_threshold_context();
+        let mut ctx_b = build_above_threshold_context();
+        apply_context_policy_v2(
+            &mut ctx_a,
+            &ContextPolicyInput {
+                model_name: "gpt-4".to_string(),
+                execution_brief: Some(brief_v1),
+                ..ContextPolicyInput::default()
+            },
+        )
+        .unwrap();
+        apply_context_policy_v2(
+            &mut ctx_b,
+            &ContextPolicyInput {
+                model_name: "gpt-4".to_string(),
+                execution_brief: Some(brief_v2),
+                ..ContextPolicyInput::default()
+            },
+        )
+        .unwrap();
+        assert_ne!(
+            brief_block_from(&ctx_a),
+            brief_block_from(&ctx_b),
+            "subtask transition must move the brief block",
+        );
+    }
+
+    #[test]
+    fn policy_v2_repeated_packing_does_not_duplicate_execution_brief_block() {
+        let mut context = build_above_threshold_context();
+        let input = ContextPolicyInput {
+            model_name: "gpt-4".to_string(),
+            execution_brief: Some(sample_execution_brief()),
+            ..ContextPolicyInput::default()
+        };
+        apply_context_policy_v2(&mut context, &input).unwrap();
+        let force_input = ContextPolicyInput {
+            force_pack: true,
+            ..input
+        };
+        apply_context_policy_v2(&mut context, &force_input).unwrap();
+        let count = context
+            .iter()
+            .filter(|m| {
+                m.role == MessageRole::System
+                    && m.as_text()
+                        .is_some_and(|t| t.starts_with("ContextPolicyV2 execution brief:"))
+            })
+            .count();
+        assert_eq!(count, 1, "brief block must not duplicate across packs");
+    }
+
+    #[test]
+    fn policy_v2_tiny_forced_pack_runs_when_execution_brief_is_present() {
+        // Mirrors the memory-reference exception: without a brief a
+        // tiny-context forced pack short-circuits, but with one the
+        // packer must run so the brief is inlined.
+        let mut context = vec![
+            Message::system("System"),
+            Message::user("Hi"),
+            Message::assistant("Hello"),
+        ];
+        let input = ContextPolicyInput {
+            force_pack: true,
+            model_name: "gpt-4".to_string(),
+            execution_brief: Some(sample_execution_brief()),
+            ..ContextPolicyInput::default()
+        };
+        let result = apply_context_policy_v2(&mut context, &input);
+        assert!(result.is_some(), "brief-bearing tiny forced pack must run");
+        assert!(
+            brief_block_from(&context).is_some(),
+            "brief must survive the packing pass",
+        );
+    }
+
+    // --- M4.2 enriched failure memory tests ---
+
+    fn context_with_failed_tool_call(
+        tool_name: &str,
+        args: JsonValue,
+        error_message: &str,
+    ) -> Vec<Message> {
+        vec![
+            Message::user("go"),
+            Message::assistant_with_tool_calls(
+                "running".to_string(),
+                vec![ToolCall {
+                    id: "call_err_1".to_string(),
+                    name: tool_name.to_string(),
+                    arguments: args,
+                }],
+            ),
+            Message::tool_result("call_err_1", json!({ "error": error_message }), true),
+        ]
+    }
+
+    #[test]
+    fn failure_class_classifies_common_errors() {
+        assert_eq!(
+            FailureClass::classify("No such file or directory (ENOENT)"),
+            FailureClass::FileNotFound,
+        );
+        assert_eq!(
+            FailureClass::classify("Permission denied"),
+            FailureClass::PermissionDenied,
+        );
+        assert_eq!(
+            FailureClass::classify("operation timed out after 30s"),
+            FailureClass::Timeout,
+        );
+        assert_eq!(
+            FailureClass::classify("Invalid argument: missing required field 'path'"),
+            FailureClass::ValidationFailed,
+        );
+        assert_eq!(
+            FailureClass::classify("subtask_mode_disallowed: tool not in allowed list"),
+            FailureClass::NotAllowed,
+        );
+        assert_eq!(
+            FailureClass::classify("something unrelated"),
+            FailureClass::Other,
+        );
+    }
+
+    #[test]
+    fn failure_memory_renders_structured_block_for_single_error() {
+        let context = context_with_failed_tool_call(
+            "fs_read_file",
+            json!({"path": "/nope.txt"}),
+            "No such file: /nope.txt",
+        );
+        let block = build_failure_memory(&context).expect("error present");
+        assert!(block.starts_with("Last error:"));
+        assert!(block.contains("tool: fs_read_file"));
+        assert!(block.contains("type: file_not_found"));
+        assert!(block.contains("args_fp: "));
+        assert!(block.contains("message: No such file: /nope.txt"));
+        assert!(block.contains("retry: change args before retry"));
+        assert!(!block.contains("identical call has failed"));
+    }
+
+    #[test]
+    fn failure_memory_renders_retryable_verdict_for_timeouts() {
+        let context = context_with_failed_tool_call(
+            "search_grep",
+            json!({"query": "auth"}),
+            "operation timed out after 30s",
+        );
+        let block = build_failure_memory(&context).expect("error present");
+        assert!(block.contains("type: timeout"));
+        assert!(
+            block.contains("retry: safe to retry (likely transient)"),
+            "timeouts must be marked retryable; got {block}",
+        );
+    }
+
+    #[test]
+    fn failure_memory_detects_identical_repeat_call() {
+        let args = json!({"path": "/missing.txt"});
+        let context = vec![
+            Message::user("go"),
+            Message::assistant_with_tool_calls(
+                "try one".to_string(),
+                vec![ToolCall {
+                    id: "call_a".to_string(),
+                    name: "fs_read_file".to_string(),
+                    arguments: args.clone(),
+                }],
+            ),
+            Message::tool_result("call_a", json!({"error": "No such file"}), true),
+            Message::assistant_with_tool_calls(
+                "try again".to_string(),
+                vec![ToolCall {
+                    id: "call_b".to_string(),
+                    name: "fs_read_file".to_string(),
+                    arguments: args,
+                }],
+            ),
+            Message::tool_result("call_b", json!({"error": "No such file"}), true),
+        ];
+        let block = build_failure_memory(&context).expect("error present");
+        assert!(
+            block.contains("identical call has failed before — do not retry unchanged"),
+            "repeat should surface anti-repeat guidance; got {block}",
+        );
+    }
+
+    #[test]
+    fn failure_memory_does_not_flag_repeat_when_args_differ() {
+        let context = vec![
+            Message::user("go"),
+            Message::assistant_with_tool_calls(
+                "try one".to_string(),
+                vec![ToolCall {
+                    id: "call_a".to_string(),
+                    name: "fs_read_file".to_string(),
+                    arguments: json!({"path": "/one.txt"}),
+                }],
+            ),
+            Message::tool_result("call_a", json!({"error": "No such file"}), true),
+            Message::assistant_with_tool_calls(
+                "try another".to_string(),
+                vec![ToolCall {
+                    id: "call_b".to_string(),
+                    name: "fs_read_file".to_string(),
+                    arguments: json!({"path": "/two.txt"}),
+                }],
+            ),
+            Message::tool_result("call_b", json!({"error": "No such file"}), true),
+        ];
+        let block = build_failure_memory(&context).expect("error present");
+        assert!(
+            !block.contains("identical call has failed"),
+            "different args must not trigger anti-repeat guidance; got {block}",
+        );
+    }
+
+    #[test]
+    fn failure_memory_is_emitted_as_a_bounded_block_by_packer() {
+        let mut context = context_with_failed_tool_call(
+            "fs_read_file",
+            json!({"path": "/long/path/that/keeps/going/and/going.txt"}),
+            "No such file: /long/path/that/keeps/going/and/going.txt",
+        );
+        let input = ContextPolicyInput {
+            force_pack: true,
+            model_name: "gpt-4".to_string(),
+            ..ContextPolicyInput::default()
+        };
+        apply_context_policy_v2(&mut context, &input);
+        let block = context.iter().find_map(|m| match &m.content {
+            MessageContent::Text(text)
+                if m.role == MessageRole::System
+                    && text.starts_with("ContextPolicyV2 failure memory:") =>
+            {
+                Some(text.clone())
+            }
+            _ => None,
+        });
+        // Tiny forced-pack skips when no "real" block (memory ref / brief)
+        // is supplied, so the failure-memory block only lands when
+        // packing actually runs. Assert the budget invariant directly
+        // on the formatter output instead.
+        let formatted = build_failure_memory(&context_with_failed_tool_call(
+            "fs_read_file",
+            json!({"path": "/long/path/that/keeps/going/and/going.txt"}),
+            "No such file: /long/path/that/keeps/going/and/going.txt",
+        ))
+        .unwrap();
+        // 140 tokens ≈ 560 chars. The formatter's fields are all
+        // individually short, so the full block must fit the budget.
+        assert!(
+            formatted.len() <= BUDGET_FAILURE_MEMORY_TOKENS * 4,
+            "failure memory must stay within {}-token budget; got {} chars",
+            BUDGET_FAILURE_MEMORY_TOKENS,
+            formatted.len(),
+        );
+        // Block may or may not appear in packed context depending on
+        // tiny-forced-pack short-circuit semantics — but when it does
+        // appear, the prefix must match.
+        if let Some(text) = block {
+            assert!(text.contains("tool: fs_read_file"));
+            assert!(text.contains("type: file_not_found"));
+        }
+    }
+
+    #[test]
+    fn arguments_fingerprint_is_stable_across_calls() {
+        let args = json!({"path": "/a.txt", "mode": "read"});
+        let a = arguments_fingerprint(&args);
+        let b = arguments_fingerprint(&args);
+        assert_eq!(a, b);
+        assert_eq!(a.len(), 8);
+    }
+
+    #[test]
+    fn arguments_fingerprint_distinguishes_different_args() {
+        let a = arguments_fingerprint(&json!({"path": "/a.txt"}));
+        let b = arguments_fingerprint(&json!({"path": "/b.txt"}));
+        assert_ne!(a, b);
     }
 }

@@ -69,6 +69,7 @@ const fn trace_type_to_string(trace_type: &RuntimeTraceType) -> &'static str {
         RuntimeTraceType::ExecutionCancelled => "execution_cancelled",
         RuntimeTraceType::ExecutionFailed => "execution_failed",
         RuntimeTraceType::ExecutionCompleted => "execution_completed",
+        RuntimeTraceType::MemoryRefreshed => "memory_refreshed",
     }
 }
 
@@ -102,6 +103,7 @@ fn string_to_trace_type(value: &str) -> RuntimeTraceType {
         "execution_cancelled" => RuntimeTraceType::ExecutionCancelled,
         "execution_failed" => RuntimeTraceType::ExecutionFailed,
         "execution_completed" => RuntimeTraceType::ExecutionCompleted,
+        "memory_refreshed" => RuntimeTraceType::MemoryRefreshed,
         _ => RuntimeTraceType::ExecutionStarted,
     }
 }

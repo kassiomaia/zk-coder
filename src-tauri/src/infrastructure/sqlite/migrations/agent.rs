@@ -179,6 +179,19 @@ pub fn init_schema(conn: &Connection) -> Result<(), SessionRepositoryError> {
 
         CREATE INDEX IF NOT EXISTS idx_recovery_session_created
             ON agent_recovery_events(session_id, created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS agent_session_memory (
+            session_id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            task_goal TEXT NOT NULL,
+            active_plan TEXT NOT NULL,
+            completed_findings_json TEXT NOT NULL DEFAULT '[]',
+            open_questions_json TEXT NOT NULL DEFAULT '[]',
+            extracted_facts_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+        );
         ",
     )?;
 

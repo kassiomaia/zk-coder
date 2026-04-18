@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::application::agent::AgentServiceImpl;
+use crate::core::agent::memory::MemoryRepository;
 use crate::core::agent::repositories::{
     ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
@@ -31,7 +32,8 @@ impl AgentState {
         let task_repository: Arc<dyn TaskRepository> = sqlite_repository.clone();
         let telemetry_repository: Arc<dyn AgentTelemetryRepository> = sqlite_repository.clone();
         let execution_repository: Arc<dyn ExecutionRepository> = sqlite_repository.clone();
-        let trace_repository: Arc<dyn RuntimeTraceRepository> = sqlite_repository;
+        let trace_repository: Arc<dyn RuntimeTraceRepository> = sqlite_repository.clone();
+        let memory_repository: Arc<dyn MemoryRepository> = sqlite_repository;
         let approval_queue = Arc::new(ApprovalQueue::new());
         let tool_registry = Arc::new(
             crate::infrastructure::tools::ToolRegistry::new()
@@ -44,6 +46,7 @@ impl AgentState {
             telemetry_repository.clone(),
             execution_repository.clone(),
             trace_repository.clone(),
+            memory_repository,
             approval_queue.clone(),
             tool_registry,
         ));

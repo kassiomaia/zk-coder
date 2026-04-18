@@ -10,6 +10,7 @@ use tauri::AppHandle;
 
 use super::tracing::RuntimeTraceService;
 use crate::application::agent::harness::HarnessStateStore;
+use crate::core::agent::memory::MemoryRepository;
 use crate::core::agent::repositories::{
     ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
@@ -36,6 +37,10 @@ pub struct ExecutionDeps<'a> {
     pub execution_repo: &'a dyn ExecutionRepository,
     /// The repository for runtime traces.
     pub trace_repo: &'a dyn RuntimeTraceRepository,
+    /// The repository for durable session working-memory artifacts
+    /// (Milestone 3.1). Populated for every session; callers fetch or
+    /// upsert `SessionMemory` rows keyed by session id.
+    pub memory_repo: &'a dyn MemoryRepository,
     /// The queue for handling pending approvals.
     pub approval_queue: &'a Arc<ApprovalQueue>,
     /// The registry of available tools.

@@ -49,6 +49,7 @@ fn create_test_service() -> AgentServiceImpl {
         session_store.clone(),
         session_store.clone(),
         session_store.clone(),
+        session_store.clone(),
         approval_queue.clone(),
         tool_registry,
     ));
@@ -967,6 +968,7 @@ fn test_service_handles_runtime_creation_failure() {
     let runtime = Arc::new(AgentRuntime::new(
         session_store.clone(),
         chat_service,
+        session_store.clone(),
         session_store.clone(),
         session_store.clone(),
         session_store.clone(),

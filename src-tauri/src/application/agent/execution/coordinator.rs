@@ -9,6 +9,7 @@ use tauri::AppHandle;
 use crate::application::agent::harness::HarnessStateStore;
 use crate::core::agent::permissions::PermissionResolver;
 use crate::core::agent::execution::RuntimeTraceType;
+use crate::core::agent::memory::MemoryRepository;
 use crate::core::agent::repositories::{
     ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
@@ -76,6 +77,7 @@ pub async fn execute(
     telemetry_repo: &dyn AgentTelemetryRepository,
     execution_repo: &dyn ExecutionRepository,
     trace_repo: &dyn RuntimeTraceRepository,
+    memory_repo: &dyn MemoryRepository,
     approval_queue: &Arc<ApprovalQueue>,
     tool_registry: &Arc<ToolRegistry>,
     file_snapshot_registry: &Arc<FileSnapshotRegistry>,
@@ -90,6 +92,7 @@ pub async fn execute(
         telemetry_repo,
         execution_repo,
         trace_repo,
+        memory_repo,
         approval_queue,
         tool_registry,
         file_snapshot_registry,

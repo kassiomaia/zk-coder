@@ -104,6 +104,15 @@ pub enum RuntimeTraceType {
     ContextPolicyEvaluated,
     /// Records the filtering of the available toolset.
     ToolsetFiltered,
+    /// Records a memory-refresh decision taken by the runtime (M3.3).
+    ///
+    /// The payload carries the trigger kind, whether a write actually
+    /// occurred, how many findings/facts were added, whether the active
+    /// plan changed, and any skipped-reason when the trigger fired but no
+    /// mutation happened (e.g. the memory row does not yet exist for this
+    /// session, or all proposed additions were duplicates). Non-trigger
+    /// steps do not emit this trace.
+    MemoryRefreshed,
     /// Records the preparation of a request to the LLM.
     LlmRequestPrepared,
     /// Indicates the start of a request to the LLM.

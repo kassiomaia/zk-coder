@@ -10,6 +10,7 @@ pub mod coordinator;
 pub mod deps;
 pub mod harness_events;
 pub mod llm_phase;
+pub mod memory_refresh;
 pub mod message_ids;
 pub mod response_phase;
 pub mod state;

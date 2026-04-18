@@ -212,6 +212,32 @@ Allowed causes of drift:
   file-relevance block. This is gated behavior, not every-step drift.
 - **Subtask transition packing** — `force_pack = subtask_changed` rewrites the
   packed blocks on subtask transitions, which changes the prefix.
+- **Session memory update** (M3.2 / M3.3) — when `SessionMemory.updated_at`
+  moves or any knowledge-item count (findings / questions / facts)
+  changes, the `ContextPolicyV2 session memory reference:` block in the
+  packed context updates, which changes the prefix hash. Every mutation
+  is emitted as a `MemoryRefreshed` runtime trace (see the M3.3 block
+  below), so a prefix-hash shift here should always correlate with a
+  trace. The block format is a pure function of `MemoryReference`, so
+  an unchanged `SessionMemory` yields identical bytes across packing
+  passes.
+- **Execution brief update** (M4.1) — the `ContextPolicyV2 execution
+  brief:` block is a pure function of
+  `(task_goal, active_subtask, recently_completed, next_intended_action,
+  current_blocker)`. Any field movement — a subtask transition, a new
+  completed subtask, a new pending next action, a new or cleared
+  blocker — rewrites the block and therefore moves the prefix hash.
+  Identical inputs produce byte-identical blocks across packing
+  passes. Unrelated dialogue appended at the tail must not move the
+  hash.
+- **Failure-memory mutation** (M4.2) — the
+  `ContextPolicyV2 failure memory:` block changes whenever the most
+  recent error's `(tool_name, args_fingerprint, class, message)`
+  tuple changes, or when a new identical repeat is detected and the
+  "do not retry unchanged" guidance appears. No error present → no
+  block → identical bytes to the previous step. Each call to
+  `extract_failure_record` is deterministic over the same context, so
+  re-packing the same state yields the same block.
 
 Not allowed:
 
@@ -219,6 +245,146 @@ Not allowed:
   steps outside of the triggers above. Appending a single new message should
   leave the prefix hash unchanged — that is the cache-warmth invariant the
   hash is built to observe.
+
+Working-memory observability (M3.1 / M3.2):
+
+- When a task is non-trivial (planner flagged `is_non_trivial && subtasks
+  non-empty`), `start_execution` creates a row in `agent_session_memory`
+  keyed by `session_id` with the task goal and a joined subtask-title
+  active plan. Trivial tasks never create a memory row, so
+  `deps.memory_repo.get_memory(...) == None` is the expected state there.
+- Every `resolve_context` call fetches the memory and — when present —
+  inlines a `ContextPolicyV2 session memory reference:` system block
+  between the pre-computed summary and the recent dialogue tail. The
+  block is capped at `BUDGET_MEMORY_REFERENCE_TOKENS` (180) and carries
+  only the session id, timestamp, knowledge-item counts, and truncated
+  goal/plan text — never the raw finding/question/fact lists.
+- Compaction cannot silently drop the reference: the tiny-context
+  forced-pack short-circuit in `apply_context_policy_v2` explicitly
+  bypasses when `input.memory_reference.is_some()`, so the block is
+  always rebuilt during compaction when memory exists.
+
+Memory refresh triggers (M3.3):
+
+- `application::agent::execution::memory_refresh::apply_memory_refresh`
+  is the **only** site outside of `start_execution` that writes
+  `SessionMemory`. It is invoked from `context_phase::resolve_context`
+  by three bounded, deterministic triggers:
+  - **SubtaskCompleted** — fires when `resolve_context` observes a
+    subtask id transition (`previous_subtask_id != current_subtask_id`)
+    and the previous row is now `Completed` on disk. Appends the
+    subtask title to `completed_findings` (idempotent via dedup) and
+    refreshes `active_plan` to the new in-progress subtask title.
+    Guarded by `ctx.last_completed_subtask_for_memory`, so the same
+    completion never fires the trigger twice.
+  - **CompactionBoundary** — fires only when a compaction pass returned
+    `ContextPackOutcome::Compacted`. Mutation is limited to
+    `active_plan` refresh; no findings/facts are added. The trigger's
+    purpose is to audit that compaction happened and that the memory
+    reference block is the primary state-carrier at that boundary.
+  - **RetrievalBurst** — fires when a per-subtask counter
+    (`ctx.retrieval_count_in_current_subtask`) crosses
+    `RETRIEVAL_BURST_THRESHOLD = 3`. The counter resets on every
+    subtask change, so bursts are scoped to a single subtask. Mutation
+    appends deduplicated file paths distilled from retrieval snippets
+    into `extracted_facts`; counter resets after firing.
+- Retention: `MAX_COMPLETED_FINDINGS = 50` and
+  `MAX_EXTRACTED_FACTS = 50` cap each list; oldest entries evict from
+  the front. A `RetrievalBurst` firing that would exceed the cap is
+  still recorded in the trace with the real `factsAdded` count; the
+  memory body just sheds older entries.
+- Every firing — including no-op cases — emits a `MemoryRefreshed`
+  runtime trace with payload shape:
+  ```json
+  {
+    "trigger": "subtask_completed" | "compaction_boundary" | "retrieval_burst",
+    "wrote": true | false,
+    "findingsAdded": <uint>,
+    "factsAdded": <uint>,
+    "activePlanChanged": true | false,
+    "skippedReason": null | "no_memory" | "no_change" | "load_failed" | "write_failed",
+    "triggerDetails": { ... trigger-specific }
+  }
+  ```
+  Trace consumers can count firings, pivot by `trigger`, and detect
+  "trigger fired but no state change" via `wrote: false` +
+  `skippedReason: "no_change"`. A trigger whose `skippedReason` is
+  `"no_memory"` indicates the task was trivial (never got a memory row
+  at bootstrap) and is the expected state for single-step requests.
+- Non-trigger steps do not write memory and do not emit
+  `MemoryRefreshed`. This is the key M3.3 invariant: memory updates
+  are bounded, deterministic, and observable, not every-step
+  rewrites.
+
+Execution brief block (M4.1):
+
+- `apply_context_policy_v2` inlines a single
+  `ContextPolicyV2 execution brief:` system block as the last
+  synthetic block — between the session memory reference and the
+  recent-dialogue tail — so the "what matters now" snapshot sits as
+  close to the attention tail as possible without interleaving with
+  live dialogue.
+- Block body shape (missing fields omitted; fields individually
+  truncated to `BUDGET_EXECUTION_BRIEF_TOKENS / 4`):
+  ```
+  ContextPolicyV2 execution brief:
+  goal: <task goal>
+  active: <current subtask title>
+  recent: <most-recent-completed titles; "; " separated>
+  next: <next pending subtask title>
+  blocker: <class>: <failing tool>
+  ```
+- `context_phase::build_execution_brief` derives the brief from
+  `(request.content, current_subtask_summary, loaded_subtasks,
+  llm_context)`. It is a pure function of durable inputs, so two
+  packing passes on identical state produce byte-identical blocks.
+  Unrelated dialogue appended at the tail must not move the brief.
+- `blocker` is only present when the context contains an unrecovered
+  tool error — otherwise the line is absent, not an empty string.
+  `current_blocker` delegates classification to
+  `FailureClass::classify` (see M4.2 below) so the brief and the
+  failure-memory block agree on the normalized class.
+- Tiny-forced-pack exception: when an execution brief is supplied,
+  the tiny-context short-circuit is bypassed — mirrors the memory
+  reference behavior — so subtask transitions never suppress the
+  brief on small contexts.
+
+Enriched failure memory (M4.2):
+
+- `build_failure_memory` emits a typed, multiline block instead of
+  the free-form "Last actionable error: ..." string. Body shape,
+  capped at `BUDGET_FAILURE_MEMORY_TOKENS = 140`:
+  ```
+  ContextPolicyV2 failure memory:
+  Last error:
+  tool: <failing tool name>
+  args_fp: <8-hex-char canonical JSON fingerprint>
+  type: <file_not_found | permission_denied | timeout | validation_failed | not_allowed | other>
+  message: <truncated error text, <= 160 chars>
+  retry: safe to retry (likely transient)  # for timeout | other
+  retry: change args before retry          # for the rest
+  # Optional last line — only when a prior (tool, args_fp) pair also failed:
+  note: identical call has failed before — do not retry unchanged
+  ```
+- Classifier (`FailureClass::classify`) uses bounded
+  case-insensitive substring matching on the error message. Unknown
+  shapes degrade to `other` and are treated as safe-to-retry by
+  default. Add new classes deliberately — the label set is the
+  public contract the signal-3 (repeated identical tool-call rate)
+  analyzer groups on.
+- Fingerprint (`arguments_fingerprint`) is an 8-hex-char FNV-1a
+  hash of the canonicalized JSON arguments. It is stable across
+  processes and equivalent-object permutations, so signal-3
+  dedup-by-fingerprint works across a whole trace history.
+- Repeat detection walks the full error history in the visible
+  context, not a sliding window. A previously-error'd call with the
+  same `(tool_name, args_fingerprint)` anywhere in context flips
+  `repeat_detected = true`, which emits the anti-repeat `note:` line.
+- Consumers interested in the structured breakdown without the
+  packed-context detour can call `extract_failure_record(&context)`
+  directly — it returns `Option<FailureRecord>` over the same
+  inputs and is what `build_execution_brief` uses to populate
+  `ExecutionBrief.current_blocker`.
 
 ## Measurement rules
 
