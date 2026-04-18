@@ -61,7 +61,7 @@ pub fn get_session_tasks(
     session_id: &crate::core::agent::session::SessionId,
 ) -> Result<Vec<crate::core::agent::task::AgentTask>, SessionRepositoryError> {
     let mut stmt = conn.prepare(
-        "SELECT id, session_id, request, status, steps, created_at, completed_at
+        "SELECT id, session_id, request, status, steps, created_at, completed_at, title, description
          FROM agent_tasks
          WHERE session_id = ?1
          ORDER BY created_at DESC",
@@ -75,6 +75,8 @@ pub fn get_session_tasks(
             let steps_str: String = row.get(4)?;
             let created: String = row.get(5)?;
             let completed: Option<String> = row.get(6)?;
+            let title: Option<String> = row.get(7)?;
+            let description: Option<String> = row.get(8)?;
 
             let request: crate::core::agent::task::AgentRequest =
                 serde_json::from_str(&request_str).map_err(|e| {
@@ -115,7 +117,8 @@ pub fn get_session_tasks(
                 id: task_id,
                 session_id: crate::core::agent::session::SessionId(row.get(1)?),
                 request,
-                title: None,
+                title,
+                description,
                 status,
                 steps,
                 subtasks: None, // Loaded separately via get_subtasks
@@ -527,6 +530,61 @@ mod tests {
         let tasks = get_session_tasks(&conn, &session_id).unwrap();
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0].session_id.0, session_id.0);
+    }
+
+    /// Round-trip regression test (Workstream A.3).
+    ///
+    /// Previously `get_session_tasks` omitted the `title` and `description`
+    /// columns from its SELECT and hardcoded `title: None` on load, so the
+    /// LLM-generated title authored by the planning phase was dropped after
+    /// the first reload. The frontend then fell back to truncating the raw
+    /// request content at 80 characters, producing the "double-render" bug
+    /// reported on session `a597debb-c5b7-49eb-913e-7b11c7e4ac84` (2026-04-18).
+    ///
+    /// This test creates a task with both `title` and `description`, reloads
+    /// it via `get_session_tasks`, and asserts the columns survived the
+    /// round-trip. Would have caught the original regression.
+    #[test]
+    fn test_task_title_and_description_survive_round_trip() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session_id = make_test_session(&conn);
+        let task = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "long user request that should not be used as the display title"
+                    .to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+        let expected_title = "Create release communication files and copy";
+        let expected_description =
+            "Generate launch communication assets (email, social, blog) for the release.";
+        create_task(&conn, &task, Some(expected_title), Some(expected_description)).unwrap();
+
+        let tasks = get_session_tasks(&conn, &session_id).unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].title.as_deref(), Some(expected_title));
+        assert_eq!(tasks[0].description.as_deref(), Some(expected_description));
+    }
+
+    /// A task persisted without title/description must load as `None` for
+    /// both fields. Protects against a future regression that would default
+    /// to empty strings or to the request content.
+    #[test]
+    fn test_task_without_title_and_description_loads_as_none() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session_id = make_test_session(&conn);
+        make_test_task(&conn, &session_id);
+
+        let tasks = get_session_tasks(&conn, &session_id).unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert!(tasks[0].title.is_none());
+        assert!(tasks[0].description.is_none());
     }
 
     #[test]

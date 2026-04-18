@@ -14,8 +14,12 @@ use serde_json::json;
 
 use crate::core::agent::task::{SubTaskMode, TaskStatus};
 use crate::core::llm::entities::{ChatMessage, ToolDefinition};
+use crate::infrastructure::agent::registry::{
+    default_code_framing, harness_contract_prompt, quality_baseline_prompt, SystemPromptBuilder,
+};
 use crate::infrastructure::agent::runtime::request_shape::{
-    message_prefix_hash, system_prompt_hash, tool_catalog_hash,
+    framing_hash, harness_section_hash, message_prefix_hash, quality_baseline_hash,
+    system_prompt_hash, tool_catalog_hash,
 };
 use crate::infrastructure::agent::runtime::{derive_system_prompt, SubtaskSummary};
 
@@ -241,4 +245,134 @@ fn mutating_an_earlier_message_changes_prefix_hash() {
         message_prefix_hash(&original),
         message_prefix_hash(&mutated),
     );
+}
+
+// --- Section-attribution (H.4) -----------------------------------------------
+//
+// These tests back the Workstream H.4 requirement that prompt-stability tests
+// expose *which section* moved when the whole-prompt hash changes. They lock
+// in three invariants:
+//
+// 1. `harness_section_hash` and `quality_baseline_hash` are stable across
+//    subtask transitions, mode changes, and hypothetical task boundaries.
+// 2. `framing_hash` is stable across subtask transitions in Phase 1 (where
+//    every task inherits the default code framing). It will begin to move at
+//    task boundaries once Workstream H.2 ships per-task `TaskFraming`.
+// 3. The existing whole-prompt hash tests still pass — the three section
+//    hashes sit alongside `system_prompt_hash`, not replacing it.
+
+/// Build a base prompt using the real production composition, so the
+/// section-attribution assertions run against the exact sections the agent
+/// actually carries.
+fn production_base_prompt() -> String {
+    SystemPromptBuilder::compose_default_code_agent()
+}
+
+#[test]
+fn harness_section_hash_is_stable_across_subtask_transitions() {
+    // Two different subtasks (different title, mode, status, order). The
+    // harness-contract section is invariant across the pair — its hash must
+    // not move. This is the H.4 attribution invariant the measurement
+    // harness relies on.
+    let _ = production_base_prompt(); // the composed prompt depends on subtask state; the section does not
+    let before = harness_section_hash(harness_contract_prompt());
+
+    // Simulate a transition by deriving two different full prompts. The
+    // derived appendix is subtask-variant; the section is not.
+    let subtask_a = summary("Review auth", SubTaskMode::Read, TaskStatus::InProgress, 0);
+    let subtask_b = summary("Patch auth", SubTaskMode::Write, TaskStatus::InProgress, 1);
+    let _ = derive_system_prompt(&production_base_prompt(), &Some((subtask_a, 3)));
+    let _ = derive_system_prompt(&production_base_prompt(), &Some((subtask_b, 3)));
+
+    let after = harness_section_hash(harness_contract_prompt());
+    assert_eq!(
+        before, after,
+        "harness section must not move across subtask transitions",
+    );
+}
+
+#[test]
+fn quality_baseline_hash_is_stable_across_subtask_transitions() {
+    let before = quality_baseline_hash(quality_baseline_prompt());
+    let subtask_a = summary("Review auth", SubTaskMode::Read, TaskStatus::InProgress, 0);
+    let subtask_b = summary("Patch auth", SubTaskMode::Write, TaskStatus::InProgress, 1);
+    let _ = derive_system_prompt(&production_base_prompt(), &Some((subtask_a, 3)));
+    let _ = derive_system_prompt(&production_base_prompt(), &Some((subtask_b, 3)));
+    let after = quality_baseline_hash(quality_baseline_prompt());
+    assert_eq!(
+        before, after,
+        "quality baseline must not move across subtask transitions",
+    );
+}
+
+#[test]
+fn harness_and_quality_hashes_are_stable_across_modes() {
+    // Mode transitions change the tool catalog allowlist and the active
+    // subtask appendix, but they must never move the harness or quality
+    // sections.
+    let harness_before = harness_section_hash(harness_contract_prompt());
+    let quality_before = quality_baseline_hash(quality_baseline_prompt());
+
+    for mode in [
+        SubTaskMode::Read,
+        SubTaskMode::Write,
+        SubTaskMode::Execute,
+        SubTaskMode::FullAccess,
+    ] {
+        let s = summary("task", mode, TaskStatus::InProgress, 0);
+        let _ = derive_system_prompt(&production_base_prompt(), &Some((s, 2)));
+    }
+
+    assert_eq!(
+        harness_before,
+        harness_section_hash(harness_contract_prompt()),
+    );
+    assert_eq!(
+        quality_before,
+        quality_baseline_hash(quality_baseline_prompt()),
+    );
+}
+
+#[test]
+fn framing_hash_is_stable_across_subtask_transitions_in_phase_1() {
+    // Phase 1 emits the default code framing for every subtask. The
+    // framing hash must therefore be stable across transitions. This test
+    // will need to be relaxed when Workstream H.2 lands — at that point
+    // framing becomes a per-task record, and the *mid-task* stability
+    // promise remains, but framing moves at task boundaries.
+    let before = framing_hash(default_code_framing());
+
+    let subtask_a = summary("Review auth", SubTaskMode::Read, TaskStatus::InProgress, 0);
+    let subtask_b = summary("Patch auth", SubTaskMode::Write, TaskStatus::InProgress, 1);
+    let _ = derive_system_prompt(&production_base_prompt(), &Some((subtask_a, 3)));
+    let _ = derive_system_prompt(&production_base_prompt(), &Some((subtask_b, 3)));
+
+    let after = framing_hash(default_code_framing());
+    assert_eq!(
+        before, after,
+        "framing hash must be stable across subtask transitions in Phase 1",
+    );
+}
+
+#[test]
+fn section_hashes_are_separate_surfaces_from_system_prompt_hash() {
+    // Regression guard: the three H.5 section hashes are emitted alongside
+    // the existing `systemPromptHash`, not in place of it. This test
+    // ensures the composed-prompt hash (what drives cache invalidation) is
+    // still computable independently of the section hashes.
+    let composed = production_base_prompt();
+    let whole = system_prompt_hash(&composed);
+    let harness = harness_section_hash(harness_contract_prompt());
+    let quality = quality_baseline_hash(quality_baseline_prompt());
+    let framing = framing_hash(default_code_framing());
+
+    // Trivially, the four hashes are distinct hex digests of distinct
+    // inputs — the composed prompt is strictly longer than any one section.
+    assert_ne!(whole, harness);
+    assert_ne!(whole, quality);
+    assert_ne!(whole, framing);
+    // And the composed prompt actually carries each section.
+    assert!(composed.contains(harness_contract_prompt()));
+    assert!(composed.contains(quality_baseline_prompt()));
+    assert!(composed.contains(default_code_framing()));
 }

@@ -207,6 +207,20 @@ pub struct LlmTracePayload {
     /// stable hash; any drift in this value means the system prompt changed
     /// between adjacent steps, which invalidates the prompt-prefix cache.
     pub system_prompt_hash: String,
+    /// Hex-encoded SHA-256 of the harness-contract section (Workstream H.5).
+    ///
+    /// Emitted alongside [`system_prompt_hash`] so the trace consumer can
+    /// attribute prompt-prefix drift to the exact section that moved.
+    /// Invariant across tasks, subtasks, and mode transitions.
+    pub harness_section_hash: String,
+    /// Hex-encoded SHA-256 of the genre-neutral quality-baseline section
+    /// (Workstream H.5). Invariant across every task type.
+    pub quality_baseline_hash: String,
+    /// Hex-encoded SHA-256 of the framing section (Workstream H.5). In
+    /// Phase 1 this is the default code framing and is therefore stable
+    /// across subtask transitions. When Workstream H.2 lands per-task
+    /// `TaskFraming`, this hash will move at task boundaries.
+    pub framing_hash: String,
     /// Hex-encoded SHA-256 of the sorted tool catalog. A change in this hash
     /// between adjacent steps means the visible tool catalog was mutated.
     pub tool_catalog_hash: String,

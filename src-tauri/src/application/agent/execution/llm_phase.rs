@@ -19,7 +19,11 @@ use crate::core::llm::entities::{ChatRequest, ToolChoiceMode};
 use crate::infrastructure::agent::runtime::client::LlmRetryConfig;
 use crate::infrastructure::agent::runtime::context::estimate_context_tokens;
 use crate::infrastructure::agent::runtime::request_shape::{
-    message_prefix_hash, system_prompt_hash, tool_catalog_hash,
+    framing_hash, harness_section_hash, message_prefix_hash, quality_baseline_hash,
+    system_prompt_hash, tool_catalog_hash,
+};
+use crate::infrastructure::agent::registry::{
+    default_code_framing, harness_contract_prompt, quality_baseline_prompt,
 };
 use crate::infrastructure::agent::runtime::{chat_with_retry, AgentRuntimeError};
 
@@ -91,6 +95,9 @@ pub async fn call_llm(
             .collect(),
         tool_count: resolved.tool_definitions.len(),
         system_prompt_hash: system_prompt_hash(&resolved.system_prompt),
+        harness_section_hash: harness_section_hash(harness_contract_prompt()),
+        quality_baseline_hash: quality_baseline_hash(quality_baseline_prompt()),
+        framing_hash: framing_hash(default_code_framing()),
         tool_catalog_hash: tool_catalog_hash(&resolved.tool_definitions),
         tool_choice_mode: tool_choice_label(chat_request.tool_choice),
         message_prefix_hash: message_prefix_hash(&chat_request.messages),
@@ -182,6 +189,9 @@ pub async fn call_llm(
             .collect(),
         tool_count: resolved.tool_definitions.len(),
         system_prompt_hash: system_prompt_hash(&resolved.system_prompt),
+        harness_section_hash: harness_section_hash(harness_contract_prompt()),
+        quality_baseline_hash: quality_baseline_hash(quality_baseline_prompt()),
+        framing_hash: framing_hash(default_code_framing()),
         tool_catalog_hash: tool_catalog_hash(&resolved.tool_definitions),
         tool_choice_mode: tool_choice_label(chat_request.tool_choice),
         message_prefix_hash: message_prefix_hash(&chat_request.messages),

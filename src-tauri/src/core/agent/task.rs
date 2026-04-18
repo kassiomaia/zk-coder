@@ -56,6 +56,10 @@ pub struct AgentTask {
     /// LLM-generated title. When present, the frontend uses this instead of request.content.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// LLM-generated description. A short paragraph explaining what the task will do.
+    /// Hydrated from the `agent_tasks.description` column on reload.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     /// The current status of the task.
     pub status: TaskStatus,
     /// A list of execution steps that have been performed for this task.
@@ -78,6 +82,7 @@ impl AgentTask {
             session_id,
             request,
             title: None,
+            description: None,
             status: TaskStatus::Pending,
             steps: Vec::new(),
             subtasks: None,

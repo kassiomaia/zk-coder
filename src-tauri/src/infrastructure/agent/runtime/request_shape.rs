@@ -32,6 +32,42 @@ pub fn system_prompt_hash(system_prompt: &str) -> String {
     format!("{digest:x}")
 }
 
+/// Hex-encoded SHA-256 of the harness-contract section.
+///
+/// Paired with [`quality_baseline_hash`] and [`framing_hash`] to attribute
+/// prompt-prefix drift (Workstream H.4/H.5). This value must be invariant
+/// across tasks, subtasks, and mode transitions; when it moves, the harness
+/// contract itself changed and every downstream measurement must be
+/// re-baselined. Named so the trace consumer can visually align it with
+/// [`system_prompt_hash`] and [`tool_catalog_hash`].
+#[must_use]
+pub fn harness_section_hash(harness_contract: &str) -> String {
+    let digest = Sha256::digest(harness_contract.as_bytes());
+    format!("{digest:x}")
+}
+
+/// Hex-encoded SHA-256 of the quality-baseline section.
+///
+/// Must be invariant across every task type. A change here means the
+/// genre-neutral baseline shifted, which is always a deliberate edit.
+#[must_use]
+pub fn quality_baseline_hash(quality_baseline: &str) -> String {
+    let digest = Sha256::digest(quality_baseline.as_bytes());
+    format!("{digest:x}")
+}
+
+/// Hex-encoded SHA-256 of the framing section (code or otherwise).
+///
+/// In Phase 1 this is the default code framing and is therefore stable
+/// across subtask transitions. When Workstream H.2 lands per-task
+/// `TaskFraming`, this hash will move at task boundaries and stay stable
+/// within a task.
+#[must_use]
+pub fn framing_hash(framing: &str) -> String {
+    let digest = Sha256::digest(framing.as_bytes());
+    format!("{digest:x}")
+}
+
 /// Hex-encoded SHA-256 of the sorted tool catalog.
 ///
 /// Relies on the M1.1 guarantee that `ToolRegistry::definitions()` returns
@@ -120,6 +156,33 @@ mod tests {
         let a = system_prompt_hash("You are a helpful agent.");
         let b = system_prompt_hash("You are a thorough agent.");
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn section_hashes_are_deterministic() {
+        assert_eq!(harness_section_hash("h"), harness_section_hash("h"));
+        assert_eq!(quality_baseline_hash("q"), quality_baseline_hash("q"));
+        assert_eq!(framing_hash("f"), framing_hash("f"));
+    }
+
+    #[test]
+    fn section_hashes_are_independent() {
+        // The three helpers use the same SHA-256 primitive, so equal input
+        // *will* produce equal hashes across helpers. The trace consumer
+        // relies on the *payload keys*, not the digests, to tell the
+        // sections apart — this test asserts that content changes move each
+        // hash independently of the others.
+        let h1 = harness_section_hash("harness v1");
+        let h2 = harness_section_hash("harness v2");
+        assert_ne!(h1, h2);
+
+        let q1 = quality_baseline_hash("quality v1");
+        let q2 = quality_baseline_hash("quality v2");
+        assert_ne!(q1, q2);
+
+        let f1 = framing_hash("framing v1");
+        let f2 = framing_hash("framing v2");
+        assert_ne!(f1, f2);
     }
 
     #[test]
