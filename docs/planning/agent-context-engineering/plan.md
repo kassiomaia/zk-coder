@@ -493,6 +493,64 @@ Implement the work in small reviewable slices. Do not combine unrelated refactor
   - initial memory reference block
 - Keep out:
   - automatic refresh heuristics if they are not yet stable
+- Delivered:
+  - M3.1: new `core::agent::memory::SessionMemory` entity (task goal,
+    active plan, completed findings, open questions, extracted facts,
+    created/updated timestamps) plus a `MemoryRepository` trait with
+    `get_memory` / `upsert_memory` / `delete_memory`. Backend
+    orchestration owns creation and updates — the trait is not exposed
+    to tool code.
+  - M3.1 storage: `agent_session_memory` SQLite table keyed by
+    `session_id` (one row per session); `ON CONFLICT(session_id) DO
+    UPDATE` drives idempotent upsert semantics and `updated_at` is
+    bumped on every write. Cleanup is explicit in
+    `sessions::delete_session` (the CASCADE in the schema is decorative
+    because `PRAGMA foreign_keys` is not enabled on existing
+    connections).
+  - M3.1 wiring: `ExecutionDeps.memory_repo: &dyn MemoryRepository` is
+    plumbed through `AgentRuntime::new`, `coordinator::execute`, and
+    the infrastructure/application delegation boundary; the
+    `SqliteSessionRepository` implements `MemoryRepository` alongside
+    the four existing agent traits.
+  - M3.1 bootstrap trigger: when `plan.is_non_trivial &&
+    !plan.subtasks.is_empty()`, `start_execution` upserts a fresh
+    `SessionMemory` with `task_goal = plan.description`,
+    `active_plan = plan.subtasks.map(title).join("; ")`, and empty
+    finding/question/fact lists. Failure to persist is logged but
+    non-fatal — trivial tasks never get a memory row.
+  - M3.2: new `MemoryReference` struct (compact: id + truncated goal +
+    truncated plan + three knowledge-item counts + updated_at). A new
+    `ContextPolicyInput::memory_reference` field carries it into
+    `apply_context_policy_v2`, which inlines a deterministic
+    `ContextPolicyV2 session memory reference:` system block between
+    the pre-computed summary and the recent dialogue tail.
+  - M3.2 compaction safety: the block format is a pure function of
+    `MemoryReference`, so repeated packing passes produce identical
+    bytes; `collect_recent_dialogue_tail` already drops previous
+    `ContextPolicyV2 *` blocks from the tail walk, preventing
+    duplication. The tiny-context forced-pack short-circuit explicitly
+    bypasses when a memory reference is present, so compaction cannot
+    silently drop the only durable pointer.
+  - M3.2 lookup: `context_phase::resolve_context` fetches the memory
+    each step via `deps.memory_repo.get_memory(&session_id)`, condenses
+    it into `MemoryReference` (counts instead of raw lists), and feeds
+    it to the packer.
+  - 18 new passing tests cover the slice: 5 entity tests
+    (`core::agent::memory`), 7 SQLite repository tests
+    (get/upsert/delete + idempotency + cascade + ordering), and 6
+    context-policy packer tests (inline when present, omit when
+    absent, deterministic, truncation, tiny-forced-pack runs when
+    memory reference exists, repeated-pack does not duplicate block).
+  - Measurement harness updated: new working-memory observability
+    section documents the `ContextPolicyV2 session memory reference:`
+    block format and the stable `message_prefix_hash` invariant that
+    identical session memory produces identical packed prefixes across
+    steps.
+  - Out of scope (intentionally deferred to Slice 6 / M3.3): automatic
+    refresh triggers, per-refresh traces, and agent-facing tools that
+    edit memory. Slice 5 only creates the memory on bootstrap; updates
+    happen through direct repository calls from runtime code (none yet
+    wired beyond bootstrap).
 
 ### Slice 6 — Memory refresh policy and observability
 
@@ -500,6 +558,92 @@ Implement the work in small reviewable slices. Do not combine unrelated refactor
   - M3.3
   - trace support for refresh decisions
   - regression tests for deterministic refresh triggers
+- Delivered:
+  - M3.3 trigger contract: new closed enum
+    `application::agent::execution::memory_refresh::MemoryRefreshTrigger`
+    with three variants — `SubtaskCompleted { subtask_id, title, order }`,
+    `CompactionBoundary`, and `RetrievalBurst { count }`. The enum is
+    intentionally closed so additions are deliberate; trigger kinds
+    serialize as stable `snake_case` labels for traces.
+  - Single write path:
+    `memory_refresh::apply_memory_refresh(memory_repo, trace_repo,
+    session_id, task_id, subtask_id, step_number, trigger, mutation)` is
+    the sole site that writes `SessionMemory` outside of bootstrap. It
+    loads the current row, applies deduplicated append-with-cap on
+    `completed_findings` / `extracted_facts`, updates `active_plan` only
+    when the provided value differs, and writes only when something
+    actually changed. A `MemoryRefreshed` runtime trace is emitted on
+    every call — including skipped cases (`no_memory`, `no_change`,
+    `load_failed`, `write_failed`) — so non-writes are observable, not
+    inferred from absence.
+  - Bounded retention: `MAX_COMPLETED_FINDINGS = 50` and
+    `MAX_EXTRACTED_FACTS = 50` cap each list; oldest entries are evicted
+    from the front when the cap is crossed. Ensures long runs don't
+    grow memory unbounded.
+  - `RuntimeTraceType::MemoryRefreshed` enum variant added to
+    `core::agent::execution`, wired through
+    `execution_debug::trace_type_to_string` / `string_to_trace_type` so
+    traces round-trip through the `agent_runtime_traces` table.
+  - Runtime wiring in `context_phase::resolve_context`:
+    - Snapshots `previous_subtask_id` before subtask resolution.
+    - `maybe_fire_subtask_completed` — fires when the previous subtask
+      id differs from the current one **and** the previous row is now
+      `Completed` on disk; appends the subtask title to findings and
+      refreshes `active_plan` to the new in-progress title. Guarded by
+      `ctx.last_completed_subtask_for_memory` so the trigger fires at
+      most once per completed subtask id.
+    - `maybe_fire_retrieval_burst` — fires when the per-subtask
+      retrieval counter crosses `RETRIEVAL_BURST_THRESHOLD = 3`. The
+      counter resets on every subtask change, so bursts are measured
+      inside a single subtask. The mutation appends deduplicated file
+      paths distilled from snippet strings (`"path:line text"` →
+      `"path"`) into `extracted_facts`; counter is reset after firing.
+    - `maybe_fire_compaction_boundary` — fires only when
+      `ContextPackOutcome::Compacted` was produced (not on
+      `Reorganized` or `Unchanged`); mutation is limited to refreshing
+      `active_plan`, so the memory body doesn't drift just because
+      compaction happened. Non-compacting pack outcomes do not fire
+      this trigger.
+  - `ExecutionContext` gains two new fields —
+    `retrieval_count_in_current_subtask: u32` and
+    `last_completed_subtask_for_memory: Option<String>` — both seeded
+    at bootstrap to their zero-values.
+  - Pure helpers:
+    `memory_refresh::dedupe_append_capped(existing, new, cap)` and
+    `memory_refresh::snippet_paths(snippets)`. Both tested in
+    isolation; `snippet_paths` preserves first-seen order and handles
+    snippet strings that lack a `':'` separator.
+  - 14 new passing tests under `memory_refresh::tests`: pure helpers
+    (dedupe idempotency, cap eviction, empty-entry skipping,
+    path-extraction), plus end-to-end firings using an in-memory
+    `SqliteSessionRepository` fixture — no-memory path emits a trace
+    and returns early; subtask-completed writes title + active plan
+    and emits a trace; subtask-completed repeat is idempotent and
+    emits a second "no_change" trace; compaction boundary without
+    mutation logs the boundary without touching content;
+    compaction-boundary with an active-plan mutation writes;
+    retrieval-burst appends paths and deduplicates; retrieval-burst
+    respects the extracted-facts cap; non-trigger steps leave memory
+    untouched and never emit a `MemoryRefreshed` trace.
+  - Trace payload shape is stable: `{ trigger, wrote, findingsAdded,
+    factsAdded, activePlanChanged, skippedReason, triggerDetails }`
+    where `triggerDetails` carries `subtaskId` / `subtaskTitle` /
+    `subtaskOrder` for `SubtaskCompleted` and `retrievalCount` for
+    `RetrievalBurst`. Consumers can drive the five M4.3 measurement
+    signals from this without reconstructing state.
+  - Measurement harness updated: the
+    `message_prefix_hash` allowlist entry for "session memory update"
+    now calls out that every mutation is emitted by a
+    `MemoryRefreshed` trace, and a new "memory refresh triggers
+    (M3.3)" block documents the three triggers, their deterministic
+    firing rules, the retention caps, and the skipped-reason
+    vocabulary.
+  - Out of scope (intentionally deferred): (1) agent-facing tools
+    that let the model write directly into memory — all Slice 6 writes
+    come from runtime-owned triggers; (2) FWA.x frontend surface for
+    memory refreshes, which belongs in Slice 8/9; (3) the measured
+    before/after workflow run (Slice 10 scope). The backend side of
+    M3 — exit gate — is now complete.
 
 ### Slice 7 — Execution brief and enriched failure memory
 
@@ -507,6 +651,67 @@ Implement the work in small reviewable slices. Do not combine unrelated refactor
   - M4.1
   - M4.2
   - related packing/failure-memory tests
+- Delivered:
+  - M4.1: new `ExecutionBrief` struct on
+    `infrastructure::agent::runtime::context` with fields `task_goal`,
+    `active_subtask`, `recently_completed`, `next_intended_action`,
+    `current_blocker`. Exposed as `ContextPolicyInput.execution_brief:
+    Option<ExecutionBrief>` and emitted by `apply_context_policy_v2`
+    as a single `ContextPolicyV2 execution brief:` system block
+    positioned last among the synthetic blocks, so the brief sits as
+    close to the attention tail as possible. Field-level truncation
+    keeps the block within `BUDGET_EXECUTION_BRIEF_TOKENS = 240`;
+    missing fields are omitted rather than rendered as empty lines.
+  - M4.1 tiny-pack exception: the tiny-context short-circuit was
+    extended — an execution brief now forces the packer to run even
+    when the context is tiny, so subtask transitions never suppress
+    the brief (mirrors the M3.2 memory-reference exception).
+  - M4.1 wiring: `context_phase::resolve_context` synthesizes the
+    brief each step from `request.content` (goal),
+    `current_subtask_summary` (active subtask title), the full
+    `loaded_subtasks` list (most recent 3 completed titles; earliest
+    pending title as next intended action), and the runtime LLM
+    context (`extract_failure_record` yields the `current_blocker`
+    when an error is present). The brief is a pure function of
+    state, so two packs on identical state yield byte-identical
+    blocks and `message_prefix_hash` stays stable.
+  - M4.2: new `FailureClass` enum (`FileNotFound` /
+    `PermissionDenied` / `Timeout` / `ValidationFailed` /
+    `NotAllowed` / `Other`) classifies the last tool error via
+    bounded case-insensitive substring rules (missing substring →
+    `Other`). New `FailureRecord { tool_name, args_fingerprint,
+    class, message, repeat_detected }` carries the structured
+    breakdown of the latest failure. `arguments_fingerprint(&args)`
+    produces a stable 8-hex-char FNV-1a digest of the canonicalized
+    JSON so equivalent argument objects fingerprint identically
+    across runs.
+  - M4.2 output: `build_failure_memory` now emits a structured
+    multiline block — `Last error:\ntool: ...\nargs_fp: ...\ntype:
+    ...\nmessage: ...\nretry: ...` — with a trailing `note:
+    identical call has failed before — do not retry unchanged`
+    when `extract_failure_record` detects a prior failure with the
+    same `tool + args_fingerprint`. The retry verdict is derived
+    from `FailureClass::retryable_unchanged()` — `Timeout` and
+    `Other` are marked safe-to-retry (transient), the rest require
+    changed args. Block stays inside
+    `BUDGET_FAILURE_MEMORY_TOKENS = 140`.
+  - 15 new passing tests under
+    `infrastructure::agent::runtime::context::tests`: six brief
+    tests (inline/omit/deterministic/omit-missing-fields/transition-
+    moves-block/no-duplicate-across-packs/tiny-forced-pack-exception)
+    plus seven failure-memory tests (classifier coverage, single-
+    error block shape, retryable verdict for timeouts, repeat
+    detection, no-repeat-when-args-differ, budget invariant) plus
+    two fingerprint tests (stability / distinguishes-different-args).
+  - Measurement harness updated: new "execution brief (M4.1)" and
+    "enriched failure memory (M4.2)" blocks document block
+    formats, the `message_prefix_hash` allowances for brief-state
+    transitions, the anti-repeat guidance signal, and how the five
+    M4.3 measurement signals can now correlate against the
+    structured failure fields.
+  - Out of scope (deferred): (1) M4.3 measured before/after
+    workflow run (Slice 10); (2) FWA surface that renders the
+    brief / failure-memory contents in the agent panel.
 
 ### Slice 8 — Harness session contract and frontend type alignment
 
@@ -518,6 +723,109 @@ Implement the work in small reviewable slices. Do not combine unrelated refactor
 - Keep out:
   - major UI rework
   - recovery panel redesign
+- Delivered:
+  - FWA.1 backend shape: new typed read models in
+    `application::agent::read_models` — `HarnessMode`,
+    `EnvironmentHealth`, `StartupVerificationState`,
+    `StartupVerificationSummary`, `SessionHandoffSummary`,
+    `AgentSessionHarnessState` — all `camelCase`-serialized so the
+    frontend consumes them unchanged. `AgentSessionRuntimeDetails`
+    gained `harness_state: Option<AgentSessionHarnessState>` and
+    `SessionDetailsResponse` in `commands::agent::history` now
+    forwards it under `harnessState` (skip-if-none preserves backward
+    compat for older UI builds).
+  - FWA.1 derivation: `derive_harness_state(session, tasks,
+    overrides)` produces conservative defaults from session lifecycle
+    plus task snapshot — `Launching → Initializer`, `Paused →
+    ResumeVerifier`, otherwise `Worker`; `Paused` synthesizes an
+    `Idle` verification headline and a handoff from the in-progress /
+    most-recent-completed subtasks; `Finished` seeds a clean-exit
+    handoff. Store-recorded overrides replace individual fields,
+    unrecorded fields stay at the derived default so the frontend
+    never sees partial state.
+  - FWA.1 durable authoring: `application::agent::harness` owns the
+    `HarnessStateStore` trait and an `InMemoryHarnessStateStore`
+    default (lost on restart — persistence can be layered later
+    without changing the consumer contract). Execution lifecycle
+    calls already record the authoritative values:
+    `bootstrap::start_execution` records running → passed startup
+    verification, `termination::fail_execution` records failed
+    verification with error detail, `termination::complete_execution`
+    records the clean-exit marker. Handoff authoring helper
+    `handoff_from_tasks` is available for paused-session capture.
+  - FWA.1 live updates: new `HarnessStateUpdated` variant in
+    `infrastructure::agent::events::AgentEvent` (serialized as
+    `harness_state_updated` with a `harnessState` payload).
+    `execution::harness_events::emit_harness_state_updated` rebuilds
+    the state from the session + tasks + store overrides and emits
+    it; `update_session_state` now calls this after every lifecycle
+    transition so the panel stays consistent with
+    `session_state_changed` without a second IPC round-trip.
+  - FWA.1 frontend types: `$lib/types/agent` now carries
+    `HarnessMode`, `StartupVerificationState`, `EnvironmentHealth`,
+    `StartupVerificationSummary`, `SessionHandoffSummary`, and
+    `AgentSessionHarnessState` as the canonical types. `AgentSession`
+    gained an optional `harnessState` field and `AgentEvent` gained
+    the `harness_state_updated` variant — both additive so no
+    existing event handler or panel view breaks when the field is
+    absent.
+  - FWA.1 store mapping: harness-event handlers live in their own
+    `$lib/stores/agent/events/harnessEvents` module so
+    `sessionEvents.ts` stays focused on lifecycle state. The store
+    dispatcher in `handler.ts` routes `harness_state_updated`,
+    `session_paused`, `recovery_continue`, and `recovery_replan` to
+    the dedicated module.
+  - FWA.1 derived status and UI: `utils/agentStatus::harnessToStatus`
+    takes priority over generic state-derived text so the panel /
+    thread header surface resume-verifier transitions, running /
+    failed verification, blocked environment, and the clean-handoff
+    marker directly from typed data. `AgentPanelHeader.svelte`
+    pulls the verification headline and clean-exit marker the same
+    way. The new `AgentSessionSummarySection.svelte` component
+    renders the durable handoff + verification block conditionally —
+    activated only when `harnessState` carries something — and
+    exposes Continue / Replan actions scoped to
+    `resume_verifier` mode with a blocked-verification guard.
+  - FWA.1 frontend tests: 11 new tests in
+    `harnessEvents.test.ts` (startup verification / handoff /
+    clean-exit / unknown-session / paused-preserves-harness-state /
+    recovery dispatch); 4 new harness-aware cases in
+    `AgentPanel.test.ts` covering summary rendering, resume-action
+    click-through, blocked Continue button, and clean-handoff copy;
+    5 new `threadAgentState.test.ts` cases locking in the status
+    priority order (verifying / resuming / paused-idle /
+    resume-blocked / environment-blocked / clean-handoff-saved);
+    `agentStore.test.ts` gained three cases — absent-harness,
+    present-harness hydration, and live `harness_state_updated`
+    event mutation — so the IPC + event contract is pinned end to
+    end.
+  - FWA.1 backend tests: 8 new cases across
+    `application::agent::read_models::tests` (derive defaults /
+    finished-session handoff / full overrides replace / empty
+    overrides preserve derived / partial overrides are per-field),
+    `application::agent::harness::tests` (in-memory store
+    read/write/isolate/clear; `running_/passed_/failed_*`
+    verification shape helpers; `handoff_from_tasks` pause-message
+    and in-progress subtask behavior), and
+    `commands::agent::history::tests` (IPC serializes and omits
+    `harnessState`). The existing `runtime_queries.rs` flow now
+    asserts that paused sessions derive `ResumeVerifier` + `Idle`
+    startup verification and that a `record_clean_exit(true)`
+    override wins over the derived default.
+  - Compatibility: every new field is optional or skip-if-none on
+    the wire, so older frontend builds continue to parse the session
+    details response unchanged. Recovery chat cards still render
+    from the existing `session_paused` event — the panel-backed
+    summary section is additive, not a replacement (keeps Slice 9's
+    recovery-workflow-move cleanly scoped).
+  - Out of scope (intentionally deferred): (1) FWA.2 — moving the
+    recovery primary surface into the panel summary section (Slice
+    9); (2) FWA.3 — session-summary contextual menu and
+    status-phrase integration (Slice 9); (3) FWA.4 — harness event
+    handling extraction beyond what Slice 10 already delivered; (4)
+    persistent-store backing for `HarnessStateStore` — the in-memory
+    default is sufficient for the current workflow and restart-lost
+    overrides simply revert to the conservative derived state.
 
 ### Slice 9 — Recovery and session-summary workflow
 
@@ -527,6 +835,85 @@ Implement the work in small reviewable slices. Do not combine unrelated refactor
   - minimal component extraction needed in the agent panel
 - Keep out:
   - broad chat redesign
+- Delivered:
+  - FWA.2 acceptance: the durable recovery surface now lives in
+    `AgentSessionSummarySection.svelte`, mounted at the top of the
+    panel's active view (above Activity / Requests / Files / Tool
+    Calls) whenever `harnessState` carries a verification, handoff,
+    or recorded clean-exit marker. Paused and resumed sessions can be
+    understood without scrolling the chat transcript — last completed
+    increment, current objective, recommended next action, open
+    issues, environment health, and startup verification status all
+    render from the typed `AgentSessionHarnessState` that
+    `get_session_details` returns and `harness_state_updated` keeps
+    live. The summary section also surfaces the Continue / Replan
+    actions, so the user can act on the handoff without returning to
+    the chat card. The inline `RecoveryMessage` chat card stayed
+    lightweight — generic copy (`"Your progress is saved"`) plus
+    Continue / Replan buttons, no duplicated explanatory text — per
+    the Phase-4 compatibility note in
+    [session-harness-contract.md](/home/kassiomaia/devel/zk/coder/docs/planning/agent-context-engineering/session-harness-contract.md).
+  - FWA.3 acceptance: `utils/agentStatus::harnessToStatus` is the
+    priority branch in `getAgentStatus`, ahead of state-derived text
+    and execution-step text, so the four long-running transitions
+    surface unambiguously wherever the shared status is rendered
+    (panel header, chat status indicator in `ChatLayout`, thread
+    headers via `AppShell`'s `currentThreadAgentState`):
+    - **Verifying environment** — `verification.state === 'running'`
+      yields the verification headline or `"Verifying environment..."`
+      with a `scan` icon and `active: true`, even before the coarse
+      `SessionState` moves.
+    - **Resuming from handoff** — `state.type === 'running' &&
+      harnessState.mode === 'resume_verifier'` yields the
+      verification headline or `"Resuming from handoff..."`, keeping
+      the indicator distinct from a fresh `"Thinking..."`.
+    - **Resume blocked** — `paused + verification.state === 'failed'`
+      surfaces `"Resume blocked: <headline>"`; `paused +
+      handoff.environmentHealth === 'blocked'` surfaces
+      `"Environment blocked — investigate before resuming"`. Both
+      resolve to `active: false` with a `wait` icon so the stall
+      detector does not treat them as a still-running spinner.
+    - **Clean handoff saved** — `finished +
+      cleanExitRecorded` surfaces `"Clean handoff saved"` with a
+      `check` icon, so the post-run state reads as a deliberate
+      handoff rather than a generic `"Task completed"`.
+    Status derivation stays a pure function of `(SessionState,
+    ExecutionStep?, SubTask?, hasPendingApproval, statusPhrases,
+    contextUsage, lastActivityAt, AgentSessionHarnessState?)` — no
+    hidden scheduling or timers — which keeps the copy deterministic
+    and easy to regression-test.
+  - Validation: FWA.2 component coverage lives in
+    `AgentPanel.test.ts` — summary rendering on paused + idle
+    verification, Continue / Replan click-through, disabled Continue
+    on failed verification, and the clean-handoff copy for finished
+    sessions. FWA.3 derived-status coverage lives in
+    `threadAgentState.test.ts` — verifying-environment,
+    resuming-from-handoff, paused-resume-verifier, resume-blocked,
+    environment-blocked, and clean-handoff-saved cases pin the
+    priority order so future status edits cannot silently regress
+    harness-awareness.
+  - Component extraction: `AgentSessionSummarySection.svelte` is the
+    extracted unit — keeps summary concerns out of
+    `AgentPanel.svelte`, which stays a layout-only shell. No further
+    extraction was needed to keep this slice reviewable, so the
+    "minimal component extraction" budget stayed at exactly one new
+    file.
+  - Timeline note: the FWA.2 / FWA.3 surface was implemented as part
+    of the typed-contract work in Slice 8 (types, store mapping,
+    panel wiring, and status derivation all move together or none of
+    them move at all). Slice 9 formally closes the two deliverables
+    and records the acceptance evidence so the plan stays the single
+    source of truth for "what ships where". This is why the Slice 8
+    Delivered block cited FWA.2 / FWA.3 as deferred — at the time the
+    panel summary and status priorities were implemented, but not yet
+    treated as the authoritative delivery surface under Slice 9.
+  - Out of scope (intentionally deferred): (1) moving recovery
+    controls out of chat entirely — the lightweight inline card stays
+    because the panel may be collapsed and users need a visible
+    resume entry point; (2) redesign of the status-phrase rotation
+    mechanism — harness status takes precedence but the existing
+    LLM status-phrase rotation is preserved for non-harness runs;
+    (3) FWA.4 measurement hookup, which Slice 10 already delivered.
 
 ### Slice 10 — Harness event handling and measured workflow validation
 
