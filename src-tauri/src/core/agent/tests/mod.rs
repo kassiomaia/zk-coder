@@ -41,7 +41,10 @@ fn user_story_read_mode_subtask_filters_tools() {
     store.create_subtask(&subtask).unwrap();
 
     // Step 3: Verify allowed_tools() excludes write tools
-    let allowed_tools = subtask.mode.allowed_tools();
+    let allowed_tools = subtask
+        .mode
+        .allowed_tools()
+        .expect("Read mode must enforce an allowlist");
     assert!(
         !allowed_tools.contains(&"fs_write_file"),
         "Read mode should not allow fs_write_file"
@@ -266,13 +269,19 @@ fn user_story_mixed_mode_subtasks() {
 
     // Explore subtask (Read mode)
     assert_eq!(subtasks[0].mode, SubTaskMode::Read);
-    let explore_tools = subtasks[0].mode.allowed_tools();
+    let explore_tools = subtasks[0]
+        .mode
+        .allowed_tools()
+        .expect("Read mode must enforce an allowlist");
     assert!(!explore_tools.contains(&"fs_write_file"));
     assert!(!explore_tools.contains(&"system_execute_command"));
 
     // Fix subtask (Write mode)
     assert_eq!(subtasks[1].mode, SubTaskMode::Write);
-    let fix_tools = subtasks[1].mode.allowed_tools();
+    let fix_tools = subtasks[1]
+        .mode
+        .allowed_tools()
+        .expect("Write mode must enforce an allowlist");
     assert!(fix_tools.contains(&"fs_write_file"));
     assert!(!fix_tools.contains(&"system_execute_command"));
 }

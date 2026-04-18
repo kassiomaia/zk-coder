@@ -36,8 +36,13 @@ fn call(name: &str) -> ToolCall {
     }
 }
 
+/// Restricted-mode helper: the caller asserts `mode` enumerates an
+/// allowlist (Read / Write / Execute) and unwraps. Using the helper on
+/// `FullAccess` panics — `FullAccess` carries no allowlist and the
+/// runtime wires it through as `None`, which skips enforcement entirely.
 fn allowed_for(mode: SubTaskMode) -> Vec<String> {
     mode.allowed_tools()
+        .expect("allowed_for is for restricted modes only; FullAccess returns None")
         .into_iter()
         .map(std::string::ToString::to_string)
         .collect()
@@ -73,10 +78,37 @@ fn execute_in_write_mode_is_disallowed() {
 }
 
 #[test]
-fn full_access_disallows_nothing_from_the_canonical_modes() {
-    let allowed = allowed_for(SubTaskMode::FullAccess);
-    for tool_name in ["fs_read_file", "fs_write_file", "system_execute_command"] {
-        assert!(!is_disallowed_by_mode(tool_name, Some(&allowed)));
+fn full_access_disallows_nothing_by_not_enforcing_an_allowlist() {
+    // FullAccess is unrestricted by design: `allowed_tools()` returns
+    // `None`, and `context_phase::resolve_context` forwards that `None`
+    // through to `ctx.current_allowed_tool_names`. The enforcement
+    // predicate treats `None` as "no filter", so every registered tool
+    // passes — including document-generation tools (`pdf_*`, `docx_*`,
+    // `pptx_*`) and agent orchestration tools that were never listed in
+    // any hard-coded allowlist. This is the regression guard: any attempt
+    // to reintroduce a stale FullAccess enumeration will fail the first
+    // assert here.
+    assert_eq!(
+        SubTaskMode::FullAccess.allowed_tools(),
+        None,
+        "FullAccess must be unrestricted — no hard-coded list"
+    );
+    for tool_name in [
+        "fs_read_file",
+        "fs_write_file",
+        "system_execute_command",
+        "pdf_start",
+        "pdf_add_page",
+        "pdf_finalize",
+        "docx_start",
+        "pptx_start",
+        "agent_plan_subtasks",
+        "agent_narrate",
+        "agent_mark_subtask_status",
+        "search_web_search",
+        "conversation_search_messages",
+    ] {
+        assert!(!is_disallowed_by_mode(tool_name, None));
     }
 }
 
@@ -159,4 +191,68 @@ fn call_names_seen_by_runtime_enforcement_come_from_the_full_catalog() {
         &write_call.name,
         Some(&read_allowed)
     ));
+}
+
+/// Regression test for the "agent finished but never produced the PDF" bug.
+///
+/// Before this fix, `SubTaskMode::FullAccess.allowed_tools()` returned a
+/// stale hardcoded subset (fs_* + search_grep + system_execute_command +
+/// agent_emit_status + agent_advance_to_next_subtask). Any document-
+/// generation tool (`pdf_*`, `docx_*`, `pptx_*`) or agent orchestration
+/// tool registered after that list was authored was rejected at runtime
+/// with `subtask_mode_disallowed`, even when the subtask was explicitly
+/// declared `FullAccess`. The agent would keep trying, eventually
+/// `agent_advance_to_next_subtask`, and complete with a confident summary
+/// but no actual PDF/DOCX/PPTX artifact.
+///
+/// The contract now: `FullAccess.allowed_tools() == None`, and
+/// `context_phase::resolve_context` forwards that `None` to
+/// `ctx.current_allowed_tool_names`. The enforcement predicate treats
+/// `None` as "no filter", so every registered tool passes. Adding a new
+/// tool to the registry automatically makes it reachable under
+/// `FullAccess` — no parallel list to keep in sync, no silent
+/// rejections.
+#[test]
+fn full_access_allows_document_generation_and_orchestration_tools() {
+    assert_eq!(
+        SubTaskMode::FullAccess.allowed_tools(),
+        None,
+        "FullAccess must be unrestricted"
+    );
+
+    // Under the previous bug these all reached the runtime filter with a
+    // stale allowlist and were rejected. They must now pass because the
+    // filter sees `None` and short-circuits.
+    let full_access_allowed: Option<&[String]> = None;
+    for tool_name in [
+        "pdf_start",
+        "pdf_add_page",
+        "pdf_finalize",
+        "pdf_list_pages",
+        "pdf_get_page",
+        "pdf_delete_page",
+        "docx_start",
+        "docx_add_section",
+        "docx_finalize",
+        "docx_list_sections",
+        "pptx_start",
+        "pptx_add_slide",
+        "pptx_finalize",
+        "pptx_list_slides",
+        "pptx_get_slide",
+        "pptx_update_slide",
+        "pptx_delete_slide",
+        "pptx_search_slides",
+        "agent_plan_subtasks",
+        "agent_narrate",
+        "agent_mark_subtask_status",
+        "search_web_search",
+        "conversation_search_messages",
+    ] {
+        assert!(
+            !is_disallowed_by_mode(tool_name, full_access_allowed),
+            "FullAccess must allow {tool_name} — any rejection here means the \
+             stale-allowlist bug has regressed"
+        );
+    }
 }

@@ -190,19 +190,35 @@ fn test_tool_definitions_have_correct_ids() {
     );
 }
 
-/// Test that subtask modes include the advance tool in allowed_tools.
+/// Test that subtask modes permit the advance tool.
+///
+/// Restricted modes (Read / Write / Execute) must enumerate
+/// `agent_advance_to_next_subtask` in their allowlist so the agent can
+/// progress through subtasks without hitting `subtask_mode_disallowed`.
+/// FullAccess carries no allowlist at all (returns `None`), so every
+/// registered tool — including `agent_advance_to_next_subtask` — is
+/// automatically allowed.
 #[test]
 fn test_subtask_modes_include_advance_tool() {
-    let read_tools = SubTaskMode::Read.allowed_tools();
-    let write_tools = SubTaskMode::Write.allowed_tools();
-    let execute_tools = SubTaskMode::Execute.allowed_tools();
-    let full_access_tools = SubTaskMode::FullAccess.allowed_tools();
+    let read_tools = SubTaskMode::Read
+        .allowed_tools()
+        .expect("Read mode must enforce an allowlist");
+    let write_tools = SubTaskMode::Write
+        .allowed_tools()
+        .expect("Write mode must enforce an allowlist");
+    let execute_tools = SubTaskMode::Execute
+        .allowed_tools()
+        .expect("Execute mode must enforce an allowlist");
 
-    // All modes should include agent_advance_to_next_subtask
     assert!(read_tools.contains(&"agent_advance_to_next_subtask"));
     assert!(write_tools.contains(&"agent_advance_to_next_subtask"));
     assert!(execute_tools.contains(&"agent_advance_to_next_subtask"));
-    assert!(full_access_tools.contains(&"agent_advance_to_next_subtask"));
+    assert_eq!(
+        SubTaskMode::FullAccess.allowed_tools(),
+        None,
+        "FullAccess must be unrestricted so agent_advance_to_next_subtask \
+         (and every other registered tool) is automatically allowed"
+    );
 }
 
 /// Test that subtask statuses can be updated via mark_subtask_status.

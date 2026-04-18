@@ -88,16 +88,22 @@ pub async fn resolve_context(
             .find(|st| st.status == crate::core::agent::task::TaskStatus::InProgress)
         {
             let summary = SubtaskSummary::from_subtask(current);
-            let allowed = summary
-                .mode
-                .allowed_tools()
-                .into_iter()
-                .map(std::string::ToString::to_string)
-                .collect::<Vec<_>>();
+            // `allowed_tools()` returns `None` for FullAccess — that means
+            // "no allowlist enforcement, every registered tool passes". We
+            // forward the Option through to `ctx.current_allowed_tool_names`
+            // so the permission filter in `tool_phase::run_tools` sees
+            // `None` and skips the rejection branch entirely. Restricted
+            // modes produce `Some(Vec<String>)` as before.
+            let allowed = summary.mode.allowed_tools().map(|tools| {
+                tools
+                    .into_iter()
+                    .map(std::string::ToString::to_string)
+                    .collect::<Vec<_>>()
+            });
             (
                 Some((summary, total)),
                 Some(current.id.clone()),
-                Some(allowed),
+                allowed,
                 false,
             )
         } else {

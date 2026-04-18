@@ -216,11 +216,28 @@ pub enum SubTaskMode {
 }
 
 impl SubTaskMode {
-    /// Returns the list of tools that are allowed for this mode.
+    /// Returns the list of tools that are allowed for this mode, or `None`
+    /// when the mode is unrestricted.
+    ///
+    /// `Read`, `Write`, and `Execute` return `Some(vec![...])` — the
+    /// enumerated list is the intentional gate, and any tool outside it is
+    /// rejected at runtime with `subtask_mode_disallowed`. A new tool joins
+    /// a restricted mode only by conscious code change; that is the safety
+    /// property and the reason the enumeration is hard-coded.
+    ///
+    /// `FullAccess` returns `None` — *every* registered tool is allowed.
+    /// Previously this variant enumerated a stale subset (fs_* + search_grep
+    /// + system_execute_command + a few agent_*), which silently rejected
+    /// document-generation tools (`pdf_*`, `docx_*`, `pptx_*`) and agent
+    /// orchestration tools (`agent_plan_subtasks`, `agent_narrate`,
+    /// `agent_mark_subtask_status`, etc.) registered after the list was
+    /// authored. The enumeration is the source of truth for "what to
+    /// forbid", not "what exists"; FullAccess has nothing to forbid, so it
+    /// carries no list at all.
     #[must_use]
-    pub fn allowed_tools(&self) -> Vec<&'static str> {
+    pub fn allowed_tools(&self) -> Option<Vec<&'static str>> {
         match self {
-            Self::Read => vec![
+            Self::Read => Some(vec![
                 "fs_read_file",
                 "fs_stat_path",
                 "fs_glob_files",
@@ -229,8 +246,8 @@ impl SubTaskMode {
                 "fs_list_files",
                 "agent_emit_status",
                 "agent_advance_to_next_subtask",
-            ],
-            Self::Write => vec![
+            ]),
+            Self::Write => Some(vec![
                 "fs_read_file",
                 "fs_stat_path",
                 "fs_glob_files",
@@ -242,8 +259,8 @@ impl SubTaskMode {
                 "fs_list_files",
                 "agent_emit_status",
                 "agent_advance_to_next_subtask",
-            ],
-            Self::Execute => vec![
+            ]),
+            Self::Execute => Some(vec![
                 "fs_read_file",
                 "fs_stat_path",
                 "fs_glob_files",
@@ -253,21 +270,8 @@ impl SubTaskMode {
                 "system_execute_command",
                 "agent_emit_status",
                 "agent_advance_to_next_subtask",
-            ],
-            Self::FullAccess => vec![
-                "fs_read_file",
-                "fs_stat_path",
-                "fs_glob_files",
-                "fs_fuzzy_find_files",
-                "fs_write_file",
-                "fs_replace_in_file",
-                "fs_apply_patch",
-                "fs_list_files",
-                "search_grep",
-                "system_execute_command",
-                "agent_emit_status",
-                "agent_advance_to_next_subtask",
-            ],
+            ]),
+            Self::FullAccess => None,
         }
     }
 
@@ -492,7 +496,9 @@ mod tests {
 
     #[test]
     fn read_mode_excludes_write_tools() {
-        let tools = SubTaskMode::Read.allowed_tools();
+        let tools = SubTaskMode::Read
+            .allowed_tools()
+            .expect("Read mode must return an enumerated allowlist");
         assert!(
             !tools.contains(&"fs_write_file"),
             "Read mode should not allow fs_write_file"
@@ -513,7 +519,9 @@ mod tests {
 
     #[test]
     fn write_mode_includes_read_tools() {
-        let tools = SubTaskMode::Write.allowed_tools();
+        let tools = SubTaskMode::Write
+            .allowed_tools()
+            .expect("Write mode must return an enumerated allowlist");
         assert!(
             tools.contains(&"fs_read_file"),
             "Write mode should allow fs_read_file"
@@ -534,7 +542,9 @@ mod tests {
 
     #[test]
     fn execute_mode_includes_read_and_execute() {
-        let tools = SubTaskMode::Execute.allowed_tools();
+        let tools = SubTaskMode::Execute
+            .allowed_tools()
+            .expect("Execute mode must return an enumerated allowlist");
         assert!(
             tools.contains(&"fs_read_file"),
             "Execute mode should allow fs_read_file"
@@ -561,37 +571,18 @@ mod tests {
         );
     }
 
+    /// FullAccess is the *unrestricted* mode — there is no allowlist.
+    ///
+    /// The previous version of this test enumerated fs/search/execute tool
+    /// names and asserted each one was present in `allowed_tools()`. That
+    /// encoded the bug: the list was a stale subset that silently rejected
+    /// document-generation tools (`pdf_*`, `docx_*`, `pptx_*`) and agent
+    /// orchestration tools registered later. The contract now is:
+    /// FullAccess carries no allowlist, so the runtime enforcement layer
+    /// passes every registered tool through unchanged.
     #[test]
-    fn full_access_has_all_tools() {
-        let tools = SubTaskMode::FullAccess.allowed_tools();
-        assert!(
-            tools.contains(&"fs_read_file"),
-            "FullAccess should allow fs_read_file"
-        );
-        assert!(
-            tools.contains(&"fs_stat_path"),
-            "FullAccess should allow fs_stat_path"
-        );
-        assert!(
-            tools.contains(&"fs_glob_files"),
-            "FullAccess should allow fs_glob_files"
-        );
-        assert!(
-            tools.contains(&"fs_write_file"),
-            "FullAccess should allow fs_write_file"
-        );
-        assert!(
-            tools.contains(&"fs_replace_in_file"),
-            "FullAccess should allow fs_replace_in_file"
-        );
-        assert!(
-            tools.contains(&"system_execute_command"),
-            "FullAccess should allow system_execute_command"
-        );
-        assert!(
-            !tools.contains(&"agent_plan_subtasks"),
-            "FullAccess should not allow agent_plan_subtasks after planning"
-        );
+    fn full_access_returns_none_allowlist() {
+        assert_eq!(SubTaskMode::FullAccess.allowed_tools(), None);
     }
 
     #[test]

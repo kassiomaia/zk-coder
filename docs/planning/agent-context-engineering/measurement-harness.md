@@ -136,6 +136,35 @@ Each entry pins the workflow, the commit, and the five signals. Add a new entry 
 - **Signal 5 (compaction)**: not applicable
 - **Notes**: Slice 10 deliberately scopes to (a) event-handler refactor and (b) this measurement contract. The signal columns are "not applicable" on purpose — a measurable-change slice should record meaningful numbers, and this slice does not change the backend runtime. The next slice that does change runtime behavior (M1.2, M4.1, M4.2) must populate the template with real data.
 
+### M4.3 closeout — after-only characterization baseline
+
+- **Workflow**: codebase review and PDF book generation (non-trivial, 11 planned subtasks, session `1dbb3c34-d318-4f82-b000-0c5b7b40f8f9`)
+- **Commit**: `888c6ea` (post-M3/M4 backend + Slices 8/9 doc closeout)
+- **Date**: 2026-04-18
+- **Steps executed**: 56 execution steps, 130 LLM requests (including retries), 65 tool calls, 11 subtasks (9 successful + 2 nominally completed but see Finding 2)
+- **Signal 1 (tool catalog churn)**: **0 churn events** — 1 distinct `toolCatalogHash` (`c28b0c3a…`) across all 130 `llm_request_prepared` traces. M1.1 canonical ordering holds end-to-end; the catalog is byte-stable even across subtask transitions and retries.
+- **Signal 2 (narration loops)**: **3 incidents** — 3 of 129 `llm_response_classified` traces had `hasToolCalls=false` (2.3%). No consecutive narration-only steps observed. The execution brief (M4.1) keeps the agent action-oriented.
+- **Signal 3 (repeated tool calls)**: **1 true repeat / 65 = 1.5%** — raw repeat rate is 7/65, but 6 of those are `agent_advance_to_next_subtask{}` which is correct behavior (once per subtask transition). The only model-initiated duplicate was `pdf_start` called twice with identical args. See Finding 1 on why M4.2's failure memory did not short-circuit it.
+- **Signal 4 (context token budget)**: **first-step 16 / max 35,971 / avg 11,514** estimated context tokens. On a 260k-token model window, the avg sits at 4.4% and the peak at 13.8%. M3.2's memory reference block and M4.1's execution brief are holding the context bounded despite 130 steps and 9 completed subtasks.
+- **Signal 5 (compaction)**: **7 events** — 6 `compacted` + 1 `reorganized`, all `reason: subtask_transition`, **zero `token_limit`**. Biggest compaction: 56 msgs / 35,971 tokens → 12 msgs / 647 tokens (98% token reduction). M3.2/M3.3 working as designed — compaction is intentional and subtask-driven, not a reaction to runaway growth.
+- **Memory refresh (M3.3)**: **13 `memory_refreshed` traces** — 8 `subtask_completed` (all wrote), 6 `compaction_boundary` (all correctly no-op because memory content unchanged at that point). Payload shape matches the M3.3 spec.
+
+**Findings:**
+
+1. **Scope gap in M4.2 failure memory (captured, not fixed).** 4 of the 14 tool errors during this run were `subtask_mode_disallowed` rejections from the runtime enforcement layer, not model-level tool-result errors. `extract_failure_record` walks the LLM context for tool-result messages; a `subtask_mode_disallowed` response *is* surfaced to the model as a tool result, so in principle the classifier can see it — but it maps to `FailureClass::NotAllowed` which is marked `retryable_unchanged = false`, correctly advising "change args before retry". The gap is that changing args does not help a `subtask_mode_disallowed` failure — the tool is globally forbidden under the current mode, not forbidden for these particular args. M4.2's "do not retry unchanged" guidance therefore points the model at the wrong remediation (re-try with different args) when the correct remediation is "call `agent_advance_to_next_subtask` or abandon the goal". Follow-up worth considering: a distinct `FailureClass::SubtaskModeDisallowed` with bespoke guidance. Out of scope for this measurement entry.
+
+2. **Clean-exit criterion too loose (captured, not fixed).** The session terminated with `SessionState::Finished` and `clean_exit_recorded = true` after the harness marked all 11 subtasks completed — but the user's goal (produce a PDF book) was never achieved because every `pdf_start` call was rejected by the stale `SubTaskMode::FullAccess` allowlist. The agent ended with a confident summary and no artifact. Clean-exit criteria are currently "all subtasks completed"; they should arguably also require "every artifact referenced in the plan exists on disk or in the session's `agent_artifacts` store". The stale-allowlist bug itself is a separate fix (see follow-up commit) but the clean-exit contract gap it exposed is worth tracking.
+
+3. **Design-claim validation (the positive side).** Four of five signals land cleanly against their targets. The fifth (Signal 3) is almost entirely expected behavior, with a single model-initiated duplicate that even exhaustive failure memory could not have helped with (the duplicate preceded an error that M4.2 classifies as non-retryable). Net: the M1-M4 machinery is measurably doing what it was designed to do on a real workflow under a real model.
+
+**Limitations:**
+
+- **No "before" comparison.** This is an "after-only" characterization on post-Slice-7 code. The plan's M4.3 done-when clause — *"the implementation can justify itself with measured feedback, not only design arguments"* — is satisfied by these numbers read against the design claims, but a true pre-Slice-1 "before" run is not captured and would have to rebuild against an older commit. Future measurement passes should use this entry as the "after" baseline for comparison when the next runtime-moving change lands.
+- **Single workflow.** One representative workflow was measured. The spread of behaviors across other workflows (research-heavy, refactor-heavy, code-generation-heavy) is not characterized.
+- **The bug discovered by this run means Signal 3's reading should be interpreted conservatively.** The blocked `pdf_start` retries artificially inflate the tool error count and may mask or amplify other failure-memory-related signals that would appear on a workflow that completes its goal. A re-run after the `FullAccess` fix is expected to show a lower tool error rate and potentially cleaner Signal 3 evidence.
+
+**Status:** M4.3 done-when clause satisfied; M4 exit gate met ("at least one representative workflow shows measured feedback from the new telemetry"). Further measurement entries welcome but not required for milestone closure.
+
 ---
 
 ## Runtime transitions allowed to change request shape

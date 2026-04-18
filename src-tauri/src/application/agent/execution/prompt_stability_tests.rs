@@ -63,13 +63,19 @@ fn full_catalog() -> Vec<ToolDefinition> {
 /// in `tool_phase`. Kept here only to reason about the legacy hash moves that
 /// motivated M2.2 — see
 /// `subtask_mode_transition_no_longer_changes_session_tool_catalog_hash`.
+///
+/// `FullAccess` has no allowlist (`allowed_tools()` returns `None`); the
+/// legacy filter behavior for an unrestricted mode is "pass everything
+/// through", which this helper models by returning the whole catalog.
 fn filter_to_mode(catalog: &[ToolDefinition], mode: &SubTaskMode) -> Vec<ToolDefinition> {
-    let allowed = mode.allowed_tools();
-    catalog
-        .iter()
-        .filter(|t| allowed.iter().any(|name| *name == t.name))
-        .cloned()
-        .collect()
+    match mode.allowed_tools() {
+        Some(allowed) => catalog
+            .iter()
+            .filter(|t| allowed.iter().any(|name| *name == t.name))
+            .cloned()
+            .collect(),
+        None => catalog.to_vec(),
+    }
 }
 
 fn user(content: &str) -> ChatMessage {
