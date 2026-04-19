@@ -1,5 +1,8 @@
 # Coder - AI Assistant Desktop Application
 
+@README.md - Overview, quick start, key features, development commands, module documentation pointers
+@RULES.md - Coding standards and architectural rules
+
 Desktop application built with Rust (Tauri v2) and Svelte/TypeScript for AI-powered developer automation.
 
 **Core principles**: User-centric design, performance via Rust/Tauri, modular architecture, security, cross-platform (Linux/macOS/Windows).

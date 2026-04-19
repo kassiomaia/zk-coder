@@ -4,6 +4,8 @@ A modern desktop application built with **Rust** (Tauri v2) and **Svelte + TypeS
 
 ## MANDATORY: Load AGENTS.md
 
+@AGENTS.md
+
 **All development rules live in `AGENTS.md`.** You **MUST** read `AGENTS.md` in full before making any changes to this project. It contains:
 
 - Project overview, design thinking, and goals

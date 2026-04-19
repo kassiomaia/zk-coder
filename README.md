@@ -28,41 +28,6 @@ cargo tauri dev
 
 ```bash
 cargo tauri build
-```
-
-## Project Structure
-
-```
-coder/
-├── src-tauri/                 # Rust backend (Tauri app)
-│   ├── src/
-│   │   ├── core/              # Domain module: entities + repository/service interfaces
-│   │   ├── application/       # Use-case module: business services and orchestration
-│   │   ├── infrastructure/    # Adapter module: SQLite, external APIs, providers, tools
-│   │   ├── commands/          # IPC module: Tauri command handlers used by the frontend
-│   │   ├── lib.rs             # Composition root: app state wiring + command registration
-│   │   └── main.rs            # Binary entrypoint
-│   ├── capabilities/          # Tauri capability/permission definitions
-│   └── Cargo.toml             # Backend dependencies and crate metadata
-├── src-ui/                    # SvelteKit frontend
-│   ├── src/
-│   │   ├── routes/            # Route-level shells/pages (+layout, +page, feature routes)
-│   │   ├── lib/
-│   │   │   ├── components/    # UI module components (chat, config, layout, shell, shared)
-│   │   │   ├── stores/        # State modules (chat, agents, config, document generation)
-│   │   │   ├── api/           # Typed frontend clients for backend/Tauri commands
-│   │   │   ├── types/         # Shared TypeScript models/contracts
-│   │   │   ├── utils/         # Cross-cutting frontend utilities (scrolling, streaming, validation)
-│   │   │   └── styles/        # Design tokens and shared styling system
-│   │   └── mocks/             # Frontend test/dev fixtures
-│   └── package.json           # Frontend dependencies and scripts
-├── docs/                      # Architecture, feature specs, design, investigations, and plans
-├── prototypes/                # Isolated prototypes/experiments
-├── scripts/                   # Automation and maintenance scripts
-├── AGENTS.md                  # Development workflow, architecture context, and process
-├── RULES.md                   # Mandatory coding, UX, architecture, and documentation rules
-└── CHANGELOG.md               # Version history of significant features and fixes
-```
 
 **Module documentation pointers:**
 - Backend layered modules (`core`, `application`, `infrastructure`, `commands`): `docs/architecture.md`
