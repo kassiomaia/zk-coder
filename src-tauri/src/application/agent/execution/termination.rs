@@ -136,6 +136,79 @@ pub fn fail_execution(
     Ok(())
 }
 
+/// Terminates the current run because the task exhausted its planned step
+/// budget (Workstream δ). Distinct from [`fail_execution`] on three axes:
+///
+/// 1. Session state message carries the budget-exhausted copy so the UI can
+///    present "work preserved — review and resume" instead of the generic
+///    runaway-loop wording.
+/// 2. `needs_review` is flagged on the session; the Phase 5 review infra
+///    picks this up so a human can triage.
+/// 3. Subtask state is left untouched — completed work stays completed,
+///    in-progress work stays in-progress. The root task is also left alone
+///    so resume/replan flows can reuse it.
+///
+/// The runtime trace uses [`RuntimeTraceType::StepBudgetExhausted`] with a
+/// `{ used, budget }` payload so telemetry can separate budget exhaustion
+/// from genuine `LoopDetected` terminations.
+///
+/// # Errors
+///
+/// Propagates a repository error from `update_session_state` when the
+/// session row cannot be updated. The `set_needs_review` call is
+/// best-effort — a failure is logged and does not abort the path so the
+/// session-state update still lands.
+pub fn mark_step_budget_exhausted(
+    deps: &ExecutionDeps<'_>,
+    ctx: &ExecutionContext,
+    used: u32,
+    budget: u32,
+) -> Result<(), AgentRuntimeError> {
+    let message = format!(
+        "Task reached its step budget ({used}/{budget}). Work preserved — review and resume."
+    );
+
+    if let Err(e) = deps
+        .session_repo
+        .set_needs_review(&SessionId(ctx.session_id.clone()), true)
+    {
+        log::warn!(
+            "[AgentRuntime] Failed to flag session {} needs_review on budget exhaustion: {e}",
+            ctx.session_id
+        );
+    }
+
+    update_session_state(
+        deps,
+        &SessionId(ctx.session_id.clone()),
+        SessionState::Error {
+            message: message.clone(),
+            recoverable: true,
+        },
+    )?;
+
+    // Deliberately NOT calling `task_repo.update_task_status(Failed)` or
+    // touching any subtask: δ preserves the live subtask graph so the
+    // session can be resumed after human review. A `TaskUpdated` event is
+    // likewise skipped — nothing on the task actually changed.
+
+    let tracer = deps.tracer();
+    let _ = tracer.save_snapshot(&ctx.snapshot(
+        ExecutionPhase::Failed,
+        None,
+        Some(message),
+    ));
+    let _ = tracer.append_trace(
+        &ctx.session_id,
+        &ctx.task_id,
+        ctx.current_subtask_id.as_deref(),
+        ctx.step_number,
+        RuntimeTraceType::StepBudgetExhausted,
+        json!({ "used": used, "budget": budget }),
+    );
+    Ok(())
+}
+
 fn chunk_response(content: &str) -> Vec<String> {
     let mut chunks = Vec::new();
     let mut current = String::new();

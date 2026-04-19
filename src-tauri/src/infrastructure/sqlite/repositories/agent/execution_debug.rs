@@ -74,6 +74,7 @@ const fn trace_type_to_string(trace_type: &RuntimeTraceType) -> &'static str {
         RuntimeTraceType::AwaitingClarification => "awaiting_clarification",
         RuntimeTraceType::SubtaskFailedByRuntime => "subtask_failed_by_runtime",
         RuntimeTraceType::ReplaceDriftDetected => "replace_drift_detected",
+        RuntimeTraceType::StepBudgetExhausted => "step_budget_exhausted",
     }
 }
 
@@ -112,6 +113,7 @@ fn string_to_trace_type(value: &str) -> RuntimeTraceType {
         "awaiting_clarification" => RuntimeTraceType::AwaitingClarification,
         "subtask_failed_by_runtime" => RuntimeTraceType::SubtaskFailedByRuntime,
         "replace_drift_detected" => RuntimeTraceType::ReplaceDriftDetected,
+        "step_budget_exhausted" => RuntimeTraceType::StepBudgetExhausted,
         _ => RuntimeTraceType::ExecutionStarted,
     }
 }

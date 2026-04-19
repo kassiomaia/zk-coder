@@ -1,6 +1,6 @@
 # Agent Fidelity — Followup Execution Plan
 
-**Status**: IN PROGRESS
+**Status**: COMPLETE
 **Last reviewed**: 2026-04-19
 **Driver session**: `8311a601-2827-4fef-ac91-535cd4603f0e` (forensic analysis uncovered four defects that rendered Phases 3–6 of the main agent-fidelity plan dead in production).
 
@@ -9,7 +9,9 @@
 - Workstream α — delivered: tool-planner merge (contracts/framing flow through)
 - Workstream β — delivered: dynamic step budget (formula scaled by plan size; monotonic growth after α merge)
 - Workstream γ — delivered: `fs_replace_in_file` enriched miss payload + drift-aware nudge after 2 misses on the same file in a 5-step window
-- Workstream δ — pending: terminal-state disambiguation
+- Workstream δ — delivered: `StepBudgetExhausted` variant + trace + dedicated termination helper that preserves subtask states and flags `needs_review`
+
+**All four followup workstreams (F1–F4) shipped. Plan is Done.**
 
 ---
 

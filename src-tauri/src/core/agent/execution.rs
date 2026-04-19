@@ -185,6 +185,16 @@ pub enum RuntimeTraceType {
     ///
     /// - `path` — the file path whose pair of misses fired the nudge
     ReplaceDriftDetected,
+    /// The step gate rejected further LLM round-trips because the task
+    /// exceeded its planned step budget (Workstream δ). Distinct from
+    /// [`Self::ExecutionFailed`] so telemetry can separate "runaway
+    /// loop" diagnoses from budget exhaustion — the latter preserves
+    /// subtask state and flags the session `needs_review = true` for
+    /// human triage. Payload:
+    ///
+    /// - `used` — number of steps consumed before the gate fired
+    /// - `budget` — the live cap that was reached
+    StepBudgetExhausted,
 }
 
 /// Represents a single, append-only entry in the runtime trace.

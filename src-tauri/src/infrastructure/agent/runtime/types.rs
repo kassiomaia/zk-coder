@@ -22,6 +22,16 @@ pub enum AgentRuntimeError {
     /// otherwise cause the execution loop to spin indefinitely.
     #[error("Detected narration loop: LLM produced no tool calls across multiple iterations")]
     NarrationLoop,
+    /// Step budget exhausted — the task exceeded its planned step budget.
+    /// Not a loop: work is preserved; session flagged needs_review.
+    #[error("Step budget exhausted ({used}/{budget}) — task saved for review")]
+    StepBudgetExhausted {
+        /// Number of execution steps consumed before the gate rejected further work.
+        used: u32,
+        /// The live step budget in effect when the gate fired (dynamic cap
+        /// computed from the live subtask count).
+        budget: u32,
+    },
     /// Action was denied by user.
     #[error("Action denied by user")]
     ActionDenied,
@@ -177,6 +187,10 @@ mod tests {
             AgentRuntimeError::Llm("API error".to_string()),
             AgentRuntimeError::LoopDetected,
             AgentRuntimeError::NarrationLoop,
+            AgentRuntimeError::StepBudgetExhausted {
+                used: 120,
+                budget: 120,
+            },
             AgentRuntimeError::ActionDenied,
             AgentRuntimeError::ApprovalTimeout,
             AgentRuntimeError::Cancelled,
@@ -188,6 +202,30 @@ mod tests {
             let msg = error.to_string();
             assert!(!msg.is_empty(), "Error message should not be empty");
         }
+    }
+
+    #[test]
+    fn step_budget_exhausted_display_carries_used_and_budget() {
+        // Workstream δ.1 — the `StepBudgetExhausted` variant must surface the
+        // concrete `used/budget` numbers in its Display impl so
+        // `SessionState::Error` copy and the coordinator-level log line both
+        // carry the diagnostic without synthesizing their own wording.
+        use super::super::AgentRuntimeError;
+
+        let err = AgentRuntimeError::StepBudgetExhausted {
+            used: 135,
+            budget: 135,
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("135/135"), "message must mention used/budget");
+        assert!(
+            msg.contains("saved for review"),
+            "message must distinguish budget exhaustion from a runaway loop",
+        );
+        assert!(
+            !msg.contains("runaway") && !msg.contains("loop"),
+            "budget exhaustion must not be mis-classified as a loop",
+        );
     }
 
     #[test]
