@@ -21,11 +21,11 @@ use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
 use crate::infrastructure::tools::OrchestratorToolResult;
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn handle_plan_subtasks(
+pub(super) fn handle_plan_subtasks<R: tauri::Runtime>(
     call: &ToolCall,
     session: &AgentSession,
     task_id: &str,
-    app_handle: &AppHandle,
+    app_handle: &AppHandle<R>,
     task_repo: &dyn TaskRepository,
     telemetry_repo: &dyn AgentTelemetryRepository,
     scope: &mut RuntimeSessionScope,
@@ -254,13 +254,13 @@ pub(super) fn handle_plan_subtasks(
 /// - Model declares more slots than exist → append if no Completed
 ///   slot exists, otherwise `requires_replan`
 /// - Model declares fewer slots → ignore; skeleton slots remain
-pub(crate) fn merge_model_plan_into_existing(
+pub(crate) fn merge_model_plan_into_existing<R: tauri::Runtime>(
     call: &ToolCall,
     session: &AgentSession,
     task_id: &str,
     model_plan: &[serde_json::Value],
     existing: &[crate::core::agent::task::SubTask],
-    app_handle: &AppHandle,
+    app_handle: &AppHandle<R>,
     task_repo: &dyn TaskRepository,
 ) -> OrchestratorToolResult {
     use crate::core::agent::repositories::SubTaskRefinement;

@@ -1071,7 +1071,8 @@ mod tests {
     #[tokio::test]
     async fn test_execute_program_spawn_records_trace_and_output() {
         let temp_dir = TempDir::new().expect("temp dir");
-        let app_handle = crate::test_support::mock_app_handle();
+        let app = tauri::test::mock_app();
+        let app_handle = app.handle().clone();
         let engine = SpawnEngine::new(SpawnPolicy {
             command_timeout: Duration::from_secs(5),
             cancellation_poll: Duration::from_millis(5),
@@ -1115,7 +1116,8 @@ mod tests {
     #[tokio::test]
     async fn test_execute_cancelled_spawn_records_kill_trace() {
         let temp_dir = TempDir::new().expect("temp dir");
-        let app_handle = crate::test_support::mock_app_handle();
+        let app = tauri::test::mock_app();
+        let app_handle = app.handle().clone();
         let engine = SpawnEngine::new(SpawnPolicy {
             command_timeout: Duration::from_secs(5),
             cancellation_poll: Duration::from_millis(5),

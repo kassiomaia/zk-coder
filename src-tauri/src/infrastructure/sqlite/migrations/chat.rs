@@ -6,7 +6,6 @@ use std::collections::HashMap;
 
 use crate::core::chat::entities::ThreadMetadata;
 use crate::infrastructure::sqlite::repositories::chat::ChatRepositoryError;
-use crate::infrastructure::utils::truncate_text;
 
 /// Migrates orphan messages (messages without a thread) to new threads.
 ///
@@ -96,7 +95,7 @@ fn derive_thread_title(content: &str) -> String {
         return cleaned;
     }
 
-    let truncated = truncate_text(&cleaned, 50);
+    let truncated = cleaned.chars().take(50).collect::<String>();
     if let Some(last_space) = truncated.rfind(' ') {
         if last_space > 20 {
             format!("{}...", &truncated[..last_space])
