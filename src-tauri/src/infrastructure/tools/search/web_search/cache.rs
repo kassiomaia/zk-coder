@@ -18,10 +18,6 @@ use super::types::WebSearchResult;
 /// Default TTL for a fresh cache entry. Matches `spec.md §4.10`.
 pub const DEFAULT_CACHE_TTL_SECS: u64 = 24 * 60 * 60;
 
-/// Minimum/maximum acceptable TTL, used by Settings validation (Phase 8).
-pub const MIN_CACHE_TTL_SECS: u64 = 5 * 60;
-pub const MAX_CACHE_TTL_SECS: u64 = 7 * 24 * 60 * 60;
-
 /// Inputs that feed the cache key.
 #[derive(Debug, Clone)]
 pub struct CacheKeyInput<'a> {

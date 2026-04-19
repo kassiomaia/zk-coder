@@ -1,7 +1,6 @@
 //! Tauri commands for PDF theme selection (T3.3).
 
 use crate::commands::config::state::ConfigState;
-use crate::core::config::PdfThemeRepository;
 
 /// Lists the names of all bundled PDF themes.
 #[tauri::command]
