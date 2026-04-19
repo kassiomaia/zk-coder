@@ -47,7 +47,8 @@ export function handleToolCall(
 					sessionId: event.sessionId,
 					toolName: event.tool,
 					toolArgs: event.arguments,
-					toolCallStatus: 'pending'
+					toolCallStatus: 'pending',
+					stepNumber: event.stepNumber
 				}
 			});
 		}
@@ -90,7 +91,8 @@ export function handleToolResult(
 					toolName: event.tool,
 					toolResult: event.result,
 					toolError: event.isError,
-					toolCallStatus: event.isError ? 'error' : 'success'
+					toolCallStatus: event.isError ? 'error' : 'success',
+					stepNumber: event.stepNumber
 				}
 			});
 		}

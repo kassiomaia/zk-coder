@@ -545,6 +545,7 @@ export type AgentEvent =
 			type: 'tool_call';
 			sessionId: string;
 			toolCallId: string;
+			stepNumber: number;
 			tool: string;
 			arguments: Record<string, unknown>;
 			content?: string;
@@ -553,6 +554,7 @@ export type AgentEvent =
 			type: 'tool_result';
 			sessionId: string;
 			toolCallId: string;
+			stepNumber: number;
 			tool: string;
 			result: Record<string, unknown>;
 			isError: boolean;

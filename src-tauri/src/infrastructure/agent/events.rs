@@ -258,6 +258,9 @@ pub enum AgentEvent {
         /// The tool call ID.
         #[serde(rename = "toolCallId")]
         tool_call_id: String,
+        /// The LLM turn number this tool call belongs to.
+        #[serde(rename = "stepNumber")]
+        step_number: u32,
         /// The tool name.
         tool: String,
         /// The tool arguments.
@@ -275,6 +278,9 @@ pub enum AgentEvent {
         /// The tool call ID.
         #[serde(rename = "toolCallId")]
         tool_call_id: String,
+        /// The LLM turn number this tool result belongs to.
+        #[serde(rename = "stepNumber")]
+        step_number: u32,
         /// The tool name.
         tool: String,
         /// The tool result.

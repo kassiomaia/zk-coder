@@ -87,6 +87,7 @@ pub async fn process_tool_calls_with_permissions(
     tool_calls: &[ToolCall],
     session: &AgentSession,
     task_id: &str,
+    step_number: u32,
     permission_resolver: &crate::core::agent::permissions::PermissionResolver,
     yolo_mode_provider: &dyn YoloModeProvider,
     allowed_tool_names: Option<&[String]>,
@@ -131,6 +132,7 @@ pub async fn process_tool_calls_with_permissions(
                 AgentEvent::ToolResult {
                     session_id: session.id.0.clone(),
                     tool_call_id: tool_call_id.clone(),
+                    step_number,
                     tool: call.name.clone(),
                     result: output.clone(),
                     is_error: true,
@@ -197,6 +199,7 @@ pub async fn process_tool_calls_with_permissions(
             AgentEvent::ToolCall {
                 session_id: session.id.0.clone(),
                 tool_call_id: tool_call_id.clone(),
+                step_number,
                 tool: call.name.clone(),
                 arguments: call.arguments.clone(),
                 content: build_tool_call_feedback(&call.name, &call.arguments),
@@ -292,6 +295,7 @@ pub async fn process_tool_calls_with_permissions(
             AgentEvent::ToolResult {
                 session_id: session.id.0.clone(),
                 tool_call_id: tool_call_id.clone(),
+                step_number,
                 tool: call.name.clone(),
                 result: result.output.clone(),
                 is_error: result.is_error,
