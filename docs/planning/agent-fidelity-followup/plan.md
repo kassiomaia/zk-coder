@@ -7,7 +7,7 @@
 ## Progress
 
 - Workstream α — delivered: tool-planner merge (contracts/framing flow through)
-- Workstream β — pending: dynamic step budget
+- Workstream β — delivered: dynamic step budget (formula scaled by plan size; monotonic growth after α merge)
 - Workstream γ — pending: `fs_replace_in_file` robustness
 - Workstream δ — pending: terminal-state disambiguation
 

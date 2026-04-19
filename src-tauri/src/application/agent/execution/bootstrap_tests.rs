@@ -256,3 +256,82 @@ fn verify_all_subtasks_exist_immediately() {
 fn verify_first_subtask_in_progress() {
     // Marker for manual/integration testing
 }
+
+// ========================================================================
+// Workstream β — Dynamic step budget at bootstrap
+// ========================================================================
+//
+// These tests lock in the contract between `bootstrap.rs` and
+// `utils::max_execution_steps`. The bootstrap site itself requires a
+// live `AppHandle`, so we test the derived cap against the same input
+// sizes bootstrap would compute: `collected_subtasks.len() as u32`.
+// The same helper is the single source of truth for the step-gate
+// growth path, so covering the formula here is sufficient to prevent
+// silent drift between the two call sites.
+
+#[test]
+fn bootstrap_cap_matches_formula_for_seven_subtasks() {
+    // `start_execution` computes the initial cap from the number of
+    // subtasks it just persisted. For the MVP-scale plan that motivated
+    // Workstream β (session 8311a601 — 7 subtasks), the formula must
+    // yield 135 so the 120-step flat cap that terminated the session is
+    // decisively gone.
+    use crate::application::agent::execution::utils::max_execution_steps;
+
+    assert_eq!(max_execution_steps(7), 135);
+}
+
+#[test]
+fn bootstrap_cap_for_trivial_task_uses_formula_floor() {
+    // Trivial tasks reach bootstrap with `collected_subtasks` empty
+    // (`plan.is_non_trivial = false`). Bootstrap must still populate
+    // `max_execution_steps`; the formula floor (45) guarantees a sane
+    // budget without special-casing zero.
+    use crate::application::agent::execution::utils::{
+        max_execution_steps, EXECUTION_STEPS_FLOOR,
+    };
+
+    assert_eq!(max_execution_steps(0), EXECUTION_STEPS_FLOOR);
+    assert_eq!(EXECUTION_STEPS_FLOOR, 45);
+}
+
+#[test]
+fn alpha_merge_growth_cap_jumps_monotonically_after_append() {
+    // Plan-growth integration: the α merge path
+    // (`permissions::merge_model_plan_into_existing`) can append new
+    // subtasks when the model's richer plan declares more entries than
+    // the skeleton. The step-gate growth path then recomputes the cap
+    // and takes the max. For the canonical 7 → 12 growth scenario
+    // cited in the plan, the cap must grow from 135 to 210.
+    use crate::application::agent::execution::utils::max_execution_steps;
+
+    let initial_cap = max_execution_steps(7);
+    let grown_cap = max_execution_steps(12);
+
+    assert_eq!(initial_cap, 135, "7-subtask initial cap");
+    assert_eq!(grown_cap, 210, "12-subtask grown cap after +5 append");
+    assert!(
+        grown_cap > initial_cap,
+        "α merge append must strictly grow the cap, never shrink it",
+    );
+}
+
+#[test]
+fn step_gate_growth_never_shrinks_cap_under_subtask_deletion() {
+    // Defensive invariant: even if some future code path deletes
+    // subtasks mid-task, the cap already granted to the agent must not
+    // retroactively shrink. The step-gate update clause is
+    // `if recomputed > ctx.max_execution_steps { ctx.max_execution_steps = recomputed }`,
+    // so simulating that clause against a smaller recomputed value must
+    // leave the live cap untouched.
+    use crate::application::agent::execution::utils::max_execution_steps;
+
+    let mut live_cap = max_execution_steps(10); // 180
+    let recomputed_after_shrink = max_execution_steps(3); // 75
+
+    if recomputed_after_shrink > live_cap {
+        live_cap = recomputed_after_shrink;
+    }
+
+    assert_eq!(live_cap, 180, "cap must stay at the granted 180");
+}

@@ -10,7 +10,7 @@ use serde_json::json;
 use super::deps::ExecutionDeps;
 use super::state::ExecutionContext;
 use super::termination::{cancel_execution, fail_execution, update_session_state};
-use super::utils::MAX_EXECUTION_STEPS;
+use super::utils::max_execution_steps;
 use crate::application::agent::clarification::{
     clear_pending_clarification, configured_timeout_minutes, pending_clarification,
 };
@@ -122,9 +122,30 @@ pub fn begin_step(
         "step_incremented",
     );
 
-    if ctx.step_number > MAX_EXECUTION_STEPS {
+    // Workstream β — monotonic growth of the dynamic step budget. If the
+    // α merge path (`permissions::merge_model_plan_into_existing`)
+    // appended new subtasks since bootstrap, the live subtask count
+    // here will exceed the count captured in `bootstrap.rs`. Recomputing
+    // the cap and taking the max preserves the "never shrink" invariant
+    // (the formula is monotonic in `num_subtasks`, but we still clamp
+    // defensively in case a future code path deletes subtasks — the cap
+    // must not retroactively invalidate work the agent already did).
+    if let Ok(live_subtasks) = deps.task_repo.get_subtasks(&ctx.task_id) {
+        let recomputed = max_execution_steps(live_subtasks.len() as u32);
+        if recomputed > ctx.max_execution_steps {
+            ctx.max_execution_steps = recomputed;
+        }
+    }
+
+    if ctx.step_number > ctx.max_execution_steps {
+        // Phase-β wording: keep the "runaway loop" framing and the
+        // `LoopDetected` terminal variant intact — Workstream δ rewrites
+        // both (new `StepBudgetExhausted` variant, copy rewrite,
+        // preserved subtask states). Touching either here would
+        // duplicate work and conflict with δ's scope.
         let msg = format!(
-            "Execution step limit reached ({MAX_EXECUTION_STEPS}). Aborting to prevent runaway loop."
+            "Execution step limit reached ({}). Aborting to prevent runaway loop.",
+            ctx.max_execution_steps
         );
         warn!("[AgentRuntime] {msg}");
         fail_execution(deps, ctx, &msg, "step_limit", None)?;

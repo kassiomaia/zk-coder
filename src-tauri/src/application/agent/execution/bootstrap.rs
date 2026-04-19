@@ -21,7 +21,7 @@ use super::deps::ExecutionDeps;
 use super::harness_events::emit_harness_state_updated;
 use super::state::ExecutionContext;
 use super::termination::update_session_state;
-use super::utils::truncate_text;
+use super::utils::{max_execution_steps, truncate_text};
 use crate::application::agent::service::planner::{plan_new_task, subtask_plan_to_agent_task};
 
 /// The result of a successful bootstrap process.
@@ -150,6 +150,10 @@ pub async fn start_execution(
         }
     }
 
+    // Capture the subtask count before `collected_subtasks` is moved
+    // onto `task.subtasks` — the dynamic step budget below keys off it.
+    let initial_subtask_count = collected_subtasks.len() as u32;
+
     // Set LLM-generated title and subtasks on the task before emitting TaskCreated
     if !collected_subtasks.is_empty() {
         task.subtasks = Some(collected_subtasks);
@@ -189,6 +193,14 @@ pub async fn start_execution(
         }
     }
 
+    // Workstream β — dynamic step budget. Compute once from the
+    // initial subtask count so trivial tasks still receive the formula
+    // floor (subtasks_len = 0 → 45 via `EXECUTION_STEPS_FLOOR`). The
+    // step gate later re-checks the current subtask count and grows
+    // this field monotonically when α's merge path appends new subtasks
+    // mid-task.
+    let initial_max_steps = max_execution_steps(initial_subtask_count);
+
     let mut context = ExecutionContext {
         session_id: session_id.clone(),
         task_id: task.id.clone(),
@@ -209,6 +221,7 @@ pub async fn start_execution(
         retrieval_count_in_current_subtask: 0,
         last_completed_subtask_for_memory: None,
         memorized_failures: Vec::new(),
+        max_execution_steps: initial_max_steps,
     };
 
     let tracer = deps.tracer();

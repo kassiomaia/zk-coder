@@ -80,6 +80,17 @@ pub struct ExecutionContext {
     /// the most recent entries so unbounded session length cannot
     /// balloon this list.
     pub memorized_failures: Vec<MemorizedFailure>,
+    /// Dynamic step budget for this task (Workstream β — fidelity
+    /// follow-up). Computed once at bootstrap from the initial subtask
+    /// count via
+    /// [`super::utils::max_execution_steps`], then grown monotonically
+    /// by `step_gate` whenever the α merge path appends new subtasks at
+    /// runtime. Consulted before every LLM round-trip to decide whether
+    /// to abort with a step-budget-exhausted error.
+    ///
+    /// Monotonic: this field never decreases after bootstrap; shrinking
+    /// mid-task would retroactively invalidate work already performed.
+    pub max_execution_steps: u32,
 }
 
 impl ExecutionContext {
