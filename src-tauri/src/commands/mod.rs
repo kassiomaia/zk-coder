@@ -18,6 +18,8 @@ pub mod file;
 pub mod llm;
 /// Re-exports for NLP-related commands.
 pub mod nlp;
+/// Workspace file enumeration command (Files panel).
+pub mod workspace_files;
 
 // Re-export state types for convenience
 pub use agent::AgentState;

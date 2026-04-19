@@ -1,11 +1,11 @@
 <script lang="ts">
 	/**
 	 * FileTree Component
-	 * Displays files touched by the agent in a hierarchical tree.
-	 * Supports recursive rendering of nested directories.
+	 * Renders the full workspace as a hierarchical tree, with an overlay
+	 * of agent-touched files (M/A/D badges and status color).
 	 */
-	import { ChevronRight, File, FileCode, FileText, Folder, FolderOpen, HardDrive } from 'lucide-svelte';
-	import type { TouchedFile } from '$lib/types/agent';
+	import { ChevronRight, File, FileCode, FileText, Folder, FolderOpen } from 'lucide-svelte';
+	import type { TouchedFile, WorkspaceEntry } from '$lib/types/agent';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import styles from './FileTree.module.css';
 
@@ -19,50 +19,100 @@
 	}
 
 	interface Props {
-		files: TouchedFile[];
+		allFiles: WorkspaceEntry[];
+		touched: TouchedFile[];
+		truncated?: boolean;
 		onfileclick?: (path: string) => void;
 		activePath?: string;
 	}
 
-	let { files, onfileclick, activePath }: Props = $props();
+	let { allFiles, touched, truncated = false, onfileclick, activePath }: Props = $props();
 
-	/** Track expanded directories */
 	let expandedPaths = $state<Set<string>>(new Set());
 
-	/** Build hierarchical tree from flat file list */
-	let fileTree = $derived(buildFileTree(files));
+	let touchedByPath = $derived.by(() => {
+		const m = new Map<string, TouchedFile>();
+		for (const f of touched) m.set(f.path, f);
+		return m;
+	});
 
-	function buildFileTree(flatFiles: TouchedFile[]): FileTreeNode {
-		const root: FileTreeNode = { name: '', path: '', type: 'directory', children: [], depth: 0 };
+	let fileTree = $derived(buildFileTree(allFiles, touched, touchedByPath));
 
-		for (const file of flatFiles) {
-			const parts = file.path.split('/');
-			let current = root;
+	function buildFileTree(
+		workspaceEntries: WorkspaceEntry[],
+		touchedFiles: TouchedFile[],
+		touchedMap: Map<string, TouchedFile>
+	): FileTreeNode {
+		const root: FileTreeNode = {
+			name: '',
+			path: '',
+			type: 'directory',
+			children: [],
+			depth: 0
+		};
 
-			for (let i = 0; i < parts.length; i++) {
-				const part = parts[i];
-				const isFile = i === parts.length - 1;
-				let child = current.children.find((c) => c.name === part);
+		for (const entry of workspaceEntries) {
+			insertPath(root, entry.path, entry.kind, touchedMap);
+		}
 
-				if (!child) {
-					child = {
-						name: part,
-						path: parts.slice(0, i + 1).join('/'),
-						type: isFile ? 'file' : 'directory',
-						children: [],
-						file: isFile ? file : undefined,
-						depth: i
-					};
-					current.children.push(child);
-				}
-
-				if (!isFile) {
-					current = child;
-				}
+		// Synthetic merge: touched paths not in the workspace listing
+		// (new files, external writes) still surface with their badge.
+		const existing = new Set(workspaceEntries.map((e) => e.path));
+		for (const t of touchedFiles) {
+			if (!existing.has(t.path)) {
+				insertPath(root, t.path, 'file', touchedMap);
 			}
 		}
 
+		sortTree(root);
 		return root;
+	}
+
+	function sortTree(node: FileTreeNode) {
+		node.children.sort(compareNodes);
+		for (const child of node.children) {
+			if (child.type === 'directory') sortTree(child);
+		}
+	}
+
+	function compareNodes(a: FileTreeNode, b: FileTreeNode): number {
+		if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+		return a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
+	}
+
+	function insertPath(
+		root: FileTreeNode,
+		path: string,
+		leafKind: 'file' | 'directory',
+		touchedMap: Map<string, TouchedFile>
+	) {
+		const parts = path.split('/').filter((p) => p.length > 0);
+		if (parts.length === 0) return;
+		let current = root;
+
+		for (let i = 0; i < parts.length; i++) {
+			const part = parts[i];
+			const isLeaf = i === parts.length - 1;
+			const segmentPath = parts.slice(0, i + 1).join('/');
+			let child = current.children.find((c) => c.name === part);
+
+			if (!child) {
+				const nodeType: 'file' | 'directory' = isLeaf ? leafKind : 'directory';
+				child = {
+					name: part,
+					path: segmentPath,
+					type: nodeType,
+					children: [],
+					depth: i,
+					file: nodeType === 'file' ? touchedMap.get(segmentPath) : undefined
+				};
+				current.children.push(child);
+			}
+
+			if (child.type === 'directory') {
+				current = child;
+			}
+		}
 	}
 
 	function toggleExpanded(path: string) {
@@ -136,8 +186,11 @@
 <div class={styles.fileTree} aria-label="File tree">
 	{#if fileTree.children.length > 0}
 		{@render TreeNode(fileTree.children)}
+		{#if truncated}
+			<div class={styles.truncationFooter}>Showing first 10,000 entries</div>
+		{/if}
 	{:else}
-		<EmptyState icon={FileCode} message="No files modified" class={styles.emptyState} />
+		<EmptyState icon={FileCode} message="No files to display" class={styles.emptyState} />
 	{/if}
 </div>
 
@@ -167,13 +220,11 @@
 				</span>
 			</button>
 
-			{#if isExpanded}
-				{#if node.children.length > 0}
-					{@render TreeNode(node.children)}
-				{/if}
+			{#if isExpanded && node.children.length > 0}
+				{@render TreeNode(node.children)}
 			{/if}
-		{:else if node.file}
-			{@const indicator = getChangeIndicator(node.file)}
+		{:else}
+			{@const indicator = node.file ? getChangeIndicator(node.file) : null}
 			{@const FileIcon = getFileIcon(node.path)}
 			{@const iconColor = getFileIconColor(node.path)}
 			{@const depthClass = node.depth > 5 ? 'depth-5' : `depth-${node.depth}`}
@@ -183,7 +234,7 @@
 					styles.file,
 					styles[depthClass],
 					activePath === node.path && styles.isActive,
-					node.file.action === 'delete' && styles.isDeleted
+					node.file?.action === 'delete' && styles.isDeleted
 				]
 					.filter(Boolean)
 					.join(' ')}

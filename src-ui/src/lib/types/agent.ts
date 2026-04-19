@@ -135,6 +135,11 @@ export interface AgentSession {
 	modelId?: string;
 	tasks?: AgentTask[];
 	filesTouched?: TouchedFile[];
+	/** Full workspace file listing shown in the Files panel. Populated
+	 *  manually via `loadWorkspaceFiles` on workspace change. */
+	workspaceFiles?: WorkspaceEntry[];
+	/** True when the workspace walk hit its cap and the listing is partial. */
+	workspaceFilesTruncated?: boolean;
 	terminalOutput?: TerminalLine[];
 	toolCalls?: ToolCallRecord[];
 	executionSteps?: ExecutionStep[]; // Track execution steps for UI progress display
@@ -392,6 +397,16 @@ export interface TouchedFile {
 	action: 'read' | 'write' | 'delete';
 	/** Unified diff content for write operations (available after approval) */
 	diff?: string;
+}
+
+/**
+ * One entry in the workspace file listing that powers the Files panel.
+ * Paths are relative to `AgentSession.workspaceRoot` with forward-slash
+ * separators.
+ */
+export interface WorkspaceEntry {
+	path: string;
+	kind: 'file' | 'directory';
 }
 
 /**

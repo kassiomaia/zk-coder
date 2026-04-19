@@ -3,7 +3,7 @@
  * Session management functions for the agent store.
  */
 
-import type { AgentSession, BackendAgentTask } from '$lib/types/agent';
+import type { AgentSession, BackendAgentTask, WorkspaceEntry } from '$lib/types/agent';
 import { toAgentTask } from '$lib/types/agent';
 import type { AgentState } from '../state';
 import { createLogger } from '$lib/utils/logger';
@@ -301,6 +301,42 @@ export async function updateSessionWorkspace(
 	} catch (error) {
 		log.error('[agentStore] Failed to update workspace:', error);
 		update((s) => ({ ...s, error: String(error) }));
+	}
+}
+
+interface WorkspaceFilesResponse {
+	entries: WorkspaceEntry[];
+	truncated: boolean;
+}
+
+/**
+ * Enumerate every file/directory under `workspaceRoot` and attach the
+ * result to the session so the Files panel can render a full tree.
+ * Leaves existing workspace listing untouched on error.
+ */
+export async function loadWorkspaceFiles(
+	state: AgentState,
+	update: (fn: (state: AgentState) => AgentState) => void,
+	sessionId: string,
+	workspaceRoot: string
+): Promise<void> {
+	try {
+		const { invoke } = await import('@tauri-apps/api/core');
+		const response = await invoke<WorkspaceFilesResponse>('list_workspace_files', {
+			root: workspaceRoot
+		});
+		update((state) => {
+			const session = state.sessions.get(sessionId);
+			if (!session) return state;
+			state.sessions.set(sessionId, {
+				...session,
+				workspaceFiles: response.entries,
+				workspaceFilesTruncated: response.truncated
+			});
+			return { ...state, sessions: new Map(state.sessions) };
+		});
+	} catch (error) {
+		log.warn('[agentStore] Failed to load workspace files:', error);
 	}
 }
 

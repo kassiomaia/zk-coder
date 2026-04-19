@@ -1,18 +1,38 @@
 <script lang="ts">
-	import { FileText } from 'lucide-svelte';
+	import { FileText, RefreshCw } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import CollapsibleSection from '$lib/components/shared/CollapsibleSection.svelte';
 
 	interface Props {
 		expanded: boolean;
 		onToggle: () => void;
-		fileCount: number;
+		touchedCount: number;
+		totalCount: number;
+		onRefresh?: () => void;
 		children: Snippet;
 	}
 
-	let { expanded, onToggle, fileCount, children }: Props = $props();
+	let { expanded, onToggle, touchedCount, totalCount, onRefresh, children }: Props = $props();
 
-	let badges = $derived(fileCount > 0 ? [{ label: fileCount.toString() }] : []);
+	let badges = $derived.by(() => {
+		if (totalCount > 0) {
+			return [{ label: `${touchedCount}/${totalCount}` }];
+		}
+		if (touchedCount > 0) {
+			return [{ label: touchedCount.toString() }];
+		}
+		return [];
+	});
+
+	let spinning = $state(false);
+
+	function handleRefresh(e: MouseEvent) {
+		e.stopPropagation();
+		if (!onRefresh) return;
+		spinning = true;
+		window.setTimeout(() => (spinning = false), 600);
+		onRefresh();
+	}
 </script>
 
 <CollapsibleSection
@@ -27,6 +47,21 @@
 		<FileText size={13} strokeWidth={1.5} class="section-icon" />
 	{/snippet}
 
+	{#snippet headerAction()}
+		{#if onRefresh}
+			<button
+				type="button"
+				class="refresh-btn"
+				class:is-spinning={spinning}
+				aria-label="Refresh file tree"
+				title="Refresh file tree"
+				onclick={handleRefresh}
+			>
+				<RefreshCw size={13} strokeWidth={1.75} />
+			</button>
+		{/if}
+	{/snippet}
+
 	{@render children()}
 </CollapsibleSection>
 
@@ -34,5 +69,51 @@
 	:global(.section-icon) {
 		opacity: 0.4;
 		transition: all var(--transition-fast);
+	}
+
+	.refresh-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
+		padding: 0;
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: var(--radius-sm);
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition:
+			color var(--transition-fast),
+			background var(--transition-fast),
+			border-color var(--transition-fast);
+	}
+
+	.refresh-btn:hover {
+		color: var(--color-text-primary);
+		background: var(--color-neutral-800);
+		border-color: var(--color-border-primary);
+	}
+
+	.refresh-btn:active {
+		transform: translateY(1px);
+	}
+
+	.refresh-btn:focus-visible {
+		outline: 2px solid var(--color-primary-500);
+		outline-offset: 1px;
+	}
+
+	.refresh-btn.is-spinning :global(svg) {
+		animation: refresh-spin 600ms var(--ease-out, ease-out);
+	}
+
+	@keyframes refresh-spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
 	}
 </style>

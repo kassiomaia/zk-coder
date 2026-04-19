@@ -262,6 +262,7 @@ pub fn run() {
             // File viewing commands (UI-only, no LLM consumption)
             commands::file::get_file_content,
             commands::file::open_file_diff_window,
+            commands::workspace_files::list_workspace_files,
             // Session history commands
             commands::agent::history::get_conversation_session_history,
             commands::agent::history::get_session_details,

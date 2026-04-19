@@ -30,6 +30,14 @@
 		animationDelay?: string;
 		/** Additional CSS class */
 		class?: string;
+		/**
+		 * Optional action slot rendered beside the toggle inside the
+		 * collapsed header row. Use this for small, icon-only affordances
+		 * (refresh, settings) that belong to the section. Must not
+		 * contain a nested <button> that spans the whole header — the
+		 * toggle handles that.
+		 */
+		headerAction?: Snippet;
 		/** Content to render when expanded */
 		children: Snippet;
 	}
@@ -43,39 +51,47 @@
 		sectionId,
 		animationDelay = '0s',
 		class: className = '',
+		headerAction,
 		children
 	}: Props = $props();
 </script>
 
 <section class="collapsible-section {className}" style="animation-delay: {animationDelay}">
-	<button
-		class="section-header"
-		onclick={onToggle}
-		type="button"
-		aria-expanded={expanded}
-		aria-controls={sectionId}
-	>
-		<span class="header-main">
-			<span class="chevron-icon" class:is-expanded={expanded}>
-				<ChevronRight size={14} strokeWidth={2} />
-			</span>
-			<span class="header-label">{label}</span>
-		</span>
-
-		<div class="header-meta">
-			{#each badges as badge}
-				<span
-					class="badge"
-					class:running={badge.variant === 'running'}
-					class:tokens={badge.variant === 'tokens'}
-					title={badge.title}
-				>
-					{badge.label}
+	<div class="section-header-row" class:has-action={!!headerAction}>
+		<button
+			class="section-header"
+			onclick={onToggle}
+			type="button"
+			aria-expanded={expanded}
+			aria-controls={sectionId}
+		>
+			<span class="header-main">
+				<span class="chevron-icon" class:is-expanded={expanded}>
+					<ChevronRight size={14} strokeWidth={2} />
 				</span>
-			{/each}
-			{@render icon()}
-		</div>
-	</button>
+				<span class="header-label">{label}</span>
+			</span>
+
+			<div class="header-meta">
+				{#each badges as badge}
+					<span
+						class="badge"
+						class:running={badge.variant === 'running'}
+						class:tokens={badge.variant === 'tokens'}
+						title={badge.title}
+					>
+						{badge.label}
+					</span>
+				{/each}
+				{@render icon()}
+			</div>
+		</button>
+		{#if headerAction}
+			<div class="section-header-action">
+				{@render headerAction()}
+			</div>
+		{/if}
+	</div>
 	{#if expanded}
 		<div id={sectionId} class="section-content-wrapper">
 			{@render children()}
@@ -89,16 +105,36 @@
 		transition: background var(--transition-fast);
 	}
 
+	.section-header-row {
+		display: flex;
+		align-items: stretch;
+	}
+
+	.section-header-row.has-action:hover {
+		background: var(--color-interactive-hover);
+	}
+
+	.section-header-row.has-action:hover .section-header {
+		background: transparent;
+	}
+
 	.section-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		width: 100%;
+		flex: 1;
+		min-width: 0;
 		padding: var(--space-2) var(--space-3);
 		background: transparent;
 		border: none;
 		cursor: pointer;
 		transition: background var(--transition-fast);
+	}
+
+	.section-header-action {
+		display: flex;
+		align-items: center;
+		padding-right: var(--space-2);
 	}
 
 	.header-main {

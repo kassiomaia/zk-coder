@@ -5,6 +5,7 @@
 	 * Contains collapsible sections for session management.
 	 */
 	import { invoke } from '@tauri-apps/api/core';
+	import { agentStore } from '$lib/stores/agent';
 	import SessionTabs from './SessionTabs.svelte';
 	import SessionHistory from './SessionHistory.svelte';
 	import AgentConfig from './AgentConfig.svelte';
@@ -94,6 +95,20 @@
 			? harnessState.awaitingClarification
 			: undefined
 	);
+
+	// Reload the full workspace listing whenever the session binds to a
+	// (new) workspace root. The Files panel shows every file under it with
+	// agent-touched files overlaid as M/A/D badges.
+	$effect(() => {
+		const root = session.workspaceRoot;
+		if (!root) return;
+		void agentStore.loadWorkspaceFiles(session.id, root);
+	});
+
+	function refreshWorkspaceFiles() {
+		if (!session.workspaceRoot) return;
+		void agentStore.loadWorkspaceFiles(session.id, session.workspaceRoot);
+	}
 
 	async function handleFileClick(path: string) {
 		if (!session.workspaceRoot) return;
@@ -188,9 +203,16 @@
 				<AgentPanelFilesSection
 					expanded={filesExpanded}
 					onToggle={() => (filesExpanded = !filesExpanded)}
-					fileCount={session.filesTouched?.length ?? 0}
+					touchedCount={session.filesTouched?.length ?? 0}
+					totalCount={session.workspaceFiles?.length ?? 0}
+					onRefresh={refreshWorkspaceFiles}
 				>
-					<FileTree files={session.filesTouched ?? []} onfileclick={handleFileClick} />
+					<FileTree
+						allFiles={session.workspaceFiles ?? []}
+						touched={session.filesTouched ?? []}
+						truncated={session.workspaceFilesTruncated ?? false}
+						onfileclick={handleFileClick}
+					/>
 				</AgentPanelFilesSection>
 
 				<section class="panel-section tool-calls-section" style="animation-delay: 0.3s">

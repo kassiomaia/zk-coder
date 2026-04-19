@@ -40,6 +40,7 @@ export interface AgentStore {
 	cancelSession(sessionId: string): Promise<void>;
 	rollbackSession(sessionId: string): Promise<string[]>;
 	updateSessionWorkspace(sessionId: string, workspacePath: string): Promise<void>;
+	loadWorkspaceFiles(sessionId: string, workspaceRoot: string): Promise<void>;
 	updateSessionModel(sessionId: string, modelId: string): Promise<void>;
 	createSubtask(
 		taskId: string,
@@ -236,6 +237,14 @@ function createAgentStore(): AgentStore {
 	}
 
 	/**
+	 * Load the full workspace file listing for a session.
+	 */
+	async function loadWorkspaceFiles(sessionId: string, workspaceRoot: string) {
+		const state = get({ subscribe });
+		return Actions.loadWorkspaceFiles(state, update, sessionId, workspaceRoot);
+	}
+
+	/**
 	 * Update the model ID for a session.
 	 */
 	async function updateSessionModel(sessionId: string, modelId: string) {
@@ -397,6 +406,7 @@ function createAgentStore(): AgentStore {
 		cancelSession,
 		rollbackSession,
 		updateSessionWorkspace,
+		loadWorkspaceFiles,
 		updateSessionModel,
 		createSubtask,
 		updateSubtaskStatus,
