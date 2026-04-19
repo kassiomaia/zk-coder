@@ -1,6 +1,6 @@
 //! Types and error definitions for agent runtime.
 
-use crate::core::agent::task::{SubTask, SubTaskMode, TaskStatus};
+use crate::core::agent::task::{SubTask, SubTaskContract, SubTaskMode, TaskStatus};
 
 /// Agent runtime errors.
 #[derive(Debug, thiserror::Error)]
@@ -57,6 +57,12 @@ pub struct SubtaskSummary {
     pub status: TaskStatus,
     /// Order of the subtask in the task list.
     pub order: i32,
+    /// The subtask's declared contract (Workstream B.1). When present
+    /// and non-empty, the contract-aware active-subtask appendix
+    /// (Workstream H.3) surfaces `expected_artifacts` in the rendered
+    /// system prompt. Absence preserves the pre-B appendix wording
+    /// byte-for-byte.
+    pub contract: Option<SubTaskContract>,
 }
 
 impl SubtaskSummary {
@@ -71,6 +77,7 @@ impl SubtaskSummary {
             mode: subtask.mode.clone(),
             status: subtask.status.clone(),
             order: subtask.order,
+            contract: subtask.contract.clone(),
         }
     }
 }
@@ -94,6 +101,20 @@ mod tests {
             started_at: None,
             completed_at: None,
         }
+    }
+
+    #[test]
+    fn subtask_summary_copies_contract_from_subtask() {
+        use crate::core::agent::task::{ArtifactKind, ArtifactSpec, SubTaskContract};
+        let mut subtask = make_subtask("x", SubTaskMode::Write, TaskStatus::InProgress, 0);
+        subtask.contract = Some(SubTaskContract {
+            expected_artifacts: vec![ArtifactSpec {
+                path_pattern: "docs/*.md".to_string(),
+                kind: ArtifactKind::File,
+            }],
+        });
+        let summary = SubtaskSummary::from_subtask(&subtask);
+        assert!(summary.contract.is_some());
     }
 
     #[test]
@@ -189,6 +210,7 @@ mod tests {
             mode: SubTaskMode::Read,
             status: TaskStatus::InProgress,
             order: 0,
+            contract: None,
         };
 
         let debug_str = format!("{:?}", summary);

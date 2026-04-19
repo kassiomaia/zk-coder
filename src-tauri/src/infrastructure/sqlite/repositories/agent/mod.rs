@@ -187,6 +187,19 @@ impl SqliteSessionRepository {
         sessions::update_model_id(&conn, id, model_id)
     }
 
+    /// Flip the `needs_review` flag for a session (Workstream F.2).
+    pub fn set_needs_review(
+        &self,
+        id: &crate::core::agent::session::SessionId,
+        needs_review: bool,
+    ) -> Result<(), SessionRepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
+        sessions::update_needs_review(&conn, id, needs_review)
+    }
+
     /// Record a startup crash-recovery event.
     pub fn record_recovery_event(
         &self,
@@ -606,6 +619,14 @@ impl SessionRepository for SqliteSessionRepository {
         model_id: &str,
     ) -> RepositoryResult<()> {
         Self::update_model_id(self, id, model_id).map_err(AgentDomainError::from)
+    }
+
+    fn set_needs_review(
+        &self,
+        id: &agent_session::SessionId,
+        needs_review: bool,
+    ) -> RepositoryResult<()> {
+        Self::set_needs_review(self, id, needs_review).map_err(AgentDomainError::from)
     }
 
     fn delete_session(&self, id: &agent_session::SessionId) -> RepositoryResult<()> {

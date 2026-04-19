@@ -25,6 +25,7 @@ use crate::infrastructure::agent::runtime::context::{
     ContextPackOutcome, ContextPolicyInput, ExecutionBrief, MemorizedFailure, MemoryReference,
 };
 use crate::infrastructure::llm::LlmClient;
+use crate::infrastructure::agent::registry::SystemPromptBuilder;
 use crate::infrastructure::agent::runtime::{
     derive_system_prompt, AgentRuntimeError, SubtaskSummary,
 };
@@ -305,7 +306,31 @@ pub async fn resolve_context(
     }
 
     ctx.last_injected_subtask_order = current_order;
-    let system_prompt = derive_system_prompt(agent_system_prompt, &current_subtask_summary);
+
+    // Workstream H.2.c — compose the static agent prompt from the
+    // task's declared framing when present. `SystemPromptBuilder::
+    // compose_for_task(None)` is byte-for-byte identical to the legacy
+    // `compose_default_code_agent()` used at agent construction, so
+    // tasks without a declared framing render the exact prompt they
+    // have today. Tasks with a declared framing substitute their
+    // rendered framing for the default code framing section.
+    let task_framing = deps
+        .task_repo
+        .get_session_tasks(&ctx.session_id)
+        .ok()
+        .and_then(|tasks| tasks.into_iter().find(|t| t.id == ctx.task_id))
+        .and_then(|t| t.framing);
+    let static_prompt = if task_framing.is_some() {
+        SystemPromptBuilder::compose_for_task(task_framing.as_ref())
+    } else {
+        // Legacy path: keep the agent-level frozen prompt. This avoids
+        // burning the cache for in-flight sessions whose tasks were
+        // planned before H.2.b shipped.
+        agent_system_prompt.to_string()
+    };
+    let active_framing_section =
+        SystemPromptBuilder::active_framing_section(task_framing.as_ref());
+    let system_prompt = derive_system_prompt(&static_prompt, &current_subtask_summary);
     info!(
         "[AgentRuntime] System prompt length: {}{}",
         system_prompt.len(),
@@ -339,6 +364,7 @@ pub async fn resolve_context(
         all_subtasks_completed,
         tool_definitions,
         system_prompt,
+        active_framing_section,
     })
 }
 

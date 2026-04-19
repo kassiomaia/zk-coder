@@ -40,6 +40,16 @@ pub trait SessionRepository: Send + Sync {
     /// Updates the model ID for a specific session.
     fn update_model_id(&self, id: &SessionId, model_id: &str) -> RepositoryResult<()>;
 
+    /// Flips the session's `needs_review` flag (Workstream F.2).
+    ///
+    /// Called when a subtask is explicitly marked `Failed` through
+    /// `agent_mark_subtask_status`. Default implementation is a no-op so
+    /// in-memory test doubles can opt in incrementally — the SQLite
+    /// implementation overrides it.
+    fn set_needs_review(&self, _id: &SessionId, _needs_review: bool) -> RepositoryResult<()> {
+        Ok(())
+    }
+
     /// Deletes an agent session from the repository.
     fn delete_session(&self, id: &SessionId) -> RepositoryResult<()>;
 

@@ -180,6 +180,7 @@ pub async fn process_tool_calls_with_permissions(
                         app_handle,
                         tool_registry,
                         file_snapshot_registry,
+                        session_repo,
                         telemetry_repo,
                         task_repo,
                     )
@@ -258,6 +259,7 @@ async fn execute_tool(
     app_handle: &AppHandle,
     tool_registry: &ToolRegistry,
     file_snapshot_registry: &FileSnapshotRegistry,
+    session_repo: &dyn SessionRepository,
     telemetry_repo: &dyn AgentTelemetryRepository,
     task_repo: &dyn TaskRepository,
 ) -> OrchestratorToolResult {
@@ -266,6 +268,7 @@ async fn execute_tool(
         session,
         task_id,
         app_handle,
+        session_repo,
         task_repo,
         telemetry_repo,
     ) {
@@ -486,6 +489,7 @@ async fn execute_with_approval(
                             app_handle,
                             tool_registry,
                             file_snapshot_registry,
+                            session_repo,
                             telemetry_repo,
                             task_repo,
                         )
@@ -575,6 +579,7 @@ fn handle_agent_tool_call(
     session: &AgentSession,
     task_id: &str,
     app_handle: &AppHandle,
+    session_repo: &dyn SessionRepository,
     task_repo: &dyn TaskRepository,
     telemetry_repo: &dyn AgentTelemetryRepository,
 ) -> Option<OrchestratorToolResult> {
@@ -600,6 +605,7 @@ fn handle_agent_tool_call(
             session,
             task_id,
             app_handle,
+            session_repo,
             task_repo,
             telemetry_repo,
         )),
@@ -724,6 +730,35 @@ fn handle_plan_subtasks(
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
 
+        // Workstream B.2 — parse the optional `contract` field per
+        // subtask. Malformed contracts fail the plan with a clear
+        // message so the planner can fix the declaration. Absent
+        // contracts preserve pre-B behavior (scope-drift detection
+        // short-circuits for that subtask).
+        let contract = match item.get("contract") {
+            Some(raw) if !raw.is_null() => {
+                match serde_json::from_value::<crate::core::agent::task::SubTaskContract>(
+                    raw.clone(),
+                ) {
+                    Ok(contract) if !contract.is_empty() => Some(contract),
+                    Ok(_empty) => None,
+                    Err(e) => {
+                        return OrchestratorToolResult {
+                            call_id: call.id.clone(),
+                            name: call.name.clone(),
+                            output: serde_json::json!({
+                                "error": format!(
+                                    "Subtask {idx} has a malformed `contract` field: {e}"
+                                ),
+                            }),
+                            is_error: true,
+                        };
+                    }
+                }
+            }
+            _ => None,
+        };
+
         let mut subtask = crate::core::agent::task::SubTask::new(
             task_id.to_string(),
             title.clone(),
@@ -732,6 +767,9 @@ fn handle_plan_subtasks(
         );
         if let Some(ref desc) = description {
             subtask.description = Some(desc.clone());
+        }
+        if let Some(contract) = contract {
+            subtask.contract = Some(contract);
         }
 
         if let Err(e) = task_repo.create_subtask(&subtask) {
@@ -849,6 +887,21 @@ fn handle_advance_subtask(
         };
     }
 
+    // Workstream F.1 — when the current subtask declared a contract,
+    // every `expected_artifacts` pattern must resolve (on disk, or in
+    // the files-touched overlay as fallback) before the handler may
+    // transition to `Completed`. Absent/empty contracts preserve
+    // pre-B behavior: the handler advances on evidence alone.
+    if let Some(ref contract) = current.contract {
+        if !contract.is_empty() {
+            if let Err(failure) =
+                verify_contract_artifacts(contract, session, telemetry_repo)
+            {
+                return failure.into_error_result(call);
+            }
+        }
+    }
+
     if let Err(e) = task_repo.update_subtask_status(
         &current.id,
         crate::core::agent::task::TaskStatus::Completed,
@@ -946,8 +999,9 @@ fn handle_mark_subtask_status(
     session: &AgentSession,
     task_id: &str,
     app_handle: &AppHandle,
+    session_repo: &dyn SessionRepository,
     task_repo: &dyn TaskRepository,
-    _telemetry_repo: &dyn AgentTelemetryRepository,
+    telemetry_repo: &dyn AgentTelemetryRepository,
 ) -> OrchestratorToolResult {
     let index = match call.arguments.get("index").and_then(|v| v.as_i64()) {
         Some(index) if index >= 0 => index as usize,
@@ -1015,6 +1069,28 @@ fn handle_mark_subtask_status(
     let current = subtasks[index].clone();
     let current_for_decompose = current.clone();
 
+    // Workstream F.1 — when the planner marks a subtask `Completed`,
+    // the same contract verification that gates `advance` must apply.
+    // `Failed` is explicitly allowed even when the contract is
+    // unsatisfied so the model can cleanly signal it cannot produce
+    // the declared artifacts (Workstream F.2 then flags the session
+    // for review below). `Pending` and `InProgress` mutations skip
+    // verification — they do not commit to completion.
+    if matches!(
+        core_status,
+        crate::core::agent::task::TaskStatus::Completed
+    ) {
+        if let Some(ref contract) = current.contract {
+            if !contract.is_empty() {
+                if let Err(failure) =
+                    verify_contract_artifacts(contract, session, telemetry_repo)
+                {
+                    return failure.into_error_result(call);
+                }
+            }
+        }
+    }
+
     if let Err(e) = task_repo.update_subtask_status(&current.id, core_status) {
         warn!("[AgentRuntime] Failed to update subtask status: {e}");
         return OrchestratorToolResult {
@@ -1025,6 +1101,19 @@ fn handle_mark_subtask_status(
             }),
             is_error: true,
         };
+    }
+
+    // Workstream F.2 — when the model explicitly marks a subtask
+    // `Failed`, flip the session's `needs_review` flag so the UI can
+    // surface a post-run review affordance and the session record
+    // persists the signal across reload.
+    if matches!(
+        event_status,
+        crate::core::agent::task::TaskStatus::Failed
+    ) {
+        if let Err(e) = session_repo.set_needs_review(&session.id, true) {
+            warn!("[AgentRuntime] Failed to set needs_review on session: {e}");
+        }
     }
 
     let mut updated = core_task_to_event_subtask(current, task_id);
@@ -1136,6 +1225,235 @@ fn handle_narrate(
             }
         }),
         is_error: false,
+    }
+}
+
+/// Workstream F.1 — verify that a subtask's contract artifacts exist
+/// before the handler allows a transition to `Completed`.
+///
+/// Ground truth is the filesystem: for each `ArtifactSpec` in the
+/// contract, every file the glob resolves to must exist on disk. When
+/// the session has no `workspace_root`, glob evaluation would be
+/// ambiguous, so the verification falls back to the
+/// `agent_files_touched` overlay and treats a pattern as satisfied when
+/// any recorded file path matches it.
+///
+/// Returns `Ok(())` when every `path_pattern` resolves; otherwise
+/// returns the list of unsatisfied patterns plus a de-duplicated list
+/// of concrete missing paths (empty when the pattern had no match at
+/// all).
+fn verify_contract_artifacts(
+    contract: &crate::core::agent::task::SubTaskContract,
+    session: &AgentSession,
+    telemetry_repo: &dyn AgentTelemetryRepository,
+) -> Result<(), ContractVerificationFailure> {
+    use globset::{Glob, GlobSetBuilder};
+
+    let workspace_root: Option<&std::path::Path> =
+        session.workspace_root.as_deref();
+
+    // Build the overlay matcher once; used as fallback when the
+    // filesystem check cannot evaluate (no workspace root) and as an
+    // auxiliary signal when on-disk globbing fails.
+    let touched_paths: Vec<String> = telemetry_repo
+        .get_session_files(&session.id)
+        .ok()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|entry| {
+            let action = entry.action.to_ascii_lowercase();
+            if matches!(action.as_str(), "write" | "delete") {
+                Some(entry.file_path)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let mut unsatisfied_patterns: Vec<String> = Vec::new();
+    for spec in &contract.expected_artifacts {
+        let pattern = spec.path_pattern.trim();
+        if pattern.is_empty() {
+            unsatisfied_patterns.push(spec.path_pattern.clone());
+            continue;
+        }
+        if pattern_is_satisfied_on_disk(pattern, workspace_root) {
+            continue;
+        }
+        if pattern_matches_touched_overlay(pattern, &touched_paths) {
+            continue;
+        }
+        unsatisfied_patterns.push(spec.path_pattern.clone());
+    }
+
+    if unsatisfied_patterns.is_empty() {
+        return Ok(());
+    }
+
+    // Provide the model with a concrete path list where possible so
+    // the rejection message is actionable. Empty when patterns
+    // genuinely produced zero matches.
+    let mut missing_paths: Vec<String> = Vec::new();
+    if let Some(root) = workspace_root {
+        let mut builder = GlobSetBuilder::new();
+        for pattern in &unsatisfied_patterns {
+            if let Ok(glob) = Glob::new(pattern) {
+                builder.add(glob);
+            }
+        }
+        if let Ok(matcher) = builder.build() {
+            if matcher.len() > 0 {
+                // Walk each pattern's literal-prefix parent when
+                // evaluable. The globset crate does not provide a
+                // walk-and-match primitive, so we surface pattern-level
+                // info rather than false concrete paths; the model is
+                // expected to produce the declared artifacts, not
+                // inspect the workspace.
+                let _ = root; // keep `root` binding intentional
+                let _ = matcher;
+            }
+        }
+    }
+
+    for path in &touched_paths {
+        // Surface touched paths that *almost* satisfy the contract — a
+        // path recorded in `agent_files_touched` but that no
+        // `expected_artifacts` glob accepted. This is the concrete
+        // signal the model can act on.
+        let mut builder = GlobSetBuilder::new();
+        for pattern in &contract.expected_artifacts {
+            if let Ok(glob) = Glob::new(&pattern.path_pattern) {
+                builder.add(glob);
+            }
+        }
+        if let Ok(matcher) = builder.build() {
+            if !matcher.is_match(path) && !missing_paths.contains(path) {
+                missing_paths.push(path.clone());
+            }
+        }
+    }
+
+    Err(ContractVerificationFailure {
+        missing_patterns: unsatisfied_patterns,
+        concrete_missing_paths: missing_paths,
+    })
+}
+
+fn pattern_is_satisfied_on_disk(
+    pattern: &str,
+    workspace_root: Option<&std::path::Path>,
+) -> bool {
+    use globset::Glob;
+    let Some(root) = workspace_root else {
+        return false;
+    };
+    // Plain path (no glob metacharacters): short-circuit to `exists`.
+    if !pattern.contains(['*', '?', '[', '{']) {
+        return root.join(pattern).exists();
+    }
+
+    let glob = match Glob::new(pattern) {
+        Ok(g) => g,
+        Err(_) => return false,
+    };
+    let matcher = glob.compile_matcher();
+
+    walk_workspace_for_match(root, &matcher)
+}
+
+/// Bounded workspace walk that returns `true` as soon as any file
+/// matches the compiled glob. Depth-limited to keep accidental
+/// submits against oversized workspaces cheap; the hard bound is
+/// enforced by the max-entries cap below.
+fn walk_workspace_for_match(
+    root: &std::path::Path,
+    matcher: &globset::GlobMatcher,
+) -> bool {
+    const MAX_ENTRIES: usize = 20_000;
+    let mut stack: Vec<std::path::PathBuf> = vec![root.to_path_buf()];
+    let mut seen = 0usize;
+    while let Some(current) = stack.pop() {
+        let Ok(read_dir) = std::fs::read_dir(&current) else {
+            continue;
+        };
+        for entry in read_dir.flatten() {
+            seen += 1;
+            if seen > MAX_ENTRIES {
+                return false;
+            }
+            let path = entry.path();
+            let Ok(relative) = path.strip_prefix(root) else {
+                continue;
+            };
+            let relative_str = relative.to_string_lossy();
+            if matcher.is_match(relative_str.as_ref()) {
+                return true;
+            }
+            if path.is_dir() {
+                // Skip common heavy directories that are never
+                // relevant to a subtask contract output.
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if matches!(
+                        name,
+                        ".git"
+                            | "node_modules"
+                            | "target"
+                            | "dist"
+                            | "build"
+                            | ".next"
+                            | ".svelte-kit"
+                    ) {
+                        continue;
+                    }
+                }
+                stack.push(path);
+            }
+        }
+    }
+    false
+}
+
+fn pattern_matches_touched_overlay(pattern: &str, touched_paths: &[String]) -> bool {
+    use globset::Glob;
+    let Ok(glob) = Glob::new(pattern) else {
+        return false;
+    };
+    let matcher = glob.compile_matcher();
+    touched_paths.iter().any(|path| matcher.is_match(path))
+}
+
+/// Payload carried by `contract_unsatisfied` errors so the model sees
+/// both the patterns that did not resolve and any concrete paths that
+/// were written outside the contract (helpful when scope drift landed).
+#[derive(Debug, Clone)]
+struct ContractVerificationFailure {
+    missing_patterns: Vec<String>,
+    concrete_missing_paths: Vec<String>,
+}
+
+impl ContractVerificationFailure {
+    fn into_error_result(self, call: &ToolCall) -> OrchestratorToolResult {
+        let missing = self
+            .missing_patterns
+            .iter()
+            .map(|p| serde_json::Value::String(p.clone()))
+            .collect::<Vec<_>>();
+        let concrete = self
+            .concrete_missing_paths
+            .iter()
+            .map(|p| serde_json::Value::String(p.clone()))
+            .collect::<Vec<_>>();
+        OrchestratorToolResult {
+            call_id: call.id.clone(),
+            name: call.name.clone(),
+            output: serde_json::json!({
+                "error": "Cannot advance subtask: contract_unsatisfied. The subtask's expected outputs do not exist on disk or in the session's file-touch overlay.",
+                "reason": "contract_unsatisfied",
+                "missingPatterns": missing,
+                "concreteMissingPaths": concrete,
+            }),
+            is_error: true,
+        }
     }
 }
 
@@ -2368,5 +2686,275 @@ mod tests {
 
         assert!(action.arguments["files"].is_array());
         assert_eq!(action.arguments["files"].as_array().unwrap().len(), 3);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Workstream F.1 — contract verification tests.
+//
+// Scoped to the pure helpers (`verify_contract_artifacts` +
+// `ContractVerificationFailure::into_error_result`). End-to-end
+// handler-level assertions would require spinning up the full
+// ApprovalQueue / AppHandle / ToolRegistry, which the existing
+// service_tests.rs covers. These tests exercise the decision logic.
+// ---------------------------------------------------------------------------
+#[cfg(test)]
+mod contract_verification_tests {
+    use super::*;
+    use crate::core::agent::session::{AgentSession, SessionId};
+    use crate::core::agent::task::{ArtifactKind, ArtifactSpec, SubTaskContract};
+    use crate::core::agent::types::AgentId;
+    use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
+    use crate::infrastructure::sqlite::repositories::agent::{
+        SessionRepositoryError, TerminalLineEntry, ToolCallEntry, TouchedFileEntry,
+    };
+    use serde_json::Value;
+    use std::path::PathBuf;
+    use std::sync::Mutex;
+
+    /// Minimal telemetry double that only needs to answer
+    /// `get_session_files`. Everything else is a no-op so the test
+    /// focuses on the overlay-check path.
+    struct OverlayTelemetry {
+        files: Mutex<Vec<TouchedFileEntry>>,
+    }
+
+    impl OverlayTelemetry {
+        fn new(files: Vec<(&str, &str)>) -> Self {
+            let files = files
+                .into_iter()
+                .enumerate()
+                .map(|(i, (path, action))| TouchedFileEntry {
+                    id: format!("id-{i}"),
+                    session_id: "session".to_string(),
+                    file_path: path.to_string(),
+                    action: action.to_string(),
+                    diff: None,
+                    timestamp: "2026-04-18T00:00:00Z".to_string(),
+                })
+                .collect();
+            Self {
+                files: Mutex::new(files),
+            }
+        }
+    }
+
+    impl AgentTelemetryRepository for OverlayTelemetry {
+        fn create_execution_step(
+            &self,
+            _step: &crate::core::agent::task::ExecutionStep,
+            _session_id: &str,
+            _task_id: Option<&str>,
+            _subtask_id: Option<&str>,
+        ) -> Result<(), SessionRepositoryError> {
+            Ok(())
+        }
+        fn get_session(
+            &self,
+            _session_id: &SessionId,
+        ) -> Result<Option<AgentSession>, SessionRepositoryError> {
+            Ok(None)
+        }
+        fn get_session_execution_steps(
+            &self,
+            _session_id: &SessionId,
+        ) -> Result<Vec<crate::core::agent::task::ExecutionStep>, SessionRepositoryError>
+        {
+            Ok(vec![])
+        }
+        fn add_file_touched(
+            &self,
+            _session_id: &SessionId,
+            _file_path: &str,
+            _action: &str,
+            _diff: Option<&str>,
+        ) -> Result<(), SessionRepositoryError> {
+            Ok(())
+        }
+        fn get_session_files(
+            &self,
+            _session_id: &SessionId,
+        ) -> Result<Vec<TouchedFileEntry>, SessionRepositoryError> {
+            Ok(self.files.lock().unwrap().clone())
+        }
+        fn add_terminal_line(
+            &self,
+            _session_id: &SessionId,
+            _line_type: &str,
+            _content: &str,
+        ) -> Result<(), SessionRepositoryError> {
+            Ok(())
+        }
+        fn get_session_terminal_output(
+            &self,
+            _session_id: &SessionId,
+        ) -> Result<Vec<TerminalLineEntry>, SessionRepositoryError> {
+            Ok(vec![])
+        }
+        fn add_status_phrase(
+            &self,
+            _session_id: &SessionId,
+            _phrase: &str,
+        ) -> Result<(), SessionRepositoryError> {
+            Ok(())
+        }
+        fn get_session_status_phrases(
+            &self,
+            _session_id: &SessionId,
+        ) -> Result<Vec<String>, SessionRepositoryError> {
+            Ok(vec![])
+        }
+        fn clear_session_runtime_data(
+            &self,
+            _session_id: &SessionId,
+        ) -> Result<(), SessionRepositoryError> {
+            Ok(())
+        }
+        fn insert_tool_call(
+            &self,
+            _session_id: &SessionId,
+            _tool_call_id: &str,
+            _tool_name: &str,
+            _arguments: &Value,
+            _subtask_id: Option<&str>,
+        ) -> Result<(), SessionRepositoryError> {
+            Ok(())
+        }
+        fn update_tool_call_result(
+            &self,
+            _tool_call_id: &str,
+            _result: &Value,
+            _is_error: bool,
+            _duration_ms: Option<i64>,
+        ) -> Result<(), SessionRepositoryError> {
+            Ok(())
+        }
+        fn get_tool_calls_for_session(
+            &self,
+            _session_id: &SessionId,
+        ) -> Result<Vec<ToolCallEntry>, SessionRepositoryError> {
+            Ok(vec![])
+        }
+    }
+
+    fn session_with_workspace(root: Option<PathBuf>) -> AgentSession {
+        let mut s = AgentSession::new(
+            AgentId::new("code-agent"),
+            "Code".to_string(),
+            "conv-1".to_string(),
+            "thread-1".to_string(),
+            root,
+            None,
+        );
+        s.id = SessionId("session".to_string());
+        s
+    }
+
+    fn contract(pattern: &str, kind: ArtifactKind) -> SubTaskContract {
+        SubTaskContract {
+            expected_artifacts: vec![ArtifactSpec {
+                path_pattern: pattern.to_string(),
+                kind,
+            }],
+        }
+    }
+
+    #[test]
+    fn contract_fails_when_neither_disk_nor_overlay_have_the_artifact() {
+        // Replay of the 2026-04-18 subtask-3 situation: contract
+        // promises social-media files; none exist; none were
+        // recorded in files_touched. Advance must be rejected with
+        // `contract_unsatisfied`.
+        let temp = tempfile::tempdir().expect("temp");
+        let session = session_with_workspace(Some(temp.path().to_path_buf()));
+        let telemetry = OverlayTelemetry::new(vec![]);
+        let c = contract("docs/communications/social/*.md", ArtifactKind::File);
+        let err = verify_contract_artifacts(&c, &session, &telemetry)
+            .expect_err("missing artifacts must fail verification");
+        assert_eq!(err.missing_patterns.len(), 1);
+        assert!(err.missing_patterns[0].contains("social"));
+    }
+
+    #[test]
+    fn contract_passes_when_file_exists_on_disk() {
+        let temp = tempfile::tempdir().expect("temp");
+        let social = temp.path().join("docs/communications/social");
+        std::fs::create_dir_all(&social).expect("mkdir");
+        std::fs::write(social.join("twitter-launch.md"), "x").expect("write");
+
+        let session = session_with_workspace(Some(temp.path().to_path_buf()));
+        let telemetry = OverlayTelemetry::new(vec![]);
+        let c = contract("docs/communications/social/*.md", ArtifactKind::File);
+        verify_contract_artifacts(&c, &session, &telemetry)
+            .expect("existing file on disk satisfies the pattern");
+    }
+
+    #[test]
+    fn contract_passes_when_overlay_records_a_matching_write() {
+        // No workspace root available — fallback: overlay entries win.
+        let session = session_with_workspace(None);
+        let telemetry = OverlayTelemetry::new(vec![
+            ("docs/communications/social/twitter.md", "write"),
+        ]);
+        let c = contract("docs/communications/social/*.md", ArtifactKind::File);
+        verify_contract_artifacts(&c, &session, &telemetry)
+            .expect("overlay write matching the glob satisfies the pattern");
+    }
+
+    #[test]
+    fn contract_rejection_includes_out_of_contract_touched_paths() {
+        // Exact 2026-04-18 scope-drift shape: subtask declared
+        // `docs/communications/social/*.md`; the model wrote only
+        // emails. The rejection must list the out-of-contract paths
+        // the model actually produced, so the correction message is
+        // concrete.
+        let session = session_with_workspace(None);
+        let telemetry = OverlayTelemetry::new(vec![
+            ("docs/communications/email/outreach.md", "write"),
+            ("docs/communications/email/launch.md", "write"),
+        ]);
+        let c = contract("docs/communications/social/*.md", ArtifactKind::File);
+        let err = verify_contract_artifacts(&c, &session, &telemetry)
+            .expect_err("drifted writes do not satisfy the contract");
+        assert_eq!(err.missing_patterns.len(), 1);
+        assert!(err
+            .concrete_missing_paths
+            .iter()
+            .any(|p| p.contains("email/outreach.md")));
+        assert!(err
+            .concrete_missing_paths
+            .iter()
+            .any(|p| p.contains("email/launch.md")));
+    }
+
+    #[test]
+    fn verification_failure_serializes_with_contract_unsatisfied_reason() {
+        let call = ToolCall {
+            id: "call-1".to_string(),
+            name: "agent_advance_to_next_subtask".to_string(),
+            arguments: serde_json::json!({}),
+        };
+        let failure = ContractVerificationFailure {
+            missing_patterns: vec!["docs/social/*.md".to_string()],
+            concrete_missing_paths: vec!["docs/email/x.md".to_string()],
+        };
+        let result = failure.into_error_result(&call);
+        assert!(result.is_error);
+        assert_eq!(
+            result.output.get("reason").and_then(|v| v.as_str()),
+            Some("contract_unsatisfied"),
+        );
+        let patterns = result
+            .output
+            .get("missingPatterns")
+            .and_then(|v| v.as_array())
+            .expect("missingPatterns");
+        assert_eq!(patterns.len(), 1);
+        let concrete = result
+            .output
+            .get("concreteMissingPaths")
+            .and_then(|v| v.as_array())
+            .expect("concreteMissingPaths");
+        assert_eq!(concrete.len(), 1);
     }
 }

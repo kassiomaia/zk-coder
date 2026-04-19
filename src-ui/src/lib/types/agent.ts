@@ -142,6 +142,13 @@ export interface AgentSession {
 	streamingMessages?: Record<string, string>; // Accumulated content for active streaming assistant messages
 	artifacts?: ArtifactReference[]; // Artifacts created during this session
 	harnessState?: AgentSessionHarnessState; // Long-running harness metadata
+	/**
+	 * Workstream F.2 — `true` when the model marked at least one
+	 * subtask `Failed` via `agent_mark_subtask_status`. Persists
+	 * across reload (`agent_sessions.needs_review` column). UI may
+	 * surface a post-run review affordance when set.
+	 */
+	needsReview?: boolean;
 	createdAt: string;
 	updatedAt: string;
 }

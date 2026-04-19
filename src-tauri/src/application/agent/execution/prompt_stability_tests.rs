@@ -31,6 +31,7 @@ fn summary(title: &str, mode: SubTaskMode, status: TaskStatus, order: i32) -> Su
         mode,
         status,
         order,
+        contract: None,
     }
 }
 
@@ -458,6 +459,50 @@ fn harness_contract_uses_consequence_language_for_key_mechanisms() {
             "harness must not use hedging phrase `{phrase}`; H.6 requires consequence language",
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// Workstream H.2.c — task framing is rendered into the composed prompt.
+// ---------------------------------------------------------------------------
+#[test]
+fn compose_for_task_with_communication_framing_carries_framing_tokens() {
+    use crate::core::agent::task::{DomainPriors, TaskFraming};
+    let framing = TaskFraming {
+        role: "senior communication professional".to_string(),
+        voice_constraints: vec![
+            "one claim per paragraph".to_string(),
+            "no filler openers".to_string(),
+        ],
+        domain_priors: Some(DomainPriors {
+            hints: vec!["press-release voice".to_string()],
+        }),
+        forbidden_patterns: vec![],
+    };
+    let composed = SystemPromptBuilder::compose_for_task(Some(&framing));
+    assert!(composed.contains("senior communication professional"));
+    assert!(composed.contains("one claim per paragraph"));
+    // And the composed prompt must no longer carry code-default
+    // framing tokens when a non-code framing is declared.
+    assert!(!composed.contains("Bun"));
+    assert!(!composed.contains("Drizzle"));
+}
+
+#[test]
+fn compose_for_task_without_framing_equals_default_code_agent() {
+    // Pre-H.2.c and legacy tasks render the exact prompt they have
+    // today — byte-for-byte — so cache warmth on in-flight sessions
+    // is preserved.
+    let with_none = SystemPromptBuilder::compose_for_task(None);
+    let legacy = SystemPromptBuilder::compose_default_code_agent();
+    assert_eq!(with_none, legacy);
+}
+
+#[test]
+fn active_framing_section_default_matches_code_framing() {
+    assert_eq!(
+        SystemPromptBuilder::active_framing_section(None),
+        default_code_framing(),
+    );
 }
 
 #[test]

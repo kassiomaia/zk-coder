@@ -74,6 +74,13 @@ pub struct AgentSession {
     pub parent_session_id: Option<SessionId>,
     /// The cached model ID from the conversation settings.
     pub model_id: Option<String>,
+    /// Workstream F.2 — flipped to `true` when any subtask is marked
+    /// `Failed` through `agent_mark_subtask_status`. Persists across
+    /// reload so the UI can surface a "needs review" affordance for
+    /// sessions that ended with at least one unsatisfied contract or
+    /// explicitly failed subtask.
+    #[serde(default)]
+    pub needs_review: bool,
     /// The timestamp of when the session was created.
     pub created_at: DateTime<Utc>,
     /// The timestamp of when the session was last updated.
@@ -102,9 +109,20 @@ impl AgentSession {
             workspace_root,
             parent_session_id: None,
             model_id,
+            needs_review: false,
             created_at: now,
             updated_at: now,
         }
+    }
+
+    /// Flags the session for post-run review (Workstream F.2).
+    ///
+    /// Called when a subtask is explicitly marked `Failed` through
+    /// `agent_mark_subtask_status`. The flag is persisted through the
+    /// session repository so the UI still surfaces it after reload.
+    pub fn mark_needs_review(&mut self) {
+        self.needs_review = true;
+        self.updated_at = Utc::now();
     }
 
     /// Transitions the session to a new state and updates the `updated_at` timestamp.

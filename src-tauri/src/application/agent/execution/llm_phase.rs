@@ -23,7 +23,7 @@ use crate::infrastructure::agent::runtime::request_shape::{
     system_prompt_hash, tool_catalog_hash,
 };
 use crate::infrastructure::agent::registry::{
-    default_code_framing, harness_contract_prompt, quality_baseline_prompt,
+    harness_contract_prompt, quality_baseline_prompt,
 };
 use crate::infrastructure::agent::runtime::{chat_with_retry, AgentRuntimeError};
 
@@ -97,7 +97,7 @@ pub async fn call_llm(
         system_prompt_hash: system_prompt_hash(&resolved.system_prompt),
         harness_section_hash: harness_section_hash(harness_contract_prompt()),
         quality_baseline_hash: quality_baseline_hash(quality_baseline_prompt()),
-        framing_hash: framing_hash(default_code_framing()),
+        framing_hash: framing_hash(&resolved.active_framing_section),
         tool_catalog_hash: tool_catalog_hash(&resolved.tool_definitions),
         tool_choice_mode: tool_choice_label(chat_request.tool_choice),
         message_prefix_hash: message_prefix_hash(&chat_request.messages),
@@ -191,7 +191,7 @@ pub async fn call_llm(
         system_prompt_hash: system_prompt_hash(&resolved.system_prompt),
         harness_section_hash: harness_section_hash(harness_contract_prompt()),
         quality_baseline_hash: quality_baseline_hash(quality_baseline_prompt()),
-        framing_hash: framing_hash(default_code_framing()),
+        framing_hash: framing_hash(&resolved.active_framing_section),
         tool_catalog_hash: tool_catalog_hash(&resolved.tool_definitions),
         tool_choice_mode: tool_choice_label(chat_request.tool_choice),
         message_prefix_hash: message_prefix_hash(&chat_request.messages),

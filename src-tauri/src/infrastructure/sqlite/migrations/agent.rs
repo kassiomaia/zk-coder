@@ -238,6 +238,15 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SessionRepositoryError> {
     // `default_code_framing()` section.
     let _ = conn.execute("ALTER TABLE agent_tasks ADD COLUMN framing TEXT", []); // Ignore error if column exists
 
+    // Migration 8: Add needs_review flag to agent_sessions (Workstream F.2).
+    // Stored as INTEGER (0/1) with a SQL-level default of 0 so pre-F.2
+    // rows load as `needs_review = false`. Flipped to 1 when a subtask
+    // is explicitly marked Failed through `agent_mark_subtask_status`.
+    let _ = conn.execute(
+        "ALTER TABLE agent_sessions ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0",
+        [],
+    ); // Ignore error if column exists
+
     Ok(())
 }
 

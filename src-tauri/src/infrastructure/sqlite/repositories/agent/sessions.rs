@@ -12,8 +12,8 @@ pub fn create_session(
     session: &AgentSession,
 ) -> Result<(), SessionRepositoryError> {
     conn.execute(
-        "INSERT INTO agent_sessions (id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        "INSERT INTO agent_sessions (id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, needs_review, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         params![
             session.id.0,
             session.agent_id.0,
@@ -24,6 +24,7 @@ pub fn create_session(
             session.workspace_root.as_ref().map(|p| p.to_string_lossy().to_string()),
             session.parent_session_id.as_ref().map(|id| id.0.clone()),
             session.model_id.clone(),
+            i64::from(session.needs_review),
             session.created_at.to_rfc3339(),
             session.updated_at.to_rfc3339(),
         ],
@@ -38,7 +39,7 @@ pub fn get_session(
 ) -> Result<Option<AgentSession>, SessionRepositoryError> {
     let result = conn
         .query_row(
-            "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, created_at, updated_at
+            "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, needs_review, created_at, updated_at
              FROM agent_sessions WHERE id = ?1",
             params![id.0],
             |row| {
@@ -46,8 +47,9 @@ pub fn get_session(
                 let workspace: Option<String> = row.get(6)?;
                 let parent: Option<String> = row.get(7)?;
                 let model_id: Option<String> = row.get(8)?;
-                let created: String = row.get(9)?;
-                let updated: String = row.get(10)?;
+                let needs_review: i64 = row.get(9)?;
+                let created: String = row.get(10)?;
+                let updated: String = row.get(11)?;
 
                 Ok((
                     row.get::<_, String>(0)?,
@@ -59,6 +61,7 @@ pub fn get_session(
                     workspace,
                     parent,
                     model_id,
+                    needs_review,
                     created,
                     updated,
                 ))
@@ -77,6 +80,7 @@ pub fn get_session(
             workspace,
             parent,
             model_id,
+            needs_review,
             created,
             updated,
         )) => {
@@ -91,6 +95,7 @@ pub fn get_session(
                 workspace_root: workspace.as_deref().map(std::path::PathBuf::from),
                 parent_session_id: parent.as_deref().map(|s| SessionId(s.to_string())),
                 model_id,
+                needs_review: needs_review != 0,
                 created_at: chrono::DateTime::parse_from_rfc3339(&created)
                     .unwrap_or_default()
                     .with_timezone(&chrono::Utc),
@@ -126,7 +131,7 @@ pub fn get_sessions_for_conversation(
     conversation_id: &str,
 ) -> Result<Vec<AgentSession>, SessionRepositoryError> {
     let mut stmt = conn.prepare(
-        "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, created_at, updated_at
+        "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, needs_review, created_at, updated_at
          FROM agent_sessions
          WHERE conversation_id = ?1
          ORDER BY created_at DESC",
@@ -138,8 +143,9 @@ pub fn get_sessions_for_conversation(
             let workspace: Option<String> = row.get(6)?;
             let parent: Option<String> = row.get(7)?;
             let model_id: Option<String> = row.get(8)?;
-            let created: String = row.get(9)?;
-            let updated: String = row.get(10)?;
+            let needs_review: i64 = row.get(9)?;
+            let created: String = row.get(10)?;
+            let updated: String = row.get(11)?;
 
             Ok((
                 row.get::<_, String>(0)?,
@@ -151,6 +157,7 @@ pub fn get_sessions_for_conversation(
                 workspace,
                 parent,
                 model_id,
+                needs_review,
                 created,
                 updated,
             ))
@@ -170,6 +177,7 @@ pub fn get_sessions_for_conversation(
                 workspace,
                 parent,
                 model_id,
+                needs_review,
                 created,
                 updated,
             )| {
@@ -184,6 +192,7 @@ pub fn get_sessions_for_conversation(
                     workspace_root: workspace.map(std::path::PathBuf::from),
                     parent_session_id: parent.map(SessionId),
                     model_id,
+                    needs_review: needs_review != 0,
                     created_at: chrono::DateTime::parse_from_rfc3339(&created)
                         .unwrap_or_default()
                         .with_timezone(&chrono::Utc),
@@ -199,7 +208,7 @@ pub fn get_sessions_for_conversation(
 /// Get all sessions.
 pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepositoryError> {
     let mut stmt = conn.prepare(
-        "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, created_at, updated_at
+        "SELECT id, agent_id, agent_name, conversation_id, thread_id, state, workspace_root, parent_session_id, model_id, needs_review, created_at, updated_at
          FROM agent_sessions
          ORDER BY created_at DESC",
     )?;
@@ -210,8 +219,9 @@ pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepo
             let workspace: Option<String> = row.get(6)?;
             let parent: Option<String> = row.get(7)?;
             let model_id: Option<String> = row.get(8)?;
-            let created: String = row.get(9)?;
-            let updated: String = row.get(10)?;
+            let needs_review: i64 = row.get(9)?;
+            let created: String = row.get(10)?;
+            let updated: String = row.get(11)?;
 
             Ok((
                 row.get::<_, String>(0)?,
@@ -223,6 +233,7 @@ pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepo
                 workspace,
                 parent,
                 model_id,
+                needs_review,
                 created,
                 updated,
             ))
@@ -242,6 +253,7 @@ pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepo
                 workspace,
                 parent,
                 model_id,
+                needs_review,
                 created,
                 updated,
             )| {
@@ -256,6 +268,7 @@ pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepo
                     workspace_root: workspace.map(std::path::PathBuf::from),
                     parent_session_id: parent.map(SessionId),
                     model_id,
+                    needs_review: needs_review != 0,
                     created_at: chrono::DateTime::parse_from_rfc3339(&created)
                         .unwrap_or_default()
                         .with_timezone(&chrono::Utc),
@@ -266,6 +279,23 @@ pub fn list_sessions(conn: &Connection) -> Result<Vec<AgentSession>, SessionRepo
             },
         )
         .collect::<Result<Vec<_>, _>>()
+}
+
+/// Update the `needs_review` flag for a session (Workstream F.2).
+pub fn update_needs_review(
+    conn: &Connection,
+    id: &SessionId,
+    needs_review: bool,
+) -> Result<(), SessionRepositoryError> {
+    conn.execute(
+        "UPDATE agent_sessions SET needs_review = ?1, updated_at = ?2 WHERE id = ?3",
+        params![
+            i64::from(needs_review),
+            chrono::Utc::now().to_rfc3339(),
+            id.0,
+        ],
+    )?;
+    Ok(())
 }
 
 /// Delete a session.
@@ -468,5 +498,34 @@ mod tests {
 
         let loaded = get_session(&conn, &session.id).unwrap().unwrap();
         assert_eq!(loaded.model_id, Some("claude-opus-4".to_string()));
+    }
+
+    // Workstream F.2 — needs_review flag round-trip.
+    #[test]
+    fn new_session_persists_needs_review_false_by_default() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session = make_session();
+        create_session(&conn, &session).unwrap();
+        let loaded = get_session(&conn, &session.id).unwrap().unwrap();
+        assert!(!loaded.needs_review);
+    }
+
+    #[test]
+    fn update_needs_review_flips_flag_and_persists() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session = make_session();
+        create_session(&conn, &session).unwrap();
+        update_needs_review(&conn, &session.id, true).unwrap();
+
+        let loaded = get_session(&conn, &session.id).unwrap().unwrap();
+        assert!(loaded.needs_review);
+
+        update_needs_review(&conn, &session.id, false).unwrap();
+        let reloaded = get_session(&conn, &session.id).unwrap().unwrap();
+        assert!(!reloaded.needs_review);
     }
 }

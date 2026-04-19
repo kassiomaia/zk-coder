@@ -1,35 +1,114 @@
 //! Helper functions for agent runtime.
 
-use crate::core::agent::task::TaskStatus;
+use std::fmt::Write as _;
+
+use crate::core::agent::task::{SubTaskContract, TaskStatus};
 use crate::core::agent::types::ActionType;
 #[allow(unused_imports)]
 use serde_json::json;
 
 /// Derives the system prompt with optional subtask context.
+///
+/// Workstream H.3 — when the active subtask carries a non-empty
+/// [`SubTaskContract`], the appendix surfaces the expected-outputs block
+/// and the contract bullet list. Legacy subtasks (no contract) render
+/// with the pre-B wording byte-for-byte, preserving cache warmth and
+/// the M4.3 characterization baseline.
 pub fn derive_system_prompt(
     agent_system_prompt: &str,
     current_subtask: &Option<(super::types::SubtaskSummary, usize)>,
 ) -> String {
     match current_subtask {
-        Some((summary, total)) => {
-            if summary.status == TaskStatus::InProgress {
-                format!(
-                    "{}\n\n## Current Task ({}/{}): {}\n\n{}\n\nFocus on completing this task. \
-                        When done, call agent_advance_to_next_subtask. \
-                        If agent_plan_subtasks is called again after planning, \
-                        treat it as a no-op and continue the current plan.",
-                    agent_system_prompt,
-                    summary.order + 1,
-                    total,
-                    summary.title,
-                    summary.mode.instruction_text()
-                )
-            } else {
-                agent_system_prompt.to_string()
-            }
+        Some((summary, total)) if summary.status == TaskStatus::InProgress => {
+            let appendix = render_active_subtask_appendix(summary, *total);
+            format!("{agent_system_prompt}\n\n{appendix}")
         }
-        None => agent_system_prompt.to_string(),
+        _ => agent_system_prompt.to_string(),
     }
+}
+
+/// Renders the Layer 3 active-subtask appendix.
+///
+/// Two render paths:
+///
+/// 1. **Contract present** — the H.3 target format, with `Expected
+///    outputs` and a `Contract` bullet list that mirrors the runtime's
+///    scope-drift and advancement enforcement.
+/// 2. **Contract absent** — the legacy pre-B wording, byte-identical to
+///    the shape the prompt_stability tests locked in before Workstream B.
+fn render_active_subtask_appendix(
+    summary: &super::types::SubtaskSummary,
+    total: usize,
+) -> String {
+    let has_contract = summary
+        .contract
+        .as_ref()
+        .map(|c| !c.is_empty())
+        .unwrap_or(false);
+    if has_contract {
+        render_contract_aware_appendix(summary, total, summary.contract.as_ref().unwrap())
+    } else {
+        render_legacy_appendix(summary, total)
+    }
+}
+
+fn render_legacy_appendix(summary: &super::types::SubtaskSummary, total: usize) -> String {
+    format!(
+        "## Current Task ({}/{}): {}\n\n{}\n\nFocus on completing this task. \
+            When done, call agent_advance_to_next_subtask. \
+            If agent_plan_subtasks is called again after planning, \
+            treat it as a no-op and continue the current plan.",
+        summary.order + 1,
+        total,
+        summary.title,
+        summary.mode.instruction_text()
+    )
+}
+
+fn render_contract_aware_appendix(
+    summary: &super::types::SubtaskSummary,
+    total: usize,
+    contract: &SubTaskContract,
+) -> String {
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "## Current Subtask ({}/{}): {}",
+        summary.order + 1,
+        total,
+        summary.title,
+    );
+    out.push('\n');
+    let _ = writeln!(
+        out,
+        "**Mode**: {:?} — {}",
+        summary.mode,
+        summary.mode.instruction_text(),
+    );
+    out.push('\n');
+    out.push_str("**Expected outputs**:\n");
+    for spec in &contract.expected_artifacts {
+        let kind = match spec.kind {
+            crate::core::agent::task::ArtifactKind::File => "file",
+            crate::core::agent::task::ArtifactKind::Document => "document",
+            crate::core::agent::task::ArtifactKind::Command => "command",
+            crate::core::agent::task::ArtifactKind::Other => "other",
+        };
+        let _ = writeln!(out, "- {kind}: {path}", path = spec.path_pattern);
+    }
+    out.push('\n');
+    out.push_str("**Contract**:\n");
+    out.push_str(
+        "- Writes outside expected outputs will be flagged as scope drift.\n",
+    );
+    out.push_str("- Advancing past this subtask requires the expected outputs to exist.\n");
+    out.push_str(
+        "- If you cannot produce them, call agent_mark_subtask_status(Failed, reason).\n",
+    );
+    out.push_str(
+        "- If you need information you don't have, call agent_narrate with intent=question — execution will pause.",
+    );
+    out
 }
 
 /// Infers the action type from tool name and arguments.
@@ -335,6 +414,7 @@ mod tests {
             mode: crate::core::agent::task::SubTaskMode::Read,
             status: TaskStatus::InProgress,
             order: 0,
+            contract: None,
         };
         let result = derive_system_prompt(base_prompt, &Some((summary, 3)));
         assert!(result.contains("## Current Task (1/3): Test task"));
@@ -351,6 +431,7 @@ mod tests {
             mode: crate::core::agent::task::SubTaskMode::Read,
             status: TaskStatus::Pending,
             order: 0,
+            contract: None,
         };
         let result = derive_system_prompt(base_prompt, &Some((summary, 3)));
         // Should not add subtask context if not in progress
@@ -374,6 +455,7 @@ mod tests {
                 mode: mode.clone(),
                 status: TaskStatus::InProgress,
                 order: 0,
+                contract: None,
             };
             let result = derive_system_prompt(base_prompt, &Some((summary, 1)));
             assert!(result.contains("## Current Task (1/1): Test task"));
@@ -393,9 +475,115 @@ mod tests {
             mode: crate::core::agent::task::SubTaskMode::Write,
             status: TaskStatus::InProgress,
             order: 2, // 0-indexed, so this is the 3rd subtask
+            contract: None,
         };
         let result = derive_system_prompt(base_prompt, &Some((summary, 5)));
         assert!(result.contains("## Current Task (3/5): Third task"));
+    }
+
+    // -------------------------------------------------------------------
+    // Workstream H.3 — contract-aware active-subtask appendix tests.
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn derive_system_prompt_without_contract_matches_legacy_wording() {
+        // Byte-for-byte backward compatibility: pre-B subtasks (no
+        // contract) must render the exact same appendix they rendered
+        // before the H.3 work. A divergence here would break cache
+        // warmth for every in-flight session on the day H.3 lands.
+        use crate::infrastructure::agent::runtime::SubtaskSummary;
+
+        let base_prompt = "BASE";
+        let summary = SubtaskSummary {
+            title: "write copy".to_string(),
+            mode: crate::core::agent::task::SubTaskMode::Write,
+            status: TaskStatus::InProgress,
+            order: 2,
+            contract: None,
+        };
+        let result = derive_system_prompt(base_prompt, &Some((summary, 5)));
+        let expected = format!(
+            "{base}\n\n## Current Task (3/5): write copy\n\n{mode}\n\nFocus on completing this task. \
+            When done, call agent_advance_to_next_subtask. \
+            If agent_plan_subtasks is called again after planning, \
+            treat it as a no-op and continue the current plan.",
+            base = "BASE",
+            mode = crate::core::agent::task::SubTaskMode::Write.instruction_text(),
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn derive_system_prompt_with_empty_contract_falls_back_to_legacy() {
+        use crate::core::agent::task::SubTaskContract;
+        use crate::infrastructure::agent::runtime::SubtaskSummary;
+
+        let base_prompt = "BASE";
+        let summary = SubtaskSummary {
+            title: "no-op contract".to_string(),
+            mode: crate::core::agent::task::SubTaskMode::Read,
+            status: TaskStatus::InProgress,
+            order: 0,
+            contract: Some(SubTaskContract {
+                expected_artifacts: vec![],
+            }),
+        };
+        let result = derive_system_prompt(base_prompt, &Some((summary, 1)));
+        // Legacy wording is selected when the contract is empty.
+        assert!(result.contains("## Current Task (1/1)"));
+        assert!(!result.contains("Expected outputs"));
+    }
+
+    #[test]
+    fn derive_system_prompt_with_contract_renders_h3_target_shape() {
+        use crate::core::agent::task::{ArtifactKind, ArtifactSpec, SubTaskContract};
+        use crate::infrastructure::agent::runtime::SubtaskSummary;
+
+        let base_prompt = "BASE";
+        let summary = SubtaskSummary {
+            title: "Write social posts".to_string(),
+            mode: crate::core::agent::task::SubTaskMode::Write,
+            status: TaskStatus::InProgress,
+            order: 2,
+            contract: Some(SubTaskContract {
+                expected_artifacts: vec![
+                    ArtifactSpec {
+                        path_pattern: "docs/communications/social/*.md".to_string(),
+                        kind: ArtifactKind::File,
+                    },
+                    ArtifactSpec {
+                        path_pattern: "reports/launch/*.pdf".to_string(),
+                        kind: ArtifactKind::Document,
+                    },
+                ],
+            }),
+        };
+        let result = derive_system_prompt(base_prompt, &Some((summary, 5)));
+        // New "Current Subtask" header with ordering.
+        assert!(result.contains("## Current Subtask (3/5): Write social posts"));
+        // Mode line with instruction text.
+        assert!(result.contains("**Mode**: Write"));
+        assert!(result.contains(crate::core::agent::task::SubTaskMode::Write.instruction_text()));
+        // Expected outputs lines with both patterns.
+        assert!(result.contains("**Expected outputs**:"));
+        assert!(result.contains("- file: docs/communications/social/*.md"));
+        assert!(result.contains("- document: reports/launch/*.pdf"));
+        // Contract bullets.
+        assert!(result.contains("**Contract**:"));
+        assert!(result.contains(
+            "- Writes outside expected outputs will be flagged as scope drift."
+        ));
+        assert!(result.contains(
+            "- Advancing past this subtask requires the expected outputs to exist."
+        ));
+        assert!(result.contains(
+            "- If you cannot produce them, call agent_mark_subtask_status(Failed, reason)."
+        ));
+        assert!(result.contains(
+            "- If you need information you don't have, call agent_narrate with intent=question — execution will pause."
+        ));
+        // The legacy wording must not appear when a contract is active.
+        assert!(!result.contains("Focus on completing this task"));
     }
 
     #[test]

@@ -128,6 +128,11 @@ pub struct ResolvedContext {
     pub tool_definitions: Vec<ToolDefinition>,
     /// The system prompt to be used for the LLM call.
     pub system_prompt: String,
+    /// The rendered *framing section* used by `system_prompt`
+    /// (Workstream H.2.c). Carries either the declared `TaskFraming`
+    /// rendering or the genre-default code framing. `llm_phase` hashes
+    /// this string to emit a framing-specific trace attribution.
+    pub active_framing_section: String,
     /// `true` when subtasks exist but all are in a terminal state (Completed/Failed/Cancelled).
     /// The coordinator uses this to finish execution instead of calling the LLM again.
     pub all_subtasks_completed: bool,
