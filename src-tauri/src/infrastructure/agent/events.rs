@@ -103,6 +103,53 @@ pub enum AgentEvent {
         session_id: String,
     },
 
+    /// The user's reply to a pending clarification was delivered and
+    /// appended to the LLM context. The coordinator is about to resume
+    /// execution on the same task and subtask.
+    ClarificationReplied {
+        /// The session ID.
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        /// The reply content as it was appended to the transcript and
+        /// the LLM context.
+        content: String,
+        /// The subtask that was in progress when the question was asked.
+        #[serde(rename = "subtaskId", skip_serializing_if = "Option::is_none")]
+        subtask_id: Option<String>,
+    },
+
+    /// A pending clarification went unanswered past the configured
+    /// timeout. The runtime fails the active subtask with
+    /// `unanswered_clarification`; see `RuntimeTraceType::SubtaskFailedByRuntime`.
+    ClarificationTimedOut {
+        /// The session ID.
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        /// The subtask that was failed on behalf of the agent.
+        #[serde(rename = "subtaskId", skip_serializing_if = "Option::is_none")]
+        subtask_id: Option<String>,
+        /// The question that was never answered.
+        prompt: String,
+    },
+
+    /// Emitted at startup when a paused clarification is rehydrated
+    /// from persistent storage. The UI renders the existing prompt
+    /// immediately so the user never loses the in-flight question to
+    /// an app close.
+    ClarificationRestored {
+        /// The session ID.
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        /// The question the agent had asked before the restart.
+        prompt: String,
+        /// UTC timestamp the question was originally asked at.
+        #[serde(rename = "askedAt")]
+        asked_at: DateTime<Utc>,
+        /// The subtask the question was asked against.
+        #[serde(rename = "subtaskId", skip_serializing_if = "Option::is_none")]
+        subtask_id: Option<String>,
+    },
+
     /// Session-facing long-running harness state changed.
     HarnessStateUpdated {
         /// The session ID.

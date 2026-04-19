@@ -102,12 +102,16 @@
 	$effect(() => {
 		const root = session.workspaceRoot;
 		if (!root) return;
-		void agentStore.loadWorkspaceFiles(session.id, root);
+		void agentStore.loadWorkspaceRoot(session.id, root);
 	});
 
+	let fileTreeRefreshToken = $state(0);
 	function refreshWorkspaceFiles() {
 		if (!session.workspaceRoot) return;
-		void agentStore.loadWorkspaceFiles(session.id, session.workspaceRoot);
+		// Clears the FileTree's per-directory cache so the next expand
+		// refetches; the root listing is refreshed here.
+		fileTreeRefreshToken += 1;
+		void agentStore.loadWorkspaceRoot(session.id, session.workspaceRoot);
 	}
 
 	async function handleFileClick(path: string) {
@@ -204,13 +208,14 @@
 					expanded={filesExpanded}
 					onToggle={() => (filesExpanded = !filesExpanded)}
 					touchedCount={session.filesTouched?.length ?? 0}
-					totalCount={session.workspaceFiles?.length ?? 0}
 					onRefresh={refreshWorkspaceFiles}
 				>
 					<FileTree
-						allFiles={session.workspaceFiles ?? []}
+						workspaceRoot={session.workspaceRoot ?? ''}
+						rootEntries={session.workspaceRootEntries ?? []}
+						rootTruncated={session.workspaceRootTruncated ?? false}
 						touched={session.filesTouched ?? []}
-						truncated={session.workspaceFilesTruncated ?? false}
+						refreshToken={fileTreeRefreshToken}
 						onfileclick={handleFileClick}
 					/>
 				</AgentPanelFilesSection>

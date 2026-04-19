@@ -30,7 +30,8 @@ use tauri::{AppHandle, Emitter};
 use crate::application::agent::harness::{HarnessStateStore, InMemoryHarnessStateStore};
 use crate::core::agent::memory::MemoryRepository;
 use crate::core::agent::repositories::{
-    ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
+    ExecutionCheckpointRepository, ExecutionRepository, RuntimeTraceRepository, SessionRepository,
+    TaskRepository,
 };
 use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::{AgentExecutionResult, AgentRequest};
@@ -70,6 +71,7 @@ pub struct AgentRuntime {
     task_repo: Arc<dyn TaskRepository>,
     telemetry_repo: Arc<dyn AgentTelemetryRepository>,
     execution_repo: Arc<dyn ExecutionRepository>,
+    execution_checkpoint_repo: Arc<dyn ExecutionCheckpointRepository>,
     trace_repo: Arc<dyn RuntimeTraceRepository>,
     memory_repo: Arc<dyn MemoryRepository>,
     approval_queue: Arc<ApprovalQueue>,
@@ -87,6 +89,7 @@ impl AgentRuntime {
         task_repo: Arc<dyn TaskRepository>,
         telemetry_repo: Arc<dyn AgentTelemetryRepository>,
         execution_repo: Arc<dyn ExecutionRepository>,
+        execution_checkpoint_repo: Arc<dyn ExecutionCheckpointRepository>,
         trace_repo: Arc<dyn RuntimeTraceRepository>,
         memory_repo: Arc<dyn MemoryRepository>,
         approval_queue: Arc<ApprovalQueue>,
@@ -98,6 +101,7 @@ impl AgentRuntime {
             task_repo,
             telemetry_repo,
             execution_repo,
+            execution_checkpoint_repo,
             trace_repo,
             memory_repo,
             approval_queue,
@@ -118,6 +122,32 @@ impl AgentRuntime {
     /// the same authoritative overrides.
     pub fn harness_state_store(&self) -> &Arc<dyn HarnessStateStore> {
         &self.harness_state_store
+    }
+
+    /// Exposes the chat service to application-level callers that need to
+    /// persist messages adjacent to a runtime flow (e.g. the clarification
+    /// reply IPC in Phase 5 of the agent-clarification-resume plan).
+    pub fn chat_service(&self) -> &Arc<dyn ChatService> {
+        &self.chat_service
+    }
+
+    /// Exposes the checkpoint repository used by the coordinator's
+    /// park stage. Application services reuse this for the restart
+    /// rehydrate path (agent-clarification-resume plan, Phase 6).
+    pub fn execution_checkpoint_repo(&self) -> &Arc<dyn ExecutionCheckpointRepository> {
+        &self.execution_checkpoint_repo
+    }
+
+    /// Exposes the task repository. Mirrors [`Self::chat_service`]:
+    /// application services need it for the Phase-6 rehydrate path
+    /// where subtask metadata informs the restored clarification event.
+    pub fn task_repo(&self) -> &Arc<dyn TaskRepository> {
+        &self.task_repo
+    }
+
+    /// Exposes the session repository for the Phase-6 rehydrate path.
+    pub fn session_repo(&self) -> &Arc<dyn SessionRepository> {
+        &self.session_repo
     }
 
     /// Execute an agent request within a session.
@@ -149,6 +179,7 @@ impl AgentRuntime {
             self.task_repo.as_ref(),
             self.telemetry_repo.as_ref(),
             self.execution_repo.as_ref(),
+            self.execution_checkpoint_repo.as_ref(),
             self.trace_repo.as_ref(),
             self.memory_repo.as_ref(),
             &self.approval_queue,

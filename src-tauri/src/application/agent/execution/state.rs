@@ -6,7 +6,9 @@
 
 use chrono::Utc;
 
-use crate::core::agent::execution::{ExecutionPhase, ExecutionSnapshot, LlmTracePayload};
+use crate::core::agent::execution::{
+    ExecutionCheckpoint, ExecutionPhase, ExecutionSnapshot, LlmTracePayload,
+};
 use crate::core::agent::task::ExecutionStep;
 use crate::core::llm::entities::{ChatMessage as Message, ChatResponse, ToolChoiceMode, ToolDefinition};
 use crate::infrastructure::agent::runtime::context::MemorizedFailure;
@@ -136,6 +138,178 @@ impl ExecutionContext {
             last_error,
             updated_at: Utc::now(),
         }
+    }
+
+    /// Captures the persistable state of this context into an
+    /// [`ExecutionCheckpoint`] (agent-clarification-resume plan).
+    ///
+    /// Paired with [`Self::from_checkpoint`]. Persisted fields are the
+    /// minimum a fresh coordinator needs to resume execution; fields
+    /// deliberately omitted are rebuildable at resume time (see
+    /// `from_checkpoint`).
+    #[must_use]
+    pub fn to_checkpoint(&self) -> ExecutionCheckpoint {
+        ExecutionCheckpoint {
+            schema_version: ExecutionCheckpoint::CURRENT_SCHEMA_VERSION,
+            session_id: self.session_id.clone(),
+            task_id: self.task_id.clone(),
+            model_name: self.model_name.clone(),
+            step_number: self.step_number,
+            current_phase: self.current_phase,
+            current_subtask_id: self.current_subtask_id.clone(),
+            last_injected_subtask_order: self.last_injected_subtask_order,
+            llm_context: self.llm_context.clone(),
+            recent_tool_calls: self.recent_tool_calls.clone(),
+            consecutive_empty_tool_iterations: self.consecutive_empty_tool_iterations,
+            current_allowed_tool_names: self.current_allowed_tool_names.clone(),
+            total_input_tokens: self.total_input_tokens,
+            total_output_tokens: self.total_output_tokens,
+            context_usage_percent: self.context_usage_percent,
+            steps: self.steps.clone(),
+            max_execution_steps: self.max_execution_steps,
+        }
+    }
+
+    /// Rebuilds an [`ExecutionContext`] from a persisted
+    /// [`ExecutionCheckpoint`]. The non-persisted runtime accumulators
+    /// (tool-choice override, retrieval counter, memorized failures,
+    /// replace-drift window) are reset to their bootstrap defaults;
+    /// the coordinator rebuilds them as it proceeds.
+    ///
+    /// The LLM client, permission resolver, and `yolo_mode_provider`
+    /// live outside [`ExecutionContext`] today, so this conversion is
+    /// synchronous. Phase 6 of the agent-clarification-resume plan
+    /// wires the surrounding `create_llm_client` call at the resume
+    /// call-site rather than inside this helper.
+    #[must_use]
+    pub fn from_checkpoint(checkpoint: ExecutionCheckpoint) -> Self {
+        Self {
+            session_id: checkpoint.session_id,
+            task_id: checkpoint.task_id,
+            model_name: checkpoint.model_name,
+            llm_context: checkpoint.llm_context,
+            steps: checkpoint.steps,
+            total_input_tokens: checkpoint.total_input_tokens,
+            total_output_tokens: checkpoint.total_output_tokens,
+            step_number: checkpoint.step_number,
+            recent_tool_calls: checkpoint.recent_tool_calls,
+            current_subtask_id: checkpoint.current_subtask_id,
+            last_injected_subtask_order: checkpoint.last_injected_subtask_order,
+            current_phase: checkpoint.current_phase,
+            context_usage_percent: checkpoint.context_usage_percent,
+            consecutive_empty_tool_iterations: checkpoint.consecutive_empty_tool_iterations,
+            current_allowed_tool_names: checkpoint.current_allowed_tool_names,
+            max_execution_steps: checkpoint.max_execution_steps,
+            // Non-persisted runtime accumulators — reset to bootstrap
+            // defaults. The coordinator rebuilds them as it proceeds.
+            pending_tool_choice_override: None,
+            retrieval_count_in_current_subtask: 0,
+            last_completed_subtask_for_memory: None,
+            memorized_failures: Vec::new(),
+            recent_replace_failures: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod checkpoint_tests {
+    use super::*;
+    use crate::core::llm::entities::{ChatMessage, MessageContent, MessageRole, ToolCall};
+
+    fn sample_context() -> ExecutionContext {
+        ExecutionContext {
+            session_id: "session-1".into(),
+            task_id: "task-1".into(),
+            model_name: "claude-opus-4-7".into(),
+            llm_context: vec![
+                ChatMessage {
+                    role: MessageRole::User,
+                    content: MessageContent::Text("hello".into()),
+                    tool_calls: vec![],
+                    tool_result: None,
+                },
+                ChatMessage {
+                    role: MessageRole::Assistant,
+                    content: MessageContent::Text("calling tool".into()),
+                    tool_calls: vec![ToolCall {
+                        id: "call-1".into(),
+                        name: "fs_read_file".into(),
+                        arguments: serde_json::json!({"path": "/a"}),
+                    }],
+                    tool_result: None,
+                },
+            ],
+            steps: vec![],
+            total_input_tokens: 50,
+            total_output_tokens: 17,
+            step_number: 3,
+            recent_tool_calls: vec![("fs_read_file".into(), 1)],
+            current_subtask_id: Some("sub-1".into()),
+            last_injected_subtask_order: Some(0),
+            current_phase: ExecutionPhase::CallingLlm,
+            context_usage_percent: 12.5,
+            consecutive_empty_tool_iterations: 0,
+            current_allowed_tool_names: Some(vec!["fs_read_file".into()]),
+            pending_tool_choice_override: None,
+            retrieval_count_in_current_subtask: 0,
+            last_completed_subtask_for_memory: None,
+            memorized_failures: Vec::new(),
+            max_execution_steps: 12,
+            recent_replace_failures: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn to_checkpoint_then_from_checkpoint_is_structurally_equivalent() {
+        let ctx = sample_context();
+        let checkpoint = ctx.to_checkpoint();
+        let reconstructed = ExecutionContext::from_checkpoint(checkpoint);
+
+        assert_eq!(reconstructed.session_id, ctx.session_id);
+        assert_eq!(reconstructed.task_id, ctx.task_id);
+        assert_eq!(reconstructed.model_name, ctx.model_name);
+        assert_eq!(reconstructed.step_number, ctx.step_number);
+        assert_eq!(reconstructed.current_phase, ctx.current_phase);
+        assert_eq!(reconstructed.current_subtask_id, ctx.current_subtask_id);
+        assert_eq!(
+            reconstructed.last_injected_subtask_order,
+            ctx.last_injected_subtask_order
+        );
+        assert_eq!(reconstructed.total_input_tokens, ctx.total_input_tokens);
+        assert_eq!(reconstructed.total_output_tokens, ctx.total_output_tokens);
+        assert_eq!(reconstructed.context_usage_percent, ctx.context_usage_percent);
+        assert_eq!(
+            reconstructed.consecutive_empty_tool_iterations,
+            ctx.consecutive_empty_tool_iterations
+        );
+        assert_eq!(
+            reconstructed.current_allowed_tool_names,
+            ctx.current_allowed_tool_names
+        );
+        assert_eq!(reconstructed.max_execution_steps, ctx.max_execution_steps);
+        assert_eq!(reconstructed.recent_tool_calls, ctx.recent_tool_calls);
+
+        // llm_context serde round-trip preserves role/content/tool calls.
+        let before = serde_json::to_value(&ctx.llm_context).unwrap();
+        let after = serde_json::to_value(&reconstructed.llm_context).unwrap();
+        assert_eq!(before, after);
+
+        // Non-persisted runtime accumulators reset cleanly.
+        assert!(reconstructed.memorized_failures.is_empty());
+        assert!(reconstructed.recent_replace_failures.is_empty());
+        assert_eq!(reconstructed.retrieval_count_in_current_subtask, 0);
+        assert!(reconstructed.last_completed_subtask_for_memory.is_none());
+        assert!(reconstructed.pending_tool_choice_override.is_none());
+    }
+
+    #[test]
+    fn checkpoint_schema_version_is_current() {
+        let ctx = sample_context();
+        let checkpoint = ctx.to_checkpoint();
+        assert_eq!(
+            checkpoint.schema_version,
+            ExecutionCheckpoint::CURRENT_SCHEMA_VERSION
+        );
     }
 }
 

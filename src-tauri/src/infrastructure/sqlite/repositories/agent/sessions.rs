@@ -435,6 +435,42 @@ mod tests {
     }
 
     #[test]
+    fn awaiting_clarification_state_round_trips_through_sql() {
+        // Phase 1 of the agent-clarification-resume plan: the new
+        // SessionState variant must survive update_state + get_session
+        // without reshaping the wire format.
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session = make_session();
+        create_session(&conn, &session).unwrap();
+
+        let asked_at = chrono::DateTime::parse_from_rfc3339("2026-04-19T09:30:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let awaiting = SessionState::AwaitingClarification {
+            prompt: "Which module owns config parsing?".to_string(),
+            asked_at,
+            subtask_id: Some("subtask-42".to_string()),
+        };
+        update_state(&conn, &session.id, &awaiting).unwrap();
+
+        let loaded = get_session(&conn, &session.id).unwrap().unwrap();
+        match loaded.state {
+            SessionState::AwaitingClarification {
+                prompt,
+                asked_at: asked_at_rt,
+                subtask_id,
+            } => {
+                assert_eq!(prompt, "Which module owns config parsing?");
+                assert_eq!(asked_at_rt, asked_at);
+                assert_eq!(subtask_id.as_deref(), Some("subtask-42"));
+            }
+            other => panic!("expected AwaitingClarification, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn test_get_sessions_for_conversation() {
         let conn = Connection::open_in_memory().unwrap();
         crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();

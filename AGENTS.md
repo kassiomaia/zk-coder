@@ -82,6 +82,7 @@ cargo tauri build        # Build for production
 |---------|----------|-------------|
 | Thread Locking | `docs/features/thread-locking.md` | Backend/frontend behavior, user flow, design tokens |
 | Agent Streaming Message IDs | `docs/features/agent-streaming-message-ids.md` | Id scheme for `streaming_content` events; backend/frontend contract that prevents messages from being overwritten |
+| Agent Clarification | `docs/features/agent-clarification.md` | Pause/resume on `agent_narrate { intent: "question" }` — dual-layer store, `ExecutionCheckpoint`, restart rehydration, timeout fallback |
 | Database Access & Debugging | `docs/database-reference.md` | SQLite schema, SQL queries, tracing, tips |
 
 > Note: Files under `docs/archive/` are preserved for historical context and migration traceability. Archived documents may reference legacy paths and do **not** necessarily reflect current architecture or shipped features.

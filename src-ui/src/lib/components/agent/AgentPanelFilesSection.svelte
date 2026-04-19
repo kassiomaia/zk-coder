@@ -7,22 +7,16 @@
 		expanded: boolean;
 		onToggle: () => void;
 		touchedCount: number;
-		totalCount: number;
 		onRefresh?: () => void;
 		children: Snippet;
 	}
 
-	let { expanded, onToggle, touchedCount, totalCount, onRefresh, children }: Props = $props();
+	let { expanded, onToggle, touchedCount, onRefresh, children }: Props = $props();
 
-	let badges = $derived.by(() => {
-		if (totalCount > 0) {
-			return [{ label: `${touchedCount}/${totalCount}` }];
-		}
-		if (touchedCount > 0) {
-			return [{ label: touchedCount.toString() }];
-		}
-		return [];
-	});
+	// With lazy-loaded folders there is no reliable "total workspace
+	// file count" to show against the touched count, so the badge
+	// surfaces only the touched count when non-zero.
+	let badges = $derived(touchedCount > 0 ? [{ label: touchedCount.toString() }] : []);
 
 	let spinning = $state(false);
 

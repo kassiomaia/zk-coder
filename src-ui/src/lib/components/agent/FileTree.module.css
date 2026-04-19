@@ -188,4 +188,49 @@
 	opacity: 0.5;
 }
 
+/* Inline status rows (loading / error) rendered inside a branch
+ * for the currently-expanding directory. */
+.inlineStatus {
+	display: block;
+	width: 100%;
+	padding: var(--space-1) var(--space-4);
+	font-size: var(--text-2xs);
+	color: var(--color-text-muted);
+	font-style: italic;
+	text-align: left;
+	background: transparent;
+	border: none;
+}
 
+.inlineStatus.inlineError {
+	color: var(--color-error);
+	cursor: pointer;
+}
+
+.inlineStatus.inlineError:hover {
+	background: var(--color-interactive-hover);
+}
+
+.inlineStatus.depth-0 {
+	padding-left: calc(var(--space-3) + var(--space-4));
+}
+
+.inlineStatus.depth-1 {
+	padding-left: calc(var(--space-3) + var(--space-4) * 2);
+}
+
+.inlineStatus.depth-2 {
+	padding-left: calc(var(--space-3) + var(--space-4) * 3);
+}
+
+.inlineStatus.depth-3 {
+	padding-left: calc(var(--space-3) + var(--space-4) * 4);
+}
+
+.inlineStatus.depth-4 {
+	padding-left: calc(var(--space-3) + var(--space-4) * 5);
+}
+
+.inlineStatus.depth-5 {
+	padding-left: calc(var(--space-3) + var(--space-4) * 6);
+}

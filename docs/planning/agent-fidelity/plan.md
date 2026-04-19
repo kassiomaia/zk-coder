@@ -186,6 +186,8 @@ Inherited from `../agent-context-engineering/plan.md`:
 
 ## Workstream E — Clarification blocking
 
+> **Superseded — 2026-04-19**: Workstream E was partially delivered (pause-on-question signal only; resume path and persistence were missing). The complete pause + persistent resume feature is documented in `docs/planning/agent-clarification-resume/plan.md` (COMPLETE) and `docs/features/agent-clarification.md`. The subsections below are retained for historical context.
+
 **Fixes**: P5
 **Ships alone**: no — touches UI + session lifecycle
 **Risk**: medium — new `HarnessMode` variant, new UI affordance

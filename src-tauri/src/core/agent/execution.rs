@@ -33,6 +33,73 @@ pub enum ExecutionPhase {
     Cancelled,
 }
 
+/// Serializable capture of an in-flight coordinator state
+/// (agent-clarification-resume plan).
+///
+/// This is distinct from [`ExecutionSnapshot`]. A snapshot is a
+/// telemetry view — enough for dashboards and tracing, but **not**
+/// enough to resume execution. A checkpoint is the full rebuildable
+/// picture: `llm_context`, step history, tool-call bookkeeping, and
+/// the phase/step counters the coordinator needs to pick up exactly
+/// where it parked.
+///
+/// Schema-version defence-in-depth: `schema_version` is written on
+/// every save and checked on every load. Unknown versions return a
+/// clean error rather than panicking — the caller degrades to a
+/// recoverable `SessionState::Error` so the user can retry the task
+/// from scratch rather than corrupting the session.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionCheckpoint {
+    /// Schema version for forward compatibility. Starts at 1; bump when
+    /// the payload shape changes in a way the loader cannot absorb.
+    pub schema_version: u32,
+    /// The session this checkpoint belongs to.
+    pub session_id: String,
+    /// The task the coordinator is resuming.
+    pub task_id: String,
+    /// The model the coordinator was using when it parked. Preserved
+    /// across the pause so the resume path can rebuild the same client.
+    pub model_name: String,
+    /// The step the coordinator parked on.
+    pub step_number: u32,
+    /// The execution phase at pause time.
+    pub current_phase: ExecutionPhase,
+    /// The subtask that was in progress, if any.
+    pub current_subtask_id: Option<String>,
+    /// Subtask-ordering metadata used by the planner merge path.
+    pub last_injected_subtask_order: Option<i32>,
+    /// **The critical field.** The full LLM conversation history that
+    /// the coordinator will append the user reply to before the next
+    /// LLM call. `ChatMessage` is serde-round-trippable byte-for-byte
+    /// including tool calls and tool results.
+    pub llm_context: Vec<crate::core::llm::entities::ChatMessage>,
+    /// Recent tool-call history used by the loop guard.
+    pub recent_tool_calls: Vec<(String, u64)>,
+    /// Count of iterations the LLM produced no tool calls.
+    pub consecutive_empty_tool_iterations: u32,
+    /// Current subtask-mode tool filter. `None` means legacy
+    /// no-restriction; `Some(vec![])` forces the final-summary path.
+    pub current_allowed_tool_names: Option<Vec<String>>,
+    /// Total input tokens consumed so far.
+    pub total_input_tokens: u32,
+    /// Total output tokens generated so far.
+    pub total_output_tokens: u32,
+    /// Context-window utilization percent at pause time.
+    pub context_usage_percent: f64,
+    /// Ordered history of execution steps.
+    pub steps: Vec<crate::core::agent::task::ExecutionStep>,
+    /// Dynamic step budget (Workstream β). Monotonic — never decreases
+    /// after bootstrap; we persist the live cap so resume sees the
+    /// same budget.
+    pub max_execution_steps: u32,
+}
+
+impl ExecutionCheckpoint {
+    /// Current schema version for newly-written checkpoints.
+    pub const CURRENT_SCHEMA_VERSION: u32 = 1;
+}
+
 /// Represents a transition between two execution phases.
 ///
 /// This struct is used to log and trace the agent's movement from one phase
@@ -195,6 +262,27 @@ pub enum RuntimeTraceType {
     /// - `used` — number of steps consumed before the gate fired
     /// - `budget` — the live cap that was reached
     StepBudgetExhausted,
+    /// The user's reply to a pending clarification was delivered and
+    /// the coordinator appended it to `llm_context` (agent-clarification-resume
+    /// plan). Distinct from [`Self::ClarificationResumed`] so telemetry
+    /// can separate "reply reached us" from "coordinator woke up and
+    /// resumed the loop". Payload:
+    ///
+    /// - `replyLength` — number of characters in the reply
+    /// - `deliveryPath` — `"live"` when the same-process oneshot
+    ///   channel was used, `"post_restart"` when the reply arrived on
+    ///   a fresh process and was routed via the checkpoint store
+    ClarificationReplied,
+    /// The coordinator resumed execution after a clarification reply
+    /// (agent-clarification-resume plan). Emitted both on the fast
+    /// in-process wake path and the post-restart rehydrate path;
+    /// `restored = true` distinguishes the latter. Payload:
+    ///
+    /// - `stepNumber` — the step the coordinator resumes at
+    /// - `subtaskId` — the subtask resumed on, if any
+    /// - `restored` — `true` when the coordinator was rebuilt from a
+    ///   persisted checkpoint, `false` on the fast in-process path
+    ClarificationResumed,
 }
 
 /// Represents a single, append-only entry in the runtime trace.

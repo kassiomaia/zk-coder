@@ -80,8 +80,10 @@
 					{reasoning}
 				</div>
 			{:else if isStreaming}
-				<div class={styles.streamingIndicator}>
-					<span class={styles.streamingText}>Thinking...</span>
+				<div class={styles.streamingIndicator} aria-label="Waiting for reasoning">
+					<span class={styles.dot}></span>
+					<span class={styles.dot}></span>
+					<span class={styles.dot}></span>
 				</div>
 			{/if}
 		</div>

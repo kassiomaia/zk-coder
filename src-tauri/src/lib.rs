@@ -234,6 +234,7 @@ pub fn run() {
             // Agent commands
             commands::agent::sessions::create_agent_session,
             commands::agent::sessions::send_agent_request,
+            commands::agent::sessions::reply_to_clarification,
             commands::agent::sessions::retry_last_agent_request,
             commands::agent::sessions::continue_agent_execution,
             commands::agent::sessions::replan_agent_execution,
@@ -262,7 +263,7 @@ pub fn run() {
             // File viewing commands (UI-only, no LLM consumption)
             commands::file::get_file_content,
             commands::file::open_file_diff_window,
-            commands::workspace_files::list_workspace_files,
+            commands::workspace_files::list_workspace_dir,
             // Session history commands
             commands::agent::history::get_conversation_session_history,
             commands::agent::history::get_session_details,

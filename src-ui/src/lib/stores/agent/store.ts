@@ -32,6 +32,7 @@ export interface AgentStore {
 	): Promise<import('$lib/types/agent').AgentSession | null>;
 	loadSession(sessionId: string): Promise<import('$lib/types/agent').AgentSession | null>;
 	sendRequest(sessionId: string, content: string): Promise<void>;
+	replyToClarification(sessionId: string, content: string): Promise<void>;
 	retryLastRequest(sessionId: string): Promise<string | null>;
 	continueExecution(sessionId: string): Promise<string | null>;
 	replanExecution(sessionId: string): Promise<string | null>;
@@ -40,7 +41,7 @@ export interface AgentStore {
 	cancelSession(sessionId: string): Promise<void>;
 	rollbackSession(sessionId: string): Promise<string[]>;
 	updateSessionWorkspace(sessionId: string, workspacePath: string): Promise<void>;
-	loadWorkspaceFiles(sessionId: string, workspaceRoot: string): Promise<void>;
+	loadWorkspaceRoot(sessionId: string, workspaceRoot: string): Promise<void>;
 	updateSessionModel(sessionId: string, modelId: string): Promise<void>;
 	createSubtask(
 		taskId: string,
@@ -115,6 +116,17 @@ function createAgentStore(): AgentStore {
 			// Dynamic import to avoid SSR issues with Tauri APIs
 			const { listen } = await import('@tauri-apps/api/event');
 			const unlisten = await listen<AgentEvent>('agent:event', (event) => {
+				// `status_phrase` bypasses the main agent-store update:
+				// it writes to the side-channel status store and (as a
+				// side effect) routes the thinking indicator message to
+				// chat, without cloning the sessions Map. Without this
+				// shortcut the ~25 phrases per step would re-notify
+				// every agent-store subscriber even though nothing on
+				// the session state has actually changed.
+				if (event.payload.type === 'status_phrase') {
+					Events.handleStatusPhrase(get({ subscribe }), event.payload);
+					return;
+				}
 				const state = get({ subscribe });
 				const newState = Events.handleAgentEvent(state, event.payload);
 				set(newState);
@@ -171,6 +183,15 @@ function createAgentStore(): AgentStore {
 	async function sendRequest(sessionId: string, content: string) {
 		const state = get({ subscribe });
 		return Actions.sendRequest(state, update, sessionId, content);
+	}
+
+	/**
+	 * Deliver a reply to a paused clarification
+	 * (agent-clarification-resume plan).
+	 */
+	async function replyToClarification(sessionId: string, content: string) {
+		const state = get({ subscribe });
+		return Actions.replyToClarification(state, update, sessionId, content);
 	}
 
 	/**
@@ -237,11 +258,11 @@ function createAgentStore(): AgentStore {
 	}
 
 	/**
-	 * Load the full workspace file listing for a session.
+	 * Load the immediate children of the workspace root.
 	 */
-	async function loadWorkspaceFiles(sessionId: string, workspaceRoot: string) {
+	async function loadWorkspaceRoot(sessionId: string, workspaceRoot: string) {
 		const state = get({ subscribe });
-		return Actions.loadWorkspaceFiles(state, update, sessionId, workspaceRoot);
+		return Actions.loadWorkspaceRoot(state, update, sessionId, workspaceRoot);
 	}
 
 	/**
@@ -398,6 +419,7 @@ function createAgentStore(): AgentStore {
 		createSession,
 		loadSession,
 		sendRequest,
+		replyToClarification,
 		retryLastRequest,
 		continueExecution,
 		replanExecution,
@@ -406,7 +428,7 @@ function createAgentStore(): AgentStore {
 		cancelSession,
 		rollbackSession,
 		updateSessionWorkspace,
-		loadWorkspaceFiles,
+		loadWorkspaceRoot,
 		updateSessionModel,
 		createSubtask,
 		updateSubtaskStatus,

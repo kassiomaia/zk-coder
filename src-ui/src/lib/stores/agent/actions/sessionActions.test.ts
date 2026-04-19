@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createInitialState } from '../state';
 import type { AgentSession } from '$lib/types/agent';
-import { loadWorkspaceFiles } from './sessionActions';
+import { loadWorkspaceRoot } from './sessionActions';
 
 const hoistedInvoke = vi.hoisted(() => vi.fn());
 
@@ -23,12 +23,12 @@ function makeSession(overrides: Partial<AgentSession> = {}): AgentSession {
 	};
 }
 
-describe('loadWorkspaceFiles', () => {
+describe('loadWorkspaceRoot', () => {
 	beforeEach(() => {
 		hoistedInvoke.mockReset();
 	});
 
-	it('invokes list_workspace_files with the workspace root', async () => {
+	it('invokes list_workspace_dir with an empty path for the root', async () => {
 		const state = createInitialState();
 		state.sessions.set('session-1', makeSession());
 		const update = vi.fn((fn: (s: typeof state) => typeof state) => {
@@ -36,12 +36,15 @@ describe('loadWorkspaceFiles', () => {
 		});
 		hoistedInvoke.mockResolvedValue({ entries: [], truncated: false });
 
-		await loadWorkspaceFiles(state, update, 'session-1', '/tmp/ws');
+		await loadWorkspaceRoot(state, update, 'session-1', '/tmp/ws');
 
-		expect(hoistedInvoke).toHaveBeenCalledWith('list_workspace_files', { root: '/tmp/ws' });
+		expect(hoistedInvoke).toHaveBeenCalledWith('list_workspace_dir', {
+			root: '/tmp/ws',
+			path: ''
+		});
 	});
 
-	it('writes entries and truncated flag onto the session', async () => {
+	it('writes root entries and truncation flag onto the session', async () => {
 		const state = createInitialState();
 		state.sessions.set('session-1', makeSession());
 		const update = vi.fn((fn: (s: typeof state) => typeof state) => {
@@ -53,11 +56,11 @@ describe('loadWorkspaceFiles', () => {
 		];
 		hoistedInvoke.mockResolvedValue({ entries, truncated: true });
 
-		await loadWorkspaceFiles(state, update, 'session-1', '/tmp/ws');
+		await loadWorkspaceRoot(state, update, 'session-1', '/tmp/ws');
 
 		const session = state.sessions.get('session-1')!;
-		expect(session.workspaceFiles).toEqual(entries);
-		expect(session.workspaceFilesTruncated).toBe(true);
+		expect(session.workspaceRootEntries).toEqual(entries);
+		expect(session.workspaceRootTruncated).toBe(true);
 	});
 
 	it('does not clobber existing session fields unrelated to workspace listing', async () => {
@@ -74,7 +77,7 @@ describe('loadWorkspaceFiles', () => {
 		});
 		hoistedInvoke.mockResolvedValue({ entries: [], truncated: false });
 
-		await loadWorkspaceFiles(state, update, 'session-1', '/tmp/ws');
+		await loadWorkspaceRoot(state, update, 'session-1', '/tmp/ws');
 
 		const session = state.sessions.get('session-1')!;
 		expect(session.filesTouched).toHaveLength(1);
@@ -88,20 +91,22 @@ describe('loadWorkspaceFiles', () => {
 		});
 		hoistedInvoke.mockResolvedValue({ entries: [], truncated: false });
 
-		await loadWorkspaceFiles(state, update, 'missing', '/tmp/ws');
+		await loadWorkspaceRoot(state, update, 'missing', '/tmp/ws');
 
 		expect(state.sessions.size).toBe(0);
 	});
 
 	it('swallows errors without mutating the session', async () => {
 		const state = createInitialState();
-		state.sessions.set('session-1', makeSession({ workspaceFiles: undefined }));
+		state.sessions.set('session-1', makeSession({ workspaceRootEntries: undefined }));
 		const update = vi.fn((fn: (s: typeof state) => typeof state) => {
 			fn(state);
 		});
 		hoistedInvoke.mockRejectedValue(new Error('boom'));
 
-		await expect(loadWorkspaceFiles(state, update, 'session-1', '/tmp/ws')).resolves.toBeUndefined();
-		expect(state.sessions.get('session-1')!.workspaceFiles).toBeUndefined();
+		await expect(
+			loadWorkspaceRoot(state, update, 'session-1', '/tmp/ws')
+		).resolves.toBeUndefined();
+		expect(state.sessions.get('session-1')!.workspaceRootEntries).toBeUndefined();
 	});
 });

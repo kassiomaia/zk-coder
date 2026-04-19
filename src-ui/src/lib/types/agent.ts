@@ -135,15 +135,16 @@ export interface AgentSession {
 	modelId?: string;
 	tasks?: AgentTask[];
 	filesTouched?: TouchedFile[];
-	/** Full workspace file listing shown in the Files panel. Populated
-	 *  manually via `loadWorkspaceFiles` on workspace change. */
-	workspaceFiles?: WorkspaceEntry[];
-	/** True when the workspace walk hit its cap and the listing is partial. */
-	workspaceFilesTruncated?: boolean;
+	/** Immediate children of the workspace root, shown in the Files
+	 *  panel. Populated via `loadWorkspaceRoot` on workspace change.
+	 *  Deeper directories load on demand when the user expands them. */
+	workspaceRootEntries?: WorkspaceEntry[];
+	/** True when the root directory contained more entries than the
+	 *  backend cap and the listing is partial. */
+	workspaceRootTruncated?: boolean;
 	terminalOutput?: TerminalLine[];
 	toolCalls?: ToolCallRecord[];
 	executionSteps?: ExecutionStep[]; // Track execution steps for UI progress display
-	statusPhrases?: string[]; // Accumulated status phrases for rotation
 	streamingMessages?: Record<string, string>; // Accumulated content for active streaming assistant messages
 	artifacts?: ArtifactReference[]; // Artifacts created during this session
 	harnessState?: AgentSessionHarnessState; // Long-running harness metadata
@@ -203,7 +204,9 @@ export type RuntimeTraceType =
 	| 'execution_cancelled'
 	| 'execution_failed'
 	| 'execution_completed'
-	| 'subtask_scope_drift';
+	| 'subtask_scope_drift'
+	| 'clarification_replied'
+	| 'clarification_resumed';
 
 export interface RuntimeTrace {
 	id: string;
@@ -229,6 +232,12 @@ export type SessionState =
 	| { type: 'wait_for_request'; lastActionAt: string }
 	| { type: 'user_input_required'; pendingActionIds: string[] }
 	| { type: 'paused'; pausedAt: string; message: string; currentSubtaskId?: string }
+	| {
+			type: 'awaiting_clarification';
+			prompt: string;
+			askedAt: string;
+			subtaskId?: string;
+	  }
 	| { type: 'finished'; completedAt: string }
 	| { type: 'cancelled'; reason: string }
 	| { type: 'error'; message: string; recoverable: boolean };
@@ -492,6 +501,25 @@ export type AgentEvent =
 	  }
 	| { type: 'recovery_continue'; sessionId: string }
 	| { type: 'recovery_replan'; sessionId: string }
+	| {
+			type: 'clarification_replied';
+			sessionId: string;
+			content: string;
+			subtaskId?: string;
+	  }
+	| {
+			type: 'clarification_timed_out';
+			sessionId: string;
+			subtaskId?: string;
+			prompt: string;
+	  }
+	| {
+			type: 'clarification_restored';
+			sessionId: string;
+			prompt: string;
+			askedAt: string;
+			subtaskId?: string;
+	  }
 	| { type: 'execution_started'; sessionId: string; requestId: string }
 	| { type: 'execution_step'; sessionId: string; step: ExecutionStep }
 	| {

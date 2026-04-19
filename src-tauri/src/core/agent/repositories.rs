@@ -4,8 +4,9 @@
 //! agent sessions, approvals, tasks, and execution data. These interfaces
 //! decouple the core agent logic from specific database implementations.
 
+use super::clarification::PendingClarificationRecord;
 use super::errors::AgentDomainError;
-use super::execution::{ExecutionSnapshot, RuntimeTrace};
+use super::execution::{ExecutionCheckpoint, ExecutionSnapshot, RuntimeTrace};
 use super::session::{AgentSession, PendingAction, SessionId, SessionState};
 use super::task::{AgentTask, SubTask, SubTaskContract, SubTaskMode, TaskStatus};
 use super::types::{Agent, AgentId};
@@ -211,6 +212,56 @@ pub trait ExecutionRepository: Send + Sync {
 
     /// Clears the execution snapshot for a session.
     fn clear_execution_snapshot(&self, session_id: &str) -> RepositoryResult<()>;
+}
+
+/// A repository for the coordinator's resume checkpoints
+/// (agent-clarification-resume plan).
+///
+/// At most one checkpoint per session. `save_checkpoint` upserts on
+/// the `session_id` primary key; `load_checkpoint` returns `None` when
+/// there is nothing to resume from. `schema_version` on the checkpoint
+/// is the forward-compatibility handle: a loader that finds a version
+/// it does not understand returns a typed error rather than panicking.
+pub trait ExecutionCheckpointRepository: Send + Sync {
+    /// Inserts or replaces the checkpoint for a session.
+    fn save_checkpoint(&self, checkpoint: &ExecutionCheckpoint) -> RepositoryResult<()>;
+
+    /// Returns the persisted checkpoint for a session, if any.
+    fn load_checkpoint(
+        &self,
+        session_id: &str,
+    ) -> RepositoryResult<Option<ExecutionCheckpoint>>;
+
+    /// Returns `true` if a checkpoint row exists for the session. Used
+    /// by the post-restart reply path to distinguish "resume possible"
+    /// from "session is in an orphan-repair state".
+    fn checkpoint_present(&self, session_id: &str) -> RepositoryResult<bool>;
+
+    /// Removes the checkpoint for a session.
+    fn clear_checkpoint(&self, session_id: &str) -> RepositoryResult<()>;
+}
+
+/// A repository for persisting pending agent clarifications.
+///
+/// The at-most-one-per-session invariant is enforced at the SQL layer
+/// via the primary key on `session_id`; `upsert_pending` replaces an
+/// existing row when a new question supersedes the previous one.
+pub trait ClarificationRepository: Send + Sync {
+    /// Inserts or replaces the pending clarification for a session.
+    fn upsert_pending(&self, record: &PendingClarificationRecord) -> RepositoryResult<()>;
+
+    /// Returns the pending clarification for `session_id`, if any.
+    fn get_pending(
+        &self,
+        session_id: &str,
+    ) -> RepositoryResult<Option<PendingClarificationRecord>>;
+
+    /// Returns every pending clarification across all sessions. Used by
+    /// the rehydrate path at startup.
+    fn list_pending(&self) -> RepositoryResult<Vec<PendingClarificationRecord>>;
+
+    /// Removes the pending clarification for `session_id`, if any.
+    fn clear_pending(&self, session_id: &str) -> RepositoryResult<()>;
 }
 
 /// A repository for storing and retrieving append-only runtime traces.

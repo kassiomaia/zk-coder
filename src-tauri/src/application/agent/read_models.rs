@@ -186,6 +186,7 @@ pub fn derive_harness_state(
     let derived_mode = match session.state {
         SessionState::Launching => HarnessMode::Initializer,
         SessionState::Paused { .. } => HarnessMode::ResumeVerifier,
+        SessionState::AwaitingClarification { .. } => HarnessMode::AwaitingClarification,
         _ => HarnessMode::Worker,
     };
 
@@ -246,6 +247,16 @@ pub fn derive_harness_state(
 
     let derived_clean_exit = matches!(session.state, SessionState::Finished { .. });
 
+    let derived_awaiting_clarification = match &session.state {
+        SessionState::AwaitingClarification {
+            prompt, asked_at, ..
+        } => Some(AwaitingClarificationDetails {
+            prompt: prompt.clone(),
+            asked_at: *asked_at,
+        }),
+        _ => None,
+    };
+
     let (mode, startup_verification, handoff, clean_exit_recorded, awaiting_clarification) =
         match overrides {
             Some(values) => (
@@ -256,14 +267,17 @@ pub fn derive_harness_state(
                     .or(derived_startup_verification),
                 values.handoff.clone().or(derived_handoff),
                 values.clean_exit_recorded.unwrap_or(derived_clean_exit),
-                values.awaiting_clarification.clone(),
+                values
+                    .awaiting_clarification
+                    .clone()
+                    .or(derived_awaiting_clarification),
             ),
             None => (
                 derived_mode,
                 derived_startup_verification,
                 derived_handoff,
                 derived_clean_exit,
-                None,
+                derived_awaiting_clarification,
             ),
         };
 
@@ -516,6 +530,32 @@ mod tests {
             .awaiting_clarification
             .expect("awaiting details should flow through");
         assert_eq!(details.prompt, "What is the product name?");
+    }
+
+    #[test]
+    fn session_state_awaiting_clarification_drives_mode_and_details() {
+        // Phase 1 of the agent-clarification-resume plan: when the
+        // session state itself is AwaitingClarification, derive_harness_state
+        // must report both the mode and the prompt/asked_at details
+        // without needing the override path.
+        let mut session = running_session();
+        let asked_at = chrono::DateTime::parse_from_rfc3339("2026-04-19T09:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        session
+            .set_state(SessionState::AwaitingClarification {
+                prompt: "Which workspace?".to_string(),
+                asked_at,
+                subtask_id: Some("subtask-1".to_string()),
+            })
+            .expect("running → awaiting_clarification is valid");
+        let state = derive_harness_state(&session, &[], None);
+        assert_eq!(state.mode, HarnessMode::AwaitingClarification);
+        let details = state
+            .awaiting_clarification
+            .expect("details should be derived from session state");
+        assert_eq!(details.prompt, "Which workspace?");
+        assert_eq!(details.asked_at, asked_at);
     }
 
     #[test]

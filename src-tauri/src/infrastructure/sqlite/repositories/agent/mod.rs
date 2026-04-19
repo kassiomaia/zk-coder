@@ -9,15 +9,19 @@ use std::sync::Mutex;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 
+use crate::core::agent::clarification::PendingClarificationRecord;
 use crate::core::agent::errors::AgentDomainError;
+use crate::core::agent::execution::ExecutionCheckpoint;
 use crate::core::agent::memory::{MemoryRepository, SessionMemory};
 use crate::core::agent::repositories::{
-    ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
-    TaskRepository,
+    ClarificationRepository, ExecutionCheckpointRepository, ExecutionRepository, RepositoryResult,
+    RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
 use crate::core::agent::session as agent_session;
 use crate::core::agent::task as agent_task;
 
+pub mod clarifications;
+pub mod execution_checkpoints;
 pub mod execution_debug;
 pub mod memory;
 pub mod runtime_data;
@@ -797,6 +801,97 @@ impl RuntimeTraceRepository for SqliteSessionRepository {
     ) -> RepositoryResult<Vec<crate::core::agent::execution::RuntimeTrace>> {
         Self::get_runtime_traces(self, session_id, limit)
             .map_err(AgentDomainError::from)
+    }
+}
+
+impl ExecutionCheckpointRepository for SqliteSessionRepository {
+    fn save_checkpoint(&self, checkpoint: &ExecutionCheckpoint) -> RepositoryResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AgentDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            })?;
+        execution_checkpoints::save_checkpoint(&conn, checkpoint).map_err(AgentDomainError::from)
+    }
+
+    fn load_checkpoint(
+        &self,
+        session_id: &str,
+    ) -> RepositoryResult<Option<ExecutionCheckpoint>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AgentDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            })?;
+        execution_checkpoints::load_checkpoint(&conn, session_id).map_err(AgentDomainError::from)
+    }
+
+    fn checkpoint_present(&self, session_id: &str) -> RepositoryResult<bool> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AgentDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            })?;
+        execution_checkpoints::checkpoint_present(&conn, session_id)
+            .map_err(AgentDomainError::from)
+    }
+
+    fn clear_checkpoint(&self, session_id: &str) -> RepositoryResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AgentDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            })?;
+        execution_checkpoints::clear_checkpoint(&conn, session_id).map_err(AgentDomainError::from)
+    }
+}
+
+impl ClarificationRepository for SqliteSessionRepository {
+    fn upsert_pending(&self, record: &PendingClarificationRecord) -> RepositoryResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AgentDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            })?;
+        clarifications::upsert_pending(&conn, record).map_err(AgentDomainError::from)
+    }
+
+    fn get_pending(
+        &self,
+        session_id: &str,
+    ) -> RepositoryResult<Option<PendingClarificationRecord>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AgentDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            })?;
+        clarifications::get_pending(&conn, session_id).map_err(AgentDomainError::from)
+    }
+
+    fn list_pending(&self) -> RepositoryResult<Vec<PendingClarificationRecord>> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AgentDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            })?;
+        clarifications::list_pending(&conn).map_err(AgentDomainError::from)
+    }
+
+    fn clear_pending(&self, session_id: &str) -> RepositoryResult<()> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AgentDomainError::InvalidInput {
+                reason: format!("Lock error: {e}"),
+            })?;
+        clarifications::clear_pending(&conn, session_id).map_err(AgentDomainError::from)
     }
 }
 

@@ -66,6 +66,20 @@ export interface AgentMessageData {
 	recoveryResolved?: boolean;
 	/** The recovery decision made ('continued' | 'replanned') */
 	recoveryDecision?: 'continued' | 'replanned';
+	/**
+	 * Clarification reply flag (agent-clarification-resume plan).
+	 * Marks a user chat message as a reply to a paused clarification
+	 * question so the transcript can style it distinctly.
+	 */
+	clarificationReply?: boolean;
+	/**
+	 * Clarification timeout flag (agent-clarification-resume plan).
+	 * Marks a system message as the "agent didn't hear back" fallback
+	 * emitted when a clarification timed out.
+	 */
+	clarificationTimedOut?: boolean;
+	/** The subtask the clarification belonged to, when applicable. */
+	subtaskId?: string;
 }
 
 /**

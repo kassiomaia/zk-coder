@@ -12,7 +12,8 @@ use super::tracing::RuntimeTraceService;
 use crate::application::agent::harness::HarnessStateStore;
 use crate::core::agent::memory::MemoryRepository;
 use crate::core::agent::repositories::{
-    ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
+    ExecutionCheckpointRepository, ExecutionRepository, RuntimeTraceRepository, SessionRepository,
+    TaskRepository,
 };
 use crate::core::chat::services::ChatService;
 use crate::core::llm::entities::ToolDefinition;
@@ -35,6 +36,11 @@ pub struct ExecutionDeps<'a> {
     pub telemetry_repo: &'a dyn AgentTelemetryRepository,
     /// The repository for execution checkpoints.
     pub execution_repo: &'a dyn ExecutionRepository,
+    /// The repository for resume-capable execution checkpoints
+    /// (agent-clarification-resume plan). Used by the park stage to
+    /// persist a full `ExecutionCheckpoint` on pause entry and by the
+    /// rehydrate path on startup.
+    pub execution_checkpoint_repo: &'a dyn ExecutionCheckpointRepository,
     /// The repository for runtime traces.
     pub trace_repo: &'a dyn RuntimeTraceRepository,
     /// The repository for durable session working-memory artifacts

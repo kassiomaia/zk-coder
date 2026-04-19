@@ -77,3 +77,6 @@ export {
 	clearWebSearchCache
 } from './webSearchCache.js';
 export type { WebSearchCacheStats } from './webSearchCache.js';
+
+export { listWorkspaceDir } from './workspace.js';
+export type { WorkspaceDirResponse } from './workspace.js';

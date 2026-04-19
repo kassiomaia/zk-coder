@@ -5,6 +5,7 @@
 //! evolve independently while preserving a single application-layer entry point.
 
 mod approvals;
+mod clarification;
 mod history;
 pub mod planner;
 mod recovery;

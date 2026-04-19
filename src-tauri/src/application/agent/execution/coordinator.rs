@@ -11,7 +11,8 @@ use crate::core::agent::permissions::PermissionResolver;
 use crate::core::agent::execution::RuntimeTraceType;
 use crate::core::agent::memory::MemoryRepository;
 use crate::core::agent::repositories::{
-    ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
+    ExecutionCheckpointRepository, ExecutionRepository, RuntimeTraceRepository, SessionRepository,
+    TaskRepository,
 };
 use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::{AgentExecutionResult, AgentRequest};
@@ -28,6 +29,7 @@ use super::bootstrap::start_execution;
 use super::context_phase::resolve_context;
 use super::deps::ExecutionDeps;
 use super::llm_phase::call_llm;
+use super::park::{maybe_park_for_clarification, ParkOutcome};
 use super::response_phase::{handle_response, ResponseDecision};
 use super::step_gate::{begin_step, StepGateOutcome};
 use super::tool_phase::{run_tools, ToolPhaseOutcome};
@@ -76,6 +78,7 @@ pub async fn execute(
     task_repo: &dyn TaskRepository,
     telemetry_repo: &dyn AgentTelemetryRepository,
     execution_repo: &dyn ExecutionRepository,
+    execution_checkpoint_repo: &dyn ExecutionCheckpointRepository,
     trace_repo: &dyn RuntimeTraceRepository,
     memory_repo: &dyn MemoryRepository,
     approval_queue: &Arc<ApprovalQueue>,
@@ -91,6 +94,7 @@ pub async fn execute(
         task_repo,
         telemetry_repo,
         execution_repo,
+        execution_checkpoint_repo,
         trace_repo,
         memory_repo,
         approval_queue,
@@ -110,15 +114,6 @@ pub async fn execute(
         match begin_step(&deps, &mut ctx)? {
             StepGateOutcome::Proceed => {}
             StepGateOutcome::Cancelled => return Err(AgentRuntimeError::Cancelled),
-            StepGateOutcome::AwaitingClarification => {
-                // Workstream E.2 — the harness is paused pending a user
-                // clarification reply. Hand control back to the caller
-                // without calling the LLM. The chat message-input
-                // pipeline clears the pending state (E.4) and the
-                // runtime's next invocation resumes from the same
-                // subtask with the updated context.
-                return Err(AgentRuntimeError::AwaitingClarification);
-            }
         }
 
         let resolved =
@@ -178,6 +173,18 @@ pub async fn execute(
                     ToolPhaseOutcome::Cancelled => return Err(AgentRuntimeError::Cancelled),
                 }
             }
+        }
+
+        // Park if the agent emitted `agent_narrate { intent: "question" }`
+        // during the tool phase (agent-clarification-resume plan). The
+        // check is cheap when there is no pending clarification; no
+        // extra LLM call is made while parked.
+        match maybe_park_for_clarification(&deps, &mut ctx).await? {
+            ParkOutcome::Continue | ParkOutcome::Replied => {}
+            ParkOutcome::TimedOut => {
+                return Err(AgentRuntimeError::ClarificationTimedOut);
+            }
+            ParkOutcome::Cancelled => return Err(AgentRuntimeError::Cancelled),
         }
     }
 }

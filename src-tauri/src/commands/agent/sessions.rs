@@ -139,6 +139,11 @@ pub async fn update_agent_session_model(
 }
 
 /// Send a request to an agent session for execution.
+///
+/// When the session is parked on a pending clarification, the service
+/// auto-routes to [`reply_to_clarification`] so typing into the main
+/// chat composer resumes the run. See the agent-clarification-resume
+/// plan, Phase 5.
 #[tauri::command]
 pub async fn send_agent_request(
     session_id: String,
@@ -149,6 +154,27 @@ pub async fn send_agent_request(
     state
         .service
         .spawn_execution(session_id, content, app_handle)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Deliver a reply to a pending clarification for a paused session.
+///
+/// Persists the reply to the chat transcript, forwards it to the
+/// parked coordinator (live path) or repairs the session to a
+/// recoverable error (post-restart path; Phase 6 will replace the
+/// repair with a real coordinator rebuild). Emits
+/// `AgentEvent::ClarificationReplied`.
+#[tauri::command]
+pub async fn reply_to_clarification(
+    session_id: String,
+    content: String,
+    state: tauri::State<'_, AgentState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    state
+        .service
+        .reply_to_clarification(&session_id, &content, app_handle)
         .await
         .map_err(|e| e.to_string())
 }
@@ -222,6 +248,17 @@ pub async fn initialize_agent_recovery(
                 current_subtask_id: None,
             },
         );
+    }
+
+    // agent-clarification-resume plan, Phase 6 — surface any sessions
+    // that were parked on a clarification question when the app
+    // closed. Emits `ClarificationRestored` / `ClarificationTimedOut`
+    // and repairs orphan pause rows.
+    if let Err(e) = state
+        .service
+        .rehydrate_paused_clarifications(&app_handle)
+    {
+        log::warn!("[AgentRecovery] rehydrate_paused_clarifications failed: {e}");
     }
 
     Ok(recovered.len())

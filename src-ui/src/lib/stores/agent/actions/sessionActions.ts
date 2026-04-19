@@ -3,7 +3,8 @@
  * Session management functions for the agent store.
  */
 
-import type { AgentSession, BackendAgentTask, WorkspaceEntry } from '$lib/types/agent';
+import type { AgentSession, BackendAgentTask } from '$lib/types/agent';
+import { listWorkspaceDir } from '$lib/api/workspace';
 import { toAgentTask } from '$lib/types/agent';
 import type { AgentState } from '../state';
 import { createLogger } from '$lib/utils/logger';
@@ -16,8 +17,7 @@ function isHydratedSession(session: AgentSession): boolean {
 		session.filesTouched !== undefined &&
 		session.terminalOutput !== undefined &&
 		session.toolCalls !== undefined &&
-		session.executionSteps !== undefined &&
-		session.statusPhrases !== undefined
+		session.executionSteps !== undefined
 	);
 }
 
@@ -171,6 +171,34 @@ export async function sendRequest(
 }
 
 /**
+ * Deliver a reply to a pending clarification (agent-clarification-resume plan).
+ *
+ * Used by the clarification composer. The main chat composer's
+ * `sendRequest` also auto-routes to this IPC at the backend when the
+ * session is paused on a question, so both input surfaces converge on
+ * the same resume path.
+ */
+export async function replyToClarification(
+	state: AgentState,
+	update: (fn: (state: AgentState) => AgentState) => void,
+	sessionId: string,
+	content: string
+): Promise<void> {
+	log.debug('[agentStore] replyToClarification called:', {
+		sessionId,
+		contentLength: content.length
+	});
+	try {
+		const { invoke } = await import('@tauri-apps/api/core');
+		await invoke('reply_to_clarification', { sessionId, content });
+		log.debug('[agentStore] replyToClarification succeeded');
+	} catch (error) {
+		log.error('[agentStore] replyToClarification failed:', error);
+		update((s) => ({ ...s, error: String(error) }));
+	}
+}
+
+/**
  * Retry execution with the latest persisted request for a session.
  */
 export async function retryLastRequest(
@@ -304,39 +332,32 @@ export async function updateSessionWorkspace(
 	}
 }
 
-interface WorkspaceFilesResponse {
-	entries: WorkspaceEntry[];
-	truncated: boolean;
-}
-
 /**
- * Enumerate every file/directory under `workspaceRoot` and attach the
- * result to the session so the Files panel can render a full tree.
+ * Fetch the immediate children of `workspaceRoot` and attach the
+ * result to the session so the Files panel can render its first level.
+ * Deeper directories load on demand when the user expands them.
  * Leaves existing workspace listing untouched on error.
  */
-export async function loadWorkspaceFiles(
+export async function loadWorkspaceRoot(
 	state: AgentState,
 	update: (fn: (state: AgentState) => AgentState) => void,
 	sessionId: string,
 	workspaceRoot: string
 ): Promise<void> {
 	try {
-		const { invoke } = await import('@tauri-apps/api/core');
-		const response = await invoke<WorkspaceFilesResponse>('list_workspace_files', {
-			root: workspaceRoot
-		});
+		const response = await listWorkspaceDir(workspaceRoot, '');
 		update((state) => {
 			const session = state.sessions.get(sessionId);
 			if (!session) return state;
 			state.sessions.set(sessionId, {
 				...session,
-				workspaceFiles: response.entries,
-				workspaceFilesTruncated: response.truncated
+				workspaceRootEntries: response.entries,
+				workspaceRootTruncated: response.truncated
 			});
 			return { ...state, sessions: new Map(state.sessions) };
 		});
 	} catch (error) {
-		log.warn('[agentStore] Failed to load workspace files:', error);
+		log.warn('[agentStore] Failed to load workspace root:', error);
 	}
 }
 

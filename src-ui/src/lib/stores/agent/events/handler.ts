@@ -81,7 +81,10 @@ export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentSta
 			SessionEvents.handleExecutionComplete(state, event);
 			break;
 		case 'status_phrase':
-			StreamingEvents.handleStatusPhrase(state, event);
+			// `status_phrase` is handled out-of-band by the store
+			// listener (see `store.ts::initialize`) so it doesn't
+			// trigger a sessions-Map clone — reserved here only so the
+			// exhaustiveness check keeps matching.
 			break;
 		case 'agent_narration':
 			StreamingEvents.handleAgentNarration(state, event);
@@ -109,6 +112,15 @@ export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentSta
 			break;
 		case 'recovery_replan':
 			HarnessEvents.handleRecoveryReplan(state, event);
+			break;
+		case 'clarification_replied':
+			SessionEvents.handleClarificationReplied(state, event);
+			break;
+		case 'clarification_timed_out':
+			SessionEvents.handleClarificationTimedOut(state, event);
+			break;
+		case 'clarification_restored':
+			SessionEvents.handleClarificationRestored(state, event);
 			break;
 	}
 

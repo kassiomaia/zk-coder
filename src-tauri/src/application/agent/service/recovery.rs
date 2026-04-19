@@ -5,7 +5,7 @@ use crate::application::agent::harness::handoff_from_tasks;
 use crate::application::agent::read_models::HarnessMode;
 use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::session::SessionState;
-use crate::core::agent::task::TaskStatus;
+use crate::core::agent::task::{AgentTask, TaskStatus};
 
 use super::AgentServiceImpl;
 
@@ -40,9 +40,14 @@ impl AgentServiceImpl {
                 _ => continue,
             };
 
-            // Snapshot tasks BEFORE recovery clears in-progress state so the
-            // handoff summary reflects what the session was actually working
-            // on when it got interrupted.
+            // Snapshot tasks so the handoff summary reflects what the
+            // session was actually working on when it got interrupted.
+            // We intentionally leave subtask statuses as-is: the
+            // `SessionState::Paused` transition carries the "interrupted"
+            // signal, and the resume planner needs the real semantic
+            // state of each subtask (`InProgress` for the one that was
+            // running, `Pending` for those that had not started) to
+            // decide whether to continue the existing plan or replan.
             let tasks_snapshot = self
                 .task_repo
                 .get_session_tasks(&session.id.0)
@@ -55,12 +60,7 @@ impl AgentServiceImpl {
                 })
                 .collect::<Vec<_>>();
 
-            if let Err(e) = self.recover_session_tasks(&session.id.0) {
-                warn!(
-                    "[AgentRecovery] Failed to reconcile tasks for session {}: {}",
-                    session.id.0, e
-                );
-            }
+            let current_subtask_id = first_in_progress_subtask_id(&tasks_snapshot);
 
             let now = Utc::now();
             if let Err(e) = self.session_repo.update_state(
@@ -68,7 +68,7 @@ impl AgentServiceImpl {
                 &SessionState::Paused {
                     paused_at: now,
                     message: RECOVERY_MESSAGE.to_string(),
-                    current_subtask_id: None,
+                    current_subtask_id,
                 },
             ) {
                 warn!(
@@ -112,31 +112,23 @@ impl AgentServiceImpl {
         Ok(recovered)
     }
 
-    fn recover_session_tasks(&self, session_id: &str) -> RepositoryResult<()> {
-        let tasks = self.task_repo.get_session_tasks(session_id)?;
-
-        for task in tasks {
-            if is_non_terminal(&task.status) {
-                self.task_repo
-                    .update_task_status(&task.id, TaskStatus::Failed)?;
-            }
-
-            if let Ok(subtasks) = self.task_repo.get_subtasks(&task.id) {
-                for subtask in subtasks {
-                    if is_non_terminal(&subtask.status) {
-                        self.task_repo
-                            .update_subtask_status(&subtask.id, TaskStatus::Failed)?;
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
 }
 
-fn is_non_terminal(status: &TaskStatus) -> bool {
-    matches!(status, TaskStatus::Pending | TaskStatus::InProgress)
+/// Returns the id of the first `InProgress` subtask across the snapshotted
+/// tasks, scanning by subtask order so the cursor matches what the user
+/// was visibly working on before the interruption.
+fn first_in_progress_subtask_id(tasks: &[AgentTask]) -> Option<String> {
+    for task in tasks {
+        let subtasks = task.subtasks.as_deref().unwrap_or(&[]);
+        let mut ordered = subtasks.iter().collect::<Vec<_>>();
+        ordered.sort_by_key(|s| s.order);
+        for subtask in ordered {
+            if subtask.status == TaskStatus::InProgress {
+                return Some(subtask.id.clone());
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -175,6 +167,7 @@ mod tests {
         let runtime = Arc::new(AgentRuntime::new(
             session_store.clone(),
             chat_service,
+            session_store.clone(),
             session_store.clone(),
             session_store.clone(),
             session_store.clone(),
@@ -315,6 +308,63 @@ mod tests {
                 .as_ref()
                 .map(|v| &v.state),
             Some(&StartupVerificationState::Idle)
+        );
+    }
+
+    #[test]
+    fn recovery_preserves_in_progress_subtask_cursor() {
+        let service = create_test_service();
+        let session_id = seed_running_session_with_tasks(&service);
+
+        // Capture the id of the in-progress subtask before recovery so we
+        // can assert that the Paused state carries it forward as the resume
+        // cursor.
+        let subtasks_before = service
+            .task_repo
+            .get_subtasks("task-root")
+            .expect("subtasks before recovery");
+        let in_progress_id = subtasks_before
+            .iter()
+            .find(|s| s.status == TaskStatus::InProgress)
+            .map(|s| s.id.clone())
+            .expect("seeded an in-progress subtask");
+
+        service
+            .recover_unterminated_executions()
+            .expect("recovery");
+
+        let session = service
+            .session_repo
+            .get_session(&crate::core::agent::session::SessionId(session_id))
+            .expect("session");
+        match session.state {
+            SessionState::Paused {
+                current_subtask_id, ..
+            } => {
+                assert_eq!(
+                    current_subtask_id,
+                    Some(in_progress_id.clone()),
+                    "paused session must remember the in-progress subtask as the resume cursor",
+                );
+            }
+            other => panic!("expected Paused, got {other:?}"),
+        }
+
+        // And crucially the in-progress subtask must still be InProgress —
+        // recovery no longer downgrades it to Failed, because the resume
+        // planner needs a truthful view of what work was underway.
+        let subtasks_after = service
+            .task_repo
+            .get_subtasks("task-root")
+            .expect("subtasks after recovery");
+        let surviving = subtasks_after
+            .iter()
+            .find(|s| s.id == in_progress_id)
+            .expect("in-progress subtask still exists");
+        assert_eq!(
+            surviving.status,
+            TaskStatus::InProgress,
+            "InProgress subtasks must be preserved, not marked Failed"
         );
     }
 }

@@ -9,46 +9,32 @@ function makeChildren() {
 	}));
 }
 
-function props(overrides: {
-	touchedCount?: number;
-	totalCount?: number;
-	onRefresh?: () => void;
-} = {}) {
+function props(
+	overrides: {
+		touchedCount?: number;
+		onRefresh?: () => void;
+	} = {}
+) {
 	return {
 		expanded: true,
 		onToggle: vi.fn(),
 		touchedCount: overrides.touchedCount ?? 0,
-		totalCount: overrides.totalCount ?? 0,
 		onRefresh: overrides.onRefresh,
 		children: makeChildren()
 	};
 }
 
 describe('AgentPanelFilesSection badge', () => {
-	it('renders no badge when nothing is touched and workspace has no entries', () => {
+	it('renders no badge when nothing is touched', () => {
 		render(AgentPanelFilesSection, props());
 
-		expect(screen.queryByText('0/0')).not.toBeInTheDocument();
 		expect(screen.queryByText('0')).not.toBeInTheDocument();
 	});
 
-	it('renders touched/total when workspace listing is present', () => {
-		render(AgentPanelFilesSection, props({ touchedCount: 2, totalCount: 42 }));
-
-		expect(screen.getByText('2/42')).toBeInTheDocument();
-	});
-
-	it('falls back to touched count alone when workspace listing is empty', () => {
-		render(AgentPanelFilesSection, props({ touchedCount: 3, totalCount: 0 }));
+	it('renders the touched count when non-zero', () => {
+		render(AgentPanelFilesSection, props({ touchedCount: 3 }));
 
 		expect(screen.getByText('3')).toBeInTheDocument();
-		expect(screen.queryByText('3/0')).not.toBeInTheDocument();
-	});
-
-	it('shows 0/N while agent has not touched anything but tree is loaded', () => {
-		render(AgentPanelFilesSection, props({ touchedCount: 0, totalCount: 25 }));
-
-		expect(screen.getByText('0/25')).toBeInTheDocument();
 	});
 
 	it('renders the refresh action in the header when onRefresh is provided', () => {
@@ -70,7 +56,6 @@ describe('AgentPanelFilesSection badge', () => {
 			expanded: true,
 			onToggle,
 			touchedCount: 0,
-			totalCount: 10,
 			onRefresh,
 			children: makeChildren()
 		});

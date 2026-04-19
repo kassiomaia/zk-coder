@@ -177,6 +177,7 @@ pub async fn process_tool_calls_with_permissions(
                         call,
                         session,
                         task_id,
+                        current_subtask_id.as_deref(),
                         app_handle,
                         tool_registry,
                         file_snapshot_registry,
@@ -191,6 +192,7 @@ pub async fn process_tool_calls_with_permissions(
                         call,
                         session,
                         task_id,
+                        current_subtask_id.as_deref(),
                         app_handle,
                         approval_queue,
                         tool_registry,
@@ -252,10 +254,12 @@ pub async fn process_tool_calls_with_permissions(
 }
 
 /// Execute a tool call using the tool registry.
+#[allow(clippy::too_many_arguments)]
 async fn execute_tool(
     call: &ToolCall,
     session: &AgentSession,
     task_id: &str,
+    current_subtask_id: Option<&str>,
     app_handle: &AppHandle,
     tool_registry: &ToolRegistry,
     file_snapshot_registry: &FileSnapshotRegistry,
@@ -267,6 +271,7 @@ async fn execute_tool(
         call,
         session,
         task_id,
+        current_subtask_id,
         app_handle,
         session_repo,
         task_repo,
@@ -342,10 +347,12 @@ async fn execute_tool(
 }
 
 /// Execute a tool call that requires user approval first.
+#[allow(clippy::too_many_arguments)]
 async fn execute_with_approval(
     call: &ToolCall,
     session: &AgentSession,
     task_id: &str,
+    current_subtask_id: Option<&str>,
     app_handle: &AppHandle,
     approval_queue: &ApprovalQueue,
     tool_registry: &ToolRegistry,
@@ -486,6 +493,7 @@ async fn execute_with_approval(
                             call,
                             session,
                             task_id,
+                            current_subtask_id,
                             app_handle,
                             tool_registry,
                             file_snapshot_registry,
@@ -574,10 +582,12 @@ async fn execute_with_approval(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_agent_tool_call(
     call: &ToolCall,
     session: &AgentSession,
     task_id: &str,
+    current_subtask_id: Option<&str>,
     app_handle: &AppHandle,
     session_repo: &dyn SessionRepository,
     task_repo: &dyn TaskRepository,
@@ -609,7 +619,14 @@ fn handle_agent_tool_call(
             task_repo,
             telemetry_repo,
         )),
-        "agent_narrate" => Some(handle_narrate(call, session, app_handle, telemetry_repo)),
+        "agent_narrate" => Some(handle_narrate(
+            call,
+            session,
+            task_id,
+            current_subtask_id,
+            app_handle,
+            telemetry_repo,
+        )),
         _ => None,
     }
 }
@@ -1465,6 +1482,8 @@ fn handle_mark_subtask_status(
 fn handle_narrate(
     call: &ToolCall,
     session: &AgentSession,
+    task_id: &str,
+    current_subtask_id: Option<&str>,
     app_handle: &AppHandle,
     telemetry_repo: &dyn AgentTelemetryRepository,
 ) -> OrchestratorToolResult {
@@ -1492,18 +1511,28 @@ fn handle_narrate(
 
     let _ = telemetry_repo.add_status_phrase(&session.id, message);
 
-    // Workstream E.2 — a `question` intent records a pending
-    // clarification for this session. The step-gate consults the
-    // registry before the next LLM call and pauses until the user
-    // replies (E.4) or the clarification timeout (E.3) fires.
+    // agent-clarification-resume plan — a `question` intent writes an
+    // authoritative DB row plus a live reply channel. The coordinator's
+    // park stage picks the row up after this tool's writeback completes
+    // and parks on the channel until the user replies or the timeout
+    // elapses.
     if matches!(
         intent,
         crate::infrastructure::agent::events::NarrationIntent::Question
     ) {
-        crate::application::agent::clarification::record_pending_clarification(
-            &session.id.0,
-            message,
-        );
+        if let Err(err) =
+            crate::application::agent::clarification::record_pending_clarification_persistent(
+                &session.id.0,
+                task_id,
+                current_subtask_id,
+                message,
+            )
+        {
+            log::warn!(
+                "[AgentNarrate] Failed to record pending clarification for session {}: {err}",
+                session.id.0
+            );
+        }
     }
 
     OrchestratorToolResult {
@@ -1785,32 +1814,6 @@ fn validate_plan_subtasks(
         return Err("Plan must contain at least one subtask".to_string());
     }
 
-    let actionable_verbs = [
-        "analyze",
-        "investigate",
-        "identify",
-        "understand",
-        "trace",
-        "inspect",
-        "read",
-        "search",
-        "implement",
-        "update",
-        "refactor",
-        "fix",
-        "write",
-        "create",
-        "add",
-        "remove",
-        "rename",
-        "run",
-        "test",
-        "verify",
-        "build",
-        "check",
-        "debug",
-        "review",
-    ];
     let verification_terms = [
         "test",
         "verify",
@@ -1834,22 +1837,6 @@ fn validate_plan_subtasks(
         let normalized = title.to_lowercase();
         if !seen.insert(normalized.clone()) {
             return Err(format!("Duplicate subtask title found: '{}'", title));
-        }
-
-        let first_word = normalized
-            .split_whitespace()
-            .next()
-            .unwrap_or_default()
-            .to_string();
-        let first_word = first_word
-            .trim_matches(|c: char| c.is_ascii_punctuation())
-            .trim_matches(|c: char| c.is_ascii_digit())
-            .to_string();
-        if !actionable_verbs.contains(&first_word.as_str()) {
-            return Err(format!(
-                "Subtask '{}' is not actionable; start titles with an action verb",
-                title
-            ));
         }
 
         if verification_terms
@@ -2836,9 +2823,7 @@ mod plan_quality_validation_tests {
 
     #[test]
     fn validate_plan_subtasks_rejects_redundant_final_summary_subtask() {
-        // Title uses an actionable verb ("Write") so the pre-existing
-        // verb check is satisfied — the rejection reason must come
-        // from the G.1 no-op heuristic.
+        // Rejection must come from the G.1 no-op heuristic.
         let subtasks = vec![
             serde_json::json!({"title": "Analyze existing copy"}),
             serde_json::json!({"title": "Implement new copy"}),
@@ -3958,17 +3943,14 @@ mod merge_tests {
         }
     }
 
-    /// Build a contract JSON payload.
-    ///
-    /// [`SubTaskContract`] deserializes with `rename_all = "camelCase"`,
-    /// so `from_value` requires `expectedArtifacts` + `pathPattern`
-    /// even though the plan-validation helpers accept either spelling.
-    /// These tests exercise the merge helper, which hits
-    /// `from_value::<SubTaskContract>` directly.
+    /// Build a contract JSON payload in the snake_case shape the tool
+    /// schema advertises to the LLM. `SubTaskContract` accepts both
+    /// spellings via `#[serde(alias = ...)]`; using the snake_case form
+    /// here keeps the test aligned with what the model actually sends.
     fn contract_for_path(path: &str) -> Value {
         json!({
-            "expectedArtifacts": [
-                {"pathPattern": path, "kind": "file"}
+            "expected_artifacts": [
+                {"path_pattern": path, "kind": "file"}
             ]
         })
     }

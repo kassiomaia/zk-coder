@@ -1,66 +1,90 @@
 <script lang="ts">
 	/**
 	 * AnsweringIndicator Component
-	 * Shows agent execution status with elegant letter-shuffle animation.
-	 * Displays real-time status from agent events or fallback phases.
+	 *
+	 * A tight telemetry strip: phase dot (state-coloured, breathing) + phrase
+	 * label (with letter scramble on transitions) + optional elapsed counter,
+	 * wrapped in an auto-width pill with a bottom sweep rail that reads as
+	 * "active work flowing through". Replaces the previous icon-per-state
+	 * pattern with a single dot whose colour encodes state.
 	 */
 	import { onMount } from 'svelte';
-	import { CheckCircle, Clock, Edit, File, Scan, Sparkles, Terminal } from 'lucide-svelte';
 	import styles from './AnsweringIndicator.module.css';
 	import type { AgentStatus } from '$lib/utils/agentStatus';
 
-	const SCRAMBLE_DURATION = 800; // Duration for the letter scramble animation in milliseconds
-
-	const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
-
 	interface Props {
-		/** Current agent status text (if not provided, shows default phases) */
 		status?: AgentStatus | null;
-		/** Whether the indicator is active/animating */
 		active?: boolean;
 	}
 
 	let { status, active = true }: Props = $props();
 
-	// Animation configuration
-	const SCRAMBLE_LOOP_INTERVAL = 3000; // Re-scramble same text every 3 seconds
+	const SCRAMBLE_DURATION = 650;
+	const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
+	const SCRAMBLE_LOOP_INTERVAL = 3400;
+	const ROTATION_INTERVAL = 2500;
 
-	// Phrase rotation state
-	let currentPhraseIndex = 0;
+	type DotTone = 'primary' | 'warning' | 'success';
 
-	// Phrase rotation configuration
-	const ROTATION_INTERVAL = 2500; // Rotate every 2.5 seconds
-
-	// Icon mapping for status types
-	const iconMap = {
-		scan: Scan,
-		terminal: Terminal,
-		file: File,
-		edit: Edit,
-		wait: Clock,
-		check: CheckCircle,
-		sparkle: Sparkles
-	} as const;
-
-	// Current display state
 	let displayText = $state('Starting...');
 	let isStable = $state(true);
 	let isComplete = $state(false);
 
-	// Animation state
-	let animationFrame: number;
+	/** In-flight RAF id. 0 means no scramble running. Kept so a new
+	 *  scramble can cancel its predecessor instead of stacking; before,
+	 *  bursts of `StatusPhrase` events produced overlapping RAF loops
+	 *  that fought for frame budget during agent runs. */
+	let animationFrame = 0;
 	let mounted = false;
+	let currentPhraseIndex = 0;
 
-	// Get the current icon type based on status
-	let currentIconType = $derived(status?.icon ?? 'sparkle');
+	/** Honour the platform reduced-motion preference. When true the
+	 *  scramble is skipped entirely and the label snaps to the target. */
+	const prefersReducedMotion =
+		typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+			? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+			: false;
 
-	// Damped easing function (easeOutQuart) for smooth resolution
+	/** Map the existing icon-type hint to a dot colour without rendering icons. */
+	let dotTone = $derived<DotTone>(
+		(() => {
+			const hint = status?.icon ?? 'sparkle';
+			if (status?.stallWarning) return 'warning';
+			if (hint === 'wait') return 'warning';
+			if (hint === 'check') return 'success';
+			return 'primary';
+		})()
+	);
+
+	let elapsedLabel = $derived(formatElapsed(status?.elapsedSeconds));
+
+	function formatElapsed(seconds: number | undefined): string {
+		if (!seconds || seconds < 2) return '';
+		if (seconds < 60) return `${seconds}s`;
+		const m = Math.floor(seconds / 60);
+		const s = seconds % 60;
+		return `${m}:${s.toString().padStart(2, '0')}`;
+	}
+
 	function easeOutQuart(x: number): number {
 		return 1 - Math.pow(1 - x, 4);
 	}
 
 	function scrambleText(target: string) {
 		if (displayText === target) return;
+
+		// Cancel any in-flight scramble so a fast burst of status
+		// updates doesn't stack RAF loops that all target different text.
+		if (animationFrame !== 0) {
+			cancelAnimationFrame(animationFrame);
+			animationFrame = 0;
+		}
+
+		if (prefersReducedMotion) {
+			displayText = target;
+			isStable = true;
+			return;
+		}
 
 		isStable = false;
 		let startTime: number;
@@ -70,27 +94,26 @@
 		const maxLength = Math.max(startLength, targetLength);
 
 		const run = (now: number) => {
-			if (!mounted) return;
+			if (!mounted) {
+				animationFrame = 0;
+				return;
+			}
 			if (startTime === undefined) startTime = now;
 
 			const elapsed = now - startTime;
 			const progress = Math.min(elapsed / SCRAMBLE_DURATION, 1);
 			const easedProgress = easeOutQuart(progress);
 
-			// Calculate how many characters should be resolved based on eased progress
 			const resolvedCount = Math.floor(easedProgress * targetLength);
 
 			let current = '';
 			for (let i = 0; i < maxLength; i++) {
 				if (i < resolvedCount) {
-					// Character from target resolved
 					current += target[i];
 				} else if (i < targetLength) {
-					// Character from target still scrambling
 					const seed = i + Math.floor(elapsed / 50);
 					current += SCRAMBLE_CHARS[seed % SCRAMBLE_CHARS.length];
 				} else if (i < startLength) {
-					// Character from previous text still exists (shrinking)
 					const seed = i + Math.floor(elapsed / 50);
 					current += SCRAMBLE_CHARS[seed % SCRAMBLE_CHARS.length];
 				}
@@ -103,23 +126,20 @@
 			} else {
 				displayText = target;
 				isStable = true;
+				animationFrame = 0;
 			}
 		};
 
 		animationFrame = requestAnimationFrame(run);
 	}
 
-	// Watch for status changes and animate the transition
-	// Also handles phrase rotation and continuous loop animation
 	let rotationTimer: ReturnType<typeof setInterval> | null = null;
 	let loopTimer: ReturnType<typeof setInterval> | null = null;
 
-	// Track the actual values that matter, not object references
 	let currentDisplayText = '';
 	let currentPhrases: string[] = [];
 
 	$effect(() => {
-		// Clear any existing timers
 		if (rotationTimer) {
 			clearInterval(rotationTimer);
 			rotationTimer = null;
@@ -133,61 +153,44 @@
 		const newActive = status?.active ?? active;
 		const newText = status?.text ?? '';
 
-		// Determine what to display
 		const targetText = newPhrases.length > 0 ? newPhrases[0] : newText;
 
-		// Check if anything meaningful changed
 		if (
 			targetText === currentDisplayText &&
 			newPhrases.length === currentPhrases.length &&
 			newActive === !isComplete
 		) {
-			// Nothing meaningful changed, but we still need to keep the loop running if active
 			if (newActive && targetText && !loopTimer) {
-				// Restart the loop timer
 				loopTimer = setInterval(() => {
-					if (mounted && targetText) {
-						scrambleText(targetText);
-					}
+					if (mounted && targetText) scrambleText(targetText);
 				}, SCRAMBLE_LOOP_INTERVAL);
 			}
 			return;
 		}
 
-		// Update tracked values
 		currentDisplayText = targetText;
 		currentPhrases = newPhrases;
 		isComplete = !newActive;
 
 		if (isComplete) return;
 
-		// Initial animation
-		if (targetText) {
-			scrambleText(targetText);
-		}
+		if (targetText) scrambleText(targetText);
 
-		// Start phrase rotation if we have multiple phrases
 		if (newPhrases.length > 1) {
-			// Set up rotation timer - rotate every 2.5 seconds
 			rotationTimer = setInterval(() => {
 				currentPhraseIndex = (currentPhraseIndex + 1) % newPhrases.length;
 				if (mounted && newPhrases[currentPhraseIndex]) {
 					scrambleText(newPhrases[currentPhraseIndex]);
 				}
-			}, 2500);
+			}, ROTATION_INTERVAL);
 		}
 
-		// Always run the continuous loop animation when active
-		// This keeps the scramble effect running even with a single phrase
 		if (newActive && targetText) {
 			loopTimer = setInterval(() => {
-				if (mounted && targetText) {
-					scrambleText(targetText);
-				}
+				if (mounted && targetText) scrambleText(targetText);
 			}, SCRAMBLE_LOOP_INTERVAL);
 		}
 
-		// Cleanup: clear timers when effect reruns or component unmounts
 		return () => {
 			if (rotationTimer) {
 				clearInterval(rotationTimer);
@@ -205,59 +208,47 @@
 
 		return () => {
 			mounted = false;
-			cancelAnimationFrame(animationFrame);
-			if (rotationTimer) {
-				clearInterval(rotationTimer);
+			if (animationFrame !== 0) {
+				cancelAnimationFrame(animationFrame);
+				animationFrame = 0;
 			}
+			if (rotationTimer) clearInterval(rotationTimer);
+			if (loopTimer) clearInterval(loopTimer);
 		};
 	});
 </script>
 
 <div class={styles.container} role="status" aria-live="polite" aria-label="Agent status">
 	<div
-		class={[styles.panel, isStable && styles.stable, isComplete && styles.complete]
+		class={[
+			styles.panel,
+			isStable && styles.stable,
+			isComplete && styles.complete,
+			styles[`tone-${dotTone}`]
+		]
 			.filter(Boolean)
 			.join(' ')}
 	>
-		<div class={styles.iconWrapper}>
-			{#if currentIconType === 'scan'}
-				<Scan size={16} class={styles.icon} />
-			{:else if currentIconType === 'terminal'}
-				<Terminal size={16} class={styles.icon} />
-			{:else if currentIconType === 'file'}
-				<File size={16} class={styles.icon} />
-			{:else if currentIconType === 'edit'}
-				<Edit size={16} class={styles.icon} />
-			{:else if currentIconType === 'wait'}
-				<Clock size={16} class={styles.icon} />
-			{:else if currentIconType === 'check'}
-				<CheckCircle size={16} class={styles.icon} />
-			{:else}
-				<Sparkles size={16} class={styles.icon} />
-			{/if}
-		</div>
+		<span class={styles.dot} aria-hidden="true"></span>
 
-		<div class={styles.labelContainer}>
-			<span class={styles.label}>{displayText}</span>
-			{#if status?.stallWarning && status.elapsedSeconds}
-				<span class={styles.stallWarning}>
-					{#if status.stallWarning === 'still-working'}
-						· Still working...
-					{:else if status.stallWarning === 'taking-longer'}
-						· Taking longer than expected ({Math.floor(status.elapsedSeconds / 60)}:{(
-							status.elapsedSeconds % 60
-						)
-							.toString()
-							.padStart(2, '0')})
-					{:else if status.stallWarning === 'very-long'}
-						· Still waiting for LLM ({Math.floor(status.elapsedSeconds / 60)}:{(
-							status.elapsedSeconds % 60
-						)
-							.toString()
-							.padStart(2, '0')})
-					{/if}
-				</span>
-			{/if}
-		</div>
+		<span class={styles.label}>{displayText}</span>
+
+		{#if elapsedLabel && !isComplete}
+			<span class={styles.elapsed} aria-hidden="true">{elapsedLabel}</span>
+		{/if}
+
+		{#if status?.stallWarning}
+			<span class={styles.stallNote}>
+				{#if status.stallWarning === 'still-working'}
+					still working
+				{:else if status.stallWarning === 'taking-longer'}
+					taking longer
+				{:else}
+					waiting on LLM
+				{/if}
+			</span>
+		{/if}
+
+		<span class={styles.sweep} aria-hidden="true"></span>
 	</div>
 </div>

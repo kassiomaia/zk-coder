@@ -9,9 +9,12 @@ import type { AgentSession, PendingAction } from '$lib/types/agent';
 // Now import after mocking
 import { agentStore } from './agentStore';
 
-// Create mock functions that will be used in vi.mock
-const mockListen = vi.fn();
-const mockInvoke = vi.fn();
+// Create mock functions that will be used in vi.mock.
+// `vi.hoisted` is required because `vi.mock` is hoisted above imports;
+// without it, modules that statically import `@tauri-apps/api/core`
+// resolve the mock before `mockInvoke` is initialised.
+const mockListen = vi.hoisted(() => vi.fn());
+const mockInvoke = vi.hoisted(() => vi.fn());
 
 // Mock Tauri APIs before importing the store
 vi.mock('@tauri-apps/api/event', () => ({
@@ -164,7 +167,6 @@ describe('agentStore', () => {
 					}
 				],
 				executionSteps: [],
-				statusPhrases: [],
 				harnessState: {
 					mode: 'worker',
 					startupVerification: {
@@ -206,8 +208,7 @@ describe('agentStore', () => {
 				terminalOutput: [],
 				tasks: [],
 				toolCalls: [],
-				executionSteps: [],
-				statusPhrases: []
+				executionSteps: []
 			});
 
 			await agentStore.loadSession('session-1');
@@ -226,8 +227,7 @@ describe('agentStore', () => {
 				terminalOutput: [],
 				tasks: [],
 				toolCalls: [],
-				executionSteps: [],
-				statusPhrases: []
+				executionSteps: []
 			});
 
 			const result = await agentStore.loadSession('session-1');
@@ -248,8 +248,7 @@ describe('agentStore', () => {
 				terminalOutput: [],
 				tasks: [],
 				toolCalls: [],
-				executionSteps: [],
-				statusPhrases: []
+				executionSteps: []
 			});
 			await agentStore.loadSession('session-1');
 

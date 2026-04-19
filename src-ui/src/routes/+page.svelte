@@ -140,7 +140,10 @@
 	 * standard send pipeline.
 	 */
 	async function handleReplyToClarification(sessionId: string, content: string) {
-		await agentStore.sendRequest(sessionId, content);
+		// agent-clarification-resume plan: the dedicated IPC persists
+		// the reply to the transcript and wakes the parked coordinator
+		// without the overhead of re-spawning a new execution.
+		await agentStore.replyToClarification(sessionId, content);
 	}
 
 	async function handleSetConversationWorkspace(path: string) {

@@ -33,7 +33,7 @@ pub use rollback::{get_session_file_snapshots, rollback_file, rollback_session};
 pub use sessions::{
     cancel_agent_session, continue_agent_execution, create_agent_session, delete_agent_session,
     get_agent_session, get_agent_sessions_for_conversation, initialize_agent_recovery,
-    replan_agent_execution, retry_last_agent_request, send_agent_request,
+    replan_agent_execution, reply_to_clarification, retry_last_agent_request, send_agent_request,
     update_agent_session_model, update_agent_session_workspace,
 };
 // Re-exports from state module

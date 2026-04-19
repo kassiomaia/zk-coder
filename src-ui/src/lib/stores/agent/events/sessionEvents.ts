@@ -6,6 +6,7 @@
 import type { AgentEvent } from '$lib/types/agent';
 import type { AgentState } from '../state';
 import { getOnAgentActivity, getOnCleanupTransients, getOnExecutionComplete } from '../callbacks';
+import { clearStatusPhrases } from '../statusStore';
 
 /**
  * Handle session_state_changed event.
@@ -38,10 +39,12 @@ export function handleExecutionStarted(
 			executionSteps: [],
 			toolCalls: [],
 			terminalOutput: [],
-			statusPhrases: [],
 			streamingMessages: undefined,
 			artifacts: undefined // Clear any artifacts from previous execution
 		});
+		// Reset the side-channel status store so the indicator does
+		// not carry stale phrases from the previous execution.
+		clearStatusPhrases(event.sessionId);
 
 		// Create thinking message in chat with consistent ID for updates
 		const onAgentActivity = getOnAgentActivity();
@@ -52,7 +55,7 @@ export function handleExecutionStarted(
 				threadId: session.threadId,
 				role: 'assistant',
 				kind: 'thinking',
-				content: 'Thinking...',
+				content: '',
 				timestamp: new Date(),
 				agentData: {
 					sessionId: event.sessionId
@@ -225,6 +228,93 @@ export function handleApprovalDenied(
 			}
 		});
 	}
+}
+
+/**
+ * Handle clarification_replied event (agent-clarification-resume plan, Phase 7).
+ *
+ * Appends the reply to the chat transcript as a user message and
+ * clears any transient "awaiting" affordance from the session state.
+ */
+export function handleClarificationReplied(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'clarification_replied' }>
+) {
+	const session = state.sessions.get(event.sessionId);
+	if (!session) return;
+
+	const onAgentActivity = getOnAgentActivity();
+	if (onAgentActivity) {
+		onAgentActivity(session.conversationId, session.threadId, {
+			id: `clarification-reply-${event.sessionId}-${Date.now()}`,
+			conversationId: session.conversationId,
+			threadId: session.threadId,
+			role: 'user',
+			content: event.content,
+			timestamp: new Date(),
+			agentData: {
+				sessionId: event.sessionId,
+				clarificationReply: true,
+				subtaskId: event.subtaskId
+			}
+		});
+	}
+}
+
+/**
+ * Handle clarification_timed_out event (agent-clarification-resume plan, Phase 7).
+ *
+ * Appends a system message explaining the timeout and surfaces a
+ * retry affordance via the existing error/paused UX.
+ */
+export function handleClarificationTimedOut(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'clarification_timed_out' }>
+) {
+	const session = state.sessions.get(event.sessionId);
+	if (!session) return;
+
+	const onAgentActivity = getOnAgentActivity();
+	if (onAgentActivity) {
+		onAgentActivity(session.conversationId, session.threadId, {
+			id: `clarification-timeout-${event.sessionId}-${Date.now()}`,
+			conversationId: session.conversationId,
+			threadId: session.threadId,
+			role: 'system',
+			content: `The agent didn't hear back in time — ${event.prompt}`,
+			timestamp: new Date(),
+			agentData: {
+				sessionId: event.sessionId,
+				clarificationTimedOut: true,
+				subtaskId: event.subtaskId
+			}
+		});
+	}
+}
+
+/**
+ * Handle clarification_restored event (agent-clarification-resume plan, Phase 7).
+ *
+ * Fires on app startup when a paused session is rehydrated from
+ * persistent storage. Updates the local session state to reflect the
+ * pause so the composer + panel render the question inline.
+ */
+export function handleClarificationRestored(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'clarification_restored' }>
+) {
+	const session = state.sessions.get(event.sessionId);
+	if (!session) return;
+
+	state.sessions.set(event.sessionId, {
+		...session,
+		state: {
+			type: 'awaiting_clarification',
+			prompt: event.prompt,
+			askedAt: event.askedAt,
+			subtaskId: event.subtaskId
+		}
+	});
 }
 
 /**

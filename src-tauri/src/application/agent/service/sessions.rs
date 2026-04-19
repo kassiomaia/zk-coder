@@ -95,6 +95,14 @@ impl AgentServiceImpl {
             .update_model_id(&SessionId(session_id.to_string()), model_id)
     }
 
+    /// Validates a `send_agent_request` call.
+    ///
+    /// The production IPC flow calls
+    /// [`AgentServiceImpl::spawn_execution`] directly, which handles
+    /// clarification auto-routing (agent-clarification-resume plan,
+    /// Phase 5). This impl method is the `AgentService` trait's
+    /// `send_request` pass-through and exists for test doubles that
+    /// exercise the validation gate without spawning a runtime.
     pub(super) fn send_request_impl(
         &self,
         request: SendAgentRequestRequest,
@@ -115,6 +123,12 @@ impl AgentServiceImpl {
                     reason: "This session is already processing a request".to_string(),
                 });
             }
+            SessionState::AwaitingClarification { .. } => {
+                return Err(AgentDomainError::InvalidInput {
+                    reason: "Session is awaiting a clarification reply; use reply_to_clarification"
+                        .to_string(),
+                });
+            }
             SessionState::Cancelled { .. } => {
                 return Err(AgentDomainError::InvalidInput {
                     reason: "This session was cancelled and cannot accept new requests".to_string(),
@@ -126,22 +140,6 @@ impl AgentServiceImpl {
             | SessionState::Error { .. }
             | SessionState::Paused { .. } => {}
         }
-
-        // Workstream E.4 — a user-sent message clears any pending
-        // clarification so the step gate resumes the next execution
-        // loop. The reply itself is appended to the chat history via
-        // the normal message-input pipeline; we only drop the registry
-        // entry here and reset the harness-state overrides so the
-        // next derive returns `Worker` again (the awaiting details
-        // are auto-dropped by `derive_harness_state` when the mode is
-        // not `AwaitingClarification`).
-        crate::application::agent::clarification::clear_pending_clarification(
-            &request.session_id,
-        );
-        self.harness_state_store
-            .clear_awaiting_clarification(&request.session_id);
-        self.harness_state_store
-            .record_mode(&request.session_id, crate::application::agent::read_models::HarnessMode::Worker);
 
         info!(
             "[AgentService] Request validated for session {}",

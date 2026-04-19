@@ -25,6 +25,22 @@ impl AgentServiceImpl {
         content: String,
         app_handle: AppHandle,
     ) -> RepositoryResult<String> {
+        // Auto-route when the main chat composer submits a reply to a
+        // pending clarification (agent-clarification-resume plan,
+        // Phase 5). The user typed into the chat input but the session
+        // is waiting on a question — treat that as a clarification reply
+        // rather than a new request.
+        let pending_lookup =
+            crate::application::agent::clarification::pending_clarification_record(&session_id)
+                .map_err(|e| AgentDomainError::InvalidInput {
+                    reason: format!("Clarification lookup failed: {e}"),
+                })?;
+        if pending_lookup.is_some() {
+            self.reply_to_clarification(&session_id, &content, app_handle.clone())
+                .await?;
+            return Ok(session_id);
+        }
+
         let session = self
             .session_repo
             .get_session(&SessionId(session_id.clone()))?;
@@ -39,6 +55,14 @@ impl AgentServiceImpl {
             SessionState::Running { .. } | SessionState::UserInputRequired { .. } => {
                 return Err(AgentDomainError::InvalidInput {
                     reason: "This session is already processing a request".to_string(),
+                });
+            }
+            SessionState::AwaitingClarification { .. } => {
+                // Shouldn't reach here: the pending_lookup above auto-
+                // routed to `reply_to_clarification`. Fall through to
+                // the reject path with a clearer error for diagnostics.
+                return Err(AgentDomainError::InvalidInput {
+                    reason: "Session is awaiting a clarification reply".to_string(),
                 });
             }
             SessionState::Cancelled { .. } => {
@@ -329,6 +353,7 @@ mod tests {
         let runtime = Arc::new(AgentRuntime::new(
             session_store.clone(),
             chat_service,
+            session_store.clone(),
             session_store.clone(),
             session_store.clone(),
             session_store.clone(),

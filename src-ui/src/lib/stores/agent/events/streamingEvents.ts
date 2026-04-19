@@ -7,6 +7,7 @@ import type { AgentEvent } from '$lib/types/agent';
 import type { AgentState } from '../state';
 import { clearStreamingUpdates, scheduleStreamingUpdate } from '../streaming';
 import { getOnAgentActivity, getOnPersistAssistantMessage, getOnSystemMessage } from '../callbacks';
+import { appendStatusPhrase } from '../statusStore';
 import { buildContextNoticeContent } from '$lib/utils/systemNotices';
 import { createLogger } from '$lib/utils/logger';
 
@@ -107,40 +108,41 @@ export function handleStreamingContent(
 }
 
 /**
- * Handle status_phrase event.
+ * Handle a `status_phrase` event without mutating the agent state.
+ *
+ * The phrase is appended to the side-channel `agentStatusPhrases`
+ * store; consumers (e.g. `getThreadAgentState`) read from there
+ * independently. The sessions Map is left untouched so the ~25
+ * StatusPhrase events per step no longer trigger cascading
+ * re-renders across every agent-store subscriber.
+ *
+ * `state` is accepted read-only so the chat-side `onAgentActivity`
+ * callback can be routed to the correct conversation/thread.
  */
 export function handleStatusPhrase(
 	state: AgentState,
 	event: Extract<AgentEvent, { type: 'status_phrase' }>
 ) {
-	const session = state.sessions.get(event.sessionId);
-	if (session) {
-		// Accumulate status phrases for rotation (keep last 10)
-		const existingPhrases = session.statusPhrases ?? [];
-		// Keep only the last 10 phrases
-		const newPhrases = [...existingPhrases, event.message].slice(-10);
-		state.sessions.set(event.sessionId, {
-			...session,
-			statusPhrases: newPhrases
-		});
+	appendStatusPhrase(event.sessionId, event.message);
 
-		// Update thinking message in chat with latest status
-		const onAgentActivity = getOnAgentActivity();
-		if (onAgentActivity) {
-			onAgentActivity(session.conversationId, session.threadId, {
-				id: `thinking-${event.sessionId}`,
-				conversationId: session.conversationId,
-				threadId: session.threadId,
-				role: 'assistant',
-				kind: 'thinking',
-				content: event.message,
-				reasoning: event.message, // Map to reasoning for better visibility
-				timestamp: new Date(),
-				agentData: {
-					sessionId: event.sessionId
-				}
-			});
-		}
+	const session = state.sessions.get(event.sessionId);
+	if (!session) return;
+
+	const onAgentActivity = getOnAgentActivity();
+	if (onAgentActivity) {
+		onAgentActivity(session.conversationId, session.threadId, {
+			id: `thinking-${event.sessionId}`,
+			conversationId: session.conversationId,
+			threadId: session.threadId,
+			role: 'assistant',
+			kind: 'thinking',
+			content: event.message,
+			reasoning: event.message, // Map to reasoning for better visibility
+			timestamp: new Date(),
+			agentData: {
+				sessionId: event.sessionId
+			}
+		});
 	}
 }
 

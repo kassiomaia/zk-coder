@@ -193,6 +193,24 @@ pub fn init_schema(conn: &Connection) -> Result<(), SessionRepositoryError> {
             updated_at TEXT NOT NULL,
             FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS agent_pending_clarifications (
+            session_id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            subtask_id TEXT,
+            prompt TEXT NOT NULL,
+            asked_at TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS agent_execution_checkpoints (
+            session_id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            schema_version INTEGER NOT NULL,
+            payload TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+        );
         ",
     )?;
 
@@ -247,6 +265,40 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SessionRepositoryError> {
         [],
     ); // Ignore error if column exists
 
+    // Migration 9: Create agent_pending_clarifications table for the
+    // agent-clarification-resume plan. The `CREATE TABLE IF NOT EXISTS`
+    // in `init_schema` covers fresh installs; this handles upgrades
+    // from pre-9 databases where init_schema was run against an older
+    // schema batch.
+    let _ = conn.execute(
+        "CREATE TABLE IF NOT EXISTS agent_pending_clarifications (
+            session_id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            subtask_id TEXT,
+            prompt TEXT NOT NULL,
+            asked_at TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+        )",
+        [],
+    );
+
+    // Migration 10: Create agent_execution_checkpoints table for the
+    // coordinator-resume path. The payload is the JSON-encoded
+    // `ExecutionCheckpoint`; `schema_version` is replicated at the
+    // column level so cheap "is this version loadable" queries do not
+    // parse the blob.
+    let _ = conn.execute(
+        "CREATE TABLE IF NOT EXISTS agent_execution_checkpoints (
+            session_id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            schema_version INTEGER NOT NULL,
+            payload TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+        )",
+        [],
+    );
+
     Ok(())
 }
 
@@ -279,6 +331,8 @@ mod tests {
         assert!(tables.contains(&"agent_execution_snapshots".to_string()));
         assert!(tables.contains(&"agent_runtime_traces".to_string()));
         assert!(tables.contains(&"agent_recovery_events".to_string()));
+        assert!(tables.contains(&"agent_pending_clarifications".to_string()));
+        assert!(tables.contains(&"agent_execution_checkpoints".to_string()));
     }
 
     #[test]

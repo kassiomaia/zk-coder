@@ -209,6 +209,19 @@ pub enum SessionState {
         #[serde(rename = "currentSubtaskId", skip_serializing_if = "Option::is_none")]
         current_subtask_id: Option<String>,
     },
+    /// The runtime parked mid-step because the agent emitted a
+    /// clarification question via `agent_narrate { intent: "question" }`.
+    /// The next reply resumes execution on the same task and subtask.
+    AwaitingClarification {
+        /// The exact prompt the agent emitted.
+        prompt: String,
+        /// UTC timestamp the question was asked at.
+        #[serde(rename = "askedAt")]
+        asked_at: DateTime<Utc>,
+        /// The subtask that was in progress when the question was asked.
+        #[serde(rename = "subtaskId", skip_serializing_if = "Option::is_none")]
+        subtask_id: Option<String>,
+    },
 }
 
 impl SessionState {
@@ -224,6 +237,7 @@ impl SessionState {
             Self::Cancelled { .. } => "Cancelled",
             Self::Error { .. } => "Error",
             Self::Paused { .. } => "Paused",
+            Self::AwaitingClarification { .. } => "AwaitingClarification",
         }
     }
 
@@ -249,6 +263,7 @@ impl SessionState {
                     | Self::Error { .. }
                     | Self::Cancelled { .. }
                     | Self::Paused { .. }
+                    | Self::AwaitingClarification { .. }
             ),
             // WaitForRequest can resume or terminate
             Self::WaitForRequest { .. } => matches!(
@@ -268,6 +283,16 @@ impl SessionState {
             Self::Paused { .. } => matches!(
                 target,
                 Self::Running { .. } | Self::Error { .. } | Self::Cancelled { .. }
+            ),
+            // AwaitingClarification resumes on reply, falls back to
+            // Paused on timeout, terminates on cancel, or degrades to a
+            // recoverable Error when the persisted pause state is corrupt.
+            Self::AwaitingClarification { .. } => matches!(
+                target,
+                Self::Running { .. }
+                    | Self::Paused { .. }
+                    | Self::Error { .. }
+                    | Self::Cancelled { .. }
             ),
             // Recoverable errors can retry or be cancelled
             Self::Error { recoverable, .. } => {
@@ -322,6 +347,13 @@ enum SessionStateCanonical {
         #[serde(rename = "currentSubtaskId", default)]
         current_subtask_id: Option<String>,
     },
+    AwaitingClarification {
+        prompt: String,
+        #[serde(rename = "askedAt")]
+        asked_at: DateTime<Utc>,
+        #[serde(rename = "subtaskId", default)]
+        subtask_id: Option<String>,
+    },
 }
 
 impl From<SessionStateCanonical> for SessionState {
@@ -358,6 +390,15 @@ impl From<SessionStateCanonical> for SessionState {
                 paused_at,
                 message,
                 current_subtask_id,
+            },
+            SessionStateCanonical::AwaitingClarification {
+                prompt,
+                asked_at,
+                subtask_id,
+            } => Self::AwaitingClarification {
+                prompt,
+                asked_at,
+                subtask_id,
             },
         }
     }
@@ -594,6 +635,14 @@ mod tests {
         }
     }
 
+    fn awaiting_clarification() -> SessionState {
+        SessionState::AwaitingClarification {
+            prompt: "Which workspace should I target?".to_string(),
+            asked_at: Utc::now(),
+            subtask_id: Some("subtask-1".to_string()),
+        }
+    }
+
     // ---- Valid transitions ----
 
     #[test]
@@ -656,6 +705,36 @@ mod tests {
         assert!(session.set_state(running()).is_ok());
     }
 
+    #[test]
+    fn running_to_awaiting_clarification_is_valid() {
+        let mut session = make_session(running());
+        assert!(session.set_state(awaiting_clarification()).is_ok());
+    }
+
+    #[test]
+    fn awaiting_clarification_to_running_is_valid() {
+        let mut session = make_session(awaiting_clarification());
+        assert!(session.set_state(running()).is_ok());
+    }
+
+    #[test]
+    fn awaiting_clarification_to_paused_is_valid() {
+        let mut session = make_session(awaiting_clarification());
+        assert!(session.set_state(paused()).is_ok());
+    }
+
+    #[test]
+    fn awaiting_clarification_to_cancelled_is_valid() {
+        let mut session = make_session(awaiting_clarification());
+        assert!(session.set_state(cancelled()).is_ok());
+    }
+
+    #[test]
+    fn awaiting_clarification_to_finished_is_invalid() {
+        let mut session = make_session(awaiting_clarification());
+        assert!(session.set_state(finished()).is_err());
+    }
+
     // ---- Invalid transitions ----
 
     #[test]
@@ -697,6 +776,55 @@ mod tests {
         assert_eq!(finished().variant_name(), "Finished");
         assert_eq!(cancelled().variant_name(), "Cancelled");
         assert_eq!(paused().variant_name(), "Paused");
+        assert_eq!(
+            awaiting_clarification().variant_name(),
+            "AwaitingClarification"
+        );
+    }
+
+    #[test]
+    fn awaiting_clarification_serde_roundtrip() {
+        let asked_at = chrono::DateTime::parse_from_rfc3339("2026-04-19T10:15:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let original = SessionState::AwaitingClarification {
+            prompt: "Which tone should the summary take?".to_string(),
+            asked_at,
+            subtask_id: Some("subtask-77".to_string()),
+        };
+        let json = serde_json::to_value(&original).expect("serialize");
+        // Wire shape: tag = type, camelCase field names.
+        assert_eq!(json["type"], "awaiting_clarification");
+        assert_eq!(json["prompt"], "Which tone should the summary take?");
+        assert_eq!(json["subtaskId"], "subtask-77");
+        assert!(json["askedAt"].is_string(), "askedAt should serialize to a string");
+        let roundtripped: SessionState = serde_json::from_value(json).expect("deserialize");
+        match roundtripped {
+            SessionState::AwaitingClarification {
+                prompt,
+                asked_at: asked_at_rt,
+                subtask_id,
+            } => {
+                assert_eq!(prompt, "Which tone should the summary take?");
+                assert_eq!(asked_at_rt, asked_at);
+                assert_eq!(subtask_id.as_deref(), Some("subtask-77"));
+            }
+            other => panic!("expected AwaitingClarification, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn awaiting_clarification_serde_omits_subtask_when_absent() {
+        let original = SessionState::AwaitingClarification {
+            prompt: "question".to_string(),
+            asked_at: Utc::now(),
+            subtask_id: None,
+        };
+        let json = serde_json::to_value(&original).expect("serialize");
+        assert!(
+            json.get("subtaskId").is_none(),
+            "subtaskId should be omitted when None"
+        );
     }
 
     // ---- Legacy serde compatibility ----

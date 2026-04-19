@@ -16,8 +16,16 @@ use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::permissions::core_task_to_event_subtask;
 use crate::infrastructure::agent::runtime::AgentRuntimeError;
 
-const STREAMING_CHUNK_BYTES: usize = 96;
-const STREAMING_CHUNK_DELAY_MS: u64 = 24;
+/// Minimum byte count before `chunk_response` splits at the next
+/// whitespace boundary.
+///
+/// Picked together with the lack of an inter-chunk delay: the frontend
+/// has its own 16 ms streaming throttle (`STREAM_THROTTLE_MS` in
+/// `src-ui/src/lib/stores/agent/streaming/streamingThrottle.ts`) which
+/// paces visible updates. Emitting fewer, larger events here cuts the
+/// per-step Tauri/IPC + Svelte-reactivity cost roughly in proportion to
+/// the chunk size increase without hurting the typing feel.
+const STREAMING_CHUNK_BYTES: usize = 384;
 
 /// Updates the state of an agent session and emits a `SessionStateChanged` event.
 pub fn update_session_state(
@@ -361,19 +369,18 @@ pub(super) async fn emit_streaming_message(
     emit_prebuilt_streaming_events(deps, events).await;
 }
 
-/// Emits an already-built list of `StreamingContent` events on the app handle,
-/// respecting the inter-chunk pacing delay. Separated from
-/// [`build_streaming_content_events`] so the payload construction remains a
-/// pure, unit-testable function.
+/// Emits an already-built list of `StreamingContent` events on the app handle.
+///
+/// Separated from [`build_streaming_content_events`] so the payload
+/// construction remains a pure, unit-testable function. Emits events
+/// back-to-back: the frontend streaming throttle
+/// (`STREAM_THROTTLE_MS = 16`) already paces visible updates, and an
+/// additional backend delay per chunk was measurably slowing every
+/// agent response (~24 ms × chunk count) without improving the typing
+/// animation beyond what the frontend throttle already provides.
 async fn emit_prebuilt_streaming_events(deps: &ExecutionDeps<'_>, events: Vec<AgentEvent>) {
-    let last_index = events.len().saturating_sub(1);
-
-    for (index, event) in events.into_iter().enumerate() {
+    for event in events {
         let _ = deps.app_handle.emit(AGENT_EVENT_NAME, event);
-
-        if index != last_index {
-            tokio::time::sleep(std::time::Duration::from_millis(STREAMING_CHUNK_DELAY_MS)).await;
-        }
     }
 }
 
@@ -786,6 +793,42 @@ mod tests {
             .take(events.len().saturating_sub(1))
             .all(|(_, is_final)| !is_final));
         assert_eq!(events.last().map(|(_, is_final)| *is_final), Some(true));
+    }
+
+    /// Concatenating every chunk's text must equal the input — the
+    /// frontend relies on this to reconcile streamed content back to
+    /// the final assistant message. Guards against chunker regressions
+    /// (e.g. a future change that drops whitespace at boundaries).
+    #[test]
+    fn test_chunk_response_round_trips_content_of_various_sizes() {
+        for content in [
+            "",
+            "short",
+            "exactly one line with whitespace inside it and nothing fancy",
+            &"x ".repeat(400),
+            &"lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. ".repeat(20),
+        ] {
+            let events = build_streaming_events(content, true);
+            let joined: String = events.iter().map(|(c, _)| c.as_str()).collect();
+            assert_eq!(joined, content, "round-trip failed for content of len {}", content.len());
+        }
+    }
+
+    /// Perf guard for Workstream B.1: a >=2 KB response must emit
+    /// significantly fewer events than the old 96-byte chunking did.
+    /// If this ever regresses, the per-step streaming cost spikes back
+    /// to where it was before the chunk-size bump.
+    #[test]
+    fn test_chunk_response_emits_fewer_events_than_legacy_chunking() {
+        let content = "a ".repeat(1024); // 2 KiB
+        let events = build_streaming_events(&content, true);
+        // Legacy (96-byte) chunking would have produced ~21 events.
+        // With the new 384-byte cap we expect 6 or fewer.
+        assert!(
+            events.len() <= 8,
+            "expected <= 8 events for a 2 KiB input, got {}",
+            events.len()
+        );
     }
 
     #[test]

@@ -3,7 +3,8 @@ use std::sync::Arc;
 use crate::application::agent::AgentServiceImpl;
 use crate::core::agent::memory::MemoryRepository;
 use crate::core::agent::repositories::{
-    ExecutionRepository, RuntimeTraceRepository, SessionRepository, TaskRepository,
+    ClarificationRepository, ExecutionCheckpointRepository, ExecutionRepository,
+    RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
 use crate::core::chat::services::ChatService;
 use crate::infrastructure::agent::approval::ApprovalQueue;
@@ -33,7 +34,13 @@ impl AgentState {
         let telemetry_repository: Arc<dyn AgentTelemetryRepository> = sqlite_repository.clone();
         let execution_repository: Arc<dyn ExecutionRepository> = sqlite_repository.clone();
         let trace_repository: Arc<dyn RuntimeTraceRepository> = sqlite_repository.clone();
+        let clarification_repository: Arc<dyn ClarificationRepository> = sqlite_repository.clone();
+        let execution_checkpoint_repository: Arc<dyn ExecutionCheckpointRepository> =
+            sqlite_repository.clone();
         let memory_repository: Arc<dyn MemoryRepository> = sqlite_repository;
+        crate::application::agent::clarification::init_clarification_store(
+            clarification_repository,
+        );
         let approval_queue = Arc::new(ApprovalQueue::new());
         let tool_registry = Arc::new(
             crate::infrastructure::tools::ToolRegistry::new()
@@ -45,6 +52,7 @@ impl AgentState {
             task_repository.clone(),
             telemetry_repository.clone(),
             execution_repository.clone(),
+            execution_checkpoint_repository,
             trace_repository.clone(),
             memory_repository,
             approval_queue.clone(),

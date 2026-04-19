@@ -11,6 +11,33 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
+/// Output token budget for single-shot planning calls.
+///
+/// The planner emits a JSON object whose size is dominated by the
+/// subtask list. 4000 tokens comfortably fits ~15 subtasks with
+/// descriptions; previous 2000-token cap truncated mid-JSON on plans
+/// of 5+ subtasks with descriptions and produced the cryptic
+/// "Could not locate a JSON object in planner response" error.
+const PLANNER_MAX_OUTPUT_TOKENS: u32 = 4000;
+
+/// Returns `true` when the provider's `finish_reason` indicates the
+/// response was truncated because it hit the output token cap.
+///
+/// Values observed across providers (case-insensitive): OpenAI uses
+/// `"length"`, Anthropic uses `"max_tokens"`, Google/Gemini uses
+/// `"MAX_TOKENS"`. Any other value (including `None` and `"stop"`)
+/// means the model finished cleanly and the downstream JSON parser
+/// should run as normal.
+fn finish_reason_indicates_truncation(reason: Option<&str>) -> bool {
+    match reason {
+        Some(value) => {
+            let normalized = value.trim().to_ascii_lowercase();
+            matches!(normalized.as_str(), "length" | "max_tokens")
+        }
+        None => false,
+    }
+}
+
 /// Result of a single-shot planning operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskPlan {
@@ -274,7 +301,7 @@ pub async fn plan_new_task(
             },
         ],
     )
-    .with_max_tokens(2000)
+    .with_max_tokens(PLANNER_MAX_OUTPUT_TOKENS)
     .with_temperature(0.3);
 
     // Execute LLM call
@@ -285,6 +312,18 @@ pub async fn plan_new_task(
 
     // Log raw response for debugging
     info!("[Planner] Raw LLM response: {}", &response.content);
+
+    // Detect truncation before JSON extraction so the user sees a
+    // targeted error instead of the cryptic "Could not locate a JSON
+    // object" that falls out of parsing a half-written object.
+    if finish_reason_indicates_truncation(response.finish_reason.as_deref()) {
+        return Err(format!(
+            "Planner output hit the {PLANNER_MAX_OUTPUT_TOKENS}-token cap before finishing the \
+             JSON plan. Ask for a narrower task or raise the planner token budget. \
+             Partial response: '{}'",
+            response.content
+        ));
+    }
 
     let content = normalize_planning_json(&response.content)?;
 
@@ -667,6 +706,27 @@ Some prose after"#;
 
         assert_eq!(parsed["title"], "Greeting Response");
         assert_eq!(parsed["is_non_trivial"], false);
+    }
+
+    #[test]
+    fn finish_reason_truncation_detector_covers_every_provider_spelling() {
+        // OpenAI spelling.
+        assert!(finish_reason_indicates_truncation(Some("length")));
+        // Anthropic spelling.
+        assert!(finish_reason_indicates_truncation(Some("max_tokens")));
+        // Google / Gemini spelling (upper-case) — normalized lower.
+        assert!(finish_reason_indicates_truncation(Some("MAX_TOKENS")));
+        // Surrounding whitespace from stray provider quirks.
+        assert!(finish_reason_indicates_truncation(Some("  length  ")));
+    }
+
+    #[test]
+    fn finish_reason_truncation_detector_rejects_clean_finishes() {
+        assert!(!finish_reason_indicates_truncation(None));
+        assert!(!finish_reason_indicates_truncation(Some("stop")));
+        assert!(!finish_reason_indicates_truncation(Some("tool_calls")));
+        assert!(!finish_reason_indicates_truncation(Some("end_turn")));
+        assert!(!finish_reason_indicates_truncation(Some("")));
     }
 
     #[test]

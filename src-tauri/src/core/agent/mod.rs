@@ -2,6 +2,7 @@
 //!
 //! Contains agent entities, repository interfaces, and service interfaces.
 
+pub mod clarification;
 pub mod errors;
 pub mod execution;
 pub mod memory;
@@ -24,12 +25,14 @@ pub use task::{
 };
 pub use types::{ActionPreview, ActionType, Agent, AgentId, PermissionLevel, TrustMode};
 pub use execution::{
-    ExecutionPhase, ExecutionSnapshot, ExecutionTransition, LlmTracePayload, RuntimeTrace,
-    RuntimeTraceType,
+    ExecutionCheckpoint, ExecutionPhase, ExecutionSnapshot, ExecutionTransition, LlmTracePayload,
+    RuntimeTrace, RuntimeTraceType,
 };
+pub use clarification::PendingClarificationRecord;
 pub use memory::{MemoryRepository, SessionMemory};
 pub use repositories::{
-    AgentRepository, ApprovalRepository, ExecutionRepository, RepositoryResult,
-    RuntimeTraceRepository, SessionRepository, TaskRepository,
+    AgentRepository, ApprovalRepository, ClarificationRepository, ExecutionCheckpointRepository,
+    ExecutionRepository, RepositoryResult, RuntimeTraceRepository, SessionRepository,
+    TaskRepository,
 };
 pub use services::AgentService;

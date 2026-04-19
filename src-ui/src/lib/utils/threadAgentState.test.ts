@@ -40,7 +40,6 @@ describe('getThreadAgentState', () => {
 				timestamp: '2024-01-01T12:01:00Z'
 			}
 		],
-		statusPhrases: ['Reading files...'],
 		createdAt: '2024-01-01T12:00:00Z',
 		updatedAt: '2024-01-01T12:01:00Z'
 	};

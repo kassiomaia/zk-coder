@@ -453,6 +453,7 @@ pub enum ArtifactKind {
 #[serde(rename_all = "camelCase")]
 pub struct ArtifactSpec {
     /// Glob-style pattern that a produced artifact's path must match.
+    #[serde(alias = "path_pattern")]
     pub path_pattern: String,
     /// The kind of artifact this spec describes.
     pub kind: ArtifactKind,
@@ -480,6 +481,7 @@ pub struct SubTaskContract {
     /// evaluate; an empty list is permitted in the DB round-trip but
     /// is treated as "no expectations" by the runtime (same as
     /// absence).
+    #[serde(alias = "expected_artifacts")]
     pub expected_artifacts: Vec<ArtifactSpec>,
 }
 
@@ -851,6 +853,63 @@ mod tests {
     // ------------------------------------------------------------------------
     // SubTaskContract serialization (Workstream B.1)
     // ------------------------------------------------------------------------
+
+    #[test]
+    fn subtask_contract_deserializes_from_snake_case_schema_shape() {
+        // The tool JSON schema exposed to the LLM uses snake_case
+        // (`expected_artifacts` / `path_pattern`); serde's default
+        // camelCase rename on the struct would otherwise reject the
+        // exact shape the schema instructs the model to produce.
+        // The `#[serde(alias = ...)]` attributes on these fields are
+        // what bridges the two spellings, so keep this test as the
+        // canonical proof that the bridge works.
+        let payload = serde_json::json!({
+            "expected_artifacts": [
+                { "path_pattern": "docs/*.md", "kind": "file" }
+            ]
+        });
+
+        let parsed: SubTaskContract =
+            serde_json::from_value(payload).expect("snake_case payload must deserialize");
+
+        assert_eq!(parsed.expected_artifacts.len(), 1);
+        assert_eq!(parsed.expected_artifacts[0].path_pattern, "docs/*.md");
+        assert_eq!(parsed.expected_artifacts[0].kind, ArtifactKind::File);
+    }
+
+    #[test]
+    fn subtask_contract_still_deserializes_from_camel_case_shape() {
+        // Round-trip from serialized form (which remains camelCase for
+        // DB + frontend consistency) must keep working.
+        let payload = serde_json::json!({
+            "expectedArtifacts": [
+                { "pathPattern": "docs/*.md", "kind": "file" }
+            ]
+        });
+
+        let parsed: SubTaskContract =
+            serde_json::from_value(payload).expect("camelCase payload must deserialize");
+
+        assert_eq!(parsed.expected_artifacts[0].path_pattern, "docs/*.md");
+    }
+
+    #[test]
+    fn subtask_contract_serializes_as_camel_case() {
+        // The on-wire/on-disk format stays camelCase — the frontend
+        // type (`SubTaskContract.expectedArtifacts` in TS) depends on
+        // it.
+        let contract = SubTaskContract {
+            expected_artifacts: vec![ArtifactSpec {
+                path_pattern: "docs/*.md".to_string(),
+                kind: ArtifactKind::File,
+            }],
+        };
+
+        let json = serde_json::to_value(&contract).expect("serialize");
+        assert!(json.get("expectedArtifacts").is_some());
+        assert!(json.get("expected_artifacts").is_none());
+        assert!(json["expectedArtifacts"][0].get("pathPattern").is_some());
+    }
 
     #[test]
     fn subtask_contract_serde_round_trip_preserves_kinds() {

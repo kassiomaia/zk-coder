@@ -1,7 +1,25 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import FileTree from './FileTree.svelte';
+import FileTreeTestHarness, {
+	resetHarness,
+	setHarnessTouched
+} from './FileTree.testHarness.svelte';
 import type { TouchedFile, WorkspaceEntry } from '$lib/types/agent';
+
+const hoistedListDir = vi.hoisted(() => vi.fn());
+
+vi.mock('$lib/api/workspace', () => ({
+	listWorkspaceDir: hoistedListDir
+}));
+
+function entry(path: string, kind: 'file' | 'directory' = 'file'): WorkspaceEntry {
+	return { path, kind };
+}
+
+function filesOnly(paths: string[]): WorkspaceEntry[] {
+	return paths.map((p) => entry(p));
+}
 
 function touched(overrides: Partial<TouchedFile>): TouchedFile {
 	return {
@@ -12,273 +30,402 @@ function touched(overrides: Partial<TouchedFile>): TouchedFile {
 	};
 }
 
-function entry(path: string, kind: 'file' | 'directory' = 'file'): WorkspaceEntry {
-	return { path, kind };
+function baseProps(overrides: Partial<Parameters<typeof FileTree>[1]> = {}) {
+	return {
+		workspaceRoot: '/tmp/ws',
+		rootEntries: [] as WorkspaceEntry[],
+		rootTruncated: false,
+		touched: [] as TouchedFile[],
+		...overrides
+	};
 }
 
-function filesOnly(paths: string[]): WorkspaceEntry[] {
-	return paths.map((p) => entry(p));
-}
-
-describe('FileTree — baseline + extended behavior', () => {
+describe('FileTree — lazy-load behavior', () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		hoistedListDir.mockReset();
 	});
 
-	it('renders empty state when workspace is empty and nothing touched', () => {
-		render(FileTree, { allFiles: [], touched: [] });
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('renders empty state when the root has no entries', () => {
+		render(FileTree, baseProps());
 
 		expect(screen.getByText('No files to display')).toBeInTheDocument();
 	});
 
-	it('renders a flat file entry with its basename', () => {
-		render(FileTree, {
-			allFiles: filesOnly(['README.md']),
-			touched: []
-		});
+	it('renders flat file entries from the root listing', () => {
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: filesOnly(['README.md', 'a.ts'])
+			})
+		);
 
 		expect(screen.getByText('README.md')).toBeInTheDocument();
+		expect(screen.getByText('a.ts')).toBeInTheDocument();
 	});
 
-	it('renders workspace files WITHOUT a badge when not touched', () => {
-		render(FileTree, {
-			allFiles: filesOnly(['untouched.ts']),
-			touched: []
-		});
+	it('renders the directory basename, not its full path', () => {
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: [entry('src', 'directory')]
+			})
+		);
 
-		expect(screen.getByText('untouched.ts')).toBeInTheDocument();
-		expect(screen.queryByText('M')).not.toBeInTheDocument();
-		expect(screen.queryByText('A')).not.toBeInTheDocument();
-		expect(screen.queryByText('D')).not.toBeInTheDocument();
+		expect(screen.getByText('src')).toBeInTheDocument();
 	});
 
-	it('shows "M" badge when a workspace file is also in touched with write+modified', () => {
-		render(FileTree, {
-			allFiles: filesOnly(['a.ts']),
-			touched: [touched({ path: 'a.ts', action: 'write', modified: true })]
+	it('does not render descendants of a collapsed directory', () => {
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: [entry('src', 'directory')]
+			})
+		);
+
+		expect(screen.queryByText('main.ts')).not.toBeInTheDocument();
+	});
+
+	it('fetches and reveals children when a directory is expanded', async () => {
+		hoistedListDir.mockResolvedValue({
+			entries: [entry('src/main.ts')],
+			truncated: false
 		});
+
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: [entry('src', 'directory')]
+			})
+		);
+
+		const srcBtn = screen.getByText('src').closest('button') as HTMLElement;
+		expect(srcBtn).toHaveAttribute('aria-expanded', 'false');
+
+		await fireEvent.click(srcBtn);
+
+		expect(hoistedListDir).toHaveBeenCalledWith('/tmp/ws', 'src');
+		expect(srcBtn).toHaveAttribute('aria-expanded', 'true');
+		await waitFor(() => expect(screen.getByText('main.ts')).toBeInTheDocument());
+	});
+
+	it('does not re-fetch on a second expand of the same directory (cache hit)', async () => {
+		hoistedListDir.mockResolvedValue({
+			entries: [entry('src/main.ts')],
+			truncated: false
+		});
+
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: [entry('src', 'directory')]
+			})
+		);
+
+		const srcBtn = screen.getByText('src').closest('button') as HTMLElement;
+		await fireEvent.click(srcBtn); // expand
+		await waitFor(() => expect(screen.getByText('main.ts')).toBeInTheDocument());
+		await fireEvent.click(srcBtn); // collapse
+		expect(screen.queryByText('main.ts')).not.toBeInTheDocument();
+		await fireEvent.click(srcBtn); // re-expand
+
+		expect(hoistedListDir).toHaveBeenCalledTimes(1);
+		await waitFor(() => expect(screen.getByText('main.ts')).toBeInTheDocument());
+	});
+
+	it('collapses a directory on a second click', async () => {
+		hoistedListDir.mockResolvedValue({
+			entries: [entry('src/main.ts')],
+			truncated: false
+		});
+
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: [entry('src', 'directory')]
+			})
+		);
+
+		const srcBtn = screen.getByText('src').closest('button') as HTMLElement;
+		await fireEvent.click(srcBtn);
+		await waitFor(() => expect(screen.getByText('main.ts')).toBeInTheDocument());
+		await fireEvent.click(srcBtn);
+		expect(screen.queryByText('main.ts')).not.toBeInTheDocument();
+	});
+
+	it('shows an inline error with a retry when the listing call fails', async () => {
+		hoistedListDir.mockRejectedValueOnce(new Error('boom'));
+
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: [entry('src', 'directory')]
+			})
+		);
+
+		await fireEvent.click(screen.getByText('src').closest('button') as HTMLElement);
+
+		const retry = await screen.findByRole('button', { name: /failed to load — retry/i });
+		expect(retry).toBeInTheDocument();
+
+		hoistedListDir.mockResolvedValueOnce({
+			entries: [entry('src/main.ts')],
+			truncated: false
+		});
+		await fireEvent.click(retry);
+
+		await waitFor(() => expect(screen.getByText('main.ts')).toBeInTheDocument());
+	});
+});
+
+describe('FileTree — touched-file overlay', () => {
+	beforeEach(() => {
+		hoistedListDir.mockReset();
+	});
+
+	it('shows "M" badge for a write+modified file at the root', () => {
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: filesOnly(['a.ts']),
+				touched: [touched({ path: 'a.ts', action: 'write', modified: true })]
+			})
+		);
 
 		expect(screen.getByText('M')).toBeInTheDocument();
 	});
 
-	it('shows "A" badge for write+!modified touched entries', () => {
-		render(FileTree, {
-			allFiles: filesOnly(['b.ts']),
-			touched: [touched({ path: 'b.ts', action: 'write', modified: false })]
-		});
+	it('shows "A" badge for write+!modified', () => {
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: filesOnly(['b.ts']),
+				touched: [touched({ path: 'b.ts', action: 'write', modified: false })]
+			})
+		);
 
 		expect(screen.getByText('A')).toBeInTheDocument();
 	});
 
 	it('shows "D" badge for delete action', () => {
-		render(FileTree, {
-			allFiles: filesOnly(['c.ts']),
-			touched: [touched({ path: 'c.ts', action: 'delete', modified: true })]
-		});
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: filesOnly(['c.ts']),
+				touched: [touched({ path: 'c.ts', action: 'delete', modified: true })]
+			})
+		);
 
 		expect(screen.getByText('D')).toBeInTheDocument();
 	});
 
 	it('shows no badge for read action', () => {
-		render(FileTree, {
-			allFiles: filesOnly(['d.ts']),
-			touched: [touched({ path: 'd.ts', action: 'read', modified: false })]
-		});
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: filesOnly(['d.ts']),
+				touched: [touched({ path: 'd.ts', action: 'read', modified: false })]
+			})
+		);
 
-		expect(screen.getByText('d.ts')).toBeInTheDocument();
+		expect(screen.queryByText('M')).not.toBeInTheDocument();
+		expect(screen.queryByText('A')).not.toBeInTheDocument();
+		expect(screen.queryByText('D')).not.toBeInTheDocument();
+	});
+
+	it('renders no badge when the touched path does not match any rendered entry', () => {
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: filesOnly(['untouched.ts']),
+				touched: []
+			})
+		);
+
 		expect(screen.queryByText('M')).not.toBeInTheDocument();
 	});
+});
 
-	it('builds nested directory structure from slash-separated paths', () => {
-		render(FileTree, {
-			allFiles: [
-				entry('src', 'directory'),
-				entry('src/lib', 'directory'),
-				entry('src/lib/foo.ts'),
-				entry('src/lib/bar.ts'),
-				entry('src/main.ts')
-			],
-			touched: []
-		});
-
-		expect(screen.getByText('src')).toBeInTheDocument();
-		expect(screen.queryByText('foo.ts')).not.toBeInTheDocument();
-		expect(screen.queryByText('lib')).not.toBeInTheDocument();
+describe('FileTree — file click callback', () => {
+	beforeEach(() => {
+		hoistedListDir.mockReset();
 	});
 
-	it('expands a directory on click to reveal children', async () => {
-		render(FileTree, {
-			allFiles: [entry('src', 'directory'), entry('src/main.ts')],
-			touched: []
+	it('invokes onfileclick with the full relative path', async () => {
+		hoistedListDir.mockResolvedValue({
+			entries: [entry('src/main.ts')],
+			truncated: false
 		});
-
-		const srcDir = screen.getByText('src').closest('button') as HTMLElement;
-		expect(srcDir).toHaveAttribute('aria-expanded', 'false');
-
-		await fireEvent.click(srcDir);
-
-		expect(srcDir).toHaveAttribute('aria-expanded', 'true');
-		expect(screen.getByText('main.ts')).toBeInTheDocument();
-	});
-
-	it('collapses a directory on second click', async () => {
-		render(FileTree, {
-			allFiles: [entry('src', 'directory'), entry('src/main.ts')],
-			touched: []
-		});
-
-		const srcDir = screen.getByText('src').closest('button') as HTMLElement;
-		await fireEvent.click(srcDir);
-		expect(screen.getByText('main.ts')).toBeInTheDocument();
-
-		await fireEvent.click(srcDir);
-		expect(screen.queryByText('main.ts')).not.toBeInTheDocument();
-	});
-
-	it('invokes onfileclick with the full path when a file is clicked', async () => {
 		const onfileclick = vi.fn();
-		render(FileTree, {
-			allFiles: [entry('src', 'directory'), entry('src/main.ts')],
-			touched: [],
-			onfileclick
-		});
+
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: [entry('src', 'directory')],
+				onfileclick
+			})
+		);
 
 		await fireEvent.click(screen.getByText('src').closest('button') as HTMLElement);
+		await waitFor(() => expect(screen.getByText('main.ts')).toBeInTheDocument());
 		await fireEvent.click(screen.getByText('main.ts').closest('button') as HTMLElement);
 
 		expect(onfileclick).toHaveBeenCalledWith('src/main.ts');
 	});
 
 	it('applies the active style only to the file matching activePath', () => {
-		render(FileTree, {
-			allFiles: filesOnly(['solo.ts']),
-			touched: [],
-			activePath: 'solo.ts'
-		});
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: filesOnly(['solo.ts']),
+				activePath: 'solo.ts'
+			})
+		);
 
 		const file = screen.getByText('solo.ts').closest('button') as HTMLElement;
 		expect(file.className).toMatch(/isActive/);
 	});
+});
 
-	it('has an accessible label on the outer container', () => {
-		const { container } = render(FileTree, { allFiles: [], touched: [] });
+describe('FileTree — truncation', () => {
+	it('renders per-folder truncation message at the root when rootTruncated=true', () => {
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: filesOnly(['a.ts']),
+				rootTruncated: true
+			})
+		);
 
-		const tree = container.querySelector('[aria-label="File tree"]');
-		expect(tree).toBeInTheDocument();
+		expect(screen.getByText(/Showing first 1000 of this folder/i)).toBeInTheDocument();
 	});
 
-	it('synthetic-merges a touched path that is missing from allFiles', () => {
-		render(FileTree, {
-			allFiles: [entry('existing.ts')],
-			touched: [touched({ path: 'brand/new.ts', action: 'write', modified: false })]
-		});
-
-		// Directory auto-created
-		expect(screen.getByText('brand')).toBeInTheDocument();
-	});
-
-	it('keeps the synthetic touched file under its expanded directory with badge', async () => {
-		render(FileTree, {
-			allFiles: [],
-			touched: [touched({ path: 'brand/new.ts', action: 'write', modified: false })]
-		});
-
-		await fireEvent.click(screen.getByText('brand').closest('button') as HTMLElement);
-		expect(screen.getByText('new.ts')).toBeInTheDocument();
-		expect(screen.getByText('A')).toBeInTheDocument();
-	});
-
-	it('renders the truncation footer when truncated=true', () => {
-		render(FileTree, {
-			allFiles: filesOnly(['a.ts']),
-			touched: [],
-			truncated: true
-		});
-
-		expect(screen.getByText(/Showing first 10,000 entries/i)).toBeInTheDocument();
-	});
-
-	it('does not render truncation footer when truncated=false', () => {
-		render(FileTree, {
-			allFiles: filesOnly(['a.ts']),
-			touched: [],
-			truncated: false
-		});
+	it('does not render a truncation message when the root is complete', () => {
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: filesOnly(['a.ts']),
+				rootTruncated: false
+			})
+		);
 
 		expect(screen.queryByText(/Showing first/i)).not.toBeInTheDocument();
 	});
 
-	it('does not expose any refresh control — the header owns it', () => {
-		render(FileTree, {
-			allFiles: filesOnly(['a.ts']),
-			touched: []
+	it('renders a truncation message inside an expanded sub-folder when the sub-listing was capped', async () => {
+		// The truncation message is driven by the response flag, not the
+		// actual entry count — a small fixture keeps this test fast.
+		hoistedListDir.mockResolvedValue({
+			entries: [entry('big/a.ts'), entry('big/b.ts')],
+			truncated: true
 		});
 
-		expect(screen.queryByRole('button', { name: /refresh file tree/i })).not.toBeInTheDocument();
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: [entry('big', 'directory')]
+			})
+		);
+
+		await fireEvent.click(screen.getByText('big').closest('button') as HTMLElement);
+		await waitFor(() =>
+			expect(screen.getByText(/Showing first 1000 of this folder/i)).toBeInTheDocument()
+		);
+	});
+});
+
+describe('FileTree — accessibility', () => {
+	it('has an accessible label on the outer container', () => {
+		const { container } = render(FileTree, baseProps());
+		const tree = container.querySelector('[aria-label="File tree"]');
+		expect(tree).toBeInTheDocument();
 	});
 
-	it('renders directories before files at the same level', () => {
-		const { container } = render(FileTree, {
-			allFiles: [
-				entry('z.ts'),
-				entry('alpha', 'directory'),
-				entry('b.ts'),
-				entry('zeta', 'directory')
-			],
-			touched: []
-		});
+	it('does not expose a refresh control — the header owns it', () => {
+		render(
+			FileTree,
+			baseProps({
+				rootEntries: filesOnly(['a.ts'])
+			})
+		);
+		expect(
+			screen.queryByRole('button', { name: /refresh file tree/i })
+		).not.toBeInTheDocument();
+	});
+});
 
-		const names = Array.from(
-			container.querySelectorAll('[aria-label="File tree"] button [class*="nodeName"]')
-		).map((n) => n.textContent?.trim());
-		// directories first (alphabetical), then files (alphabetical)
-		expect(names).toEqual(['alpha', 'zeta', 'b.ts', 'z.ts']);
+describe('FileTree — touched-file auto-expand', () => {
+	beforeEach(() => {
+		hoistedListDir.mockReset();
+		resetHarness();
+		vi.useFakeTimers({ shouldAdvanceTime: true });
 	});
 
-	it('sorts files alphabetically (case-insensitive, natural order)', () => {
-		const { container } = render(FileTree, {
-			allFiles: [entry('File10.ts'), entry('file2.ts'), entry('file1.ts'), entry('apple.ts')],
-			touched: []
-		});
-
-		const names = Array.from(
-			container.querySelectorAll('[aria-label="File tree"] button [class*="nodeName"]')
-		).map((n) => n.textContent?.trim());
-		expect(names).toEqual(['apple.ts', 'file1.ts', 'file2.ts', 'File10.ts']);
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
-	it('sorts nested directory contents recursively', async () => {
-		const { container } = render(FileTree, {
-			allFiles: [
-				entry('src', 'directory'),
-				entry('src/z.ts'),
-				entry('src/components', 'directory'),
-				entry('src/a.ts'),
-				entry('src/components/Button.ts'),
-				entry('src/components/Atom.ts')
-			],
-			touched: []
+	it('expands ancestors of a touched file after the debounce window', async () => {
+		hoistedListDir.mockResolvedValue({
+			entries: [entry('src/main.ts')],
+			truncated: false
 		});
 
-		await fireEvent.click(screen.getByText('src').closest('button') as HTMLElement);
-		await fireEvent.click(screen.getByText('components').closest('button') as HTMLElement);
+		render(FileTreeTestHarness, {
+			workspaceRoot: '/tmp/ws',
+			rootEntries: [entry('src', 'directory')],
+			rootTruncated: false
+		});
 
-		const names = Array.from(
-			container.querySelectorAll('[aria-label="File tree"] button [class*="nodeName"]')
-		).map((n) => n.textContent?.trim());
-		// src (dir) > components (dir) > Atom.ts, Button.ts (files) > a.ts, z.ts (files of src)
-		expect(names).toEqual(['src', 'components', 'Atom.ts', 'Button.ts', 'a.ts', 'z.ts']);
+		expect(screen.getByText('src').closest('button') as HTMLElement).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+
+		setHarnessTouched([
+			touched({ path: 'src/main.ts', action: 'write', modified: false })
+		]);
+
+		await vi.advanceTimersByTimeAsync(250);
+
+		expect(hoistedListDir).toHaveBeenCalledWith('/tmp/ws', 'src');
+		await waitFor(() =>
+			expect(screen.getByText('src').closest('button') as HTMLElement).toHaveAttribute(
+				'aria-expanded',
+				'true'
+			)
+		);
 	});
 
-	it('renders empty directories (directory entries with no file children) as expandable', async () => {
-		render(FileTree, {
-			allFiles: [entry('empty-dir', 'directory')],
-			touched: []
+	it('does not auto-expand a directory the user has collapsed', async () => {
+		hoistedListDir.mockResolvedValue({
+			entries: [entry('src/main.ts')],
+			truncated: false
 		});
 
-		const btn = screen.getByText('empty-dir').closest('button') as HTMLElement;
-		expect(btn).toHaveAttribute('aria-expanded', 'false');
-		await fireEvent.click(btn);
-		expect(btn).toHaveAttribute('aria-expanded', 'true');
+		render(FileTreeTestHarness, {
+			workspaceRoot: '/tmp/ws',
+			rootEntries: [entry('src', 'directory')],
+			rootTruncated: false
+		});
+
+		let srcBtn = screen.getByText('src').closest('button') as HTMLElement;
+		await fireEvent.click(srcBtn); // user expands
+		await waitFor(() => expect(screen.getByText('main.ts')).toBeInTheDocument());
+		await fireEvent.click(srcBtn); // user collapses — registers in userCollapsed
+		expect(srcBtn).toHaveAttribute('aria-expanded', 'false');
+
+		setHarnessTouched([
+			touched({ path: 'src/main.ts', action: 'write', modified: true })
+		]);
+
+		await vi.advanceTimersByTimeAsync(250);
+
+		srcBtn = screen.getByText('src').closest('button') as HTMLElement;
+		expect(srcBtn).toHaveAttribute('aria-expanded', 'false');
+		expect(screen.queryByText('main.ts')).not.toBeInTheDocument();
 	});
 });
