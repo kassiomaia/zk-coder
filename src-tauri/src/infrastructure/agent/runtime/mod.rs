@@ -21,6 +21,8 @@ pub mod helpers;
 pub mod loop_detection;
 pub mod permissions;
 pub mod request_shape;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub mod shell;
 pub mod spawn;
 pub mod summarizer;
 mod tool_feedback;

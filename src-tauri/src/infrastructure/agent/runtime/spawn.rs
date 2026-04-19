@@ -360,6 +360,7 @@ impl SpawnEngine {
                     "maxOutputBytes": self.policy.max_output_bytes,
                     "timeoutSeconds": self.policy.command_timeout.as_secs(),
                     "allowShell": self.policy.allow_shell,
+                    "shellStrategy": shell_strategy_label(),
                 }),
             );
         }
@@ -823,9 +824,7 @@ impl SpawnEngine {
                 let shell_command = launch.command.as_ref().ok_or_else(|| {
                     SpawnError::ExecutionFailed("Missing shell command".to_string())
                 })?;
-                let mut command = Command::new("sh");
-                command.arg("-c").arg(shell_command);
-                command
+                build_shell_command(shell_command, cwd)
             }
         };
 
@@ -835,6 +834,58 @@ impl SpawnEngine {
             .stderr(std::process::Stdio::piped());
 
         Ok(command)
+    }
+}
+
+/// Construct a `Command` for shell-mode execution.
+///
+/// On Linux, this path is byte-identical to the historical behavior: `sh -c <cmd>`.
+/// `CODER_SHELL_MODE` is **not** read on Linux — user-profile sourcing is an explicit
+/// non-goal on that platform (see `docs/code-review/FIX_PLAN.md`).
+///
+/// On macOS and Windows, delegation goes to the platform-specific `ShellStrategy`
+/// implementations in [`super::shell`].
+fn build_shell_command(shell_command: &str, cwd: &Path) -> Command {
+    #[cfg(target_os = "linux")]
+    {
+        // Suppress unused-variable warning when other cfg branches are disabled.
+        let _ = cwd;
+        let mut command = Command::new("sh");
+        command.arg("-c").arg(shell_command);
+        command
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    {
+        super::shell::default_strategy().build(shell_command, cwd)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    {
+        let _ = cwd;
+        let mut command = Command::new("sh");
+        command.arg("-c").arg(shell_command);
+        command
+    }
+}
+
+/// Stable label describing which shell strategy `build_shell_command` will use on
+/// the current target. Emitted into the `SpawnStarted` runtime trace so failures
+/// can be correlated with the strategy that produced them.
+fn shell_strategy_label() -> &'static str {
+    #[cfg(target_os = "linux")]
+    {
+        "linux-sh"
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    {
+        super::shell::current_label()
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    {
+        "unknown-sh"
     }
 }
 
@@ -1093,5 +1144,49 @@ mod tests {
         let trace_types = observer.trace_types();
         assert!(trace_types.contains(&RuntimeTraceType::SpawnCancelled));
         assert!(trace_types.contains(&RuntimeTraceType::SpawnKilled));
+    }
+
+    /// Regression: Linux must ignore `CODER_SHELL_MODE=user` and always invoke `sh -c`.
+    /// User-profile sourcing on Linux is an explicit non-goal of the current work.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_ignores_coder_shell_mode() {
+        // With the env var unset: baseline behavior.
+        std::env::remove_var("CODER_SHELL_MODE");
+        let baseline = build_shell_command("echo hi", Path::new("/tmp"));
+        let baseline_program = baseline.as_std().get_program().to_os_string();
+        let baseline_args: Vec<_> = baseline
+            .as_std()
+            .get_args()
+            .map(std::ffi::OsStr::to_os_string)
+            .collect();
+
+        // With the env var explicitly set to "user": Linux must still produce
+        // byte-identical argv because the Linux branch never reads the variable.
+        std::env::set_var("CODER_SHELL_MODE", "user");
+        let under_user_mode = build_shell_command("echo hi", Path::new("/tmp"));
+        let under_user_program = under_user_mode.as_std().get_program().to_os_string();
+        let under_user_args: Vec<_> = under_user_mode
+            .as_std()
+            .get_args()
+            .map(std::ffi::OsStr::to_os_string)
+            .collect();
+
+        // Reset for test isolation.
+        std::env::remove_var("CODER_SHELL_MODE");
+
+        assert_eq!(baseline_program, under_user_program);
+        assert_eq!(baseline_args, under_user_args);
+        assert_eq!(baseline_program, std::ffi::OsString::from("sh"));
+        assert_eq!(
+            baseline_args,
+            vec![
+                std::ffi::OsString::from("-c"),
+                std::ffi::OsString::from("echo hi"),
+            ]
+        );
+
+        // Label must reflect the Linux-only baseline path.
+        assert_eq!(shell_strategy_label(), "linux-sh");
     }
 }

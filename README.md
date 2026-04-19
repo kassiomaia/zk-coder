@@ -2,6 +2,10 @@
 
 > A modern desktop application built with Rust and Tauri designed to help developers automate activities and write software more efficiently using AI agents.
 
+[![Tests](https://github.com/kassiomaia/zk-coder/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/kassiomaia/zk-coder/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/github/v/release/kassiomaia/zk-coder?sort=semver)](https://github.com/kassiomaia/zk-coder/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/kassiomaia/zk-coder/total?label=downloads)](https://github.com/kassiomaia/zk-coder/releases)
+
 ## Quick Start
 
 ### Prerequisites
@@ -14,8 +18,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/coder.git
-cd coder
+git clone git@github.com:kassiomaia/zk-coder.git
+cd zk-coder
 
 # Install frontend dependencies
 cd src-ui && npm install && cd ..
@@ -28,6 +32,11 @@ cargo tauri dev
 
 ```bash
 cargo tauri build
+```
+
+### Downloadable Releases
+
+Tagged releases are built in GitHub Actions and published on the repository's Releases page. Download the asset that matches your platform from the latest release.
 
 **Module documentation pointers:**
 - Backend layered modules (`core`, `application`, `infrastructure`, `commands`): `docs/architecture.md`
