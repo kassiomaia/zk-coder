@@ -33,6 +33,30 @@ pub fn should_skip_loop_detection(tool_name: &str) -> bool {
     LOOP_SKIP_TOOLS.contains(&tool_name)
 }
 
+/// State-aware variant of [`should_skip_loop_detection`].
+///
+/// During the final-summary branch the runtime sets
+/// `current_allowed_tool_names = Some(Vec::new())` to express
+/// "no tools may be called this turn". When that state is active,
+/// even tools normally on the [`LOOP_SKIP_TOOLS`] whitelist (e.g.
+/// `agent_narrate`) must NOT be exempt from loop detection: a model
+/// that keeps re-emitting the same narration call across consecutive
+/// final-summary iterations would otherwise burn the entire step
+/// budget undetected.
+///
+/// Returns `true` (skip detection) only when the legacy whitelist
+/// applies AND the runtime has not signalled an empty allow-list.
+#[must_use]
+pub fn should_skip_loop_detection_in_state(
+    tool_name: &str,
+    allowed_tool_names: Option<&[String]>,
+) -> bool {
+    if matches!(allowed_tool_names, Some(allowed) if allowed.is_empty()) {
+        return false;
+    }
+    should_skip_loop_detection(tool_name)
+}
+
 /// Detects if a tool call is part of a repetitive loop.
 ///
 /// # Arguments
@@ -50,8 +74,24 @@ pub fn detect_repetitive_loop(
     recent_calls: &[(String, u64)],
     max_repetitions: u32,
 ) -> Option<usize> {
-    // Skip loop detection for agent metadata tools
-    if should_skip_loop_detection(&tool_call.name) {
+    detect_repetitive_loop_in_state(tool_call, recent_calls, max_repetitions, None)
+}
+
+/// State-aware variant of [`detect_repetitive_loop`].
+///
+/// Behaves identically to [`detect_repetitive_loop`] when
+/// `allowed_tool_names` is `None` or non-empty. When the caller
+/// signals "no tools allowed this turn" via `Some(empty)`, the
+/// metadata-tool whitelist is suppressed so repeated narration on
+/// the final-summary branch is detected.
+#[must_use]
+pub fn detect_repetitive_loop_in_state(
+    tool_call: &ToolCall,
+    recent_calls: &[(String, u64)],
+    max_repetitions: u32,
+    allowed_tool_names: Option<&[String]>,
+) -> Option<usize> {
+    if should_skip_loop_detection_in_state(&tool_call.name, allowed_tool_names) {
         return None;
     }
 
@@ -446,6 +486,103 @@ mod tests {
     #[test]
     fn test_max_repetitions_constant() {
         assert_eq!(MAX_REPETITIONS, 3, "Default max repetitions should be 3");
+    }
+
+    #[test]
+    fn state_aware_skip_honors_whitelist_when_allow_list_is_none() {
+        // No allow-list signal → legacy whitelist behavior is preserved.
+        for tool in LOOP_SKIP_TOOLS {
+            assert!(
+                should_skip_loop_detection_in_state(tool, None),
+                "{tool} must remain whitelisted when allow-list is None"
+            );
+        }
+        assert!(!should_skip_loop_detection_in_state("fs_read_file", None));
+    }
+
+    #[test]
+    fn state_aware_skip_honors_whitelist_when_allow_list_is_non_empty() {
+        // Restricted-but-non-empty allow-list (regular subtask mode) →
+        // legacy whitelist behavior is preserved. The empty-allow-list
+        // signal is what disables the whitelist; any non-empty list is
+        // a normal subtask and must not affect narration loop detection.
+        let allowed = vec!["fs_read_file".to_string(), "search_grep".to_string()];
+        for tool in LOOP_SKIP_TOOLS {
+            assert!(
+                should_skip_loop_detection_in_state(tool, Some(&allowed)),
+                "{tool} must remain whitelisted under a non-empty allow-list"
+            );
+        }
+    }
+
+    #[test]
+    fn state_aware_skip_suppresses_whitelist_when_allow_list_is_empty() {
+        // Final-summary branch signal: `Some(empty)` means no tool may
+        // be called this turn. Loop detection must apply to *every*
+        // tool — including agent metadata tools — so a model that
+        // keeps re-emitting `agent_narrate` is caught instead of
+        // burning the step budget unnoticed.
+        let empty: Vec<String> = Vec::new();
+        for tool in LOOP_SKIP_TOOLS {
+            assert!(
+                !should_skip_loop_detection_in_state(tool, Some(&empty)),
+                "{tool} must NOT be skipped when the allow-list is Some(empty)"
+            );
+        }
+    }
+
+    #[test]
+    fn detect_repetitive_loop_in_state_catches_narration_under_empty_allow_list() {
+        // Replays the exact final-summary failure mode: `agent_narrate`
+        // with identical args fired three times in a row while the
+        // runtime is in the empty-allow-list state.
+        let tool_call = ToolCall {
+            id: "1".to_string(),
+            name: "agent_narrate".to_string(),
+            arguments: json!({"message": "summarizing"}),
+        };
+        let args_hash = hash_tool_arguments(&tool_call.arguments);
+        let recent_calls = vec![
+            (tool_call.name.clone(), args_hash),
+            (tool_call.name.clone(), args_hash),
+            (tool_call.name.clone(), args_hash),
+        ];
+        let empty: Vec<String> = Vec::new();
+
+        // Legacy detector still skips (proves we did not break it).
+        assert!(detect_repetitive_loop(&tool_call, &recent_calls, 3).is_none());
+        // State-aware detector with empty allow-list catches the loop.
+        let result =
+            detect_repetitive_loop_in_state(&tool_call, &recent_calls, 3, Some(&empty));
+        assert_eq!(
+            result,
+            Some(3),
+            "narration loop must be detected under empty allow-list"
+        );
+    }
+
+    #[test]
+    fn detect_repetitive_loop_in_state_matches_legacy_for_non_empty_allow_list() {
+        // Sanity: Some(non-empty) must behave exactly like None for the
+        // detector — the empty-allow-list signal is the only state that
+        // changes behavior.
+        let tool_call = ToolCall {
+            id: "1".to_string(),
+            name: "agent_narrate".to_string(),
+            arguments: json!({"message": "checkpoint"}),
+        };
+        let args_hash = hash_tool_arguments(&tool_call.arguments);
+        let recent_calls = vec![
+            (tool_call.name.clone(), args_hash),
+            (tool_call.name.clone(), args_hash),
+            (tool_call.name.clone(), args_hash),
+        ];
+        let allowed = vec!["agent_narrate".to_string()];
+        assert!(
+            detect_repetitive_loop_in_state(&tool_call, &recent_calls, 3, Some(&allowed))
+                .is_none(),
+            "non-empty allow-list must preserve legacy whitelist skip"
+        );
     }
 
     #[test]

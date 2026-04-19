@@ -1,7 +1,9 @@
 # Final-summary path silently discards LLM responses when tool calls slip through `ToolChoiceMode::None`
 
-- **Status**: investigated — awaiting team review
+- **Status**: resolved — 2026-04-19
 - **Reported**: 2026-04-19
+- **Plan**: `docs/planning/agent-final-summary-tool-call-discard/plan.md`
+- **Resolution**: see "Resolution" section at the bottom of this document
 - **Area**:
   - `src-tauri/src/application/agent/execution/coordinator.rs`
   - `src-tauri/src/application/agent/execution/response_phase.rs`
@@ -373,3 +375,69 @@ and should get their own issues if the team agrees they matter:
   but no code path degrades gracefully when it approaches 100 %. The final-
   summary duplication can push a session over the window before anything
   else fires.
+
+## Resolution
+
+Fixed via the plan in
+`docs/planning/agent-final-summary-tool-call-discard/plan.md`. The fix
+landed as three coordinated changes inside one PR:
+
+1. **Routing fix (Option A).** The final-summary branch in
+   `coordinator.rs` was extracted into `run_final_summary_step`, which
+   matches `ResponseDecision` exhaustively and routes the
+   `ExecuteTools` arm through the same `run_tools` pipeline the main
+   loop uses. The discarded `_ => continue` arm is gone. Tool calls
+   that slip through `ToolChoiceMode::None` are now rejected by the
+   pre-existing empty-allow-list filter in `permissions.rs:206-222`,
+   producing a `subtask_mode_disallowed` error result the model can
+   self-correct against. The assistant message is appended to
+   `ctx.llm_context` by `tool_phase::run_tools` exactly as on the
+   normal path, restoring well-formed user/assistant alternation.
+
+2. **Duplicate-prompt guard (Option C.1).** The
+   `"All subtasks have been completed..."` user message is now
+   extracted into a `FINAL_SUMMARY_PROMPT` constant, and the push site
+   is guarded by `last_message_is_final_summary_prompt(&ctx.llm_context)`
+   so a second consecutive final-summary iteration cannot duplicate
+   the prompt. Even pathological models can no longer accumulate
+   identical user messages across iterations.
+
+3. **Narrowed loop-detection skip during finalization (Option C.2).**
+   `loop_detection.rs` gained `should_skip_loop_detection_in_state`
+   and `detect_repetitive_loop_in_state` wrappers that disable the
+   `LOOP_SKIP_TOOLS` whitelist when `current_allowed_tool_names`
+   signals `Some(Vec::new())`. `response_phase::handle_response` was
+   switched to consult the state-aware variant. A model that keeps
+   re-emitting `agent_narrate` during finalization is now caught by
+   `detect_repetitive_loop` (after `MAX_REPETITIONS = 3` repeats)
+   instead of silently burning the entire step budget.
+
+### Tests added
+
+- `application::agent::execution::coordinator::final_summary_guard_tests`:
+  six tests pinning the duplicate-push guard, the canonical prompt
+  string, and the empty / intervening-assistant / unrelated-tail
+  cases.
+- `infrastructure::agent::runtime::loop_detection::tests`: five tests
+  for the state-aware skip and detector — `None`, non-empty, empty
+  allow-list, end-to-end narration loop catch under empty allow-list,
+  and parity with legacy under non-empty.
+
+### Verification
+
+- `cargo build` clean.
+- `cargo test --lib` — 1928 of 1929 tests pass; the single
+  remaining failure (`test_derive_thread_title_long` in
+  `infrastructure::sqlite::migrations::chat::tests`) is a
+  pre-existing failure on `master` unrelated to this fix.
+- `cargo clippy --lib` — zero new warnings vs. master baseline
+  (1222 → 1222).
+
+### Files changed
+
+| Path | Why |
+|------|-----|
+| `src-tauri/src/application/agent/execution/coordinator.rs` | Extracted `FINAL_SUMMARY_PROMPT`, added `last_message_is_final_summary_prompt` guard, replaced `_ => continue` with exhaustive dispatch via new `run_final_summary_step` helper, added `final_summary_guard_tests` module |
+| `src-tauri/src/infrastructure/agent/runtime/loop_detection.rs` | Added `should_skip_loop_detection_in_state`, `detect_repetitive_loop_in_state`, and tests for the state-aware variant |
+| `src-tauri/src/infrastructure/agent/runtime/mod.rs` | Re-exported `detect_repetitive_loop_in_state` |
+| `src-tauri/src/application/agent/execution/response_phase.rs` | Switched the loop detection call site to consult `ctx.current_allowed_tool_names` via the state-aware variant |

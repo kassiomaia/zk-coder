@@ -56,8 +56,8 @@ pub use context::{
 pub use execution::execute;
 pub use helpers::{derive_system_prompt, generate_diff_from_content, infer_action_type};
 pub use loop_detection::{
-    add_to_recent_calls, detect_repetitive_loop, hash_tool_arguments, LOOP_SKIP_TOOLS,
-    MAX_REPETITIONS,
+    add_to_recent_calls, detect_repetitive_loop, detect_repetitive_loop_in_state,
+    hash_tool_arguments, LOOP_SKIP_TOOLS, MAX_REPETITIONS,
 };
 pub use permissions::process_tool_calls_with_permissions;
 pub use spawn::{

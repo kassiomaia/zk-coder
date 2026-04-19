@@ -20,7 +20,7 @@ use crate::core::agent::task::{AgentExecutionResult, ExecutionStep, StepAction, 
 use crate::core::llm::entities::{ChatMessage as Message, ToolChoiceMode};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::{
-    detect_repetitive_loop, AgentRuntimeError, MAX_REPETITIONS,
+    detect_repetitive_loop_in_state, AgentRuntimeError, MAX_REPETITIONS,
 };
 
 /// Hard ceiling for the narration-loop guard.
@@ -185,9 +185,12 @@ pub async fn handle_response(
     );
 
     for tool_call in &response.tool_calls {
-        if let Some(repeat_count) =
-            detect_repetitive_loop(tool_call, &ctx.recent_tool_calls, MAX_REPETITIONS)
-        {
+        if let Some(repeat_count) = detect_repetitive_loop_in_state(
+            tool_call,
+            &ctx.recent_tool_calls,
+            MAX_REPETITIONS,
+            ctx.current_allowed_tool_names.as_deref(),
+        ) {
             let msg = format!(
                 "Detected repetitive loop: tool '{}' called with same arguments {} times",
                 tool_call.name,
