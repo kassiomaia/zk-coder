@@ -222,6 +222,7 @@ pub async fn start_execution(
         last_completed_subtask_for_memory: None,
         memorized_failures: Vec::new(),
         max_execution_steps: initial_max_steps,
+        recent_replace_failures: Vec::new(),
     };
 
     let tracer = deps.tracer();

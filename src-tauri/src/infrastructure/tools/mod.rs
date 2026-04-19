@@ -174,7 +174,7 @@ impl ToolRegistry {
             },
             Err(e) => ToolResult {
                 call_id: call.id,
-                output: serde_json::json!({ "error": e.to_string() }),
+                output: e.into_tool_output(),
                 is_error: true,
             },
         }

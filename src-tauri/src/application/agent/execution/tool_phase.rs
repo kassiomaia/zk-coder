@@ -6,6 +6,7 @@
 use serde_json::json;
 
 use super::deps::ExecutionDeps;
+use super::replace_drift::evaluate_replace_drift;
 use super::scope_drift::{
     build_correction_message, evaluate_scope_drift, hard_enforced_error_result, EnforcementMode,
     ScopeDriftObservation,
@@ -152,6 +153,32 @@ pub async fn run_tools(
         enforcement,
     );
 
+    // Workstream γ.2 — soft-nudge the model when repeated
+    // `fs_replace_in_file` calls miss on the same file within a five-
+    // step window. The file is almost certainly out of sync with the
+    // model's working copy; read the tool results in place and append
+    // the correction as a system message for the next step. The
+    // tracker mutation (prune + append + clear on fire) lives inside
+    // `evaluate_replace_drift` so this call site stays tiny.
+    let replace_outcome = evaluate_replace_drift(
+        &mut ctx.recent_replace_failures,
+        &response.tool_calls,
+        &tool_results,
+        ctx.step_number,
+    );
+    if replace_outcome.nudge.is_some() {
+        let _ = tracer.append_trace(
+            &ctx.session_id,
+            &ctx.task_id,
+            ctx.current_subtask_id.as_deref(),
+            ctx.step_number,
+            RuntimeTraceType::ReplaceDriftDetected,
+            json!({
+                "path": replace_outcome.cleared_path,
+            }),
+        );
+    }
+
     for result in &tool_results {
         ctx.llm_context.push(Message::tool_result(
             result.call_id.clone(),
@@ -161,6 +188,9 @@ pub async fn run_tools(
     }
     for correction in corrections {
         ctx.llm_context.push(Message::system(correction));
+    }
+    if let Some(nudge) = replace_outcome.nudge {
+        ctx.llm_context.push(Message::system(nudge));
     }
     // Workstream C.1/C.2 — record the most recent failure into the
     // subtask-scoped overlay so the packer can filter stale blockers on

@@ -12,6 +12,7 @@ pub mod harness_events;
 pub mod llm_phase;
 pub mod memory_refresh;
 pub mod message_ids;
+pub mod replace_drift;
 pub mod response_phase;
 pub mod scope_drift;
 pub mod state;

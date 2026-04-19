@@ -12,6 +12,8 @@ use crate::core::llm::entities::{ChatMessage as Message, ChatResponse, ToolChoic
 use crate::infrastructure::agent::runtime::context::MemorizedFailure;
 use crate::infrastructure::agent::runtime::SubtaskSummary;
 
+use super::replace_drift::ReplaceFailure;
+
 /// Holds all the runtime state for an agent's execution.
 pub struct ExecutionContext {
     /// The unique identifier for the session.
@@ -91,6 +93,15 @@ pub struct ExecutionContext {
     /// Monotonic: this field never decreases after bootstrap; shrinking
     /// mid-task would retroactively invalidate work already performed.
     pub max_execution_steps: u32,
+    /// Recent `fs_replace_in_file` misses used for the Workstream γ.2
+    /// drift-aware nudge. Appended by `tool_phase` on every miss and
+    /// pruned to the active sliding window by
+    /// [`super::replace_drift::evaluate_replace_drift`]. When two
+    /// misses on the same path land within the window, a soft
+    /// correction system message is injected into the next step's
+    /// context and the entries for that path are cleared so the same
+    /// nudge does not re-fire.
+    pub recent_replace_failures: Vec<ReplaceFailure>,
 }
 
 impl ExecutionContext {

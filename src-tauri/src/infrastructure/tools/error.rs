@@ -2,6 +2,7 @@
 //!
 //! Provides structured error handling for tool execution.
 
+use serde_json::{json, Value as JsonValue};
 use thiserror::Error;
 
 /// Errors that can occur during tool execution.
@@ -42,6 +43,23 @@ pub enum ToolError {
     /// Generic error with message.
     #[error("{0}")]
     Other(String),
+
+    /// Structured failure. The tool produced a rich payload (e.g.
+    /// `fs_replace_in_file` nearest-match hints) that the runtime must
+    /// surface verbatim to the model instead of collapsing to the
+    /// message string. `message` stays in the `error` field for
+    /// backward-compatibility; `payload` overlays additional keys.
+    #[error("{message}")]
+    Structured {
+        /// Short, model-facing error message. Also surfaced as `error`
+        /// in the emitted JSON payload.
+        message: String,
+        /// Extra JSON fields merged on top of the default
+        /// `{ "error": message }` object. Must serialize as a JSON
+        /// object; non-object payloads are ignored by
+        /// [`Self::into_tool_output`].
+        payload: JsonValue,
+    },
 }
 
 impl ToolError {
@@ -71,6 +89,45 @@ impl ToolError {
     #[must_use]
     pub fn from_reqwest(err: reqwest::Error) -> Self {
         Self::Http(err.to_string())
+    }
+
+    /// Create a structured error carrying both a human-readable
+    /// `message` and a JSON `payload` with additional fields the tool
+    /// wants to expose to the LLM (e.g. fuzzy-match hints on a replace
+    /// miss). See [`Self::Structured`] for the serialization shape.
+    #[must_use]
+    pub fn structured(message: impl Into<String>, payload: JsonValue) -> Self {
+        Self::Structured {
+            message: message.into(),
+            payload,
+        }
+    }
+
+    /// Converts the error into the JSON object the registry surfaces as
+    /// the tool result output. For most variants this is the thin
+    /// `{ "error": "<message>" }` shape preserved from before; for
+    /// [`Self::Structured`], the payload object's fields are merged on
+    /// top of `{ "error": message }` so callers see both the legacy
+    /// `error` field and the richer hints.
+    #[must_use]
+    pub fn into_tool_output(self) -> JsonValue {
+        match self {
+            Self::Structured { message, payload } => {
+                let mut base = json!({ "error": message });
+                if let (Some(base_obj), Some(extra_obj)) =
+                    (base.as_object_mut(), payload.as_object())
+                {
+                    for (key, value) in extra_obj {
+                        if key == "error" {
+                            continue;
+                        }
+                        base_obj.insert(key.clone(), value.clone());
+                    }
+                }
+                base
+            }
+            other => json!({ "error": other.to_string() }),
+        }
     }
 }
 

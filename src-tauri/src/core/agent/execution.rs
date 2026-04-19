@@ -178,6 +178,13 @@ pub enum RuntimeTraceType {
     /// - `askedAt` — RFC3339 timestamp the question was asked at
     /// - `timeoutMinutes` — the configured timeout in effect
     SubtaskFailedByRuntime,
+    /// Two `fs_replace_in_file` calls targeting the same path missed
+    /// within the five-step sliding window (Workstream γ.2). The
+    /// runtime injected a soft-nudge correction system message; no
+    /// tool was re-invoked and no subtask state was changed. Payload:
+    ///
+    /// - `path` — the file path whose pair of misses fired the nudge
+    ReplaceDriftDetected,
 }
 
 /// Represents a single, append-only entry in the runtime trace.

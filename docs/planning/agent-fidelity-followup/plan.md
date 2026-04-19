@@ -8,7 +8,7 @@
 
 - Workstream α — delivered: tool-planner merge (contracts/framing flow through)
 - Workstream β — delivered: dynamic step budget (formula scaled by plan size; monotonic growth after α merge)
-- Workstream γ — pending: `fs_replace_in_file` robustness
+- Workstream γ — delivered: `fs_replace_in_file` enriched miss payload + drift-aware nudge after 2 misses on the same file in a 5-step window
 - Workstream δ — pending: terminal-state disambiguation
 
 ---
