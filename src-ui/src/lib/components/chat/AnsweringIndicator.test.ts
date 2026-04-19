@@ -1,6 +1,5 @@
 import { render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { tick } from 'svelte';
 import AnsweringIndicator from './AnsweringIndicator.svelte';
 import type { AgentStatus } from '$lib/utils/agentStatus';
 
@@ -8,8 +7,7 @@ describe('AnsweringIndicator', () => {
 	const mockStatus: AgentStatus = {
 		text: 'Analyzing code',
 		active: true,
-		icon: 'sparkle',
-		phrases: []
+		icon: 'sparkle'
 	};
 
 	beforeEach(() => {
@@ -25,191 +23,195 @@ describe('AnsweringIndicator', () => {
 	describe('rendering', () => {
 		it('renders the container', () => {
 			const { container } = render(AnsweringIndicator, { status: mockStatus });
-			const indicator = container.querySelector('[role="status"]');
-			expect(indicator).toBeInTheDocument();
+			expect(container.querySelector('[role="status"]')).toBeInTheDocument();
 		});
 
-		it('renders status text', () => {
+		it('renders status text from status.text when no verb set', () => {
 			render(AnsweringIndicator, { status: mockStatus });
-			expect(screen.getByText(/Analyzing code/i)).toBeInTheDocument();
+			expect(screen.getByText('Analyzing code')).toBeInTheDocument();
 		});
 
-		it('renders with active status', () => {
-			const { container } = render(AnsweringIndicator, {
-				status: { ...mockStatus, active: true }
+		it('renders verb when provided', () => {
+			render(AnsweringIndicator, {
+				status: { ...mockStatus, verb: 'reading', target: 'src/main.rs' }
 			});
-			const panel = container.querySelector('.panel, [class*="panel"]');
-			expect(panel).toBeInTheDocument();
+			expect(screen.getByText('reading')).toBeInTheDocument();
+			expect(screen.getByText('src/main.rs')).toBeInTheDocument();
 		});
 
-		it('renders with inactive status (complete)', () => {
+		it('renders waveform bars', () => {
+			const { container } = render(AnsweringIndicator, { status: mockStatus });
+			const bars = container.querySelectorAll('[class*="bar"]');
+			expect(bars.length).toBeGreaterThan(0);
+		});
+
+		it('applies thinking state class for sparkle icon', () => {
 			const { container } = render(AnsweringIndicator, {
-				status: { ...mockStatus, active: false }
+				status: { ...mockStatus, icon: 'sparkle' }
 			});
-			const panel = container.querySelector('.complete, [class*="complete"]');
-			expect(panel).toBeInTheDocument();
-		});
-	});
-
-	describe('icon display', () => {
-		it('renders sparkle icon by default', () => {
-			const { container } = render(AnsweringIndicator, {
-				status: mockStatus
-			});
-			const svg = container.querySelector('svg');
-			expect(svg).toBeInTheDocument();
+			const el = container.querySelector('[class*="stateThinking"]');
+			expect(el).toBeInTheDocument();
 		});
 
-		it('renders scan icon when specified', () => {
-			const { container } = render(AnsweringIndicator, {
-				status: { ...mockStatus, icon: 'scan' }
-			});
-			const svg = container.querySelector('svg');
-			expect(svg).toBeInTheDocument();
-		});
-
-		it('renders terminal icon when specified', () => {
-			const { container } = render(AnsweringIndicator, {
-				status: { ...mockStatus, icon: 'terminal' }
-			});
-			const svg = container.querySelector('svg');
-			expect(svg).toBeInTheDocument();
-		});
-
-		it('renders file icon when specified', () => {
+		it('applies tool state class for file icon', () => {
 			const { container } = render(AnsweringIndicator, {
 				status: { ...mockStatus, icon: 'file' }
 			});
-			const svg = container.querySelector('svg');
-			expect(svg).toBeInTheDocument();
-		});
-	});
-
-	describe('phrase rotation', () => {
-		it('displays first phrase when multiple phrases provided', () => {
-			const statusWithPhrases: AgentStatus = {
-				...mockStatus,
-				phrases: ['Reading files', 'Analyzing code', 'Generating response']
-			};
-			render(AnsweringIndicator, { status: statusWithPhrases });
-			expect(screen.getByText(/Reading files/i)).toBeInTheDocument();
+			const el = container.querySelector('[class*="stateTool"]');
+			expect(el).toBeInTheDocument();
 		});
 
-		it('uses text as fallback when no phrases', () => {
-			render(AnsweringIndicator, {
-				status: { ...mockStatus, text: 'Processing...', phrases: [] }
+		it('applies tool state class for terminal icon', () => {
+			const { container } = render(AnsweringIndicator, {
+				status: { ...mockStatus, icon: 'terminal' }
 			});
-			expect(screen.getByText(/Processing/i)).toBeInTheDocument();
+			const el = container.querySelector('[class*="stateTool"]');
+			expect(el).toBeInTheDocument();
+		});
+
+		it('applies tool state class for edit icon', () => {
+			const { container } = render(AnsweringIndicator, {
+				status: { ...mockStatus, icon: 'edit' }
+			});
+			const el = container.querySelector('[class*="stateTool"]');
+			expect(el).toBeInTheDocument();
+		});
+
+		it('applies complete state when inactive with check icon', () => {
+			const { container } = render(AnsweringIndicator, {
+				status: { ...mockStatus, active: false, icon: 'check' }
+			});
+			const el = container.querySelector('[class*="stateComplete"]');
+			expect(el).toBeInTheDocument();
+		});
+
+		it('shows "done" text in complete state', () => {
+			render(AnsweringIndicator, {
+				status: { ...mockStatus, active: false, icon: 'check' }
+			});
+			expect(screen.getByText('done')).toBeInTheDocument();
+		});
+
+		it('shows checkmark in complete state', () => {
+			render(AnsweringIndicator, {
+				status: { ...mockStatus, active: false, icon: 'check' }
+			});
+			expect(screen.getByText('✓')).toBeInTheDocument();
 		});
 	});
 
 	describe('stall warnings', () => {
-		it('displays "Still working..." warning when stall-warning is still-working', () => {
-			const status: AgentStatus = {
-				...mockStatus,
-				stallWarning: 'still-working',
-				elapsedSeconds: 30
-			};
-			render(AnsweringIndicator, { status });
-			expect(screen.getByText(/Still working/i)).toBeInTheDocument();
+		it('displays "still working" for any stall warning', () => {
+			render(AnsweringIndicator, {
+				status: { ...mockStatus, stallWarning: 'still-working', elapsedSeconds: 35 }
+			});
+			expect(screen.getByText('still working')).toBeInTheDocument();
 		});
 
-		it('displays elapsed time when stall-warning is taking-longer', () => {
-			const status: AgentStatus = {
-				...mockStatus,
-				stallWarning: 'taking-longer',
-				elapsedSeconds: 120
-			};
-			render(AnsweringIndicator, { status });
-			expect(screen.getByText(/Taking longer than expected/i)).toBeInTheDocument();
-			expect(screen.getByText(/2:00/i)).toBeInTheDocument();
+		it('applies stall state class when stall warning present', () => {
+			const { container } = render(AnsweringIndicator, {
+				status: { ...mockStatus, stallWarning: 'taking-longer', elapsedSeconds: 90 }
+			});
+			expect(container.querySelector('[class*="stateStall"]')).toBeInTheDocument();
 		});
 
-		it('displays LLM waiting message when stall-warning is very-long', () => {
-			const status: AgentStatus = {
-				...mockStatus,
-				stallWarning: 'very-long',
-				elapsedSeconds: 300
-			};
-			render(AnsweringIndicator, { status });
-			expect(screen.getByText(/Still waiting for LLM/i)).toBeInTheDocument();
+		it('applies stall state for very-long warning', () => {
+			const { container } = render(AnsweringIndicator, {
+				status: { ...mockStatus, stallWarning: 'very-long', elapsedSeconds: 300 }
+			});
+			expect(container.querySelector('[class*="stateStall"]')).toBeInTheDocument();
+		});
+
+		it('hides target text when stall warning is active', () => {
+			render(AnsweringIndicator, {
+				status: {
+					...mockStatus,
+					stallWarning: 'still-working',
+					verb: 'reading',
+					target: 'src/main.rs'
+				}
+			});
+			expect(screen.queryByText('src/main.rs')).not.toBeInTheDocument();
 		});
 	});
 
-	describe('animation states', () => {
-		it('applies stable class when animation completes', async () => {
+	describe('elapsed counter', () => {
+		it('does not show elapsed when seconds < 2', () => {
 			const { container } = render(AnsweringIndicator, {
-				status: mockStatus
+				status: { ...mockStatus, elapsedSeconds: 1 }
 			});
+			expect(container.querySelector('[class*="elapsed"]')).not.toBeInTheDocument();
+		});
 
-			// Wait for scramble animation to complete
-			vi.advanceTimersByTime(1000);
-			await tick();
+		it('shows seconds format when < 60s', () => {
+			render(AnsweringIndicator, {
+				status: { ...mockStatus, elapsedSeconds: 30 }
+			});
+			expect(screen.getByText('30s')).toBeInTheDocument();
+		});
 
-			const panel = container.querySelector('.stable, [class*="stable"]');
-			expect(panel).toBeInTheDocument();
+		it('shows minutes format when >= 60s', () => {
+			render(AnsweringIndicator, {
+				status: { ...mockStatus, elapsedSeconds: 120 }
+			});
+			expect(screen.getByText('2m 00s')).toBeInTheDocument();
+		});
+
+		it('pads seconds in minutes format', () => {
+			render(AnsweringIndicator, {
+				status: { ...mockStatus, elapsedSeconds: 84 }
+			});
+			expect(screen.getByText('1m 24s')).toBeInTheDocument();
 		});
 	});
 
 	describe('accessibility', () => {
 		it('has role="status"', () => {
-			const { container } = render(AnsweringIndicator, {
-				status: mockStatus
-			});
-			const statusEl = container.querySelector('[role="status"]');
-			expect(statusEl).toBeInTheDocument();
+			const { container } = render(AnsweringIndicator, { status: mockStatus });
+			expect(container.querySelector('[role="status"]')).toBeInTheDocument();
 		});
 
 		it('has aria-live="polite"', () => {
-			const { container } = render(AnsweringIndicator, {
-				status: mockStatus
-			});
-			const statusEl = container.querySelector('[aria-live="polite"]');
-			expect(statusEl).toBeInTheDocument();
+			const { container } = render(AnsweringIndicator, { status: mockStatus });
+			expect(container.querySelector('[aria-live="polite"]')).toBeInTheDocument();
 		});
 
 		it('has descriptive aria-label', () => {
-			const { container } = render(AnsweringIndicator, {
-				status: mockStatus
-			});
-			const statusEl = container.querySelector('[aria-label="Agent status"]');
-			expect(statusEl).toBeInTheDocument();
+			const { container } = render(AnsweringIndicator, { status: mockStatus });
+			expect(container.querySelector('[aria-label="Agent status"]')).toBeInTheDocument();
 		});
 	});
 
 	describe('edge cases', () => {
 		it('handles null status gracefully', () => {
-			const { container } = render(AnsweringIndicator, {
-				status: null
-			});
-			const indicator = container.querySelector('[role="status"]');
-			expect(indicator).toBeInTheDocument();
+			const { container } = render(AnsweringIndicator, { status: null });
+			expect(container.querySelector('[role="status"]')).toBeInTheDocument();
 		});
 
 		it('handles undefined status gracefully', () => {
-			const { container } = render(AnsweringIndicator, {
-				status: undefined
-			});
-			const indicator = container.querySelector('[role="status"]');
-			expect(indicator).toBeInTheDocument();
+			const { container } = render(AnsweringIndicator, { status: undefined });
+			expect(container.querySelector('[role="status"]')).toBeInTheDocument();
 		});
 
 		it('handles empty text', () => {
 			const { container } = render(AnsweringIndicator, {
-				status: { ...mockStatus, text: '', phrases: [] }
+				status: { ...mockStatus, text: '' }
 			});
-			const indicator = container.querySelector('[role="status"]');
-			expect(indicator).toBeInTheDocument();
+			expect(container.querySelector('[role="status"]')).toBeInTheDocument();
 		});
 
-		it('handles very long text', () => {
-			const longText = 'A'.repeat(500);
-			render(AnsweringIndicator, {
-				status: { ...mockStatus, text: longText }
+		it('shows thinking state for null status', () => {
+			const { container } = render(AnsweringIndicator, { status: null });
+			expect(container.querySelector('[class*="stateThinking"]')).toBeInTheDocument();
+		});
+
+		it('does not show target element when target is empty', () => {
+			const { container } = render(AnsweringIndicator, {
+				status: { ...mockStatus, verb: 'searching' }
 			});
-			const indicator = screen.queryByText(longText);
-			// Text should be truncated in display
-			expect(screen.getByRole('status')).toBeInTheDocument();
+			const statusText = container.querySelector('[class*="statusText"]');
+			const targets = statusText?.querySelectorAll('[class*="statusTarget"]');
+			expect(targets?.length ?? 0).toBe(0);
 		});
 	});
 });

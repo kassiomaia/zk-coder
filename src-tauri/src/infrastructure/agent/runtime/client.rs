@@ -3,11 +3,9 @@
 //! Provides functions for creating and using LLM clients
 //! within the agent execution context.
 
-use tauri::{AppHandle, Manager};
-
 use crate::application::llm::get_code_operation_model;
-use crate::commands::{ChatState, LlmState};
 use crate::core::chat::entities::MessageRole;
+use crate::core::chat::services::ChatService;
 use crate::core::config::ConfigRepository;
 use crate::core::llm::entities::{ChatMessage as Message, ChatRequest, ChatResponse};
 #[allow(unused_imports)]
@@ -40,12 +38,10 @@ impl Default for LlmRetryConfig {
 ///
 /// Returns an error if the model or provider cannot be resolved.
 pub async fn create_llm_client(
-    app_handle: &AppHandle,
+    config_repository: &dyn ConfigRepository,
     model_id: Option<String>,
 ) -> Result<(Box<dyn LlmClient>, String), AgentRuntimeError> {
     log::info!("[AgentRuntime] Creating LLM client for agent execution");
-    let llm_state = app_handle.state::<LlmState>();
-    let config_repository = llm_state.config_repository.clone();
 
     // Use provided model_id or fall back to code operation default
     let model = if let Some(mid) = model_id {
@@ -57,7 +53,7 @@ pub async fn create_llm_client(
                     "[AgentRuntime] Model '{}' not found, falling back to default",
                     mid
                 );
-                get_code_operation_model(config_repository.as_ref()).map_err(|e| {
+                get_code_operation_model(config_repository).map_err(|e| {
                     log::error!("[AgentRuntime] Failed to get code operation model: {}", e);
                     AgentRuntimeError::Config(e.to_string())
                 })?
@@ -68,7 +64,7 @@ pub async fn create_llm_client(
                     mid,
                     e
                 );
-                get_code_operation_model(config_repository.as_ref()).map_err(|e| {
+                get_code_operation_model(config_repository).map_err(|e| {
                     log::error!("[AgentRuntime] Failed to get code operation model: {}", e);
                     AgentRuntimeError::Config(e.to_string())
                 })?
@@ -76,7 +72,7 @@ pub async fn create_llm_client(
         }
     } else {
         log::info!("[AgentRuntime] Using code operation default model");
-        get_code_operation_model(config_repository.as_ref()).map_err(|e| {
+        get_code_operation_model(config_repository).map_err(|e| {
             log::error!("[AgentRuntime] Failed to get code operation model: {}", e);
             AgentRuntimeError::Config(e.to_string())
         })?
@@ -98,7 +94,7 @@ pub async fn create_llm_client(
 
     log::info!("[AgentRuntime] Provider found: {}", provider.id);
 
-    let api_key = get_api_key_for_provider(&provider.id, config_repository.as_ref())?;
+    let api_key = get_api_key_for_provider(&provider.id, config_repository)?;
     let model_name = model.name.clone();
 
     log::info!(
@@ -166,13 +162,10 @@ pub async fn chat_with_retry(
 ///
 /// Returns an error if the chat store cannot be accessed.
 pub async fn build_llm_context(
+    chat_service: &dyn ChatService,
     session: &crate::core::agent::session::AgentSession,
-    _request: &crate::core::agent::task::AgentRequest,
-    app_handle: &AppHandle,
 ) -> Result<Vec<Message>, AgentRuntimeError> {
-    let chat_state = app_handle.state::<ChatState>();
-    let history = chat_state
-        .service
+    let history = chat_service
         .load_thread_messages(&session.thread_id)
         .unwrap_or_default();
 

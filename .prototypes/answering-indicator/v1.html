@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<!--
+  Prototype: AnsweringIndicator — v1
+  ───────────────────────────────────
+  Design direction: refined industrial — terminal meets precision instrument.
+  A single-line strip (~36px) that lives at the bottom of the chat message list.
+  Replaces the current pill+dot+scramble design with something calmer and more readable.
+
+  Four states:
+    thinking   — LLM is generating; waveform bars pulse in a flowing wave
+    tool       — specific tool running; bars beat in sync; file/cmd shown in mono
+    stall      — running >60s; amber treatment, elapsed counter prominent
+    complete   — brief green flash before dismiss
+
+  Key design decisions:
+  - Monospace throughout (JetBrains Mono / Fira Code / Consolas)
+  - 2px left border accent changes color by state
+  - Bottom rail: 1px animated gradient line (indeterminate flow or pulse)
+  - No spinner, no dot, no pill — horizontal precision strip
+  - Square corners, flat, no blur, no shadow
+  - Elapsed time always right-aligned
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prototype · AnsweringIndicator v1</title>
+<style>
+/* ─── Tokens ─── */
+:root {
+  --bg:          #0b0b0a;
+  --bg-strip:    #111110;
+  --bg-hover:    #161614;
+  --border-sub:  rgba(255,252,245,0.04);
+  --border-pri:  rgba(255,252,245,0.07);
+
+  --text:        #e6e5e0;
+  --text-dim:    #a3a29a;
+  --text-muted:  #545350;
+  --text-faint:  #302f2e;
+
+  --primary:     #5c6178;
+  --tool-blue:   #7aa5d4;
+  --warning:     #d4930d;
+  --success:     #3d9970;
+
+  --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  font-family: var(--mono);
+  padding: 40px 32px;
+  min-height: 100vh;
+}
+
+/* ─── Page scaffolding ─── */
+.page-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-sub);
+}
+
+.section-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  margin-top: 40px;
+  opacity: 0.7;
+}
+
+.section-label:first-of-type { margin-top: 0; }
+
+/* Simulate the chat context */
+.chat-context {
+  max-width: 720px;
+  border: 1px solid var(--border-sub);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.chat-context + .section-label { margin-top: 32px; }
+
+/* ═══════════════════════════════════════════
+   THE INDICATOR STRIP
+   ═══════════════════════════════════════════ */
+
+.indicator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 12px 0 14px;
+  background: var(--bg-strip);
+  border-top: 1px solid var(--border-sub);
+  gap: 10px;
+  /* left accent border — changes color per state */
+  border-left: 2px solid var(--primary);
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ─── Bottom rail ─── */
+.indicator::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  width: 200%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--primary) 30%,
+    var(--primary) 50%,
+    transparent 80%
+  );
+  animation: rail-flow 2.2s linear infinite;
+  opacity: 0.5;
+}
+
+@keyframes rail-flow {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0%); }
+}
+
+/* ─── Waveform bars ─── */
+.bars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.bar {
+  width: 2px;
+  background: var(--primary);
+  border-radius: 0;
+  animation: wave-think 1.4s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+.bar:nth-child(1) { animation-delay: 0ms;    height: 4px; }
+.bar:nth-child(2) { animation-delay: 140ms;  height: 8px; }
+.bar:nth-child(3) { animation-delay: 280ms;  height: 12px; }
+.bar:nth-child(4) { animation-delay: 140ms;  height: 8px; }
+.bar:nth-child(5) { animation-delay: 0ms;    height: 4px; }
+
+@keyframes wave-think {
+  0%, 100% { height: 3px;  opacity: 0.4; }
+  50%       { height: 12px; opacity: 0.9; }
+}
+
+/* ─── Status text ─── */
+.status-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.status-verb {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.status-target {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: normal;
+}
+
+/* ─── Elapsed ─── */
+.elapsed {
+  font-size: 10px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+/* ═══════════════════════════════════════
+   STATE MODIFIERS
+   ═══════════════════════════════════════ */
+
+/* — State: thinking (default, primary) — */
+.state-thinking {
+  border-left-color: var(--primary);
+}
+.state-thinking .bar {
+  background: var(--primary);
+  animation-name: wave-think;
+  animation-duration: 1.4s;
+}
+.state-thinking::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--primary) 30%,
+    var(--primary) 50%,
+    transparent 80%
+  );
+}
+
+/* — State: tool (blue, sync beat) — */
+.state-tool {
+  border-left-color: var(--tool-blue);
+}
+.state-tool .bar {
+  background: var(--tool-blue);
+  animation-name: wave-tool;
+  animation-duration: 0.9s;
+}
+.state-tool::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--tool-blue) 30%,
+    var(--tool-blue) 50%,
+    transparent 80%
+  );
+  animation-duration: 1.4s;
+}
+.state-tool .status-verb { color: var(--tool-blue); opacity: 0.9; }
+.state-tool .status-target { color: var(--text-dim); }
+
+@keyframes wave-tool {
+  0%, 100% { height: 5px;  opacity: 0.5; }
+  50%       { height: 11px; opacity: 1.0; }
+}
+
+/* — State: stall (amber, slow pulse) — */
+.state-stall {
+  border-left-color: var(--warning);
+}
+.state-stall .bar {
+  background: var(--warning);
+  animation-name: wave-stall;
+  animation-duration: 2.8s;
+}
+.state-stall::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--warning) 30%,
+    var(--warning) 50%,
+    transparent 80%
+  );
+  animation-duration: 4s;
+  opacity: 0.35;
+}
+.state-stall .status-verb { color: var(--warning); opacity: 0.85; }
+.state-stall .elapsed     { color: var(--warning); opacity: 0.7; }
+
+@keyframes wave-stall {
+  0%, 100% { height: 2px;  opacity: 0.3; }
+  50%       { height: 8px;  opacity: 0.7; }
+}
+
+/* — State: complete (green, static bars, rail fills) — */
+.state-complete {
+  border-left-color: var(--success);
+}
+.state-complete .bar {
+  background: var(--success);
+  animation: none;
+  height: 10px;
+  opacity: 0.75;
+  transition: height 300ms ease, opacity 300ms ease;
+}
+.state-complete::after {
+  background: linear-gradient(
+    90deg,
+    var(--success) 0%,
+    var(--success) 100%
+  );
+  animation: none;
+  transform: translateX(0);
+  width: 100%;
+  opacity: 0.4;
+  transition: all 400ms ease;
+}
+.state-complete .status-verb { color: var(--success); }
+.state-complete .check {
+  display: inline-block;
+  margin-right: 2px;
+}
+
+/* ─── Check mark (complete only) ─── */
+.check {
+  display: none;
+  color: var(--success);
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* ─── Static chat filler (for context) ─── */
+.chat-filler {
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-sub);
+}
+
+.msg-line {
+  height: 8px;
+  background: var(--border-sub);
+  border-radius: 0;
+}
+
+.msg-line:last-child { width: 60%; }
+
+/* ═══════════════════════════════════════
+   LIVE DEMO
+   ═══════════════════════════════════════ */
+
+.live-section {
+  max-width: 720px;
+  margin-top: 40px;
+}
+
+.live-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 10px;
+}
+
+.live-wrap {
+  border: 1px solid var(--border-sub);
+}
+
+.live-chat-filler {
+  padding: 24px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.live-msg {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.live-msg-avatar {
+  width: 20px;
+  height: 20px;
+  background: var(--border-sub);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.live-msg-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.live-msg-line {
+  height: 7px;
+  background: var(--border-sub);
+}
+
+.live-msg-line:last-child { width: 45%; }
+
+.live-state-badge {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid var(--border-sub);
+  margin-left: auto;
+  margin-right: 14px;
+  margin-bottom: 4px;
+  width: fit-content;
+  display: block;
+  text-align: right;
+  opacity: 0.6;
+  font-family: var(--mono);
+  transition: color 300ms;
+}
+
+/* Separator between static examples */
+.gap { height: 16px; }
+
+</style>
+</head>
+<body>
+
+<p class="page-label">Prototype · AnsweringIndicator v1 · refined industrial · dark</p>
+
+<!-- ════════════════════════════════
+     STATIC STATE EXAMPLES
+     ════════════════════════════════ -->
+
+<p class="section-label">State 1 — Thinking (LLM generating)</p>
+<div class="chat-context">
+  <div class="chat-filler">
+    <div class="msg-line" style="width:88%"></div>
+    <div class="msg-line" style="width:72%"></div>
+    <div class="msg-line"></div>
+  </div>
+  <div class="indicator state-thinking">
+    <div class="bars">
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+    </div>
+    <div class="status-text">
+      <span class="status-verb">thinking</span>
+    </div>
+    <span class="elapsed">4s</span>
+  </div>
+</div>
+
+<div class="gap"></div>
+
+<p class="section-label">State 2 — Tool execution (reading file)</p>
+<div class="chat-context">
+  <div class="chat-filler">
+    <div class="msg-line" style="width:65%"></div>
+    <div class="msg-line" style="width:80%"></div>
+    <div class="msg-line"></div>
+  </div>
+  <div class="indicator state-tool">
+    <div class="bars">
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+    </div>
+    <div class="status-text">
+      <span class="status-verb">reading</span>
+      <span class="status-target">src-tauri/src/commands/llm/helpers.rs</span>
+    </div>
+    <span class="elapsed">8s</span>
+  </div>
+</div>
+
+<div class="gap"></div>
+
+<p class="section-label">State 2b — Tool execution (running command)</p>
+<div class="chat-context">
+  <div class="chat-filler">
+    <div class="msg-line" style="width:55%"></div>
+    <div class="msg-line" style="width:78%"></div>
+    <div class="msg-line"></div>
+  </div>
+  <div class="indicator state-tool">
+    <div class="bars">
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+    </div>
+    <div class="status-text">
+      <span class="status-verb">running</span>
+      <span class="status-target">cargo build --release</span>
+    </div>
+    <span class="elapsed">23s</span>
+  </div>
+</div>
+
+<div class="gap"></div>
+
+<p class="section-label">State 3 — Stall / taking longer (&gt;60s)</p>
+<div class="chat-context">
+  <div class="chat-filler">
+    <div class="msg-line" style="width:90%"></div>
+    <div class="msg-line" style="width:70%"></div>
+    <div class="msg-line"></div>
+  </div>
+  <div class="indicator state-stall">
+    <div class="bars">
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+    </div>
+    <div class="status-text">
+      <span class="status-verb">still working</span>
+    </div>
+    <span class="elapsed">1m 24s</span>
+  </div>
+</div>
+
+<div class="gap"></div>
+
+<p class="section-label">State 4 — Complete</p>
+<div class="chat-context">
+  <div class="chat-filler">
+    <div class="msg-line" style="width:85%"></div>
+    <div class="msg-line" style="width:60%"></div>
+    <div class="msg-line"></div>
+  </div>
+  <div class="indicator state-complete">
+    <div class="bars">
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+    </div>
+    <div class="status-text">
+      <span class="check">✓</span>
+      <span class="status-verb" style="display:inline">done</span>
+    </div>
+    <span class="elapsed" style="color: var(--success); opacity: 0.55">1m 38s</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     LIVE ANIMATED DEMO
+     ════════════════════════════════ -->
+
+<div class="live-section">
+  <p class="live-label">Live demo — cycles through all states</p>
+
+  <div class="live-wrap">
+    <div class="live-chat-filler">
+      <div class="live-msg">
+        <div class="live-msg-avatar"></div>
+        <div class="live-msg-lines">
+          <div class="live-msg-line" style="width:90%"></div>
+          <div class="live-msg-line" style="width:75%"></div>
+          <div class="live-msg-line"></div>
+        </div>
+      </div>
+      <div class="live-msg">
+        <div class="live-msg-avatar" style="background: rgba(92,97,120,0.15)"></div>
+        <div class="live-msg-lines">
+          <div class="live-msg-line" style="width:65%; background: rgba(255,252,245,0.05)"></div>
+          <div class="live-msg-line" style="width:80%; background: rgba(255,252,245,0.05)"></div>
+          <div class="live-msg-line" style="background: rgba(255,252,245,0.05)"></div>
+        </div>
+      </div>
+    </div>
+    <span class="live-state-badge" id="stateBadge">state: thinking</span>
+    <div class="indicator state-thinking" id="liveIndicator">
+      <div class="bars" id="liveBars">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+      <div class="status-text" id="liveStatus">
+        <span class="check" id="liveCheck">✓</span>
+        <span class="status-verb" id="liveVerb">thinking</span>
+        <span class="status-target" id="liveTarget"></span>
+      </div>
+      <span class="elapsed" id="liveElapsed">2s</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const indicator  = document.getElementById('liveIndicator');
+const verb       = document.getElementById('liveVerb');
+const target     = document.getElementById('liveTarget');
+const elapsed    = document.getElementById('liveElapsed');
+const check      = document.getElementById('liveCheck');
+const stateBadge = document.getElementById('stateBadge');
+
+const STATES = [
+  {
+    cls:     'state-thinking',
+    verb:    'thinking',
+    target:  '',
+    label:   'state: thinking',
+    start:   0,      // elapsed start in seconds
+    dur:     4500,   // how long this state shows
+  },
+  {
+    cls:     'state-tool',
+    verb:    'reading',
+    target:  'src-tauri/src/application/nlp/context_manager.rs',
+    label:   'state: tool / read',
+    start:   5,
+    dur:     3500,
+  },
+  {
+    cls:     'state-tool',
+    verb:    'running',
+    target:  'cargo build --release',
+    label:   'state: tool / exec',
+    start:   9,
+    dur:     3500,
+  },
+  {
+    cls:     'state-tool',
+    verb:    'writing',
+    target:  'docs/planning/frontend-tool-widgets/plan.md',
+    label:   'state: tool / write',
+    start:   13,
+    dur:     3000,
+  },
+  {
+    cls:     'state-stall',
+    verb:    'still working',
+    target:  '',
+    label:   'state: stall',
+    start:   87,
+    dur:     4000,
+  },
+  {
+    cls:     'state-complete',
+    verb:    'done',
+    target:  '',
+    label:   'state: complete',
+    start:   102,
+    dur:     2500,
+  },
+];
+
+let stateIdx    = 0;
+let elapsedSec  = 0;
+let stateTimer  = null;
+let tickTimer   = null;
+
+function applyState(s) {
+  // Remove all state classes
+  indicator.className = 'indicator ' + s.cls;
+  verb.textContent    = s.verb;
+  target.textContent  = s.target;
+  stateBadge.textContent = s.label;
+
+  // Check visibility
+  check.style.display = s.cls === 'state-complete' ? 'inline' : 'none';
+
+  // Elapsed color handled by CSS state classes
+  elapsed.style.color  = '';
+  elapsed.style.opacity = '';
+
+  elapsedSec = s.start;
+  formatElapsed();
+}
+
+function formatElapsed() {
+  if (elapsedSec < 2) {
+    elapsed.textContent = '';
+    return;
+  }
+  if (elapsedSec < 60) {
+    elapsed.textContent = elapsedSec + 's';
+  } else {
+    const m = Math.floor(elapsedSec / 60);
+    const s = elapsedSec % 60;
+    elapsed.textContent = m + 'm ' + (s < 10 ? '0' : '') + s + 's';
+  }
+}
+
+function nextState() {
+  applyState(STATES[stateIdx]);
+  const dur = STATES[stateIdx].dur;
+  stateIdx = (stateIdx + 1) % STATES.length;
+  stateTimer = setTimeout(nextState, dur);
+}
+
+// Tick elapsed counter every second
+function tick() {
+  elapsedSec++;
+  formatElapsed();
+  tickTimer = setTimeout(tick, 1000);
+}
+
+// Kick off
+applyState(STATES[0]);
+stateIdx = 1;
+stateTimer = setTimeout(nextState, STATES[0].dur);
+tickTimer  = setTimeout(tick, 1000);
+</script>
+
+</body>
+</html>

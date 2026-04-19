@@ -22,6 +22,7 @@
 	import ApprovalMessage from './messages/ApprovalMessage.svelte';
 	import RecoveryMessage from './messages/RecoveryMessage.svelte';
 	import DocumentGenerationCard from './messages/DocumentGenerationCard.svelte';
+	import GroupedToolCallMessage from './messages/GroupedToolCallMessage.svelte';
 	import { MessageSquareIcon, UserIcon } from '$lib/icons';
 	import type { Message } from '$lib/types/message';
 	import type { Thread } from '$lib/types/thread';
@@ -33,6 +34,8 @@
 		shouldHideMessageInDocGen
 	} from '$lib/utils/documentGenerationTracker';
 	import { documentGenerationStore } from '$lib/stores/documentGenerationStore';
+	import { groupToolMessages, isToolGroup } from '$lib/utils/groupToolMessages';
+	import type { DisplayItem } from '$lib/utils/groupToolMessages';
 	import messageStyles from './MessageBubbles.module.css';
 	import inputStyles from './ChatInputContainer.module.css';
 	import { createLogger } from '$lib/utils/logger';
@@ -146,10 +149,12 @@
 		return () => unsubscribe();
 	});
 
-	// Track which messages should be hidden due to doc gen aggregation
-	function getVisibleMessages(): Message[] {
-		return messages.filter((msg) => !shouldHideMessageInDocGen(msg));
-	}
+	// Track which messages should be hidden due to doc gen aggregation,
+	// then group consecutive tool_call messages by stepNumber.
+	const displayItems = $derived.by<DisplayItem[]>(() => {
+		const visible = messages.filter((msg) => !shouldHideMessageInDocGen(msg));
+		return groupToolMessages(visible);
+	});
 
 	// Process messages to update document generation tracking
 	$effect(() => {
@@ -200,10 +205,13 @@
 
 	/**
 	 * Check if a message should use specialized rendering based on its kind.
+	 * ToolGroup items are always treated as agent messages.
 	 */
-	function getMessageKind(
-		message: Message
-	): 'thinking' | 'tool_call' | 'terminal' | 'narration' | 'approval' | null {
+	function getItemKind(
+		item: DisplayItem
+	): 'thinking' | 'tool_call' | 'tool_group' | 'terminal' | 'narration' | 'approval' | null {
+		if (isToolGroup(item)) return 'tool_group';
+		const message = item as Message;
 		if (
 			message.kind === 'thinking' ||
 			message.kind === 'tool_call' ||
@@ -216,57 +224,71 @@
 		return null;
 	}
 
-	function isSystemNotice(message: Message): boolean {
+	function isSystemNotice(item: DisplayItem): boolean {
+		if (isToolGroup(item)) return false;
+		const message = item as Message;
 		return message.role === 'system' && message.metadata?.systemNotice?.type === 'context_update';
 	}
 
+	/** Returns the timestamp of a display item for header gap calculations. */
+	function getItemTimestamp(item: DisplayItem): Date {
+		if (isToolGroup(item)) return item.messages[0].timestamp;
+		return (item as Message).timestamp;
+	}
+
+	/** Returns the role of a display item ('assistant' for tool groups). */
+	function getItemRole(item: DisplayItem): string {
+		if (isToolGroup(item)) return 'assistant';
+		return (item as Message).role;
+	}
+
 	/**
-	 * Check if a message should show a group header.
-	 * Agent messages (thinking, tool_call, terminal) don't show group headers.
+	 * Check if a display item should show a group header.
+	 * Agent messages (thinking, tool_call, tool_group, terminal) don't show group headers.
 	 */
 	function shouldShowGroupHeader(index: number): boolean {
 		if (index === 0) return true;
 
-		const currentMessage = messages[index];
-		const previousMessage = messages[index - 1];
+		const current = displayItems[index];
+		const previous = displayItems[index - 1];
 
 		// Skip group header for agent-specific and structured system notices
-		if (getMessageKind(currentMessage) || isSystemNotice(currentMessage)) return false;
+		if (getItemKind(current) || isSystemNotice(current)) return false;
 
 		// Show header if role changed
-		if (currentMessage.role !== previousMessage.role) return true;
+		if (getItemRole(current) !== getItemRole(previous)) return true;
 
 		// Show header if time gap > 5 minutes
-		const timeDiff = currentMessage.timestamp.getTime() - previousMessage.timestamp.getTime();
+		const timeDiff = getItemTimestamp(current).getTime() - getItemTimestamp(previous).getTime();
 		if (timeDiff >= 5 * 60 * 1000) return true;
 
 		return false;
 	}
 
 	/**
-	 * Check if an agent message should show an ASSISTANT group header.
+	 * Check if an agent display item should show an ASSISTANT group header.
 	 * Shows header when starting a new agent message sequence or after a time gap.
 	 */
 	function shouldShowAgentHeader(index: number): boolean {
-		const currentMessage = messages[index];
+		const current = displayItems[index];
 
-		// Only for agent-specific messages
-		if (!getMessageKind(currentMessage)) return false;
+		// Only for agent-specific items
+		if (!getItemKind(current)) return false;
 
-		// First message always shows header
+		// First item always shows header
 		if (index === 0) return true;
 
-		const previousMessage = messages[index - 1];
+		const previous = displayItems[index - 1];
 
-		// Show if previous message wasn't an agent message
-		const prevIsAgentMessage = getMessageKind(previousMessage) !== null;
-		if (!prevIsAgentMessage) {
+		// Show if previous item wasn't an agent item
+		const prevIsAgent = getItemKind(previous) !== null;
+		if (!prevIsAgent) {
 			// Only show if coming from a different role (not assistant) or first in sequence
-			return previousMessage.role !== 'assistant';
+			return getItemRole(previous) !== 'assistant';
 		}
 
-		// Show if time gap > 5 minutes between agent messages
-		const timeDiff = currentMessage.timestamp.getTime() - previousMessage.timestamp.getTime();
+		// Show if time gap > 5 minutes between agent items
+		const timeDiff = getItemTimestamp(current).getTime() - getItemTimestamp(previous).getTime();
 		if (timeDiff >= 5 * 60 * 1000) return true;
 
 		return false;
@@ -360,14 +382,46 @@
 		<EmptyThreadState {hasInputActivity} context={emptyContext} {conversationTitle} />
 	</div>
 {:else}
-	<!-- Messages - flat rendering to avoid Svelte 5 nested #each reconciliation issues -->
-	{#each messages as message, index (message.id)}
-		<!-- Skip messages that are part of document generation (they're shown in the card) -->
-		{#if !shouldHideMessageInDocGen(message)}
+	<!-- Messages - flat rendering to avoid Svelte 5 nested #each reconciliation issues.
+	     displayItems is derived from messages: doc-gen-hidden items are filtered out
+	     and consecutive same-step tool_call messages are collapsed into ToolGroup nodes. -->
+	{#each displayItems as item, index (isToolGroup(item) ? `group_${item.stepNumber}` : item.id)}
+		{#if isToolGroup(item)}
+			<!-- ---- Grouped tool call (2+ consecutive tool_calls sharing a stepNumber) ---- -->
+			{#if shouldShowAgentHeader(index)}
+				<div class={messageStyles.messageGroup}>
+					<div class={messageStyles.groupHeader}>
+						<span class={messageStyles.groupRole}>ASSISTANT</span>
+						<span class={messageStyles.groupTime}
+							>{formatGroupTime(item.messages[0].timestamp)}</span
+						>
+					</div>
+				</div>
+			{/if}
+			<div
+				class={[
+					messageStyles.messageWrapper,
+					messageStyles.assistantWrapper,
+					messageStyles.agentMessageWrapper
+				]
+					.filter(Boolean)
+					.join(' ')}
+			>
+				<div
+					class={[messageStyles.message, messageStyles.roleAssistant].filter(Boolean).join(' ')}
+				>
+					<GroupedToolCallMessage group={item} />
+				</div>
+			</div>
+		{:else}
+			{@const message = item}
 			<!-- Insert DocumentGenerationCard after last user message when active -->
 			{@const isLastUserMessage =
 				message.role === 'user' &&
-				(index === messages.length - 1 || messages[index + 1]?.role !== 'user')}
+				(index === displayItems.length - 1 ||
+					(isToolGroup(displayItems[index + 1])
+						? true
+						: (displayItems[index + 1] as Message).role !== 'user'))}
 			{#if currentDocGenJob && isLastUserMessage}
 				<div class={messageStyles.messageWrapper}>
 					<div class={messageStyles.message}>
@@ -433,7 +487,7 @@
 						{/if}
 					</div>
 				</div>
-			{:else if isSystemNotice(message)}
+			{:else if isSystemNotice(item)}
 				<div
 					class={[messageStyles.messageWrapper, messageStyles.systemNoticeWrapper]
 						.filter(Boolean)
@@ -554,7 +608,6 @@
 					{/if}
 				</div>
 			{/if}
-			<!-- End of skip-if for hidden doc gen messages -->
 		{/if}
 	{/each}
 

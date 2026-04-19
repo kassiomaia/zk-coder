@@ -1,0 +1,113 @@
+.fileList {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.fileRow {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	padding: 0 10px;
+	height: 30px;
+	cursor: pointer;
+	transition: background var(--transition-fast);
+	border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.fileRow:last-child {
+	border-bottom: none;
+}
+
+.fileRow:hover {
+	background: #1e1d1c;
+}
+
+.fileIcon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 14px;
+	height: 14px;
+	position: relative;
+	color: var(--color-text-muted);
+	opacity: 0.6;
+}
+
+.langDot {
+	position: absolute;
+	bottom: 0;
+	right: -1px;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	border: 1px solid var(--color-bg-secondary);
+}
+
+.filePath {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: baseline;
+	overflow: hidden;
+}
+
+.pathDir {
+	font-family: var(--font-mono);
+	font-size: var(--text-2xs);
+	color: var(--color-text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	flex-shrink: 1;
+	min-width: 0;
+}
+
+.pathName {
+	font-family: var(--font-mono);
+	font-size: var(--text-2xs);
+	color: var(--color-text-secondary);
+	white-space: nowrap;
+	flex-shrink: 0;
+	transition: color var(--transition-fast);
+}
+
+.fileRow:hover .pathName {
+	color: var(--color-text-primary);
+}
+
+.lineRange {
+	font-family: var(--font-mono);
+	font-size: 10px;
+	color: var(--color-text-muted);
+	white-space: nowrap;
+	flex-shrink: 0;
+	margin-left: 4px;
+	opacity: 0.7;
+}
+
+.lineCount {
+	font-family: var(--font-mono);
+	font-size: 10px;
+	color: var(--color-text-muted);
+	white-space: nowrap;
+	flex-shrink: 0;
+	opacity: 0.5;
+}
+
+.rowArrow {
+	display: flex;
+	align-items: center;
+	color: var(--color-text-muted);
+	opacity: 0.3;
+	flex-shrink: 0;
+	margin-left: 4px;
+	font-size: 14px;
+	line-height: 1;
+	transition: opacity var(--transition-fast);
+}
+
+.fileRow:hover .rowArrow {
+	opacity: 0.6;
+}

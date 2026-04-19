@@ -80,6 +80,11 @@ export interface AgentMessageData {
 	clarificationTimedOut?: boolean;
 	/** The subtask the clarification belonged to, when applicable. */
 	subtaskId?: string;
+	/**
+	 * LLM turn number this tool call/result belongs to (Option B grouping key).
+	 * All tool calls within a single LLM turn share the same stepNumber.
+	 */
+	stepNumber?: number;
 }
 
 /**

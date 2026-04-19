@@ -13,12 +13,16 @@ import type {
 
 /** Current agent status with icon hint */
 export interface AgentStatus {
-	/** Status text to display */
+	/** Status text to display (combined fallback when verb/target not set) */
 	text: string;
 	/** Icon hint for visual (e.g., 'scan', 'terminal', 'file', 'check') */
 	icon: 'scan' | 'terminal' | 'file' | 'edit' | 'wait' | 'check' | 'sparkle';
 	/** Whether the agent is currently active */
 	active: boolean;
+	/** Action verb for tool states (e.g., 'reading', 'running', 'writing') */
+	verb?: string;
+	/** File path or command target for tool states */
+	target?: string;
 	/** Array of phrases to rotate through (from LLM-generated status updates) */
 	phrases?: string[];
 	/** Context usage percentage (0-100) - if > 50, will be shown in status */
@@ -147,28 +151,17 @@ function harnessToStatus(
 }
 
 /**
- * Extract file path from tool arguments.
+ * Extract file path from tool arguments (full path, no truncation — display layer handles overflow).
  */
 function extractFilePath(args: Record<string, unknown>): string | null {
-	const path = (args.path as string | undefined) || (args.filePath as string | undefined);
-	if (path) {
-		// Get just the filename for brevity
-		const parts = path.split(/[/\\]/);
-		return parts[parts.length - 1] || path;
-	}
-	return null;
+	return (args.path as string | undefined) || (args.filePath as string | undefined) || null;
 }
 
 /**
- * Extract command from tool arguments.
+ * Extract command from tool arguments (full command — display layer handles overflow).
  */
 function extractCommand(args: Record<string, unknown>): string | null {
-	const cmd = (args.command as string | undefined) || (args.cmd as string | undefined);
-	if (cmd) {
-		// Truncate long commands
-		return cmd.length > 30 ? cmd.slice(0, 27) + '...' : cmd;
-	}
-	return null;
+	return (args.command as string | undefined) || (args.cmd as string | undefined) || null;
 }
 
 /**
@@ -179,7 +172,7 @@ export function stepToStatus(step: ExecutionStep): AgentStatus | null {
 
 	switch (action.type) {
 		case 'llm_request':
-			return { text: 'Planning next steps...', icon: 'sparkle', active: true };
+			return { text: 'Thinking...', verb: 'thinking', icon: 'sparkle', active: true };
 
 		case 'tool_call': {
 			const tool = action.tool;
@@ -189,8 +182,8 @@ export function stepToStatus(step: ExecutionStep): AgentStatus | null {
 				case 'read': {
 					const path = extractFilePath(action.arguments);
 					return path
-						? { text: `Reading ${path}`, icon: 'file', active: true }
-						: { text: 'Reading project files...', icon: 'file', active: true };
+						? { text: `Reading ${path}`, verb: 'reading', target: path, icon: 'file', active: true }
+						: { text: 'Reading project files...', verb: 'reading', icon: 'file', active: true };
 				}
 				case 'write_file':
 				case 'write':
@@ -198,22 +191,22 @@ export function stepToStatus(step: ExecutionStep): AgentStatus | null {
 				case 'edit': {
 					const path = extractFilePath(action.arguments);
 					return path
-						? { text: `Updating ${path}`, icon: 'edit', active: true }
-						: { text: 'Applying changes...', icon: 'edit', active: true };
+						? { text: `Writing ${path}`, verb: 'writing', target: path, icon: 'edit', active: true }
+						: { text: 'Applying changes...', verb: 'writing', icon: 'edit', active: true };
 				}
 				case 'execute_command':
 				case 'bash': {
 					const cmd = extractCommand(action.arguments);
 					return cmd
-						? { text: `Executing: ${cmd}`, icon: 'terminal', active: true }
-						: { text: 'Running system command...', icon: 'terminal', active: true };
+						? { text: `Running ${cmd}`, verb: 'running', target: cmd, icon: 'terminal', active: true }
+						: { text: 'Running command...', verb: 'running', icon: 'terminal', active: true };
 				}
 				case 'grep':
 				case 'glob': {
-					return { text: 'Searching codebase...', icon: 'scan', active: true };
+					return { text: 'Searching codebase...', verb: 'searching', icon: 'scan', active: true };
 				}
 				default:
-					return { text: `Using ${tool}...`, icon: 'sparkle', active: true };
+					return { text: `Using ${tool}...`, verb: tool, icon: 'sparkle', active: true };
 			}
 		}
 	}

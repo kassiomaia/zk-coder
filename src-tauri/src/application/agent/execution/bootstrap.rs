@@ -141,7 +141,7 @@ pub async fn start_execution(
             user_intent_hint: intent,
         });
         plan_or_continue(
-            deps.app_handle,
+            deps.config_repository,
             &request.content,
             state_ref,
             session.model_id.as_deref(),
@@ -335,9 +335,10 @@ async fn bootstrap_fresh(
         },
     );
 
-    let (client, model_name) = create_llm_client(deps.app_handle, session.model_id.clone()).await?;
+    let (client, model_name) =
+        create_llm_client(deps.config_repository, session.model_id.clone()).await?;
     context.model_name = model_name;
-    context.llm_context = build_llm_context(session, request, deps.app_handle).await?;
+    context.llm_context = build_llm_context(deps.chat_service, session).await?;
 
     deps.task_repo
         .update_task_status(&context.task_id, TaskStatus::InProgress)
@@ -498,9 +499,10 @@ async fn bootstrap_continue(
         },
     );
 
-    let (client, model_name) = create_llm_client(deps.app_handle, session.model_id.clone()).await?;
+    let (client, model_name) =
+        create_llm_client(deps.config_repository, session.model_id.clone()).await?;
     context.model_name = model_name;
-    context.llm_context = build_llm_context(session, request, deps.app_handle).await?;
+    context.llm_context = build_llm_context(deps.chat_service, session).await?;
 
     let passed_details = (!subtasks.is_empty()).then(|| {
         vec![format!(
