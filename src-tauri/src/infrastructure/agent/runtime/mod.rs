@@ -4,7 +4,9 @@
 //!
 //! - [`types`] - Error types and helper structs
 //! - [`client`] - LLM client creation and utilities
-//! - [`context`] - Context compaction and token estimation
+//! - [`context`] - Context packing: token budgeting, V1/V2 compaction
+//!   policies, failure-memory overlay, and deterministic block
+//!   formatters (split across `budget`, `policy`, `failure`, `render`)
 //! - [`loop_detection`] - Repetitive loop detection
 //! - [`execution`] - Main execution orchestration
 //! - [`permissions`] - Permission handling and tool execution
