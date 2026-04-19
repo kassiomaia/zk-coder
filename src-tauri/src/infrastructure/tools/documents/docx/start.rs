@@ -16,9 +16,11 @@ pub struct DocxStartArgs {
     /// Output filename (with or without .docx extension)
     pub filename: String,
     /// Document title
+    #[allow(dead_code)]
     pub title: String,
     /// Optional template name to use
     #[serde(default)]
+    #[allow(dead_code)]
     pub template: Option<String>,
 }
 

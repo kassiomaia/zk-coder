@@ -29,6 +29,7 @@ pub struct PptxAddSlideArgs {
     pub notes: Option<String>,
     /// Position to insert (default: "end")
     #[serde(default)]
+    #[allow(dead_code)]
     pub position: String,
 }
 
