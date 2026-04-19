@@ -22,8 +22,8 @@ use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Utc};
 
 use crate::application::agent::read_models::{
-    EnvironmentHealth, HarnessMode, SessionHandoffSummary, StartupVerificationState,
-    StartupVerificationSummary,
+    AwaitingClarificationDetails, EnvironmentHealth, HarnessMode, SessionHandoffSummary,
+    StartupVerificationState, StartupVerificationSummary,
 };
 use crate::core::agent::task::{AgentTask, TaskStatus};
 
@@ -43,6 +43,11 @@ pub struct HarnessStateOverrides {
     pub handoff: Option<SessionHandoffSummary>,
     /// Authoritative clean-exit marker, if recorded.
     pub clean_exit_recorded: Option<bool>,
+    /// Accompaniment to [`HarnessMode::AwaitingClarification`]: the
+    /// prompt + timestamp of the question the runtime is waiting on
+    /// (Workstream E.2). Set in the same call as `mode`; cleared when
+    /// the registry clears the pending clarification.
+    pub awaiting_clarification: Option<AwaitingClarificationDetails>,
 }
 
 impl HarnessStateOverrides {
@@ -53,6 +58,7 @@ impl HarnessStateOverrides {
             && self.startup_verification.is_none()
             && self.handoff.is_none()
             && self.clean_exit_recorded.is_none()
+            && self.awaiting_clarification.is_none()
     }
 }
 
@@ -81,6 +87,21 @@ pub trait HarnessStateStore: Send + Sync {
 
     /// Replaces the clean-exit marker for `session_id`.
     fn record_clean_exit(&self, session_id: &str, recorded: bool);
+
+    /// Records that the runtime has entered the awaiting-clarification
+    /// mode for `session_id` (Workstream E.2). Callers should pair
+    /// this with `record_mode(HarnessMode::AwaitingClarification)` so
+    /// the derived read model stays in lockstep.
+    fn record_awaiting_clarification(
+        &self,
+        session_id: &str,
+        details: AwaitingClarificationDetails,
+    );
+
+    /// Clears the awaiting-clarification details for `session_id`.
+    /// Called when the user reply clears the pending clarification or
+    /// when the timeout fallback fails the subtask.
+    fn clear_awaiting_clarification(&self, session_id: &str);
 
     /// Drops every override recorded for `session_id`.
     fn clear(&self, session_id: &str);
@@ -163,6 +184,22 @@ impl HarnessStateStore for InMemoryHarnessStateStore {
     fn record_clean_exit(&self, session_id: &str, recorded: bool) {
         self.with_entry(session_id, |entry| {
             entry.clean_exit_recorded = Some(recorded);
+        });
+    }
+
+    fn record_awaiting_clarification(
+        &self,
+        session_id: &str,
+        details: AwaitingClarificationDetails,
+    ) {
+        self.with_entry(session_id, |entry| {
+            entry.awaiting_clarification = Some(details);
+        });
+    }
+
+    fn clear_awaiting_clarification(&self, session_id: &str) {
+        self.with_entry(session_id, |entry| {
+            entry.awaiting_clarification = None;
         });
     }
 

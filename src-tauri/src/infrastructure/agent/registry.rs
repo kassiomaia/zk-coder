@@ -29,11 +29,13 @@
 //! full design rationale.
 
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::sync::Arc;
 
 use chrono::Utc;
 use tokio::sync::RwLock;
 
+use crate::core::agent::task::TaskFraming;
 use crate::core::agent::types::{Agent, AgentId, TrustMode};
 
 /// Registry of available agent configurations.
@@ -133,6 +135,97 @@ impl SystemPromptBuilder {
             ),
         }
     }
+
+    /// Compose the agent-level prompt for a task (Workstream H.2.c).
+    ///
+    /// When `task_framing` is `Some`, its rendered form
+    /// ([`framing_prompt`]) replaces [`default_code_framing`] as the third
+    /// section. When `None`, the composition falls back to the default
+    /// code framing so legacy (pre-H.2) tasks — and tasks the planner did
+    /// not declare a framing for — keep the exact prompt they have today.
+    ///
+    /// The returned string is the concatenation
+    /// `harness + quality + framing` with the standard section separator,
+    /// so `framing_hash` can be computed directly against the rendered
+    /// framing section without re-deriving the boundaries.
+    #[must_use]
+    pub fn compose_for_task(task_framing: Option<&TaskFraming>) -> String {
+        match task_framing {
+            Some(framing) => {
+                let rendered = framing_prompt(framing);
+                Self::compose(
+                    harness_contract_prompt(),
+                    quality_baseline_prompt(),
+                    Some(rendered.as_str()),
+                )
+            }
+            None => Self::compose_default_code_agent(),
+        }
+    }
+
+    /// Returns the framing section that will be concatenated into the
+    /// task-level system prompt, including the genre-default fallback.
+    ///
+    /// Mirrors [`Self::compose_for_task`]: when `task_framing` is `Some`
+    /// the rendered framing is returned; when `None` the genre-default
+    /// code framing is returned unchanged. `framing_hash` is computed
+    /// against this value.
+    #[must_use]
+    pub fn active_framing_section(task_framing: Option<&TaskFraming>) -> String {
+        match task_framing {
+            Some(framing) => framing_prompt(framing),
+            None => default_code_framing().to_string(),
+        }
+    }
+}
+
+/// Render a task-declared `TaskFraming` into the framing section body
+/// (Workstream H.2.c).
+///
+/// Sections included, in order:
+///
+/// 1. `## TASK FRAMING` banner so the section is visually distinct from
+///    the harness contract and quality baseline.
+/// 2. `Role: ...` — the short descriptor supplied by the planner.
+/// 3. `Voice constraints` — the opinionated bulleted list.
+/// 4. `Domain priors` — bulleted hints (omitted when absent or empty).
+/// 5. `Forbidden patterns` — bulleted regex list (omitted when empty).
+///
+/// The rendering is deterministic: identical input produces identical
+/// output byte-for-byte, so `framing_hash` is stable across steps in the
+/// same task and only moves at task boundaries (validated by
+/// `prompt_stability_tests`).
+#[must_use]
+pub fn framing_prompt(framing: &TaskFraming) -> String {
+    let mut out = String::from("## TASK FRAMING\n\n");
+    let _ = writeln!(out, "Role: {}", framing.role.trim());
+    out.push('\n');
+    out.push_str("Voice constraints:\n");
+    for constraint in &framing.voice_constraints {
+        let _ = writeln!(out, "- {}", constraint.trim());
+    }
+    if let Some(priors) = &framing.domain_priors {
+        if !priors.hints.is_empty() {
+            out.push('\n');
+            out.push_str("Domain priors:\n");
+            for hint in &priors.hints {
+                let _ = writeln!(out, "- {}", hint.trim());
+            }
+        }
+    }
+    if !framing.forbidden_patterns.is_empty() {
+        out.push('\n');
+        out.push_str("Forbidden patterns (regex; outputs must not match):\n");
+        for pattern in &framing.forbidden_patterns {
+            let _ = writeln!(out, "- {pattern}");
+        }
+    }
+    // Trim trailing newline so the section joins cleanly with the
+    // separator. The composer adds `\n\n` between sections.
+    while out.ends_with('\n') {
+        out.pop();
+    }
+    out
 }
 
 /// The harness contract — invariant across tasks, sessions, and subtasks.
@@ -625,6 +718,109 @@ mod tests {
         assert!(framing.contains("TypeScript"));
         assert!(framing.contains("900 lines"));
         assert!(framing.contains("DEFINITION OF DONE"));
+    }
+
+    // ------------------------------------------------------------------------
+    // Workstream H.2.c: task-declared framing composition.
+    //
+    // These tests lock in the invariant that when a task declares its own
+    // `TaskFraming`, the composed agent-level prompt carries the declared
+    // framing in place of the default code framing. When no framing is
+    // declared, the composition falls back to `default_code_framing()` so
+    // every pre-H.2 task renders identically.
+    // ------------------------------------------------------------------------
+
+    fn sample_communication_framing() -> crate::core::agent::task::TaskFraming {
+        use crate::core::agent::task::{DomainPriors, TaskFraming};
+        TaskFraming {
+            role: "senior communication professional".to_string(),
+            voice_constraints: vec![
+                "one claim per paragraph".to_string(),
+                "no filler openers".to_string(),
+            ],
+            domain_priors: Some(DomainPriors {
+                hints: vec!["press-release voice".to_string()],
+            }),
+            forbidden_patterns: vec![r"(?i)game[- ]changing".to_string()],
+        }
+    }
+
+    #[test]
+    fn compose_for_task_without_framing_matches_default_code_agent() {
+        let with_default = SystemPromptBuilder::compose_for_task(None);
+        let current = SystemPromptBuilder::compose_default_code_agent();
+        assert_eq!(
+            with_default, current,
+            "pre-H.2 tasks without framing must match the legacy composed prompt exactly",
+        );
+    }
+
+    #[test]
+    fn compose_for_task_with_framing_replaces_code_framing_with_declared_framing() {
+        let framing = sample_communication_framing();
+        let composed = SystemPromptBuilder::compose_for_task(Some(&framing));
+
+        // Harness and quality baseline still present.
+        assert!(composed.contains("HARNESS CONTRACT"));
+        assert!(composed.contains("QUALITY BASELINE"));
+
+        // Declared framing content appears.
+        assert!(composed.contains("TASK FRAMING"));
+        assert!(composed.contains("senior communication professional"));
+        assert!(composed.contains("one claim per paragraph"));
+        assert!(composed.contains("press-release voice"));
+
+        // Default code framing must NOT leak into a communication task.
+        assert!(
+            !composed.contains("Bun"),
+            "code defaults must not appear when a non-code framing is declared",
+        );
+        assert!(!composed.contains("Drizzle"));
+        assert!(!composed.contains("900 lines"));
+    }
+
+    #[test]
+    fn framing_prompt_is_deterministic_for_identical_input() {
+        let framing = sample_communication_framing();
+        let a = framing_prompt(&framing);
+        let b = framing_prompt(&framing);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn framing_prompt_omits_empty_domain_priors_section() {
+        use crate::core::agent::task::TaskFraming;
+        let framing = TaskFraming {
+            role: "writer".to_string(),
+            voice_constraints: vec![
+                "short sentences".to_string(),
+                "no adjectives without a concrete number".to_string(),
+            ],
+            domain_priors: None,
+            forbidden_patterns: vec![],
+        };
+        let rendered = framing_prompt(&framing);
+        assert!(!rendered.contains("Domain priors"));
+        assert!(!rendered.contains("Forbidden patterns"));
+        assert!(rendered.contains("TASK FRAMING"));
+        assert!(rendered.contains("writer"));
+    }
+
+    #[test]
+    fn active_framing_section_matches_composition_branch() {
+        // The hash helper is computed against `active_framing_section`;
+        // when no framing is declared, the helper returns
+        // `default_code_framing()` so `framing_hash` stays stable against
+        // the pre-H.2 prompt.
+        assert_eq!(
+            SystemPromptBuilder::active_framing_section(None),
+            default_code_framing(),
+        );
+        let framing = sample_communication_framing();
+        assert_eq!(
+            SystemPromptBuilder::active_framing_section(Some(&framing)),
+            framing_prompt(&framing),
+        );
     }
 
     #[test]

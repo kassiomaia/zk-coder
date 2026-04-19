@@ -34,11 +34,47 @@ impl Tool for PlanSubtasksTool {
 				"(e.g. `docs/communications/social/twitter-*.md` for social copy, `reports/*.pdf` for a launch report). ",
 				"Writes outside the declared contract are flagged as scope drift and surfaced in the next step's context. ",
 				"Declaring a contract is strongly recommended whenever the subtask produces files or documents; ",
-				"omit it only for exploratory or read-only subtasks."
+				"omit it only for exploratory or read-only subtasks. ",
+				"Declare task-level `framing` (role, voice_constraints, optional domain_priors, optional forbidden_patterns) ",
+				"for any task where persona or voice matters — communication work, technical writing, launch copy. ",
+				"Provide at least two specific voice_constraints; bland one-liners like 'professional and clear' are rejected. ",
+				"All forbidden_patterns must be valid regex. Omit `framing` for ordinary code work to inherit the code defaults."
 			),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
+                    "framing": {
+                        "type": "object",
+                        "description": "Optional task-level framing (Workstream H.2). Declares the persona, voice, domain priors, and forbidden patterns for this task. Rendered into the system prompt for the lifetime of the task; omit for code work that should inherit the default framing.",
+                        "properties": {
+                            "role": {
+                                "type": "string",
+                                "description": "Short role descriptor, e.g. 'senior communication professional', 'technical writer'."
+                            },
+                            "voiceConstraints": {
+                                "type": "array",
+                                "minItems": 2,
+                                "items": {"type": "string"},
+                                "description": "At least 2 opinionated, specific voice constraints. Bland one-line declarations are rejected at planning time."
+                            },
+                            "domainPriors": {
+                                "type": "object",
+                                "description": "Optional structured domain priors. v1: a free-form list of hints.",
+                                "properties": {
+                                    "hints": {
+                                        "type": "array",
+                                        "items": {"type": "string"}
+                                    }
+                                }
+                            },
+                            "forbiddenPatterns": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Optional regex list. Each pattern must compile; the planner runs validation before persisting."
+                            }
+                        },
+                        "required": ["role", "voiceConstraints"]
+                    },
                     "subtasks": {
                         "type": "array",
                         "items": {
@@ -125,6 +161,56 @@ impl Tool for PlanSubtasksTool {
                 "count": count
             }))
         })
+    }
+}
+
+#[cfg(test)]
+mod framing_schema_tests {
+    //! Workstream H.2.b — `framing` is declared on the planner schema.
+    //!
+    //! These tests run unconditionally (not gated on the integration-test
+    //! feature) so the schema guarantees are part of the default build.
+    use super::*;
+
+    #[test]
+    fn schema_exposes_optional_framing_object_with_required_fields() {
+        let tool = PlanSubtasksTool;
+        let schema = tool.meta().input_schema;
+        let framing = &schema["properties"]["framing"];
+        assert_eq!(framing["type"], "object");
+        let required = framing["required"]
+            .as_array()
+            .expect("framing.required must be an array");
+        let names: Vec<&str> = required.iter().filter_map(|v| v.as_str()).collect();
+        assert!(names.contains(&"role"));
+        assert!(names.contains(&"voiceConstraints"));
+        // framing itself is *not* required on the top-level schema.
+        let top_required = schema["required"]
+            .as_array()
+            .expect("top-level required must be an array");
+        let top_names: Vec<&str> = top_required.iter().filter_map(|v| v.as_str()).collect();
+        assert!(
+            !top_names.contains(&"framing"),
+            "framing must remain optional at the task level"
+        );
+    }
+
+    #[test]
+    fn schema_enforces_minimum_voice_constraints_count() {
+        let tool = PlanSubtasksTool;
+        let schema = tool.meta().input_schema;
+        let voice = &schema["properties"]["framing"]["properties"]["voiceConstraints"];
+        assert_eq!(voice["type"], "array");
+        assert_eq!(voice["minItems"], 2);
+    }
+
+    #[test]
+    fn description_documents_framing_is_for_non_code_tasks() {
+        let tool = PlanSubtasksTool;
+        let meta = tool.meta();
+        assert!(meta.description.contains("framing"));
+        assert!(meta.description.contains("voice_constraints"));
+        assert!(meta.description.contains("regex"));
     }
 }
 

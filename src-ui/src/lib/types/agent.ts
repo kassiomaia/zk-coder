@@ -48,8 +48,39 @@ export interface ArtifactReference {
 	createdAt: string;
 }
 
-/** Long-running harness role for a session window. */
-export type HarnessMode = 'initializer' | 'worker' | 'resume_verifier';
+/**
+ * Narration intent (Workstream E.1).
+ *
+ * Mirrors the Rust `NarrationIntent` enum. `question` signals that the
+ * harness is paused until the user replies; AgentPanel renders those
+ * inline with a reply composer. `narration` is informational.
+ */
+export type NarrationIntent = 'narration' | 'question';
+
+/**
+ * Long-running harness role for a session window.
+ *
+ * `awaiting_clarification` (Workstream E.2) is the paused state the
+ * runtime enters when the agent emits `agent_narrate` with
+ * `intent = "question"`. The accompanying prompt + timestamp travel on
+ * {@link AgentSessionHarnessState.awaitingClarification} so the flat
+ * string shape remains compatible with existing equality checks.
+ */
+export type HarnessMode =
+	| 'initializer'
+	| 'worker'
+	| 'resume_verifier'
+	| 'awaiting_clarification';
+
+/**
+ * Accompaniment to the `awaiting_clarification` harness mode
+ * (Workstream E.2). Present when the backend has paused the runtime
+ * awaiting a user reply; undefined otherwise.
+ */
+export interface AwaitingClarificationDetails {
+	prompt: string;
+	askedAt: string;
+}
 
 /** Startup verification lifecycle state. */
 export type StartupVerificationState = 'idle' | 'running' | 'passed' | 'failed';
@@ -80,6 +111,13 @@ export interface AgentSessionHarnessState {
 	mode: HarnessMode;
 	startupVerification?: StartupVerificationSummary;
 	handoff?: SessionHandoffSummary;
+	/**
+	 * Present when `mode === 'awaiting_clarification'` (Workstream E.2).
+	 * Carries the exact question the agent emitted together with the
+	 * timestamp the question was asked at. AgentPanel renders the
+	 * question inline with a reply composer.
+	 */
+	awaitingClarification?: AwaitingClarificationDetails;
 	cleanExitRecorded: boolean;
 }
 
@@ -209,9 +247,44 @@ export interface BackendAgentTask {
 	status: TaskStatus;
 	steps: unknown[];
 	subtasks?: SubTask[];
+	/**
+	 * Task-declared framing (Workstream H.2). Present when the
+	 * planning step supplied a `framing` record with role, voice
+	 * constraints, optional domain priors, and optional forbidden
+	 * patterns. Legacy tasks that rely on the default code framing
+	 * leave this undefined. No UI rendering is required in this
+	 * phase; the field is exposed so a future override surface can
+	 * read from it without another type migration.
+	 */
+	framing?: TaskFraming;
 	createdAt: string;
 	completedAt?: string;
 	needsReview?: boolean; // Flag for tasks that stopped mid-execution
+}
+
+/**
+ * Structured domain priors carried alongside {@link TaskFraming}
+ * (Workstream H.2). v1 is a free-form bulleted hint list; the shape
+ * is intentionally permissive so the planner can declare hints today
+ * without blocking on the richer schema.
+ */
+export interface DomainPriors {
+	hints: string[];
+}
+
+/**
+ * Task-declared framing (Workstream H.2).
+ *
+ * Mirrors the Rust `TaskFraming` record. Supplied by the planner with
+ * the `agent_plan_subtasks` call and stable for the duration of the
+ * task. See `docs/planning/agent-fidelity/system-prompt-architecture.md`
+ * for the design intent.
+ */
+export interface TaskFraming {
+	role: string;
+	voiceConstraints: string[];
+	domainPriors?: DomainPriors;
+	forbiddenPatterns?: string[];
 }
 
 /** Convert a backend task to the frontend AgentTask shape. */
@@ -457,6 +530,14 @@ export type AgentEvent =
 			conversationId: string;
 			threadId: string;
 			content: string;
+			/**
+			 * Narration intent (Workstream E.1). `question` signals that
+			 * the backend paused the harness and is waiting for the user
+			 * to reply; the AgentPanel renders those inline with a reply
+			 * affordance. Defaults to `narration` when the field is
+			 * missing on older events so pre-E payloads still parse.
+			 */
+			intent?: NarrationIntent;
 			timestamp: string;
 	  }
 	| {

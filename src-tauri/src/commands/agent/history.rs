@@ -104,6 +104,7 @@ mod tests {
                 environment_health: EnvironmentHealth::Healthy,
                 recorded_at: Some("2026-04-17T12:05:00Z".to_string()),
             }),
+            awaiting_clarification: None,
             clean_exit_recorded: false,
         }
     }

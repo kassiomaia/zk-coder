@@ -24,6 +24,9 @@ impl Tool for NarrateTool {
                 "Send a natural-language update to the user about your progress, findings, or decisions. ",
                 "Use 1-2 clear sentences. Focus on what you discovered, decided, or completed — not every small action. ",
                 "These updates persist in the chat history. ",
+                "Accepts `intent`: `narration` (default) lets execution continue; ",
+                "`question` pauses the harness until the user replies. Use `question` only when you genuinely ",
+                "cannot proceed without information — never fabricate placeholders like `[Product Name]`. ",
                 "Examples: 'I found 3 test files that need updating. Starting with auth.test.ts.', ",
                 "'The refactoring is complete. I updated 5 files and all existing tests pass.'"
             ),
@@ -33,6 +36,12 @@ impl Tool for NarrateTool {
                     "message": {
                         "type": "string",
                         "description": "Natural-language update (1-2 sentences) about progress, findings, or decisions"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": ["narration", "question"],
+                        "default": "narration",
+                        "description": "`narration` (default) is informational; execution continues. `question` pauses the harness and waits for the user to reply before the next LLM call."
                     }
                 },
                 "required": ["message"]
@@ -65,6 +74,58 @@ impl Tool for NarrateTool {
                 "message": "Update sent"
             }))
         })
+    }
+}
+
+#[cfg(test)]
+mod intent_schema_tests {
+    //! Workstream E.1 — narration intent schema.
+    //!
+    //! Tests the tool-definition-level shape of the `intent` parameter. The
+    //! downstream `NarrationIntent` default is locked here so the tool
+    //! description cannot drift from the runtime parser.
+    use super::*;
+
+    #[test]
+    fn schema_exposes_intent_enum_with_narration_default() {
+        let tool = NarrateTool;
+        let schema = tool.meta().input_schema;
+        let intent = &schema["properties"]["intent"];
+        assert_eq!(intent["type"], "string");
+        let values: Vec<&str> = intent["enum"]
+            .as_array()
+            .expect("intent enum must be an array")
+            .iter()
+            .map(|v| v.as_str().unwrap_or_default())
+            .collect();
+        assert!(values.contains(&"narration"));
+        assert!(values.contains(&"question"));
+        assert_eq!(intent["default"], "narration");
+    }
+
+    #[test]
+    fn intent_is_not_required_so_existing_calls_still_validate() {
+        let tool = NarrateTool;
+        let schema = tool.meta().input_schema;
+        let required = schema["required"].as_array().expect("required array");
+        let names: Vec<&str> = required.iter().filter_map(|v| v.as_str()).collect();
+        assert!(names.contains(&"message"));
+        assert!(
+            !names.contains(&"intent"),
+            "intent must remain optional so pre-E calls still validate"
+        );
+    }
+
+    #[test]
+    fn description_documents_question_blocking_behavior() {
+        // The tool description is part of the prompt. The question/narration
+        // distinction must be stated where the model reads it; otherwise the
+        // runtime's pause behavior is a surprise.
+        let tool = NarrateTool;
+        let meta = tool.meta();
+        assert!(meta.description.contains("narration"));
+        assert!(meta.description.contains("question"));
+        assert!(meta.description.contains("pauses"));
     }
 }
 

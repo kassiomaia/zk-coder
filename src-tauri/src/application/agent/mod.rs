@@ -4,6 +4,7 @@
 //! defined in the core layer. It coordinates between the domain entities and
 //! the infrastructure layer (session store, approval queue, runtime, registry).
 
+pub mod clarification;
 pub mod execution;
 pub mod harness;
 pub mod planner;

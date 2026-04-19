@@ -161,6 +161,23 @@ pub enum RuntimeTraceType {
     ///   correction message, `"hard"` when the call was rejected
     ///   (B.4, gated on the hard-enforcement flag)
     SubtaskScopeDrift,
+    /// The harness paused at the step gate because `agent_narrate` was
+    /// called with `intent = "question"` (Workstream E.2). Payload:
+    ///
+    /// - `prompt` — the exact question the agent emitted
+    /// - `askedAt` — RFC3339 timestamp
+    AwaitingClarification,
+    /// The runtime failed the current subtask on behalf of the agent
+    /// because a clarification question went unanswered past the
+    /// configured timeout (Workstream E.3). Payload:
+    ///
+    /// - `reason` — always `"unanswered_clarification"` for E.3; the
+    ///   event is reserved for future runtime-driven subtask failure
+    ///   reasons
+    /// - `prompt` — the exact question that was never answered
+    /// - `askedAt` — RFC3339 timestamp the question was asked at
+    /// - `timeoutMinutes` — the configured timeout in effect
+    SubtaskFailedByRuntime,
 }
 
 /// Represents a single, append-only entry in the runtime trace.

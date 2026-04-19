@@ -232,6 +232,19 @@ impl SqliteSessionRepository {
         tasks::update_task_status(&conn, task_id, status)
     }
 
+    /// Update the `framing` record for a task (Workstream H.2.b).
+    pub fn update_task_framing(
+        &self,
+        task_id: &str,
+        framing: Option<&crate::core::agent::task::TaskFraming>,
+    ) -> Result<(), SessionRepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
+        tasks::update_task_framing(&conn, task_id, framing)
+    }
+
     /// Get all tasks for a session.
     pub fn get_session_tasks(
         &self,
@@ -647,6 +660,15 @@ impl TaskRepository for SqliteSessionRepository {
         status: agent_task::TaskStatus,
     ) -> RepositoryResult<()> {
         Self::update_task_status(self, task_id, &status)
+            .map_err(AgentDomainError::from)
+    }
+
+    fn update_task_framing(
+        &self,
+        task_id: &str,
+        framing: Option<agent_task::TaskFraming>,
+    ) -> RepositoryResult<()> {
+        Self::update_task_framing(self, task_id, framing.as_ref())
             .map_err(AgentDomainError::from)
     }
 

@@ -127,6 +127,22 @@ impl AgentServiceImpl {
             | SessionState::Paused { .. } => {}
         }
 
+        // Workstream E.4 — a user-sent message clears any pending
+        // clarification so the step gate resumes the next execution
+        // loop. The reply itself is appended to the chat history via
+        // the normal message-input pipeline; we only drop the registry
+        // entry here and reset the harness-state overrides so the
+        // next derive returns `Worker` again (the awaiting details
+        // are auto-dropped by `derive_harness_state` when the mode is
+        // not `AwaitingClarification`).
+        crate::application::agent::clarification::clear_pending_clarification(
+            &request.session_id,
+        );
+        self.harness_state_store
+            .clear_awaiting_clarification(&request.session_id);
+        self.harness_state_store
+            .record_mode(&request.session_id, crate::application::agent::read_models::HarnessMode::Worker);
+
         info!(
             "[AgentService] Request validated for session {}",
             request.session_id

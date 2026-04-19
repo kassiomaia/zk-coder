@@ -232,6 +232,12 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SessionRepositoryError> {
     // detection short-circuits for that subtask).
     let _ = conn.execute("ALTER TABLE agent_subtasks ADD COLUMN contract TEXT", []); // Ignore error if column exists
 
+    // Migration 7: Add framing column to agent_tasks (Workstream H.2.a).
+    // Stores the serialized `TaskFraming` JSON; `NULL` means "no framing
+    // declared" and the system-prompt composer falls back to the
+    // `default_code_framing()` section.
+    let _ = conn.execute("ALTER TABLE agent_tasks ADD COLUMN framing TEXT", []); // Ignore error if column exists
+
     Ok(())
 }
 

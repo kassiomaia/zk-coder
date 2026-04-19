@@ -110,6 +110,15 @@ pub async fn execute(
         match begin_step(&deps, &mut ctx)? {
             StepGateOutcome::Proceed => {}
             StepGateOutcome::Cancelled => return Err(AgentRuntimeError::Cancelled),
+            StepGateOutcome::AwaitingClarification => {
+                // Workstream E.2 — the harness is paused pending a user
+                // clarification reply. Hand control back to the caller
+                // without calling the LLM. The chat message-input
+                // pipeline clears the pending state (E.4) and the
+                // runtime's next invocation resumes from the same
+                // subtask with the updated context.
+                return Err(AgentRuntimeError::AwaitingClarification);
+            }
         }
 
         let resolved =

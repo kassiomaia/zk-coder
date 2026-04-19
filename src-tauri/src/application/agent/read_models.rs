@@ -4,6 +4,7 @@
 //! IPC handlers can depend on a stable application surface instead of reaching
 //! directly into runtime and repository internals.
 
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::application::agent::harness::HarnessStateOverrides;
@@ -14,6 +15,18 @@ use crate::core::agent::task::{AgentTask, SubTask, TaskStatus};
 use crate::core::agent::types::Agent;
 
 /// Long-running harness role for a session.
+///
+/// `AwaitingClarification` (Workstream E.2) captures a runtime-blocking
+/// question the agent has posed to the user via `agent_narrate` with
+/// `intent = "question"`. The main loop refuses to call the LLM while
+/// the harness is in this mode; user replies clear it back to the prior
+/// mode (typically `Worker`), and a timeout fails the current subtask
+/// with `unanswered_clarification` (E.3).
+///
+/// The prompt + timestamp that accompany the awaiting variant travel
+/// alongside the mode on [`AgentSessionHarnessState::awaiting_clarification`]
+/// so the wire format remains a flat string mode for the existing
+/// frontend comparisons.
 #[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum HarnessMode {
@@ -23,6 +36,27 @@ pub enum HarnessMode {
     Worker,
     /// Session is orienting itself for a resumed run after interruption or pause.
     ResumeVerifier,
+    /// Session is paused waiting for the user to answer a clarification
+    /// question emitted via `agent_narrate` with `intent = "question"`.
+    /// Accompanying prompt + `asked_at` live on
+    /// [`AgentSessionHarnessState::awaiting_clarification`].
+    AwaitingClarification,
+}
+
+/// Accompaniment to [`HarnessMode::AwaitingClarification`] carrying the
+/// exact question the agent emitted and the timestamp it was asked at.
+///
+/// Exposed on [`AgentSessionHarnessState`] so the AgentPanel can render
+/// the question inline with a reply affordance (Workstream E.4) without
+/// reshaping the existing flat `mode` string.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AwaitingClarificationDetails {
+    /// Exact prompt the agent emitted.
+    pub prompt: String,
+    /// UTC timestamp at which the question was asked. The timeout
+    /// fallback (E.3) computes elapsed wait against this.
+    pub asked_at: DateTime<Utc>,
 }
 
 /// Environment health summary for session handoff.
@@ -100,6 +134,10 @@ pub struct AgentSessionHarnessState {
     /// Summary of the latest durable handoff if available.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handoff: Option<SessionHandoffSummary>,
+    /// Details for the awaiting-clarification mode (Workstream E.2/E.4).
+    /// Present if and only if `mode == HarnessMode::AwaitingClarification`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub awaiting_clarification: Option<AwaitingClarificationDetails>,
     /// Whether a clean exit summary has been recorded.
     pub clean_exit_recorded: bool,
 }
@@ -208,28 +246,39 @@ pub fn derive_harness_state(
 
     let derived_clean_exit = matches!(session.state, SessionState::Finished { .. });
 
-    let (mode, startup_verification, handoff, clean_exit_recorded) = match overrides {
-        Some(values) => (
-            values.mode.clone().unwrap_or(derived_mode),
-            values
-                .startup_verification
-                .clone()
-                .or(derived_startup_verification),
-            values.handoff.clone().or(derived_handoff),
-            values.clean_exit_recorded.unwrap_or(derived_clean_exit),
-        ),
-        None => (
-            derived_mode,
-            derived_startup_verification,
-            derived_handoff,
-            derived_clean_exit,
-        ),
+    let (mode, startup_verification, handoff, clean_exit_recorded, awaiting_clarification) =
+        match overrides {
+            Some(values) => (
+                values.mode.clone().unwrap_or(derived_mode),
+                values
+                    .startup_verification
+                    .clone()
+                    .or(derived_startup_verification),
+                values.handoff.clone().or(derived_handoff),
+                values.clean_exit_recorded.unwrap_or(derived_clean_exit),
+                values.awaiting_clarification.clone(),
+            ),
+            None => (
+                derived_mode,
+                derived_startup_verification,
+                derived_handoff,
+                derived_clean_exit,
+                None,
+            ),
+        };
+
+    // Keep the details and the mode in lockstep: when the store
+    // records a non-clarification mode, drop any stale awaiting details.
+    let awaiting_clarification = match &mode {
+        HarnessMode::AwaitingClarification => awaiting_clarification,
+        _ => None,
     };
 
     AgentSessionHarnessState {
         mode,
         startup_verification,
         handoff,
+        awaiting_clarification,
         clean_exit_recorded,
     }
 }
@@ -423,6 +472,7 @@ mod tests {
             startup_verification: Some(sample_startup_verification()),
             handoff: Some(sample_handoff()),
             clean_exit_recorded: Some(true),
+            awaiting_clarification: None,
         };
         let state = derive_harness_state(&session, &[], Some(&overrides));
         assert_eq!(state.mode, HarnessMode::ResumeVerifier);
@@ -442,6 +492,56 @@ mod tests {
     }
 
     #[test]
+    fn awaiting_clarification_override_flows_through_derive() {
+        // Workstream E.2 read-model assertion: when the store records
+        // the awaiting-clarification mode together with the details,
+        // both travel to the outer read model exactly once.
+        let session = running_session();
+        let asked_at = chrono::DateTime::parse_from_rfc3339("2026-04-18T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let overrides = HarnessStateOverrides {
+            mode: Some(HarnessMode::AwaitingClarification),
+            startup_verification: None,
+            handoff: None,
+            clean_exit_recorded: None,
+            awaiting_clarification: Some(AwaitingClarificationDetails {
+                prompt: "What is the product name?".to_string(),
+                asked_at,
+            }),
+        };
+        let state = derive_harness_state(&session, &[], Some(&overrides));
+        assert_eq!(state.mode, HarnessMode::AwaitingClarification);
+        let details = state
+            .awaiting_clarification
+            .expect("awaiting details should flow through");
+        assert_eq!(details.prompt, "What is the product name?");
+    }
+
+    #[test]
+    fn awaiting_details_are_dropped_when_mode_is_not_awaiting() {
+        // Stale overrides recorded during an earlier clarification must
+        // not surface once the mode has moved back to Worker.
+        let session = running_session();
+        let asked_at = chrono::DateTime::parse_from_rfc3339("2026-04-18T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let overrides = HarnessStateOverrides {
+            mode: Some(HarnessMode::Worker),
+            startup_verification: None,
+            handoff: None,
+            clean_exit_recorded: None,
+            awaiting_clarification: Some(AwaitingClarificationDetails {
+                prompt: "stale".to_string(),
+                asked_at,
+            }),
+        };
+        let state = derive_harness_state(&session, &[], Some(&overrides));
+        assert_eq!(state.mode, HarnessMode::Worker);
+        assert!(state.awaiting_clarification.is_none());
+    }
+
+    #[test]
     fn partial_overrides_keep_unrecorded_fields_at_derived_values() {
         let session = finished_session();
         let overrides = HarnessStateOverrides {
@@ -449,6 +549,7 @@ mod tests {
             startup_verification: Some(sample_startup_verification()),
             handoff: None,
             clean_exit_recorded: None,
+            awaiting_clarification: None,
         };
         let state = derive_harness_state(&session, &[], Some(&overrides));
         // mode and clean_exit_recorded stay derived.

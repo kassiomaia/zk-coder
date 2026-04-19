@@ -101,6 +101,23 @@ pub trait TaskRepository: Send + Sync {
 
     /// Updates the status of a specific subtask.
     fn update_subtask_status(&self, subtask_id: &str, status: TaskStatus) -> RepositoryResult<()>;
+
+    /// Updates (or clears) the `framing` record for a specific task
+    /// (Workstream H.2.b).
+    ///
+    /// Passing `Some(framing)` overwrites the column with the serialized
+    /// JSON; `None` clears the column back to SQL NULL so the system
+    /// prompt composer falls back to the genre default. Default
+    /// implementation is a no-op so alternative implementations (e.g. the
+    /// in-memory test double) can opt in incrementally — the SQLite
+    /// implementation overrides it.
+    fn update_task_framing(
+        &self,
+        _task_id: &str,
+        _framing: Option<crate::core::agent::task::TaskFraming>,
+    ) -> RepositoryResult<()> {
+        Ok(())
+    }
 }
 
 /// A repository for persisting execution snapshots.

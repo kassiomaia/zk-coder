@@ -66,6 +66,7 @@
 		onRetryLastRequest?: (sessionId: string) => void;
 		onContinueExecution?: (sessionId: string) => void;
 		onReplanExecution?: (sessionId: string) => void;
+		onReplyToClarification?: (sessionId: string, content: string) => Promise<void> | void;
 		conversationWorkspace?: string;
 		onSetConversationWorkspace?: (path: string) => void;
 
@@ -118,6 +119,7 @@
 		onRetryLastRequest,
 		onContinueExecution,
 		onReplanExecution,
+		onReplyToClarification,
 		conversationWorkspace,
 		onSetConversationWorkspace,
 		messages,
@@ -428,6 +430,8 @@
 						onRetryLastRequest={(id) => onRetryLastRequest?.(id)}
 						onContinueExecution={(id) => onContinueExecution?.(id)}
 						onReplanExecution={(id) => onReplanExecution?.(id)}
+						onReplyToClarification={(id, content) =>
+							onReplyToClarification?.(id, content)}
 						onclose={() => onToggleAgentPanel?.()}
 					/>
 				{:else}

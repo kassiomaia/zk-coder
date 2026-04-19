@@ -31,6 +31,13 @@ pub enum AgentRuntimeError {
     /// Execution was cancelled.
     #[error("Execution cancelled")]
     Cancelled,
+    /// Harness is paused waiting on a user clarification reply
+    /// (Workstream E.2). The coordinator returns this variant when the
+    /// step gate observes a pending clarification; the caller treats it
+    /// as a non-error "paused" outcome and waits for the user-reply
+    /// path to clear the pending state before resuming.
+    #[error("Awaiting user clarification")]
+    AwaitingClarification,
     /// Repository error occurred.
     #[error("Repository error: {0}")]
     Repository(String),

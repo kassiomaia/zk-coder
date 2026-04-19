@@ -630,6 +630,34 @@ fn handle_plan_subtasks(
         }
     };
 
+    // Workstream H.2.b — validate and persist the optional top-level
+    // `framing` record before any subtask is created. Malformed or
+    // underspecified framing is rejected at planning time so the
+    // agent cannot silently fall back to the genre default.
+    let framing = match parse_and_validate_framing(call.arguments.get("framing")) {
+        Ok(framing) => framing,
+        Err(msg) => {
+            return OrchestratorToolResult {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                output: serde_json::json!({
+                    "error": msg,
+                    "requires_replan": true,
+                }),
+                is_error: true,
+            };
+        }
+    };
+    if let Some(framing) = &framing {
+        if let Err(e) = task_repo.update_task_framing(task_id, Some(framing.clone())) {
+            warn!("[AgentRuntime] Failed to persist task framing: {e}");
+            // Non-fatal — planning still proceeds, but surface the issue
+            // so the trace review can catch it. The runtime reads the
+            // framing back from the task repo on every step, so a
+            // persistence failure means the default framing is used.
+        }
+    }
+
     let existing = task_repo.get_subtasks(task_id).ok().unwrap_or_default();
     if !existing.is_empty() {
         return OrchestratorToolResult {
@@ -1063,6 +1091,10 @@ fn handle_narrate(
         .get("message")
         .and_then(|v| v.as_str())
         .unwrap_or("Working...");
+    let intent =
+        crate::infrastructure::agent::events::NarrationIntent::from_arg(
+            call.arguments.get("intent").and_then(|v| v.as_str()),
+        );
 
     let _ = app_handle.emit(
         AGENT_EVENT_NAME,
@@ -1071,18 +1103,37 @@ fn handle_narrate(
             conversation_id: session.conversation_id.clone(),
             thread_id: session.thread_id.clone(),
             content: message.to_string(),
+            intent,
             timestamp: Utc::now(),
         },
     );
 
     let _ = telemetry_repo.add_status_phrase(&session.id, message);
 
+    // Workstream E.2 — a `question` intent records a pending
+    // clarification for this session. The step-gate consults the
+    // registry before the next LLM call and pauses until the user
+    // replies (E.4) or the clarification timeout (E.3) fires.
+    if matches!(
+        intent,
+        crate::infrastructure::agent::events::NarrationIntent::Question
+    ) {
+        crate::application::agent::clarification::record_pending_clarification(
+            &session.id.0,
+            message,
+        );
+    }
+
     OrchestratorToolResult {
         call_id: call.id.clone(),
         name: call.name.clone(),
         output: serde_json::json!({
             "success": true,
-            "message": "Update sent"
+            "message": "Update sent",
+            "intent": match intent {
+                crate::infrastructure::agent::events::NarrationIntent::Narration => "narration",
+                crate::infrastructure::agent::events::NarrationIntent::Question => "question",
+            }
         }),
         is_error: false,
     }
@@ -1484,6 +1535,135 @@ fn emit_file_events(
             }
         }
         _ => {}
+    }
+}
+
+/// Parse and validate the optional top-level `framing` argument from an
+/// `agent_plan_subtasks` call (Workstream H.2.b).
+///
+/// Returns `Ok(None)` when no framing is declared (legacy behavior
+/// preserved). Returns `Ok(Some(_))` when a valid framing is supplied.
+/// Returns `Err(msg)` when the framing is malformed or fails the
+/// validation rules in [`crate::core::agent::task::TaskFraming::validate`].
+fn parse_and_validate_framing(
+    raw: Option<&serde_json::Value>,
+) -> Result<Option<crate::core::agent::task::TaskFraming>, String> {
+    let Some(raw) = raw else { return Ok(None) };
+    if raw.is_null() {
+        return Ok(None);
+    }
+    let framing: crate::core::agent::task::TaskFraming =
+        serde_json::from_value(raw.clone()).map_err(|e| {
+            format!(
+                "framing argument is malformed — expected an object with `role`, `voice_constraints`, optional `domain_priors`, optional `forbidden_patterns`: {e}"
+            )
+        })?;
+    framing.validate()?;
+    Ok(Some(framing))
+}
+
+#[cfg(test)]
+mod framing_parse_tests {
+    //! Workstream H.2.b — planner framing validation.
+    use super::*;
+    use crate::core::agent::task::{DomainPriors, TaskFraming};
+
+    #[test]
+    fn absent_framing_parses_as_none() {
+        assert!(parse_and_validate_framing(None).unwrap().is_none());
+    }
+
+    #[test]
+    fn null_framing_parses_as_none() {
+        let null = serde_json::Value::Null;
+        assert!(parse_and_validate_framing(Some(&null)).unwrap().is_none());
+    }
+
+    #[test]
+    fn valid_communication_framing_parses_and_persists_shape() {
+        let json = serde_json::json!({
+            "role": "senior communication professional",
+            "voiceConstraints": [
+                "one claim per paragraph",
+                "no filler openers"
+            ],
+            "domainPriors": {"hints": ["press-release voice"]},
+            "forbiddenPatterns": ["(?i)game[- ]changing"]
+        });
+        let framing = parse_and_validate_framing(Some(&json))
+            .unwrap()
+            .expect("framing should be parsed");
+        assert_eq!(framing.role, "senior communication professional");
+        assert_eq!(framing.voice_constraints.len(), 2);
+        assert_eq!(
+            framing.domain_priors,
+            Some(DomainPriors {
+                hints: vec!["press-release voice".to_string()]
+            }),
+        );
+        assert_eq!(framing.forbidden_patterns.len(), 1);
+    }
+
+    #[test]
+    fn framing_with_single_voice_constraint_is_rejected() {
+        let json = serde_json::json!({
+            "role": "writer",
+            "voiceConstraints": ["professional and clear"]
+        });
+        let err = parse_and_validate_framing(Some(&json)).unwrap_err();
+        assert!(err.contains("voice_constraints"));
+    }
+
+    #[test]
+    fn framing_with_invalid_forbidden_regex_is_rejected() {
+        let json = serde_json::json!({
+            "role": "writer",
+            "voiceConstraints": ["a", "b"],
+            "forbiddenPatterns": ["[unclosed"]
+        });
+        let err = parse_and_validate_framing(Some(&json)).unwrap_err();
+        assert!(err.contains("forbidden_patterns"));
+    }
+
+    #[test]
+    fn framing_missing_required_fields_is_rejected_with_helpful_message() {
+        // The planner supplied voice_constraints but omitted role.
+        let json = serde_json::json!({
+            "voiceConstraints": ["a", "b"]
+        });
+        let err = parse_and_validate_framing(Some(&json)).unwrap_err();
+        assert!(
+            err.contains("role") || err.contains("malformed"),
+            "error message must point at the malformed shape: {err}",
+        );
+    }
+
+    #[test]
+    fn handler_branch_accepts_communication_framing_shape() {
+        // Workstream H.2.b acceptance: the 2026-04-18 workflow's
+        // launch-communication task produces a `communication` framing,
+        // not a `code` one. The handler must parse and accept that
+        // shape — this test stands in for the end-to-end re-run the
+        // plan specifies (which cannot be driven from a pure test).
+        let communication = serde_json::json!({
+            "role": "senior communication professional",
+            "voiceConstraints": [
+                "one claim per paragraph",
+                "no adjectives without a concrete number"
+            ],
+            "domainPriors": {"hints": ["press-release voice", "B2B SaaS launch copy"]},
+            "forbiddenPatterns": [
+                "(?i)pioneering",
+                "(?i)game[- ]changing",
+                "(?i)unprecedented"
+            ]
+        });
+        let framing: TaskFraming = parse_and_validate_framing(Some(&communication))
+            .expect("communication framing must validate")
+            .expect("framing present");
+        assert_eq!(framing.role, "senior communication professional");
+        assert_eq!(framing.voice_constraints.len(), 2);
+        assert_eq!(framing.forbidden_patterns.len(), 3);
     }
 }
 

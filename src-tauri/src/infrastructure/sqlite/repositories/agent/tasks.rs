@@ -7,15 +7,23 @@ use rusqlite::{params, Connection};
 use super::SessionRepositoryError;
 
 /// Create a new agent task.
+///
+/// Workstream H.2.a: the optional `framing` field is serialized to the
+/// `framing` column as JSON. `None` maps to SQL `NULL` and round-trips
+/// as `None` on read, preserving legacy (pre-H.2) behavior.
 pub fn create_task(
     conn: &Connection,
     task: &crate::core::agent::task::AgentTask,
     title: Option<&str>,
     description: Option<&str>,
 ) -> Result<(), SessionRepositoryError> {
+    let framing_json = match &task.framing {
+        Some(framing) => Some(serde_json::to_string(framing)?),
+        None => None,
+    };
     conn.execute(
-        "INSERT INTO agent_tasks (id, session_id, request, status, steps, created_at, completed_at, title, description)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO agent_tasks (id, session_id, request, status, steps, created_at, completed_at, title, description, framing)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             task.id,
             task.session_id.0,
@@ -26,7 +34,29 @@ pub fn create_task(
             task.completed_at.map(|t| t.to_rfc3339()),
             title,
             description,
+            framing_json,
         ],
+    )?;
+    Ok(())
+}
+
+/// Update the `framing` column for a task (Workstream H.2.b).
+///
+/// `Some(framing)` overwrites the column with the serialized JSON;
+/// `None` clears the column to SQL NULL so the system-prompt composer
+/// falls back to the genre default on the next step.
+pub fn update_task_framing(
+    conn: &Connection,
+    task_id: &str,
+    framing: Option<&crate::core::agent::task::TaskFraming>,
+) -> Result<(), SessionRepositoryError> {
+    let framing_json = match framing {
+        Some(framing) => Some(serde_json::to_string(framing)?),
+        None => None,
+    };
+    conn.execute(
+        "UPDATE agent_tasks SET framing = ?1 WHERE id = ?2",
+        params![framing_json, task_id],
     )?;
     Ok(())
 }
@@ -61,7 +91,7 @@ pub fn get_session_tasks(
     session_id: &crate::core::agent::session::SessionId,
 ) -> Result<Vec<crate::core::agent::task::AgentTask>, SessionRepositoryError> {
     let mut stmt = conn.prepare(
-        "SELECT id, session_id, request, status, steps, created_at, completed_at, title, description
+        "SELECT id, session_id, request, status, steps, created_at, completed_at, title, description, framing
          FROM agent_tasks
          WHERE session_id = ?1
          ORDER BY created_at DESC",
@@ -77,6 +107,21 @@ pub fn get_session_tasks(
             let completed: Option<String> = row.get(6)?;
             let title: Option<String> = row.get(7)?;
             let description: Option<String> = row.get(8)?;
+            let framing_json: Option<String> = row.get(9)?;
+            // Workstream H.2.a: framing is an opaque JSON blob in SQL.
+            // A row written before the column existed reads as NULL →
+            // `None`. A row with malformed JSON also degrades to `None`
+            // with a warning; we do not want a single bad row to poison
+            // the whole session's task list.
+            let framing = framing_json.and_then(|raw| {
+                match serde_json::from_str::<crate::core::agent::task::TaskFraming>(&raw) {
+                    Ok(parsed) => Some(parsed),
+                    Err(e) => {
+                        warn!("Failed to parse framing JSON for task {task_id}: {e}");
+                        None
+                    }
+                }
+            });
 
             let request: crate::core::agent::task::AgentRequest =
                 serde_json::from_str(&request_str).map_err(|e| {
@@ -122,6 +167,7 @@ pub fn get_session_tasks(
                 status,
                 steps,
                 subtasks: None, // Loaded separately via get_subtasks
+                framing,
                 created_at,
                 completed_at,
             })
@@ -634,6 +680,63 @@ mod tests {
         let tasks = get_session_tasks(&conn, &session_id).unwrap();
         assert!(matches!(tasks[0].status, TaskStatus::Completed));
         assert!(tasks[0].completed_at.is_some());
+    }
+
+    /// Workstream H.2.a — DB round-trip for `TaskFraming`.
+    ///
+    /// A task persisted with a `framing` record must reload with every
+    /// field preserved: `role`, `voice_constraints`, `domain_priors`,
+    /// and `forbidden_patterns`. Pre-H.2 rows (where the `framing`
+    /// column is NULL) must still load as `framing: None`.
+    #[test]
+    fn test_task_framing_survives_round_trip() {
+        use crate::core::agent::task::{DomainPriors, TaskFraming};
+
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session_id = make_test_session(&conn);
+        let mut task = AgentTask::new(
+            session_id.clone(),
+            AgentRequest {
+                content: "write a launch announcement".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+        let framing = TaskFraming {
+            role: "senior communication professional".to_string(),
+            voice_constraints: vec![
+                "one claim per paragraph".to_string(),
+                "no filler openers".to_string(),
+            ],
+            domain_priors: Some(DomainPriors {
+                hints: vec!["press-release voice".to_string()],
+            }),
+            forbidden_patterns: vec![r"(?i)game[- ]changing".to_string()],
+        };
+        task.framing = Some(framing.clone());
+        create_task(&conn, &task, Some("Launch announcement"), None).unwrap();
+
+        let tasks = get_session_tasks(&conn, &session_id).unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].framing, Some(framing));
+    }
+
+    #[test]
+    fn test_task_without_framing_round_trips_as_none() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session_id = make_test_session(&conn);
+        make_test_task(&conn, &session_id);
+
+        let tasks = get_session_tasks(&conn, &session_id).unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert!(
+            tasks[0].framing.is_none(),
+            "legacy tasks without framing must load as None"
+        );
     }
 
     #[test]

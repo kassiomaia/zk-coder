@@ -43,6 +43,106 @@ pub struct RequestContext {
     pub selection: Option<String>,
 }
 
+/// Structured domain priors carried alongside `TaskFraming`
+/// (Workstream H.2).
+///
+/// The initial schema is intentionally narrow: a free-form `hints`
+/// list. Future iterations will enrich this with structured fields
+/// (stack defaults for code work, style references for writing work,
+/// artifact conventions). Keeping the v1 shape permissive lets the
+/// planner declare hints today without blocking on the richer schema.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DomainPriors {
+    /// Free-form hints about the task's domain context — stack
+    /// defaults, style references, artifact conventions. Rendered
+    /// into the task-framing section of the system prompt as a
+    /// bulleted list.
+    #[serde(default)]
+    pub hints: Vec<String>,
+}
+
+/// Task-declared framing (Workstream H.2).
+///
+/// Persona arrives with the task, not the agent. The record carries
+/// role, voice constraints, optional structured domain priors, and
+/// optional forbidden-pattern regexes. See
+/// `docs/planning/agent-fidelity/system-prompt-architecture.md` §Layer 2
+/// for the design rationale and the validation rules applied at
+/// planning time.
+///
+/// Validation is the caller's responsibility — the `agent_plan_subtasks`
+/// handler rejects framings with fewer than
+/// [`TaskFraming::MIN_VOICE_CONSTRAINTS`] voice constraints or with any
+/// `forbidden_patterns` entry that fails to compile as a regex.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskFraming {
+    /// Short role descriptor: `"senior full-stack engineer"`,
+    /// `"senior communication professional"`, `"technical writer"`.
+    pub role: String,
+    /// Opinionated, specific constraints about the voice the task
+    /// calls for. At least [`TaskFraming::MIN_VOICE_CONSTRAINTS`]
+    /// entries are required at planning time; bland one-liners such
+    /// as "professional and clear" are rejected by the validator.
+    #[serde(default)]
+    pub voice_constraints: Vec<String>,
+    /// Optional structured hints for the task's domain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub domain_priors: Option<DomainPriors>,
+    /// Optional regex strings that must not appear in task outputs.
+    /// Each entry must compile as a regex at planning time; the
+    /// planner runs the validation before persisting the framing.
+    #[serde(default)]
+    pub forbidden_patterns: Vec<String>,
+}
+
+impl TaskFraming {
+    /// Minimum number of `voice_constraints` accepted by
+    /// [`Self::validate`]. Kept at `2` so a lazy single-line
+    /// declaration fails and forces the planner to be opinionated.
+    pub const MIN_VOICE_CONSTRAINTS: usize = 2;
+
+    /// Validates the framing at planning time.
+    ///
+    /// Returns the first validation error encountered. Callers should
+    /// reject the plan instead of persisting the framing on `Err`.
+    ///
+    /// Rules:
+    /// - `role` must be non-empty after trimming.
+    /// - `voice_constraints.len()` must be at least
+    ///   [`Self::MIN_VOICE_CONSTRAINTS`], and every entry must be
+    ///   non-empty after trimming.
+    /// - Every `forbidden_patterns` entry must compile as a regex.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.role.trim().is_empty() {
+            return Err("framing.role must not be empty".to_string());
+        }
+        if self.voice_constraints.len() < Self::MIN_VOICE_CONSTRAINTS {
+            return Err(format!(
+                "framing.voice_constraints requires at least {} entries; got {}",
+                Self::MIN_VOICE_CONSTRAINTS,
+                self.voice_constraints.len(),
+            ));
+        }
+        for (idx, constraint) in self.voice_constraints.iter().enumerate() {
+            if constraint.trim().is_empty() {
+                return Err(format!(
+                    "framing.voice_constraints[{idx}] must not be empty"
+                ));
+            }
+        }
+        for (idx, pattern) in self.forbidden_patterns.iter().enumerate() {
+            if let Err(e) = regex::Regex::new(pattern) {
+                return Err(format!(
+                    "framing.forbidden_patterns[{idx}] is not a valid regex (`{pattern}`): {e}"
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Represents a task that tracks the execution of an agent's work.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,6 +167,13 @@ pub struct AgentTask {
     /// A list of sub-tasks that have been created for this task.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subtasks: Option<Vec<SubTask>>,
+    /// Task-declared framing (Workstream H.2). Persona, voice, and
+    /// domain priors declared by the planner and stable for the
+    /// duration of the task. `None` on legacy tasks and on code-work
+    /// plans that rely on the genre-default `default_code_framing()`
+    /// section of the system prompt.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub framing: Option<TaskFraming>,
     /// The timestamp of when the task was created.
     pub created_at: DateTime<Utc>,
     /// The timestamp of when the task was completed, if applicable.
@@ -86,6 +193,7 @@ impl AgentTask {
             status: TaskStatus::Pending,
             steps: Vec::new(),
             subtasks: None,
+            framing: None,
             created_at: Utc::now(),
             completed_at: None,
         }
@@ -873,6 +981,117 @@ mod tests {
     // ------------------------------------------------------------------------
     // AgentTask Tests
     // ------------------------------------------------------------------------
+
+    // ------------------------------------------------------------------------
+    // TaskFraming (Workstream H.2.a)
+    // ------------------------------------------------------------------------
+
+    fn sample_framing() -> TaskFraming {
+        TaskFraming {
+            role: "senior communication professional".to_string(),
+            voice_constraints: vec![
+                "one claim per paragraph".to_string(),
+                "no filler openers".to_string(),
+            ],
+            domain_priors: Some(DomainPriors {
+                hints: vec!["press release voice".to_string()],
+            }),
+            forbidden_patterns: vec![r"(?i)game[- ]changing".to_string()],
+        }
+    }
+
+    #[test]
+    fn task_framing_serde_round_trips() {
+        let framing = sample_framing();
+        let json = serde_json::to_string(&framing).expect("serialize");
+        let parsed: TaskFraming = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed, framing);
+    }
+
+    #[test]
+    fn task_framing_validates_minimum_voice_constraints() {
+        let mut framing = sample_framing();
+        framing.voice_constraints = vec!["professional and clear".to_string()];
+        let err = framing.validate().expect_err("single voice constraint must fail");
+        assert!(err.contains("voice_constraints"));
+        assert!(err.contains(&TaskFraming::MIN_VOICE_CONSTRAINTS.to_string()));
+    }
+
+    #[test]
+    fn task_framing_validates_empty_role() {
+        let mut framing = sample_framing();
+        framing.role = "   ".to_string();
+        let err = framing.validate().expect_err("blank role must fail");
+        assert!(err.contains("role"));
+    }
+
+    #[test]
+    fn task_framing_validates_empty_voice_entry() {
+        let mut framing = sample_framing();
+        framing.voice_constraints[1] = "  ".to_string();
+        let err = framing.validate().expect_err("empty voice entry must fail");
+        assert!(err.contains("voice_constraints"));
+    }
+
+    #[test]
+    fn task_framing_rejects_uncompilable_forbidden_pattern() {
+        let mut framing = sample_framing();
+        framing.forbidden_patterns = vec!["[unclosed".to_string()];
+        let err = framing
+            .validate()
+            .expect_err("invalid regex must fail validation");
+        assert!(err.contains("forbidden_patterns"));
+    }
+
+    #[test]
+    fn task_framing_with_compilable_patterns_passes() {
+        let framing = sample_framing();
+        framing.validate().expect("sample framing is valid");
+    }
+
+    #[test]
+    fn agent_task_framing_defaults_to_none() {
+        let session_id = SessionId("session-framing".to_string());
+        let request = AgentRequest {
+            content: "Test".to_string(),
+            attachments: vec![],
+            context: None,
+        };
+        let task = AgentTask::new(session_id, request);
+        assert!(task.framing.is_none());
+    }
+
+    #[test]
+    fn agent_task_with_framing_round_trips_through_serde() {
+        let session_id = SessionId("session-framing".to_string());
+        let request = AgentRequest {
+            content: "Test".to_string(),
+            attachments: vec![],
+            context: None,
+        };
+        let mut task = AgentTask::new(session_id, request);
+        task.framing = Some(sample_framing());
+
+        let json = serde_json::to_string(&task).expect("serialize");
+        let parsed: AgentTask = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed.framing, Some(sample_framing()));
+    }
+
+    #[test]
+    fn agent_task_without_framing_omits_field_in_json() {
+        let session_id = SessionId("session-framing".to_string());
+        let request = AgentRequest {
+            content: "Test".to_string(),
+            attachments: vec![],
+            context: None,
+        };
+        let task = AgentTask::new(session_id, request);
+        let json = serde_json::to_value(&task).expect("serialize");
+        assert!(
+            json.get("framing").is_none(),
+            "absent framing must be skipped in serialized form"
+        );
+    }
 
     #[test]
     fn agent_task_new_creates_pending() {

@@ -132,6 +132,17 @@
 		await agentStore.replanExecution(sessionId);
 	}
 
+	/**
+	 * Reply to a paused clarification question (Workstream E.4). Re-uses
+	 * `agentStore.sendRequest`, which wraps the same `send_agent_request`
+	 * IPC the main chat input uses — the reply appears in the transcript
+	 * and the backend clears the pending-clarification registry via the
+	 * standard send pipeline.
+	 */
+	async function handleReplyToClarification(sessionId: string, content: string) {
+		await agentStore.sendRequest(sessionId, content);
+	}
+
 	async function handleSetConversationWorkspace(path: string) {
 		log.debug('handleSetConversationWorkspace called:', { path });
 		const conversation = $selectedConversation;
@@ -845,6 +856,7 @@
 		onRetryLastRequest={handleRetryLastRequest}
 		onContinueExecution={handleContinueExecution}
 		onReplanExecution={handleReplanExecution}
+		onReplyToClarification={handleReplyToClarification}
 		conversationWorkspace={$selectedConversation?.settings.workspaceRoot}
 		onSetConversationWorkspace={handleSetConversationWorkspace}
 	/>

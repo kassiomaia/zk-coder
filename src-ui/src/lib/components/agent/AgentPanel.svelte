@@ -13,6 +13,7 @@
 	import AgentPanelRequestsSection from './AgentPanelRequestsSection.svelte';
 	import AgentPanelFilesSection from './AgentPanelFilesSection.svelte';
 	import AgentSessionSummarySection from './AgentSessionSummarySection.svelte';
+	import AgentClarificationPrompt from './AgentClarificationPrompt.svelte';
 	import type { AgentSession, PendingAction } from '$lib/types/agent';
 	import TaskList from './TaskList.svelte';
 	import RequestsList from './RequestsList.svelte';
@@ -36,6 +37,14 @@
 		onRetryLastRequest?: (sessionId: string) => void;
 		onContinueExecution?: (sessionId: string) => void;
 		onReplanExecution?: (sessionId: string) => void;
+		/**
+		 * Reply handler for a Workstream E.4 clarification prompt.
+		 * Re-uses the existing `agentStore.sendRequest` path so the
+		 * reply persists in the chat transcript and clears the
+		 * backend pending-clarification registry via the standard
+		 * send pipeline.
+		 */
+		onReplyToClarification?: (sessionId: string, content: string) => Promise<void> | void;
 		onclose: () => void;
 	}
 
@@ -53,6 +62,7 @@
 		onRetryLastRequest,
 		onContinueExecution,
 		onReplanExecution,
+		onReplyToClarification,
 		onclose
 	}: Props = $props();
 
@@ -76,6 +86,13 @@
 		!!harnessState?.startupVerification ||
 			!!harnessState?.handoff ||
 			!!(harnessState?.cleanExitRecorded && session.state.type === 'finished')
+	);
+	// Workstream E.4 — surface an inline clarification prompt when the
+	// backend has paused the harness awaiting a user reply.
+	let clarificationDetails = $derived(
+		harnessState?.mode === 'awaiting_clarification'
+			? harnessState.awaitingClarification
+			: undefined
 	);
 
 	async function handleFileClick(path: string) {
@@ -126,6 +143,14 @@
 						threadTitles={sessionTitles}
 						onSelect={(id) => onSelectSession?.(id)}
 						onCreate={() => onCreateSession?.()}
+					/>
+				{/if}
+
+				{#if clarificationDetails && onReplyToClarification}
+					<AgentClarificationPrompt
+						sessionId={session.id}
+						details={clarificationDetails}
+						onReply={onReplyToClarification}
 					/>
 				{/if}
 

@@ -14,6 +14,41 @@ use crate::core::agent::task::{
 use crate::core::agent::{ExecutionSnapshot, RuntimeTrace};
 use chrono::{DateTime, Utc};
 
+/// Narration intent (Workstream E.1).
+///
+/// A `Narration` is informational and does not change the harness's execution
+/// state. A `Question` signals that the agent needs information it does not
+/// have; the runtime transitions the harness into
+/// `HarnessMode::AwaitingClarification` (Workstream E.2) and pauses the main
+/// loop until the user replies or the clarification timeout (E.3) elapses.
+///
+/// Defaults to `Narration` so pre-E tool calls (and on-disk event rows written
+/// before the field existed) still deserialize without loss.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NarrationIntent {
+    /// Informational update. Execution continues without pausing.
+    #[default]
+    Narration,
+    /// Blocking question. Runtime pauses until the user replies.
+    Question,
+}
+
+impl NarrationIntent {
+    /// Parse the on-the-wire `intent` argument emitted by `agent_narrate`.
+    ///
+    /// Unknown or missing values fall back to the default `Narration` —
+    /// pre-E tool calls that emit only `{message}` still parse cleanly and
+    /// keep the old continue-after-narrate behavior.
+    #[must_use]
+    pub fn from_arg(value: Option<&str>) -> Self {
+        match value.map(str::trim).map(str::to_ascii_lowercase).as_deref() {
+            Some("question") => Self::Question,
+            _ => Self::Narration,
+        }
+    }
+}
+
 /// Events emitted by the agent system to the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -307,6 +342,12 @@ pub enum AgentEvent {
         thread_id: String,
         /// Natural-language update (1-2 sentences).
         content: String,
+        /// Narration intent (Workstream E.1). `Question` signals that the
+        /// harness has paused awaiting a user reply; the UI surfaces the
+        /// message with a distinct "reply" affordance. Defaults to
+        /// `Narration` on deserialization so pre-E event logs still parse.
+        #[serde(default, rename = "intent")]
+        intent: NarrationIntent,
         /// Timestamp when emitted.
         timestamp: DateTime<Utc>,
     },
