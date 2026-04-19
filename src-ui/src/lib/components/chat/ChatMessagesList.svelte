@@ -36,6 +36,8 @@
 	import messageStyles from './MessageBubbles.module.css';
 	import inputStyles from './ChatInputContainer.module.css';
 	import { createLogger } from '$lib/utils/logger';
+	import { invoke } from '@tauri-apps/api/core';
+	import { save } from '@tauri-apps/plugin-dialog';
 
 	const log = createLogger('ChatMessagesList');
 
@@ -285,10 +287,27 @@
 
 	// Document generation handlers
 	async function handleDownloadDoc(job: DocumentGenerationJob) {
-		// TODO: Implement download via Tauri API
-		log.debug('DocGen Download:', job.filePath);
-		if (job.filePath) {
-			// For now, just log - would invoke a download command
+		if (!job.artifactId) {
+			log.warn('DocGen Save: job has no artifactId', job.id);
+			return;
+		}
+
+		const extension = job.docType.toLowerCase();
+		const defaultPath = job.filename || `document.${extension}`;
+
+		const destination = await save({
+			defaultPath,
+			filters: [{ name: job.docType, extensions: [extension] }]
+		});
+		if (!destination) return; // user cancelled
+
+		try {
+			await invoke('save_artifact_to_path', {
+				artifactId: job.artifactId,
+				destination
+			});
+		} catch (err) {
+			log.error('Failed to save artifact:', err);
 		}
 	}
 

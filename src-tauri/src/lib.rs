@@ -271,6 +271,7 @@ pub fn run() {
             commands::documents::list_artifacts,
             commands::documents::list_all_artifacts,
             commands::documents::download_artifact,
+            commands::documents::save_artifact_to_path,
             commands::documents::get_artifact,
             commands::documents::save_artifact,
             commands::documents::update_metadata,

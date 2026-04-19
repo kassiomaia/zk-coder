@@ -32,19 +32,23 @@ function createDocumentGenerationStore() {
 		hasActiveJob: false
 	});
 
-	// Refresh state from the tracker
+	// Refresh state from the tracker. The store surfaces the latest job —
+	// complete or not — so the card stays visible through the "Ready" state
+	// until the user dismisses it or it ages out via `clearOldJobs`.
+	// `hasActiveJob` still reflects only non-complete jobs, for callers that
+	// gate work on "is generation in flight?".
 	function refresh() {
-		const jobs = documentGenerationTracker.getActiveJobs();
-		const activeJob =
-			jobs.length > 0
-				? jobs.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0]
-				: null;
+		const all = documentGenerationTracker
+			.getAllJobs()
+			.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+		const latest = all[0] ?? null;
+		const inFlight = all.some((j) => !j.complete);
 
 		update((state) => ({
 			...state,
-			jobs,
-			activeJob,
-			hasActiveJob: activeJob !== null
+			jobs: all,
+			activeJob: latest,
+			hasActiveJob: inFlight
 		}));
 	}
 

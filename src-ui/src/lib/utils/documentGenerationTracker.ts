@@ -51,21 +51,31 @@ export interface DocumentGenerationJob {
 	updatedAt: Date;
 }
 
-/** Tool name patterns for document generation */
-const DOC_START_TOOLS = ['create_docx', 'create_pptx', 'create_pdf'];
+/**
+ * Tool name patterns for document generation.
+ *
+ * Names must match the wire format emitted by the backend (`category_name`
+ * via `ToolId::to_string`), e.g. `pdf_start`, `docx_add_section`,
+ * `pptx_finalize`.
+ */
+const DOC_START_TOOLS = ['pdf_start', 'docx_start', 'pptx_start'];
 const DOC_MUTATE_TOOLS = [
-	'mutate_docx_draft',
-	'mutate_pptx_draft',
-	'mutate_pdf_draft',
-	'add_section',
-	'add_slide',
-	'add_page',
-	'write_section',
-	'write_slide',
-	'insert_content'
+	'pdf_add_page',
+	'pdf_delete_page',
+	'docx_add_section',
+	'pptx_add_slide',
+	'pptx_delete_slide',
+	'pptx_update_slide'
 ];
-const DOC_INSPECT_TOOLS = ['inspect_docx_draft', 'inspect_pptx_draft', 'inspect_pdf_draft'];
-const DOC_FINALIZE_TOOLS = ['finalize_docx', 'finalize_pptx', 'finalize_pdf'];
+const DOC_INSPECT_TOOLS = [
+	'pdf_get_page',
+	'pdf_list_pages',
+	'docx_list_sections',
+	'pptx_get_slide',
+	'pptx_list_slides',
+	'pptx_search_slides'
+];
+const DOC_FINALIZE_TOOLS = ['pdf_finalize', 'docx_finalize', 'pptx_finalize'];
 
 /** Extract document type from tool name */
 function extractDocType(tool: string): DocType | null {
@@ -93,17 +103,18 @@ function getDocTypeFromTool(tool: string): DocType | null {
 /** Check if a tool is related to document generation */
 function isDocumentGenerationTool(tool: string): boolean {
 	const lower = tool.toLowerCase();
-	return [
+	const known = [
 		...DOC_START_TOOLS,
 		...DOC_MUTATE_TOOLS,
 		...DOC_INSPECT_TOOLS,
-		...DOC_FINALIZE_TOOLS,
-		'start_document',
-		'build_document',
-		'generate_document',
-		'create_document',
-		'write_document'
-	].some((t) => lower.includes(t) || t.includes(lower));
+		...DOC_FINALIZE_TOOLS
+	];
+	if (known.includes(lower)) return true;
+	// Permissive fallback: any tool whose name begins with a known document
+	// category prefix (covers future tools without needing this table updated).
+	return (
+		lower.startsWith('pdf_') || lower.startsWith('docx_') || lower.startsWith('pptx_')
+	);
 }
 
 /** Extract filename from tool arguments */
@@ -133,26 +144,31 @@ function pdfPhaseLabel(phase: string): string {
 function getPhaseForTool(tool: string): { phase: GenPhase; text: string } {
 	const lower = tool.toLowerCase();
 
-	// Start tools
-	if (DOC_START_TOOLS.some((t) => lower.includes(t))) {
-		return { phase: 'preparing', text: 'Preparing document...' };
+	if (DOC_START_TOOLS.includes(lower) || lower.endsWith('_start')) {
+		return { phase: 'preparing', text: 'Preparing document…' };
 	}
 
-	// Finalize tools
-	if (DOC_FINALIZE_TOOLS.some((t) => lower.includes(t))) {
-		return { phase: 'finalizing', text: 'Finalizing document...' };
+	if (DOC_FINALIZE_TOOLS.includes(lower) || lower.endsWith('_finalize')) {
+		return { phase: 'finalizing', text: 'Finalizing document…' };
 	}
 
-	// Default to building
-	if (DOC_MUTATE_TOOLS.some((t) => lower.includes(t))) {
-		const docType = getDocTypeFromTool(tool);
-		if (docType === 'Pptx' || lower.includes('slide')) {
-			return { phase: 'building', text: 'Building slides...' };
+	if (DOC_INSPECT_TOOLS.includes(lower)) {
+		return { phase: 'building', text: 'Inspecting draft…' };
+	}
+
+	if (DOC_MUTATE_TOOLS.includes(lower)) {
+		if (lower.startsWith('pptx_')) {
+			return { phase: 'building', text: 'Building slides…' };
 		}
-		return { phase: 'building', text: 'Writing sections...' };
+		if (lower.startsWith('docx_')) {
+			return { phase: 'building', text: 'Writing sections…' };
+		}
+		if (lower.startsWith('pdf_')) {
+			return { phase: 'building', text: 'Adding pages…' };
+		}
 	}
 
-	return { phase: 'building', text: 'Processing...' };
+	return { phase: 'building', text: 'Processing…' };
 }
 
 /** Generate default steps based on document type */
@@ -215,9 +231,18 @@ function calculateProgress(phase: GenPhase, steps: ProgressStep[]): number | nul
 export class DocumentGenerationTracker {
 	private jobs = new Map<string, DocumentGenerationJob>();
 
-	/** Get all active jobs */
+	/** Get all active (not-yet-complete) jobs. */
 	getActiveJobs(): DocumentGenerationJob[] {
 		return Array.from(this.jobs.values()).filter((j) => !j.complete);
+	}
+
+	/**
+	 * All jobs the tracker is currently holding (including completed ones
+	 * that have not yet been dismissed or aged out). Used by the store to
+	 * keep the completed card visible so the user can click Save.
+	 */
+	getAllJobs(): DocumentGenerationJob[] {
+		return Array.from(this.jobs.values());
 	}
 
 	/** Get job by ID */
@@ -485,21 +510,41 @@ export class DocumentGenerationTracker {
 /** Global tracker instance */
 export const documentGenerationTracker = new DocumentGenerationTracker();
 
-/** Utility function to check if a message should be hidden (superseded by doc gen card) */
+/**
+ * Utility function to check if a message should be hidden while the
+ * `DocumentGenerationCard` is summarizing the workflow.
+ *
+ * We suppress the entire assistant-side cascade (tool calls, thinking bubbles,
+ * narration, terminal output, approval prompts) for messages that belong to a
+ * session with an active (not-yet-complete) doc-gen job. Once the job
+ * completes, suppression stops so the agent can keep the conversation going
+ * after the card.
+ */
+const DOC_GEN_HIDE_KINDS: ReadonlyArray<Message['kind']> = [
+	'tool_call',
+	'thinking',
+	'narration',
+	'terminal',
+	'approval'
+];
+
 export function shouldHideMessageInDocGen(message: Message): boolean {
-	if (message.kind !== 'tool_call') return false;
+	if (!DOC_GEN_HIDE_KINDS.includes(message.kind)) return false;
 
-	const toolName = message.agentData?.toolName?.toLowerCase();
-	if (!toolName) return false;
-
-	// Check if there's an active doc gen job for this session
 	const sessionId = message.agentData?.sessionId || message.threadId;
 	const job = documentGenerationTracker.getJobBySession(sessionId);
+	if (!job) return false; // only active (non-complete) jobs surface here
 
-	if (!job) return false;
+	// `tool_call` kind: also check it's actually a doc-gen tool — unrelated
+	// tools should stay visible even when a doc job happens to be active.
+	if (message.kind === 'tool_call') {
+		const toolName = message.agentData?.toolName?.toLowerCase();
+		return !!toolName && isDocumentGenerationTool(toolName);
+	}
 
-	// Hide if it's a document generation tool and job is active
-	return isDocumentGenerationTool(toolName);
+	// Other kinds (thinking, narration, terminal, approval) during an active
+	// job are part of the generation story — suppress them.
+	return true;
 }
 
 /** Get document generation state for a session */

@@ -3,6 +3,7 @@
 use crate::infrastructure::tools::documents::shared::{
     ArtifactMetadata, ArtifactRef, ArtifactStore, ArtifactType,
 };
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::State;
 
@@ -41,6 +42,34 @@ pub fn download_artifact(
         .map_err(|e| e.to_string())?;
 
     Ok((reference.filename.clone(), content))
+}
+
+/// Save an artifact's bytes to a user-chosen path on disk.
+///
+/// Used by the `DocumentGenerationCard` Save action after the dialog plugin
+/// has resolved the destination. Keeps filesystem writes inside Rust so we
+/// don't need to register the `tauri-plugin-fs` frontend bindings.
+#[tauri::command]
+pub fn save_artifact_to_path(
+    artifact_id: String,
+    destination: String,
+    store: State<'_, Mutex<ArtifactStore>>,
+) -> Result<(), String> {
+    let store = store.lock().map_err(|e| e.to_string())?;
+    let content = store
+        .get_artifact_content(&artifact_id)
+        .map_err(|e| e.to_string())?;
+
+    let path = PathBuf::from(&destination);
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create destination directory: {e}"))?;
+        }
+    }
+
+    std::fs::write(&path, &content)
+        .map_err(|e| format!("Failed to write artifact to {destination}: {e}"))
 }
 
 /// Get artifact reference without content.

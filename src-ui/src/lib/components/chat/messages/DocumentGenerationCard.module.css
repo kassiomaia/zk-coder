@@ -1,155 +1,101 @@
 /**
- * DocumentGenerationCard Styles
+ * DocumentGenerationCard · compact one-row card.
  *
- * A unified card for document generation workflows that morphs from
- * active generation state to completed artifact.
+ * Layout stays identical across phases so completion doesn't shift messages
+ * below. The progress rail is absolutely positioned at the bottom edge.
  */
 
 @import '../../../styles/animations.css';
+@import '../../../styles/reduced-motion.css';
 
 .card {
-	--card-bg: var(--color-bg-tertiary);
-	--card-border: var(--color-border-subtle);
-	--card-hover: var(--color-interactive-hover);
+	--tile-bg: var(--color-bg-elevated);
+	--tile-color: var(--color-text-secondary);
 
-	/* File type colors */
-	--docx-color: var(--color-artifact-docx);
-	--docx-light: var(--color-artifact-docx-light);
-	--pdf-color: var(--color-artifact-pdf);
-	--pdf-light: var(--color-artifact-pdf-light);
-	--pptx-color: var(--color-artifact-pptx);
-	--pptx-light: var(--color-artifact-pptx-light);
-
-	background: var(--card-bg);
-	border: 1px solid var(--card-border);
+	position: relative;
+	display: block;
+	background: var(--color-bg-tertiary);
+	border: 1px solid var(--color-border-subtle);
 	border-radius: var(--radius-lg);
 	overflow: hidden;
 	transition:
-		border-color var(--transition-normal),
-		box-shadow var(--transition-normal),
-		background var(--transition-normal);
-	min-height: 80px;
+		border-color var(--transition-fast),
+		background var(--transition-fast);
 }
 
 .card:hover {
 	border-color: var(--color-border-primary);
 }
 
-.card.active {
-	border-color: var(--color-primary-lighter);
-	box-shadow: var(--shadow-glow-sm);
-}
-
 .card.complete {
-	border-color: var(--color-success-border);
-	background: var(--color-success-light);
+	border-color: var(--color-border-subtle);
 }
 
 .card.failed {
 	border-color: var(--color-error-border);
-	background: var(--color-error-light);
 }
 
-/* =====================
-   Main Layout
-   ===================== */
+/* ==============
+   Main row
+   ============== */
 
 .main {
-	display: flex;
-	align-items: stretch;
-	gap: var(--space-3);
-	padding: var(--space-3);
-}
-
-/* =====================
-   File Identity Area
-   ===================== */
-
-.identity {
-	display: flex;
+	display: grid;
+	grid-template-columns: auto 1fr auto;
 	align-items: center;
-	gap: var(--space-3);
-	min-width: 200px;
-	flex-shrink: 0;
+	column-gap: var(--space-3-5);
+	padding: var(--space-3) var(--space-3-5);
+	min-height: 64px;
 }
 
-.iconWrapper {
-	position: relative;
+/* ==============
+   Tile
+   ============== */
+
+.tile {
+	width: 40px;
+	height: 40px;
+	border-radius: var(--radius-md);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 48px;
-	height: 48px;
-	border-radius: var(--radius-md);
 	flex-shrink: 0;
+	background: var(--tile-bg);
+	color: var(--tile-color);
 	transition:
-		background var(--transition-normal),
-		color var(--transition-normal);
+		background var(--transition-fast),
+		color var(--transition-fast);
 }
 
-.iconWrapper.Docx {
-	background: var(--docx-light);
-	color: var(--docx-color);
+.tile.Docx {
+	background: var(--color-artifact-docx-light);
+	color: var(--color-artifact-docx);
 }
 
-.iconWrapper.Pdf {
-	background: var(--pdf-light);
-	color: var(--pdf-color);
+.tile.Pdf {
+	background: var(--color-artifact-pdf-light);
+	color: var(--color-artifact-pdf);
 }
 
-.iconWrapper.Pptx {
-	background: var(--pptx-light);
-	color: var(--pptx-color);
+.tile.Pptx {
+	background: var(--color-artifact-pptx-light);
+	color: var(--color-artifact-pptx);
 }
 
-/* Animated glow for active generation */
-.iconWrapper.animated {
-	animation: gentlePulse 2s ease-in-out infinite;
+.tile.tileFailed {
+	background: var(--color-error-light);
+	color: var(--color-error);
 }
 
-.iconWrapper.animated .iconGlow {
-	position: absolute;
-	inset: -4px;
-	border-radius: var(--radius-lg);
-	opacity: 0;
-	background: currentColor;
-	filter: blur(8px);
-	animation: iconGlow 2s ease-in-out infinite;
-}
+/* ==============
+   Identity
+   ============== */
 
-@keyframes gentlePulse {
-	0%,
-	100% {
-		transform: scale(1);
-	}
-	50% {
-		transform: scale(1.05);
-	}
-}
-
-@keyframes iconGlow {
-	0%,
-	100% {
-		opacity: 0;
-		transform: scale(0.95);
-	}
-	50% {
-		opacity: 0.3;
-		transform: scale(1.05);
-	}
-}
-
-.fileIcon {
-	position: relative;
-	z-index: 1;
-}
-
-.fileInfo {
+.identity {
+	min-width: 0;
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-0-5);
-	min-width: 0;
-	flex: 1;
+	gap: 2px;
 }
 
 .filename {
@@ -161,419 +107,296 @@
 	text-overflow: ellipsis;
 }
 
-.fileMeta {
+.subline {
+	font-size: var(--text-xs);
+	color: var(--color-text-secondary);
 	display: flex;
 	align-items: center;
-	gap: var(--space-1);
-	flex-wrap: wrap;
-}
-
-.fileType {
-	font-size: var(--text-2xs);
-	font-weight: var(--font-medium);
-	color: var(--color-text-tertiary);
-	text-transform: capitalize;
-}
-
-.separator {
-	font-size: var(--text-2xs);
-	color: var(--color-text-muted);
-}
-
-.extBadge {
-	font-size: var(--text-2xs);
-	font-weight: var(--font-semibold);
-	color: var(--color-text-secondary);
-	background: var(--color-interactive-selected);
-	padding: 2px 6px;
-	border-radius: var(--radius-sm);
-	letter-spacing: 0.05em;
-}
-
-.readyBadge {
-	font-size: var(--text-2xs);
-	font-weight: var(--font-semibold);
-	color: var(--color-success);
-	background: var(--color-success-light);
-	padding: 2px 6px;
-	border-radius: var(--radius-sm);
-}
-
-/* =====================
-   Status & Progress Area
-   ===================== */
-
-.statusArea {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	gap: var(--space-2);
+	gap: var(--space-1-5);
 	min-width: 0;
 }
 
-.statusLine {
-	display: flex;
+.dot {
+	width: 2px;
+	height: 2px;
+	border-radius: 50%;
+	background: currentColor;
+	opacity: 0.5;
+	flex-shrink: 0;
+}
+
+.ready {
+	color: var(--color-success);
+	font-weight: var(--font-medium);
+	display: inline-flex;
 	align-items: center;
-	gap: var(--space-1-5);
+	gap: 4px;
 }
 
 .statusText {
-	font-size: var(--text-sm);
-	font-weight: var(--font-medium);
-	color: var(--color-text-secondary);
-}
-
-/* Active generation styles */
-.activeStatus {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-2);
-}
-
-.spinnerIcon {
-	animation: spin 1s linear infinite;
-	color: var(--color-primary-400);
-}
-
-/* Progress bar */
-.progressBar {
-	position: relative;
-	height: 4px;
-	background: var(--color-bg-elevated);
-	border-radius: var(--radius-full);
+	white-space: nowrap;
 	overflow: hidden;
-	width: 100%;
-	max-width: 200px;
+	text-overflow: ellipsis;
+	min-width: 0;
 }
 
-.progressFill {
-	height: 100%;
-	background: linear-gradient(90deg, var(--color-primary-400) 0%, var(--color-primary-300) 100%);
-	border-radius: var(--radius-full);
-	transition: width var(--transition-normal) var(--ease-out);
-	position: relative;
-}
-
-.progressFill::after {
-	content: '';
-	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background: linear-gradient(
-		90deg,
-		transparent 0%,
-		rgba(255, 255, 255, 0.2) 50%,
-		transparent 100%
-	);
-	animation: progressShine 1.5s ease-in-out infinite;
-}
-
-@keyframes progressShine {
-	0% {
-		transform: translateX(-100%);
-	}
-	100% {
-		transform: translateX(100%);
-	}
-}
-
-.progressPercent {
-	position: absolute;
-	right: 0;
-	top: calc(100% + 2px);
-	font-size: var(--text-2xs);
+.errorText {
+	color: var(--color-error);
 	font-weight: var(--font-medium);
-	color: var(--color-text-tertiary);
-}
-
-/* Indeterminate progress */
-.progressIndeterminate {
-	height: 4px;
-	background: var(--color-bg-elevated);
-	border-radius: var(--radius-full);
-	overflow: hidden;
-	width: 100%;
-	max-width: 200px;
-}
-
-.indeterminateBar {
-	height: 100%;
-	background: linear-gradient(90deg, var(--color-primary-400) 0%, var(--color-primary-300) 100%);
-	border-radius: var(--radius-full);
-	animation: indeterminateSlide 1.5s ease-in-out infinite;
-	width: 40%;
-}
-
-@keyframes indeterminateSlide {
-	0% {
-		transform: translateX(-100%);
-	}
-	50% {
-		transform: translateX(150%);
-	}
-	100% {
-		transform: translateX(-100%);
-	}
-}
-
-/* Progress steps */
-.stepsList {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-1);
-	margin-top: var(--space-1);
-}
-
-.step {
-	display: flex;
-	align-items: center;
-	gap: var(--space-1-5);
-	font-size: var(--text-xs);
-	color: var(--color-text-muted);
-	transition: color var(--transition-fast);
-}
-
-.stepIcon {
-	flex-shrink: 0;
-}
-
-.stepIcon:global(.lucide) {
-	width: 12px;
-	height: 12px;
-}
-
-.step.stepCompleted {
-	color: var(--color-text-tertiary);
-}
-
-.step.stepCompleted .stepIcon {
-	color: var(--color-success);
-}
-
-.step.stepCurrent {
-	color: var(--color-text-secondary);
-	font-weight: var(--font-medium);
-}
-
-.step.stepCurrent .stepIcon {
-	color: var(--color-primary-400);
-	animation: spin 1s linear infinite;
-}
-
-.stepDot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: var(--color-border-secondary);
-	flex-shrink: 0;
-}
-
-.stepLabel {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
-/* Failed state styles */
-.failedStatus {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-1);
+/* ==============
+   Spinner
+   ============== */
+
+.spinner {
+	width: 12px;
+	height: 12px;
+	border: 1.5px solid var(--color-border-primary);
+	border-top-color: var(--color-text-secondary);
+	border-radius: 50%;
+	animation: spin 900ms linear infinite;
+	flex-shrink: 0;
 }
 
-.errorIcon {
-	color: var(--color-error);
-}
-
-.errorMessage {
-	font-size: var(--text-xs);
-	color: var(--color-error);
-	padding: var(--space-1) var(--space-2);
-	background: var(--color-error-light);
-	border-radius: var(--radius-sm);
-	margin-top: var(--space-1);
-}
-
-/* Completed state styles */
-.completeStatus {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-1);
-}
-
-.successIcon {
-	color: var(--color-success);
-}
-
-/* =====================
-   Actions Area
-   ===================== */
+/* ==============
+   Actions
+   ============== */
 
 .actions {
 	display: flex;
 	align-items: center;
-	gap: var(--space-1);
+	gap: var(--space-2);
 	flex-shrink: 0;
-	margin-left: auto;
 }
 
-.actionBtn {
-	display: flex;
-	align-items: center;
-	gap: var(--space-1);
+.iconBtn {
+	width: 32px;
 	height: 32px;
-	padding: 0 var(--space-2);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: 1px solid var(--color-border-primary);
+	border-radius: var(--radius-md);
+	color: var(--color-text-secondary);
+	cursor: pointer;
+	transition:
+		background var(--transition-fast),
+		border-color var(--transition-fast),
+		color var(--transition-fast);
+}
+
+.iconBtn:hover {
+	background: var(--color-interactive-hover);
+	color: var(--color-text-primary);
+}
+
+.iconBtn:focus-visible {
+	outline: 2px solid var(--color-primary-border);
+	outline-offset: 2px;
+}
+
+.saveBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	height: 32px;
+	padding: 0 var(--space-3-5);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border-primary);
+	border-radius: var(--radius-md);
+	color: var(--color-text-primary);
 	font-size: var(--text-xs);
 	font-weight: var(--font-medium);
-	border-radius: var(--radius-md);
 	cursor: pointer;
-	transition: all var(--transition-fast);
-	border: none;
+	transition:
+		background var(--transition-fast),
+		border-color var(--transition-fast);
 	white-space: nowrap;
 }
 
-.actionBtn:disabled {
+.saveBtn:hover:not(:disabled) {
+	background: var(--color-surface-hover);
+	border-color: var(--color-text-tertiary);
+}
+
+.saveBtn:focus-visible {
+	outline: 2px solid var(--color-primary-border);
+	outline-offset: 2px;
+}
+
+.saveBtn:disabled {
 	opacity: var(--opacity-disabled);
 	cursor: not-allowed;
 }
 
-.actionBtn .spinning {
-	animation: spin 1s linear infinite;
+.retryBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	height: 32px;
+	padding: 0 var(--space-3-5);
+	background: var(--color-error-light);
+	border: 1px solid var(--color-error-border);
+	border-radius: var(--radius-md);
+	color: var(--color-error);
+	font-size: var(--text-xs);
+	font-weight: var(--font-medium);
+	cursor: pointer;
+	transition: background var(--transition-fast);
+	white-space: nowrap;
 }
 
-.actionBtn.primary {
-	background: var(--color-success);
-	color: white;
+.retryBtn:hover {
+	background: rgba(201, 74, 74, 0.18);
 }
 
-.actionBtn.primary:hover:not(:disabled) {
-	background: var(--color-success-dark);
-}
-
-.actionBtn.secondary {
-	background: var(--color-surface);
-	color: var(--color-text-secondary);
-	border: 1px solid var(--color-border-subtle);
-}
-
-.actionBtn.secondary:hover:not(:disabled) {
-	background: var(--color-surface-hover);
-	border-color: var(--color-border-primary);
-}
-
-.actionBtn.ghost {
+.ghostBtn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	height: 28px;
+	padding: 0 var(--space-2);
 	background: transparent;
-	color: var(--color-text-muted);
-	padding: 0 var(--space-1);
-}
-
-.actionBtn.ghost:hover:not(:disabled) {
-	background: var(--color-interactive-hover);
-	color: var(--color-text-secondary);
-}
-
-.expandText {
+	border: none;
+	border-radius: var(--radius-sm);
+	color: var(--color-text-tertiary);
+	cursor: pointer;
+	transition:
+		color var(--transition-fast),
+		background var(--transition-fast);
 	font-size: var(--text-xs);
 }
 
-/* =====================
-   Details Section
-   ===================== */
+.ghostBtn:hover {
+	color: var(--color-text-primary);
+	background: var(--color-interactive-hover);
+}
+
+.ghostLabel {
+	font-size: var(--text-xs);
+	font-weight: var(--font-medium);
+}
+
+.spin {
+	animation: spin 900ms linear infinite;
+}
+
+/* ==============
+   Progress rail (bottom edge)
+   ============== */
+
+.rail {
+	position: absolute;
+	inset-inline: 0;
+	bottom: 0;
+	height: 2px;
+	background: var(--color-border-subtle);
+	overflow: hidden;
+}
+
+.railFill {
+	height: 100%;
+	background: var(--color-text-tertiary);
+	transition: width var(--transition-normal) var(--ease-out);
+}
+
+.railIndeterminate {
+	height: 100%;
+	width: 30%;
+	background: var(--color-text-secondary);
+	animation: docCardIndeterminate 1.4s ease-in-out infinite;
+}
+
+@keyframes docCardIndeterminate {
+	0% {
+		transform: translateX(-100%);
+	}
+	50% {
+		transform: translateX(250%);
+	}
+	100% {
+		transform: translateX(-100%);
+	}
+}
+
+/* ==============
+   Details drawer
+   ============== */
 
 .details {
-	padding: 0 var(--space-3) var(--space-3);
-	border-top: 1px solid var(--card-border);
-	animation: fadeIn 200ms ease-out;
+	padding: 0 var(--space-3-5) var(--space-3);
+	border-top: 1px solid var(--color-border-subtle);
 }
 
-.errorDetails {
-	margin-top: var(--space-2);
-}
-
-.errorHeader {
-	font-size: var(--text-xs);
+.detailsHeader {
+	font-size: var(--text-2xs);
 	font-weight: var(--font-semibold);
 	color: var(--color-text-tertiary);
-	margin-bottom: var(--space-1);
+	margin: var(--space-2) 0 var(--space-1);
 	text-transform: uppercase;
-	letter-spacing: 0.05em;
+	letter-spacing: 0.06em;
 }
 
-.errorText {
+.detailsBody {
 	font-size: var(--text-xs);
 	font-family: var(--font-mono);
-	color: var(--color-text-tertiary);
+	color: var(--color-text-secondary);
 	background: var(--color-bg-secondary);
 	padding: var(--space-2);
 	border-radius: var(--radius-sm);
+	margin: 0;
 	overflow-x: auto;
 	white-space: pre-wrap;
 	word-break: break-word;
 }
 
-.warningsList {
+.detailsList {
 	font-size: var(--text-xs);
 	color: var(--color-text-secondary);
 	padding-left: var(--space-4);
-	margin: var(--space-1) 0 0;
+	margin: 0;
 	list-style: disc;
 }
 
-.warningsList li {
+.detailsList li {
 	margin-bottom: var(--space-1);
 }
 
-/* =====================
-   Responsive Design
-   ===================== */
+/* ==============
+   Responsive
+   ============== */
 
 @media (max-width: 640px) {
 	.main {
-		flex-direction: column;
-		align-items: flex-start;
-	}
-
-	.identity {
-		width: 100%;
-		min-width: unset;
+		grid-template-columns: auto 1fr;
+		grid-template-rows: auto auto;
+		row-gap: var(--space-2);
 	}
 
 	.actions {
-		width: 100%;
+		grid-column: 1 / -1;
 		justify-content: flex-end;
-		margin-left: 0;
-		margin-top: var(--space-1);
-	}
-
-	.progressBar,
-	.progressIndeterminate {
-		max-width: 100%;
 	}
 }
 
-/* =====================
-   Reduced Motion
-   ===================== */
+/* ==============
+   Reduced motion
+   ============== */
 
 @media (prefers-reduced-motion: reduce) {
-	.card,
-	.iconWrapper,
-	.actionBtn {
-		transition: none;
-	}
-
-	.iconWrapper.animated,
-	.spinnerIcon,
-	.indeterminateBar,
-	.step.stepCurrent .stepIcon,
-	.progressFill::after {
+	.spinner,
+	.spin,
+	.railIndeterminate {
 		animation: none;
 	}
 
-	.iconWrapper.animated .iconGlow {
-		display: none;
+	.railIndeterminate {
+		width: 100%;
 	}
 }

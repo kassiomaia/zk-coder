@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>DocumentGenerationCard · v1 prototype</title>
+		<style>
+			:root {
+				--bg-app: #0e0e11;
+				--bg-card: #17171b;
+				--bg-surface: #1f1f24;
+				--bg-surface-hover: #26262c;
+				--border-subtle: rgba(255, 255, 255, 0.06);
+				--border-primary: rgba(255, 255, 255, 0.12);
+				--text-primary: #e6e6ea;
+				--text-secondary: #a8a8b2;
+				--text-tertiary: #6f6f78;
+				--success: #3d9970;
+				--success-light: rgba(61, 153, 112, 0.12);
+				--error: #c94a4a;
+				--error-light: rgba(201, 74, 74, 0.12);
+				--docx: #2b579a;
+				--docx-light: rgba(43, 87, 154, 0.16);
+				--pdf: #f40f02;
+				--pdf-light: rgba(244, 15, 2, 0.14);
+				--pptx: #d24726;
+				--pptx-light: rgba(210, 71, 38, 0.14);
+				--radius-md: 6px;
+				--radius-lg: 10px;
+				--text-xs: 0.75rem;
+				--text-sm: 0.875rem;
+				--text-2xs: 0.6875rem;
+				font-family: 'Inter', system-ui, sans-serif;
+			}
+
+			body {
+				margin: 0;
+				padding: 48px 24px;
+				background: var(--bg-app);
+				color: var(--text-primary);
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 12px;
+			}
+
+			h1 {
+				font-size: 14px;
+				font-weight: 500;
+				color: var(--text-tertiary);
+				text-transform: uppercase;
+				letter-spacing: 0.1em;
+				margin: 24px 0 4px;
+				align-self: flex-start;
+				max-width: 720px;
+				width: 100%;
+			}
+
+			.card {
+				width: 100%;
+				max-width: 720px;
+				position: relative;
+				display: grid;
+				grid-template-columns: auto 1fr auto;
+				align-items: center;
+				column-gap: 14px;
+				padding: 12px 14px;
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				overflow: hidden;
+				transition: border-color 150ms ease;
+			}
+
+			.card:hover {
+				border-color: var(--border-primary);
+			}
+
+			/* Tile */
+			.tile {
+				width: 40px;
+				height: 40px;
+				border-radius: var(--radius-md);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				flex-shrink: 0;
+			}
+			.tile.docx {
+				background: var(--docx-light);
+				color: var(--docx);
+			}
+			.tile.pdf {
+				background: var(--pdf-light);
+				color: var(--pdf);
+			}
+			.tile.pptx {
+				background: var(--pptx-light);
+				color: var(--pptx);
+			}
+			.tile svg {
+				width: 20px;
+				height: 20px;
+				stroke-width: 1.6;
+			}
+
+			/* Identity */
+			.identity {
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+			}
+			.filename {
+				font-size: var(--text-sm);
+				font-weight: 600;
+				color: var(--text-primary);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.subline {
+				font-size: var(--text-xs);
+				color: var(--text-secondary);
+				display: flex;
+				align-items: center;
+				gap: 6px;
+			}
+			.dot {
+				width: 2px;
+				height: 2px;
+				border-radius: 50%;
+				background: currentColor;
+				opacity: 0.5;
+			}
+			.ready {
+				color: var(--success);
+				font-weight: 500;
+			}
+
+			/* Actions */
+			.actions {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+			button {
+				font: inherit;
+				cursor: pointer;
+				border-radius: var(--radius-md);
+				transition:
+					background 120ms ease,
+					border-color 120ms ease,
+					color 120ms ease;
+			}
+			.icon-btn {
+				width: 32px;
+				height: 32px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: transparent;
+				border: 1px solid var(--border-primary);
+				color: var(--text-secondary);
+			}
+			.icon-btn:hover {
+				background: var(--bg-surface-hover);
+				color: var(--text-primary);
+			}
+			.icon-btn svg {
+				width: 14px;
+				height: 14px;
+				stroke-width: 1.8;
+			}
+			.save-btn {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				height: 32px;
+				padding: 0 14px;
+				background: var(--bg-surface);
+				border: 1px solid var(--border-primary);
+				color: var(--text-primary);
+				font-size: var(--text-xs);
+				font-weight: 500;
+			}
+			.save-btn:hover {
+				background: var(--bg-surface-hover);
+			}
+			.save-btn svg {
+				width: 14px;
+				height: 14px;
+				stroke-width: 1.8;
+			}
+
+			/* Progress rail, bottom edge */
+			.rail {
+				position: absolute;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				height: 2px;
+				background: transparent;
+				overflow: hidden;
+			}
+			.rail-fill {
+				height: 100%;
+				background: var(--text-tertiary);
+				opacity: 0.9;
+				width: 64%;
+				transition: width 250ms ease-out;
+			}
+			.rail-indeterminate {
+				height: 100%;
+				width: 30%;
+				background: var(--text-secondary);
+				animation: slide 1.4s ease-in-out infinite;
+			}
+			@keyframes slide {
+				0% {
+					transform: translateX(-100%);
+				}
+				50% {
+					transform: translateX(250%);
+				}
+				100% {
+					transform: translateX(-100%);
+				}
+			}
+
+			/* Failed state */
+			.card.failed .subline {
+				color: var(--error);
+			}
+			.card.failed .tile {
+				background: var(--error-light);
+				color: var(--error);
+			}
+			.retry-btn {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				height: 32px;
+				padding: 0 14px;
+				background: var(--error-light);
+				border: 1px solid rgba(201, 74, 74, 0.35);
+				color: #e88585;
+				font-size: var(--text-xs);
+				font-weight: 500;
+			}
+			.retry-btn:hover {
+				background: rgba(201, 74, 74, 0.18);
+			}
+			.retry-btn svg {
+				width: 14px;
+				height: 14px;
+				stroke-width: 1.8;
+			}
+
+			/* Active: spinner subline */
+			.spinner {
+				width: 12px;
+				height: 12px;
+				border: 1.5px solid rgba(168, 168, 178, 0.3);
+				border-top-color: var(--text-secondary);
+				border-radius: 50%;
+				animation: spin 900ms linear infinite;
+			}
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+
+			/* Hide button (ghost) */
+			.ghost-btn {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 28px;
+				height: 28px;
+				background: transparent;
+				border: none;
+				color: var(--text-tertiary);
+			}
+			.ghost-btn:hover {
+				color: var(--text-primary);
+			}
+			.ghost-btn svg {
+				width: 14px;
+				height: 14px;
+				stroke-width: 1.8;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Completed · PDF</h1>
+		<div class="card">
+			<div class="tile pdf">
+				<!-- File icon -->
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+					<polyline points="14 2 14 8 20 8" />
+				</svg>
+			</div>
+			<div class="identity">
+				<div class="filename">journey-a.pdf</div>
+				<div class="subline">
+					<span>PDF</span>
+					<span class="dot"></span>
+					<span class="ready">Ready</span>
+				</div>
+			</div>
+			<div class="actions">
+				<button class="icon-btn" title="Copy path" aria-label="Copy path">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+						<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+						<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+					</svg>
+				</button>
+				<button class="save-btn">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+						<polyline points="7 10 12 15 17 10" />
+						<line x1="12" y1="15" x2="12" y2="3" />
+					</svg>
+					Save
+				</button>
+			</div>
+		</div>
+
+		<h1>Active · DOCX (determinate progress)</h1>
+		<div class="card">
+			<div class="tile docx">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+					<polyline points="14 2 14 8 20 8" />
+					<line x1="8" y1="13" x2="16" y2="13" />
+					<line x1="8" y1="17" x2="13" y2="17" />
+				</svg>
+			</div>
+			<div class="identity">
+				<div class="filename">architecture-review.docx</div>
+				<div class="subline">
+					<div class="spinner"></div>
+					<span>Writing sections… 64%</span>
+				</div>
+			</div>
+			<div class="actions">
+				<button class="ghost-btn" title="Hide" aria-label="Hide">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+						<line x1="18" y1="6" x2="6" y2="18" />
+						<line x1="6" y1="6" x2="18" y2="18" />
+					</svg>
+				</button>
+			</div>
+			<div class="rail"><div class="rail-fill"></div></div>
+		</div>
+
+		<h1>Active · PPTX (indeterminate)</h1>
+		<div class="card">
+			<div class="tile pptx">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+					<rect x="2" y="3" width="20" height="14" rx="2" />
+					<line x1="8" y1="21" x2="16" y2="21" />
+					<line x1="12" y1="17" x2="12" y2="21" />
+				</svg>
+			</div>
+			<div class="identity">
+				<div class="filename">launch-deck.pptx</div>
+				<div class="subline">
+					<div class="spinner"></div>
+					<span>Preparing presentation…</span>
+				</div>
+			</div>
+			<div class="actions">
+				<button class="ghost-btn" title="Hide" aria-label="Hide">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+						<line x1="18" y1="6" x2="6" y2="18" />
+						<line x1="6" y1="6" x2="18" y2="18" />
+					</svg>
+				</button>
+			</div>
+			<div class="rail"><div class="rail-indeterminate"></div></div>
+		</div>
+
+		<h1>Failed · PDF</h1>
+		<div class="card failed">
+			<div class="tile">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+					<circle cx="12" cy="12" r="10" />
+					<line x1="12" y1="8" x2="12" y2="12" />
+					<line x1="12" y1="16" x2="12.01" y2="16" />
+				</svg>
+			</div>
+			<div class="identity">
+				<div class="filename">quarterly-report.pdf</div>
+				<div class="subline">Generation failed · Template error on page 4</div>
+			</div>
+			<div class="actions">
+				<button class="retry-btn">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+						<polyline points="23 4 23 10 17 10" />
+						<path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+					</svg>
+					Retry
+				</button>
+			</div>
+		</div>
+	</body>
+</html>
