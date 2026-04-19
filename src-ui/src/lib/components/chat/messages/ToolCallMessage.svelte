@@ -142,6 +142,19 @@
 		</div>
 	</button>
 
+	{#if renderer.BodyComponent}
+		{@const BodyComponent = renderer.BodyComponent}
+		<div class={styles.bodySection}>
+			<BodyComponent
+				args={agentData?.toolArgs}
+				result={agentData?.toolResult}
+				status={toolCallStatus}
+				streamingContent={agentData?.streamingContent}
+				{touchedFile}
+			/>
+		</div>
+	{/if}
+
 	{#if expanded}
 		<div class={styles.content} transition:slide={{ duration: 200 }}>
 			<div class={styles.detailsGrid}>
@@ -167,19 +180,7 @@
 					</div>
 				</div>
 
-				{#if renderer.BodyComponent}
-					{@const BodyComponent = renderer.BodyComponent}
-					<div class={styles.detailGroup}>
-						<div class={styles.groupLabel}>Result Overview</div>
-						<BodyComponent
-							args={agentData?.toolArgs}
-							result={agentData?.toolResult}
-							status={toolCallStatus}
-							streamingContent={agentData?.streamingContent}
-							{touchedFile}
-						/>
-					</div>
-				{:else if agentData?.toolResult !== undefined}
+				{#if !renderer.BodyComponent && agentData?.toolResult !== undefined}
 					<div class={styles.detailGroup}>
 						<div class={styles.groupLabel}>Result Overview</div>
 						<div class={styles.resultSummary}>
