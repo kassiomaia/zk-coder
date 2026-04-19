@@ -10,7 +10,9 @@ use crate::core::config::WorkspaceSearchPolicyRepository;
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspacePolicyDto {
+    /// List of allowed domains for web search.
     pub allowlist: Vec<String>,
+    /// List of denied domains for web search.
     pub denylist: Vec<String>,
 }
 
@@ -29,6 +31,8 @@ pub(crate) fn get_workspace_search_policy_impl(
         .unwrap_or_default())
 }
 
+/// Inner logic for setting workspace search policy. Returns an empty policy
+/// with empty lists when no row exists in storage.
 pub(crate) fn set_workspace_search_policy_impl(
     repo: &dyn WorkspaceSearchPolicyRepository,
     workspace_path: &str,
@@ -39,6 +43,7 @@ pub(crate) fn set_workspace_search_policy_impl(
         .map_err(|e| e.to_string())
 }
 
+/// Inner logic for deleting workspace search policy.
 pub(crate) fn delete_workspace_search_policy_impl(
     repo: &dyn WorkspaceSearchPolicyRepository,
     workspace_path: &str,
@@ -47,6 +52,8 @@ pub(crate) fn delete_workspace_search_policy_impl(
         .map_err(|e| e.to_string())
 }
 
+/// Tauri command to retrieve the web-search policy for a workspace.
+/// Returns a policy with empty lists when no policy is configured.
 #[tauri::command]
 pub async fn get_workspace_search_policy(
     workspace_path: String,
@@ -55,6 +62,7 @@ pub async fn get_workspace_search_policy(
     get_workspace_search_policy_impl(&*state.repository, &workspace_path)
 }
 
+/// Tauri command to update the web-search policy for a workspace.
 #[tauri::command]
 pub async fn set_workspace_search_policy(
     workspace_path: String,
@@ -65,6 +73,7 @@ pub async fn set_workspace_search_policy(
     set_workspace_search_policy_impl(&*state.repository, &workspace_path, &allowlist, &denylist)
 }
 
+/// Tauri command to delete the web-search policy for a workspace.
 #[tauri::command]
 pub async fn delete_workspace_search_policy(
     workspace_path: String,

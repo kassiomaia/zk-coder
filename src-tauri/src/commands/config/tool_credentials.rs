@@ -22,7 +22,9 @@ use crate::infrastructure::tools::search::web_search::provider::{
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct WebSearchCredentialsPayload {
+    /// API key for the web search provider.
     pub api_key: String,
+    /// Custom search engine ID (CX) for Google Custom Search.
     pub cx: String,
 }
 

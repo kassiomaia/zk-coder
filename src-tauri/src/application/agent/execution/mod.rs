@@ -8,6 +8,7 @@ pub mod bootstrap;
 pub mod context_phase;
 pub mod coordinator;
 pub mod deps;
+/// Event types emitted by the agent harness during execution.
 pub mod harness_events;
 pub mod llm_phase;
 pub mod memory_refresh;
@@ -22,6 +23,7 @@ pub mod termination;
 pub mod tool_phase;
 pub mod tracing;
 pub mod utils;
+/// YOLO mode provider integration for the agent execution.
 pub mod yolo;
 
 #[cfg(test)]

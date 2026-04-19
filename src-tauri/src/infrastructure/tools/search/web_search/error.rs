@@ -85,6 +85,7 @@ impl ErrorBody {
 pub enum WebSearchFailure {
     /// Feature flag off. Unreachable when routed through `ToolRegistry`, but
     /// kept as a defensive branch for tools called directly (e.g. in tests).
+    #[allow(dead_code)]
     DisabledByFlag,
     /// Credentials row absent in `tool_credentials` or malformed JSON. The
     /// tool layer treats the two the same way — the user fix is identical.
@@ -100,6 +101,7 @@ pub enum WebSearchFailure {
     Unauthorized,
     /// Provider returned 5xx / network-level error. The contained message is
     /// for logs only; the user-facing text is generic.
+    #[allow(dead_code)]
     UpstreamError(String),
 }
 

@@ -17,8 +17,6 @@ use crate::core::nlp::repositories::{ContextWindowRepository, NlpDomainError};
 
 /// Maximum tokens before compression
 const COMPRESSION_THRESHOLD: usize = 50_000;
-/// Maximum context tokens
-const MAX_TOKENS: usize = 100_000;
 /// Number of recent messages to always keep
 const KEEP_RECENT_COUNT: usize = 20;
 

@@ -19,9 +19,11 @@ pub struct PptxStartArgs {
     pub title: String,
     /// Optional template to use
     #[serde(default)]
+    #[allow(dead_code)]
     pub template: Option<String>,
     /// Optional theme color scheme
     #[serde(default)]
+    #[allow(dead_code)]
     pub theme: Option<String>,
 }
 
