@@ -665,17 +665,6 @@ fn handle_plan_subtasks(
     }
 
     let existing = task_repo.get_subtasks(task_id).ok().unwrap_or_default();
-    if !existing.is_empty() {
-        return OrchestratorToolResult {
-            call_id: call.id.clone(),
-            name: call.name.clone(),
-            output: serde_json::json!({
-                "success": true,
-                "message": "Subtasks already planned for this task. Continue with current subtask."
-            }),
-            is_error: false,
-        };
-    }
 
     let requires_verification =
         detect_code_change_intent(session, task_id, task_repo, telemetry_repo);
@@ -707,6 +696,25 @@ fn handle_plan_subtasks(
             }),
             is_error: true,
         };
+    }
+
+    // Workstream α.1 — when the auto-planner at task creation has already
+    // persisted a contract-less skeleton plan, merge the model's richer
+    // plan into it by order rather than early-returning. See
+    // `merge_model_plan_into_existing` for the per-slot rules, Completed
+    // subtask guard, append logic, and the `requires_replan` retry hook
+    // that preserves the single-retry window managed by
+    // `PLAN_RETRY_TRACKER`.
+    if !existing.is_empty() {
+        return merge_model_plan_into_existing(
+            call,
+            session,
+            task_id,
+            subtasks,
+            &existing,
+            app_handle,
+            task_repo,
+        );
     }
 
     let mut created = 0usize;
@@ -829,6 +837,291 @@ fn handle_plan_subtasks(
             "success": true,
             "message": format!("Planned {created} subtasks"),
             "count": created
+        }),
+        is_error: false,
+    }
+}
+
+/// Merge a model-declared plan into an already-persisted skeleton plan
+/// (Workstream α.1).
+///
+/// The bootstrap auto-planner creates a contract-less, FullAccess-mode
+/// skeleton at task-creation time. Before α.1, the tool-planner
+/// early-returned "Subtasks already planned" whenever that skeleton
+/// existed, which silently discarded the model's richer plan — every
+/// contract and framing declaration it emitted was dropped, and the
+/// Phases B/F/G features that depend on contracts degenerated to
+/// no-ops in production.
+///
+/// The merge rules, applied iteratively over the model's subtasks:
+/// - For each `(order, item)` the model declares, locate the existing
+///   subtask at the same `order`.
+/// - If found and the existing status is `Pending` or `InProgress`:
+///   attach a non-empty contract, update a non-empty and differing
+///   description, update a non-empty and differing title, and update
+///   the mode when declared and parseable. Each column update routes
+///   through [`TaskRepository::refine_subtask`].
+/// - If found and status is `Completed` and the model's counterpart
+///   differs materially (title/description/contract), return a
+///   structured `requires_replan: true` error so
+///   `PLAN_RETRY_TRACKER` catches the single-retry window. Completed
+///   work is never rewritten.
+/// - If the model declared more subtasks than the skeleton carries,
+///   append the extras at the tail — but only when no existing
+///   subtask is `Completed`, so ordering integrity is preserved.
+/// - If the model declared fewer subtasks, ignore the shortfall.
+///   The skeleton is not deleted; the extra persisted slots stay
+///   Pending until the model later refines them or
+///   `agent_advance_to_next_subtask` walks past them.
+///
+/// The contract parsing logic mirrors the "create from scratch" path
+/// so scope-drift detection sees the same shapes regardless of which
+/// branch persisted the subtask. Malformed contracts fail the tool
+/// call with a clear message so the planner can fix the declaration.
+fn merge_model_plan_into_existing(
+    call: &ToolCall,
+    session: &AgentSession,
+    task_id: &str,
+    model_plan: &[serde_json::Value],
+    existing: &[crate::core::agent::task::SubTask],
+    app_handle: &AppHandle,
+    task_repo: &dyn TaskRepository,
+) -> OrchestratorToolResult {
+    use crate::core::agent::repositories::SubTaskRefinement;
+    use crate::core::agent::task::{SubTask, SubTaskMode, TaskStatus};
+
+    let any_completed = existing
+        .iter()
+        .any(|st| st.status == TaskStatus::Completed);
+
+    let mut refined = 0usize;
+    let mut appended = 0usize;
+
+    for (idx, item) in model_plan.iter().enumerate() {
+        let model_title = match item.get("title").and_then(|v| v.as_str()) {
+            Some(title) if !title.trim().is_empty() => title.trim().to_string(),
+            _ => {
+                return OrchestratorToolResult {
+                    call_id: call.id.clone(),
+                    name: call.name.clone(),
+                    output: serde_json::json!({
+                        "error": "Each subtask must include a non-empty 'title'"
+                    }),
+                    is_error: true,
+                };
+            }
+        };
+
+        let model_description = item
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(std::string::ToString::to_string);
+
+        let model_contract = match item.get("contract") {
+            Some(raw) if !raw.is_null() => {
+                match serde_json::from_value::<crate::core::agent::task::SubTaskContract>(
+                    raw.clone(),
+                ) {
+                    Ok(contract) if !contract.is_empty() => Some(contract),
+                    Ok(_empty) => None,
+                    Err(e) => {
+                        return OrchestratorToolResult {
+                            call_id: call.id.clone(),
+                            name: call.name.clone(),
+                            output: serde_json::json!({
+                                "error": format!(
+                                    "Subtask {idx} has a malformed `contract` field: {e}"
+                                ),
+                            }),
+                            is_error: true,
+                        };
+                    }
+                }
+            }
+            _ => None,
+        };
+
+        let model_mode: Option<SubTaskMode> = item.get("mode").and_then(|v| {
+            serde_json::from_value::<SubTaskMode>(v.clone()).ok()
+        });
+
+        // The persisted skeleton keys by `order`. The tool-planner
+        // always emits dense orders 0..N (validated earlier in
+        // `validate_plan_subtasks`), so the enumeration index and the
+        // declared order agree unless the model intentionally skips.
+        let target_order = item
+            .get("order")
+            .and_then(serde_json::Value::as_i64)
+            .map_or(idx as i32, |v| v as i32);
+
+        let existing_slot = existing
+            .iter()
+            .find(|st| st.order == target_order);
+
+        match existing_slot {
+            Some(slot) if slot.status == TaskStatus::Completed => {
+                let title_differs = slot.title.trim() != model_title.as_str();
+                let description_differs = match (&slot.description, &model_description) {
+                    (Some(a), Some(b)) => a.trim() != b.trim(),
+                    (None, Some(_)) => true,
+                    _ => false,
+                };
+                let contract_differs = match (&slot.contract, &model_contract) {
+                    (Some(a), Some(b)) => a != b,
+                    (None, Some(_)) => true,
+                    _ => false,
+                };
+                if title_differs || description_differs || contract_differs {
+                    return OrchestratorToolResult {
+                        call_id: call.id.clone(),
+                        name: call.name.clone(),
+                        output: serde_json::json!({
+                            "error": "Completed subtasks cannot be redefined",
+                            "requires_replan": true,
+                            "feedback": "Completed subtasks cannot be redefined. Reconcile your plan with the session state."
+                        }),
+                        is_error: true,
+                    };
+                }
+                // Identical shape — nothing to refine.
+            }
+            Some(slot) => {
+                // Pending or InProgress — apply "set-if-different / non-empty".
+                let mut refinement = SubTaskRefinement::default();
+                if slot.title.trim() != model_title.as_str() {
+                    refinement.title = Some(model_title.clone());
+                }
+                if let Some(new_desc) = model_description.as_ref() {
+                    let current = slot.description.as_deref().unwrap_or("");
+                    if current.trim() != new_desc.trim() {
+                        refinement.description = Some(new_desc.clone());
+                    }
+                }
+                if let Some(new_mode) = model_mode.as_ref() {
+                    if &slot.mode != new_mode {
+                        refinement.mode = Some(new_mode.clone());
+                    }
+                }
+                if let Some(new_contract) = model_contract.as_ref() {
+                    let current = slot.contract.as_ref();
+                    if current != Some(new_contract) {
+                        refinement.contract = Some(new_contract.clone());
+                    }
+                }
+
+                if !refinement.is_empty() {
+                    if let Err(e) = task_repo.refine_subtask(&slot.id, refinement) {
+                        warn!(
+                            "[AgentRuntime] Failed to refine subtask {sid}: {e}",
+                            sid = slot.id,
+                        );
+                        return OrchestratorToolResult {
+                            call_id: call.id.clone(),
+                            name: call.name.clone(),
+                            output: serde_json::json!({
+                                "error": "Failed to refine subtask"
+                            }),
+                            is_error: true,
+                        };
+                    }
+                    refined += 1;
+                }
+
+                // Rebroadcast the refined subtask to the frontend so
+                // the UI can attach the new contract/mode/description
+                // without waiting for the next status transition.
+                let mut event_subtask = slot.clone();
+                event_subtask.title = model_title.clone();
+                if let Some(desc) = model_description.as_ref() {
+                    event_subtask.description = Some(desc.clone());
+                }
+                if let Some(mode) = model_mode.as_ref() {
+                    event_subtask.mode = mode.clone();
+                }
+                if let Some(contract) = model_contract.as_ref() {
+                    event_subtask.contract = Some(contract.clone());
+                }
+                let _ = app_handle.emit(
+                    AGENT_EVENT_NAME,
+                    AgentEvent::SubtaskUpdated {
+                        session_id: session.id.0.clone(),
+                        subtask: event_subtask,
+                    },
+                );
+            }
+            None => {
+                // The model declared more subtasks than exist. Appending is
+                // only safe when no pre-existing subtask is Completed — if
+                // any is, the model is fighting with the persisted
+                // timeline and must reconcile.
+                if any_completed {
+                    return OrchestratorToolResult {
+                        call_id: call.id.clone(),
+                        name: call.name.clone(),
+                        output: serde_json::json!({
+                            "error": "Cannot append subtasks while earlier subtasks are Completed",
+                            "requires_replan": true,
+                            "feedback": "Completed subtasks cannot be redefined. Reconcile your plan with the session state."
+                        }),
+                        is_error: true,
+                    };
+                }
+                let append_order = existing
+                    .iter()
+                    .map(|st| st.order)
+                    .max()
+                    .map_or(target_order, |max| {
+                        std::cmp::max(max + 1 + appended as i32, target_order)
+                    });
+                let mut appended_subtask = SubTask::new(
+                    task_id.to_string(),
+                    model_title.clone(),
+                    model_mode.clone().unwrap_or(SubTaskMode::FullAccess),
+                    append_order,
+                );
+                if let Some(desc) = model_description.as_ref() {
+                    appended_subtask.description = Some(desc.clone());
+                }
+                if let Some(contract) = model_contract.as_ref() {
+                    appended_subtask.contract = Some(contract.clone());
+                }
+                if let Err(e) = task_repo.create_subtask(&appended_subtask) {
+                    warn!(
+                        "[AgentRuntime] Failed to append subtask during merge: {e}"
+                    );
+                    return OrchestratorToolResult {
+                        call_id: call.id.clone(),
+                        name: call.name.clone(),
+                        output: serde_json::json!({
+                            "error": "Failed to append subtask"
+                        }),
+                        is_error: true,
+                    };
+                }
+                appended += 1;
+                let _ = app_handle.emit(
+                    AGENT_EVENT_NAME,
+                    AgentEvent::SubtaskCreated {
+                        session_id: session.id.0.clone(),
+                        subtask: appended_subtask,
+                    },
+                );
+            }
+        }
+    }
+
+    OrchestratorToolResult {
+        call_id: call.id.clone(),
+        name: call.name.clone(),
+        output: serde_json::json!({
+            "success": true,
+            "message": format!(
+                "Merged model plan into existing subtasks (refined {refined}, appended {appended})"
+            ),
+            "refined": refined,
+            "appended": appended,
         }),
         is_error: false,
     }
@@ -3563,5 +3856,622 @@ mod contract_verification_tests {
             .and_then(|v| v.as_array())
             .expect("concreteMissingPaths");
         assert_eq!(concrete.len(), 1);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Workstream α.1 — tool-planner merge tests.
+//
+// The behavior under test is the replacement of the pre-α.1 early-return
+// ("Subtasks already planned for this task. Continue with current
+// subtask.") with `merge_model_plan_into_existing`. The merge dispatch
+// lives inside `handle_plan_subtasks` — these tests call the merge
+// helper directly so the assertions pin down its per-slot rules
+// without dragging in the whole permissions pipeline.
+//
+// The task-repository fixture is a real in-memory SQLite repo so the
+// contract/mode/title/description column writes go through the exact
+// SQL path production uses. The Tauri `AppHandle` comes from the
+// shared `test_support::mock_app_handle()`; the merge helper only
+// uses it for best-effort event emission (`AgentEvent::Subtask*`),
+// which is not asserted here.
+// ---------------------------------------------------------------------------
+#[cfg(test)]
+mod merge_tests {
+    use super::*;
+    use crate::core::agent::repositories::TaskRepository as _;
+    use crate::core::agent::session::{AgentSession, SessionId};
+    use crate::core::agent::task::{
+        AgentRequest, AgentTask, ArtifactKind, ArtifactSpec, SubTask, SubTaskContract, SubTaskMode,
+        TaskStatus,
+    };
+    use crate::core::agent::types::AgentId;
+    use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
+    use serde_json::{json, Value};
+    use std::sync::Arc;
+
+    fn make_repo_with_task() -> (Arc<SqliteSessionRepository>, String) {
+        let repo = Arc::new(
+            SqliteSessionRepository::new(":memory:").expect("in-memory repo"),
+        );
+        let session = AgentSession::new(
+            AgentId::new("agent"),
+            "Agent".to_string(),
+            "conv".to_string(),
+            "thread".to_string(),
+            None,
+            None,
+        );
+        repo.as_ref()
+            .create_session(&session)
+            .expect("session create");
+        let task = AgentTask::new(
+            session.id.clone(),
+            AgentRequest {
+                content: "test request".to_string(),
+                attachments: vec![],
+                context: None,
+            },
+        );
+        let task_id = task.id.clone();
+        <SqliteSessionRepository as TaskRepository>::create_task(repo.as_ref(), &task)
+            .expect("task create");
+        (repo, task_id)
+    }
+
+    fn persist_skeleton(
+        repo: &SqliteSessionRepository,
+        task_id: &str,
+        titles: &[&str],
+    ) -> Vec<SubTask> {
+        let mut created = Vec::new();
+        for (idx, title) in titles.iter().enumerate() {
+            let subtask = SubTask::new(
+                task_id.to_string(),
+                (*title).to_string(),
+                SubTaskMode::FullAccess,
+                idx as i32,
+            );
+            <SqliteSessionRepository as TaskRepository>::create_subtask(repo, &subtask)
+                .expect("subtask create");
+            created.push(subtask);
+        }
+        created
+    }
+
+    fn make_session() -> AgentSession {
+        AgentSession::new(
+            AgentId::new("agent"),
+            "Agent".to_string(),
+            "conv".to_string(),
+            "thread".to_string(),
+            None,
+            None,
+        )
+    }
+
+    fn make_call(args: Value) -> ToolCall {
+        ToolCall {
+            id: "call-1".to_string(),
+            name: "agent_plan_subtasks".to_string(),
+            arguments: args,
+        }
+    }
+
+    /// Build a contract JSON payload.
+    ///
+    /// [`SubTaskContract`] deserializes with `rename_all = "camelCase"`,
+    /// so `from_value` requires `expectedArtifacts` + `pathPattern`
+    /// even though the plan-validation helpers accept either spelling.
+    /// These tests exercise the merge helper, which hits
+    /// `from_value::<SubTaskContract>` directly.
+    fn contract_for_path(path: &str) -> Value {
+        json!({
+            "expectedArtifacts": [
+                {"pathPattern": path, "kind": "file"}
+            ]
+        })
+    }
+
+    #[test]
+    fn merge_attaches_contract_and_refines_fields_on_pending_skeleton() {
+        let (repo, task_id) = make_repo_with_task();
+        persist_skeleton(repo.as_ref(), &task_id, &[
+            "Investigate auth module",
+            "Implement fix",
+            "Verify behavior",
+        ]);
+
+        let existing =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        let session = make_session();
+        let app_handle = crate::test_support::mock_app_handle();
+        let call = make_call(json!({}));
+
+        let model_plan = vec![
+            json!({
+                "title": "Investigate auth module",
+                "description": "Read auth/*.rs and map the current flow",
+                "contract": contract_for_path("docs/auth/*.md"),
+                "order": 0
+            }),
+            json!({
+                "title": "Implement session-handoff fix",
+                "description": "Update auth/session.rs and add regression tests",
+                "contract": contract_for_path("src-tauri/src/core/auth/**/*.rs"),
+                "mode": "write",
+                "order": 1
+            }),
+            json!({
+                "title": "Verify behavior",
+                "contract": contract_for_path("tests/auth/*.rs"),
+                "order": 2
+            }),
+        ];
+
+        let result = merge_model_plan_into_existing(
+            &call,
+            &session,
+            &task_id,
+            &model_plan,
+            &existing,
+            &app_handle,
+            repo.as_ref(),
+        );
+
+        assert!(!result.is_error, "merge should succeed: {:?}", result.output);
+        let refined = result.output.get("refined").and_then(Value::as_u64).unwrap();
+        let appended = result.output.get("appended").and_then(Value::as_u64).unwrap();
+        assert_eq!(refined, 3);
+        assert_eq!(appended, 0);
+
+        let after =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        assert_eq!(after.len(), 3);
+        for st in &after {
+            assert!(
+                st.contract.is_some(),
+                "order {} should have a contract after merge",
+                st.order,
+            );
+        }
+        let by_order: std::collections::HashMap<i32, &SubTask> =
+            after.iter().map(|st| (st.order, st)).collect();
+        assert_eq!(
+            by_order[&1].title,
+            "Implement session-handoff fix",
+            "title should be updated on the pending slot",
+        );
+        assert_eq!(by_order[&1].mode, SubTaskMode::Write);
+        assert_eq!(
+            by_order[&0].description.as_deref(),
+            Some("Read auth/*.rs and map the current flow"),
+        );
+    }
+
+    #[test]
+    fn merge_appends_when_model_declares_more_subtasks() {
+        let (repo, task_id) = make_repo_with_task();
+        persist_skeleton(repo.as_ref(), &task_id, &["Plan", "Execute"]);
+
+        let existing =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        let session = make_session();
+        let app_handle = crate::test_support::mock_app_handle();
+        let call = make_call(json!({}));
+
+        let model_plan = vec![
+            json!({
+                "title": "Plan",
+                "contract": contract_for_path("docs/plan.md"),
+                "order": 0
+            }),
+            json!({
+                "title": "Execute",
+                "contract": contract_for_path("src/*.rs"),
+                "order": 1
+            }),
+            json!({
+                "title": "Verify outputs",
+                "contract": contract_for_path("tests/*.rs"),
+                "order": 2
+            }),
+        ];
+
+        let result = merge_model_plan_into_existing(
+            &call,
+            &session,
+            &task_id,
+            &model_plan,
+            &existing,
+            &app_handle,
+            repo.as_ref(),
+        );
+        assert!(!result.is_error, "{:?}", result.output);
+        assert_eq!(result.output["appended"], 1);
+        assert_eq!(result.output["refined"], 2);
+
+        let after =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        assert_eq!(after.len(), 3);
+        assert_eq!(after[2].title, "Verify outputs");
+        assert!(after[2].contract.is_some());
+    }
+
+    #[test]
+    fn merge_ignores_extras_when_model_declares_fewer_subtasks() {
+        let (repo, task_id) = make_repo_with_task();
+        persist_skeleton(repo.as_ref(), &task_id, &["A", "B", "C"]);
+
+        let existing =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        let session = make_session();
+        let app_handle = crate::test_support::mock_app_handle();
+        let call = make_call(json!({}));
+
+        let model_plan = vec![json!({
+            "title": "A",
+            "contract": contract_for_path("a/*.md"),
+            "order": 0
+        })];
+
+        let result = merge_model_plan_into_existing(
+            &call,
+            &session,
+            &task_id,
+            &model_plan,
+            &existing,
+            &app_handle,
+            repo.as_ref(),
+        );
+        assert!(!result.is_error);
+
+        let after =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        assert_eq!(after.len(), 3, "extra skeleton slots must be preserved");
+        assert!(
+            after[0].contract.is_some(),
+            "the refined slot still receives its contract",
+        );
+        assert!(after[1].contract.is_none());
+        assert!(after[2].contract.is_none());
+    }
+
+    #[test]
+    fn merge_refuses_to_redefine_completed_subtask_with_requires_replan() {
+        let (repo, task_id) = make_repo_with_task();
+        let created =
+            persist_skeleton(repo.as_ref(), &task_id, &["Investigate", "Implement"]);
+        <SqliteSessionRepository as TaskRepository>::update_subtask_status(
+            repo.as_ref(),
+            &created[0].id,
+            TaskStatus::Completed,
+        )
+        .unwrap();
+
+        let existing =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        let session = make_session();
+        let app_handle = crate::test_support::mock_app_handle();
+        let call = make_call(json!({}));
+
+        let model_plan = vec![
+            json!({
+                "title": "Investigate DIFFERENT scope",
+                "description": "A materially different description",
+                "contract": contract_for_path("x/*.md"),
+                "order": 0
+            }),
+            json!({"title": "Implement", "order": 1}),
+        ];
+
+        let result = merge_model_plan_into_existing(
+            &call,
+            &session,
+            &task_id,
+            &model_plan,
+            &existing,
+            &app_handle,
+            repo.as_ref(),
+        );
+        assert!(result.is_error);
+        assert_eq!(result.output["requires_replan"], true);
+        assert!(result
+            .output
+            .get("feedback")
+            .and_then(Value::as_str)
+            .unwrap()
+            .contains("Completed"));
+    }
+
+    #[test]
+    fn merge_refuses_to_append_when_a_completed_subtask_exists() {
+        let (repo, task_id) = make_repo_with_task();
+        let created =
+            persist_skeleton(repo.as_ref(), &task_id, &["First", "Second"]);
+        <SqliteSessionRepository as TaskRepository>::update_subtask_status(
+            repo.as_ref(),
+            &created[0].id,
+            TaskStatus::Completed,
+        )
+        .unwrap();
+
+        let existing =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        let session = make_session();
+        let app_handle = crate::test_support::mock_app_handle();
+        let call = make_call(json!({}));
+
+        let model_plan = vec![
+            json!({"title": "First", "order": 0}),
+            json!({"title": "Second", "order": 1}),
+            json!({"title": "Added later", "order": 2}),
+        ];
+
+        let result = merge_model_plan_into_existing(
+            &call,
+            &session,
+            &task_id,
+            &model_plan,
+            &existing,
+            &app_handle,
+            repo.as_ref(),
+        );
+        assert!(result.is_error);
+        assert_eq!(result.output["requires_replan"], true);
+    }
+
+    #[test]
+    fn merge_does_not_mutate_completed_subtask_when_shape_matches() {
+        let (repo, task_id) = make_repo_with_task();
+        let created =
+            persist_skeleton(repo.as_ref(), &task_id, &["First", "Second"]);
+        <SqliteSessionRepository as TaskRepository>::update_subtask_status(
+            repo.as_ref(),
+            &created[0].id,
+            TaskStatus::Completed,
+        )
+        .unwrap();
+
+        let existing =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        let session = make_session();
+        let app_handle = crate::test_support::mock_app_handle();
+        let call = make_call(json!({}));
+
+        // Model repeats the Completed subtask verbatim and refines the
+        // pending one with a contract. No replan required.
+        let model_plan = vec![
+            json!({"title": "First", "order": 0}),
+            json!({
+                "title": "Second",
+                "contract": contract_for_path("src/*.rs"),
+                "order": 1
+            }),
+        ];
+
+        let result = merge_model_plan_into_existing(
+            &call,
+            &session,
+            &task_id,
+            &model_plan,
+            &existing,
+            &app_handle,
+            repo.as_ref(),
+        );
+        assert!(!result.is_error, "{:?}", result.output);
+
+        let after =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        assert_eq!(after[0].status, TaskStatus::Completed);
+        assert!(
+            after[0].contract.is_none(),
+            "completed slot must not gain a contract it did not already have",
+        );
+        assert!(after[1].contract.is_some());
+    }
+
+    #[test]
+    fn merge_rejects_malformed_contract_with_structured_error() {
+        let (repo, task_id) = make_repo_with_task();
+        persist_skeleton(repo.as_ref(), &task_id, &["One"]);
+
+        let existing =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        let session = make_session();
+        let app_handle = crate::test_support::mock_app_handle();
+        let call = make_call(json!({}));
+
+        let model_plan = vec![json!({
+            "title": "One",
+            "contract": { "expected_artifacts": "not-an-array" },
+            "order": 0
+        })];
+
+        let result = merge_model_plan_into_existing(
+            &call,
+            &session,
+            &task_id,
+            &model_plan,
+            &existing,
+            &app_handle,
+            repo.as_ref(),
+        );
+        assert!(result.is_error);
+        let err = result.output.get("error").and_then(Value::as_str).unwrap();
+        assert!(err.contains("malformed"), "got: {err}");
+    }
+
+    /// Characterization replay — the 8311a601 forensic session had a
+    /// skeleton of `N` auto-planned subtasks (contract-less) and the
+    /// model's first `agent_plan_subtasks` call carried the same N
+    /// titles with contracts attached. The old early-return dropped
+    /// every contract. With α.1 in place, all N slots carry a contract
+    /// after merge.
+    ///
+    /// Simplified replay: 7 model subtasks, 1:1 with the skeleton, each
+    /// carrying a distinct `expected_artifacts` contract.
+    #[test]
+    fn merge_characterization_7_subtasks_all_gain_contract() {
+        let (repo, task_id) = make_repo_with_task();
+        let skeleton_titles = [
+            "Plan architecture and tech stack",
+            "Design database schema",
+            "Scaffold project structure",
+            "Implement auth endpoints",
+            "Implement session persistence",
+            "Wire up error middleware",
+            "Run smoke tests",
+        ];
+        persist_skeleton(repo.as_ref(), &task_id, &skeleton_titles);
+
+        let existing =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        let session = make_session();
+        let app_handle = crate::test_support::mock_app_handle();
+        let call = make_call(json!({}));
+
+        let model_plan: Vec<Value> = skeleton_titles
+            .iter()
+            .enumerate()
+            .map(|(idx, title)| {
+                json!({
+                    "title": title,
+                    "contract": contract_for_path(&format!("docs/phase-{idx}/*.md")),
+                    "order": idx
+                })
+            })
+            .collect();
+
+        let result = merge_model_plan_into_existing(
+            &call,
+            &session,
+            &task_id,
+            &model_plan,
+            &existing,
+            &app_handle,
+            repo.as_ref(),
+        );
+        assert!(!result.is_error, "{:?}", result.output);
+        assert_eq!(result.output["appended"], 0);
+        assert_eq!(result.output["refined"], 7);
+
+        let after =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        assert_eq!(after.len(), 7);
+        for st in &after {
+            let contract = st
+                .contract
+                .as_ref()
+                .unwrap_or_else(|| panic!("order {} must gain a contract", st.order));
+            assert!(
+                !contract.expected_artifacts.is_empty(),
+                "contract on order {} must not be empty",
+                st.order,
+            );
+        }
+    }
+
+    /// Regression — when the model never issues `agent_plan_subtasks`
+    /// (legacy path), the skeleton is untouched. This test protects the
+    /// pre-α.1 behavior for non-refining flows: the merge helper is
+    /// never entered, so contracts remain `None`.
+    #[test]
+    fn merge_not_invoked_leaves_skeleton_contracts_none() {
+        let (repo, task_id) = make_repo_with_task();
+        persist_skeleton(repo.as_ref(), &task_id, &["Only"]);
+
+        let subtasks =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        assert_eq!(subtasks.len(), 1);
+        assert!(
+            subtasks[0].contract.is_none(),
+            "skeleton subtask starts without contract",
+        );
+        assert_eq!(subtasks[0].mode, SubTaskMode::FullAccess);
+    }
+
+    /// SubTaskRefinement round-trip through the SQLite
+    /// `TaskRepository::refine_subtask` implementation (Workstream α.1
+    /// repository layer). Contract, title, description, and mode update
+    /// together; the unset fields (here, none) would stay unchanged.
+    #[test]
+    fn refine_subtask_round_trip_updates_named_fields_only() {
+        use crate::core::agent::repositories::SubTaskRefinement;
+
+        let (repo, task_id) = make_repo_with_task();
+        let created = persist_skeleton(repo.as_ref(), &task_id, &["slot"]);
+        let slot = &created[0];
+
+        let contract = SubTaskContract {
+            expected_artifacts: vec![ArtifactSpec {
+                path_pattern: "docs/x.md".to_string(),
+                kind: ArtifactKind::File,
+            }],
+        };
+        let refinement = SubTaskRefinement {
+            title: Some("refined title".to_string()),
+            description: Some("refined description".to_string()),
+            mode: Some(SubTaskMode::Write),
+            contract: Some(contract.clone()),
+        };
+        <SqliteSessionRepository as TaskRepository>::refine_subtask(
+            repo.as_ref(),
+            &slot.id,
+            refinement,
+        )
+        .unwrap();
+
+        let after =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        assert_eq!(after.len(), 1);
+        assert_eq!(after[0].title, "refined title");
+        assert_eq!(after[0].description.as_deref(), Some("refined description"));
+        assert_eq!(after[0].mode, SubTaskMode::Write);
+        assert_eq!(after[0].contract.as_ref(), Some(&contract));
+
+        // Now a partial refinement that only sets `description` — title,
+        // mode, contract must stay.
+        let partial = SubTaskRefinement {
+            description: Some("newer desc".to_string()),
+            ..SubTaskRefinement::default()
+        };
+        <SqliteSessionRepository as TaskRepository>::refine_subtask(
+            repo.as_ref(),
+            &after[0].id,
+            partial,
+        )
+        .unwrap();
+
+        let after2 =
+            <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
+                .unwrap();
+        assert_eq!(after2[0].title, "refined title");
+        assert_eq!(after2[0].description.as_deref(), Some("newer desc"));
+        assert_eq!(after2[0].mode, SubTaskMode::Write);
+        assert_eq!(after2[0].contract.as_ref(), Some(&contract));
+
+        // Empty refinement is a legal no-op.
+        <SqliteSessionRepository as TaskRepository>::refine_subtask(
+            repo.as_ref(),
+            &after[0].id,
+            SubTaskRefinement::default(),
+        )
+        .unwrap();
     }
 }

@@ -209,6 +209,71 @@ pub fn create_subtask(
     Ok(())
 }
 
+/// Apply a partial refinement to an existing subtask (Workstream α.1).
+///
+/// Only the columns whose corresponding `Option` on [`SubTaskRefinement`]
+/// is `Some` are written. An empty refinement short-circuits with no
+/// SQL executed — the repository trait documents this as a legitimate
+/// call.
+///
+/// Columns mapped:
+/// - [`SubTaskRefinement::title`] → `title`
+/// - [`SubTaskRefinement::description`] → `description`
+/// - [`SubTaskRefinement::mode`] → `mode` (serialized as JSON, matching
+///   [`create_subtask`])
+/// - [`SubTaskRefinement::contract`] → `contract` (serialized as JSON,
+///   matching [`create_subtask`])
+///
+/// Any future additions must preserve the "set-if-Some" invariant so
+/// callers can pass partial refinements without fear of nulling out
+/// unrelated columns.
+pub fn refine_subtask(
+    conn: &Connection,
+    subtask_id: &str,
+    refinement: &crate::core::agent::repositories::SubTaskRefinement,
+) -> Result<(), SessionRepositoryError> {
+    if refinement.is_empty() {
+        return Ok(());
+    }
+
+    let mut assignments: Vec<&'static str> = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+    if let Some(title) = &refinement.title {
+        assignments.push("title = ?");
+        params.push(Box::new(title.clone()));
+    }
+    if let Some(description) = &refinement.description {
+        assignments.push("description = ?");
+        params.push(Box::new(description.clone()));
+    }
+    if let Some(mode) = &refinement.mode {
+        assignments.push("mode = ?");
+        params.push(Box::new(serde_json::to_string(mode)?));
+    }
+    if let Some(contract) = &refinement.contract {
+        assignments.push("contract = ?");
+        params.push(Box::new(serde_json::to_string(contract)?));
+    }
+
+    // Short-circuit is defensive — `is_empty` already handled this,
+    // but a future field that fails to push to `assignments` would be
+    // caught here rather than corrupting a row with `SET  WHERE id = ?`.
+    if assignments.is_empty() {
+        return Ok(());
+    }
+
+    let sql = format!(
+        "UPDATE agent_subtasks SET {} WHERE id = ?",
+        assignments.join(", "),
+    );
+    params.push(Box::new(subtask_id.to_string()));
+
+    let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    conn.execute(&sql, param_refs.as_slice())?;
+    Ok(())
+}
+
 /// Update subtask status.
 pub fn update_subtask_status(
     conn: &Connection,

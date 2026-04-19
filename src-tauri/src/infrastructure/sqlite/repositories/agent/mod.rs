@@ -295,6 +295,19 @@ impl SqliteSessionRepository {
         tasks::update_subtask_status(&conn, subtask_id, status)
     }
 
+    /// Apply a partial refinement to an existing subtask (Workstream α.1).
+    pub fn refine_subtask(
+        &self,
+        subtask_id: &str,
+        refinement: &crate::core::agent::repositories::SubTaskRefinement,
+    ) -> Result<(), SessionRepositoryError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| SessionRepositoryError::LockError(e.to_string()))?;
+        tasks::refine_subtask(&conn, subtask_id, refinement)
+    }
+
     /// Get all subtasks for a task.
     pub fn get_subtasks(
         &self,
@@ -699,6 +712,15 @@ impl TaskRepository for SqliteSessionRepository {
         status: agent_task::TaskStatus,
     ) -> RepositoryResult<()> {
         Self::update_subtask_status(self, subtask_id, &status)
+            .map_err(AgentDomainError::from)
+    }
+
+    fn refine_subtask(
+        &self,
+        subtask_id: &str,
+        refinement: crate::core::agent::repositories::SubTaskRefinement,
+    ) -> RepositoryResult<()> {
+        Self::refine_subtask(self, subtask_id, &refinement)
             .map_err(AgentDomainError::from)
     }
 }

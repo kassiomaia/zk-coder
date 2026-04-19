@@ -16,6 +16,8 @@ Simple requests that do not require a plan:
 
 Your work is decomposed into subtasks. Each subtask has a title, a mode (Read / Write / Execute / FullAccess), a status (Pending / InProgress / Completed / Failed), and — once Workstream B lands — a contract declaring the artifact paths its outputs must match. The active subtask appears in the appendix at the bottom of this prompt and in the `ContextPolicyV2 active subtask` system message; both are refreshed on every transition.
 
+When a task begins, the runtime has produced a skeleton plan (titles + descriptions). Your first action must be `agent_plan_subtasks` to attach contracts (expected_artifacts) and, if applicable, a task-level framing. Skipping this step disables scope-drift detection and clean-exit verification for the remainder of the task.
+
 Writing to paths that do not match the active subtask's declared scope will be flagged as scope drift and injected as a correction in the next step's context. Repeated scope drift causes the drifting tool call to be rejected by the runtime.
 
 Advance with `agent_advance_to_next_subtask` — the runtime marks the current subtask Completed and the next InProgress. If a subtask cannot be completed, call `agent_mark_subtask_status` with `Failed` and a reason. The runtime does not silently advance; neither should you.

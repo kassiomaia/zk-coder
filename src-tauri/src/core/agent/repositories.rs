@@ -7,9 +7,52 @@
 use super::errors::AgentDomainError;
 use super::execution::{ExecutionSnapshot, RuntimeTrace};
 use super::session::{AgentSession, PendingAction, SessionId, SessionState};
-use super::task::{AgentTask, SubTask, TaskStatus};
+use super::task::{AgentTask, SubTask, SubTaskContract, SubTaskMode, TaskStatus};
 use super::types::{Agent, AgentId};
 use chrono::{DateTime, Utc};
+
+/// A partial update applied to an existing subtask (Workstream α.1).
+///
+/// Each field is `Some(new_value)` to overwrite the corresponding column,
+/// or `None` to leave it unchanged. The struct exists so the
+/// tool-planner merge path can attach a contract, rewrite a description,
+/// rename the title, or promote the mode on an already-persisted subtask
+/// without bypassing the repository abstraction.
+///
+/// Semantics are "set-if-Some" — none of the optional fields can be
+/// cleared back to SQL NULL through this struct. Clearing is not a
+/// declared use case for the merge flow (the auto-planner never emits a
+/// contract, and the model only refines it upward); adding an explicit
+/// "clear" variant would inflate the surface area without benefit.
+#[derive(Debug, Default, Clone)]
+pub struct SubTaskRefinement {
+    /// Overwrite the subtask title with a trimmed, non-empty value when
+    /// set. Callers are responsible for the trim + non-empty validation
+    /// before constructing the refinement.
+    pub title: Option<String>,
+    /// Overwrite the subtask description with a new value when set.
+    pub description: Option<String>,
+    /// Overwrite the subtask mode when set. The runtime enforces mode
+    /// semantics elsewhere; the repository only persists the value.
+    pub mode: Option<SubTaskMode>,
+    /// Overwrite the subtask contract with a new value when set. The
+    /// planner validator rejects empty contracts before they reach the
+    /// repository, so the repository does not re-validate here.
+    pub contract: Option<SubTaskContract>,
+}
+
+impl SubTaskRefinement {
+    /// Returns `true` when every field is `None`, meaning the refinement
+    /// would write no columns. The repository short-circuits on empty
+    /// refinements so callers can pass them unconditionally.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.title.is_none()
+            && self.description.is_none()
+            && self.mode.is_none()
+            && self.contract.is_none()
+    }
+}
 
 /// A specialized `Result` type for repository operations.
 pub type RepositoryResult<T> = Result<T, AgentDomainError>;
@@ -111,6 +154,31 @@ pub trait TaskRepository: Send + Sync {
 
     /// Updates the status of a specific subtask.
     fn update_subtask_status(&self, subtask_id: &str, status: TaskStatus) -> RepositoryResult<()>;
+
+    /// Applies a partial update to an existing subtask's metadata
+    /// (Workstream α.1).
+    ///
+    /// Called by the tool-planner merge path when the model's declared
+    /// plan attaches a contract, rewrites a description, renames a
+    /// title, or promotes the mode on a subtask that the auto-planner
+    /// persisted at task-creation time with contract-less defaults.
+    ///
+    /// Each [`SubTaskRefinement`] field is applied only when `Some`;
+    /// `None` leaves the corresponding column untouched. An empty
+    /// refinement (every field `None`) is a no-op and must return
+    /// `Ok(())`.
+    ///
+    /// The default implementation returns `Ok(())` so test doubles and
+    /// in-memory repositories compile without opting in. The SQLite
+    /// implementation overrides it with a dynamic UPDATE that only
+    /// writes the columns whose corresponding `Option` is `Some`.
+    fn refine_subtask(
+        &self,
+        _subtask_id: &str,
+        _refinement: SubTaskRefinement,
+    ) -> RepositoryResult<()> {
+        Ok(())
+    }
 
     /// Updates (or clears) the `framing` record for a specific task
     /// (Workstream H.2.b).
