@@ -66,6 +66,15 @@ When working in an area with recurring quality issues, consult `docs/issues/READ
 ** Documentation is a first-class citizen in this repository. It is expected to be accurate, up-to-date, and comprehensive. Every code change must be accompanied by the necessary documentation updates to maintain this standard.
 ** Obsolete or inaccurate documentation must be updated or removed as part of any code change that touches the relevant area. Stale references to removed features, old architecture, or previous implementations are not acceptable and must be cleaned up.
 
+# UI/UX - MANDATORY RULES
+
+- **UI/UX Golden Rule**: Every user interaction must be designed with the user's needs and experience in mind. This means prioritizing clarity, simplicity, and responsiveness in the UI, while ensuring that the underlying functionality is robust and efficient. All design decisions should be guided by this principle to create a seamless and intuitive user experience.
+** MANDATORY **: All UI/UX changes must use /frontend-design skills and follow the UI/UX Golden Rule. This includes adhering to established design patterns, ensuring consistency across the application, and validating changes through user testing when possible.
+
+## UI/UX Prototyping
+
+- ** ANY UI/UX change the as creating or changing something relevate must prototype a html first and ask for feedback before implementing the svelte component. This is to ensure that the design is sound and meets the user's needs before investing time in implementation. Prototyping allows for early feedback and iteration, which can lead to a better final product.
+- Must save the prototypes into `.prototypes/<feature>/<prototype-name>.html` for future reference and to maintain a record of the design process. This practice promotes transparency and allows other team members to understand the design decisions made during development.
 
 ## Build Commands
 
