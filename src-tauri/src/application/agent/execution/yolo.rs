@@ -9,6 +9,7 @@ pub struct ChatYoloModeProvider<'a> {
 }
 
 impl<'a> ChatYoloModeProvider<'a> {
+    /// Creates a new YOLO mode provider backed by the given chat service.
     #[must_use]
     pub const fn new(chat_service: &'a dyn ChatService) -> Self {
         Self { chat_service }

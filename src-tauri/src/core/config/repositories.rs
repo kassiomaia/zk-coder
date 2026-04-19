@@ -220,6 +220,8 @@ pub trait PdfThemeRepository: Send + Sync {
     fn set_pdf_theme(&self, workspace_path: &str, theme_name: &str) -> RepositoryResult<()>;
 }
 
+/// Combined configuration repository trait that aggregates all config-related
+/// repository capabilities (providers, models, API keys, tool credentials, etc.).
 pub trait ConfigRepository:
     ProviderRepository
     + ModelRepository

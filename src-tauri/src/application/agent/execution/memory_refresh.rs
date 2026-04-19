@@ -50,8 +50,11 @@ pub enum MemoryRefreshTrigger {
     /// `Completed`. Carries the subtask id, its title (user-visible text
     /// appended to `completed_findings`), and its order.
     SubtaskCompleted {
+        /// Unique identifier for the completed subtask.
         subtask_id: String,
+        /// User-visible title of the completed subtask.
         title: String,
+        /// Execution order of the subtask.
         order: i32,
     },
     /// A context compaction just fired. The memory reference block in
@@ -62,7 +65,10 @@ pub enum MemoryRefreshTrigger {
     /// `RETRIEVAL_BURST_THRESHOLD` retrievals fired within the current
     /// subtask. Carries the measured count so consumers can distinguish
     /// between a just-hit burst and a sustained burst.
-    RetrievalBurst { count: u32 },
+    RetrievalBurst {
+        /// Number of retrievals in the burst.
+        count: u32
+    },
 }
 
 impl MemoryRefreshTrigger {
