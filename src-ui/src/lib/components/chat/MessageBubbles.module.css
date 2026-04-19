@@ -370,15 +370,9 @@
    ===================== */
 
 .agentStatusWrapper {
-	display: flex;
-	justify-content: flex-start;
-	padding: var(--space-2) var(--space-4);
-	margin-top: calc(-1 * var(--space-3));
-	margin-bottom: var(--space-5);
-	background: var(--color-bg-tertiary);
-	border-radius: var(--radius-md);
-	border: 1px solid var(--color-border-subtle);
-	align-self: flex-start;
+	width: 100%;
+	margin-top: var(--space-2);
+	margin-bottom: var(--space-3);
 	animation: slideUpFade 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
 

@@ -135,6 +135,10 @@
 	opacity: 0.8;
 }
 
+.bodySection {
+	border-top: 1px solid var(--color-border-subtle);
+}
+
 .content {
 	padding: var(--space-3);
 	background: var(--color-bg-secondary);
