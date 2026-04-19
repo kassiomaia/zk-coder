@@ -148,11 +148,13 @@ mod tests {
         AgentRequest, AgentTask, SubTask, SubTaskMode, TaskStatus,
     };
     use crate::core::chat::services::ChatService;
+    use crate::core::config::ConfigRepository;
     use crate::infrastructure::agent::approval::ApprovalQueue;
     use crate::infrastructure::agent::registry::AgentRegistry;
     use crate::infrastructure::agent::runtime::AgentRuntime;
     use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
     use crate::infrastructure::sqlite::repositories::chat::SqliteChatRepository;
+    use crate::infrastructure::sqlite::repositories::config::SqliteConfigRepository;
     use crate::infrastructure::tools::ToolRegistry;
 
     fn create_test_service() -> AgentServiceImpl {
@@ -162,6 +164,9 @@ mod tests {
         let chat_repository =
             Arc::new(SqliteChatRepository::in_memory().expect("chat repository"));
         let chat_service = Arc::new(ChatServiceImpl::new(chat_repository)) as Arc<dyn ChatService>;
+        let config_repository = Arc::new(
+            SqliteConfigRepository::in_memory().expect("config repository"),
+        ) as Arc<dyn ConfigRepository>;
         let approval_queue = Arc::new(ApprovalQueue::new());
         let tool_registry = Arc::new(ToolRegistry::new().expect("tool registry"));
         let runtime = Arc::new(AgentRuntime::new(
@@ -175,6 +180,7 @@ mod tests {
             session_store.clone(),
             approval_queue.clone(),
             tool_registry,
+            config_repository,
         ));
 
         AgentServiceImpl::new(

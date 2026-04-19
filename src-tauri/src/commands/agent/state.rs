@@ -7,6 +7,7 @@ use crate::core::agent::repositories::{
     RuntimeTraceRepository, SessionRepository, TaskRepository,
 };
 use crate::core::chat::services::ChatService;
+use crate::core::config::ConfigRepository;
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::registry::AgentRegistry;
 use crate::infrastructure::agent::runtime::AgentRuntime;
@@ -24,7 +25,11 @@ impl AgentState {
     ///
     /// Note: Recovery of unterminated executions is handled separately
     /// via the `initialize_agent_recovery` command to allow event emission.
-    pub fn new(db_path: &str, chat_service: Arc<dyn ChatService>) -> Result<Self, String> {
+    pub fn new(
+        db_path: &str,
+        chat_service: Arc<dyn ChatService>,
+        config_repository: Arc<dyn ConfigRepository>,
+    ) -> Result<Self, String> {
         let sqlite_repository = Arc::new(
             SqliteSessionRepository::new(db_path)
                 .map_err(|e| format!("Failed to init session repository: {e}"))?,
@@ -57,6 +62,7 @@ impl AgentState {
             memory_repository,
             approval_queue.clone(),
             tool_registry,
+            config_repository,
         ));
         let registry = Arc::new(AgentRegistry::new());
 

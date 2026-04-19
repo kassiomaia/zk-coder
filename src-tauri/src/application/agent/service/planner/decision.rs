@@ -5,11 +5,11 @@
 use crate::application::agent::read_models::SessionHandoffSummary;
 use crate::core::agent::memory::SessionMemory;
 use crate::core::agent::task::{AgentTask, SubTask, TaskStatus};
+use crate::core::config::ConfigRepository;
 use crate::core::llm::entities::{ChatMessage, ChatRequest, MessageContent, MessageRole};
 use crate::infrastructure::agent::runtime::client::create_llm_client;
 use log::info;
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
 
 use super::parsing::{finish_reason_indicates_truncation, normalize_planning_json};
 use super::single_shot::plan_new_task;
@@ -84,14 +84,14 @@ pub struct PlanDecision {
 /// - `Replan` → reconcile existing rows with `plan`, then transition
 ///   the subtask at `next_subtask_order` to `InProgress`.
 pub async fn plan_or_continue(
-    app_handle: &AppHandle,
+    config_repository: &dyn ConfigRepository,
     user_message: &str,
     state: Option<ExecutionState<'_>>,
     model_id: Option<&str>,
 ) -> Result<PlanDecision, String> {
     match state {
         None => {
-            let plan = plan_new_task(app_handle, user_message, model_id).await?;
+            let plan = plan_new_task(config_repository, user_message, model_id).await?;
             Ok(PlanDecision {
                 action: PlanAction::Fresh,
                 user_message: plan.description.clone(),
@@ -100,19 +100,19 @@ pub async fn plan_or_continue(
                 next_subtask_order: Some(0),
             })
         }
-        Some(state) => decide_resume(app_handle, user_message, state, model_id).await,
+        Some(state) => decide_resume(config_repository, user_message, state, model_id).await,
     }
 }
 
 /// Runs the resume-oriented planning LLM call and parses the decision.
 async fn decide_resume(
-    app_handle: &AppHandle,
+    config_repository: &dyn ConfigRepository,
     user_message: &str,
     state: ExecutionState<'_>,
     model_id: Option<&str>,
 ) -> Result<PlanDecision, String> {
     let (client, actual_model) =
-        create_llm_client(app_handle, model_id.map(std::string::ToString::to_string))
+        create_llm_client(config_repository, model_id.map(std::string::ToString::to_string))
             .await
             .map_err(|e| format!("Failed to create LLM client for resume planning: {e}"))?;
 

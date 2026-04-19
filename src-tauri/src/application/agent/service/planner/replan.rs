@@ -2,10 +2,10 @@
 //! continue, replan, or abort.
 
 use crate::core::agent::task::SubTask;
+use crate::core::config::ConfigRepository;
 use crate::core::llm::entities::{ChatMessage, ChatRequest, MessageContent, MessageRole};
 use crate::infrastructure::agent::runtime::client::create_llm_client;
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
 
 use super::parsing::normalize_planning_json;
 use super::{SubtaskPlan, TaskPlan};
@@ -41,7 +41,7 @@ pub enum ReplanAction {
 ///
 /// This is called when a user sends a message while a task is incomplete.
 pub async fn review_and_replan(
-    app_handle: &AppHandle,
+    config_repository: &dyn ConfigRepository,
     current_task: &crate::core::agent::task::AgentTask,
     subtasks: &[SubTask],
     user_message: &str,
@@ -49,7 +49,7 @@ pub async fn review_and_replan(
     model_id: Option<&str>,
 ) -> Result<ReplanOutput, String> {
     let (client, actual_model) =
-        create_llm_client(app_handle, model_id.map(std::string::ToString::to_string))
+        create_llm_client(config_repository, model_id.map(std::string::ToString::to_string))
             .await
             .map_err(|e| format!("Failed to create LLM client for replanning: {e}"))?;
 

@@ -44,6 +44,7 @@ use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::{AgentExecutionResult, AgentRequest};
 use crate::core::agent::types::TrustMode;
 use crate::core::chat::services::ChatService;
+use crate::core::config::ConfigRepository;
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::events::AGENT_EVENT_NAME;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
@@ -75,6 +76,7 @@ pub use types::{AgentRuntimeError, SubtaskSummary};
 pub struct AgentRuntime {
     session_repo: Arc<dyn SessionRepository>,
     chat_service: Arc<dyn ChatService>,
+    config_repository: Arc<dyn ConfigRepository>,
     task_repo: Arc<dyn TaskRepository>,
     telemetry_repo: Arc<dyn AgentTelemetryRepository>,
     execution_repo: Arc<dyn ExecutionRepository>,
@@ -101,10 +103,12 @@ impl AgentRuntime {
         memory_repo: Arc<dyn MemoryRepository>,
         approval_queue: Arc<ApprovalQueue>,
         tool_registry: Arc<ToolRegistry>,
+        config_repository: Arc<dyn ConfigRepository>,
     ) -> Self {
         Self {
             session_repo,
             chat_service,
+            config_repository,
             task_repo,
             telemetry_repo,
             execution_repo,
@@ -136,6 +140,13 @@ impl AgentRuntime {
     /// reply IPC in Phase 5 of the agent-clarification-resume plan).
     pub fn chat_service(&self) -> &Arc<dyn ChatService> {
         &self.chat_service
+    }
+
+    /// Exposes the configuration repository so application-level callers
+    /// (e.g. the execution coordinator) can resolve LLM clients without
+    /// reaching into the commands layer for `LlmState`.
+    pub fn config_repository(&self) -> &Arc<dyn ConfigRepository> {
+        &self.config_repository
     }
 
     /// Exposes the checkpoint repository used by the coordinator's
@@ -183,6 +194,7 @@ impl AgentRuntime {
             app_handle,
             self.session_repo.as_ref(),
             self.chat_service.as_ref(),
+            self.config_repository.as_ref(),
             self.task_repo.as_ref(),
             self.telemetry_repo.as_ref(),
             self.execution_repo.as_ref(),

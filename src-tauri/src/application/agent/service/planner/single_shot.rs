@@ -1,9 +1,9 @@
 //! Single-shot planner — produces a fresh `TaskPlan` for a brand-new task.
 
+use crate::core::config::ConfigRepository;
 use crate::core::llm::entities::{ChatMessage, ChatRequest, MessageContent, MessageRole};
 use crate::infrastructure::agent::runtime::client::create_llm_client;
 use log::info;
-use tauri::AppHandle;
 
 use super::parsing::{finish_reason_indicates_truncation, normalize_planning_json};
 use super::{TaskPlan, PLANNER_MAX_OUTPUT_TOKENS};
@@ -12,12 +12,12 @@ use super::{TaskPlan, PLANNER_MAX_OUTPUT_TOKENS};
 ///
 /// This generates a title, description, and optionally subtasks all in one LLM call.
 pub async fn plan_new_task(
-    app_handle: &AppHandle,
+    config_repository: &dyn ConfigRepository,
     user_message: &str,
     model_id: Option<&str>,
 ) -> Result<TaskPlan, String> {
     let (client, actual_model) =
-        create_llm_client(app_handle, model_id.map(std::string::ToString::to_string))
+        create_llm_client(config_repository, model_id.map(std::string::ToString::to_string))
             .await
             .map_err(|e| format!("Failed to create LLM client for planning: {e}"))?;
 
