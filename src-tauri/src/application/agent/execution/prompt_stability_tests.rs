@@ -354,6 +354,112 @@ fn framing_hash_is_stable_across_subtask_transitions_in_phase_1() {
     );
 }
 
+// --- H.6 golden-file test ---------------------------------------------------
+//
+// Workstream H.6 rewrote `harness_contract_prompt()` from descriptive to
+// consequence language. The wording is now locked by a golden file at
+// `goldens/harness_contract_prompt.txt`. A PR that intentionally changes the
+// prompt must update the golden in lockstep — the diff makes the wording
+// change explicit and reviewable. Unintentional drift (for example, a stray
+// whitespace edit in the string literal) fails this test and forces a
+// deliberate decision.
+//
+// Regeneration: run `UPDATE_HARNESS_CONTRACT_GOLDEN=1 cargo test
+// harness_contract_matches_h6_golden -- --nocapture` and commit the updated
+// file alongside the source change.
+const HARNESS_CONTRACT_GOLDEN_PATH: &str = "goldens/harness_contract_prompt.txt";
+
+#[test]
+fn harness_contract_matches_h6_golden() {
+    let current = harness_contract_prompt();
+    let golden_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("src/application/agent/execution")
+        .join(HARNESS_CONTRACT_GOLDEN_PATH);
+
+    if std::env::var_os("UPDATE_HARNESS_CONTRACT_GOLDEN").is_some() {
+        std::fs::write(&golden_path, current)
+            .expect("failed to write harness-contract golden");
+        eprintln!(
+            "wrote {} bytes to {}",
+            current.len(),
+            golden_path.display(),
+        );
+        return;
+    }
+
+    let golden = std::fs::read_to_string(&golden_path).unwrap_or_else(|err| {
+        panic!(
+            "failed to read harness-contract golden at {}: {err}. \
+             Run with UPDATE_HARNESS_CONTRACT_GOLDEN=1 to regenerate.",
+            golden_path.display(),
+        )
+    });
+
+    assert_eq!(
+        current, golden,
+        "harness_contract_prompt() no longer matches the H.6 golden at {}. \
+         If this wording change is intentional, regenerate the golden with \
+         UPDATE_HARNESS_CONTRACT_GOLDEN=1 cargo test harness_contract_matches_h6_golden.",
+        golden_path.display(),
+    );
+}
+
+#[test]
+fn harness_contract_uses_consequence_language_for_key_mechanisms() {
+    // Consequence-language audit: every mechanism the runtime enforces must
+    // appear with a runtime-consequence sentence. These assertions are
+    // narrower than the golden and catch structural regressions early (for
+    // example, someone refactors wording and loses the "not allowed by
+    // mode" branch or the scope-drift consequence).
+    let prompt = harness_contract_prompt();
+
+    // Scope-drift consequence is named and anchored on runtime behavior.
+    assert!(
+        prompt.contains("flagged as scope drift"),
+        "harness must name scope-drift consequence",
+    );
+    assert!(
+        prompt.contains("rejected by the runtime"),
+        "harness must state repeated scope drift is rejected",
+    );
+
+    // Failure-memory scoping and new NotAllowed split are both mentioned.
+    assert!(prompt.contains("NotAllowedByMode"));
+    assert!(prompt.contains("NotAllowedByArgs"));
+    assert!(
+        prompt.contains("scoped to the active subtask"),
+        "harness must state failure memory is subtask-scoped (C.2)",
+    );
+
+    // D.1 `next:` gating is explained, not silently hidden.
+    assert!(
+        prompt.contains("suppressed in the current release"),
+        "harness must explain that `next:` is suppressed (D.1)",
+    );
+
+    // Narration-intent concept is taught ahead of Workstream E landing.
+    assert!(prompt.contains("intent: narration | question"));
+    assert!(prompt.contains("pauses the runtime"));
+
+    // Clean-exit behavior references all three terminal statuses and the
+    // needs-review flag path.
+    assert!(prompt.contains("Completed, Failed, or Cancelled"));
+    assert!(prompt.contains("flagged for review"));
+
+    // Consequence language: hedging phrases removed. These must not appear.
+    for phrase in [
+        "try to",
+        "when possible",
+        "meaningful moments",
+        "Focus on completing",
+    ] {
+        assert!(
+            !prompt.contains(phrase),
+            "harness must not use hedging phrase `{phrase}`; H.6 requires consequence language",
+        );
+    }
+}
+
 #[test]
 fn section_hashes_are_separate_surfaces_from_system_prompt_hash() {
     // Regression guard: the three H.5 section hashes are emitted alongside

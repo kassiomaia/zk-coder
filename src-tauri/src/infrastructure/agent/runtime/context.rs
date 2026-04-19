@@ -193,6 +193,36 @@ pub struct ExecutionBrief {
     pub current_blocker: Option<String>,
 }
 
+/// A single memorized tool-call failure, scoped to the subtask it
+/// occurred in (Workstream C.1/C.2).
+///
+/// The packer's legacy path reconstructs a failure block by scanning
+/// the raw `llm_context` for the most recent `is_error` tool result.
+/// That scan has no notion of which subtask the failure belonged to,
+/// so a failure from subtask N leaks into subtask N+1's prompt — the
+/// exact regression captured in the 2026-04-18 trace (step 22
+/// `fs_read_file` failure during subtask-2 surviving into subtask-3 at
+/// step 35).
+///
+/// `MemorizedFailure` is the typed overlay that fixes the leak. The
+/// tool phase appends a record after each failing tool result, capturing
+/// the current `subtask_id`. The packer prefers this overlay over the
+/// context scan when present, and filters to the records whose
+/// `subtask_id == current_subtask_id` (or `None` for unscoped
+/// failures). The raw-context scan remains as a fallback for replays,
+/// tests, and crash recovery paths where the overlay is not populated.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MemorizedFailure {
+    /// Subtask that was active when this failure was recorded. `None`
+    /// for failures that occurred outside any subtask (pre-planning,
+    /// narration-only cycles, etc.); the filter treats unscoped
+    /// failures as visible in every subtask.
+    pub subtask_id: Option<String>,
+    /// Failure record carrying tool name, class, args fingerprint,
+    /// message, and repeat detection (mirrors the context-scan output).
+    pub record: FailureRecord,
+}
+
 /// Inputs for ContextPolicyV2 deterministic packing.
 #[derive(Debug, Clone, Default)]
 pub struct ContextPolicyInput {
@@ -217,6 +247,15 @@ pub struct ContextPolicyInput {
     /// (Milestone 4.1). When `Some`, the packer emits a single
     /// deterministic block derived from this snapshot.
     pub execution_brief: Option<ExecutionBrief>,
+    /// Subtask-scoped failure memory overlay (Workstream C.1/C.2).
+    /// When non-empty, the packer selects the most recent entry whose
+    /// `subtask_id == current_subtask_id` or is unscoped, and renders
+    /// its `FailureRecord` via `render_failure_memory`. When empty,
+    /// the packer falls back to the legacy context-scan path.
+    pub memorized_failures: Vec<MemorizedFailure>,
+    /// The currently active subtask id, used to filter
+    /// `memorized_failures`. `None` when no subtask is in progress.
+    pub current_subtask_id: Option<String>,
 }
 
 /// Estimates the token count for a message context.
@@ -428,7 +467,12 @@ pub fn apply_context_policy_v2(
         }
     }
 
-    if let Some(failure_memory) = build_failure_memory(context) {
+    let failure_memory_body = select_failure_memory_body(
+        &input.memorized_failures,
+        input.current_subtask_id.as_deref(),
+        context,
+    );
+    if let Some(failure_memory) = failure_memory_body {
         let text = truncate_to_token_budget(&failure_memory, BUDGET_FAILURE_MEMORY_TOKENS);
         if !text.is_empty() {
             packed.push(Message::system(format!(
@@ -654,6 +698,15 @@ fn extract_last_tool_error(context: &[Message]) -> Option<String> {
 
 /// Normalized classification of a tool failure. Drives the retryability
 /// verdict carried by the M4.2 failure-memory block.
+///
+/// Workstream C.3 split the legacy `NotAllowed` variant into
+/// `NotAllowedByMode` (the current subtask's mode rejected the tool —
+/// retrying with the same subtask will fail identically) and
+/// `NotAllowedByArgs` (the tool itself is permitted, but the arguments
+/// hit a policy check — the caller must change arguments before
+/// retrying). Each variant carries its own retry copy so the failure
+/// memory no longer tells the model to "change args" when changing
+/// args cannot possibly help.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FailureClass {
     /// Target path / resource not found.
@@ -664,8 +717,16 @@ pub enum FailureClass {
     Timeout,
     /// Arguments failed validation (schema, format, range, etc.).
     ValidationFailed,
-    /// Subtask mode rejected the call at runtime (M2.2 enforcement).
-    NotAllowed,
+    /// The current subtask's mode does not permit this tool. Retrying
+    /// with identical or adjusted arguments will fail identically until
+    /// the subtask changes. The model must wait for a later subtask or
+    /// mark this subtask `Failed`.
+    NotAllowedByMode,
+    /// The tool is allowed by the subtask, but the specific arguments
+    /// were rejected by an argument-level policy (path outside
+    /// workspace, forbidden pattern, etc.). Changing the arguments may
+    /// allow a retry.
+    NotAllowedByArgs,
     /// Default bucket when no specific class matches.
     Other,
 }
@@ -675,10 +736,20 @@ impl FailureClass {
     /// substring matching. Substring rules over parsing because tool
     /// errors arrive in many shapes; classification degrades to
     /// `Other` rather than failing.
+    ///
+    /// The `NotAllowedByMode` vs `NotAllowedByArgs` split (Workstream
+    /// C.3) keys off the runtime's own error tag
+    /// `subtask_mode_disallowed` — emitted by `tool_phase` when a tool
+    /// name falls outside the active subtask's allowlist. Any other
+    /// "not allowed" / "forbidden at argument level" phrasing falls
+    /// into `NotAllowedByArgs`.
     fn classify(error_text: &str) -> Self {
         let lower = error_text.to_lowercase();
-        if lower.contains("subtask_mode_disallowed") || lower.contains("not allowed") {
-            return Self::NotAllowed;
+        if lower.contains("subtask_mode_disallowed") {
+            return Self::NotAllowedByMode;
+        }
+        if lower.contains("not allowed") {
+            return Self::NotAllowedByArgs;
         }
         if lower.contains("no such file")
             || lower.contains("not found")
@@ -708,13 +779,14 @@ impl FailureClass {
     }
 
     /// Stable snake_case label emitted into the failure-memory block.
-    fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
             Self::FileNotFound => "file_not_found",
             Self::PermissionDenied => "permission_denied",
             Self::Timeout => "timeout",
             Self::ValidationFailed => "validation_failed",
-            Self::NotAllowed => "not_allowed",
+            Self::NotAllowedByMode => "not_allowed_by_mode",
+            Self::NotAllowedByArgs => "not_allowed_by_args",
             Self::Other => "other",
         }
     }
@@ -723,9 +795,32 @@ impl FailureClass {
     /// Conservative: classes that are known to be transient (Timeout)
     /// or unclassified (Other) are marked retryable; classes whose
     /// resolution requires changing the call (missing file, bad args,
-    /// denied access, disallowed by mode) are marked non-retryable.
+    /// denied access, disallowed by mode or args) are marked
+    /// non-retryable.
     fn retryable_unchanged(self) -> bool {
         matches!(self, Self::Timeout | Self::Other)
+    }
+
+    /// The retry guidance line appended to the failure-memory block.
+    ///
+    /// Workstream C.3: the mode-disallowed case must not tell the model
+    /// to "change args" — retrying with any arguments under the current
+    /// subtask will produce the same rejection. The copy points the
+    /// model at the two valid moves (wait for a later subtask or mark
+    /// the current one `Failed`).
+    fn retry_line(self) -> &'static str {
+        match self {
+            Self::NotAllowedByMode => {
+                "retry: do not retry — this tool is disallowed by the current subtask's mode. \
+                 Wait for a later subtask or call agent_mark_subtask_status(Failed, reason)."
+            }
+            Self::NotAllowedByArgs => "retry: change arguments before retrying",
+            Self::FileNotFound => "retry: change args before retry",
+            Self::PermissionDenied => "retry: change args before retry",
+            Self::ValidationFailed => "retry: change args before retry",
+            Self::Timeout => "retry: safe to retry (likely transient)",
+            Self::Other => "retry: safe to retry (likely transient)",
+        }
     }
 }
 
@@ -824,21 +919,61 @@ pub fn extract_failure_record(context: &[Message]) -> Option<FailureRecord> {
 
 fn build_failure_memory(context: &[Message]) -> Option<String> {
     let record = extract_failure_record(context)?;
-    let retry_line = if record.class.retryable_unchanged() {
-        "retry: safe to retry (likely transient)"
-    } else {
-        "retry: change args before retry"
-    };
+    Some(render_failure_memory(&record))
+}
+
+/// Chooses the failure-memory body for the current step, preferring the
+/// subtask-scoped `memorized_failures` overlay (Workstream C.1/C.2)
+/// over the raw context scan.
+///
+/// Filter rule (C.2): only entries whose `subtask_id == current_subtask_id`
+/// or whose `subtask_id` is `None` (unscoped) are eligible. The most
+/// recent eligible entry wins. When no entry passes the filter, the
+/// packer falls back to `build_failure_memory(context)` — this keeps
+/// legacy callers and crash-recovery paths working unchanged.
+///
+/// The fallback intentionally does *not* re-filter the raw scan by
+/// subtask: that scan is subtask-blind and is only reached when no
+/// typed overlay is available. Production paths that set up
+/// `memorized_failures` (via the tool phase) never hit the fallback.
+pub fn select_failure_memory_body(
+    memorized_failures: &[MemorizedFailure],
+    current_subtask_id: Option<&str>,
+    context: &[Message],
+) -> Option<String> {
+    let scoped = memorized_failures
+        .iter()
+        .rev()
+        .find(|entry| match (entry.subtask_id.as_deref(), current_subtask_id) {
+            (None, _) => true,
+            (Some(entry_id), Some(current_id)) => entry_id == current_id,
+            (Some(_), None) => false,
+        });
+    if let Some(entry) = scoped {
+        return Some(render_failure_memory(&entry.record));
+    }
+    if memorized_failures.is_empty() {
+        return build_failure_memory(context);
+    }
+    None
+}
+
+/// Renders a single `FailureRecord` into the exact text emitted as the
+/// `ContextPolicyV2 failure memory` block body. Kept separate from
+/// `build_failure_memory` so the `MemorizedFailure` overlay (Workstream
+/// C.1/C.2) can reuse the same copy without round-tripping through the
+/// raw context scan.
+pub fn render_failure_memory(record: &FailureRecord) -> String {
     let mut out = String::from("Last error:");
     out.push_str(&format!("\ntool: {}", record.tool_name));
     out.push_str(&format!("\nargs_fp: {}", record.args_fingerprint));
     out.push_str(&format!("\ntype: {}", record.class.label()));
     out.push_str(&format!("\nmessage: {}", record.message));
-    out.push_str(&format!("\n{retry_line}"));
+    out.push_str(&format!("\n{}", record.class.retry_line()));
     if record.repeat_detected {
         out.push_str("\nnote: identical call has failed before — do not retry unchanged");
     }
-    Some(out)
+    out
 }
 
 fn rank_retrieval_snippets(snippets: &[String]) -> Vec<String> {
@@ -2049,12 +2184,164 @@ mod tests {
         );
         assert_eq!(
             FailureClass::classify("subtask_mode_disallowed: tool not in allowed list"),
-            FailureClass::NotAllowed,
+            FailureClass::NotAllowedByMode,
+        );
+        assert_eq!(
+            FailureClass::classify("tool not allowed for this argument shape"),
+            FailureClass::NotAllowedByArgs,
         );
         assert_eq!(
             FailureClass::classify("something unrelated"),
             FailureClass::Other,
         );
+    }
+
+    // --- C.3: NotAllowedByMode vs NotAllowedByArgs -------------------------
+    //
+    // The split exists so the failure-memory `retry:` line stops telling the
+    // model to "change args before retry" when changing args can never help
+    // (mode-disallowed). These tests lock in both the classifier split and
+    // the tailored retry copy.
+
+    #[test]
+    fn not_allowed_by_mode_classification_and_retry_copy() {
+        let class = FailureClass::classify(
+            "subtask_mode_disallowed: tool `fs_write_file` not permitted in Read mode",
+        );
+        assert_eq!(class, FailureClass::NotAllowedByMode);
+        assert_eq!(class.label(), "not_allowed_by_mode");
+        let retry = class.retry_line();
+        assert!(retry.contains("do not retry"), "expected 'do not retry'; got: {retry}");
+        assert!(
+            retry.contains("Wait for a later subtask")
+                || retry.contains("agent_mark_subtask_status"),
+            "mode-disallowed retry copy must point at the two valid moves; got: {retry}",
+        );
+        assert!(
+            !retry.contains("change arguments"),
+            "mode-disallowed retry must NOT tell the model to change arguments; got: {retry}",
+        );
+    }
+
+    #[test]
+    fn not_allowed_by_args_classification_and_retry_copy() {
+        let class = FailureClass::classify("argument-level policy: this path is not allowed");
+        assert_eq!(class, FailureClass::NotAllowedByArgs);
+        assert_eq!(class.label(), "not_allowed_by_args");
+        let retry = class.retry_line();
+        assert!(
+            retry.contains("change arguments"),
+            "args-disallowed retry must tell the model to change arguments; got: {retry}",
+        );
+    }
+
+    // --- C.1/C.2: subtask-scoped failure memory overlay ------------------
+
+    fn failure_record(tool_name: &str, class: FailureClass) -> FailureRecord {
+        FailureRecord {
+            tool_name: tool_name.to_string(),
+            args_fingerprint: "feedface".to_string(),
+            class,
+            message: "bounded error".to_string(),
+            repeat_detected: false,
+        }
+    }
+
+    #[test]
+    fn select_failure_memory_prefers_current_subtask_overlay() {
+        let memorized = vec![
+            MemorizedFailure {
+                subtask_id: Some("subtask-2".to_string()),
+                record: failure_record("fs_read_file", FailureClass::FileNotFound),
+            },
+            MemorizedFailure {
+                subtask_id: Some("subtask-3".to_string()),
+                record: failure_record("fs_write_file", FailureClass::PermissionDenied),
+            },
+        ];
+        let body = select_failure_memory_body(&memorized, Some("subtask-3"), &[])
+            .expect("overlay should produce a body");
+        assert!(body.contains("tool: fs_write_file"));
+        assert!(body.contains("type: permission_denied"));
+        assert!(!body.contains("fs_read_file"));
+    }
+
+    #[test]
+    fn select_failure_memory_filters_out_previous_subtask_failures() {
+        // Regression: 2026-04-18 trace step 22 (subtask-2 failure)
+        // must not surface in subtask-3's prompt (step 35).
+        let memorized = vec![MemorizedFailure {
+            subtask_id: Some("subtask-2".to_string()),
+            record: failure_record("fs_read_file", FailureClass::FileNotFound),
+        }];
+        let body = select_failure_memory_body(&memorized, Some("subtask-3"), &[]);
+        assert!(
+            body.is_none(),
+            "previous-subtask failure must not surface; got {body:?}",
+        );
+    }
+
+    #[test]
+    fn select_failure_memory_surfaces_unscoped_entries_in_any_subtask() {
+        let memorized = vec![MemorizedFailure {
+            subtask_id: None,
+            record: failure_record("search_grep", FailureClass::Timeout),
+        }];
+        let body = select_failure_memory_body(&memorized, Some("subtask-99"), &[])
+            .expect("unscoped entry should surface");
+        assert!(body.contains("search_grep"));
+    }
+
+    #[test]
+    fn select_failure_memory_falls_back_to_context_scan_when_overlay_is_empty() {
+        let context = context_with_failed_tool_call(
+            "fs_read_file",
+            json!({"path": "/nope.txt"}),
+            "No such file",
+        );
+        let body = select_failure_memory_body(&[], Some("subtask-1"), &context)
+            .expect("context-scan fallback should fire");
+        assert!(body.contains("fs_read_file"));
+    }
+
+    #[test]
+    fn select_failure_memory_does_not_fallback_when_overlay_present_but_filtered_out() {
+        // If the overlay is populated but no entry matches the current
+        // subtask, do NOT fall back to the context scan: the scan is
+        // subtask-blind and would reintroduce the leak C.2 is
+        // explicitly designed to close.
+        let memorized = vec![MemorizedFailure {
+            subtask_id: Some("subtask-other".to_string()),
+            record: failure_record("fs_read_file", FailureClass::FileNotFound),
+        }];
+        let context = context_with_failed_tool_call(
+            "fs_read_file",
+            json!({"path": "/nope.txt"}),
+            "No such file",
+        );
+        let body = select_failure_memory_body(&memorized, Some("subtask-3"), &context);
+        assert!(body.is_none());
+    }
+
+    #[test]
+    fn not_allowed_branches_render_distinct_failure_memory_blocks() {
+        let mode_ctx = context_with_failed_tool_call(
+            "fs_write_file",
+            json!({"path": "/workspace/out.txt"}),
+            "subtask_mode_disallowed: fs_write_file not in allowed list",
+        );
+        let args_ctx = context_with_failed_tool_call(
+            "fs_write_file",
+            json!({"path": "/etc/passwd"}),
+            "tool not allowed for the given arguments",
+        );
+        let mode_block = build_failure_memory(&mode_ctx).expect("mode error present");
+        let args_block = build_failure_memory(&args_ctx).expect("args error present");
+        assert!(mode_block.contains("type: not_allowed_by_mode"));
+        assert!(args_block.contains("type: not_allowed_by_args"));
+        assert!(mode_block.contains("do not retry"));
+        assert!(args_block.contains("change arguments"));
+        assert!(!mode_block.contains("change arguments"));
     }
 
     #[test]

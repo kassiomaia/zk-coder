@@ -9,6 +9,7 @@ use chrono::Utc;
 use crate::core::agent::execution::{ExecutionPhase, ExecutionSnapshot, LlmTracePayload};
 use crate::core::agent::task::ExecutionStep;
 use crate::core::llm::entities::{ChatMessage as Message, ChatResponse, ToolChoiceMode, ToolDefinition};
+use crate::infrastructure::agent::runtime::context::MemorizedFailure;
 use crate::infrastructure::agent::runtime::SubtaskSummary;
 
 /// Holds all the runtime state for an agent's execution.
@@ -70,6 +71,15 @@ pub struct ExecutionContext {
     /// step that happens to have the same completed subtask still
     /// visible via `ctx.current_subtask_id`.
     pub last_completed_subtask_for_memory: Option<String>,
+    /// Subtask-scoped failure memory overlay (Workstream C.1/C.2).
+    /// Appended by `tool_phase::run_tools` after each failing tool
+    /// result, capturing the `current_subtask_id` at record time.
+    /// Consumed by `context_phase::resolve_context`, which filters to
+    /// the active subtask (or unscoped) before handing the list to the
+    /// packer via `ContextPolicyInput.memorized_failures`. Bounded to
+    /// the most recent entries so unbounded session length cannot
+    /// balloon this list.
+    pub memorized_failures: Vec<MemorizedFailure>,
 }
 
 impl ExecutionContext {

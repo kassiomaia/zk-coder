@@ -132,6 +132,11 @@ pub async fn run_tools(
             result.is_error,
         ));
     }
+    // Workstream C.1/C.2 — record the most recent failure into the
+    // subtask-scoped overlay so the packer can filter stale blockers on
+    // subtask transitions instead of re-surfacing them via the raw
+    // context scan.
+    record_memorized_failure(ctx);
     let _ = tracer.append_trace(
         &ctx.session_id,
         &ctx.task_id,
@@ -154,4 +159,45 @@ pub async fn run_tools(
     );
 
     Ok(ToolPhaseOutcome::Continue)
+}
+
+/// Maximum number of entries retained in the `memorized_failures`
+/// overlay. The filter always walks the most recent entries first, so
+/// capping the tail is sufficient; older entries are dropped silently.
+const MEMORIZED_FAILURES_CAP: usize = 32;
+
+/// Extracts the most recent failure from the LLM context (if any) and
+/// appends it to the `MemorizedFailure` overlay on `ctx`, tagged with
+/// the current subtask id at record time.
+///
+/// Idempotent across calls on the same context tail: if the last entry
+/// already captures the exact same failure (same tool, same args
+/// fingerprint, same subtask, same message), the append is skipped so
+/// a tool phase that runs back-to-back without a new error does not
+/// duplicate the record. Only genuinely new failures grow the overlay.
+fn record_memorized_failure(ctx: &mut super::state::ExecutionContext) {
+    use crate::infrastructure::agent::runtime::context::extract_failure_record;
+    let Some(record) = extract_failure_record(&ctx.llm_context) else {
+        return;
+    };
+    let current_subtask_id = ctx.current_subtask_id.clone();
+    if let Some(last) = ctx.memorized_failures.last() {
+        if last.subtask_id == current_subtask_id
+            && last.record.tool_name == record.tool_name
+            && last.record.args_fingerprint == record.args_fingerprint
+            && last.record.message == record.message
+        {
+            return;
+        }
+    }
+    ctx.memorized_failures
+        .push(crate::infrastructure::agent::runtime::context::MemorizedFailure {
+            subtask_id: current_subtask_id,
+            record,
+        });
+    let len = ctx.memorized_failures.len();
+    if len > MEMORIZED_FAILURES_CAP {
+        let drop_count = len - MEMORIZED_FAILURES_CAP;
+        ctx.memorized_failures.drain(0..drop_count);
+    }
 }

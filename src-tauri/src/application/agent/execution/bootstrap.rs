@@ -208,6 +208,7 @@ pub async fn start_execution(
         pending_tool_choice_override: None,
         retrieval_count_in_current_subtask: 0,
         last_completed_subtask_for_memory: None,
+        memorized_failures: Vec::new(),
     };
 
     let tracer = deps.tracer();
