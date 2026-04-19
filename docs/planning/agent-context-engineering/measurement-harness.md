@@ -70,6 +70,14 @@ The plan lists five core signals. Each one is tracked here with:
 - **Collection recipe**: count `context_compacted` events per run; group by reason (`token_limit` vs `subtask_transition`).
 - **Target**: compaction should happen at predictable moments (subtask boundaries, explicit memory-refresh triggers). Unexplained mid-subtask compactions indicate the policy needs tightening.
 
+### 6. Scope drift event count
+
+- **Measures**: how often a write-class tool call in a subtask wrote to a path outside that subtask's declared contract.
+- **Why it matters**: direct signal that the plan the agent committed to at planning time is still the plan it is executing. Runaway drift indicates either an under-specified contract or a model that is blending subtasks.
+- **Source today**: `agent_runtime_traces` rows with `trace_type = 'subtask_scope_drift'` (Workstream B.3). Payload carries `toolName`, `writtenPath`, `expectedPatterns`, and `enforcement` (`soft` | `hard`).
+- **Collection recipe**: `SELECT step_number, subtask_id, json_extract(payload_json, '$.toolName'), json_extract(payload_json, '$.writtenPath'), json_extract(payload_json, '$.enforcement') FROM agent_runtime_traces WHERE session_id = ? AND trace_type = 'subtask_scope_drift' ORDER BY step_number;`
+- **Target**: 0 drifts on a run with well-formed contracts. Non-zero drifts in soft-enforcement mode should show the model eventually rescoping (contract-matching writes in subsequent steps) — if not, tighten contract wording at planning time. With `CODER_SUBTASK_CONTRACT_HARD_ENFORCEMENT=1` (B.4), drifts are rejected at the runtime boundary and must be zero under correct plans.
+
 ---
 
 ## Manual run checklist

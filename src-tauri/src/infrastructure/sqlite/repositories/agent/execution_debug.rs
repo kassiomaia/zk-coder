@@ -70,6 +70,7 @@ const fn trace_type_to_string(trace_type: &RuntimeTraceType) -> &'static str {
         RuntimeTraceType::ExecutionFailed => "execution_failed",
         RuntimeTraceType::ExecutionCompleted => "execution_completed",
         RuntimeTraceType::MemoryRefreshed => "memory_refreshed",
+        RuntimeTraceType::SubtaskScopeDrift => "subtask_scope_drift",
     }
 }
 
@@ -104,6 +105,7 @@ fn string_to_trace_type(value: &str) -> RuntimeTraceType {
         "execution_failed" => RuntimeTraceType::ExecutionFailed,
         "execution_completed" => RuntimeTraceType::ExecutionCompleted,
         "memory_refreshed" => RuntimeTraceType::MemoryRefreshed,
+        "subtask_scope_drift" => RuntimeTraceType::SubtaskScopeDrift,
         _ => RuntimeTraceType::ExecutionStarted,
     }
 }

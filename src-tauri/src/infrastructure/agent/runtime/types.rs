@@ -82,6 +82,7 @@ mod tests {
             mode,
             status,
             order,
+            contract: None,
             created_at: Utc::now(),
             started_at: None,
             completed_at: None,

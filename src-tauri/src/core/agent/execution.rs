@@ -149,6 +149,18 @@ pub enum RuntimeTraceType {
     ExecutionFailed,
     /// Records that the execution has completed successfully.
     ExecutionCompleted,
+    /// A write-class tool call produced an output whose path did not
+    /// match any `path_pattern` in the active subtask's contract
+    /// (Workstream B.3). Payload fields:
+    ///
+    /// - `toolName` — the write-class tool that fired
+    /// - `writtenPath` — the path the tool targeted (empty when the
+    ///   tool does not declare a path in its arguments)
+    /// - `expectedPatterns` — the contract patterns that did not match
+    /// - `enforcement` — `"soft"` when the runtime only injected a
+    ///   correction message, `"hard"` when the call was rejected
+    ///   (B.4, gated on the hard-enforcement flag)
+    SubtaskScopeDrift,
 }
 
 /// Represents a single, append-only entry in the runtime trace.

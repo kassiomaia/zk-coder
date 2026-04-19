@@ -6,15 +6,21 @@
 use serde_json::json;
 
 use super::deps::ExecutionDeps;
+use super::scope_drift::{
+    build_correction_message, evaluate_scope_drift, hard_enforced_error_result, EnforcementMode,
+    ScopeDriftObservation,
+};
 use super::state::ExecutionContext;
 use super::termination::cancel_execution;
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::permissions::PermissionResolver;
-use crate::core::llm::entities::{ChatMessage as Message, ChatResponse};
+use crate::core::agent::task::SubTaskContract;
+use crate::core::llm::entities::{ChatMessage as Message, ChatResponse, ToolCall};
 use crate::infrastructure::agent::runtime::permissions::YoloModeProvider;
 use crate::infrastructure::agent::runtime::{
     add_to_recent_calls, process_tool_calls_with_permissions, AgentRuntimeError,
 };
+use crate::infrastructure::tools::OrchestratorToolResult;
 
 /// Represents the outcome of the tool execution phase.
 pub enum ToolPhaseOutcome {
@@ -94,7 +100,7 @@ pub async fn run_tools(
         }),
     );
 
-    let tool_results = process_tool_calls_with_permissions(
+    let mut tool_results = process_tool_calls_with_permissions(
         &response.tool_calls,
         session,
         &ctx.task_id,
@@ -125,12 +131,36 @@ pub async fn run_tools(
         return Ok(ToolPhaseOutcome::Cancelled);
     }
 
+    // Workstream B.3 + B.4 — evaluate scope drift against the active
+    // subtask's contract. Soft enforcement emits a trace and queues a
+    // correction system message; hard enforcement (gated on the
+    // `CODER_SUBTASK_CONTRACT_HARD_ENFORCEMENT` env flag) additionally
+    // rewrites the tool result as a `subtask_scope_drift` error. The
+    // flag ships disabled by default.
+    let contract = load_active_contract(
+        deps,
+        ctx.task_id.as_str(),
+        ctx.current_subtask_id.as_deref(),
+    );
+    let enforcement = EnforcementMode::from_env();
+    let corrections = apply_scope_drift_detection(
+        deps,
+        ctx,
+        &response.tool_calls,
+        &mut tool_results,
+        contract.as_ref(),
+        enforcement,
+    );
+
     for result in &tool_results {
         ctx.llm_context.push(Message::tool_result(
             result.call_id.clone(),
             result.output.clone(),
             result.is_error,
         ));
+    }
+    for correction in corrections {
+        ctx.llm_context.push(Message::system(correction));
     }
     // Workstream C.1/C.2 — record the most recent failure into the
     // subtask-scoped overlay so the packer can filter stale blockers on
@@ -159,6 +189,80 @@ pub async fn run_tools(
     );
 
     Ok(ToolPhaseOutcome::Continue)
+}
+
+/// Loads the active subtask's declared contract (if any). A missing
+/// subtask, a subtask without a contract, or a repository lookup
+/// failure all resolve to `None` — the scope-drift detector treats
+/// that identically and short-circuits, preserving legacy behavior.
+fn load_active_contract(
+    deps: &ExecutionDeps<'_>,
+    task_id: &str,
+    current_subtask_id: Option<&str>,
+) -> Option<SubTaskContract> {
+    let subtask_id = current_subtask_id?;
+    deps.task_repo
+        .get_subtasks(task_id)
+        .ok()?
+        .into_iter()
+        .find(|st| st.id == subtask_id)
+        .and_then(|st| st.contract)
+}
+
+/// Runs scope-drift detection across every tool result in the batch.
+/// Returns the list of correction system-message bodies that should
+/// be appended to the context, in the same order the drifts
+/// occurred. Hard enforcement (`EnforcementMode::Hard`) mutates
+/// `tool_results` in place so the drifting write is surfaced as a
+/// `subtask_scope_drift` error rather than a successful write.
+fn apply_scope_drift_detection(
+    deps: &ExecutionDeps<'_>,
+    ctx: &ExecutionContext,
+    tool_calls: &[ToolCall],
+    tool_results: &mut [OrchestratorToolResult],
+    contract: Option<&SubTaskContract>,
+    enforcement: EnforcementMode,
+) -> Vec<String> {
+    if contract.is_none() {
+        return Vec::new();
+    }
+    let tracer = deps.tracer();
+    let mut corrections = Vec::new();
+    for (call, result) in tool_calls.iter().zip(tool_results.iter_mut()) {
+        let Some(observation) = evaluate_scope_drift(call, result, contract) else {
+            continue;
+        };
+        emit_scope_drift_trace(&tracer, ctx, &observation, enforcement);
+        if enforcement == EnforcementMode::Hard {
+            *result = hard_enforced_error_result(call, &observation);
+        }
+        corrections.push(build_correction_message(&observation));
+    }
+    corrections
+}
+
+/// Appends a `subtask_scope_drift` runtime trace for the given
+/// observation. Payload shape matches the documented schema on
+/// `RuntimeTraceType::SubtaskScopeDrift`.
+fn emit_scope_drift_trace(
+    tracer: &super::tracing::RuntimeTraceService<'_>,
+    ctx: &ExecutionContext,
+    observation: &ScopeDriftObservation,
+    enforcement: EnforcementMode,
+) {
+    let _ = tracer.append_trace(
+        &ctx.session_id,
+        &ctx.task_id,
+        ctx.current_subtask_id.as_deref(),
+        ctx.step_number,
+        RuntimeTraceType::SubtaskScopeDrift,
+        json!({
+            "toolName": observation.tool_name,
+            "writtenPath": observation.written_path,
+            "expectedPatterns": observation.expected_patterns,
+            "enforcement": enforcement.label(),
+        }),
+    );
 }
 
 /// Maximum number of entries retained in the `memorized_failures`

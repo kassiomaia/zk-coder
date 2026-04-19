@@ -467,6 +467,7 @@ pub fn subtask_plan_to_agent_task(
         mode: SubTaskMode::FullAccess,
         status: TaskStatus::Pending,
         order: subtask_plan.order,
+        contract: None,
         created_at: chrono::Utc::now(),
         started_at: None,
         completed_at: None,

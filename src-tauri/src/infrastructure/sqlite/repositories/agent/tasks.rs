@@ -136,9 +136,16 @@ pub fn create_subtask(
     conn: &Connection,
     subtask: &crate::core::agent::task::SubTask,
 ) -> Result<(), SessionRepositoryError> {
+    // Workstream B.1 — persist the contract JSON when present. `None`
+    // maps to SQL NULL and round-trips as `None` on read, which the
+    // runtime treats as "no scope-drift expectations".
+    let contract_json = match &subtask.contract {
+        Some(contract) => Some(serde_json::to_string(contract)?),
+        None => None,
+    };
     conn.execute(
-        "INSERT INTO agent_subtasks (id, task_id, title, description, mode, status, order_index, created_at, started_at, completed_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        "INSERT INTO agent_subtasks (id, task_id, title, description, mode, status, order_index, created_at, started_at, completed_at, contract)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             subtask.id,
             subtask.task_id,
@@ -150,6 +157,7 @@ pub fn create_subtask(
             subtask.created_at.to_rfc3339(),
             subtask.started_at.map(|t| t.to_rfc3339()),
             subtask.completed_at.map(|t| t.to_rfc3339()),
+            contract_json,
         ],
     )?;
     Ok(())
@@ -221,7 +229,7 @@ pub fn get_subtasks(
     task_id: &str,
 ) -> Result<Vec<crate::core::agent::task::SubTask>, SessionRepositoryError> {
     let mut stmt = conn.prepare(
-        "SELECT id, task_id, title, description, mode, status, order_index, created_at, started_at, completed_at
+        "SELECT id, task_id, title, description, mode, status, order_index, created_at, started_at, completed_at, contract
          FROM agent_subtasks WHERE task_id = ?1 ORDER BY order_index",
     )?;
 
@@ -276,6 +284,23 @@ pub fn get_subtasks(
                     .with_timezone(&Utc)
             });
 
+        // Workstream B.1 — contract is optional; absent rows map to
+        // `None`, preserving legacy behavior. Malformed JSON is logged
+        // and falls back to `None` rather than failing the entire
+        // subtask load.
+        let contract_str: Option<String> = row.get(10)?;
+        let contract = contract_str.and_then(|s| {
+            match serde_json::from_str::<crate::core::agent::task::SubTaskContract>(&s) {
+                Ok(c) => Some(c),
+                Err(e) => {
+                    warn!(
+                        "Failed to parse contract JSON for subtask {subtask_id} in task {task_id}: {e}"
+                    );
+                    None
+                }
+            }
+        });
+
         Ok(crate::core::agent::task::SubTask {
             id: subtask_id,
             task_id: row.get(1)?,
@@ -284,6 +309,7 @@ pub fn get_subtasks(
             mode,
             status,
             order: row.get(6)?,
+            contract,
             created_at,
             started_at,
             completed_at,
@@ -629,6 +655,82 @@ mod tests {
         let subtasks = get_subtasks(&conn, &task_id).unwrap();
         assert_eq!(subtasks.len(), 1);
         assert_eq!(subtasks[0].title, "Test Subtask");
+    }
+
+    /// Workstream B.1 — DB round-trip for `SubTaskContract`.
+    ///
+    /// A subtask persisted with an `expected_artifacts` contract must
+    /// reload with the same contract, preserving every field on each
+    /// `ArtifactSpec` (both `path_pattern` and `kind`). This is the
+    /// characterization test that pins the column semantics before
+    /// runtime enforcement (B.3) reads them.
+    #[test]
+    fn test_subtask_contract_survives_db_round_trip() {
+        use crate::core::agent::task::{ArtifactKind, ArtifactSpec, SubTaskContract};
+
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session_id = make_test_session(&conn);
+        let task_id = make_test_task(&conn, &session_id);
+
+        let contract = SubTaskContract {
+            expected_artifacts: vec![
+                ArtifactSpec {
+                    path_pattern: "docs/communications/social/*.md".to_string(),
+                    kind: ArtifactKind::File,
+                },
+                ArtifactSpec {
+                    path_pattern: "reports/launch/**/*.pdf".to_string(),
+                    kind: ArtifactKind::Document,
+                },
+            ],
+        };
+
+        let subtask = SubTask::new(
+            task_id.clone(),
+            "publish launch copy".to_string(),
+            SubTaskMode::Write,
+            0,
+        )
+        .with_contract(contract.clone());
+        create_subtask(&conn, &subtask).unwrap();
+
+        let fetched = get_subtasks(&conn, &task_id).unwrap();
+        assert_eq!(fetched.len(), 1);
+        assert_eq!(
+            fetched[0].contract.as_ref(),
+            Some(&contract),
+            "contract must round-trip through the DB unchanged"
+        );
+    }
+
+    /// A subtask persisted without a contract (the legacy path) must
+    /// reload with `contract == None`. Guards against an accidental
+    /// default that would turn every legacy subtask into a scope-drift
+    /// trigger.
+    #[test]
+    fn test_subtask_without_contract_loads_as_none() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::infrastructure::sqlite::migrations::agent::init_schema(&conn).unwrap();
+
+        let session_id = make_test_session(&conn);
+        let task_id = make_test_task(&conn, &session_id);
+
+        let subtask = SubTask::new(
+            task_id.clone(),
+            "no contract".to_string(),
+            SubTaskMode::Read,
+            0,
+        );
+        create_subtask(&conn, &subtask).unwrap();
+
+        let fetched = get_subtasks(&conn, &task_id).unwrap();
+        assert_eq!(fetched.len(), 1);
+        assert!(
+            fetched[0].contract.is_none(),
+            "absent contract must remain absent after reload"
+        );
     }
 
     #[test]

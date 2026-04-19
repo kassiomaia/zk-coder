@@ -152,7 +152,8 @@ export type RuntimeTraceType =
 	| 'tool_batch_completed'
 	| 'execution_cancelled'
 	| 'execution_failed'
-	| 'execution_completed';
+	| 'execution_completed'
+	| 'subtask_scope_drift';
 
 export interface RuntimeTrace {
 	id: string;
@@ -247,6 +248,39 @@ export function toAgentTask(bt: BackendAgentTask): AgentTask {
 export type SubTaskMode = 'read' | 'write' | 'execute' | 'full_access';
 
 /**
+ * Artifact kind declared on a {@link ArtifactSpec} (Workstream B.1).
+ *
+ * Mirrors the Rust `ArtifactKind` enum in `core/agent/task.rs`. Used by
+ * scope-drift detection to label the expected output at planning time.
+ */
+export type ArtifactKind = 'file' | 'document' | 'command' | 'other';
+
+/**
+ * A single artifact expectation on a subtask contract.
+ *
+ * `pathPattern` is a glob-style pattern (e.g. `docs/social/*.md`,
+ * `reports/**​/*.pdf`). The backend uses `globset` to match written
+ * paths against the pattern; non-matching writes surface as a
+ * `subtask_scope_drift` runtime trace.
+ */
+export interface ArtifactSpec {
+	pathPattern: string;
+	kind: ArtifactKind;
+}
+
+/**
+ * The contract a subtask declares at planning time (Workstream B.1).
+ *
+ * When present, write-class tool calls whose output path does not
+ * match any `expectedArtifacts` entry are flagged as scope drift in
+ * the next step's context. The field is optional — legacy plans
+ * carry no contract and preserve pre-B behavior (no detection).
+ */
+export interface SubTaskContract {
+	expectedArtifacts: ArtifactSpec[];
+}
+
+/**
  * A subtask within an agent's task decomposition
  */
 export interface SubTask {
@@ -257,6 +291,13 @@ export interface SubTask {
 	mode: SubTaskMode;
 	status: TaskStatus;
 	order: number;
+	/**
+	 * Optional contract describing the artifacts this subtask is
+	 * expected to produce (Workstream B.1). Absent on legacy plans;
+	 * the agent panel does not render it yet — contract-aware UI
+	 * arrives with H.3.
+	 */
+	contract?: SubTaskContract;
 	createdAt: string;
 	startedAt?: string;
 	completedAt?: string;

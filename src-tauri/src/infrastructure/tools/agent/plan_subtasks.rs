@@ -29,7 +29,12 @@ impl Tool for PlanSubtasksTool {
 				"Example: ['Analyze current code structure', 'Implement new function', 'Write tests']. ",
 				"CALL ONLY for multi-step implementation/debugging/refactoring tasks. ",
 				"DO NOT CALL for greetings, acknowledgements, small talk, or single-step requests. ",
-				"If the user input is conversational (e.g., 'Hi', 'Thanks'), respond without planning."
+				"If the user input is conversational (e.g., 'Hi', 'Thanks'), respond without planning. ",
+				"For each subtask, specify where its outputs must live via the optional `contract` field ",
+				"(e.g. `docs/communications/social/twitter-*.md` for social copy, `reports/*.pdf` for a launch report). ",
+				"Writes outside the declared contract are flagged as scope drift and surfaced in the next step's context. ",
+				"Declaring a contract is strongly recommended whenever the subtask produces files or documents; ",
+				"omit it only for exploratory or read-only subtasks."
 			),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -46,6 +51,33 @@ impl Tool for PlanSubtasksTool {
                                 "description": {
                                     "type": "string",
                                     "description": "Optional longer description of what this subtask involves"
+                                },
+                                "contract": {
+                                    "type": "object",
+                                    "description": "Optional expected-output contract. When present, writes outside these paths are flagged as scope drift in the next step's context.",
+                                    "properties": {
+                                        "expected_artifacts": {
+                                            "type": "array",
+                                            "description": "Ordered list of artifacts this subtask is expected to produce.",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "path_pattern": {
+                                                        "type": "string",
+                                                        "description": "Glob-style pattern (e.g. `docs/social/*.md`, `reports/**/*.pdf`). The runtime matches written paths against this pattern to detect scope drift."
+                                                    },
+                                                    "kind": {
+                                                        "type": "string",
+                                                        "enum": ["file", "document", "command", "other"],
+                                                        "description": "Artifact kind: `file` for plain files, `document` for generated PDF/DOCX/PPTX, `command` for shell outputs, `other` for anything else."
+                                                    }
+                                                },
+                                                "required": ["path_pattern", "kind"]
+                                            },
+                                            "minItems": 1
+                                        }
+                                    },
+                                    "required": ["expected_artifacts"]
                                 }
                             },
                             "required": ["title"]

@@ -167,6 +167,35 @@ fn handle_plan_subtasks(
             .and_then(|v| v.as_str())
             .map(std::string::ToString::to_string);
 
+        // Workstream B.2 — parse the optional `contract` field when
+        // the planner declares one. A malformed contract is rejected
+        // with a clear message so the model can fix the declaration
+        // instead of silently losing the scope gate. Absence is fine —
+        // legacy plans carry no contract and that path is preserved.
+        let contract = match item.get("contract") {
+            Some(raw) if !raw.is_null() => {
+                match serde_json::from_value::<crate::core::agent::task::SubTaskContract>(
+                    raw.clone(),
+                ) {
+                    Ok(contract) if !contract.is_empty() => Some(contract),
+                    Ok(_empty) => None,
+                    Err(e) => {
+                        return OrchestratorToolResult {
+                            call_id: call.id.clone(),
+                            name: call.name.clone(),
+                            output: serde_json::json!({
+                                "error": format!(
+                                    "Subtask {idx} has a malformed `contract` field: {e}"
+                                ),
+                            }),
+                            is_error: true,
+                        };
+                    }
+                }
+            }
+            _ => None,
+        };
+
         let mut subtask = crate::core::agent::task::SubTask::new(
             task_id.to_string(),
             title.clone(),
@@ -175,6 +204,9 @@ fn handle_plan_subtasks(
         );
         if let Some(ref desc) = description {
             subtask.description = Some(desc.clone());
+        }
+        if let Some(contract) = contract {
+            subtask.contract = Some(contract);
         }
 
         if let Err(e) = task_repo.create_subtask(&subtask) {

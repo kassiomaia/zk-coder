@@ -44,6 +44,7 @@ pub fn init_schema(conn: &Connection) -> Result<(), SessionRepositoryError> {
             created_at TEXT NOT NULL,
             started_at TEXT,
             completed_at TEXT,
+            contract TEXT,
             FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
         );
 
@@ -224,6 +225,12 @@ pub fn run_migrations(conn: &Connection) -> Result<(), SessionRepositoryError> {
     // Migration 5: Add title and description columns to agent_tasks
     let _ = conn.execute("ALTER TABLE agent_tasks ADD COLUMN title TEXT", []); // Ignore error if column exists
     let _ = conn.execute("ALTER TABLE agent_tasks ADD COLUMN description TEXT", []); // Ignore error if column exists
+
+    // Migration 6: Add contract column to agent_subtasks (Workstream B.1).
+    // Stores the serialized `SubTaskContract` JSON; `NULL` means "no
+    // contract declared" and preserves legacy behavior (scope-drift
+    // detection short-circuits for that subtask).
+    let _ = conn.execute("ALTER TABLE agent_subtasks ADD COLUMN contract TEXT", []); // Ignore error if column exists
 
     Ok(())
 }

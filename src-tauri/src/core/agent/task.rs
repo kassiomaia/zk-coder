@@ -314,6 +314,77 @@ impl SubTaskMode {
     }
 }
 
+/// Classifies the kind of artifact a subtask produces.
+///
+/// Used by scope-drift detection (Workstream B.3) and the contract-aware
+/// active-subtask appendix (Workstream H.3) so writes can be matched
+/// against an expectation declared at planning time.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactKind {
+    /// A filesystem file written through `fs_write_file`,
+    /// `fs_replace_in_file`, or `fs_apply_patch`.
+    File,
+    /// A structured document produced through the
+    /// `pdf_*` / `docx_*` / `pptx_*` tool family.
+    Document,
+    /// A shell command execution (kept for completeness; commands do
+    /// not typically have a written "path" but contracts may still
+    /// declare an output file a command is expected to produce).
+    Command,
+    /// Any other artifact kind the contract wants to declare.
+    Other,
+}
+
+/// A single artifact expectation declared on a subtask contract.
+///
+/// `path_pattern` is glob-style (`docs/**/*.md`, `reports/*.pdf`, etc.).
+/// Matching rules follow the `globset` crate conventions. When absent,
+/// the scope-drift detector does not have a target and is a no-op.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactSpec {
+    /// Glob-style pattern that a produced artifact's path must match.
+    pub path_pattern: String,
+    /// The kind of artifact this spec describes.
+    pub kind: ArtifactKind,
+}
+
+/// The contract a subtask declares at planning time.
+///
+/// When present, write-class tool calls whose output path does not
+/// match any `expected_artifacts` entry are flagged as scope drift:
+/// the runtime emits a `subtask_scope_drift` trace, injects a
+/// correction system message into the next step's context (soft
+/// enforcement), and optionally rejects the tool call with a
+/// `subtask_scope_drift` error (hard enforcement, behind the
+/// `CODER_SUBTASK_CONTRACT_HARD_ENFORCEMENT` environment flag — ships
+/// disabled by default).
+///
+/// The field is optional on `SubTask` so legacy plans (pre-B) continue
+/// to work without behavior change: absence of a contract means the
+/// scope-drift detector short-circuits.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SubTaskContract {
+    /// The list of expected outputs this subtask must produce. At
+    /// least one entry is required for scope-drift detection to
+    /// evaluate; an empty list is permitted in the DB round-trip but
+    /// is treated as "no expectations" by the runtime (same as
+    /// absence).
+    pub expected_artifacts: Vec<ArtifactSpec>,
+}
+
+impl SubTaskContract {
+    /// Returns `true` when the contract has no expected artifacts,
+    /// which the runtime treats identically to an absent contract
+    /// (scope-drift detection is a no-op).
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.expected_artifacts.is_empty()
+    }
+}
+
 /// Represents a sub-task within a larger agent task decomposition.
 ///
 /// Agents can break down complex requests into a series of smaller, more
@@ -335,6 +406,12 @@ pub struct SubTask {
     pub status: TaskStatus,
     /// The display order of the sub-task.
     pub order: i32,
+    /// The contract describing the artifacts this subtask is expected
+    /// to produce (Workstream B.1). When `None`, the legacy behavior
+    /// is preserved — scope-drift detection is disabled for this
+    /// subtask.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contract: Option<SubTaskContract>,
     /// The timestamp of when the sub-task was created.
     pub created_at: DateTime<Utc>,
     /// The timestamp of when the sub-task was started.
@@ -355,6 +432,7 @@ impl SubTask {
             mode,
             status: TaskStatus::Pending,
             order,
+            contract: None,
             created_at: Utc::now(),
             started_at: None,
             completed_at: None,
@@ -365,6 +443,13 @@ impl SubTask {
     #[must_use]
     pub fn with_description(mut self, description: String) -> Self {
         self.description = Some(description);
+        self
+    }
+
+    /// Sets the contract for the sub-task (Workstream B.1).
+    #[must_use]
+    pub fn with_contract(mut self, contract: SubTaskContract) -> Self {
+        self.contract = Some(contract);
         self
     }
 
@@ -653,6 +738,89 @@ mod tests {
         subtask.complete();
         assert_eq!(subtask.status, TaskStatus::Completed);
         assert!(subtask.completed_at.is_some());
+    }
+
+    // ------------------------------------------------------------------------
+    // SubTaskContract serialization (Workstream B.1)
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn subtask_contract_serde_round_trip_preserves_kinds() {
+        let contract = SubTaskContract {
+            expected_artifacts: vec![
+                ArtifactSpec {
+                    path_pattern: "docs/communications/social/*.md".to_string(),
+                    kind: ArtifactKind::File,
+                },
+                ArtifactSpec {
+                    path_pattern: "reports/launch/*.pdf".to_string(),
+                    kind: ArtifactKind::Document,
+                },
+                ArtifactSpec {
+                    path_pattern: "scripts/deploy.sh".to_string(),
+                    kind: ArtifactKind::Command,
+                },
+                ArtifactSpec {
+                    path_pattern: "misc/*".to_string(),
+                    kind: ArtifactKind::Other,
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&contract).expect("serialize");
+        let parsed: SubTaskContract = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed, contract);
+    }
+
+    #[test]
+    fn subtask_without_contract_serializes_without_field() {
+        let subtask = SubTask::new(
+            "task-1".to_string(),
+            "no contract".to_string(),
+            SubTaskMode::Read,
+            0,
+        );
+        let json = serde_json::to_value(&subtask).expect("serialize");
+        assert!(
+            json.get("contract").is_none(),
+            "absent contract must be skipped in serialized form, got {json}",
+        );
+    }
+
+    #[test]
+    fn subtask_with_contract_round_trips_through_serde() {
+        let contract = SubTaskContract {
+            expected_artifacts: vec![ArtifactSpec {
+                path_pattern: "docs/*.md".to_string(),
+                kind: ArtifactKind::File,
+            }],
+        };
+        let subtask = SubTask::new(
+            "task-1".to_string(),
+            "with contract".to_string(),
+            SubTaskMode::Write,
+            0,
+        )
+        .with_contract(contract.clone());
+
+        let json = serde_json::to_string(&subtask).expect("serialize");
+        let parsed: SubTask = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed.contract, Some(contract));
+    }
+
+    #[test]
+    fn subtask_contract_is_empty_when_no_artifacts() {
+        let empty = SubTaskContract {
+            expected_artifacts: vec![],
+        };
+        assert!(empty.is_empty());
+        let non_empty = SubTaskContract {
+            expected_artifacts: vec![ArtifactSpec {
+                path_pattern: "x".to_string(),
+                kind: ArtifactKind::File,
+            }],
+        };
+        assert!(!non_empty.is_empty());
     }
 
     #[test]

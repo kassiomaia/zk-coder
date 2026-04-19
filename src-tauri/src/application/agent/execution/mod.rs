@@ -13,6 +13,7 @@ pub mod llm_phase;
 pub mod memory_refresh;
 pub mod message_ids;
 pub mod response_phase;
+pub mod scope_drift;
 pub mod state;
 pub mod step_gate;
 pub mod termination;
