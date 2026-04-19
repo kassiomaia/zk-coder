@@ -305,6 +305,10 @@ async fn bootstrap_fresh(
         max_execution_steps: initial_max_steps,
         recent_replace_failures: Vec::new(),
         consecutive_malformed_tool_args: 0,
+        runtime_session_scope:
+            crate::infrastructure::agent::runtime::session_scope::RuntimeSessionScope::new(
+                session.id.clone(),
+            ),
     };
 
     let tracer = deps.tracer();
@@ -462,6 +466,10 @@ async fn bootstrap_continue(
         max_execution_steps: initial_max_steps,
         recent_replace_failures: Vec::new(),
         consecutive_malformed_tool_args: 0,
+        runtime_session_scope:
+            crate::infrastructure::agent::runtime::session_scope::RuntimeSessionScope::new(
+                session.id.clone(),
+            ),
     };
 
     let tracer = deps.tracer();

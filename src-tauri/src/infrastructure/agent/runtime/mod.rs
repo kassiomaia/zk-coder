@@ -11,7 +11,10 @@
 //! - [`helpers`] - Utility functions
 //! - [`spawn`] - Process execution with policy and telemetry controls
 
+pub(crate) mod artifact_probe;
 pub mod client;
+pub(crate) mod session_scope;
+pub(crate) mod tool_handlers;
 pub mod context;
 pub mod execution;
 pub mod helpers;

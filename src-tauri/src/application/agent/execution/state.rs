@@ -12,6 +12,7 @@ use crate::core::agent::execution::{
 use crate::core::agent::task::ExecutionStep;
 use crate::core::llm::entities::{ChatMessage as Message, ChatResponse, ToolChoiceMode, ToolDefinition};
 use crate::infrastructure::agent::runtime::context::MemorizedFailure;
+use crate::infrastructure::agent::runtime::session_scope::RuntimeSessionScope;
 use crate::infrastructure::agent::runtime::SubtaskSummary;
 
 use super::replace_drift::ReplaceFailure;
@@ -114,6 +115,14 @@ pub struct ExecutionContext {
     /// cannot self-correct. See
     /// `docs/issues/agent-plan-subtasks-malformed-json/issue.md`.
     pub consecutive_malformed_tool_args: u32,
+    /// Non-persisted runtime accumulator — per-session trackers
+    /// previously held in process-global statics inside `permissions.rs`
+    /// (`PLAN_RETRY_TRACKER`, `SUBTASK_RATIONALES`,
+    /// `SUBTASK_FAILURE_COUNTS`, `DECOMPOSED_SUBTASKS`). Lifted into the
+    /// context so state is tied to the owning session and cannot leak
+    /// across sessions. Reset to [`RuntimeSessionScope::default`] on
+    /// checkpoint resume (same treatment as `memorized_failures`).
+    pub(crate) runtime_session_scope: RuntimeSessionScope,
 }
 
 impl ExecutionContext {
@@ -218,6 +227,9 @@ impl ExecutionContext {
             memorized_failures: Vec::new(),
             recent_replace_failures: Vec::new(),
             consecutive_malformed_tool_args: 0,
+            // Fresh per-session scope — matches the treatment of
+            // `memorized_failures` (rebuilt by the coordinator).
+            runtime_session_scope: RuntimeSessionScope::default(),
         }
     }
 }
@@ -268,6 +280,9 @@ mod checkpoint_tests {
             max_execution_steps: 12,
             recent_replace_failures: Vec::new(),
             consecutive_malformed_tool_args: 0,
+            runtime_session_scope: RuntimeSessionScope::new(
+                crate::core::agent::session::SessionId("session-1".into()),
+            ),
         }
     }
 
@@ -312,6 +327,11 @@ mod checkpoint_tests {
         assert_eq!(reconstructed.retrieval_count_in_current_subtask, 0);
         assert!(reconstructed.last_completed_subtask_for_memory.is_none());
         assert!(reconstructed.pending_tool_choice_override.is_none());
+        // RuntimeSessionScope is also reset on resume — it holds
+        // per-session trackers (plan retries, rationales, failure
+        // counts, decomposed subtasks) that a fresh coordinator
+        // rebuilds as it proceeds.
+        assert!(reconstructed.runtime_session_scope.session_id().is_none());
     }
 
     #[test]

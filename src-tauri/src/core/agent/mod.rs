@@ -7,6 +7,7 @@ pub mod errors;
 pub mod execution;
 pub mod memory;
 pub mod permissions;
+pub mod planning;
 pub mod repositories;
 pub mod services;
 pub mod session;

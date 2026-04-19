@@ -117,6 +117,7 @@ pub async fn run_tools(
         deps.session_repo,
         deps.telemetry_repo,
         deps.task_repo,
+        &mut ctx.runtime_session_scope,
     )
     .await?;
 
