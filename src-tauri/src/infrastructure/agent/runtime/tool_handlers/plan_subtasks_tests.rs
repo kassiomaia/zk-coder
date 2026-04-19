@@ -103,7 +103,8 @@ fn merge_attaches_contract_and_refines_fields_on_pending_skeleton() {
         <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
             .unwrap();
     let session = make_session();
-    let app_handle = crate::test_support::mock_app_handle();
+    let app = tauri::test::mock_app();
+    let app_handle = app.handle().clone();
     let call = make_call(json!({}));
 
     let model_plan = vec![
@@ -177,7 +178,8 @@ fn merge_appends_when_model_declares_more_subtasks() {
         <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
             .unwrap();
     let session = make_session();
-    let app_handle = crate::test_support::mock_app_handle();
+    let app = tauri::test::mock_app();
+    let app_handle = app.handle().clone();
     let call = make_call(json!({}));
 
     let model_plan = vec![
@@ -228,7 +230,8 @@ fn merge_ignores_extras_when_model_declares_fewer_subtasks() {
         <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
             .unwrap();
     let session = make_session();
-    let app_handle = crate::test_support::mock_app_handle();
+    let app = tauri::test::mock_app();
+    let app_handle = app.handle().clone();
     let call = make_call(json!({}));
 
     let model_plan = vec![json!({
@@ -275,7 +278,8 @@ fn merge_refuses_to_redefine_completed_subtask_with_requires_replan() {
         <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
             .unwrap();
     let session = make_session();
-    let app_handle = crate::test_support::mock_app_handle();
+    let app = tauri::test::mock_app();
+    let app_handle = app.handle().clone();
     let call = make_call(json!({}));
 
     let model_plan = vec![
@@ -322,7 +326,8 @@ fn merge_refuses_to_append_when_a_completed_subtask_exists() {
         <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
             .unwrap();
     let session = make_session();
-    let app_handle = crate::test_support::mock_app_handle();
+    let app = tauri::test::mock_app();
+    let app_handle = app.handle().clone();
     let call = make_call(json!({}));
 
     let model_plan = vec![
@@ -359,7 +364,8 @@ fn merge_does_not_mutate_completed_subtask_when_shape_matches() {
         <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
             .unwrap();
     let session = make_session();
-    let app_handle = crate::test_support::mock_app_handle();
+    let app = tauri::test::mock_app();
+    let app_handle = app.handle().clone();
     let call = make_call(json!({}));
 
     let model_plan = vec![
@@ -402,7 +408,8 @@ fn merge_rejects_malformed_contract_with_structured_error() {
         <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
             .unwrap();
     let session = make_session();
-    let app_handle = crate::test_support::mock_app_handle();
+    let app = tauri::test::mock_app();
+    let app_handle = app.handle().clone();
     let call = make_call(json!({}));
 
     let model_plan = vec![json!({
@@ -443,7 +450,8 @@ fn merge_characterization_7_subtasks_all_gain_contract() {
         <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
             .unwrap();
     let session = make_session();
-    let app_handle = crate::test_support::mock_app_handle();
+    let app = tauri::test::mock_app();
+    let app_handle = app.handle().clone();
     let call = make_call(json!({}));
 
     let model_plan: Vec<Value> = skeleton_titles
