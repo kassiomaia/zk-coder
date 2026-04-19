@@ -33,7 +33,6 @@ cargo tauri build
 - Backend layered modules (`core`, `application`, `infrastructure`, `commands`): `docs/architecture.md`
 - Thread locking module behavior and UX contract: `docs/features/thread-locking.md`
 - SQLite database files, schema, and debugging workflow: `docs/database-reference.md`
-- Agent and provider related implementation notes: `docs/agents/` and `docs/ai-providers/`
 
 ## Key Features
 
@@ -79,7 +78,6 @@ The application uses a custom design system with CSS variables. See `src-ui/src/
 
 - [Architecture Overview](docs/architecture.md) - System architecture and module descriptions
 - [Contributing Guide](docs/CONTRIBUTING.md) - Contribution guidelines
-- [Scroll System](docs/scroll-system-architecture.md) - Auto-scroll implementation details
 - [Design System](docs/design-system-synthesis.md) - Design tokens and component specifications
 
 ## Tech Stack
