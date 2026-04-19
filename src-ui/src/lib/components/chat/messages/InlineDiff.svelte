@@ -71,7 +71,11 @@
 	const delCount = $derived(rows.filter((r) => r.type === 'del').length);
 
 	let showAll = $state(false);
-	let open = $state(initiallyOpen);
+	let open = $state(false);
+
+	$effect(() => {
+		open = initiallyOpen;
+	});
 
 	const visibleRows = $derived(showAll ? rows : rows.slice(0, maxRows));
 	const isTruncated = $derived(!showAll && rows.length > maxRows);

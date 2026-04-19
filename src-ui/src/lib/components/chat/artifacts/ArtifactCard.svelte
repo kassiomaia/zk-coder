@@ -47,8 +47,12 @@
 		onRemove
 	}: Props = $props();
 
-	let isCollapsed = $state(initiallyCollapsed);
+	let isCollapsed = $state(false);
 	let isCopied = $state(false);
+
+	$effect(() => {
+		isCollapsed = initiallyCollapsed;
+	});
 
 	async function handleCopy() {
 		if (onCopy) {
