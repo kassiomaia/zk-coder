@@ -248,3 +248,11 @@ Update relevant documentation and changelog as part of the work.
 ## 5. Branching
 
 Use feature branches. Merge to `main` after review and testing.
+
+## 6. Issues
+
+Anytime the user ask to investigate an issue, and the issue is something on the agent flow execution,
+something that degradete the agent execution, performance, or usability, you must to investigate it deeply,
+you must have in mind that this it the core of the product and needs full attention, collect all the information you can,
+document the evidence, and create a detailed issue with all the information you have, and if possible, a reproduction steps.
+With that start a discussion with the team to find the best solution, and if you have a solution, create a plan to implement it, and share it with the team before start working on it.
