@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **GitHub Actions Node runtime compatibility**: upgraded workflow dependencies from `actions/checkout@v4` to `actions/checkout@v5` and from `actions/setup-node@v4` to `actions/setup-node@v6` in both CI and release pipelines so the workflows use Node 24-compatible action releases before the GitHub Actions runner migration.
+
 ### Added
 
 - **GitHub build and release pipeline**: added GitHub Actions workflows for continuous verification on `master`/pull requests and for tagged release publishing. The CI workflow runs frontend checks, frontend build, backend build, and backend tests on Ubuntu 22.04. The release workflow builds macOS, Linux, and Windows artifacts from `v*` tags and publishes them as downloadable GitHub Release assets so users can install the app directly from the Releases page.
