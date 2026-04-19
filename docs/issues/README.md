@@ -1,0 +1,17 @@
+# Issues
+
+This folder tracks investigations into bugs that degrade the agent execution
+flow: performance regressions, reliability problems, correctness bugs, or
+usability issues in the core agent runtime.
+
+Each issue is a self-contained folder with:
+
+- `issue.md` — the problem statement, evidence, reproduction steps, and
+  proposed direction.
+- Supporting artifacts (logs, DB dumps, screenshots) where useful.
+
+## Index
+
+| ID | Area | Status | Title |
+|----|------|--------|-------|
+| `agent-plan-subtasks-malformed-json` | LLM runtime | fixed (recovery path shipped) | `agent_plan_subtasks` malformed-JSON error aborts agent session |

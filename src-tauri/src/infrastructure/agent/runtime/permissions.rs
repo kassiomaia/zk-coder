@@ -22,6 +22,7 @@ use crate::infrastructure::agent::approval::{ApprovalEvent, ApprovalQueue};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
 use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
+use crate::infrastructure::llm::malformed_args::{build_error_result, extract_marker};
 use crate::infrastructure::tools::context::ToolExecutionContext;
 use crate::infrastructure::tools::OrchestratorToolResult;
 use crate::infrastructure::tools::ToolRegistry;
@@ -99,6 +100,53 @@ pub async fn process_tool_calls_with_permissions(
     let mut results = Vec::with_capacity(tool_calls.len());
 
     for call in tool_calls {
+        // Recoverable-malformed-args fast path: the LLM client wraps an
+        // unparseable `function.arguments` string in a sentinel object so we
+        // can surface it as a tool-level error instead of aborting the whole
+        // session. Do not dispatch, do not check permissions — produce an
+        // error result with diagnostic context and move on. The normal tool-
+        // result feedback loop then asks the model to self-correct on the
+        // next step. See docs/issues/agent-plan-subtasks-malformed-json.
+        if let Some(marker) = extract_marker(&call.arguments) {
+            let tool_call_id = uuid::Uuid::new_v4().to_string();
+            let output = build_error_result(&call.name, marker);
+            if let Err(e) = telemetry_repo.insert_tool_call(
+                &session.id,
+                &tool_call_id,
+                &call.name,
+                &call.arguments,
+                None,
+            ) {
+                warn!("[AgentRuntime] Failed to persist malformed tool call: {e}");
+            }
+            if let Err(e) =
+                telemetry_repo.update_tool_call_result(&tool_call_id, &output, true, None)
+            {
+                warn!("[AgentRuntime] Failed to persist malformed tool result: {e}");
+            }
+            let _ = app_handle.emit(
+                AGENT_EVENT_NAME,
+                AgentEvent::ToolResult {
+                    session_id: session.id.0.clone(),
+                    tool_call_id: tool_call_id.clone(),
+                    tool: call.name.clone(),
+                    result: output.clone(),
+                    is_error: true,
+                    content: Some(format!(
+                        "`{}` was called with malformed JSON arguments; asking the model to retry.",
+                        call.name
+                    )),
+                },
+            );
+            results.push(OrchestratorToolResult {
+                call_id: call.id.clone(),
+                name: call.name.clone(),
+                output,
+                is_error: true,
+            });
+            continue;
+        }
+
         let disallowed_by_mode = allowed_tool_names
             .is_some_and(|allowed| !allowed.iter().any(|name| name == &call.name));
 

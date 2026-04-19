@@ -304,6 +304,7 @@ async fn bootstrap_fresh(
         memorized_failures: Vec::new(),
         max_execution_steps: initial_max_steps,
         recent_replace_failures: Vec::new(),
+        consecutive_malformed_tool_args: 0,
     };
 
     let tracer = deps.tracer();
@@ -460,6 +461,7 @@ async fn bootstrap_continue(
         memorized_failures: Vec::new(),
         max_execution_steps: initial_max_steps,
         recent_replace_failures: Vec::new(),
+        consecutive_malformed_tool_args: 0,
     };
 
     let tracer = deps.tracer();

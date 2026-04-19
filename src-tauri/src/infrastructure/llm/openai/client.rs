@@ -12,6 +12,7 @@ use super::types::{
     OpenAiResponse, OpenAiStreamResponse,
 };
 use crate::core::config::{ApiType, Provider};
+use crate::infrastructure::llm::malformed_args::{format_window, make_sentinel_value};
 use crate::infrastructure::llm::{
     ChatRequest, ChatResponse, LlmClient, LlmError, LlmResult, Message, MessageContent,
     MessageRole, StreamChunk, StreamDelta, ToolCall, UsageStats,
@@ -504,9 +505,9 @@ impl OpenAiClient {
                         match serde_json::from_str::<serde_json::Value>(&call.function.arguments) {
                             Ok(value) => value,
                             Err(e) => {
-                                let truncated_args =
-                                    truncate_text(&call.function.arguments, 500);
                                 if was_truncated {
+                                    let truncated_args =
+                                        truncate_text(&call.function.arguments, 500);
                                     log::warn!(
                                         "Tool arguments for '{}' truncated due to max_tokens limit (finish_reason=length). Arguments: {}",
                                         call.function.name,
@@ -518,16 +519,36 @@ impl OpenAiClient {
                                         call.function.name
                                     )));
                                 }
-                                log::error!(
-                                    "Failed to parse tool arguments for '{}': {}. Arguments: {}",
-                                    call.function.name,
-                                    e,
-                                    truncated_args
+                                // Non-truncation parse failure: the provider
+                                // emitted invalid JSON for tool arguments
+                                // (e.g. unquoted key, stray comma, over-
+                                // escaped regex). Surface this as a
+                                // recoverable tool-level error rather than a
+                                // fatal `LlmError::Parse` so the agent
+                                // runtime can feed the failure back to the
+                                // model and let it self-correct on the next
+                                // step. See
+                                // docs/issues/agent-plan-subtasks-malformed-json.
+                                let sentinel = make_sentinel_value(
+                                    &call.function.arguments,
+                                    &e,
                                 );
-                                return Err(LlmError::parse(format!(
-                                    "Provider returned malformed tool arguments for '{}': {}. Arguments JSON could not be parsed.",
-                                    call.function.name, e
-                                )));
+                                let marker = sentinel
+                                    .get(
+                                        crate::infrastructure::llm::malformed_args::MALFORMED_SENTINEL_KEY,
+                                    )
+                                    .cloned()
+                                    .unwrap_or(serde_json::Value::Null);
+                                let window = format_window(&marker).unwrap_or_default();
+                                log::error!(
+                                    "Failed to parse tool arguments for '{}' at line {} column {}: {}. Window: {}",
+                                    call.function.name,
+                                    e.line(),
+                                    e.column(),
+                                    e,
+                                    window
+                                );
+                                sentinel
                             }
                         };
                     Ok(ToolCall {

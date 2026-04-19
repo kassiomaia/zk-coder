@@ -38,6 +38,14 @@ pub const EXECUTION_STEPS_FLOOR: u32 = 45;
 /// from burning unbounded LLM spend before the human can intervene.
 pub const EXECUTION_STEPS_CEILING: u32 = 600;
 
+/// Hard cap on consecutive steps with only malformed-JSON tool calls.
+///
+/// When the provider cannot emit parseable arguments even after being told
+/// the previous call failed, we abort rather than loop — this is the
+/// fallback for the recovery path that the malformed-arg sentinel enables.
+/// See `docs/issues/agent-plan-subtasks-malformed-json/issue.md`.
+pub const MALFORMED_ARGS_ABORT_THRESHOLD: u32 = 3;
+
 /// Computes the maximum number of execution steps allowed for a task
 /// given the number of planned subtasks.
 ///

@@ -13,6 +13,7 @@ use super::scope_drift::{
 };
 use super::state::ExecutionContext;
 use super::termination::cancel_execution;
+use super::utils::MALFORMED_ARGS_ABORT_THRESHOLD;
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::permissions::PermissionResolver;
 use crate::core::agent::task::SubTaskContract;
@@ -21,6 +22,7 @@ use crate::infrastructure::agent::runtime::permissions::YoloModeProvider;
 use crate::infrastructure::agent::runtime::{
     add_to_recent_calls, process_tool_calls_with_permissions, AgentRuntimeError,
 };
+use crate::infrastructure::llm::malformed_args::extract_marker;
 use crate::infrastructure::tools::OrchestratorToolResult;
 
 /// Represents the outcome of the tool execution phase.
@@ -117,6 +119,52 @@ pub async fn run_tools(
         deps.task_repo,
     )
     .await?;
+
+    // Track consecutive steps where *every* tool call carried the malformed-
+    // arguments sentinel. The recovery path in `permissions.rs` returns an
+    // error-flagged tool result per bad call so the LLM can self-correct;
+    // this guard caps how many rounds we tolerate before aborting. Steps
+    // without any tool calls do not reset the counter — they belong to a
+    // different failure mode handled by the narration-loop guard.
+    if !response.tool_calls.is_empty() {
+        let all_malformed = response
+            .tool_calls
+            .iter()
+            .all(|call| extract_marker(&call.arguments).is_some());
+        if all_malformed {
+            ctx.consecutive_malformed_tool_args =
+                ctx.consecutive_malformed_tool_args.saturating_add(1);
+            let _ = tracer.append_trace(
+                &ctx.session_id,
+                &ctx.task_id,
+                ctx.current_subtask_id.as_deref(),
+                ctx.step_number,
+                RuntimeTraceType::ToolBatchCompleted,
+                json!({
+                    "malformedToolArgsStreak": ctx.consecutive_malformed_tool_args,
+                    "threshold": MALFORMED_ARGS_ABORT_THRESHOLD,
+                    "toolNames": response
+                        .tool_calls
+                        .iter()
+                        .map(|call| call.name.clone())
+                        .collect::<Vec<_>>(),
+                }),
+            );
+            if ctx.consecutive_malformed_tool_args >= MALFORMED_ARGS_ABORT_THRESHOLD {
+                let last_tool = response
+                    .tool_calls
+                    .last()
+                    .map(|call| call.name.clone())
+                    .unwrap_or_default();
+                return Err(AgentRuntimeError::MalformedToolArgumentsExhausted {
+                    attempts: ctx.consecutive_malformed_tool_args,
+                    last_tool,
+                });
+            }
+        } else {
+            ctx.consecutive_malformed_tool_args = 0;
+        }
+    }
 
     let session = deps
         .session_repo

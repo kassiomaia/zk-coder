@@ -53,6 +53,23 @@ pub enum AgentRuntimeError {
     /// Configuration error.
     #[error("Config error: {0}")]
     Config(String),
+    /// The LLM repeatedly emitted unparseable JSON for tool arguments. The
+    /// runtime surfaces this as a recoverable tool-level error for the first
+    /// few attempts (see `docs/issues/agent-plan-subtasks-malformed-json`),
+    /// but bails out after `MALFORMED_ARGS_ABORT_THRESHOLD` consecutive
+    /// steps so the session cannot spin forever against a model that cannot
+    /// self-correct.
+    #[error(
+        "LLM emitted malformed tool arguments on {attempts} consecutive steps \
+         (last tool: {last_tool}); aborting"
+    )]
+    MalformedToolArgumentsExhausted {
+        /// Number of consecutive steps with only malformed-args tool calls.
+        attempts: u32,
+        /// Name of the tool from the most recent malformed call, for
+        /// post-mortem triage.
+        last_tool: String,
+    },
 }
 
 /// Summary of subtask data needed for prompt derivation and tracking.

@@ -104,6 +104,16 @@ pub struct ExecutionContext {
     /// context and the entries for that path are cleared so the same
     /// nudge does not re-fire.
     pub recent_replace_failures: Vec<ReplaceFailure>,
+    /// Number of *consecutive* steps in which every tool call the LLM
+    /// emitted carried the malformed-arguments sentinel — i.e. the
+    /// provider returned unparseable JSON and `tool_phase` surfaced it as
+    /// a recoverable tool-level error. Reset to 0 on any step where at
+    /// least one tool call parsed cleanly. Incremented by `tool_phase`
+    /// and consulted via [`super::utils::MALFORMED_ARGS_ABORT_THRESHOLD`]
+    /// so the runtime bails instead of looping forever if the model
+    /// cannot self-correct. See
+    /// `docs/issues/agent-plan-subtasks-malformed-json/issue.md`.
+    pub consecutive_malformed_tool_args: u32,
 }
 
 impl ExecutionContext {
@@ -207,6 +217,7 @@ impl ExecutionContext {
             last_completed_subtask_for_memory: None,
             memorized_failures: Vec::new(),
             recent_replace_failures: Vec::new(),
+            consecutive_malformed_tool_args: 0,
         }
     }
 }
@@ -256,6 +267,7 @@ mod checkpoint_tests {
             memorized_failures: Vec::new(),
             max_execution_steps: 12,
             recent_replace_failures: Vec::new(),
+            consecutive_malformed_tool_args: 0,
         }
     }
 
