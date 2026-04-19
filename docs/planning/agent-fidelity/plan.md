@@ -7,7 +7,7 @@
 
 - **Phase 1 — DELIVERED (commit `7df7589`)**: A (rehydration fidelity: title + description round-trip), H.1 (prompt split into harness_contract + quality_baseline + default_code_framing with SystemPromptBuilder), H.4 (prompt stability attribution helpers), H.5 (runtime telemetry emits three section hashes alongside systemPromptHash).
 - **Phase 2 — DELIVERED (commit `9a32218`)**: C (failure memory scoped by subtask_id via MemorizedFailure overlay; NotAllowed split into NotAllowedByMode / NotAllowedByArgs), D.1 (execution-brief `next:` hidden unconditionally pre-B), H.6 (harness_contract_prompt() rewritten in consequence language, locked by golden-file + structural audit tests).
-- Phase 3 — pending: B
+- **Phase 3 — DELIVERED (commit `ec2bb63`)**: B.1 (SubTaskContract entity + `agent_subtasks.contract` migration), B.2 (`agent_plan_subtasks` optional contracts), B.3 (soft scope-drift detection: runtime trace + correction system message for write-class tools), B.4 (hard enforcement gated by `CODER_SUBTASK_CONTRACT_HARD_ENFORCEMENT` env var, default Soft).
 - Phase 4 — pending: E + H.2
 - Phase 5 — pending: F + H.3
 - Phase 6 — pending: G
