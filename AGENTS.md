@@ -1,132 +1,250 @@
-# Coder - AI Assistant Desktop Application
+# AGENTS.md
 
-@README.md - Overview, quick start, key features, development commands, module documentation pointers
-@RULES.md - Coding standards and architectural rules
+Desktop application built with **Rust (Tauri v2)** and **Svelte/TypeScript** for AI-powered developer automation.
 
-Desktop application built with Rust (Tauri v2) and Svelte/TypeScript for AI-powered developer automation.
+## Project Overview
 
-**Core principles**: User-centric design, performance via Rust/Tauri, modular architecture, security, cross-platform (Linux/macOS/Windows).
+### Core Principles
+- User-centric design
+- Performance through Rust/Tauri
+- Modular architecture
+- Security
+- Cross-platform support (Linux, macOS, Windows)
 
-**Key capabilities**: AI agent integration, code generation, task automation, productivity tools.
+### Key Capabilities
+- AI agent integration
+- Code generation
+- Task automation
+- Productivity tools
 
 ## Tech Stack
 
-- **Backend**: Rust
-- **Frontend**: Svelte + TypeScript
-- **Styling**: Custom CSS modules + Component library
-- **Desktop Framework**: Tauri v2
+### Backend
+- Rust
+- Tauri v2
 
-### Coding Rules
+### Frontend
+- Svelte
+- TypeScript
 
-All coding standards are in **`RULES.md`** (project root):
+### Styling
+- Custom CSS modules
+- Component library
 
-- UI/UX golden rule (design philosophy)
-- Documentation governance (lifecycle, creation, maintenance, removal)
-- Component structure, naming conventions
-- CSS & styling rules (prohibited patterns, verification checklist, shared files)
-- Rust, TypeScript/Svelte code style
-- Architecture rules, quality assurance requirements
-
-**Read `RULES.md` before making any code changes.**
-
-### Mandatory Code Quality Guidance
+# Mandatory Reading Order
 
 `AGENTS.md` is the mandatory entry point for development guidance in this repository.
 
-Before making **any** code change, every agent or contributor must read, in order:
+Before making **any code change**, every agent or contributor must read, in order:
 
-1. `AGENTS.md`
-2. `RULES.md`
-3. `docs/quality/guidelines/README.md`
-4. Every touched-area guide:
+1. `RULES.md`
+2. `docs/quality/guidelines/README.md`
+3. Every guide relevant to the touched area:
    - `docs/quality/guidelines/rust-backend.md`
    - `docs/quality/guidelines/typescript.md`
    - `docs/quality/guidelines/svelte.md`
    - `docs/quality/guidelines/configuration.md`
    - `docs/quality/guidelines/scripts.md`
-5. The relevant architecture/feature/database docs for the area being changed
+4. The relevant architecture, feature, and database documentation for the area being changed
 
 If a task spans multiple layers or technologies, **all applicable guides must be followed**.
 
-These guides are mandatory and define the expected level of quality for this codebase:
+When working in an area with recurring quality issues, consult:
+- `docs/issues/README.md`
+- the relevant issue folder
 
-- clean, maintainable code with stale references removed
-- strict separation of concerns
-- refactor discipline with behavior protected before restructuring
-- test-first or characterization-first changes whenever practical
-- no acceptance of duplicate logic, dead code, debug leftovers, hardcoded design values, or other avoidable quality drift
+# Repository Rules Authority
 
-Violations are blocking. Work that diverges from `RULES.md` or the applicable files under `docs/quality/guidelines/` is not ready for implementation, review, or merge.
+All coding standards are defined in **`RULES.md`** at the project root.
 
-When working in an area with recurring quality issues, consult `docs/issues/README.md` and the relevant issue folder before finalizing the change.
+This includes:
+- UI/UX design philosophy
+- Documentation governance
+- Component structure
+- Naming conventions
+- CSS and styling rules
+- Rust code style
+- TypeScript/Svelte code style
+- Architecture rules
+- Quality assurance requirements
 
-# Documentation - MANDATORY RULE FOR EVERY CHANGE
+**Read `RULES.md` before making any code changes.**
 
-** MANDATORY **: Every agent or contributor must read the documentation in the order specified in the "Mandatory Code Quality Guidance" section before making any code change.
-** Documentation is a first-class citizen in this repository. It is expected to be accurate, up-to-date, and comprehensive. Every code change must be accompanied by the necessary documentation updates to maintain this standard.
-** Obsolete or inaccurate documentation must be updated or removed as part of any code change that touches the relevant area. Stale references to removed features, old architecture, or previous implementations are not acceptable and must be cleaned up.
+Violations are blocking. Work that diverges from `RULES.md` or the applicable files under `docs/quality/guidelines/` is **not ready** for implementation, review, or merge.
 
-# UI/UX - MANDATORY RULES
+# Quality Expectations
 
-- **UI/UX Golden Rule**: Every user interaction must be designed with the user's needs and experience in mind. This means prioritizing clarity, simplicity, and responsiveness in the UI, while ensuring that the underlying functionality is robust and efficient. All design decisions should be guided by this principle to create a seamless and intuitive user experience.
-** MANDATORY **: All UI/UX changes must use /frontend-design skills and follow the UI/UX Golden Rule. This includes adhering to established design patterns, ensuring consistency across the application, and validating changes through user testing when possible.
+These guides define the expected level of quality for this codebase:
 
-## UI/UX Prototyping
+- Clean, maintainable code with stale references removed
+- Strict separation of concerns
+- Refactor discipline with behavior protected before restructuring
+- Test-first or characterization-first changes whenever practical
+- No acceptance of:
+  - duplicate logic
+  - dead code
+  - debug leftovers
+  - hardcoded design values
+  - other avoidable quality drift
 
-- ** ANY UI/UX change the as creating or changing something relevate must prototype a html first and ask for feedback before implementing the svelte component. This is to ensure that the design is sound and meets the user's needs before investing time in implementation. Prototyping allows for early feedback and iteration, which can lead to a better final product.
-- Must save the prototypes into `.prototypes/<feature>/<prototype-name>.html` for future reference and to maintain a record of the design process. This practice promotes transparency and allows other team members to understand the design decisions made during development.
+If code changes touch an area, stale references to removed features, outdated architecture, or previous implementations must be cleaned up as part of the work.
 
-## Build Commands
+# Documentation Rules
 
-```bash
-# Rust backend
-cargo build              # Build the project
-cargo test               # Run tests
-cargo clippy             # Run linter
+Documentation is a first-class citizen in this repository.
 
-# Frontend (run from src-ui/)
-npm install              # Install dependencies
-npm run dev              # Development server
-npm run build            # Production build
-npm run check            # Type checking
-
-# Tauri (run from root)
-cargo tauri dev          # Run in development mode
-cargo tauri build        # Build for production
-```
+## Mandatory Documentation Requirements
+- Every agent or contributor must read the documentation in the order defined in **Mandatory Reading Order** before making any code change.
+- Documentation must be accurate, up to date, and comprehensive.
+- Every code change must include the necessary documentation updates.
+- Obsolete or inaccurate documentation must be updated or removed as part of the same change.
+- Stale references to removed features, old architecture, or previous implementations are not acceptable.
 
 ## Feature Documentation
-
 | Feature | Document | Description |
 |---------|----------|-------------|
 | Thread Locking | `docs/features/thread-locking.md` | Backend/frontend behavior, user flow, design tokens |
-| Agent Streaming Message IDs | `docs/features/agent-streaming-message-ids.md` | Id scheme for `streaming_content` events; backend/frontend contract that prevents messages from being overwritten |
-| Agent Clarification | `docs/features/agent-clarification.md` | Pause/resume on `agent_narrate { intent: "question" }` — dual-layer store, `ExecutionCheckpoint`, restart rehydration, timeout fallback |
+| Agent Streaming Message IDs | `docs/features/agent-streaming-message-ids.md` | ID scheme for `streaming_content` events; backend/frontend contract that prevents messages from being overwritten |
+| Agent Clarification | `docs/features/agent-clarification.md` | Pause/resume on `agent_narrate { intent: "question" }`; dual-layer store, `ExecutionCheckpoint`, restart rehydration, timeout fallback |
 | Database Access & Debugging | `docs/database-reference.md` | SQLite schema, SQL queries, tracing, tips |
 
 > Note: Files under `docs/archive/` are preserved for historical context and migration traceability. Archived documents may reference legacy paths and do **not** necessarily reflect current architecture or shipped features.
 
-Database is SQLite via `rusqlite` v0.31 (bundled, no ORM). Four DB files in Tauri's app data dir (`~/.local/share/com.coder.app/`): `coder_config.db`, `coder_chat.db`, `coder_context.db`, `coder_agents.db`. Always use `sqlite3 -readonly` while the app is running.
+# UI/UX Rules
 
-## Dependencies
+## UI/UX Golden Rule
+Every user interaction must be designed with the user's needs and experience in mind.
 
-### Rust
-- `tauri` - Desktop application framework for building native Rust modules and API bindings for the frontend
-- `tokio` - Async runtime
-- `serde` - Serialization/deserialization
-- `anyhow` - Error handling
-- `rusqlite` - SQLite bindings (bundled, no external SQLite library required)
+This means prioritizing:
+- clarity
+- simplicity
+- responsiveness
 
-### Frontend
-- `svelte` - UI framework
-- `@sveltejs/kit` - SvelteKit framework
-- `typescript` - Type safety
-- `vite` - Build tool
+The underlying functionality must remain robust and efficient. All design decisions should follow this rule to create a seamless and intuitive user experience.
 
-## Development Process
+## Mandatory UI/UX Requirements
+- All UI/UX changes must use `/frontend-design` skills
+- All UI/UX changes must follow the UI/UX Golden Rule
+- Changes must adhere to established design patterns
+- Changes must ensure consistency across the application
+- Changes should be validated through user testing when possible
 
-- **Branching**: Feature branches. Merge to main after review and testing.
-- **Planning**: Before any work, create a plan with expected outcome. Review with team if uncertain.
-- **Implementation**: Follow `RULES.md` and every applicable guide under `docs/quality/guidelines/`. Write clean, tested code and remove stale references in the touched area.
-- **Testing**: Unit tests for new code. Integration tests for critical flows. Manual validation for UX.
-- **Documentation**: Update relevant docs and changelog as part of the work.
+## UI/UX Prototyping
+For any relevant UI/UX creation or change:
+- create an HTML prototype first
+- ask for feedback before implementing the Svelte component
+
+This is required to ensure the design is sound and meets user needs before implementation effort is spent.
+
+### Prototype Storage
+Prototypes must be saved to:
+
+`.prototypes/<feature>/<prototype-name>.html`
+
+This preserves design history and helps other team members understand the design process.
+
+# Build Commands
+
+## Rust Backend
+```bash
+cargo build
+cargo test
+cargo clippy
+````
+
+## Frontend
+
+Run from `src-ui/`:
+
+```bash
+npm install
+npm run dev
+npm run build
+npm run check
+```
+
+## Tauri
+
+Run from repository root:
+
+```bash
+cargo tauri dev
+cargo tauri build
+```
+
+# Database
+
+Database is **SQLite** via `rusqlite` v0.31` (bundled, no ORM).
+
+## Database Files
+
+Stored in Tauri app data directory:
+
+`~/.local/share/com.coder.app/`
+
+Files:
+
+* `coder_config.db`
+* `coder_chat.db`
+* `coder_context.db`
+* `coder_agents.db`
+
+## Rule for Live Inspection
+
+Always use:
+
+```bash
+sqlite3 -readonly
+```
+
+while the app is running.
+
+# Dependencies
+
+## Rust
+
+* `tauri` — desktop application framework for native Rust modules and frontend bindings
+* `tokio` — async runtime
+* `serde` — serialization/deserialization
+* `anyhow` — error handling
+* `rusqlite` — SQLite bindings (bundled, no external SQLite library required)
+
+! ADD NEW DEPENDENCIES WHEN YOU SEE IT IN THE PROJECT AND UNDERSTAND HOW RELEVANT IT IS TO THE PROJECT. AVOID ADDING DEPENDENCIES UNNECESSARILY.
+
+## Frontend
+
+* `svelte` — UI framework
+* `@sveltejs/kit` — SvelteKit framework
+* `typescript` — type safety
+* `vite` — build tool
+
+---
+
+# Development Process
+
+## 1. Planning
+
+Before any work, create a plan with the expected outcome. Review with the team if uncertain.
+
+## 2. Implementation
+
+Follow:
+
+* `RULES.md`
+* every applicable guide under `docs/quality/guidelines/`
+
+Write clean, tested code and remove stale references in the touched area.
+
+## 3. Testing
+
+* Unit tests for new code
+* Integration tests for critical flows
+* Manual validation for UX
+
+## 4. Documentation
+
+Update relevant documentation and changelog as part of the work.
+
+## 5. Branching
+
+Use feature branches. Merge to `main` after review and testing.
