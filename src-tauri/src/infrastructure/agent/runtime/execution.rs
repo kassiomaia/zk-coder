@@ -14,6 +14,7 @@ use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::{AgentExecutionResult, AgentRequest};
 use crate::core::agent::types::TrustMode;
 use crate::core::chat::services::ChatService;
+use crate::core::config::ConfigRepository;
 use crate::core::llm::entities::ToolDefinition;
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
@@ -35,6 +36,7 @@ pub async fn execute(
     app_handle: &AppHandle,
     session_repo: &dyn SessionRepository,
     chat_service: &dyn ChatService,
+    config_repository: &dyn ConfigRepository,
     task_repo: &dyn TaskRepository,
     telemetry_repo: &dyn AgentTelemetryRepository,
     execution_repo: &dyn ExecutionRepository,
@@ -55,6 +57,7 @@ pub async fn execute(
         app_handle,
         session_repo,
         chat_service,
+        config_repository,
         task_repo,
         telemetry_repo,
         execution_repo,

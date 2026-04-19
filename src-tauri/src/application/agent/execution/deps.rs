@@ -16,6 +16,7 @@ use crate::core::agent::repositories::{
     TaskRepository,
 };
 use crate::core::chat::services::ChatService;
+use crate::core::config::ConfigRepository;
 use crate::core::llm::entities::ToolDefinition;
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
@@ -30,6 +31,9 @@ pub struct ExecutionDeps<'a> {
     pub session_repo: &'a dyn SessionRepository,
     /// The chat service for thread metadata lookups.
     pub chat_service: &'a dyn ChatService,
+    /// The configuration repository, used to resolve LLM provider/model
+    /// metadata when the runtime needs to construct an LLM client.
+    pub config_repository: &'a dyn ConfigRepository,
     /// The repository for managing agent tasks.
     pub task_repo: &'a dyn TaskRepository,
     /// The repository for agent telemetry.

@@ -4,6 +4,8 @@
  */
 import { FilePenLine, FileSearch, FileText, Search } from 'lucide-svelte';
 import type { AnyToolRenderer } from './types';
+import FsReadBody from '../FsReadBody.svelte';
+import FsWriteBody from '../FsWriteBody.svelte';
 
 interface FsPathArgs {
 	path?: string;
@@ -39,7 +41,8 @@ export const fsReadRenderer: AnyToolRenderer = {
 		if (short) return short;
 		const res = result as FsReadResult | undefined;
 		return `Read ${res?.content?.split('\n').length ?? 0} lines`;
-	}
+	},
+	BodyComponent: FsReadBody
 };
 
 export const fsWriteRenderer: AnyToolRenderer = {
@@ -52,7 +55,8 @@ export const fsWriteRenderer: AnyToolRenderer = {
 		const short = pendingOrErrorOutcome(status);
 		if (short) return short;
 		return 'Changes applied successfully';
-	}
+	},
+	BodyComponent: FsWriteBody
 };
 
 export const fsGlobRenderer: AnyToolRenderer = {

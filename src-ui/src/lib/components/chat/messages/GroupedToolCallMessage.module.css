@@ -1,0 +1,175 @@
+/*
+ * GroupedToolCallMessage styles
+ *
+ * Visual language intentionally mirrors ToolCallMessage.module.css:
+ * same backgrounds, borders, font sizes, and spacing tokens so a group
+ * header row is visually indistinguishable from a single collapsed card.
+ */
+
+/* ---- Outer wrapper ---- */
+.group {
+	margin-bottom: var(--space-px);
+	background: transparent;
+	border-radius: var(--radius-none);
+	border: 1px solid transparent;
+	overflow: hidden;
+	transition: all var(--transition-fast);
+}
+
+.group:hover {
+	background: var(--color-interactive-hover);
+	border-color: var(--color-border-subtle);
+}
+
+.expanded {
+	background: var(--color-bg-secondary);
+	border-color: var(--color-border-subtle);
+	margin-bottom: var(--space-px);
+}
+
+/* ---- Header row — matches ToolCallMessage .header exactly ---- */
+.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	padding: var(--space-1) var(--space-2);
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	gap: var(--space-2);
+	text-align: left;
+}
+
+.headerMain {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-width: 0;
+	flex: 1;
+}
+
+/* Chevron rotates 90° when expanded */
+.chevron {
+	display: flex;
+	color: var(--color-text-muted);
+	opacity: 0.5;
+	transition: transform var(--transition-fast);
+}
+
+.chevron.rotated {
+	transform: rotate(90deg);
+	opacity: 0.8;
+}
+
+/* Tool badge — identical to ToolCallMessage .toolBadge */
+.toolBadge {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--space-4-5);
+	height: var(--space-4-5);
+	border-radius: var(--radius-none);
+	background: var(--color-bg-tertiary);
+	color: var(--color-text-tertiary);
+	flex-shrink: 0;
+	transition: all var(--transition-fast);
+}
+
+.expanded .toolBadge,
+.group:hover .toolBadge {
+	background: var(--color-primary-subtle);
+	color: var(--color-primary-500);
+}
+
+/* Label text */
+.actionInfo {
+	display: flex;
+	flex-direction: row;
+	align-items: baseline;
+	gap: var(--space-2);
+	min-width: 0;
+}
+
+.actionTitle {
+	font-size: var(--text-xs);
+	font-weight: var(--font-medium);
+	color: var(--color-text-secondary);
+	white-space: nowrap;
+}
+
+.expanded .actionTitle,
+.group:hover .actionTitle {
+	color: var(--color-text-primary);
+	font-weight: var(--font-semibold);
+}
+
+/* Right side meta area */
+.headerMeta {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	flex-shrink: 0;
+}
+
+/* Status indicator — mirrors ToolCallMessage */
+.statusIndicator {
+	display: flex;
+	color: var(--color-text-muted);
+	opacity: 0.4;
+}
+
+.statusIndicator.success {
+	color: var(--color-success, #3d9970);
+	opacity: 0.7;
+}
+
+.statusIndicator.error {
+	color: var(--color-error, #c87a82);
+	opacity: 0.8;
+}
+
+.spinner {
+	width: var(--space-3-5);
+	height: var(--space-3-5);
+	border: 2px solid var(--color-primary-400);
+	border-bottom-color: transparent;
+	border-radius: var(--radius-full);
+	display: inline-block;
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* ---- Expanded inner card list ---- */
+.innerList {
+	border-top: 1px solid var(--color-border-subtle);
+	background: var(--color-bg-secondary);
+	display: flex;
+	flex-direction: column;
+}
+
+/*
+ * Each individual ToolCallMessage inside the group gets a top border to
+ * visually separate siblings. We target the wrapper div we render around
+ * each ToolCallMessage in the template.
+ */
+.innerItem {
+	border-top: 1px solid var(--color-border-subtle);
+}
+
+.innerItem:first-child {
+	border-top: none;
+}
+
+/* Error accent strip — mirrors ToolCallMessage .hasError */
+.hasError {
+	border-left: 2px solid var(--color-error, #c87a82);
+}

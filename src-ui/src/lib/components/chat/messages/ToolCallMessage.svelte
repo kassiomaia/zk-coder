@@ -14,6 +14,7 @@
 	import 'highlight.js/styles/github-dark.css';
 	import { getToolRenderer } from './tool-renderers/registry';
 	import type { ToolCallStatus } from './tool-renderers/types';
+	import { agentStore } from '$lib/stores/agent';
 
 	interface Props {
 		message: Message;
@@ -54,6 +55,20 @@
 
 	const summary = $derived(renderer.getSummary(agentData?.toolArgs, toolName));
 	const outcome = $derived(renderer.getOutcome(agentData?.toolResult, toolCallStatus));
+
+	// Resolve the TouchedFile for write operations by looking up the session's
+	// filesTouched array using the sessionId and the path from toolArgs.
+	const touchedFile = $derived(
+		(() => {
+			const sessionId = agentData?.sessionId ?? '';
+			const filePath =
+				(agentData?.toolArgs as { filePath?: string; path?: string } | undefined)?.filePath ??
+				(agentData?.toolArgs as { filePath?: string; path?: string } | undefined)?.path;
+			if (!sessionId || !filePath) return undefined;
+			const files = $agentStore.sessions.get(sessionId)?.filesTouched;
+			return files?.find((tf) => tf.path === filePath);
+		})()
+	);
 
 	// Helper to safely extract error message from toolResult
 	function getErrorMessage(result: unknown): string {
@@ -160,6 +175,8 @@
 							args={agentData?.toolArgs}
 							result={agentData?.toolResult}
 							status={toolCallStatus}
+							streamingContent={agentData?.streamingContent}
+							{touchedFile}
 						/>
 					</div>
 				{:else if agentData?.toolResult !== undefined}

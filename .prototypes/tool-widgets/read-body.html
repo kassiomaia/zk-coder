@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<!--
+  Prototype: ReadBody — Compact file list for fs_read_file tool card
+  ──────────────────────────────────────────────────────────────────
+  Represents the expanded body of a ToolCallMessage for fs_read_file.
+  Currently the app shows "Read N lines" as outcome text with no body.
+  This prototype shows a compact clickable file path list.
+
+  Key design decisions:
+  - File rows are dense (28px height) matching the reference screenshot
+  - Line range badge is styled as muted code inline
+  - "›" arrow on the right suggests the row is navigable
+  - No file content is shown — just the path inventory
+  - Language color dot on the file icon for quick visual scanning
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prototype: Read Body</title>
+<style>
+  :root {
+    --bg-base:        #0b0b0a;
+    --bg-secondary:   #141413;
+    --bg-tertiary:    #1a1918;
+    --surface-hover:  #1e1d1c;
+    --border-subtle:  rgba(255, 252, 245, 0.04);
+    --border-primary: rgba(255, 252, 245, 0.07);
+    --text-primary:   #e6e5e0;
+    --text-secondary: #a3a29a;
+    --text-muted:     #545350;
+    --primary-500:    #5c6178;
+    --primary-subtle: rgba(92, 97, 120, 0.06);
+    --success:        #3d9970;
+    --lang-rust:      #f74c00;
+    --font-mono:      'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+    --font-sans:      -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-base);
+    font-family: var(--font-sans);
+    padding: 32px;
+    min-height: 100vh;
+  }
+
+  .page-note {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  /* ─── Card ─── */
+  .tool-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    width: 100%;
+    max-width: 680px;
+  }
+
+  /* ─── Header ─── */
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    cursor: pointer;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .header-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .tool-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: rgba(92, 97, 120, 0.10);
+    color: var(--primary-500);
+    flex-shrink: 0;
+  }
+
+  .tool-badge svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  .action-info {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .action-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  .action-subtitle {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .status-success {
+    display: flex;
+    color: var(--success);
+    opacity: 0.75;
+  }
+
+  .status-success svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .chevron {
+    display: flex;
+    color: var(--text-muted);
+    opacity: 0.4;
+    transform: rotate(90deg);
+  }
+
+  .chevron svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* ─── File list ─── */
+  .file-list {
+    list-style: none;
+  }
+
+  .file-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0 10px;
+    height: 30px;
+    cursor: pointer;
+    transition: background 100ms ease;
+    border-bottom: 1px solid var(--border-subtle);
+    gap: 7px;
+  }
+
+  .file-row:last-child {
+    border-bottom: none;
+  }
+
+  .file-row:hover {
+    background: var(--surface-hover);
+  }
+
+  /* Small language-colored dot */
+  .file-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    position: relative;
+  }
+
+  .file-icon svg {
+    width: 13px;
+    height: 13px;
+    color: var(--text-muted);
+    opacity: 0.6;
+  }
+
+  .lang-dot {
+    position: absolute;
+    bottom: 0;
+    right: -1px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--lang-rust);
+    border: 1px solid var(--bg-secondary);
+  }
+
+  .file-path {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .path-dir {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .path-name {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .file-row:hover .path-name {
+    color: var(--text-primary);
+  }
+
+  .line-range {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: 4px;
+    opacity: 0.7;
+  }
+
+  .row-arrow {
+    display: flex;
+    color: var(--text-muted);
+    opacity: 0.3;
+    flex-shrink: 0;
+    margin-left: 4px;
+    transition: opacity 100ms;
+  }
+
+  .row-arrow svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  .file-row:hover .row-arrow {
+    opacity: 0.6;
+  }
+
+  /* Footer */
+  .card-footer {
+    padding: 6px 10px;
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.4;
+    text-align: right;
+    border-top: 1px solid var(--border-subtle);
+  }
+</style>
+</head>
+<body>
+
+<p class="page-note">Prototype · ReadBody — fs_read_file tool card · expanded state</p>
+
+<div class="tool-card">
+
+  <!-- Header -->
+  <div class="card-header">
+    <div class="header-main">
+      <div class="tool-badge">
+        <!-- FileText icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      </div>
+      <div class="action-info">
+        <span class="action-title">Read 4 files</span>
+        <span class="action-subtitle">4 files read</span>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span class="status-success">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </span>
+      <span class="chevron">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </span>
+    </div>
+  </div>
+
+  <!-- File list -->
+  <ul class="file-list">
+
+    <li class="file-row">
+      <div class="file-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+        <span class="lang-dot"></span>
+      </div>
+      <div class="file-path">
+        <span class="path-dir">src-tauri/src/commands/config/</span>
+        <span class="path-name">pdf_theme.rs</span>
+      </div>
+      <div class="row-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </div>
+    </li>
+
+    <li class="file-row">
+      <div class="file-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+        <span class="lang-dot"></span>
+      </div>
+      <div class="file-path">
+        <span class="path-dir">src-tauri/src/application/nlp/</span>
+        <span class="path-name">context_manager.rs</span>
+      </div>
+      <span class="line-range">:1–50</span>
+      <div class="row-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </div>
+    </li>
+
+    <li class="file-row">
+      <div class="file-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+        <span class="lang-dot"></span>
+      </div>
+      <div class="file-path">
+        <span class="path-dir">src-tauri/src/commands/llm/</span>
+        <span class="path-name">helpers.rs</span>
+      </div>
+      <span class="line-range">:1–30</span>
+      <div class="row-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </div>
+    </li>
+
+    <li class="file-row">
+      <div class="file-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+        <span class="lang-dot"></span>
+      </div>
+      <div class="file-path">
+        <span class="path-dir">src-tauri/src/infrastructure/tools/search/web_search/</span>
+        <span class="path-name">cache.rs</span>
+      </div>
+      <span class="line-range">:1–50</span>
+      <div class="row-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </div>
+    </li>
+
+  </ul>
+
+  <div class="card-footer">2026-04-19 · 14:31:48</div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,240 @@
+.wrap {
+	overflow: hidden;
+}
+
+/* ── Collapsible file header ── */
+.fileHeader {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	padding: 5px 10px;
+	background: #111110;
+	cursor: pointer;
+	border-bottom: 1px solid var(--color-border-subtle);
+	user-select: none;
+}
+
+.fileHeader:hover {
+	background: #131211;
+}
+
+.fileChevron {
+	display: flex;
+	color: var(--color-text-muted);
+	opacity: 0.5;
+	transition: transform var(--transition-fast);
+	flex-shrink: 0;
+}
+
+.fileChevronOpen {
+	transform: rotate(90deg);
+}
+
+.fileIconWrap {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+	color: var(--color-text-muted);
+	opacity: 0.5;
+}
+
+.langDot {
+	position: absolute;
+	bottom: -1px;
+	right: -2px;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	border: 1px solid #111110;
+}
+
+.filePathText {
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	color: var(--color-text-secondary);
+	flex: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.fileDir {
+	color: var(--color-text-muted);
+}
+
+.fileName {
+	color: var(--color-text-secondary);
+}
+
+.fileStats {
+	font-size: 10px;
+	display: flex;
+	gap: 6px;
+	flex-shrink: 0;
+}
+
+.statAdd {
+	color: #8fb47a;
+	opacity: 0.8;
+}
+
+.statDel {
+	color: #c87a82;
+	opacity: 0.8;
+}
+
+/* ── Diff table ── */
+.diffWrap {
+	overflow-x: auto;
+	scrollbar-width: thin;
+	scrollbar-color: #222 transparent;
+}
+
+.diffWrap::-webkit-scrollbar {
+	height: 4px;
+}
+
+.diffWrap::-webkit-scrollbar-thumb {
+	background: #222;
+}
+
+.diffTable {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+.colLn {
+	width: 36px;
+}
+
+.colGt {
+	width: 18px;
+}
+
+/* Common cell */
+.cell {
+	padding: 0;
+	vertical-align: top;
+	font-family: var(--font-mono);
+	font-size: 11.5px;
+	line-height: 18px;
+	white-space: pre;
+}
+
+.ln {
+	padding: 0 6px;
+	text-align: right;
+	user-select: none;
+	font-size: 10.5px;
+	border-right: 1px solid var(--color-border-subtle);
+	color: #302f2e;
+}
+
+.gt {
+	text-align: center;
+	user-select: none;
+	font-size: 11px;
+	border-right: 1px solid var(--color-border-subtle);
+}
+
+.code {
+	padding-left: 10px;
+	color: var(--color-text-secondary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Row types */
+.ctx td {
+	background: transparent;
+}
+
+.ctx .ln {
+	color: #302f2e;
+}
+
+.ctx .code {
+	color: var(--color-text-muted);
+}
+
+.del td {
+	background: rgba(200, 122, 130, 0.09);
+}
+
+.del .ln {
+	background: rgba(200, 122, 130, 0.20);
+	color: rgba(200, 122, 130, 0.50);
+}
+
+.del .gt {
+	background: rgba(200, 122, 130, 0.20);
+	color: #c87a82;
+}
+
+.del .code {
+	color: var(--color-text-secondary);
+}
+
+.add td {
+	background: rgba(143, 180, 122, 0.09);
+}
+
+.add .ln {
+	background: rgba(143, 180, 122, 0.20);
+	color: rgba(143, 180, 122, 0.50);
+}
+
+.add .gt {
+	background: rgba(143, 180, 122, 0.20);
+	color: #8fb47a;
+}
+
+.add .code {
+	color: var(--color-text-secondary);
+}
+
+.hunk td {
+	background: rgba(92, 97, 120, 0.05);
+}
+
+.hunk .code {
+	color: var(--color-text-muted);
+	font-size: 10.5px;
+	letter-spacing: 0.02em;
+}
+
+/* ── Show all button ── */
+.showAllWrap {
+	display: flex;
+	justify-content: center;
+	padding: 8px;
+	background: #111110;
+	border-top: 1px solid var(--color-border-subtle);
+}
+
+.showAllBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 4px 12px;
+	background: transparent;
+	border: 1px solid var(--color-border-primary);
+	color: var(--color-text-muted);
+	font-size: 10px;
+	font-family: var(--font-sans);
+	cursor: pointer;
+	transition: background var(--transition-fast), color var(--transition-fast);
+	letter-spacing: 0.03em;
+	border-radius: 0;
+}
+
+.showAllBtn:hover {
+	background: rgba(255, 252, 245, 0.03);
+	color: var(--color-text-secondary);
+}

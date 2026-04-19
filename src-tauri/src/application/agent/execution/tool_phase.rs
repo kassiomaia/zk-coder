@@ -107,6 +107,7 @@ pub async fn run_tools(
         &response.tool_calls,
         session,
         &ctx.task_id,
+        ctx.step_number,
         permission_resolver,
         yolo_mode_provider,
         ctx.current_allowed_tool_names.as_deref(),

@@ -1,0 +1,76 @@
+.truncationNotice {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 5px 8px;
+	background: rgba(212, 147, 13, 0.06);
+	border: 1px solid rgba(212, 147, 13, 0.12);
+	font-size: var(--text-2xs);
+	color: #d4930d;
+	line-height: 1.45;
+	margin-bottom: 6px;
+}
+
+.truncationNotice svg {
+	flex-shrink: 0;
+	margin-top: 1px;
+	opacity: 0.8;
+}
+
+.terminalBox {
+	background: #0d0d0d;
+	border: 1px solid var(--color-border-primary);
+	padding: 10px 12px;
+	max-height: 240px;
+	overflow-y: auto;
+	scrollbar-width: thin;
+	scrollbar-color: #302f2e transparent;
+}
+
+.terminalBox::-webkit-scrollbar {
+	width: 4px;
+}
+
+.terminalBox::-webkit-scrollbar-thumb {
+	background: #302f2e;
+}
+
+.termPre {
+	font-family: var(--font-mono);
+	font-size: var(--text-2xs);
+	line-height: 1.55;
+	color: #c8c7c1;
+	white-space: pre-wrap;
+	word-break: break-all;
+	margin: 0;
+}
+
+.termDivider {
+	border: none;
+	border-top: 1px solid var(--color-border-subtle);
+	margin: 6px 0;
+}
+
+.termExit {
+	display: block;
+	font-family: var(--font-mono);
+	font-size: var(--text-2xs);
+	color: var(--color-text-muted);
+	font-style: italic;
+}
+
+.pendingLine {
+	padding: 6px 0;
+}
+
+.pendingDots {
+	font-size: var(--text-2xs);
+	color: var(--color-text-muted);
+	opacity: 0.6;
+	animation: pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0%, 100% { opacity: 0.3; }
+	50%       { opacity: 0.7; }
+}
