@@ -256,3 +256,5 @@ something that degradete the agent execution, performance, or usability, you mus
 you must have in mind that this it the core of the product and needs full attention, collect all the information you can,
 document the evidence, and create a detailed issue with all the information you have, and if possible, a reproduction steps.
 With that start a discussion with the team to find the best solution, and if you have a solution, create a plan to implement it, and share it with the team before start working on it.
+
+IF The user share any backend log you must be able to check the tracking information in the database, and correlate it with the backend logs, to have a full picture of what is going on, and to be able to find the root cause of the issue.
