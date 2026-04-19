@@ -68,6 +68,9 @@ export function handleAgentEvent(state: AgentState, event: AgentEvent): AgentSta
 		case 'execution_started':
 			SessionEvents.handleExecutionStarted(state, event);
 			break;
+		case 'execution_resumed':
+			SessionEvents.handleExecutionResumed(state, event);
+			break;
 		case 'execution_step':
 			SessionEvents.handleExecutionStep(state, event);
 			break;

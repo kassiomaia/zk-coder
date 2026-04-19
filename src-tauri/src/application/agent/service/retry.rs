@@ -6,6 +6,7 @@ use crate::core::agent::repositories::RepositoryResult;
 use crate::core::agent::session::{SessionId, SessionState};
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 
+use super::planner::UserIntentHint;
 use super::AgentServiceImpl;
 
 impl AgentServiceImpl {
@@ -28,6 +29,8 @@ impl AgentServiceImpl {
         }
 
         let content = self.latest_request_content(&session_id)?;
+        self.harness_state_store
+            .record_pending_intent(&session_id, UserIntentHint::Fresh);
         self.spawn_execution(session_id, content, app_handle).await
     }
 
@@ -103,12 +106,18 @@ impl AgentServiceImpl {
             },
         );
 
+        // Tell bootstrap's planner this is a Resume — it will reuse the
+        // existing plan and just seek the cursor to the first non-
+        // completed subtask instead of regenerating the plan.
+        self.harness_state_store
+            .record_pending_intent(&session_id, UserIntentHint::Resume);
         self.spawn_execution(session_id, content, app_handle).await
     }
 
     /// Replan and continue execution from a paused session.
     ///
-    /// The agent will review all previous work and create a fresh plan.
+    /// The agent will review all previous work and create a fresh plan
+    /// for the remaining work. The previous task row stays in history.
     pub async fn replan_and_continue(
         &self,
         session_id: String,
@@ -126,11 +135,6 @@ impl AgentServiceImpl {
 
         let content = self.latest_request_content(&session_id)?;
 
-        // Prepend replan instruction
-        let replan_content = format!(
-            "{content}\n\nPlease review all the work that has been done so far and create a fresh plan for completing the remaining tasks."
-        );
-
         info!("[AgentRecovery] Replanning and continuing execution for session {session_id}");
 
         let _ = app_handle.emit(
@@ -140,7 +144,12 @@ impl AgentServiceImpl {
             },
         );
 
-        self.spawn_execution(session_id, replan_content, app_handle)
-            .await
+        // The planner's system prompt, combined with UserIntentHint::Replan
+        // and the existing plan state, owns the "review prior work and
+        // produce a revised plan" instruction — no need to splice it
+        // into the user content.
+        self.harness_state_store
+            .record_pending_intent(&session_id, UserIntentHint::Replan);
+        self.spawn_execution(session_id, content, app_handle).await
     }
 }

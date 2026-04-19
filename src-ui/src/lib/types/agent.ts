@@ -521,6 +521,12 @@ export type AgentEvent =
 			subtaskId?: string;
 	  }
 	| { type: 'execution_started'; sessionId: string; requestId: string }
+	| {
+			type: 'execution_resumed';
+			sessionId: string;
+			taskId: string;
+			nextSubtaskId?: string;
+	  }
 	| { type: 'execution_step'; sessionId: string; step: ExecutionStep }
 	| {
 			type: 'execution_complete';

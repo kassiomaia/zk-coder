@@ -25,6 +25,7 @@ use crate::application::agent::read_models::{
     AwaitingClarificationDetails, EnvironmentHealth, HarnessMode, SessionHandoffSummary,
     StartupVerificationState, StartupVerificationSummary,
 };
+use crate::application::agent::service::planner::UserIntentHint;
 use crate::core::agent::task::{AgentTask, TaskStatus};
 
 /// Field-level harness-state overrides merged onto the derived defaults.
@@ -48,6 +49,11 @@ pub struct HarnessStateOverrides {
     /// (Workstream E.2). Set in the same call as `mode`; cleared when
     /// the registry clears the pending clarification.
     pub awaiting_clarification: Option<AwaitingClarificationDetails>,
+    /// Per-spawn hint describing which user action triggered the next
+    /// execution (Continue / Replan / Fresh). Read by bootstrap once
+    /// and consumed — it does not persist across spawns. Absent for
+    /// the first run of a session.
+    pub pending_intent: Option<UserIntentHint>,
 }
 
 impl HarnessStateOverrides {
@@ -59,6 +65,7 @@ impl HarnessStateOverrides {
             && self.handoff.is_none()
             && self.clean_exit_recorded.is_none()
             && self.awaiting_clarification.is_none()
+            && self.pending_intent.is_none()
     }
 }
 
@@ -102,6 +109,16 @@ pub trait HarnessStateStore: Send + Sync {
     /// Called when the user reply clears the pending clarification or
     /// when the timeout fallback fails the subtask.
     fn clear_awaiting_clarification(&self, session_id: &str);
+
+    /// Records the user's next-spawn intent (Continue / Replan / Fresh).
+    /// Called by the service layer before `spawn_execution` so bootstrap
+    /// can pick up the hint and pass it to the planner.
+    fn record_pending_intent(&self, session_id: &str, intent: UserIntentHint);
+
+    /// Atomically reads and clears the pending intent for `session_id`.
+    /// Bootstrap calls this once per execution; subsequent reads until
+    /// the next `record_pending_intent` return `None`.
+    fn take_pending_intent(&self, session_id: &str) -> Option<UserIntentHint>;
 
     /// Drops every override recorded for `session_id`.
     fn clear(&self, session_id: &str);
@@ -201,6 +218,21 @@ impl HarnessStateStore for InMemoryHarnessStateStore {
         self.with_entry(session_id, |entry| {
             entry.awaiting_clarification = None;
         });
+    }
+
+    fn record_pending_intent(&self, session_id: &str, intent: UserIntentHint) {
+        self.with_entry(session_id, |entry| {
+            entry.pending_intent = Some(intent);
+        });
+    }
+
+    fn take_pending_intent(&self, session_id: &str) -> Option<UserIntentHint> {
+        let mut entries = self
+            .entries
+            .lock()
+            .expect("harness state store mutex poisoned");
+        let entry = entries.entry(session_id.to_string()).or_default();
+        entry.pending_intent.take()
     }
 
     fn clear(&self, session_id: &str) {

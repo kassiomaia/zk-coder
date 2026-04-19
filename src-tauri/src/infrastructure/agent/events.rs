@@ -170,6 +170,24 @@ pub enum AgentEvent {
         request_id: String,
     },
 
+    /// The agent resumed an existing plan instead of generating a new
+    /// one. Emitted from the bootstrap phase when the resume planner
+    /// returns `PlanAction::Continue`, so the frontend knows not to
+    /// expect a `TaskPlanGenerated` / `TaskCreated` payload and can
+    /// simply refresh the existing task's subtask statuses.
+    ExecutionResumed {
+        /// The session ID.
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        /// The existing task ID being resumed.
+        #[serde(rename = "taskId")]
+        task_id: String,
+        /// The id of the subtask that is now `InProgress` — the cursor
+        /// the runtime will continue from.
+        #[serde(rename = "nextSubtaskId", skip_serializing_if = "Option::is_none")]
+        next_subtask_id: Option<String>,
+    },
+
     /// Agent completed one execution step.
     ExecutionStep {
         /// The session ID.

@@ -487,6 +487,7 @@ mod tests {
             handoff: Some(sample_handoff()),
             clean_exit_recorded: Some(true),
             awaiting_clarification: None,
+            pending_intent: None,
         };
         let state = derive_harness_state(&session, &[], Some(&overrides));
         assert_eq!(state.mode, HarnessMode::ResumeVerifier);
@@ -519,6 +520,7 @@ mod tests {
             startup_verification: None,
             handoff: None,
             clean_exit_recorded: None,
+            pending_intent: None,
             awaiting_clarification: Some(AwaitingClarificationDetails {
                 prompt: "What is the product name?".to_string(),
                 asked_at,
@@ -571,6 +573,7 @@ mod tests {
             startup_verification: None,
             handoff: None,
             clean_exit_recorded: None,
+            pending_intent: None,
             awaiting_clarification: Some(AwaitingClarificationDetails {
                 prompt: "stale".to_string(),
                 asked_at,
@@ -590,6 +593,7 @@ mod tests {
             handoff: None,
             clean_exit_recorded: None,
             awaiting_clarification: None,
+            pending_intent: None,
         };
         let state = derive_harness_state(&session, &[], Some(&overrides));
         // mode and clean_exit_recorded stay derived.

@@ -66,6 +66,44 @@ export function handleExecutionStarted(
 }
 
 /**
+ * Handle execution_resumed event. Emitted from the backend when
+ * bootstrap reuses an existing plan instead of generating a new one.
+ * The existing task + subtasks are already loaded in the UI, so this
+ * handler only refreshes session lifecycle bookkeeping — it must NOT
+ * clear streamingMessages/artifacts/toolCalls since those may be
+ * meaningful session history from the interrupted run.
+ */
+export function handleExecutionResumed(
+	state: AgentState,
+	event: Extract<AgentEvent, { type: 'execution_resumed' }>
+) {
+	const session = state.sessions.get(event.sessionId);
+	if (session) {
+		state.sessions.set(event.sessionId, {
+			...session,
+			state: { type: 'running', currentStep: 0, contextUsage: 0 }
+		});
+		clearStatusPhrases(event.sessionId);
+
+		const onAgentActivity = getOnAgentActivity();
+		if (onAgentActivity) {
+			onAgentActivity(session.conversationId, session.threadId, {
+				id: `thinking-${event.sessionId}`,
+				conversationId: session.conversationId,
+				threadId: session.threadId,
+				role: 'assistant',
+				kind: 'thinking',
+				content: '',
+				timestamp: new Date(),
+				agentData: {
+					sessionId: event.sessionId
+				}
+			});
+		}
+	}
+}
+
+/**
  * Handle execution_step event.
  */
 export function handleExecutionStep(
