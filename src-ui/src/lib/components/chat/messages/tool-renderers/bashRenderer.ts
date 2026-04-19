@@ -3,6 +3,7 @@
  */
 import { Terminal } from 'lucide-svelte';
 import type { AnyToolRenderer } from './types';
+import BashBody from '../BashBody.svelte';
 
 interface BashArgs {
 	command?: string;
@@ -25,5 +26,6 @@ export const bashRenderer: AnyToolRenderer = {
 		return res?.exit_code === 0
 			? 'Command finished successfully'
 			: `Failed with exit code ${res?.exit_code}`;
-	}
+	},
+	BodyComponent: BashBody
 };

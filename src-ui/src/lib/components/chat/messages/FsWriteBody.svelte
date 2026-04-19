@@ -1,15 +1,9 @@
 <script lang="ts">
 	import styles from './FsWriteBody.module.css';
 	import InlineDiff from './InlineDiff.svelte';
+	import type { TouchedFile } from '$lib/types/agent';
 
 	type ToolCallStatus = 'pending' | 'success' | 'error';
-
-	interface TouchedFile {
-		path: string;
-		modified: boolean;
-		action: 'read' | 'write' | 'delete';
-		diff?: string;
-	}
 
 	interface Props {
 		args: { filePath?: string; path?: string } | undefined;

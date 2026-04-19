@@ -46,12 +46,14 @@ export interface ToolRenderer<TArgs = unknown, TResult = unknown> {
 	/**
 	 * Optional custom body. When present, `ToolCallBody` renders this instead
 	 * of the generic Result Overview block.
+	 *
+	 * Typed as `Component<any>` to allow body components to declare narrower
+	 * `args`/`result` shapes without triggering contravariance errors. The
+	 * caller (`ToolCallMessage`) always passes the full set of optional props:
+	 *   `{ args, result, status, streamingContent?, touchedFile? }`
 	 */
-	BodyComponent?: Component<{
-		args: TArgs | undefined;
-		result: TResult | undefined;
-		status: ToolCallStatus;
-	}>;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	BodyComponent?: Component<any>;
 }
 
 /**
