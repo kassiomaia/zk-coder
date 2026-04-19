@@ -1,6 +1,6 @@
 # Agent Fidelity — Execution Plan
 
-**Status**: IN PROGRESS
+**Status**: COMPLETE
 **Last reviewed**: 2026-04-18
 
 ## Progress
@@ -10,7 +10,9 @@
 - **Phase 3 — DELIVERED (commit `ec2bb63`)**: B.1 (SubTaskContract entity + `agent_subtasks.contract` migration), B.2 (`agent_plan_subtasks` optional contracts), B.3 (soft scope-drift detection: runtime trace + correction system message for write-class tools), B.4 (hard enforcement gated by `CODER_SUBTASK_CONTRACT_HARD_ENFORCEMENT` env var, default Soft).
 - **Phase 4 — DELIVERED (commit `9390122`)**: E.1 (narration `intent` field), E.2 (`HarnessMode::AwaitingClarification` + process-local registry + step-gate pause), E.3 (`CODER_CLARIFICATION_TIMEOUT_MINUTES` fallback; subtask marked `unanswered_clarification`), E.4 (AgentClarificationPrompt.svelte inline reply composer), H.2.a (TaskFraming entity + Migration 7), H.2.b (planning-tool framing intake + validation), H.2.c (SystemPromptBuilder::compose_for_task — runtime wiring into llm_phase deferred to Phase 5 alongside H.3), H.2.d (frontend type surface).
 - **Phase 5 — DELIVERED (commit `d3b8d56`)**: F.1 (contract verification on advance/Completed via filesystem walk + files_touched fallback; `contract_unsatisfied` rejection), F.2 (session `needs_review` flag + Migration 8), H.3 (contract-aware active-subtask appendix with legacy byte-for-byte fallback), H.2.c runtime wiring (framing flows through context_phase + llm_phase), orphan cleanup (deleted `tool_handlers/` and `tool_execution/`; ported B.1 contract parsing to the active `permissions.rs` path — fixed a latent Phase 3 regression where contracts were silently dropped).
-- Phase 6 — pending: G
+- **Phase 6 — DELIVERED (commit `94e39eb`)**: G.1 (plan quality validation — rejects overlapping contract patterns across subtasks and no-op final summary subtasks with empty contracts, integrated with the existing PLAN_RETRY_TRACKER).
+
+**All eight problems (P1–P8) shipped with regression tests. Plan is Done.**
 **Purpose**: Close the gap between the harness's mechanical correctness and the agent's actual fidelity to the user-authored plan. The context-engineering work in `../agent-context-engineering/` delivered stable prompts, deterministic packing, and measurement signals. This plan addresses the behaviors those signals exposed: subtask scope drift, stale failure memory, reload rehydration loss, and fabrication in the absence of user replies.
 
 ---
