@@ -41,3 +41,4 @@ src-ui/build/
 /src-tauri/coder_context.db
 /src-tauri/coder_chat.db
 /src-tauri/coder_config.db
+/docs/screenshots/
