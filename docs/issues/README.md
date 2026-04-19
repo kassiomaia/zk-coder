@@ -15,3 +15,4 @@ Each issue is a self-contained folder with:
 | ID | Area | Status | Title |
 |----|------|--------|-------|
 | `agent-plan-subtasks-malformed-json` | LLM runtime | fixed (recovery path shipped) | `agent_plan_subtasks` malformed-JSON error aborts agent session |
+| `agent-final-summary-tool-call-discard` | Agent coordinator | investigated — awaiting team review | Final-summary path silently discards LLM responses when tool calls slip through `ToolChoiceMode::None` |
