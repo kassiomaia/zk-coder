@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<!--
+  Prototype: InlineDiff — Lightweight unified diff renderer for write/create tool cards
+  ─────────────────────────────────────────────────────────────────────────────────────
+  Represents the expanded body of a ToolCallMessage for fs_write_file / fs_create_file.
+  No Monaco editor — pure HTML/CSS table-based diff with line numbers.
+
+  Key design decisions:
+  - Table layout: old-line# | new-line# | gutter (+/-/space) | code
+  - Muted red/green for diff rows matching design-system syntax colors
+  - Per-file collapsible sections within a single "Edit 2 files" card
+  - "Show all N lines" pill truncation at the bottom of long diffs
+  - File path header uses slightly darker bg to distinguish from diff rows
+  - Gutter column is narrow and uses a fixed-width colored character
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prototype: Inline Diff</title>
+<style>
+  :root {
+    --bg-base:          #0b0b0a;
+    --bg-secondary:     #141413;
+    --bg-tertiary:      #1a1918;
+    --bg-file-header:   #111110;
+    --border-subtle:    rgba(255, 252, 245, 0.04);
+    --border-primary:   rgba(255, 252, 245, 0.07);
+    --text-primary:     #e6e5e0;
+    --text-secondary:   #a3a29a;
+    --text-muted:       #545350;
+    --text-faint:       #302f2e;
+    --primary-500:      #5c6178;
+    --success:          #3d9970;
+    --lang-rust:        #f74c00;
+
+    /* Diff row colors — deliberately muted, matching design-system syntax vars */
+    --diff-add-bg:      rgba(143, 180, 122, 0.09);
+    --diff-add-gutter:  rgba(143, 180, 122, 0.20);
+    --diff-add-ln:      rgba(143, 180, 122, 0.35);
+    --diff-add-char:    #8fb47a;
+    --diff-del-bg:      rgba(200, 122, 130, 0.09);
+    --diff-del-gutter:  rgba(200, 122, 130, 0.20);
+    --diff-del-ln:      rgba(200, 122, 130, 0.35);
+    --diff-del-char:    #c87a82;
+
+    --font-mono:  'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+    --font-sans:  -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-base);
+    font-family: var(--font-sans);
+    padding: 32px;
+    min-height: 100vh;
+  }
+
+  .page-note {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  /* ─── Card ─── */
+  .tool-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    width: 100%;
+    max-width: 760px;
+    overflow: hidden;
+  }
+
+  /* ─── Card header ─── */
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    cursor: pointer;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .header-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .tool-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: rgba(92, 97, 120, 0.10);
+    color: var(--primary-500);
+    flex-shrink: 0;
+  }
+
+  .tool-badge svg { width: 11px; height: 11px; }
+
+  .action-info {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .action-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  .outcome-text {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .status-success { display: flex; color: var(--success); opacity: 0.75; }
+  .status-success svg { width: 12px; height: 12px; }
+
+  .chevron { display: flex; color: var(--text-muted); opacity: 0.4; transform: rotate(90deg); }
+  .chevron svg { width: 12px; height: 12px; }
+
+  /* ─── File section ─── */
+  .file-section {
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .file-section:last-child { border-bottom: none; }
+
+  .file-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px;
+    background: var(--bg-file-header);
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-subtle);
+    user-select: none;
+  }
+
+  .file-header:hover { background: #131211; }
+
+  .file-chevron {
+    display: flex;
+    color: var(--text-muted);
+    opacity: 0.5;
+    transition: transform 150ms;
+    flex-shrink: 0;
+  }
+
+  .file-chevron.open { transform: rotate(90deg); }
+  .file-chevron svg { width: 10px; height: 10px; }
+
+  .file-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .file-icon-wrap svg { width: 12px; height: 12px; color: var(--text-muted); opacity: 0.5; }
+
+  .lang-dot {
+    position: absolute;
+    bottom: -1px;
+    right: -2px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--lang-rust);
+    border: 1px solid var(--bg-file-header);
+  }
+
+  .file-path-text {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .file-stats {
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .stat-add { color: var(--diff-add-char); opacity: 0.8; }
+  .stat-del { color: var(--diff-del-char); opacity: 0.8; }
+
+  /* ─── Diff table ─── */
+  .diff-wrap {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #222 transparent;
+  }
+
+  .diff-wrap::-webkit-scrollbar { height: 4px; }
+  .diff-wrap::-webkit-scrollbar-thumb { background: #222; }
+
+  table.diff {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  /* Column widths */
+  table.diff colgroup col:nth-child(1) { width: 36px; } /* old line# */
+  table.diff colgroup col:nth-child(2) { width: 36px; } /* new line# */
+  table.diff colgroup col:nth-child(3) { width: 18px; } /* gutter +/- */
+  table.diff colgroup col:nth-child(4) { width: auto;  } /* code */
+
+  table.diff tr { line-height: 1; }
+
+  table.diff td {
+    padding: 0;
+    vertical-align: top;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 18px;
+    white-space: pre;
+  }
+
+  /* Line number cells */
+  .ln {
+    padding: 0 6px;
+    text-align: right;
+    color: var(--text-faint);
+    user-select: none;
+    font-size: 10.5px;
+    border-right: 1px solid var(--border-subtle);
+  }
+
+  /* Gutter cell */
+  .gt {
+    text-align: center;
+    user-select: none;
+    font-size: 11px;
+    border-right: 1px solid var(--border-subtle);
+  }
+
+  /* Code cell */
+  .code {
+    padding-left: 10px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Context row */
+  tr.ctx td { background: transparent; }
+  tr.ctx .ln { color: var(--text-faint); }
+  tr.ctx .code { color: var(--text-muted); }
+
+  /* Deletion row */
+  tr.del td { background: var(--diff-del-bg); }
+  tr.del .ln { background: var(--diff-del-gutter); color: var(--diff-del-ln); }
+  tr.del .gt { background: var(--diff-del-gutter); color: var(--diff-del-char); }
+  tr.del .code { color: var(--text-secondary); }
+
+  /* Addition row */
+  tr.add td { background: var(--diff-add-bg); }
+  tr.add .ln { background: var(--diff-add-gutter); color: var(--diff-add-ln); }
+  tr.add .gt { background: var(--diff-add-gutter); color: var(--diff-add-char); }
+  tr.add .code { color: var(--text-secondary); }
+
+  /* Hunk header */
+  tr.hunk td { background: rgba(92, 97, 120, 0.05); }
+  tr.hunk .code {
+    color: var(--text-muted);
+    font-size: 10.5px;
+    padding-left: 10px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ─── Show all button ─── */
+  .show-all-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 8px;
+    background: var(--bg-file-header);
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .show-all-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 12px;
+    background: transparent;
+    border: 1px solid var(--border-primary);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 100ms;
+    letter-spacing: 0.03em;
+  }
+
+  .show-all-btn:hover {
+    background: var(--border-subtle);
+    color: var(--text-secondary);
+    border-color: var(--border-primary);
+  }
+
+  .show-all-btn svg { width: 10px; height: 10px; }
+
+  /* ─── Collapsed file section ─── */
+  .file-section.collapsed .diff-wrap,
+  .file-section.collapsed .show-all-wrap {
+    display: none;
+  }
+
+  /* ─── Footer ─── */
+  .card-footer {
+    padding: 5px 10px;
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.4;
+    text-align: right;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-file-header);
+  }
+
+  /* Syntax — simple keyword coloring for the Rust snippet */
+  .kw  { color: #b099c4; }
+  .ty  { color: #7aa5d4; }
+  .cm  { color: #555e70; }
+  .st  { color: #8fb47a; }
+  .nm  { color: #c29a6e; }
+</style>
+</head>
+<body>
+
+<p class="page-note">Prototype · InlineDiff — fs_write_file tool card · expanded state · pure HTML/CSS, no Monaco</p>
+
+<div class="tool-card">
+
+  <!-- ── Card header ── -->
+  <div class="card-header">
+    <div class="header-main">
+      <div class="tool-badge">
+        <!-- FilePenLine icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"></path>
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          <line x1="2" y1="20" x2="22" y2="20"></line>
+        </svg>
+      </div>
+      <div class="action-info">
+        <span class="action-title">Edit 2 files</span>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span class="outcome-text">Changes applied successfully</span>
+      <span class="status-success">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </span>
+      <span class="chevron">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </span>
+    </div>
+  </div>
+
+  <!-- ── File 1: helpers.rs — expanded ── -->
+  <div class="file-section" id="file1">
+    <div class="file-header" onclick="toggleFile('file1')">
+      <span class="file-chevron open" id="file1-chevron">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </span>
+      <div class="file-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+        <span class="lang-dot"></span>
+      </div>
+      <span class="file-path-text">src-tauri/src/commands/llm/helpers.rs</span>
+      <div class="file-stats">
+        <span class="stat-add">+3</span>
+        <span class="stat-del">−2</span>
+      </div>
+    </div>
+
+    <div class="diff-wrap">
+      <table class="diff">
+        <colgroup>
+          <col><col><col><col>
+        </colgroup>
+        <tbody>
+
+          <!-- Hunk header -->
+          <tr class="hunk">
+            <td class="ln"></td><td class="ln"></td><td class="gt"></td>
+            <td class="code">@@ -5,12 +5,13 @@</td>
+          </tr>
+
+          <!-- Context lines before the change -->
+          <tr class="ctx">
+            <td class="ln">5</td><td class="ln">5</td><td class="gt"> </td>
+            <td class="code">    <span class="kw">use</span> ChatMessage <span class="kw">as</span> LlmMessage, MessageContent, MessageRole <span class="kw">as</span> CoreMessageRole,</td>
+          </tr>
+          <tr class="ctx">
+            <td class="ln">6</td><td class="ln">6</td><td class="gt"> </td>
+            <td class="code">    };</td>
+          </tr>
+          <tr class="ctx">
+            <td class="ln">7</td><td class="ln">7</td><td class="gt"> </td>
+            <td class="code"> </td>
+          </tr>
+
+          <!-- Deletion -->
+          <tr class="del">
+            <td class="ln">8</td><td class="ln"></td><td class="gt">−</td>
+            <td class="code"><span class="cm">/// System prompt explaining the feedback system.</span></td>
+          </tr>
+          <tr class="del">
+            <td class="ln">9</td><td class="ln"></td><td class="gt">−</td>
+            <td class="code"><span class="kw">pub const</span> FEEDBACK_SYSTEM_PROMPT: <span class="ty">&amp;str</span> = <span class="st">r"The user may provide feedback..."</span>;</td>
+          </tr>
+
+          <!-- Additions -->
+          <tr class="add">
+            <td class="ln"></td><td class="ln">8</td><td class="gt">+</td>
+            <td class="code"><span class="cm">/// System prompt — revised to avoid leaking stable IDs.</span></td>
+          </tr>
+          <tr class="add">
+            <td class="ln"></td><td class="ln">9</td><td class="gt">+</td>
+            <td class="code"><span class="kw">pub const</span> FEEDBACK_SYSTEM_PROMPT: <span class="ty">&amp;str</span> = <span class="st">r"Use feedback to improve response quality."</span>;</td>
+          </tr>
+          <tr class="add">
+            <td class="ln"></td><td class="ln">10</td><td class="gt">+</td>
+            <td class="code"> </td>
+          </tr>
+
+          <!-- Context lines after the change -->
+          <tr class="ctx">
+            <td class="ln">10</td><td class="ln">11</td><td class="gt"> </td>
+            <td class="code"><span class="cm">/// Maximum number of feedback items to include in context.</span></td>
+          </tr>
+          <tr class="ctx">
+            <td class="ln">11</td><td class="ln">12</td><td class="gt"> </td>
+            <td class="code"><span class="kw">pub const</span> FEEDBACK_LIMIT: <span class="ty">usize</span> = <span class="nm">5</span>;</td>
+          </tr>
+          <tr class="ctx">
+            <td class="ln">12</td><td class="ln">13</td><td class="gt"> </td>
+            <td class="code"> </td>
+          </tr>
+          <tr class="ctx">
+            <td class="ln">13</td><td class="ln">14</td><td class="gt"> </td>
+            <td class="code"><span class="cm">/// Resolves the model ID to use for a chat request.</span></td>
+          </tr>
+          <tr class="ctx">
+            <td class="ln">14</td><td class="ln">15</td><td class="gt"> </td>
+            <td class="code"><span class="kw">pub async fn</span> <span class="ty">resolve_model_id</span>(</td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Truncation for the first file (it has more lines) -->
+    <div class="show-all-wrap">
+      <button class="show-all-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <polyline points="19 12 12 19 5 12"></polyline>
+        </svg>
+        Show all 30 lines
+      </button>
+    </div>
+  </div>
+
+  <!-- ── File 2: context_manager.rs — collapsed ── -->
+  <div class="file-section collapsed" id="file2">
+    <div class="file-header" onclick="toggleFile('file2')">
+      <span class="file-chevron" id="file2-chevron">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </span>
+      <div class="file-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+        <span class="lang-dot"></span>
+      </div>
+      <span class="file-path-text">src-tauri/src/application/nlp/context_manager.rs</span>
+      <div class="file-stats">
+        <span class="stat-add">+1</span>
+        <span class="stat-del">−3</span>
+      </div>
+    </div>
+
+    <div class="diff-wrap">
+      <table class="diff">
+        <colgroup><col><col><col><col></colgroup>
+        <tbody>
+          <tr class="hunk">
+            <td class="ln"></td><td class="ln"></td><td class="gt"></td>
+            <td class="code">@@ -17,8 +17,6 @@</td>
+          </tr>
+          <tr class="ctx">
+            <td class="ln">17</td><td class="ln">17</td><td class="gt"> </td>
+            <td class="code"><span class="cm">/// Maximum tokens before compression</span></td>
+          </tr>
+          <tr class="ctx">
+            <td class="ln">18</td><td class="ln">18</td><td class="gt"> </td>
+            <td class="code"><span class="kw">const</span> COMPRESSION_THRESHOLD: <span class="ty">usize</span> = <span class="nm">50_000</span>;</td>
+          </tr>
+          <tr class="del">
+            <td class="ln">19</td><td class="ln"></td><td class="gt">−</td>
+            <td class="code"><span class="cm">/// Maximum context tokens</span></td>
+          </tr>
+          <tr class="del">
+            <td class="ln">20</td><td class="ln"></td><td class="gt">−</td>
+            <td class="code"><span class="kw">const</span> MAX_TOKENS: <span class="ty">usize</span> = <span class="nm">100_000</span>;</td>
+          </tr>
+          <tr class="del">
+            <td class="ln">21</td><td class="ln"></td><td class="gt">−</td>
+            <td class="code"> </td>
+          </tr>
+          <tr class="add">
+            <td class="ln"></td><td class="ln">19</td><td class="gt">+</td>
+            <td class="code"><span class="kw">const</span> MAX_TOKENS: <span class="ty">usize</span> = <span class="nm">128_000</span>;</td>
+          </tr>
+          <tr class="ctx">
+            <td class="ln">22</td><td class="ln">20</td><td class="gt"> </td>
+            <td class="code"><span class="cm">/// Number of recent messages to always keep</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- No "show all" for collapsed file -->
+  </div>
+
+  <div class="card-footer">2026-04-19 · 14:32:11</div>
+</div>
+
+<script>
+  function toggleFile(id) {
+    const section = document.getElementById(id);
+    const chevron = document.getElementById(id + '-chevron');
+    section.classList.toggle('collapsed');
+    chevron.classList.toggle('open');
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<!--
+  Prototype: BashBody — Terminal output inside a bash tool call card
+  ──────────────────────────────────────────────────────────────────
+  Represents the expanded body of a ToolCallMessage for execute_command/bash.
+  Currently the app shows only "Command finished successfully" as outcome text.
+  This prototype shows what it would look like with streaming stdout inline.
+
+  Key design decisions:
+  - Terminal box uses near-black (#0d0d0d) distinct from card bg
+  - Truncation notice is a subtle muted banner above the output
+  - Exit code line uses the same muted styling as the terminal content
+  - Max-height + scroll keeps the card from growing unbounded
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prototype: Bash Body</title>
+<style>
+  /* ─── Design tokens (dark theme) ─── */
+  :root {
+    --bg-base:        #0b0b0a;
+    --bg-secondary:   #141413;
+    --bg-tertiary:    #1a1918;
+    --bg-terminal:    #0d0d0d;
+    --surface:        #141413;
+    --surface-hover:  #1a1918;
+    --border-subtle:  rgba(255, 252, 245, 0.04);
+    --border-primary: rgba(255, 252, 245, 0.07);
+    --border-hover:   rgba(255, 252, 245, 0.10);
+    --text-primary:   #e6e5e0;
+    --text-secondary: #a3a29a;
+    --text-muted:     #545350;
+    --text-faint:     #383735;
+    --primary-500:    #5c6178;
+    --primary-subtle: rgba(92, 97, 120, 0.06);
+    --success:        #3d9970;
+    --success-light:  rgba(61, 153, 112, 0.12);
+    --font-mono:      'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+    --font-sans:      -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-base);
+    font-family: var(--font-sans);
+    padding: 32px;
+    min-height: 100vh;
+  }
+
+  /* ─── Page context ─── */
+  .page-note {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  /* ─── Card ─── */
+  .tool-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    width: 100%;
+    max-width: 680px;
+  }
+
+  /* ─── Header ─── */
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    cursor: pointer;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .header-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .tool-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: rgba(92, 97, 120, 0.10);
+    color: var(--primary-500);
+    flex-shrink: 0;
+  }
+
+  .tool-badge svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  .action-info {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .action-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  .action-subtitle {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .outcome-text {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .status-success {
+    display: flex;
+    color: var(--success);
+    opacity: 0.8;
+  }
+
+  .status-success svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .chevron {
+    display: flex;
+    color: var(--text-muted);
+    opacity: 0.4;
+    transform: rotate(90deg);
+  }
+
+  .chevron svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* ─── Body ─── */
+  .card-body {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Truncation notice */
+  .truncation-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 6px 8px;
+    background: rgba(212, 147, 13, 0.06);
+    border: 1px solid rgba(212, 147, 13, 0.12);
+    font-size: 10px;
+    color: #d4930d;
+    line-height: 1.4;
+  }
+
+  .truncation-notice svg {
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    opacity: 0.8;
+  }
+
+  /* Terminal output box */
+  .terminal-box {
+    background: var(--bg-terminal);
+    border: 1px solid var(--border-primary);
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: #c8c7c1;
+    max-height: 260px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-faint) transparent;
+  }
+
+  .terminal-box::-webkit-scrollbar {
+    width: 4px;
+  }
+  .terminal-box::-webkit-scrollbar-thumb {
+    background: var(--text-faint);
+    border-radius: 0;
+  }
+
+  .term-line {
+    display: block;
+    white-space: pre;
+  }
+
+  .term-compile   { color: #7aa5d4; }
+  .term-checking  { color: #8fb47a; }
+  .term-compiling { color: #6aabb4; }
+  .term-crate     { color: #c29a6e; }
+  .term-exit      { color: var(--text-muted); font-style: italic; }
+
+  .term-divider {
+    display: block;
+    border: none;
+    border-top: 1px solid var(--border-subtle);
+    margin: 6px 0;
+  }
+
+  /* Footer */
+  .card-footer {
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.45;
+    text-align: right;
+    padding-top: 6px;
+    border-top: 1px solid var(--border-subtle);
+  }
+</style>
+</head>
+<body>
+
+<p class="page-note">Prototype · BashBody — bash/execute_command tool card · expanded state</p>
+
+<div class="tool-card">
+
+  <!-- Header -->
+  <div class="card-header">
+    <div class="header-main">
+      <!-- Terminal icon -->
+      <div class="tool-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4 17 10 11 4 5"></polyline>
+          <line x1="12" y1="19" x2="20" y2="19"></line>
+        </svg>
+      </div>
+      <div class="action-info">
+        <span class="action-title">Ran command</span>
+        <span class="action-subtitle">cargo build --release</span>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span class="outcome-text">Command finished successfully</span>
+      <span class="status-success">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </span>
+      <span class="chevron">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </span>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="card-body">
+
+    <!-- Truncation notice -->
+    <div class="truncation-notice">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      Output too large (26.1 KB). Showing first 500 chars. Saved to
+      <code style="color: inherit; opacity: 0.75;">/tmp/copilot-tool-output-1776629632198-58v04b.txt</code>
+    </div>
+
+    <!-- Terminal output -->
+    <div class="terminal-box">
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">glib-sys v0.18.1</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">phf_generator v0.11.3</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">siphasher v0.3.11</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">zerovec v0.11.5</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">gobject-sys v0.18.0</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">getrandom v0.1.16</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">memchr v2.8.0</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">fnv v1.0.7</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">typeid v1.0.3</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">thiserror v2.0.18</span></span>
+<span class="term-line"><span class="term-checking"> </span><span class="term-checking">  Checking</span> <span class="term-crate">futures-sink v0.3.32</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">serde v1.0.228</span></span>
+<span class="term-line"><span class="term-checking">   Checking</span> <span class="term-crate">futures-channel v0.3.32</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">rand_core v0.5.1</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">tinystr v0.8.2</span></span>
+<span class="term-line"><span class="term-compiling">   Compiling</span> <span class="term-crate">thiserror-impl v2.0.18</span></span>
+<span class="term-divider"></span>
+<span class="term-line term-exit">&lt;command with id: 7 exited with exit code 0&gt;</span>
+    </div>
+
+    <div class="card-footer">2026-04-19 · 14:32:05</div>
+  </div>
+
+</div>
+
+</body>
+</html>
