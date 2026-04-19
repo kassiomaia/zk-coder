@@ -60,6 +60,13 @@ Violations are blocking. Work that diverges from `RULES.md` or the applicable fi
 
 When working in an area with recurring quality issues, consult `docs/issues/README.md` and the relevant issue folder before finalizing the change.
 
+# Documentation - MANDATORY RULE FOR EVERY CHANGE
+
+** MANDATORY **: Every agent or contributor must read the documentation in the order specified in the "Mandatory Code Quality Guidance" section before making any code change.
+** Documentation is a first-class citizen in this repository. It is expected to be accurate, up-to-date, and comprehensive. Every code change must be accompanied by the necessary documentation updates to maintain this standard.
+** Obsolete or inaccurate documentation must be updated or removed as part of any code change that touches the relevant area. Stale references to removed features, old architecture, or previous implementations are not acceptable and must be cleaned up.
+
+
 ## Build Commands
 
 ```bash
