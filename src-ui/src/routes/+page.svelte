@@ -879,6 +879,8 @@
 
 <!-- Configuration Modals -->
 {#if configInitialized}
+	<!-- Parent modals first so child modals (declared after) win on both z-index and DOM stacking order -->
+
 	<!-- Providers Modal (shown when no providers configured) -->
 	<ProvidersModal
 		open={activeModal === 'providers' || previousModal === 'providers'}
@@ -887,6 +889,17 @@
 		onconfigure={handleConfigureProvider}
 		onaddcustom={handleAddCustomProvider}
 	/>
+
+	<!-- Settings Modal (full settings) -->
+	<SettingsModal
+		open={activeModal === 'settings' || previousModal === 'settings'}
+		onclose={handleCloseModal}
+		onconfigure={handleConfigureProvider}
+		onaddcustom={handleAddCustomProvider}
+		onremoveprovider={handleRemoveProvider}
+	/>
+
+	<!-- Child modals declared after parents: stacked={true} gives z-index+10, and later DOM position is a further guarantee -->
 
 	<!-- Config Modal (for entering API key) -->
 	<ConfigModal
@@ -904,15 +917,6 @@
 			selectedProviderId = providerId;
 			activeModal = 'config';
 		}}
-	/>
-
-	<!-- Settings Modal (full settings) -->
-	<SettingsModal
-		open={activeModal === 'settings' || previousModal === 'settings'}
-		onclose={handleCloseModal}
-		onconfigure={handleConfigureProvider}
-		onaddcustom={handleAddCustomProvider}
-		onremoveprovider={handleRemoveProvider}
 	/>
 {/if}
 
