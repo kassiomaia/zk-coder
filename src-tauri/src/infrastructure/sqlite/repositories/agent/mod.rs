@@ -4,7 +4,7 @@
 //! runtime data, tool calls, and execution traces across app restarts
 //! so users can resume incomplete tasks.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
@@ -68,24 +68,33 @@ impl From<SessionRepositoryError> for AgentDomainError {
 
 /// SQLite-backed agent session repository.
 pub struct SqliteSessionRepository {
-    pub(crate) conn: Mutex<Connection>,
+    pub(crate) conn: Arc<Mutex<Connection>>,
 }
 
 impl SqliteSessionRepository {
     /// Create a new session store at the given database path.
     pub fn new(db_path: &str) -> Result<Self, SessionRepositoryError> {
         let conn = Connection::open(db_path)?;
+        conn.execute_batch("PRAGMA journal_mode=WAL;")?;
         crate::infrastructure::sqlite::migrations::agent::init_schema(&conn)?;
+        conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         })
     }
 
-    /// Create a new session store at the given database path.
+    /// Creates an agent repository from a shared connection.
+    ///
+    /// The schema must already have been applied via `migrations::init_all`.
+    pub fn from_shared(conn: Arc<Mutex<Connection>>) -> Self {
+        Self { conn }
+    }
+
+    /// Create a new session store from an owned connection.
     pub fn from_connection(conn: Connection) -> Result<Self, SessionRepositoryError> {
         crate::infrastructure::sqlite::migrations::agent::init_schema(&conn)?;
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         })
     }
 

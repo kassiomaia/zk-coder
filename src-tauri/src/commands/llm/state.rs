@@ -38,6 +38,18 @@ impl LlmState {
         })
     }
 
+    /// Creates an LLM state from an existing shared configuration repository.
+    pub fn from_repository(
+        config_repository: Arc<dyn ConfigRepository>,
+        llm_service: Arc<dyn LlmService>,
+    ) -> Self {
+        Self {
+            config_repository,
+            active_requests: Arc::new(Mutex::new(HashMap::new())),
+            runner: Arc::new(OrchestratedConversationRunner::new(llm_service)),
+        }
+    }
+
     /// Creates a new LLM state with an in-memory database (for testing).
     ///
     /// # Errors

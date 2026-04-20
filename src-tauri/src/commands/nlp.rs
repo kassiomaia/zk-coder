@@ -3,12 +3,16 @@
 //! This module provides Tauri commands for NLP functionality.
 
 use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
 use tokio::sync::Mutex;
+
+use rusqlite::Connection;
 
 use crate::application::nlp::{
     AmbiguityResolver, CodeAnalyzer, ContextManager, IntentClassifier, MultiIntentDetector,
     NlpLlmGateway,
 };
+use crate::core::config::ConfigRepository;
 use crate::core::chat::entities::MessageRole;
 use crate::core::nlp::ambiguity::{Ambiguity, ResolutionType, ResolvedAmbiguity};
 use crate::core::nlp::code_understanding::{CodeUnderstanding, ProgrammingLanguage};
@@ -47,6 +51,34 @@ impl NlpState {
         let store = Arc::new(
             SqliteContextWindowRepository::new(context_db_path).map_err(|e| e.to_string())?,
         ) as Arc<dyn ContextWindowRepository>;
+        let code_analyzer = CodeAnalyzer::new().map_err(|e| e.to_string())?;
+
+        Ok(Self {
+            classifier: IntentClassifier::new(Arc::clone(&gateway)),
+            context_manager: ContextManager::new(store, Arc::clone(&gateway)),
+            multi_detector: MultiIntentDetector::new(gateway),
+            ambiguity_resolver: AmbiguityResolver::new(),
+            code_analyzer,
+            project_files: Arc::new(Mutex::new(Vec::new())),
+        })
+    }
+
+    /// Creates an NLP state from a shared connection and existing config repository.
+    ///
+    /// The schema must already have been applied via `migrations::init_all`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if initialization fails.
+    pub fn from_shared(
+        conn: Arc<StdMutex<Connection>>,
+        config_repository: Arc<dyn ConfigRepository>,
+    ) -> Result<Self, String> {
+        let gateway: Arc<dyn NlpLlmGateway + Send + Sync> = Arc::new(
+            ConfigBackedNlpLlmGateway::from_repository(config_repository),
+        );
+        let store = Arc::new(SqliteContextWindowRepository::from_shared(conn))
+            as Arc<dyn ContextWindowRepository>;
         let code_analyzer = CodeAnalyzer::new().map_err(|e| e.to_string())?;
 
         Ok(Self {

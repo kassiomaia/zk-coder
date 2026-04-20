@@ -14,6 +14,9 @@ pub mod infrastructure;
 mod test_support;
 
 use commands::{AgentState, ChatState, ConfigState, LlmState, NlpState};
+use infrastructure::sqlite::connection;
+use infrastructure::sqlite::migrations;
+use infrastructure::sqlite::repositories::config::SqliteConfigRepository;
 use infrastructure::tools::documents::shared::ArtifactStore;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -21,7 +24,6 @@ use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
 
 use application::llm::LlmServiceImpl;
-use infrastructure::sqlite::repositories::config::SqliteConfigRepository;
 
 /// Retrieves the application's data directory, creating it if it doesn't exist.
 ///
@@ -62,27 +64,22 @@ pub fn run() {
         .setup(|app| {
             // Get the app data directory
             let data_dir = get_app_data_dir(app.handle())?;
-            let config_db = data_dir.join("coder_config.db");
-            let context_db = data_dir.join("coder_context.db");
-            let chat_db = data_dir.join("coder_chat.db");
+            let db_path = data_dir.join("coder.db");
 
-            // Initialize NLP state
-            let nlp_state =
-                NlpState::new(&config_db.to_string_lossy(), &context_db.to_string_lossy())
-                    .expect("Failed to initialize NLP state");
+            // Open a single shared connection for all domains
+            let conn = connection::open_shared(&db_path.to_string_lossy())
+                .expect("Failed to open database");
 
-            // Initialize Chat state
-            let chat_state = ChatState::new(&chat_db.to_string_lossy())
-                .expect("Failed to initialize Chat state");
+            // Run all schema initialisation and migrations in one pass
+            {
+                let db = conn.lock().expect("Failed to acquire database lock");
+                migrations::init_all(&db).expect("Failed to initialize database schema");
+            }
 
-            // Initialize Config state
-            let config_state = ConfigState::new(&config_db.to_string_lossy())
-                .expect("Failed to initialize Config state");
-
-            // Initialize LLM service (uses same database as config)
+            // Build the shared config repository (seeding happens inside from_shared)
             let config_repository = Arc::new(
-                SqliteConfigRepository::new(&config_db.to_string_lossy())
-                    .expect("Failed to initialize SqliteConfigRepository"),
+                SqliteConfigRepository::from_shared(conn.clone())
+                    .expect("Failed to initialize config repository"),
             );
 
             // Best-effort: purge expired web_search cache entries on startup
@@ -103,19 +100,33 @@ pub fn run() {
                 }
             }
 
+            // Initialize NLP state
+            let nlp_state = NlpState::from_shared(conn.clone(), config_repository.clone())
+                .expect("Failed to initialize NLP state");
+
+            // Initialize Chat state
+            let chat_state = ChatState::from_shared(conn.clone())
+                .expect("Failed to initialize Chat state");
+
+            // Initialize Config state
+            let config_state = ConfigState::from_repository(
+                config_repository.clone() as Arc<dyn crate::core::config::ConfigRepository>,
+            );
+
             let llm_service = Arc::new(LlmServiceImpl::new(config_repository.clone()))
                 as Arc<dyn crate::core::llm::services::LlmService>;
 
             // Initialize LLM state
-            let llm_state = LlmState::new(&config_db.to_string_lossy(), llm_service)
-                .expect("Failed to initialize LLM state");
+            let llm_state = LlmState::from_repository(
+                config_repository.clone() as Arc<dyn crate::core::config::ConfigRepository>,
+                llm_service,
+            );
 
             // Initialize Agent state
-            let agent_db = data_dir.join("coder_agents.db");
-            let agent_state = AgentState::new(
-                &agent_db.to_string_lossy(),
+            let agent_state = AgentState::from_shared(
+                conn.clone(),
                 chat_state.service.clone(),
-                config_repository.clone(),
+                config_repository.clone() as Arc<dyn crate::core::config::ConfigRepository>,
             )
             .expect("Failed to initialize Agent state");
 

@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+
+use rusqlite::Connection;
 
 use crate::application::ChatServiceImpl;
 use crate::core::chat::services::ChatService;
@@ -19,6 +21,20 @@ impl ChatState {
     /// Returns an error if the database cannot be initialized.
     pub fn new(db_path: &str) -> Result<Self, String> {
         let repository = Arc::new(SqliteChatRepository::new(db_path).map_err(|e| e.to_string())?);
+        let service = Arc::new(ChatServiceImpl::new(repository)) as Arc<dyn ChatService>;
+        Ok(Self { service })
+    }
+
+    /// Creates a chat state from a shared database connection.
+    ///
+    /// The schema must already have been applied via `migrations::init_all`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock cannot be acquired.
+    pub fn from_shared(conn: Arc<Mutex<Connection>>) -> Result<Self, String> {
+        let repository =
+            Arc::new(SqliteChatRepository::from_shared(conn).map_err(|e| e.to_string())?);
         let service = Arc::new(ChatServiceImpl::new(repository)) as Arc<dyn ChatService>;
         Ok(Self { service })
     }
