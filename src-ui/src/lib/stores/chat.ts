@@ -44,12 +44,19 @@ import { LlmHandler } from './chat/llm-handler';
 import type { ChatState, LlmRequestOptions } from './chat/types';
 import { deriveThreadTitle, sortThreadsByRecent } from './chat/utils';
 import { clearUnreadForThread } from '$lib/utils/state';
-import { findById, updateById, removeById, updateNestedById, removeNestedById } from '$lib/utils/collection';
+import {
+	findById,
+	updateById,
+	removeById,
+	updateNestedById,
+	removeNestedById
+} from '$lib/utils/collection';
 import { isValidDate } from '$lib/utils/date';
 import { agentStore } from './agentStore';
 import { configStore } from './configStore';
 import { createDerivedStores } from './chat/derived-stores';
 import { createLogger } from '$lib/utils/logger';
+import { NLP_DEBOUNCE_MS } from '$lib/config/runtime';
 
 const log = createLogger('chatStore');
 
@@ -98,7 +105,7 @@ function createChatStore() {
 	const { subscribe, set, update } = writable<ChatState>(initialState);
 
 	// Debounced intent classifier
-	const classifier = createDebouncedClassifier(300);
+	const classifier = createDebouncedClassifier(NLP_DEBOUNCE_MS);
 
 	// LLM handler for streaming operations
 	const llmHandler = new LlmHandler(update, () => get({ subscribe }));
@@ -107,7 +114,7 @@ function createChatStore() {
 	let pendingThreadReady: Promise<Thread | null> | null = null;
 	let pendingThreadConversationId: string | null = null;
 
-const touchThreadAndConversation = (
+	const touchThreadAndConversation = (
 		state: ChatState,
 		threadId: string,
 		conversationId: string,
@@ -700,12 +707,7 @@ const touchThreadAndConversation = (
 						...state,
 						threads: archived ? removeById(state.threads, id) : state.threads,
 						conversations: state.selectedConversationId
-							? removeNestedById(
-									state.conversations,
-									state.selectedConversationId,
-									'threads',
-									id
-								)
+							? removeNestedById(state.conversations, state.selectedConversationId, 'threads', id)
 							: state.conversations,
 						selectedThreadId: shouldClearSelection ? null : state.selectedThreadId,
 						messages: shouldClearSelection ? [] : state.messages,
@@ -776,12 +778,7 @@ const touchThreadAndConversation = (
 					selectedThreadId: state.selectedThreadId === id ? null : state.selectedThreadId,
 					messages: state.selectedThreadId === id ? [] : state.messages,
 					conversations: state.selectedConversationId
-						? removeNestedById(
-								state.conversations,
-								state.selectedConversationId,
-								'threads',
-								id
-							)
+						? removeNestedById(state.conversations, state.selectedConversationId, 'threads', id)
 						: state.conversations
 				}));
 				return true;

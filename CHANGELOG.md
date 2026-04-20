@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **SOLID refactor Phase 1 — shared runtime constants (frontend)**: extracted magic numbers from `src-ui/src/lib/stores/chat/llm-handler.ts`, `src-ui/src/lib/stores/chat.ts`, and `src-ui/src/lib/stores/documentGenerationStore.ts` into a new `src-ui/src/lib/config/runtime.ts` module (`STREAM_INACTIVITY_TIMEOUT_MS`, `STREAM_MAX_BUFFERED_EVENTS`, `DOC_GEN_MAX_AGE_MS`, `NLP_DEBOUNCE_MS`). First phase of the SOLID refactor tracked in `docs/planning/solid-refactor/plan.md`; no behavior change. `npm run check` green; pre-existing test failures unchanged.
 - **GitHub Actions Node runtime compatibility**: upgraded workflow dependencies from `actions/checkout@v4` to `actions/checkout@v5` and from `actions/setup-node@v4` to `actions/setup-node@v6` in both CI and release pipelines so the workflows use Node 24-compatible action releases before the GitHub Actions runner migration.
 
 ### Added

@@ -117,6 +117,10 @@ Svelte 5 runes are used for reactive state management:
 
 Global stores are in `src-ui/src/lib/stores/` for cross-component state sharing.
 
+### Runtime Configuration
+
+Shared runtime constants (stream timeouts, buffering caps, retention windows, debounce intervals) live in `src-ui/src/lib/config/runtime.ts`. Stores and utilities import named constants from this module instead of inlining magic numbers.
+
 ## Data Flow
 
 ### Chat Message Flow
