@@ -75,7 +75,9 @@ impl SqliteSessionRepository {
     /// Create a new session store at the given database path.
     pub fn new(db_path: &str) -> Result<Self, SessionRepositoryError> {
         let conn = Connection::open(db_path)?;
+        conn.execute_batch("PRAGMA journal_mode=WAL;")?;
         crate::infrastructure::sqlite::migrations::agent::init_schema(&conn)?;
+        conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })

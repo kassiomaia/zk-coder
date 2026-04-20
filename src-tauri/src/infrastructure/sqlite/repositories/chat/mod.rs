@@ -102,6 +102,7 @@ impl SqliteChatRepository {
     /// Returns an error if the database cannot be opened or initialized.
     pub fn new(db_path: &str) -> Result<Self, ChatRepositoryError> {
         let conn = Connection::open(db_path)?;
+        conn.execute_batch("PRAGMA journal_mode=WAL;")?;
         chat_schema::init_schema(&conn)?;
 
         let store = Self {
@@ -110,6 +111,11 @@ impl SqliteChatRepository {
 
         // Run migration for orphan messages
         store.migrate_orphan_messages_to_threads()?;
+
+        // Enable FK enforcement after migrations complete
+        store
+            .acquire_lock()?
+            .execute_batch("PRAGMA foreign_keys=ON;")?;
 
         Ok(store)
     }

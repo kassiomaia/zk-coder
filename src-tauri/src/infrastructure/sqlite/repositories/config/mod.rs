@@ -58,10 +58,12 @@ impl SqliteConfigRepository {
     /// Returns an error if the database cannot be opened or initialized.
     pub fn new(db_path: &str) -> Result<Self, ConfigRepositoryError> {
         let conn = Connection::open(db_path)?;
+        conn.execute_batch("PRAGMA journal_mode=WAL;")?;
         config_schema::init_schema(&conn)?;
         config::migrate_api_type_constraint(&conn)?;
         config::migrate_models_source(&conn)?;
         config::normalize_base_urls(&conn)?;
+        conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         let store = Self {
             conn: Arc::new(Mutex::new(conn)),
         };
@@ -93,6 +95,7 @@ impl SqliteConfigRepository {
         config::migrate_api_type_constraint(&conn)?;
         config::migrate_models_source(&conn)?;
         config::normalize_base_urls(&conn)?;
+        conn.execute_batch("PRAGMA foreign_keys=ON;")?;
         let store = Self {
             conn: Arc::new(Mutex::new(conn)),
         };

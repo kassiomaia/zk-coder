@@ -23,6 +23,7 @@ impl SqliteContextWindowRepository {
     /// Creates a new context window repository at the given path.
     pub fn new(db_path: &str) -> Result<Self, ContextRepositoryError> {
         let conn = Connection::open(db_path)?;
+        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
         init_schema(&conn)?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),

@@ -31,11 +31,10 @@ impl ChatState {
     ///
     /// # Errors
     ///
-    /// Returns an error if the repository cannot be created.
+    /// Returns an error if the database lock cannot be acquired.
     pub fn from_shared(conn: Arc<Mutex<Connection>>) -> Result<Self, String> {
-        let repository = Arc::new(
-            SqliteChatRepository::from_shared(conn).map_err(|e| e.to_string())?,
-        );
+        let repository =
+            Arc::new(SqliteChatRepository::from_shared(conn).map_err(|e| e.to_string())?);
         let service = Arc::new(ChatServiceImpl::new(repository)) as Arc<dyn ChatService>;
         Ok(Self { service })
     }

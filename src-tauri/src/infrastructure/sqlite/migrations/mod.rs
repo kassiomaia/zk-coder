@@ -12,12 +12,17 @@ pub mod nlp_context;
 /// Safe to call on every startup — all `CREATE TABLE` statements use `IF NOT EXISTS`
 /// and data migrations are idempotent.
 ///
+/// Foreign key enforcement is disabled for the duration of this function so that
+/// schema-rebuilding migrations (e.g. `migrate_api_type_constraint`) can rename/drop
+/// tables without triggering cascade deletes. It is re-enabled before returning.
+///
 /// # Errors
 ///
 /// Returns the first error encountered during schema or migration execution.
 pub fn init_all(
     conn: &rusqlite::Connection,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
     config_schema::init_schema(conn)?;
     chat_schema::init_schema(conn)?;
     nlp_context::init_schema(conn)?;
@@ -26,6 +31,7 @@ pub fn init_all(
     config::migrate_models_source(conn)?;
     config::normalize_base_urls(conn)?;
     chat::migrate_orphan_messages_to_threads(conn)?;
+    conn.execute_batch("PRAGMA foreign_keys=ON;")?;
     Ok(())
 }
 
