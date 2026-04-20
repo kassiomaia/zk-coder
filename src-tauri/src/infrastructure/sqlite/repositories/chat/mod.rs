@@ -122,6 +122,8 @@ impl SqliteChatRepository {
     ///
     /// Returns an error if the database lock cannot be acquired.
     pub fn from_shared(conn: Arc<Mutex<Connection>>) -> Result<Self, ChatRepositoryError> {
+        conn.lock()
+            .map_err(|_| ChatRepositoryError::LockError("Failed to acquire lock".to_string()))?;
         Ok(Self { conn })
     }
 
