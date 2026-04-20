@@ -790,16 +790,18 @@
 
 	function handleConfigureProvider(providerId: string) {
 		selectedProviderId = providerId;
-		// Keep SettingsModal open behind the new modal
+		previousModal = activeModal;
 		activeModal = 'config';
 	}
 
 	function handleConfigSaved() {
-		// Return to SettingsModal
-		activeModal = 'settings';
+		activeModal = previousModal;
+		previousModal = 'closed';
+		selectedProviderId = null;
 	}
 
 	function handleAddCustomProvider() {
+		previousModal = activeModal;
 		activeModal = 'custom-provider';
 	}
 
@@ -879,7 +881,7 @@
 {#if configInitialized}
 	<!-- Providers Modal (shown when no providers configured) -->
 	<ProvidersModal
-		open={activeModal === 'providers'}
+		open={activeModal === 'providers' || previousModal === 'providers'}
 		onclose={handleCloseModal}
 		oncontinue={handleCloseModal}
 		onconfigure={handleConfigureProvider}
@@ -889,7 +891,7 @@
 	<!-- Config Modal (for entering API key) -->
 	<ConfigModal
 		open={activeModal === 'config'}
-		onclose={handleCloseModal}
+		onclose={() => { activeModal = previousModal; previousModal = 'closed'; selectedProviderId = null; }}
 		providerId={selectedProviderId}
 		onsaved={handleConfigSaved}
 	/>
@@ -897,7 +899,7 @@
 	<!-- Custom Provider Modal -->
 	<CustomProviderModal
 		open={activeModal === 'custom-provider'}
-		onclose={() => (activeModal = 'providers')}
+		onclose={() => { activeModal = previousModal; previousModal = 'closed'; }}
 		onsaved={(providerId: string) => {
 			selectedProviderId = providerId;
 			activeModal = 'config';
@@ -906,7 +908,7 @@
 
 	<!-- Settings Modal (full settings) -->
 	<SettingsModal
-		open={activeModal === 'settings'}
+		open={activeModal === 'settings' || previousModal === 'settings'}
 		onclose={handleCloseModal}
 		onconfigure={handleConfigureProvider}
 		onaddcustom={handleAddCustomProvider}
