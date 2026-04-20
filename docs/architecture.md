@@ -53,7 +53,7 @@ The core layer contains foundational domain entities and interfaces with no depe
 
 **Modules:**
 - `chat/` - Chat domain entities (Conversation, Thread, Message)
-- `agent/` - Agent domain entities (Session, Task, Action)
+- `agent/` - Agent domain entities (Session, Task, Action) and strategy contracts (`agent/context.rs` defines `ContextCompactionStrategy` + `ContextPackOutcome` / `CompactionDetails` / `ContextState` value objects)
 - `config/` - Provider/model configuration domain contracts
 - `llm/` - LLM domain entities (Provider, Model, Message)
 - `nlp/` - NLP domain contracts and context entities

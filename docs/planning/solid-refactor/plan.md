@@ -3,7 +3,7 @@
 **Status**: ACTIVE
 **Owner**: —
 **Date drafted**: 2026-04-20
-**Last reviewed**: 2026-04-20 (Phase 3)
+**Last reviewed**: 2026-04-20 (Phase 4)
 
 ## Why this exists
 
@@ -75,12 +75,18 @@ Verified: 11 context_phase tests pass; `cargo test --lib application::agent::exe
 
 SOLID: SRP — phase orchestration, side-effecting resolution steps, and pure projection builders no longer share a file.
 
-### Phase 4 — Context Policy Strategy trait — **PENDING**
+### Phase 4 — Context Policy Strategy trait — **DONE 2026-04-20**
 
-- Add `ContextCompactionStrategy` trait in `core/agent/context/`.
-- Move the token-threshold logic into `infrastructure/agent/runtime/context/strategies/token_threshold.rs` as the only concrete impl.
-- `maybe_compact_context` becomes a thin dispatcher on `&dyn ContextCompactionStrategy`.
-- SOLID: OCP, DIP.
+Shipped layout:
+
+- New `src-tauri/src/core/agent/context.rs` owns the `ContextCompactionStrategy` trait plus the `ContextPackOutcome`, `CompactionDetails`, and `ContextState<'_>` value objects. Re-exported from `core::agent::*`.
+- New `src-tauri/src/infrastructure/agent/runtime/context/strategies/token_threshold.rs` holds `TokenThresholdStrategy` as the sole concrete impl — byte-for-byte identical logic to the former inline `maybe_compact_context` (adaptive threshold gate, first-message-preserving keep-recent rewrite, auto-summary of the dropped range). Three focused unit tests lock in: threshold gating, small-context no-op, and tail-preservation.
+- `infrastructure/agent/runtime/context/mod.rs` now re-exports the core DTOs so every existing import (`use infrastructure::agent::runtime::context::{CompactionDetails, ContextPackOutcome}`) keeps compiling, and exposes a thin `maybe_compact_context` dispatcher plus a `maybe_compact_with_strategy` variant taking `&dyn ContextCompactionStrategy`. `policy.rs` lost the duplicated DTO defs and the V1 function body; `classify_outcome` / `build_compaction_summary` widened to `pub(in …::context)` so sibling strategy modules can reach them without leaking to the rest of the crate.
+- No caller change required — `apply_context_policy_v2`, `CompactionDetails`, `ContextPackOutcome`, and `maybe_compact_context` all still import from `infrastructure::agent::runtime::context`.
+
+Verified: `cargo test --lib` → 1935 passed, 0 failed; `cargo test --lib application::agent::execution` → 136 passed; `cargo test --lib infrastructure::agent::runtime::context` → 66 passed (includes the 3 new strategy tests).
+
+SOLID: OCP — adding a new compaction strategy is a new file + one line in `strategies/mod.rs`, zero changes to the dispatcher. DIP — the runtime depends on the core `ContextCompactionStrategy` abstraction, not on a concrete infra struct.
 
 ### Phase 5 — Tool dispatcher registry — **PENDING**
 

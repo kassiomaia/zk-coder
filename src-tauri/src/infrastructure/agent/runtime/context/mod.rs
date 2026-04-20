@@ -2,15 +2,19 @@
 //!
 //! Provides context compaction and token estimation for managing the
 //! LLM context window during agent execution. The logic is split across
-//! four focused submodules:
+//! focused submodules:
 //!
 //! - [`budget`] — per-model context-window sizes, the adaptive
 //!   compaction threshold, the `ContextPolicyV2` per-block token
 //!   budgets, and the `estimate_*_tokens` family.
-//! - [`policy`] — V1 compaction (`maybe_compact_context`), V2
-//!   deterministic packing (`apply_context_policy_v2`), outcome
-//!   classification, and the dialogue-tail collector that protects
-//!   `tool_use` / `tool_result` pairings.
+//! - [`policy`] — V2 deterministic packing (`apply_context_policy_v2`),
+//!   outcome classification, and the dialogue-tail collector that
+//!   protects `tool_use` / `tool_result` pairings.
+//! - [`strategies`] — concrete
+//!   [`crate::core::agent::context::ContextCompactionStrategy`]
+//!   implementations (V1 token-threshold today); the
+//!   [`maybe_compact_context`] dispatcher below selects one and
+//!   delegates both trigger and compaction to it.
 //! - [`failure`] — `FailureClass`, `FailureRecord`, `MemorizedFailure`,
 //!   the subtask-scoped overlay selector, the context-scan fallback,
 //!   and the arguments fingerprint used for repeat-call detection.
@@ -21,13 +25,20 @@
 //! All previously-`pub` names remain reachable via
 //! `infrastructure::agent::runtime::context::<Name>` through the
 //! `pub use` re-exports below; callers in the application layer do not
-//! need to know about the submodules.
+//! need to know about the submodules. The `CompactionDetails` and
+//! `ContextPackOutcome` value objects now live in
+//! `core::agent::context`; they are re-exported here so the existing
+//! import surface keeps working.
 
 mod budget;
 mod failure;
 mod policy;
 mod render;
+mod strategies;
 
+pub use crate::core::agent::context::{
+    CompactionDetails, ContextCompactionStrategy, ContextPackOutcome, ContextState,
+};
 pub use budget::{
     adaptive_compression_threshold, estimate_context_tokens, estimate_message_tokens,
     model_context_window, BUDGET_ACTIVE_SUBTASK_TOKENS, BUDGET_EXECUTION_BRIEF_TOKENS,
@@ -41,10 +52,47 @@ pub use failure::{
     MemorizedFailure,
 };
 pub use policy::{
-    apply_context_policy_v2, maybe_compact_context, CompactionDetails, ContextPackOutcome,
-    ContextPolicyInput, MIN_SAVINGS_RATIO, MIN_SAVINGS_TOKENS, TINY_CONTEXT_RATIO,
+    apply_context_policy_v2, ContextPolicyInput, MIN_SAVINGS_RATIO, MIN_SAVINGS_TOKENS,
+    TINY_CONTEXT_RATIO,
 };
 pub use render::{render_failure_memory, ExecutionBrief, MemoryReference};
+pub use strategies::TokenThresholdStrategy;
+
+use crate::core::llm::entities::ChatMessage as Message;
+
+/// Thin dispatcher that delegates to the default
+/// [`TokenThresholdStrategy`]. Runs `should_compact` first and only
+/// invokes `compact` when the predicate agrees. Returns `None` when
+/// either guard short-circuits the path, matching the legacy
+/// `maybe_compact_context` contract.
+pub fn maybe_compact_context(
+    context: &mut Vec<Message>,
+    model_name: &str,
+) -> Option<CompactionDetails> {
+    maybe_compact_with_strategy(context, model_name, &TokenThresholdStrategy)
+}
+
+/// Shared implementation used by [`maybe_compact_context`] and by
+/// tests that want to exercise an explicit strategy. Borrowing
+/// `&dyn ContextCompactionStrategy` means a new strategy does not
+/// require a second dispatcher.
+pub fn maybe_compact_with_strategy(
+    context: &mut Vec<Message>,
+    model_name: &str,
+    strategy: &dyn ContextCompactionStrategy,
+) -> Option<CompactionDetails> {
+    let should_compact = {
+        let state = ContextState {
+            messages: context,
+            model_name,
+        };
+        strategy.should_compact(&state)
+    };
+    if !should_compact {
+        return None;
+    }
+    strategy.compact(context)
+}
 
 /// Shared text truncator used across the submodules. Thin wrapper over
 /// `infrastructure::utils::truncate_text` so the submodules don't need
