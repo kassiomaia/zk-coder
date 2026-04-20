@@ -22,6 +22,11 @@ impl ConfigState {
         Ok(Self { repository })
     }
 
+    /// Creates a config state from an existing shared repository.
+    pub fn from_repository(repository: Arc<dyn ConfigRepository>) -> Self {
+        Self { repository }
+    }
+
     /// Creates a new config state with an in-memory database (for testing).
     ///
     /// # Errors

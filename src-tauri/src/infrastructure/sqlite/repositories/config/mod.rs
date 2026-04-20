@@ -3,7 +3,7 @@
 //! This module provides persistence for providers, models, and operation defaults
 //! using `SQLite`.
 
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use rusqlite::Connection;
 use thiserror::Error;
@@ -47,7 +47,7 @@ pub enum ConfigRepositoryError {
 /// SQLite-backed configuration repository.
 pub struct SqliteConfigRepository {
     /// Database connection (protected by mutex for thread safety)
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl SqliteConfigRepository {
@@ -63,8 +63,21 @@ impl SqliteConfigRepository {
         config::migrate_models_source(&conn)?;
         config::normalize_base_urls(&conn)?;
         let store = Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         };
+        store.seed_builtin_providers()?;
+        Ok(store)
+    }
+
+    /// Creates a configuration repository from a shared connection.
+    ///
+    /// The schema and migrations must already have been applied via `migrations::init_all`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if built-in provider seeding fails.
+    pub fn from_shared(conn: Arc<Mutex<Connection>>) -> Result<Self, ConfigRepositoryError> {
+        let store = Self { conn };
         store.seed_builtin_providers()?;
         Ok(store)
     }
@@ -81,7 +94,7 @@ impl SqliteConfigRepository {
         config::migrate_models_source(&conn)?;
         config::normalize_base_urls(&conn)?;
         let store = Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         };
         store.seed_builtin_providers()?;
         Ok(store)

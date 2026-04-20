@@ -3,7 +3,7 @@
 //! This module provides persistence for NLP context windows using `SQLite`.
 //! It stores conversation messages and metadata for context-aware AI interactions.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -16,7 +16,7 @@ use crate::infrastructure::sqlite::migrations::nlp_context::init_schema;
 /// SQLite-backed context window repository.
 pub struct SqliteContextWindowRepository {
     /// Database connection (protected by mutex for thread safety)
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl SqliteContextWindowRepository {
@@ -25,8 +25,15 @@ impl SqliteContextWindowRepository {
         let conn = Connection::open(db_path)?;
         init_schema(&conn)?;
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         })
+    }
+
+    /// Creates a context window repository from a shared connection.
+    ///
+    /// The schema must already have been applied via `migrations::init_all`.
+    pub fn from_shared(conn: Arc<Mutex<Connection>>) -> Self {
+        Self { conn }
     }
 
     /// Creates an in-memory repository for testing.
@@ -34,7 +41,7 @@ impl SqliteContextWindowRepository {
         let conn = Connection::open_in_memory()?;
         init_schema(&conn)?;
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         })
     }
 

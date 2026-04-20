@@ -8,7 +8,7 @@ mod helpers;
 pub(crate) mod messages;
 pub(crate) mod threads;
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use rusqlite::Connection;
 use thiserror::Error;
@@ -91,7 +91,7 @@ impl From<ChatRepositoryError> for ChatDomainError {
 /// SQLite-backed chat repository.
 pub struct SqliteChatRepository {
     /// Database connection (protected by mutex for thread safety)
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl SqliteChatRepository {
@@ -105,13 +105,24 @@ impl SqliteChatRepository {
         chat_schema::init_schema(&conn)?;
 
         let store = Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         };
 
         // Run migration for orphan messages
         store.migrate_orphan_messages_to_threads()?;
 
         Ok(store)
+    }
+
+    /// Creates a chat repository from a shared connection.
+    ///
+    /// The schema and migrations must already have been applied via `migrations::init_all`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database lock cannot be acquired.
+    pub fn from_shared(conn: Arc<Mutex<Connection>>) -> Result<Self, ChatRepositoryError> {
+        Ok(Self { conn })
     }
 
     /// Creates an in-memory chat store (for testing).
@@ -123,7 +134,7 @@ impl SqliteChatRepository {
         let conn = Connection::open_in_memory()?;
         chat_schema::init_schema(&conn)?;
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         })
     }
 
