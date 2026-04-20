@@ -3,7 +3,7 @@
 **Status**: ACTIVE
 **Owner**: —
 **Date drafted**: 2026-04-20
-**Last reviewed**: 2026-04-20
+**Last reviewed**: 2026-04-20 (Phase 2)
 
 ## Why this exists
 
@@ -49,15 +49,18 @@ The existing 4-layer backend (`core/` → `application/` → `commands/` + `infr
 - Replaced inline magic numbers in `chat/llm-handler.ts`, `chat.ts`, `documentGenerationStore.ts`.
 - SOLID: SRP (config ≠ behavior).
 
-### Phase 2 — Split `termination.rs` (1295 → ≤500 LOC each) — **PENDING**
+### Phase 2 — Split `termination.rs` (1295 → ≤600 LOC each) — **DONE 2026-04-20**
 
-Target layout under `src-tauri/src/application/agent/execution/termination/`:
-- `mod.rs` — entry + orchestration (≤200 LOC)
-- `streaming.rs` — `STREAMING_CHUNK_BYTES`, chunking, `StreamingContent` emission
-- `finalization.rs` — final-summary flow (path fixed by the 2026-04-19 discard bug)
-- `persistence.rs` — DB writes for terminal state
+Shipped layout (simpler than the original four-file plan — "persistence" was a
+few interleaved lines per public function, not its own module):
 
-Verify: capture one session's termination events before/after, assert identical stream.
+- `src-tauri/src/application/agent/execution/termination.rs` (356 LOC) — entry file; retains the five public orchestration functions (`update_session_state`, `cancel_execution`, `fail_execution`, `mark_step_budget_exhausted`, `complete_execution`) and re-exports `emit_streaming_message`, `auto_complete_in_progress_subtasks`, `advance_next_pending_subtask` for sibling phases that import via `super::termination::…`.
+- `src-tauri/src/application/agent/execution/termination/streaming.rs` (451 LOC) — `STREAMING_CHUNK_BYTES`, chunking, `StreamingContent` emission + 10 inline tests.
+- `src-tauri/src/application/agent/execution/termination/subtasks.rs` (536 LOC) — `auto_complete_in_progress_subtasks`, `has_remaining_in_progress_subtasks`, `advance_next_pending_subtask`, `emit_subtask_result_with_trace` + the four `subtask_autocompletion_tests`.
+
+Verified: 14 termination tests pass; `cargo test --lib application::agent::execution` → 136 passed, 0 failed. Behaviour unchanged — re-exports preserve the external `super::termination::…` import surface used by `step_gate`, `park`, `bootstrap`, `tool_phase`, `response_phase`.
+
+SOLID: SRP — session-level termination orchestration, streaming-payload construction, and subtask-graph state transitions no longer share a file.
 
 ### Phase 3 — Split `context_phase.rs` (1013 → modules) — **PENDING**
 

@@ -63,7 +63,14 @@ The core layer contains foundational domain entities and interfaces with no depe
 Service implementations that coordinate business logic.
 
 **Modules:**
-- `agent/` - Agent planning, execution orchestration, and conversions
+- `agent/` - Agent planning, execution orchestration, and conversions. The
+  execution pipeline is split into focused modules under
+  `application/agent/execution/`: `bootstrap`, `context_phase`, `tool_phase`,
+  `response_phase`, `step_gate`, `park`, and `termination`. `termination` is
+  itself a directory module — its entry file owns the five public
+  orchestration functions while `termination/streaming.rs` owns
+  `StreamingContent` chunking/emission and `termination/subtasks.rs` owns the
+  subtask state transitions used when a run finishes.
 - `chat/` - Chat orchestration and service logic
 - `llm/` - Provider-agnostic LLM service implementation
 - `nlp/` - NLP orchestration and service logic
