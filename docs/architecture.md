@@ -66,11 +66,17 @@ Service implementations that coordinate business logic.
 - `agent/` - Agent planning, execution orchestration, and conversions. The
   execution pipeline is split into focused modules under
   `application/agent/execution/`: `bootstrap`, `context_phase`, `tool_phase`,
-  `response_phase`, `step_gate`, `park`, and `termination`. `termination` is
-  itself a directory module — its entry file owns the five public
-  orchestration functions while `termination/streaming.rs` owns
-  `StreamingContent` chunking/emission and `termination/subtasks.rs` owns the
-  subtask state transitions used when a run finishes.
+  `response_phase`, `step_gate`, `park`, and `termination`. Both
+  `context_phase` and `termination` are directory modules — their entry
+  files retain the public phase entry point (`resolve_context` /
+  `cancel_execution` + siblings) while dedicated submodules own narrower
+  concerns. `context_phase/resolution.rs` owns memory-refresh triggers,
+  retrieval-pass execution, and compaction recording;
+  `context_phase/projection.rs` owns pure builders that turn durable state
+  into context-policy value objects (`ExecutionBrief`, `MemoryReference`).
+  `termination/streaming.rs` owns `StreamingContent` chunking/emission;
+  `termination/subtasks.rs` owns the subtask state transitions used when a
+  run finishes.
 - `chat/` - Chat orchestration and service logic
 - `llm/` - Provider-agnostic LLM service implementation
 - `nlp/` - NLP orchestration and service logic

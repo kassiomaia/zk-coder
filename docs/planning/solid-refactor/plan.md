@@ -3,7 +3,7 @@
 **Status**: ACTIVE
 **Owner**: —
 **Date drafted**: 2026-04-20
-**Last reviewed**: 2026-04-20 (Phase 2)
+**Last reviewed**: 2026-04-20 (Phase 3)
 
 ## Why this exists
 
@@ -62,14 +62,18 @@ Verified: 14 termination tests pass; `cargo test --lib application::agent::execu
 
 SOLID: SRP — session-level termination orchestration, streaming-payload construction, and subtask-graph state transitions no longer share a file.
 
-### Phase 3 — Split `context_phase.rs` (1013 → modules) — **PENDING**
+### Phase 3 — Split `context_phase.rs` (1013 → modules) — **DONE 2026-04-20**
 
-Target layout under `src-tauri/src/application/agent/execution/context_phase/`:
-- `mod.rs` — phase entry, orchestrates sub-steps
-- `resolution.rs` — context assembly
-- `projection.rs` — domain → LLM payload
+Shipped layout (file-module, not directory-module — the entry file stays at
+`context_phase.rs` and declares `mod projection; mod resolution;`):
 
-Verify: snapshot-test `apply_context_policy_v2` on a fixture before/after.
+- `src-tauri/src/application/agent/execution/context_phase.rs` (378 LOC) — retains the public `resolve_context` async function and the phase orchestration; imports helpers from the two submodules via `use projection::…` / `use resolution::…`.
+- `src-tauri/src/application/agent/execution/context_phase/resolution.rs` (375 LOC) — memory-refresh triggers (`maybe_fire_subtask_completed`, `maybe_fire_retrieval_burst`, `maybe_fire_compaction_boundary`), retrieval pass (`run_retrieval_pass`, `build_retrieval_query`), `identify_messages_to_drop`, compaction recording (`record_compaction`, `should_emit_compaction_event`) + 5 compaction-emit tests.
+- `src-tauri/src/application/agent/execution/context_phase/projection.rs` (315 LOC) — pure projection builders that turn durable state into the context-policy value objects (`build_execution_brief`, `blocker_class_label`, `lookup_memory_reference`) + 6 execution-brief tests.
+
+Verified: 11 context_phase tests pass; `cargo test --lib application::agent::execution` → 136 passed, 0 failed; behaviour unchanged (only `resolve_context` is imported by siblings, and that surface is preserved).
+
+SOLID: SRP — phase orchestration, side-effecting resolution steps, and pure projection builders no longer share a file.
 
 ### Phase 4 — Context Policy Strategy trait — **PENDING**
 
