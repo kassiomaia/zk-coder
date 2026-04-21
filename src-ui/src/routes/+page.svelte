@@ -906,7 +906,11 @@
 		open={activeModal === 'config'}
 		onclose={() => { activeModal = previousModal; previousModal = 'closed'; selectedProviderId = null; }}
 		providerId={selectedProviderId}
-		onsaved={handleConfigSaved}
+		onsaved={() => {
+			const returnModal = previousModal;
+			handleConfigSaved();
+			previousModal = returnModal;
+		}}
 	/>
 
 	<!-- Custom Provider Modal -->
