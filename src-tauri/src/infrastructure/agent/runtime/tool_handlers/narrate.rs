@@ -7,11 +7,39 @@
 use chrono::Utc;
 use tauri::{AppHandle, Emitter};
 
+use super::dispatcher::{ToolHandler, ToolHandlerContext};
 use crate::core::agent::session::AgentSession;
 use crate::core::llm::entities::ToolCall;
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
 use crate::infrastructure::tools::OrchestratorToolResult;
+
+/// Zero-sized marker for the `agent_narrate` meta-tool.
+pub(super) struct NarrateHandler;
+
+/// Static instance the registry references so lookups stay allocation-free.
+pub(super) static NARRATE: NarrateHandler = NarrateHandler;
+
+impl ToolHandler for NarrateHandler {
+    fn name(&self) -> &'static str {
+        "agent_narrate"
+    }
+
+    fn handle(
+        &self,
+        call: &ToolCall,
+        ctx: &mut ToolHandlerContext<'_>,
+    ) -> OrchestratorToolResult {
+        handle_narrate(
+            call,
+            ctx.session,
+            ctx.task_id,
+            ctx.current_subtask_id,
+            ctx.app_handle,
+            ctx.telemetry_repo,
+        )
+    }
+}
 
 /// Handles an `agent_narrate` tool call.
 pub(super) fn handle_narrate(

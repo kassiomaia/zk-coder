@@ -3,7 +3,7 @@
 **Status**: ACTIVE
 **Owner**: —
 **Date drafted**: 2026-04-20
-**Last reviewed**: 2026-04-20 (Phase 4)
+**Last reviewed**: 2026-04-21 (Phase 5)
 
 ## Why this exists
 
@@ -88,12 +88,18 @@ Verified: `cargo test --lib` → 1935 passed, 0 failed; `cargo test --lib applic
 
 SOLID: OCP — adding a new compaction strategy is a new file + one line in `strategies/mod.rs`, zero changes to the dispatcher. DIP — the runtime depends on the core `ContextCompactionStrategy` abstraction, not on a concrete infra struct.
 
-### Phase 5 — Tool dispatcher registry — **PENDING**
+### Phase 5 — Tool dispatcher registry — **DONE 2026-04-21**
 
-- Replace hardcoded match in `infrastructure/agent/runtime/tool_handlers/mod.rs:43-80` with a static registry patterned on the frontend `tool-renderers/registry.ts`.
-- Add `ToolHandler` trait in `core/agent/tools/dispatcher.rs`.
-- Each existing match arm becomes one `ToolHandler` impl in its own file.
-- SOLID: OCP.
+Shipped layout:
+
+- New `src-tauri/src/infrastructure/agent/runtime/tool_handlers/dispatcher.rs` owns the `ToolHandler` trait (`name`, `handle`) + the `ToolHandlerContext<'a>` bundle that carries every dependency the four meta-tools need (`session`, `task_id`, `current_subtask_id`, `app_handle`, `session_repo`, `task_repo`, `telemetry_repo`, `scope`). **Placement deviation from original plan**: the trait lives in infrastructure rather than `core/agent/tools/` because `ToolHandlerContext` references framework-level types (`tauri::AppHandle`, `RuntimeSessionScope`) that the domain layer must not depend on. The OCP benefit (new tool = new file + one registry line) is realised regardless of which layer holds the trait.
+- New `src-tauri/src/infrastructure/agent/runtime/tool_handlers/registry.rs` owns a `OnceLock<HashMap<&'static str, &'static dyn ToolHandler>>` initialised once from an inline handlers array plus a `pub(super) fn lookup(name: &str) -> Option<&'static dyn ToolHandler>`. Three unit tests lock in the catalog enumeration, unknown-tool miss, and known-tool hit.
+- Each of the four agent meta-tool modules (`plan_subtasks.rs`, `advance_subtask.rs`, `mark_subtask_status.rs`, `narrate.rs`) now declares a zero-sized unit struct + a `'static` instance (`PLAN_SUBTASKS`, `ADVANCE_SUBTASK`, `MARK_SUBTASK_STATUS`, `NARRATE`) + an `impl ToolHandler` that delegates to the existing free function — so the free-function entry points stay available for direct callers and there is no behaviour change, no allocation on the hot path.
+- `tool_handlers/mod.rs` shrank to 64 LOC: the `handle_agent_tool_call` entry point is now `registry::lookup(name)?.handle(call, &mut ctx)` — no hardcoded match arm to edit when a new meta-tool lands.
+
+Verified: `cargo build --lib` green; `cargo test --lib` → **1938 passed, 0 failed** (3 new registry tests on top of the Phase 4 baseline).
+
+SOLID: OCP — adding a new agent meta-tool is one new handler module plus one entry in the `registry.rs` handlers array, zero edits to `handle_agent_tool_call`.
 
 ### Phase 6 — Split `SqliteSessionRepository` by domain — **PENDING**
 

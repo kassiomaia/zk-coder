@@ -105,6 +105,8 @@ Tauri commands expose backend functionality to the frontend via IPC.
 | `infrastructure/sqlite/` | SQLite migrations and repository implementations |
 | `infrastructure/tools/` | Tool execution, file operations, and document artifacts |
 
+Agent meta-tool dispatch (`agent_plan_subtasks`, `agent_advance_to_next_subtask`, `agent_mark_subtask_status`, `agent_narrate`) runs through a static registry at `infrastructure/agent/runtime/tool_handlers/registry.rs`. Every handler module exposes a zero-sized unit struct + `'static` instance implementing the `ToolHandler` trait (`tool_handlers/dispatcher.rs`); the registry is a `OnceLock<HashMap<&'static str, &'static dyn ToolHandler>>` initialised once from an inline array. Adding a new meta-tool is one new handler module plus one entry in that array — no `match` arm to edit in `handle_agent_tool_call`.
+
 ## Frontend Structure
 
 ### Component Organization
