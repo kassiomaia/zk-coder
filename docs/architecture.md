@@ -135,6 +135,8 @@ src-ui/src/lib/components/
 └── shared/         # Reusable primitives used across feature modules
 ```
 
+Components never import `@tauri-apps/api/core` directly — every IPC call goes through a typed wrapper in `src-ui/src/lib/api/`, which uses the shared `invokeCommand` / `createInvoker` helpers from `api/core.ts`. That keeps command names, argument shapes, and error classes out of the component layer and puts them behind per-domain modules (`chat`, `config`, `nlp`, `llm`, `file`, `agent`, `artifact`, plus feature-specific ones for web-search, workspace, etc.). Each domain has its own `*ApiError` subclass so callers can `instanceof`-check without conflating unrelated failures.
+
 ### State Management
 
 Svelte 5 runes are used for reactive state management:

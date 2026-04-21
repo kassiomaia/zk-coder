@@ -3,7 +3,7 @@
 **Status**: ACTIVE
 **Owner**: —
 **Date drafted**: 2026-04-20
-**Last reviewed**: 2026-04-21 (Phase 7)
+**Last reviewed**: 2026-04-21 (Phase 8)
 
 ## Why this exists
 
@@ -147,15 +147,25 @@ Verified: `npm run check` → 0 errors 0 warnings; `npm run test -- src/lib/stor
 
 SOLID: SRP.
 
-### Phase 8 — Remove direct `invoke()` from components — **PENDING**
+### Phase 8 — Remove direct `invoke()` from components — **DONE 2026-04-21**
 
-Route through `createInvoker` / `invokeCommand`:
-- `src-ui/src/lib/components/chat/ChatMessagesList.svelte:327`
-- `src-ui/src/lib/components/agent/AgentPanel.svelte:120`
-- `src-ui/src/lib/components/ManualModelList.svelte`
-- `src-ui/src/lib/components/ArtifactCard.svelte`
+All five direct `invoke()` callsites in `src-ui/src/lib/components/` now go through typed wrappers under `src-ui/src/lib/api/`. `@tauri-apps/api/core` is no longer imported anywhere under `components/` — grep confirms zero remaining imports.
 
-SOLID: DIP.
+| Component | Command | Now goes through |
+|---|---|---|
+| `ManualModelList.svelte` | `get_manual_models`, `add_manual_model`, `remove_manual_model` | existing `api/config.ts` (`getManualModels`, `addManualModel`, `removeManualModel`) |
+| `agent/AgentPanel.svelte` | `open_file_diff_window` | new `api/file.ts::openFileDiffWindow` |
+| `agent/AgentPanel.svelte` | `open_agent_trace_window` | new `api/agent.ts::openAgentTraceWindow` |
+| `chat/ChatMessagesList.svelte` | `save_artifact_to_path` | new `api/artifacts.ts::saveArtifactToPath` |
+| `ArtifactCard.svelte` | `documents_download_artifact` | new `api/artifacts.ts::downloadArtifact` |
+
+Extended `api/core.ts` + `api/errors.ts` with two new domains — `agent` (`AgentApiError`) and `artifact` (`ArtifactApiError`) — so the error surface stays per-domain instead of collapsing into `file`. Also removed a stale unused `invoke` import from `agent/AgentConfig.svelte` that had been orphaned after an earlier migration to the store.
+
+`downloadArtifact` deliberately returns `content: number[]` rather than eagerly constructing a `Uint8Array`. The backend already serialises the blob as a JSON array across IPC; constructing the `Uint8Array` / `Blob` in the component keeps the buffer type well-defined for `BlobPart` without needing a cast — recent TypeScript/DOM typings distinguish `Uint8Array<ArrayBuffer>` from `Uint8Array<ArrayBufferLike>` and only the former is assignable to `BlobPart`.
+
+SOLID: DIP (components depend on typed service abstractions, not Tauri IPC).
+
+Verified: `npm run check` → 0 errors 0 warnings; `npm run test -- src/lib/components/ArtifactCard` → 13/13 passed; `npm run test -- src/lib/api` → 158/165 (7 failures match the pre-existing HEAD baseline in `nlp.test.ts`, unrelated to this phase).
 
 ### Phase 9 — Agent ↔ chat typed event bus — **PENDING**
 

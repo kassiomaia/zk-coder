@@ -51,3 +51,20 @@ export async function getFileContent(
 		sessionId
 	});
 }
+
+/**
+ * Open the dedicated file-diff window for a path within a session's
+ * workspace. The backend spawns the window; errors surface as
+ * `FileApiError`.
+ */
+export async function openFileDiffWindow(
+	filePath: string,
+	workspaceRoot: string,
+	sessionId: string
+): Promise<void> {
+	await invokeCommand<void>('file', 'open_file_diff_window', {
+		filePath,
+		workspaceRoot,
+		sessionId
+	});
+}

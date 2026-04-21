@@ -28,7 +28,6 @@
 			if (open) {
 				loading = true;
 				try {
-					const { invoke } = await import('@tauri-apps/api/core');
 					const agentsData = await import('$lib/stores/agentStore').then((m) =>
 						m.agentStore.listAgents()
 					);

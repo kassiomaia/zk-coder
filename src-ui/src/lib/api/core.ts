@@ -5,7 +5,9 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import {
+	AgentApiError,
 	ApiError,
+	ArtifactApiError,
 	ChatApiError,
 	ConfigApiError,
 	NlpApiError,
@@ -27,6 +29,8 @@ type ApiErrorMap = {
 	nlp: typeof NlpApiError;
 	llm: typeof LlmApiError;
 	file: typeof FileApiError;
+	agent: typeof AgentApiError;
+	artifact: typeof ArtifactApiError;
 };
 
 /**
@@ -68,7 +72,9 @@ function getErrorConstructor(domain: ApiDomain): ApiErrorMap[typeof domain] {
 		config: ConfigApiError,
 		nlp: NlpApiError,
 		llm: LlmApiError,
-		file: FileApiError
+		file: FileApiError,
+		agent: AgentApiError,
+		artifact: ArtifactApiError
 	};
 	return constructors[domain];
 }
