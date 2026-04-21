@@ -358,13 +358,11 @@ fn build_trace_payload(
 mod tests {
     use super::*;
 
-    use std::sync::Arc;
-
     use crate::core::agent::memory::{MemoryRepository, SessionMemory};
     use crate::core::agent::session::{AgentSession, SessionId};
     use crate::core::agent::task::{AgentRequest, AgentTask};
     use crate::core::agent::types::AgentId;
-    use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
+    use crate::infrastructure::sqlite::repositories::agent::test_support::TestAgentRepos;
 
     /// Fixed task id used across the memory_refresh tests. Foreign-key
     /// constraints on `agent_runtime_traces.task_id` require the task row
@@ -372,8 +370,8 @@ mod tests {
     /// unconditionally.
     const FIXTURE_TASK_ID: &str = "task-1";
 
-    fn make_repo() -> Arc<SqliteSessionRepository> {
-        let repo = SqliteSessionRepository::new(":memory:").unwrap();
+    fn make_repo() -> TestAgentRepos {
+        let repos = TestAgentRepos::in_memory().unwrap();
         let session = AgentSession::new(
             AgentId::new("code-agent"),
             "Code Agent".to_string(),
@@ -382,7 +380,7 @@ mod tests {
             None,
             None,
         );
-        SqliteSessionRepository::create_session(&repo, &session).unwrap();
+        repos.session.create_session(&session).unwrap();
 
         let mut task = AgentTask::new(
             session.id.clone(),
@@ -394,18 +392,15 @@ mod tests {
         );
         task.id = FIXTURE_TASK_ID.to_string();
         task.title = Some("Fixture task".to_string());
-        SqliteSessionRepository::create_task(
-            &repo,
-            &task,
-            task.title.as_deref(),
-            None,
-        )
-        .unwrap();
+        repos
+            .session
+            .create_task(&task, task.title.as_deref(), None)
+            .unwrap();
 
-        Arc::new(repo)
+        repos
     }
 
-    fn seed_subtask(repo: &SqliteSessionRepository, id: &str, order: i32) {
+    fn seed_subtask(repos: &TestAgentRepos, id: &str, order: i32) {
         let mut subtask = crate::core::agent::task::SubTask::new(
             FIXTURE_TASK_ID.to_string(),
             format!("Subtask {order}"),
@@ -413,23 +408,21 @@ mod tests {
             order,
         );
         subtask.id = id.to_string();
-        SqliteSessionRepository::create_subtask(repo, &subtask).unwrap();
+        repos.session.create_subtask(&subtask).unwrap();
     }
 
-    fn seed_memory(repo: &SqliteSessionRepository, session_id: &SessionId) {
+    fn seed_memory(repos: &TestAgentRepos, session_id: &SessionId) {
         let memory = SessionMemory::new(
             session_id.clone(),
             FIXTURE_TASK_ID.to_string(),
             "ship the feature".into(),
             "investigate; implement; verify".into(),
         );
-        MemoryRepository::upsert_memory(repo, &memory).unwrap();
+        repos.memory.upsert_memory(&memory).unwrap();
     }
 
-    fn session_id(repo: &SqliteSessionRepository) -> SessionId {
-        SqliteSessionRepository::list_sessions(repo).unwrap()[0]
-            .id
-            .clone()
+    fn session_id(repos: &TestAgentRepos) -> SessionId {
+        repos.session.list_sessions().unwrap()[0].id.clone()
     }
 
     // ----------------------------------------------------------------
@@ -497,13 +490,13 @@ mod tests {
 
     #[test]
     fn apply_skips_when_no_memory_row_exists_and_emits_trace() {
-        let repo = make_repo();
-        let id = session_id(&repo);
+        let repos = make_repo();
+        let id = session_id(&repos);
 
         let trigger = MemoryRefreshTrigger::CompactionBoundary;
         let outcome = apply_memory_refresh(
-            repo.as_ref(),
-            repo.as_ref(),
+            repos.memory.as_ref(),
+            repos.execution.as_ref(),
             &id.0,
             "task-1",
             None,
@@ -515,7 +508,7 @@ mod tests {
         assert!(!outcome.wrote);
         assert_eq!(outcome.skipped_reason, Some("no_memory"));
 
-        let traces = repo.get_runtime_traces(&id.0, None).unwrap();
+        let traces = repos.execution.get_runtime_traces(&id.0, None).unwrap();
         assert_eq!(traces.len(), 1);
         assert_eq!(traces[0].trace_type, RuntimeTraceType::MemoryRefreshed);
         assert_eq!(traces[0].payload_json["trigger"], "compaction_boundary");
@@ -524,10 +517,10 @@ mod tests {
 
     #[test]
     fn subtask_completed_trigger_appends_title_and_updates_active_plan() {
-        let repo = make_repo();
-        let id = session_id(&repo);
-        seed_memory(&repo, &id);
-        seed_subtask(&repo, "sub-0", 0);
+        let repos = make_repo();
+        let id = session_id(&repos);
+        seed_memory(&repos, &id);
+        seed_subtask(&repos, "sub-0", 0);
 
         let trigger = MemoryRefreshTrigger::SubtaskCompleted {
             subtask_id: "sub-0".into(),
@@ -540,8 +533,8 @@ mod tests {
             new_active_plan: Some("implement; verify".into()),
         };
         let outcome = apply_memory_refresh(
-            repo.as_ref(),
-            repo.as_ref(),
+            repos.memory.as_ref(),
+            repos.execution.as_ref(),
             &id.0,
             "task-1",
             Some("sub-0"),
@@ -556,13 +549,13 @@ mod tests {
         assert!(outcome.active_plan_changed);
         assert_eq!(outcome.skipped_reason, None);
 
-        let loaded = MemoryRepository::get_memory(repo.as_ref(), &id)
+        let loaded = repos.memory.get_memory(&id)
             .unwrap()
             .unwrap();
         assert_eq!(loaded.completed_findings, vec!["Investigate repo"]);
         assert_eq!(loaded.active_plan, "implement; verify");
 
-        let traces = repo.get_runtime_traces(&id.0, None).unwrap();
+        let traces = repos.execution.get_runtime_traces(&id.0, None).unwrap();
         assert_eq!(traces.len(), 1);
         assert_eq!(traces[0].payload_json["trigger"], "subtask_completed");
         assert_eq!(traces[0].payload_json["wrote"], true);
@@ -576,10 +569,10 @@ mod tests {
 
     #[test]
     fn subtask_completed_trigger_is_idempotent_on_repeat() {
-        let repo = make_repo();
-        let id = session_id(&repo);
-        seed_memory(&repo, &id);
-        seed_subtask(&repo, "sub-0", 0);
+        let repos = make_repo();
+        let id = session_id(&repos);
+        seed_memory(&repos, &id);
+        seed_subtask(&repos, "sub-0", 0);
 
         let trigger = MemoryRefreshTrigger::SubtaskCompleted {
             subtask_id: "sub-0".into(),
@@ -587,8 +580,8 @@ mod tests {
             order: 0,
         };
         let first = apply_memory_refresh(
-            repo.as_ref(),
-            repo.as_ref(),
+            repos.memory.as_ref(),
+            repos.execution.as_ref(),
             &id.0,
             "task-1",
             Some("sub-0"),
@@ -603,8 +596,8 @@ mod tests {
         assert_eq!(first.findings_added, 1);
 
         let second = apply_memory_refresh(
-            repo.as_ref(),
-            repo.as_ref(),
+            repos.memory.as_ref(),
+            repos.execution.as_ref(),
             &id.0,
             "task-1",
             Some("sub-0"),
@@ -619,29 +612,29 @@ mod tests {
         assert_eq!(second.findings_added, 0);
         assert_eq!(second.skipped_reason, Some("no_change"));
 
-        let loaded = MemoryRepository::get_memory(repo.as_ref(), &id)
+        let loaded = repos.memory.get_memory(&id)
             .unwrap()
             .unwrap();
         assert_eq!(loaded.completed_findings, vec!["Investigate repo"]);
 
-        let traces = repo.get_runtime_traces(&id.0, None).unwrap();
+        let traces = repos.execution.get_runtime_traces(&id.0, None).unwrap();
         assert_eq!(traces.len(), 2);
     }
 
     #[test]
     fn compaction_boundary_trigger_does_not_write_when_mutation_is_empty() {
-        let repo = make_repo();
-        let id = session_id(&repo);
-        seed_memory(&repo, &id);
+        let repos = make_repo();
+        let id = session_id(&repos);
+        seed_memory(&repos, &id);
 
-        let pre = MemoryRepository::get_memory(repo.as_ref(), &id)
+        let pre = repos.memory.get_memory(&id)
             .unwrap()
             .unwrap();
 
         let trigger = MemoryRefreshTrigger::CompactionBoundary;
         let outcome = apply_memory_refresh(
-            repo.as_ref(),
-            repo.as_ref(),
+            repos.memory.as_ref(),
+            repos.execution.as_ref(),
             &id.0,
             "task-1",
             None,
@@ -653,13 +646,13 @@ mod tests {
         assert!(!outcome.wrote);
         assert_eq!(outcome.skipped_reason, Some("no_change"));
 
-        let post = MemoryRepository::get_memory(repo.as_ref(), &id)
+        let post = repos.memory.get_memory(&id)
             .unwrap()
             .unwrap();
         assert_eq!(pre.updated_at, post.updated_at);
         assert_eq!(pre.completed_findings, post.completed_findings);
 
-        let traces = repo.get_runtime_traces(&id.0, None).unwrap();
+        let traces = repos.execution.get_runtime_traces(&id.0, None).unwrap();
         assert_eq!(traces.len(), 1);
         assert_eq!(traces[0].payload_json["trigger"], "compaction_boundary");
         assert_eq!(traces[0].payload_json["wrote"], false);
@@ -667,14 +660,14 @@ mod tests {
 
     #[test]
     fn compaction_boundary_trigger_updates_active_plan_when_provided() {
-        let repo = make_repo();
-        let id = session_id(&repo);
-        seed_memory(&repo, &id);
+        let repos = make_repo();
+        let id = session_id(&repos);
+        seed_memory(&repos, &id);
 
         let trigger = MemoryRefreshTrigger::CompactionBoundary;
         let outcome = apply_memory_refresh(
-            repo.as_ref(),
-            repo.as_ref(),
+            repos.memory.as_ref(),
+            repos.execution.as_ref(),
             &id.0,
             "task-1",
             None,
@@ -689,7 +682,7 @@ mod tests {
         assert!(outcome.wrote);
         assert!(outcome.active_plan_changed);
 
-        let loaded = MemoryRepository::get_memory(repo.as_ref(), &id)
+        let loaded = repos.memory.get_memory(&id)
             .unwrap()
             .unwrap();
         assert_eq!(loaded.active_plan, "verify");
@@ -697,9 +690,9 @@ mod tests {
 
     #[test]
     fn retrieval_burst_trigger_appends_paths_and_dedupes() {
-        let repo = make_repo();
-        let id = session_id(&repo);
-        seed_memory(&repo, &id);
+        let repos = make_repo();
+        let id = session_id(&repos);
+        seed_memory(&repos, &id);
 
         let trigger = MemoryRefreshTrigger::RetrievalBurst { count: 3 };
         let mutation = MemoryMutation {
@@ -712,8 +705,8 @@ mod tests {
         };
 
         let outcome = apply_memory_refresh(
-            repo.as_ref(),
-            repo.as_ref(),
+            repos.memory.as_ref(),
+            repos.execution.as_ref(),
             &id.0,
             "task-1",
             None,
@@ -725,12 +718,12 @@ mod tests {
         assert!(outcome.wrote);
         assert_eq!(outcome.facts_added, 2);
 
-        let loaded = MemoryRepository::get_memory(repo.as_ref(), &id)
+        let loaded = repos.memory.get_memory(&id)
             .unwrap()
             .unwrap();
         assert_eq!(loaded.extracted_facts, vec!["src/foo.rs", "src/bar.rs"]);
 
-        let traces = repo.get_runtime_traces(&id.0, None).unwrap();
+        let traces = repos.execution.get_runtime_traces(&id.0, None).unwrap();
         assert_eq!(traces.len(), 1);
         assert_eq!(traces[0].payload_json["trigger"], "retrieval_burst");
         assert_eq!(traces[0].payload_json["triggerDetails"]["retrievalCount"], 3);
@@ -738,8 +731,8 @@ mod tests {
 
     #[test]
     fn retrieval_burst_trigger_caps_extracted_facts() {
-        let repo = make_repo();
-        let id = session_id(&repo);
+        let repos = make_repo();
+        let id = session_id(&repos);
 
         // Pre-seed with MAX_EXTRACTED_FACTS entries so the cap is immediately relevant.
         let mut memory = SessionMemory::new(
@@ -750,7 +743,7 @@ mod tests {
         );
         memory.extracted_facts =
             (0..MAX_EXTRACTED_FACTS).map(|i| format!("old-{i}")).collect();
-        MemoryRepository::upsert_memory(repo.as_ref(), &memory).unwrap();
+        repos.memory.upsert_memory(&memory).unwrap();
 
         let trigger = MemoryRefreshTrigger::RetrievalBurst { count: 3 };
         let mutation = MemoryMutation {
@@ -758,8 +751,8 @@ mod tests {
             ..MemoryMutation::default()
         };
         let outcome = apply_memory_refresh(
-            repo.as_ref(),
-            repo.as_ref(),
+            repos.memory.as_ref(),
+            repos.execution.as_ref(),
             &id.0,
             "task-1",
             None,
@@ -770,7 +763,7 @@ mod tests {
         assert!(outcome.wrote);
         assert_eq!(outcome.facts_added, 2);
 
-        let loaded = MemoryRepository::get_memory(repo.as_ref(), &id)
+        let loaded = repos.memory.get_memory(&id)
             .unwrap()
             .unwrap();
         assert_eq!(loaded.extracted_facts.len(), MAX_EXTRACTED_FACTS);
@@ -787,18 +780,18 @@ mod tests {
         // Model the M3.3 contract: if no trigger fires, no memory write
         // occurs. We assert this by confirming that the memory row is
         // unchanged when `apply_memory_refresh` is simply not called.
-        let repo = make_repo();
-        let id = session_id(&repo);
-        seed_memory(&repo, &id);
+        let repos = make_repo();
+        let id = session_id(&repos);
+        seed_memory(&repos, &id);
 
-        let before = MemoryRepository::get_memory(repo.as_ref(), &id)
+        let before = repos.memory.get_memory(&id)
             .unwrap()
             .unwrap();
 
         // Simulate many non-trigger "steps" by doing nothing.
         std::thread::sleep(std::time::Duration::from_millis(2));
 
-        let after = MemoryRepository::get_memory(repo.as_ref(), &id)
+        let after = repos.memory.get_memory(&id)
             .unwrap()
             .unwrap();
         assert_eq!(before.updated_at, after.updated_at);
@@ -806,7 +799,7 @@ mod tests {
         assert_eq!(before.extracted_facts, after.extracted_facts);
 
         // And no memory-refresh traces are written by non-trigger steps.
-        let traces = repo.get_runtime_traces(&id.0, None).unwrap();
+        let traces = repos.execution.get_runtime_traces(&id.0, None).unwrap();
         assert!(
             traces
                 .iter()

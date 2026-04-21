@@ -107,6 +107,19 @@ Tauri commands expose backend functionality to the frontend via IPC.
 
 Agent meta-tool dispatch (`agent_plan_subtasks`, `agent_advance_to_next_subtask`, `agent_mark_subtask_status`, `agent_narrate`) runs through a static registry at `infrastructure/agent/runtime/tool_handlers/registry.rs`. Every handler module exposes a zero-sized unit struct + `'static` instance implementing the `ToolHandler` trait (`tool_handlers/dispatcher.rs`); the registry is a `OnceLock<HashMap<&'static str, &'static dyn ToolHandler>>` initialised once from an inline array. Adding a new meta-tool is one new handler module plus one entry in that array — no `match` arm to edit in `handle_agent_tool_call`.
 
+Agent SQLite persistence is split by domain (`infrastructure/sqlite/repositories/agent/`). Each core trait is implemented by its own struct over a shared `Arc<Mutex<Connection>>`, so consumers depend only on the interface they need:
+
+| Struct | Traits | File |
+|--------|--------|------|
+| `SqliteSessionRepository` | `SessionRepository` | `mod.rs` |
+| `SqliteTaskRepository` | `TaskRepository` | `task_repo.rs` |
+| `SqliteExecutionRepository` | `ExecutionRepository` + `RuntimeTraceRepository` | `execution_repo.rs` |
+| `SqliteClarificationRepository` | `ClarificationRepository` + `ExecutionCheckpointRepository` | `clarification_repo.rs` |
+| `SqliteMemoryRepository` | `MemoryRepository` | `memory_repo.rs` |
+| `SqliteAgentTelemetryRepository` | `AgentTelemetryRepository` | `telemetry.rs` |
+
+Wiring in `commands/agent/state.rs` builds every repo from the shared connection and hands `AgentRuntime` / `AgentServiceImpl` pre-typed `Arc<dyn …>` objects — the concrete SQLite types never cross into the application layer. Tests that need more than one repo use `infrastructure/sqlite/repositories/agent/test_support::TestAgentRepos`.
+
 ## Frontend Structure
 
 ### Component Organization

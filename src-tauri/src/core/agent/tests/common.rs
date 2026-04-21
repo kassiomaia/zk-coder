@@ -1,6 +1,5 @@
 //! Common test utilities for agent tests.
 
-use crate::core::agent::repositories::TaskRepository;
 use crate::core::agent::session::{AgentSession, SessionId};
 use crate::core::agent::task::{AgentRequest, AgentTask};
 use crate::core::agent::types::AgentId;
@@ -32,5 +31,5 @@ pub fn make_test_task(store: &SqliteSessionRepository, task_id: &str, session_id
         },
     );
     task.id = task_id.to_string();
-    TaskRepository::create_task(store, &task).unwrap();
+    store.create_task(&task, None, None).unwrap();
 }

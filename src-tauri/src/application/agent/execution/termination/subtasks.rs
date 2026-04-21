@@ -188,7 +188,6 @@ pub(super) async fn emit_subtask_result_with_trace(
 /// 3. Task completion is accurately reflected in subtask status
 #[cfg(test)]
 mod subtask_autocompletion_tests {
-    use crate::core::agent::repositories::TaskRepository;
     use crate::core::agent::session::AgentSession;
     use crate::core::agent::task::{AgentRequest, AgentTask, SubTask, SubTaskMode, TaskStatus};
     use crate::core::agent::types::AgentId;
@@ -225,7 +224,7 @@ mod subtask_autocompletion_tests {
         task.id = "task-1".to_string();
         task.title = Some("Test Task".to_string());
         task.status = TaskStatus::InProgress;
-        TaskRepository::create_task(&store, &task).unwrap();
+        store.create_task(&task, task.title.as_deref(), None).unwrap();
 
         // Create 3 subtasks (using SubTask type for store.create_subtask)
         let subtask1 = SubTask::new(
@@ -308,7 +307,7 @@ mod subtask_autocompletion_tests {
         task.id = "task-1".to_string();
         task.title = Some("Test Task".to_string());
         task.status = TaskStatus::InProgress;
-        TaskRepository::create_task(&store, &task).unwrap();
+        store.create_task(&task, task.title.as_deref(), None).unwrap();
 
         // Create 3 subtasks: Completed, InProgress, and Pending
         let subtask1 = SubTask::new(
@@ -391,7 +390,7 @@ mod subtask_autocompletion_tests {
         task.id = "task-1".to_string();
         task.title = Some("Test Task".to_string());
         task.status = TaskStatus::InProgress;
-        TaskRepository::create_task(&store, &task).unwrap();
+        store.create_task(&task, task.title.as_deref(), None).unwrap();
 
         // Create 2 subtasks: both Completed (agent properly advanced through them)
         let subtask1 = SubTask::new(
@@ -467,7 +466,7 @@ mod subtask_autocompletion_tests {
         task.id = "task-1".to_string();
         task.title = Some("Test Task".to_string());
         task.status = TaskStatus::InProgress;
-        TaskRepository::create_task(&store, &task).unwrap();
+        store.create_task(&task, task.title.as_deref(), None).unwrap();
 
         // Create 3 subtasks: first is Completed, others are Pending
         let subtask1 = SubTask::new(

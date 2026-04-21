@@ -3,7 +3,7 @@
 **Status**: ACTIVE
 **Owner**: —
 **Date drafted**: 2026-04-20
-**Last reviewed**: 2026-04-21 (Phase 5)
+**Last reviewed**: 2026-04-21 (Phase 6)
 
 ## Why this exists
 
@@ -101,19 +101,23 @@ Verified: `cargo build --lib` green; `cargo test --lib` → **1938 passed, 0 fai
 
 SOLID: OCP — adding a new agent meta-tool is one new handler module plus one entry in the `registry.rs` handlers array, zero edits to `handle_agent_tool_call`.
 
-### Phase 6 — Split `SqliteSessionRepository` by domain — **PENDING**
+### Phase 6 — Split `SqliteSessionRepository` by domain — **DONE 2026-04-21**
 
 Split the 1072-LOC, 8-trait god-repo into domain-scoped structs sharing one `Arc<Mutex<Connection>>`:
-- `SqliteSessionRepository` — `SessionRepository`
-- `SqliteTaskRepository` — `TaskRepository`
-- `SqliteExecutionRepository` — `ExecutionRepository` + `RuntimeTraceRepository`
-- `SqliteClarificationRepository` — `ClarificationRepository` + `ExecutionCheckpointRepository`
-- `SqliteMemoryRepository` — `MemoryRepository`
-- `SqliteAgentTelemetryRepository` — `AgentTelemetryRepository`
+- `SqliteSessionRepository` — `SessionRepository` (inherent helpers kept for tests)
+- `SqliteTaskRepository` — `TaskRepository` (`task_repo.rs`)
+- `SqliteExecutionRepository` — `ExecutionRepository` + `RuntimeTraceRepository` (`execution_repo.rs`)
+- `SqliteClarificationRepository` — `ClarificationRepository` + `ExecutionCheckpointRepository` (`clarification_repo.rs`)
+- `SqliteMemoryRepository` — `MemoryRepository` (`memory_repo.rs`)
+- `SqliteAgentTelemetryRepository` — `AgentTelemetryRepository` (`telemetry.rs`)
 
-Also fixes the DIP cast at `src-tauri/src/lib.rs:113-122` — commands receive pre-typed `Arc<dyn SessionRepository>` etc., never a concrete SQLite struct.
+Wiring (`commands/agent/state.rs`) now constructs each domain struct over the shared `Arc<Mutex<Connection>>` and hands `AgentRuntime` / `AgentServiceImpl` pre-typed `Arc<dyn SessionRepository>`, `Arc<dyn TaskRepository>`, etc. — no consumer ever holds the concrete SQLite struct.
 
-SOLID: ISP, DIP.
+Tests that previously called many trait methods on a single `SqliteSessionRepository` use a new `test_support::TestAgentRepos` bundle that builds every repo over one in-memory connection.
+
+Verified: `cargo test --lib` → **1938 passed, 0 failed** (baseline held, no new or removed tests). `mod.rs` is now 682 LOC (was 845 before the tests were extracted to `tests.rs`), all domain repo files ≤ 200 LOC.
+
+SOLID: ISP (each consumer now depends only on the trait it needs), DIP (wiring returns trait objects, concrete SQLite types never leak past the infrastructure boundary).
 
 ### Phase 7 — Split `chat.ts` store (1539 → domain stores) — **PENDING**
 

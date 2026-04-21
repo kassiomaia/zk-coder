@@ -173,7 +173,7 @@ mod step_budget_exhausted_tests {
     use std::sync::Arc;
 
     use crate::core::agent::execution::{RuntimeTrace, RuntimeTraceType};
-    use crate::core::agent::repositories::{SessionRepository, TaskRepository};
+    use crate::core::agent::repositories::SessionRepository;
     use crate::core::agent::session::{AgentSession, SessionId};
     use crate::core::agent::task::{
         AgentRequest, AgentTask, SubTask, SubTaskMode, TaskStatus,
@@ -209,7 +209,7 @@ mod step_budget_exhausted_tests {
         );
         task.id = FIXTURE_TASK_ID.to_string();
         task.title = Some("Budget fixture".to_string());
-        TaskRepository::create_task(&*repo, &task).unwrap();
+        SqliteSessionRepository::create_task(&repo, &task, task.title.as_deref(), None).unwrap();
 
         // Two completed, one in-progress, one pending — δ must preserve
         // all four.
@@ -228,7 +228,7 @@ mod step_budget_exhausted_tests {
             subtask.id = format!("subtask-{idx}");
             SqliteSessionRepository::create_subtask(&repo, &subtask).unwrap();
             if !matches!(status, TaskStatus::Pending) {
-                TaskRepository::update_subtask_status(&*repo, &subtask.id, status)
+                SqliteSessionRepository::update_subtask_status(&repo, &subtask.id, &status)
                     .unwrap();
             }
         }
@@ -309,7 +309,7 @@ mod step_budget_exhausted_tests {
             "budget exhaustion must flag the session for human triage",
         );
 
-        let subtasks = TaskRepository::get_subtasks(&*repo, FIXTURE_TASK_ID).unwrap();
+        let subtasks = SqliteSessionRepository::get_subtasks(&repo, FIXTURE_TASK_ID).unwrap();
         assert_eq!(
             subtasks.len(),
             4,
