@@ -1,9 +1,9 @@
 # SOLID Architecture Refactor — zk-coder
 
-**Status**: ACTIVE
+**Status**: COMPLETE — 2026-04-21
 **Owner**: —
 **Date drafted**: 2026-04-20
-**Last reviewed**: 2026-04-21 (Phase 8)
+**Last reviewed**: 2026-04-21 (all nine phases shipped)
 
 ## Why this exists
 
@@ -167,13 +167,26 @@ SOLID: DIP (components depend on typed service abstractions, not Tauri IPC).
 
 Verified: `npm run check` → 0 errors 0 warnings; `npm run test -- src/lib/components/ArtifactCard` → 13/13 passed; `npm run test -- src/lib/api` → 158/165 (7 failures match the pre-existing HEAD baseline in `nlp.test.ts`, unrelated to this phase).
 
-### Phase 9 — Agent ↔ chat typed event bus — **PENDING**
+### Phase 9 — Agent ↔ chat typed event bus — **DONE 2026-04-21**
 
-- Add `src-ui/src/lib/stores/agent/events.ts` — minimal typed pub/sub (≤150 LOC, no deps).
-- Replace the six `setXxxCallback` methods on `src-ui/src/lib/stores/agent/store.ts:63-94`.
-- Chat orchestrator (Phase 7) subscribes.
+Replaced the five `setXxxCallback` methods on `agentStore` with a typed pub/sub. Multiple handlers per event are now supported — new subscribers no longer require surgery on the store.
 
-SOLID: DIP, OCP.
+**File layout (the new module landed as `eventBus.ts`, not `events.ts`, to avoid resolution ambiguity with the sibling `events/` handler directory):**
+
+- `src-ui/src/lib/stores/agent/eventBus.ts` (102 LOC) — `AgentEventMap` (five events: `execution-complete`, `system-message`, `agent-activity`, `cleanup-transients`, `persist-assistant-message`), `createAgentEventBus()` factory, singleton `agentEventBus`. Handlers are stored in a `Map<AgentEventName, Set<AnyHandler>>`; `emit` iterates the set inside a `try/catch` per handler so one broken subscriber cannot break the others; `on` returns an unsubscribe function; `clear()` is provided for tests.
+- `src-ui/src/lib/stores/agent/eventBus.test.ts` (93 LOC) — five tests covering multi-handler delivery, unsubscribe isolation, empty-subscriber no-op, handler-failure isolation, and `clear()`.
+- **Deleted** `src-ui/src/lib/stores/agent/callbacks.ts` (the god-object with six setter/getter pairs).
+- `src-ui/src/lib/stores/agent/events/{sessionEvents,streamingEvents,toolEvents,harnessEvents}.ts` — every call through the old `getOnAgentActivity()` / `getOnExecutionComplete()` / `getOnCleanupTransients()` pattern replaced with a direct `agentEventBus.emit('<event-name>', payload)`. No behaviour change.
+- `src-ui/src/lib/stores/agent/streaming/{streamingThrottle,terminalBatch}.ts` — removed `setOnAgentActivity` + the module-scoped `onAgentActivity` ref; `flushStreamingUpdate` / `flushTerminalOutput` now emit directly.
+- `src-ui/src/lib/stores/agent/streaming/index.ts` — removed the `initializeStreaming(callback)` indirection entirely; the submodules pull the bus at import time so no boot-time wiring is required.
+- `src-ui/src/lib/stores/agent/store.ts` — removed all five `setXxxCallback` methods from both the `AgentStore` interface and the implementation; store surface shrank to 27 methods. Removed `Callbacks` and `Streaming` wiring imports.
+- `src-ui/src/lib/stores/agent/index.ts` / `stores/agentStore.ts` / `stores/index.ts` — added `agentEventBus` + `createAgentEventBus` to the agent re-exports + types.
+- `src-ui/src/routes/+page.svelte` — the five `agentStore.setXxxCallback(...)` calls are replaced with `unsubscribeAgentBus.push(agentEventBus.on('event-name', handler))` blocks. A synchronous top-level `onDestroy(() => { for (const u of unsubscribeAgentBus) u(); })` is registered during component setup (Svelte requires this — it cannot be called from inside async `onMount`); the array is populated from inside `onMount` once the store is initialised. All handler logic (persistAssistantMessage, `createArtifactMetadata`, `knownMessageIds` cache, deep-merge of `agentData`) is preserved verbatim.
+- Tests migrated to mock the bus: `events/{streamingEvents,toolEvents,harnessEvents}.test.ts` use `busMocks = vi.hoisted(() => ({emit: vi.fn(), on: vi.fn(), clear: vi.fn()}))` + `vi.mock('../eventBus', …)` and assert `busMocks.emit.toHaveBeenCalledWith('event-name', {...})`. `agentStore.test.ts`'s "Cross-Store Callbacks" block was replaced with one "Agent Event Bus" test that asserts the five legacy setter methods are `undefined` on the store.
+
+Verified: `npm run check` → 0 errors 0 warnings; `npx vitest run src/lib/stores/agent` → 75/75 passed across 7 files; full-suite baseline (`npx vitest run`) → 311 failing tests across 38 component test files, **byte-identical to HEAD before Phase 9** (verified by running the suite at HEAD with Phase 9 stashed). All 311 failures are pre-existing Svelte 5 component-test harness issues in files untouched by this phase.
+
+SOLID: DIP — handlers depend on a bus abstraction, not on a named global callback slot on the store. OCP — new subscribers do not require surgery on the agent store (they just call `on`).
 
 ## Out of scope (deferred)
 

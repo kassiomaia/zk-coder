@@ -13,7 +13,7 @@
 
 import type { AgentEvent } from '$lib/types/agent';
 import type { AgentState } from '../state';
-import { getOnAgentActivity } from '../callbacks';
+import { agentEventBus } from '../eventBus';
 
 /**
  * Handle harness_state_updated event.
@@ -57,9 +57,10 @@ export function handleSessionPaused(
 		}
 	});
 
-	const onAgentActivity = getOnAgentActivity();
-	if (onAgentActivity) {
-		onAgentActivity(session.conversationId, session.threadId, {
+	agentEventBus.emit('agent-activity', {
+		conversationId: session.conversationId,
+		threadId: session.threadId,
+		message: {
 			id: `recovery-${event.sessionId}`,
 			conversationId: session.conversationId,
 			threadId: session.threadId,
@@ -71,8 +72,8 @@ export function handleSessionPaused(
 				sessionId: event.sessionId,
 				recoveryResolved: false
 			}
-		});
-	}
+		}
+	});
 }
 
 /**
@@ -88,17 +89,18 @@ export function handleRecoveryContinue(
 	const session = state.sessions.get(event.sessionId);
 	if (!session) return;
 
-	const onAgentActivity = getOnAgentActivity();
-	if (onAgentActivity) {
-		onAgentActivity(session.conversationId, session.threadId, {
+	agentEventBus.emit('agent-activity', {
+		conversationId: session.conversationId,
+		threadId: session.threadId,
+		message: {
 			id: `recovery-${event.sessionId}`,
 			agentData: {
 				sessionId: event.sessionId,
 				recoveryResolved: true,
 				recoveryDecision: 'continued'
 			}
-		});
-	}
+		}
+	});
 }
 
 /**
@@ -114,15 +116,16 @@ export function handleRecoveryReplan(
 	const session = state.sessions.get(event.sessionId);
 	if (!session) return;
 
-	const onAgentActivity = getOnAgentActivity();
-	if (onAgentActivity) {
-		onAgentActivity(session.conversationId, session.threadId, {
+	agentEventBus.emit('agent-activity', {
+		conversationId: session.conversationId,
+		threadId: session.threadId,
+		message: {
 			id: `recovery-${event.sessionId}`,
 			agentData: {
 				sessionId: event.sessionId,
 				recoveryResolved: true,
 				recoveryDecision: 'replanned'
 			}
-		});
-	}
+		}
+	});
 }

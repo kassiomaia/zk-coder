@@ -5,7 +5,7 @@
 
 import type { AgentEvent } from '$lib/types/agent';
 import type { AgentState } from '../state';
-import { getOnAgentActivity, getOnCleanupTransients, getOnExecutionComplete } from '../callbacks';
+import { agentEventBus } from '../eventBus';
 import { clearStatusPhrases } from '../statusStore';
 
 /**
@@ -47,9 +47,10 @@ export function handleExecutionStarted(
 		clearStatusPhrases(event.sessionId);
 
 		// Create thinking message in chat with consistent ID for updates
-		const onAgentActivity = getOnAgentActivity();
-		if (onAgentActivity) {
-			onAgentActivity(session.conversationId, session.threadId, {
+		agentEventBus.emit('agent-activity', {
+			conversationId: session.conversationId,
+			threadId: session.threadId,
+			message: {
 				id: `thinking-${event.sessionId}`,
 				conversationId: session.conversationId,
 				threadId: session.threadId,
@@ -60,8 +61,8 @@ export function handleExecutionStarted(
 				agentData: {
 					sessionId: event.sessionId
 				}
-			});
-		}
+			}
+		});
 	}
 }
 
@@ -85,9 +86,10 @@ export function handleExecutionResumed(
 		});
 		clearStatusPhrases(event.sessionId);
 
-		const onAgentActivity = getOnAgentActivity();
-		if (onAgentActivity) {
-			onAgentActivity(session.conversationId, session.threadId, {
+		agentEventBus.emit('agent-activity', {
+			conversationId: session.conversationId,
+			threadId: session.threadId,
+			message: {
 				id: `thinking-${event.sessionId}`,
 				conversationId: session.conversationId,
 				threadId: session.threadId,
@@ -98,8 +100,8 @@ export function handleExecutionResumed(
 				agentData: {
 					sessionId: event.sessionId
 				}
-			});
-		}
+			}
+		});
 	}
 }
 
@@ -134,43 +136,40 @@ export function handleExecutionComplete(
 	state: AgentState,
 	event: Extract<AgentEvent, { type: 'execution_complete' }>
 ) {
-	// Call the callback with conversation/thread IDs from the event
-	const onExecutionComplete = getOnExecutionComplete();
-	if (onExecutionComplete) {
-		const session = state.sessions.get(event.sessionId);
-		const artifacts = session?.artifacts ?? [];
-		onExecutionComplete(
-			event.sessionId,
-			event.conversationId,
-			event.threadId,
-			event.result.content,
-			artifacts
-		);
+	const session = state.sessions.get(event.sessionId);
+	const artifacts = session?.artifacts ?? [];
 
-		// Clear artifacts from session state after attaching to message
-		// (prevents accumulation across multiple executions in the same session)
-		if (session && artifacts.length > 0) {
-			state.sessions.set(event.sessionId, {
-				...session,
-				artifacts: undefined
-			});
-		}
+	agentEventBus.emit('execution-complete', {
+		sessionId: event.sessionId,
+		conversationId: event.conversationId,
+		threadId: event.threadId,
+		content: event.result.content,
+		artifacts
+	});
+
+	// Clear artifacts from session state after attaching to message
+	// (prevents accumulation across multiple executions in the same session)
+	if (session && artifacts.length > 0) {
+		state.sessions.set(event.sessionId, {
+			...session,
+			artifacts: undefined
+		});
 	}
 
 	// Update session state to finished if session exists
-	const session = state.sessions.get(event.sessionId);
 	if (session) {
 		state.sessions.set(event.sessionId, {
 			...session,
 			state: { type: 'finished', completedAt: new Date().toISOString() }
 		});
-	}
 
-	// Clean up transient messages (tool_call, thinking) from chat —
-	// the Code Agent panel is the authoritative source for tool call history
-	const onCleanupTransients = getOnCleanupTransients();
-	if (onCleanupTransients && session) {
-		onCleanupTransients(session.conversationId, session.threadId, event.sessionId);
+		// Clean up transient messages (tool_call, thinking) from chat —
+		// the Code Agent panel is the authoritative source for tool call history
+		agentEventBus.emit('cleanup-transients', {
+			conversationId: session.conversationId,
+			threadId: session.threadId,
+			sessionId: event.sessionId
+		});
 	}
 }
 
@@ -187,12 +186,13 @@ export function handleExecutionError(
 			...session,
 			state: { type: 'error', message: event.error, recoverable: false }
 		});
-	}
 
-	// Clean up transient messages (tool_call, thinking) on error too
-	const onCleanupTransients = getOnCleanupTransients();
-	if (onCleanupTransients && session) {
-		onCleanupTransients(session.conversationId, session.threadId, event.sessionId);
+		// Clean up transient messages (tool_call, thinking) on error too
+		agentEventBus.emit('cleanup-transients', {
+			conversationId: session.conversationId,
+			threadId: session.threadId,
+			sessionId: event.sessionId
+		});
 	}
 }
 
@@ -207,9 +207,12 @@ export function handleApprovalRequired(
 
 	// Inject approval card into chat
 	const session = state.sessions.get(event.sessionId);
-	const onAgentActivity = getOnAgentActivity();
-	if (onAgentActivity && session) {
-		onAgentActivity(session.conversationId, session.threadId, {
+	if (!session) return;
+
+	agentEventBus.emit('agent-activity', {
+		conversationId: session.conversationId,
+		threadId: session.threadId,
+		message: {
 			id: `approval-${event.action.id}`,
 			conversationId: session.conversationId,
 			threadId: session.threadId,
@@ -222,8 +225,8 @@ export function handleApprovalRequired(
 				pendingAction: event.action,
 				approvalResolved: false
 			}
-		});
-	}
+		}
+	});
 }
 
 export function handleApprovalApproved(
@@ -233,18 +236,21 @@ export function handleApprovalApproved(
 	state.pendingActions = state.pendingActions.filter((a) => a.id !== event.actionId);
 
 	// Update approval card to show approved state
-	const onAgentActivity = getOnAgentActivity();
 	const session = state.sessions.get(event.sessionId);
-	if (onAgentActivity && session) {
-		onAgentActivity(session.conversationId, session.threadId, {
+	if (!session) return;
+
+	agentEventBus.emit('agent-activity', {
+		conversationId: session.conversationId,
+		threadId: session.threadId,
+		message: {
 			id: `approval-${event.actionId}`,
 			agentData: {
 				sessionId: event.sessionId,
 				approvalResolved: true,
 				approvalDecision: 'approved'
 			}
-		});
-	}
+		}
+	});
 }
 
 export function handleApprovalDenied(
@@ -254,18 +260,21 @@ export function handleApprovalDenied(
 	state.pendingActions = state.pendingActions.filter((a) => a.id !== event.actionId);
 
 	// Update approval card to show denied state
-	const onAgentActivity = getOnAgentActivity();
 	const session = state.sessions.get(event.sessionId);
-	if (onAgentActivity && session) {
-		onAgentActivity(session.conversationId, session.threadId, {
+	if (!session) return;
+
+	agentEventBus.emit('agent-activity', {
+		conversationId: session.conversationId,
+		threadId: session.threadId,
+		message: {
 			id: `approval-${event.actionId}`,
 			agentData: {
 				sessionId: event.sessionId,
 				approvalResolved: true,
 				approvalDecision: 'denied'
 			}
-		});
-	}
+		}
+	});
 }
 
 /**
@@ -281,9 +290,10 @@ export function handleClarificationReplied(
 	const session = state.sessions.get(event.sessionId);
 	if (!session) return;
 
-	const onAgentActivity = getOnAgentActivity();
-	if (onAgentActivity) {
-		onAgentActivity(session.conversationId, session.threadId, {
+	agentEventBus.emit('agent-activity', {
+		conversationId: session.conversationId,
+		threadId: session.threadId,
+		message: {
 			id: `clarification-reply-${event.sessionId}-${Date.now()}`,
 			conversationId: session.conversationId,
 			threadId: session.threadId,
@@ -295,8 +305,8 @@ export function handleClarificationReplied(
 				clarificationReply: true,
 				subtaskId: event.subtaskId
 			}
-		});
-	}
+		}
+	});
 }
 
 /**
@@ -312,9 +322,10 @@ export function handleClarificationTimedOut(
 	const session = state.sessions.get(event.sessionId);
 	if (!session) return;
 
-	const onAgentActivity = getOnAgentActivity();
-	if (onAgentActivity) {
-		onAgentActivity(session.conversationId, session.threadId, {
+	agentEventBus.emit('agent-activity', {
+		conversationId: session.conversationId,
+		threadId: session.threadId,
+		message: {
 			id: `clarification-timeout-${event.sessionId}-${Date.now()}`,
 			conversationId: session.conversationId,
 			threadId: session.threadId,
@@ -326,8 +337,8 @@ export function handleClarificationTimedOut(
 				clarificationTimedOut: true,
 				subtaskId: event.subtaskId
 			}
-		});
-	}
+		}
+	});
 }
 
 /**

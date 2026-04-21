@@ -7,6 +7,16 @@
 export { agentStore } from './store';
 export type { AgentStore } from './store';
 
+// Agent ↔ chat typed event bus
+export { agentEventBus, createAgentEventBus } from './eventBus';
+export type {
+	AgentEventBus,
+	AgentEventHandler,
+	AgentEventMap,
+	AgentEventName,
+	SystemMessagePayload
+} from './eventBus';
+
 // State types
 export type { AgentState } from './state';
 

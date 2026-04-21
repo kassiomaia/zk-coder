@@ -162,6 +162,20 @@ The chat store (`src-ui/src/lib/stores/chat.ts`) owns a single `writable<ChatSta
 
 Cross-domain orchestration (`initialize`, `selectConversation`, `selectThread`, `createThread`, `sendMessage`, `sendMessageWithLlm`, `cancelLlmStream`, `reset`) stays in `chat.ts` because each method reaches across more than one domain (e.g. thread selection activates an agent session and surfaces a paused-session recovery message). That keeps the split honest — domain modules do not need to know about each other.
 
+#### Agent ↔ chat event bus
+
+The agent store does not call into the chat store. It emits typed events through a standalone pub/sub module at `src-ui/src/lib/stores/agent/eventBus.ts`, and the route shell (`src-ui/src/routes/+page.svelte`) subscribes to convert each event into the appropriate chat-side side-effect (persist an assistant message, append a system notice, attach artifacts, clean up transients, surface agent activity). Handlers register via `agentEventBus.on(event, handler)` — which returns an unsubscribe function — and emitters call `agentEventBus.emit(event, payload)`. The event contract is the `AgentEventMap` discriminated record:
+
+| Event | Meaning |
+|---|---|
+| `execution-complete` | Agent session produced a final assistant message + artifacts |
+| `system-message` | Agent needs a system notice appended to the thread (errors, approvals, narration) |
+| `agent-activity` | Streaming/terminal update for the live agent message bubble |
+| `cleanup-transients` | Session ended — drop any placeholder/streaming messages for it |
+| `persist-assistant-message` | Persist a streamed assistant message once its content is final |
+
+Emitter isolation is enforced inside the bus: `emit` iterates handlers in a `try/catch` so a broken subscriber cannot break sibling subscribers. Multiple handlers per event are supported — new subscribers do not require any change to the agent store.
+
 ### Runtime Configuration
 
 Shared runtime constants (stream timeouts, buffering caps, retention windows, debounce intervals) live in `src-ui/src/lib/config/runtime.ts`. Stores and utilities import named constants from this module instead of inlining magic numbers.

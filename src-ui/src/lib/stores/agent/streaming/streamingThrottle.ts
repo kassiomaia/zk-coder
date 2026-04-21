@@ -3,7 +3,7 @@
  * Manages throttled streaming updates to prevent UI freezing.
  */
 
-import type { Message } from '$lib/types/message';
+import { agentEventBus } from '../eventBus';
 
 // Pending streaming updates waiting to be flushed
 interface PendingStreamingUpdate {
@@ -18,27 +18,17 @@ const pendingStreamingUpdates = new Map<string, PendingStreamingUpdate>();
 const streamingThrottleTimers = new Map<string, ReturnType<typeof setTimeout>>();
 export const STREAM_THROTTLE_MS = 16; // Update UI at ~60fps (16ms) for smoother streaming
 
-/** Callback for agent activity messages */
-let onAgentActivity:
-	| ((conversationId: string, threadId: string, message: Partial<Message>) => void)
-	| null = null;
-
-/**
- * Set the agent activity callback.
- */
-export function setOnAgentActivity(
-	callback: (conversationId: string, threadId: string, message: Partial<Message>) => void
-) {
-	onAgentActivity = callback;
-}
-
 /**
  * Flush a pending streaming update to the UI.
  */
 export function flushStreamingUpdate(sessionId: string) {
 	const pending = pendingStreamingUpdates.get(sessionId);
-	if (pending && onAgentActivity) {
-		onAgentActivity(pending.conversationId, pending.threadId, {
+	if (!pending) return;
+
+	agentEventBus.emit('agent-activity', {
+		conversationId: pending.conversationId,
+		threadId: pending.threadId,
+		message: {
 			id: pending.messageId,
 			conversationId: pending.conversationId,
 			threadId: pending.threadId,
@@ -47,9 +37,9 @@ export function flushStreamingUpdate(sessionId: string) {
 			content: pending.content,
 			timestamp: new Date(),
 			status: pending.status as any
-		});
-		pendingStreamingUpdates.delete(sessionId);
-	}
+		}
+	});
+	pendingStreamingUpdates.delete(sessionId);
 }
 
 /**

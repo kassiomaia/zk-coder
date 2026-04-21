@@ -637,35 +637,13 @@ describe('agentStore', () => {
 		});
 	});
 
-	describe('Cross-Store Callbacks', () => {
-		it('setExecutionCompleteCallback sets the callback', () => {
-			const callback = vi.fn();
-			agentStore.setExecutionCompleteCallback(callback);
-
-			// Callback is stored internally, we can't directly test it
-			// but we can verify the function exists and doesn't throw
-			expect(() => agentStore.setExecutionCompleteCallback(callback)).not.toThrow();
-		});
-
-		it('setSystemMessageCallback sets the callback', () => {
-			const callback = vi.fn();
-			agentStore.setSystemMessageCallback(callback);
-
-			expect(() => agentStore.setSystemMessageCallback(callback)).not.toThrow();
-		});
-
-		it('setAgentActivityCallback sets the callback', () => {
-			const callback = vi.fn();
-			agentStore.setAgentActivityCallback(callback);
-
-			expect(() => agentStore.setAgentActivityCallback(callback)).not.toThrow();
-		});
-
-		it('setCleanupTransientCallback sets the callback', () => {
-			const callback = vi.fn();
-			agentStore.setCleanupTransientCallback(callback);
-
-			expect(() => agentStore.setCleanupTransientCallback(callback)).not.toThrow();
+	describe('Agent Event Bus', () => {
+		it('no longer exposes the legacy setXxxCallback surface on the agent store', () => {
+			expect((agentStore as unknown as Record<string, unknown>).setExecutionCompleteCallback).toBeUndefined();
+			expect((agentStore as unknown as Record<string, unknown>).setSystemMessageCallback).toBeUndefined();
+			expect((agentStore as unknown as Record<string, unknown>).setAgentActivityCallback).toBeUndefined();
+			expect((agentStore as unknown as Record<string, unknown>).setCleanupTransientCallback).toBeUndefined();
+			expect((agentStore as unknown as Record<string, unknown>).setPersistAssistantMessageCallback).toBeUndefined();
 		});
 	});
 

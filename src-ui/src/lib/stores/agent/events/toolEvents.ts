@@ -4,7 +4,7 @@
  */
 
 import type { AgentEvent } from '$lib/types/agent';
-import { getOnAgentActivity } from '../callbacks';
+import { agentEventBus } from '../eventBus';
 import type { AgentState } from '../state';
 
 function getToolMessageId(sessionId: string, toolCallId: string): string {
@@ -32,9 +32,10 @@ export function handleToolCall(
 			toolCalls: [...(session.toolCalls ?? []), record]
 		});
 
-		const onAgentActivity = getOnAgentActivity();
-		if (onAgentActivity) {
-			onAgentActivity(session.conversationId, session.threadId, {
+		agentEventBus.emit('agent-activity', {
+			conversationId: session.conversationId,
+			threadId: session.threadId,
+			message: {
 				id: getToolMessageId(event.sessionId, event.toolCallId),
 				conversationId: session.conversationId,
 				threadId: session.threadId,
@@ -50,8 +51,8 @@ export function handleToolCall(
 					toolCallStatus: 'pending',
 					stepNumber: event.stepNumber
 				}
-			});
-		}
+			}
+		});
 	}
 }
 
@@ -81,9 +82,10 @@ export function handleToolResult(
 			toolCalls
 		});
 
-		const onAgentActivity = getOnAgentActivity();
-		if (onAgentActivity) {
-			onAgentActivity(session.conversationId, session.threadId, {
+		agentEventBus.emit('agent-activity', {
+			conversationId: session.conversationId,
+			threadId: session.threadId,
+			message: {
 				id: getToolMessageId(event.sessionId, event.toolCallId),
 				status: event.isError ? 'error' : 'sent',
 				agentData: {
@@ -94,7 +96,7 @@ export function handleToolResult(
 					toolCallStatus: event.isError ? 'error' : 'success',
 					stepNumber: event.stepNumber
 				}
-			});
-		}
+			}
+		});
 	}
 }
