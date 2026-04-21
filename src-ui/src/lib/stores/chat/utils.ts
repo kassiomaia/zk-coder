@@ -5,6 +5,7 @@
 import type { Conversation, Thread } from '$lib/types/thread';
 import type { Message } from '$lib/types/message';
 import { generateUniqueId } from '$lib/utils/idGenerator';
+import type { ChatState } from './types';
 
 // ============================================================================
 // Factory Functions
@@ -107,4 +108,55 @@ export function sortThreadsByRecent<T extends { updatedAt: string | Date }>(thre
 	return [...threads].sort(
 		(a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
 	);
+}
+
+// ============================================================================
+// State Mutation Helpers
+// ============================================================================
+
+/**
+ * Bumps the `updatedAt` of a thread and its parent conversation, and
+ * optionally adjusts the thread's `messageCount`.
+ *
+ * Returns a new `ChatState` — caller is responsible for passing it into
+ * the store's `update`.
+ */
+export function touchThreadAndConversation(
+	state: ChatState,
+	threadId: string,
+	conversationId: string,
+	options?: { messageDelta?: number; timestamp?: Date }
+): ChatState {
+	const now = options?.timestamp ?? new Date();
+	const messageDelta = options?.messageDelta ?? 0;
+
+	return {
+		...state,
+		threads: state.threads.map((thread) =>
+			thread.id === threadId
+				? {
+						...thread,
+						updatedAt: now,
+						messageCount: Math.max(0, thread.messageCount + messageDelta)
+					}
+				: thread
+		),
+		conversations: state.conversations.map((conversation) =>
+			conversation.id === conversationId
+				? {
+						...conversation,
+						updatedAt: now,
+						threads: (conversation.threads || []).map((thread) =>
+							thread.id === threadId
+								? {
+										...thread,
+										updatedAt: now,
+										messageCount: Math.max(0, thread.messageCount + messageDelta)
+									}
+								: thread
+						)
+					}
+				: conversation
+		)
+	};
 }

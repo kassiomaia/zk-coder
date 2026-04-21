@@ -3,7 +3,7 @@
 **Status**: ACTIVE
 **Owner**: —
 **Date drafted**: 2026-04-20
-**Last reviewed**: 2026-04-21 (Phase 6)
+**Last reviewed**: 2026-04-21 (Phase 7)
 
 ## Why this exists
 
@@ -119,16 +119,31 @@ Verified: `cargo test --lib` → **1938 passed, 0 failed** (baseline held, no ne
 
 SOLID: ISP (each consumer now depends only on the trait it needs), DIP (wiring returns trait objects, concrete SQLite types never leak past the infrastructure boundary).
 
-### Phase 7 — Split `chat.ts` store (1539 → domain stores) — **PENDING**
+### Phase 7 — Split `chat.ts` store (1539 → 795 LOC) — **DONE 2026-04-21**
 
-Under `src-ui/src/lib/stores/chat/`:
-- `conversations.ts` — conversation CRUD + selection
-- `threads.ts` — thread lifecycle
-- `messages.ts` — message list + mutation
-- `nlp.ts` — classifier / ambiguity detection / resolution
-- `orchestrator.ts` — thin facade preserving the public API during migration
+Extracted the non-orchestration methods into sibling factory modules, each bound to the store's `update` / `getState` via a thin dependency object and spread into the final store shape. The naming landed as `*-methods.ts` rather than the originally-planned plural domain names because the files are method factories, not separate writable stores — a single shared `ChatState` is still the source of truth.
 
-Keep `llm-handler.ts` and `derived-stores.ts` untouched. Also clears the pre-existing unused imports (`findById`, `isValidDate`).
+| Module | LOC | Contents |
+|---|---|---|
+| `src-ui/src/lib/stores/chat/nlp-methods.ts` | 200 | `classifyInput`, `detectAmbiguitiesForInput`, `clearNlpState`, `resolveAmbiguity`, `dismissAmbiguity`, `hasBlockingAmbiguities`, `applyAmbiguityResolutions`, `clearResolvedAmbiguities` |
+| `src-ui/src/lib/stores/chat/conversation-methods.ts` | 217 | `setConversations`, `createConversation`, `addConversation`, `renameConversation`, `updateConversation`, `deleteConversation`, `archiveConversation`, `updateConversationSettings`, `setConversationWorkspace` |
+| `src-ui/src/lib/stores/chat/thread-methods.ts` | 188 | `resolveThread`, `archiveThread`, `setYoloMode`, `deleteThread`, `renameThread` |
+| `src-ui/src/lib/stores/chat/message-methods.ts` | 153 | `addMessage`, `deleteMessage`, `removeTransientMessages`, `updateMessageStatus`, `updateMessageFeedback`, `updateMessage` |
+| `src-ui/src/lib/stores/chat/utility-methods.ts` | 56 | `clearError`, `markThreadRead`, `setThreadWorkspace` |
+| `src-ui/src/lib/stores/chat/utils.ts` | 162 | Gained the pure `touchThreadAndConversation` helper that was previously inlined inside the factory closure. |
+
+Orchestration methods stay in `chat.ts` because they cross domain boundaries and rely on `this.*` dispatch:
+- `initialize` / `loadConversationsFromBackend` (kicks off the NLP availability probe and conversation load)
+- `selectConversation` (→ `this.selectThread`)
+- `selectThread` (loads messages + activates agent session + surfaces paused-session recovery)
+- `createThread` (creates a thread, sets the coding model default, opens an agent session, selects the thread)
+- `sendMessage` (awaits any pending thread creation, creates a thread-with-message if none exists, manages optimistic messages)
+- `sendMessageWithLlm` / `cancelLlmStream` / `isLlmStreaming` / `getStreamingContent` (route between agent and plain-LLM flows via `LlmHandler`)
+- `reset` (hits `classifier.cancel()` and `llmHandler.reset()` directly)
+
+Keeping these in the host store avoids wiring callbacks into every domain module just to let them call each other. `llm-handler.ts` and `derived-stores.ts` remain untouched as planned. The previously-unused `findById` / `isValidDate` imports are gone.
+
+Verified: `npm run check` → 0 errors 0 warnings; `npm run test -- src/lib/stores/chat.test.ts` → 95 passed / 7 failed (identical to the pre-existing HEAD baseline — no new failures introduced); `chat.ts` is now **795 LOC** (from 1539), under the 800-LOC hard limit.
 
 SOLID: SRP.
 

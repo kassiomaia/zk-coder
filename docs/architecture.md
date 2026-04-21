@@ -145,6 +145,21 @@ Svelte 5 runes are used for reactive state management:
 
 Global stores are in `src-ui/src/lib/stores/` for cross-component state sharing.
 
+The chat store (`src-ui/src/lib/stores/chat.ts`) owns a single `writable<ChatState>` but delegates per-domain mutations to sibling factory modules under `src-ui/src/lib/stores/chat/`. Each factory receives `update` / `getState` (and, for NLP, the shared debounced classifier), returns a bag of methods, and the host store spreads those bags into the final store shape:
+
+| Module | Responsibility |
+|---|---|
+| `chat/nlp-methods.ts` | Intent classification, ambiguity detection, and resolution |
+| `chat/conversation-methods.ts` | Conversation CRUD (create / rename / delete / archive / settings / workspace) |
+| `chat/thread-methods.ts` | Simple thread CRUD (resolve / archive / YOLO / delete / rename) |
+| `chat/message-methods.ts` | Message CRUD (add / delete / status / feedback / update / remove transient) |
+| `chat/utility-methods.ts` | Thin helpers (`clearError`, `markThreadRead`, `setThreadWorkspace`) |
+| `chat/llm-handler.ts` | Streaming LLM request lifecycle (validate / init / stream / cancel) |
+| `chat/utils.ts` | Pure helpers — factories (`createNewConversation`, …), `deriveThreadTitle`, `sortThreadsByRecent`, `touchThreadAndConversation` |
+| `chat/derived-stores.ts` | All `derived(...)` exports, built from the host store to avoid circular deps |
+
+Cross-domain orchestration (`initialize`, `selectConversation`, `selectThread`, `createThread`, `sendMessage`, `sendMessageWithLlm`, `cancelLlmStream`, `reset`) stays in `chat.ts` because each method reaches across more than one domain (e.g. thread selection activates an agent session and surfaces a paused-session recovery message). That keeps the split honest — domain modules do not need to know about each other.
+
 ### Runtime Configuration
 
 Shared runtime constants (stream timeouts, buffering caps, retention windows, debounce intervals) live in `src-ui/src/lib/config/runtime.ts`. Stores and utilities import named constants from this module instead of inlining magic numbers.
