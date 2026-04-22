@@ -10,8 +10,13 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use uuid::Uuid;
 
+use crate::core::documents::docx::theme_patch::DocxThemePatch;
 use crate::core::documents::pdf::block::ImageFit;
 use crate::core::documents::pdf::theme_patch::ThemePatch;
+
+pub use super::docx_content::{
+    Alignment, DocxContent, ListItem, ParagraphRole, ParagraphText, TextRun,
+};
 
 /// Global draft store instance.
 pub static DRAFT_STORE: OnceLock<Arc<Mutex<DraftStore>>> = OnceLock::new();
@@ -53,18 +58,34 @@ impl DraftStore {
     // === DOCX Draft Methods ===
 
     /// Create a new DOCX draft and return its ID.
-    pub fn create_docx_draft(&mut self, filename: String) -> String {
+    ///
+    /// `theme_patch` is the caller-supplied styling override, if any.
+    /// When `None`, the renderer falls back to the bundled report theme.
+    pub fn create_docx_draft(
+        &mut self,
+        filename: String,
+        title: String,
+        theme_patch: Option<DocxThemePatch>,
+    ) -> String {
         let id = format!("docx_{}", Uuid::new_v4());
         let draft = DocxDraft {
             document_id: id.clone(),
             filename,
+            title,
             sections: Vec::new(),
+            theme_patch,
             status: DraftStatus::Building,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
         self.docx_drafts.insert(id.clone(), draft);
         id
+    }
+
+    /// Theme patch stored on a DOCX draft, if any.
+    #[must_use]
+    pub fn docx_theme_patch(&self, doc_id: &str) -> Option<&DocxThemePatch> {
+        self.docx_drafts.get(doc_id).and_then(|d| d.theme_patch.as_ref())
     }
 
     /// Get a mutable reference to a DOCX draft.
@@ -79,10 +100,14 @@ impl DraftStore {
     }
 
     /// Add a section to a DOCX draft.
+    ///
+    /// `theme_override` lets the caller open a new section break with
+    /// distinct page geometry (margins, paper, orientation) or decorations.
     pub fn add_docx_section(
         &mut self,
         doc_id: &str,
         content: DocxContent,
+        theme_override: Option<DocxThemePatch>,
     ) -> Result<String, DraftError> {
         let draft = self
             .docx_drafts
@@ -99,6 +124,7 @@ impl DraftStore {
             id: section_id.clone(),
             index,
             content,
+            theme_override,
         });
         draft.updated_at = Utc::now();
         Ok(section_id)
@@ -368,8 +394,15 @@ pub struct DocxDraft {
     pub document_id: String,
     /// The filename for the document.
     pub filename: String,
+    /// Document title. Rendered into `docProps/core.xml` and available
+    /// to header/footer templates as `{title}`.
+    pub title: String,
     /// Sections contained in the document.
     pub sections: Vec<DraftSection>,
+    /// Optional LLM-supplied styling overlay, merged onto the bundled
+    /// theme at render time. `None` renders with the default report theme.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_patch: Option<DocxThemePatch>,
     /// Current status of the draft.
     pub status: DraftStatus,
     /// Timestamp when the draft was created.
@@ -429,6 +462,12 @@ pub struct DraftSection {
     pub index: usize,
     /// Content of the section.
     pub content: DocxContent,
+    /// Optional per-section styling patch. When present, opens a new
+    /// OOXML section break with distinct page geometry or decorations;
+    /// body-level fields (typography, palette, spacing, fonts) are
+    /// fixed at document level and ignored here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_override: Option<DocxThemePatch>,
 }
 
 /// A slide within a PPTX draft.
@@ -461,61 +500,7 @@ pub struct DraftPage {
 
 // === Content Types ===
 
-/// Content types for DOCX sections.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum DocxContent {
-    /// A heading with a specified level.
-    Heading {
-        /// The heading level (1-9).
-        level: u8,
-        /// The heading text.
-        text: String,
-        /// Whether to insert a page break before this heading.
-        page_break_before: bool,
-    },
-    /// A paragraph of text.
-    Paragraph {
-        /// The paragraph text.
-        text: String,
-        /// Optional paragraph style.
-        style: Option<String>,
-    },
-    /// A bullet list.
-    BulletList {
-        /// List items.
-        items: Vec<String>,
-    },
-    /// A numbered list.
-    NumberedList {
-        /// List items.
-        items: Vec<String>,
-        /// Number to start counting from.
-        start_at: Option<u32>,
-    },
-    /// A table with headers and rows.
-    Table {
-        /// Column headers.
-        headers: Vec<String>,
-        /// Table rows.
-        rows: Vec<Vec<String>>,
-        /// Optional table caption.
-        caption: Option<String>,
-    },
-    /// An image.
-    Image {
-        /// Path to the image file.
-        path: String,
-        /// Optional image caption.
-        caption: Option<String>,
-        /// Optional image width.
-        width: Option<String>,
-    },
-    /// A page break.
-    PageBreak,
-    /// A horizontal rule.
-    HorizontalRule,
-}
+// DOCX section content lives in `docx_content.rs`; re-exported above.
 
 /// A slide in a PPTX presentation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -723,60 +708,66 @@ pub struct DraftCounts {
 mod tests {
     use super::*;
 
+    fn docx_draft(store: &mut DraftStore) -> String {
+        store.create_docx_draft("test.docx".to_string(), "Title".to_string(), None)
+    }
+
+    fn heading(text: &str) -> DocxContent {
+        DocxContent::Heading {
+            level: 1,
+            text: ParagraphText::Plain(text.to_string()),
+            alignment: None,
+            page_break_before: false,
+        }
+    }
+
+    fn paragraph(text: &str) -> DocxContent {
+        DocxContent::Paragraph {
+            text: ParagraphText::Plain(text.to_string()),
+            alignment: None,
+            role: None,
+        }
+    }
+
     #[test]
     fn test_create_docx_draft() {
         let mut store = DraftStore::new();
-        let id = store.create_docx_draft("test.docx".to_string());
+        let id = docx_draft(&mut store);
 
         let draft = store.get_docx_draft(&id).unwrap();
         assert_eq!(draft.filename, "test.docx");
+        assert_eq!(draft.title, "Title");
         assert_eq!(draft.sections.len(), 0);
         assert_eq!(draft.status, DraftStatus::Building);
+        assert!(draft.theme_patch.is_none());
     }
 
     #[test]
     fn test_add_docx_section() {
         let mut store = DraftStore::new();
-        let id = store.create_docx_draft("test.docx".to_string());
+        let id = docx_draft(&mut store);
 
-        let content = DocxContent::Heading {
-            level: 1,
-            text: "Title".to_string(),
-            page_break_before: false,
-        };
-
-        let section_id = store.add_docx_section(&id, content).unwrap();
+        let section_id = store
+            .add_docx_section(&id, heading("Title"), None)
+            .unwrap();
 
         let draft = store.get_docx_draft(&id).unwrap();
         assert_eq!(draft.sections.len(), 1);
         assert_eq!(draft.sections[0].id, section_id);
         assert_eq!(draft.sections[0].index, 0);
+        assert!(draft.sections[0].theme_override.is_none());
     }
 
     #[test]
     fn test_add_multiple_docx_sections() {
         let mut store = DraftStore::new();
-        let id = store.create_docx_draft("test.docx".to_string());
+        let id = docx_draft(&mut store);
 
         store
-            .add_docx_section(
-                &id,
-                DocxContent::Heading {
-                    level: 1,
-                    text: "Title".to_string(),
-                    page_break_before: false,
-                },
-            )
+            .add_docx_section(&id, heading("Title"), None)
             .unwrap();
-
         store
-            .add_docx_section(
-                &id,
-                DocxContent::Paragraph {
-                    text: "Content".to_string(),
-                    style: None,
-                },
-            )
+            .add_docx_section(&id, paragraph("Content"), None)
             .unwrap();
 
         let draft = store.get_docx_draft(&id).unwrap();
@@ -930,7 +921,7 @@ mod tests {
     #[test]
     fn test_remove_docx_draft() {
         let mut store = DraftStore::new();
-        let id = store.create_docx_draft("test.docx".to_string());
+        let id = docx_draft(&mut store);
 
         let removed = store.remove_docx_draft(&id).unwrap();
         assert_eq!(removed.filename, "test.docx");
@@ -942,8 +933,8 @@ mod tests {
     fn test_get_counts() {
         let mut store = DraftStore::new();
 
-        store.create_docx_draft("test1.docx".to_string());
-        store.create_docx_draft("test2.docx".to_string());
+        store.create_docx_draft("test1.docx".to_string(), "A".to_string(), None);
+        store.create_docx_draft("test2.docx".to_string(), "B".to_string(), None);
         store.create_pptx_draft("test.pptx".to_string());
         store.create_pdf_draft("test.pdf".to_string(), "T".to_string(), None, None);
 

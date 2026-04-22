@@ -459,6 +459,18 @@ PDF PAGE CONTENT TYPES: `pdf_add_page` accepts four content variants — 'markdo
 
 PDF PER-PAGE STYLING: pdf_add_page also accepts a `theme_override` object with the same shape as the document-level theme on pdf_start. Use it sparingly — only when a specific page needs styling that differs from the document (e.g. a coloured chapter divider or a larger-type section). It applies only to the page(s) that explicitly carry it; when the renderer reaches the next page without a `theme_override`, it automatically resets to the document theme at that page boundary. Only body-level fields (typography, palette, spacing, page_defaults.margin_mm) take effect — decorations (header/footer templates) and font family filenames are fixed at document level and cannot be changed mid-render.
 
+DOCX STYLING: `docx_start` accepts an optional `theme` object that overrides the bundled report defaults. Every field is optional — supply only the knobs the user asked to change. Supported sections:
+- `typography`: `body_font_size_pt` (6–72, default 11), `heading_font_size_pt` (8–96, default 20), `line_spacing` (1.0–2.5, default 1.15), `heading_scale` (0.5–1.0, default 0.82; each heading level is multiplied by this factor of the previous).
+- `palette`: RRGGBB hex strings (with or without '#') for `text`, `heading`, `link`, `code_text`, `code_bg`, `table_header_bg`, `table_border`. Passed as `{ hex: '3B82F6' }` objects.
+- `spacing` (points): `paragraph_space_before_pt` (0–72), `paragraph_space_after_pt` (0–72), `list_indent_pt` (0–144), `table_cell_padding_pt` (0–36).
+- `page`: `paper` ('A4', 'Letter', 'Legal'), `landscape` (boolean), `margin_top_mm`/`margin_bottom_mm`/`margin_left_mm`/`margin_right_mm` (each 5–80).
+- `decorations`: `header` and `footer` templates (tokens: `{title}`; `{page}` and `{total}` render as literal placeholder text in this iteration) — pass explicit `null` to drop a strip; `different_first_page` boolean.
+- `fonts`: family names from the bundled Office set — 'Calibri', 'Cambria', 'Arial', 'Helvetica', 'Times New Roman', 'Georgia', 'Verdana', 'Tahoma', 'Courier New', 'Consolas'. Fields: `body`, `heading`, `mono`.
+
+DOCX CONTENT TYPES: `docx_add_section` accepts eight variants — `Heading` (levels 1–9), `Paragraph`, `BulletList`, `NumberedList`, `Table`, `Image` (real embedded PNG/JPEG), `PageBreak`, and `HorizontalRule`. Text fields accept either a plain string or an array of runs for inline formatting: [{ text, bold?, italic?, underline?, strike?, code?, color?, link? }]. List items are `{ text, level? }` and can nest via `level` (0–8). Headings accept `alignment` and `page_break_before`; paragraphs accept `alignment` and `role` ('body', 'quote', 'code'). Tables expose `headers`, `rows`, and an optional `caption`. Images take `path` (absolute PNG/JPEG path), optional `caption`, and optional `width_mm` (10–300, default 120).
+
+DOCX PER-SECTION STYLING: `docx_add_section` also accepts a `theme_override` object that opens a new OOXML section break immediately before this section. Use it when you need distinct page geometry or decorations for a run of sections (e.g. a landscape chart page in a portrait report). Only page-level fields — `page` (paper, orientation, margins) — take effect; body-level fields (typography, palette, spacing, fonts) and decorations are fixed at document level and are ignored here.
+
 ## BACKUP & ROLLBACK
 
 Before changes: prefer git checkpoint/branch, backup files before risky edits

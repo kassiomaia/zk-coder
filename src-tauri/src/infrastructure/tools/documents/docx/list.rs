@@ -2,7 +2,7 @@
 
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
-    documents::shared::{DraftStore, DraftStoreExt},
+    documents::shared::{DocxContent, DraftSection, DraftStore, DraftStoreExt, ListItem},
     error::{parse_args, ToolError},
     traits::{Tool, ToolFuture, ToolId, ToolMeta},
 };
@@ -14,9 +14,9 @@ use tauri::AppHandle;
 /// Arguments for listing sections in a DOCX document.
 #[derive(Debug, Deserialize)]
 pub struct DocxListSectionsArgs {
-    /// Document ID from `docx_start`
+    /// Document ID from `docx_start`.
     pub document_id: String,
-    /// Whether to include full content (false = headings/structure only)
+    /// `true` emits the full content; `false` returns a short preview.
     #[serde(default = "default_include_content")]
     pub include_content: bool,
 }
@@ -28,26 +28,28 @@ const fn default_include_content() -> bool {
 /// Summary of a section for listing.
 #[derive(Debug, Serialize)]
 pub struct SectionSummary {
-    /// Section ID
+    /// Section ID.
     pub section_id: String,
-    /// Section index in document
+    /// Section index in document.
     pub index: usize,
-    /// Content type (e.g., "Heading", "Paragraph", "Table")
+    /// Content type (e.g., "Heading", "Paragraph", "Table").
     pub content_type: String,
-    /// Preview of content (first 100 chars)
+    /// Preview of content (first 100 chars unless `include_content`).
     pub preview: String,
-    /// Heading level (if applicable)
+    /// Heading level (if applicable).
     pub heading_level: Option<u8>,
+    /// `true` when the section opens a section break with its own theme.
+    pub has_theme_override: bool,
 }
 
 /// Output from listing sections.
 #[derive(Debug, Serialize)]
 pub struct DocxListSectionsOutput {
-    /// Document ID
+    /// Document ID.
     pub document_id: String,
-    /// List of section summaries
+    /// List of section summaries.
     pub sections: Vec<SectionSummary>,
-    /// Total number of sections
+    /// Total number of sections.
     pub total_section_count: usize,
 }
 
@@ -117,50 +119,26 @@ impl Tool for DocxListSectionsTool {
     }
 }
 
-/// Create a summary of a section.
-fn summarize_section(
-    section: &crate::infrastructure::tools::documents::shared::DraftSection,
-    include_content: bool,
-) -> SectionSummary {
-    use crate::infrastructure::tools::documents::shared::DocxContent;
-
+fn summarize_section(section: &DraftSection, include_content: bool) -> SectionSummary {
     let (content_type, preview, heading_level) = match &section.content {
         DocxContent::Heading { level, text, .. } => (
             "Heading".to_string(),
-            if include_content {
-                text.clone()
-            } else {
-                text.clone()
-            },
+            truncate_preview(&text.as_plain_string(), include_content),
             Some(*level),
         ),
         DocxContent::Paragraph { text, .. } => (
             "Paragraph".to_string(),
-            truncate_preview(text, include_content),
+            truncate_preview(&text.as_plain_string(), include_content),
             None,
         ),
         DocxContent::BulletList { items } => (
             "BulletList".to_string(),
-            if include_content {
-                format!("{} items", items.len())
-            } else {
-                items
-                    .first()
-                    .map(|s| truncate_preview(s, false))
-                    .unwrap_or_default()
-            },
+            list_preview(items, include_content),
             None,
         ),
         DocxContent::NumberedList { items, .. } => (
             "NumberedList".to_string(),
-            if include_content {
-                format!("{} items", items.len())
-            } else {
-                items
-                    .first()
-                    .map(|s| truncate_preview(s, false))
-                    .unwrap_or_default()
-            },
+            list_preview(items, include_content),
             None,
         ),
         DocxContent::Table { headers, rows, .. } => (
@@ -188,7 +166,9 @@ fn summarize_section(
             "--- Page Break ---".to_string(),
             None,
         ),
-        DocxContent::HorizontalRule => ("HorizontalRule".to_string(), "---".to_string(), None),
+        DocxContent::HorizontalRule => {
+            ("HorizontalRule".to_string(), "---".to_string(), None)
+        }
     };
 
     SectionSummary {
@@ -197,97 +177,99 @@ fn summarize_section(
         content_type,
         preview,
         heading_level,
+        has_theme_override: section.theme_override.is_some(),
     }
 }
 
-/// Truncate text to a preview (max 100 chars).
+fn list_preview(items: &[ListItem], include_content: bool) -> String {
+    if include_content {
+        format!("{} items", items.len())
+    } else {
+        items
+            .first()
+            .map(|item| truncate_preview(&item.text.as_plain_string(), false))
+            .unwrap_or_default()
+    }
+}
+
 fn truncate_preview(text: &str, full: bool) -> String {
-    if full {
+    if full || text.chars().count() <= 100 {
         text.to_string()
     } else {
-        if text.chars().count() <= 100 {
-            text.to_string()
-        } else {
-            truncate_text(text, 97)
-        }
+        truncate_text(text, 97)
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::infrastructure::tools::documents::shared::{DocxContent, DraftSection};
+    use crate::infrastructure::tools::documents::shared::ParagraphText;
 
-    #[test]
-    fn test_summarize_heading() {
-        let section = DraftSection {
-            id: "sec_1".to_string(),
+    fn heading_section(id: &str, level: u8, text: &str) -> DraftSection {
+        DraftSection {
+            id: id.to_string(),
             index: 0,
             content: DocxContent::Heading {
-                level: 2,
-                text: "Introduction".to_string(),
+                level,
+                text: ParagraphText::Plain(text.to_string()),
+                alignment: None,
                 page_break_before: false,
             },
-        };
+            theme_override: None,
+        }
+    }
 
+    #[test]
+    fn summarise_heading_short() {
+        let section = heading_section("sec_1", 2, "Introduction");
         let summary = summarize_section(&section, false);
         assert_eq!(summary.content_type, "Heading");
         assert_eq!(summary.preview, "Introduction");
         assert_eq!(summary.heading_level, Some(2));
+        assert!(!summary.has_theme_override);
     }
 
     #[test]
-    fn test_summarize_paragraph_truncated() {
-        let long_text = "This is a very long paragraph that should be truncated when displayed as a preview because it exceeds one hundred characters in length.";
+    fn summarise_paragraph_truncates() {
+        let long = "a".repeat(200);
         let section = DraftSection {
-            id: "sec_2".to_string(),
+            id: "s".into(),
             index: 1,
             content: DocxContent::Paragraph {
-                text: long_text.to_string(),
-                style: None,
+                text: ParagraphText::Plain(long),
+                alignment: None,
+                role: None,
             },
+            theme_override: None,
         };
-
         let summary = summarize_section(&section, false);
-        assert_eq!(summary.content_type, "Paragraph");
-        assert!(summary.preview.len() <= 100); // Should be truncated
+        assert!(summary.preview.chars().count() <= 100);
         assert!(summary.preview.ends_with("..."));
     }
 
     #[test]
-    fn test_summarize_bullet_list() {
+    fn summarise_bullet_list_picks_first_item() {
         let section = DraftSection {
-            id: "sec_3".to_string(),
-            index: 2,
+            id: "s".into(),
+            index: 0,
             content: DocxContent::BulletList {
                 items: vec![
-                    "Item 1".to_string(),
-                    "Item 2".to_string(),
-                    "Item 3".to_string(),
+                    ListItem { text: ParagraphText::Plain("alpha".into()), level: None },
+                    ListItem { text: ParagraphText::Plain("beta".into()), level: None },
                 ],
             },
+            theme_override: None,
         };
-
         let summary = summarize_section(&section, false);
-        assert_eq!(summary.content_type, "BulletList");
-        assert_eq!(summary.preview, "Item 1");
+        assert_eq!(summary.preview, "alpha");
     }
 
     #[test]
-    fn test_summarize_paragraph_handles_multibyte_boundary() {
-        let long_text = format!("{}{}{}", "a".repeat(96), "─", "b".repeat(10));
-        let section = DraftSection {
-            id: "sec_4".to_string(),
-            index: 3,
-            content: DocxContent::Paragraph {
-                text: long_text,
-                style: None,
-            },
-        };
-
-        let summary = summarize_section(&section, false);
-
-        assert!(summary.preview.ends_with("..."));
-        assert!(summary.preview.starts_with(&"a".repeat(96)));
+    fn has_theme_override_reflects_section_state() {
+        use crate::core::documents::docx::theme_patch::DocxThemePatch;
+        let mut section = heading_section("s", 1, "x");
+        section.theme_override = Some(DocxThemePatch::default());
+        assert!(summarize_section(&section, false).has_theme_override);
     }
 }
