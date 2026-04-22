@@ -13,4 +13,6 @@ pub mod theme_loader;
 
 pub use font_cache::{bundled_report_cache, FontCache, FontSlot, LoadedFont};
 pub use printpdf_renderer::PrintPdfRenderer;
-pub use theme_loader::{load_report_theme, parse_theme, ThemeLoadError};
+pub use theme_loader::{
+    load_report_theme, parse_theme, report_theme_with_patch, theme_for_draft, ThemeLoadError,
+};

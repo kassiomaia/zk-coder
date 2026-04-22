@@ -51,16 +51,25 @@ pub(super) struct LayoutParams {
 impl LayoutParams {
     /// Builds layout parameters from the document geometry and the
     /// theme's typography/spacing knobs.
+    ///
+    /// Margins are read from `theme.page_defaults.margin_mm` rather than
+    /// `doc.geometry.margins` so per-page `Block::ThemeSwitch` actually
+    /// re-lays out margins. At document construction
+    /// `page_geometry_for` in `application/tools/pdf/finalize.rs` derives
+    /// the geometry's margins from the same theme field, so baseline
+    /// behaviour is unchanged.
     pub fn from_doc(
         doc: &PdfDocument,
         theme: &Theme,
         page_width_mm: f32,
         page_height_mm: f32,
     ) -> Self {
-        let margin_left = doc.geometry.margins.left_mm();
-        let margin_right = doc.geometry.margins.right_mm();
-        let margin_top = doc.geometry.margins.top_mm();
-        let margin_bottom = doc.geometry.margins.bottom_mm();
+        let _ = doc; // reserved for future non-uniform margin support
+        let margin_mm = theme.page_defaults.margin_mm;
+        let margin_left = margin_mm;
+        let margin_right = margin_mm;
+        let margin_top = margin_mm;
+        let margin_bottom = margin_mm;
 
         let body_size_pt = theme.typography.body_font_size_pt;
         let heading_size_pt = theme.typography.heading_font_size_pt;
@@ -178,6 +187,17 @@ impl<'a> LayoutEngine<'a> {
     /// Exposes the layout parameters by reference.
     pub const fn params(&self) -> &LayoutParams {
         &self.params
+    }
+
+    /// Replaces the active [`LayoutParams`] with a freshly-built set.
+    ///
+    /// Used by the renderer when it encounters a `Block::ThemeSwitch`:
+    /// the incoming params reflect the merged (document theme + page
+    /// patch) so typography, palette, spacing, and margins take effect
+    /// from the next block onward. Cursor position and page list are
+    /// untouched — only the layout knobs change.
+    pub fn set_params(&mut self, params: LayoutParams) {
+        self.params = params;
     }
 
     /// Current page's layer. A fresh clone is cheap (`PdfLayerReference`

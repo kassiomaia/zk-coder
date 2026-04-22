@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::error::PdfModelError;
 use super::section::Heading;
+use super::theme_patch::ThemePatch;
 
 /// Horizontal alignment applied to a paragraph.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -337,11 +338,31 @@ impl Callout {
     }
 }
 
+/// How an image is sized when `width_mm` and `height_mm` are both set.
+///
+/// When only one dimension is supplied, the other is computed from the
+/// image's pixel aspect ratio and this enum is ignored.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImageFit {
+    /// Preserve the source aspect ratio; scale to fit within the
+    /// `width_mm` × `height_mm` box. The smaller axis is filled and the
+    /// other is centred (letterbox).
+    #[default]
+    Contain,
+    /// Use `width_mm` and `height_mm` literally. May distort aspect.
+    Stretch,
+}
+
 /// Embedded image rendered inline.
 ///
-/// The block carries the raw image bytes (PNG, JPEG, BMP) and an
-/// optional display width in mm. When the display width is `None` the
-/// renderer picks a default fitting the usable page width.
+/// The block carries the raw image bytes (PNG, JPEG, BMP) and optional
+/// display dimensions in mm. Sizing rules:
+///
+/// - Neither dimension set → fit to usable page width, aspect preserved.
+/// - Only `width_mm` → height computed from aspect.
+/// - Only `height_mm` → width computed from aspect.
+/// - Both → `fit` decides: [`ImageFit::Contain`] keeps aspect, [`ImageFit::Stretch`] uses the exact box.
 ///
 /// Serde skips the heavy `data` field so JSON round-trips describe the
 /// _structure_ without carrying megabytes of pixel data.
@@ -350,12 +371,24 @@ pub struct ImageBlock {
     /// Optional alt-text / caption for accessibility.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alt: Option<String>,
-    /// Display width in mm. `None` → fit to usable page width.
+    /// Display width in mm. `None` → fit to usable page width (or derive
+    /// from `height_mm` if that is set).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width_mm: Option<f32>,
+    /// Display height in mm. `None` → derive from the pixel aspect ratio.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height_mm: Option<f32>,
+    /// Fit mode applied when both `width_mm` and `height_mm` are set.
+    #[serde(default, skip_serializing_if = "is_default_fit")]
+    pub fit: ImageFit,
     /// Raw image bytes (PNG / JPEG / BMP).
     #[serde(skip)]
     data: Vec<u8>,
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_default_fit(fit: &ImageFit) -> bool {
+    matches!(fit, ImageFit::Contain)
 }
 
 impl ImageBlock {
@@ -370,6 +403,8 @@ impl ImageBlock {
         Ok(Self {
             alt: None,
             width_mm: None,
+            height_mm: None,
+            fit: ImageFit::Contain,
             data,
         })
     }
@@ -388,10 +423,57 @@ impl ImageBlock {
         self
     }
 
+    /// Overrides the display height.
+    #[must_use]
+    pub const fn with_height_mm(mut self, mm: f32) -> Self {
+        self.height_mm = Some(mm);
+        self
+    }
+
+    /// Overrides the fit mode.
+    #[must_use]
+    pub const fn with_fit(mut self, fit: ImageFit) -> Self {
+        self.fit = fit;
+        self
+    }
+
     /// Returns the raw image bytes.
     #[must_use]
     pub fn data(&self) -> &[u8] {
         &self.data
+    }
+
+    /// Resolves display dimensions in mm.
+    ///
+    /// `aspect` is the source's `height / width` pixel ratio.
+    /// `usable_width_mm` is the fallback width when nothing is supplied.
+    ///
+    /// The returned `(width_mm, height_mm)` pair is what the renderer
+    /// actually paints, after aspect preservation and fit resolution.
+    #[must_use]
+    pub fn resolved_size_mm(&self, aspect: f32, usable_width_mm: f32) -> (f32, f32) {
+        match (self.width_mm, self.height_mm) {
+            (None, None) => {
+                let w = usable_width_mm;
+                (w, w * aspect)
+            }
+            (Some(w), None) => (w, w * aspect),
+            (None, Some(h)) => {
+                let w = if aspect > 0.0 { h / aspect } else { h };
+                (w, h)
+            }
+            (Some(w), Some(h)) => match self.fit {
+                ImageFit::Stretch => (w, h),
+                ImageFit::Contain => {
+                    let box_aspect = h / w;
+                    if box_aspect >= aspect {
+                        (w, w * aspect)
+                    } else {
+                        (h / aspect, h)
+                    }
+                }
+            },
+        }
     }
 }
 
@@ -560,6 +642,68 @@ impl TableBlock {
     }
 }
 
+/// Vertically-centred cover / title page.
+///
+/// Rendered on its own page with horizontal centring on every line and
+/// the title text rendered at heading size. The renderer forces a page
+/// break before and after so cover blocks never share a page with
+/// other content.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoverBlock {
+    /// Main title, rendered at heading font size.
+    pub title: String,
+    /// Optional subtitle, rendered italic below the title.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subtitle: Option<String>,
+    /// Optional author line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    /// Optional date line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date: Option<String>,
+}
+
+impl CoverBlock {
+    /// Builds a cover block from a non-empty title.
+    ///
+    /// # Errors
+    /// Returns [`PdfModelError::EmptyParagraph`] when `title` is blank
+    /// (a cover page without a title is not meaningful).
+    pub fn new(title: impl Into<String>) -> Result<Self, PdfModelError> {
+        let title = title.into();
+        if title.trim().is_empty() {
+            return Err(PdfModelError::EmptyParagraph);
+        }
+        Ok(Self {
+            title,
+            subtitle: None,
+            author: None,
+            date: None,
+        })
+    }
+
+    /// Attaches a subtitle.
+    #[must_use]
+    pub fn with_subtitle(mut self, subtitle: impl Into<String>) -> Self {
+        self.subtitle = Some(subtitle.into());
+        self
+    }
+
+    /// Attaches an author line.
+    #[must_use]
+    pub fn with_author(mut self, author: impl Into<String>) -> Self {
+        self.author = Some(author.into());
+        self
+    }
+
+    /// Attaches a date line.
+    #[must_use]
+    pub fn with_date(mut self, date: impl Into<String>) -> Self {
+        self.date = Some(date.into());
+        self
+    }
+}
+
 /// Block-level element.
 ///
 /// M2 extends the M1 trio (paragraph / heading / page break) with rich
@@ -584,6 +728,21 @@ pub enum Block {
     Table(TableBlock),
     /// Embedded image.
     Image(ImageBlock),
+    /// Vertically-centred cover / title page.
+    CoverPage(CoverBlock),
+    /// Replace the active render theme for subsequent blocks.
+    ///
+    /// The renderer merges this patch onto the document's base theme
+    /// and rebuilds `LayoutParams` so typography, palette, spacing, and
+    /// margins take effect from the next block onward. An empty patch
+    /// restores the document defaults. Used by the adapter to realise
+    /// per-page `theme_override` at draft boundaries; not emitted by
+    /// markdown/text content directly.
+    ///
+    /// Header / footer templates and bundled fonts are fixed at document
+    /// construction and cannot be swapped mid-render — only body-level
+    /// fields take effect through `ThemeSwitch`.
+    ThemeSwitch(ThemePatch),
     /// Table of contents placeholder.
     ///
     /// The renderer replaces this marker with the actual TOC content
@@ -812,6 +971,74 @@ mod tests {
         assert_eq!(img.data(), &[0xFF, 0xD8]);
         assert_eq!(img.alt.as_deref(), Some("logo"));
         assert_eq!(img.width_mm, Some(50.0));
+        assert_eq!(img.height_mm, None);
+        assert_eq!(img.fit, ImageFit::Contain);
+    }
+
+    #[test]
+    fn resolved_size_no_dimensions_fits_page_width_preserving_aspect() {
+        let img = ImageBlock::new(vec![0xFF]).unwrap();
+        let (w, h) = img.resolved_size_mm(0.5, 180.0);
+        assert!((w - 180.0).abs() < f32::EPSILON);
+        assert!((h - 90.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn resolved_size_width_only_derives_height_from_aspect() {
+        let img = ImageBlock::new(vec![0xFF])
+            .unwrap()
+            .with_width_mm(100.0);
+        let (w, h) = img.resolved_size_mm(0.5, 180.0);
+        assert!((w - 100.0).abs() < f32::EPSILON);
+        assert!((h - 50.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn resolved_size_height_only_derives_width_from_aspect() {
+        let img = ImageBlock::new(vec![0xFF])
+            .unwrap()
+            .with_height_mm(60.0);
+        let (w, h) = img.resolved_size_mm(0.5, 180.0);
+        assert!((w - 120.0).abs() < f32::EPSILON);
+        assert!((h - 60.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn resolved_size_stretch_uses_exact_box() {
+        let img = ImageBlock::new(vec![0xFF])
+            .unwrap()
+            .with_width_mm(80.0)
+            .with_height_mm(80.0)
+            .with_fit(ImageFit::Stretch);
+        let (w, h) = img.resolved_size_mm(0.5, 180.0);
+        assert!((w - 80.0).abs() < f32::EPSILON);
+        assert!((h - 80.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn resolved_size_contain_letterboxes_on_wide_box() {
+        // Source aspect 0.5 (h/w), box is wider than tall (100×30 mm, aspect 0.3).
+        // Contain should match height and shrink width.
+        let img = ImageBlock::new(vec![0xFF])
+            .unwrap()
+            .with_width_mm(100.0)
+            .with_height_mm(30.0);
+        let (w, h) = img.resolved_size_mm(0.5, 180.0);
+        assert!((w - 60.0).abs() < 0.01);
+        assert!((h - 30.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn resolved_size_contain_letterboxes_on_tall_box() {
+        // Source aspect 0.5, box taller than source aspect (50×50, aspect 1.0).
+        // Contain matches width and shrinks height.
+        let img = ImageBlock::new(vec![0xFF])
+            .unwrap()
+            .with_width_mm(50.0)
+            .with_height_mm(50.0);
+        let (w, h) = img.resolved_size_mm(0.5, 180.0);
+        assert!((w - 50.0).abs() < f32::EPSILON);
+        assert!((h - 25.0).abs() < f32::EPSILON);
     }
 
     #[test]

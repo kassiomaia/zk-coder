@@ -8,6 +8,8 @@
 use thiserror::Error;
 
 use crate::core::documents::pdf::theme::Theme;
+use crate::core::documents::pdf::theme_patch::ThemePatch;
+use crate::infrastructure::tools::documents::shared::PdfDraft;
 
 /// Bundled default report theme TOML source.
 const REPORT_THEME_TOML: &str =
@@ -43,10 +45,96 @@ pub fn load_report_theme() -> Theme {
     parse_theme(REPORT_THEME_TOML).unwrap_or_else(|_| Theme::default_report())
 }
 
+/// Resolves the effective [`Theme`] for a PDF draft.
+///
+/// Starts from the bundled report theme and overlays the draft's
+/// optional [`ThemePatch`]. `Some` fields in the patch replace; absent
+/// fields leave the base untouched. This is the single render-time seam
+/// that lets LLM-supplied styling take effect.
+#[must_use]
+pub fn theme_for_draft(draft: &PdfDraft) -> Theme {
+    let base = load_report_theme();
+    match draft.theme_patch.as_ref() {
+        Some(patch) => base.with_patch(patch),
+        None => base,
+    }
+}
+
+/// Convenience: apply a patch to the bundled report theme directly.
+///
+/// Useful for tests that exercise the merge path without constructing a
+/// full [`PdfDraft`].
+#[must_use]
+pub fn report_theme_with_patch(patch: &ThemePatch) -> Theme {
+    load_report_theme().with_patch(patch)
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::core::documents::pdf::theme_patch::{PalettePatch, RgbPatch, TypographyPatch};
+    use crate::infrastructure::tools::documents::shared::draft_store::{
+        DraftStatus, PdfPageSize,
+    };
+    use chrono::Utc;
+
+    fn bare_draft(patch: Option<ThemePatch>) -> PdfDraft {
+        PdfDraft {
+            pdf_id: "pdf_test".to_string(),
+            filename: "test.pdf".to_string(),
+            title: "T".to_string(),
+            pages: Vec::new(),
+            page_size: PdfPageSize::A4,
+            theme_patch: patch,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn theme_for_draft_without_patch_matches_bundled() {
+        let theme = theme_for_draft(&bare_draft(None));
+        assert_eq!(theme, load_report_theme());
+    }
+
+    #[test]
+    fn theme_for_draft_applies_typography_patch() {
+        let patch = ThemePatch {
+            typography: Some(TypographyPatch {
+                body_font_size_pt: Some(14.0),
+                ..TypographyPatch::default()
+            }),
+            ..ThemePatch::default()
+        };
+        let theme = theme_for_draft(&bare_draft(Some(patch)));
+        assert!((theme.typography.body_font_size_pt - 14.0).abs() < f32::EPSILON);
+        // Heading size left at default (bundled).
+        assert!(
+            (theme.typography.heading_font_size_pt - load_report_theme().typography.heading_font_size_pt).abs()
+                < f32::EPSILON
+        );
+    }
+
+    #[test]
+    fn theme_for_draft_applies_palette_patch() {
+        let patch = ThemePatch {
+            palette: Some(PalettePatch {
+                heading: Some(RgbPatch {
+                    r: Some(0.1),
+                    g: Some(0.2),
+                    b: Some(0.8),
+                }),
+                ..PalettePatch::default()
+            }),
+            ..ThemePatch::default()
+        };
+        let theme = theme_for_draft(&bare_draft(Some(patch)));
+        assert!((theme.palette.heading.r - 0.1).abs() < f32::EPSILON);
+        assert!((theme.palette.heading.g - 0.2).abs() < f32::EPSILON);
+        assert!((theme.palette.heading.b - 0.8).abs() < f32::EPSILON);
+    }
 
     #[test]
     fn bundled_report_toml_parses() {

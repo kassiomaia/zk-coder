@@ -21,7 +21,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::application::tools::pdf::finalize::{render_draft, FinalizeError};
 use crate::infrastructure::tools::documents::pdf::render::{
-    bundled_report_cache, load_report_theme, PrintPdfRenderer,
+    bundled_report_cache, theme_for_draft, PrintPdfRenderer,
 };
 use crate::infrastructure::tools::documents::shared::PdfDraft;
 
@@ -96,7 +96,7 @@ pub async fn render_to_artifact(
             let fonts = bundled_report_cache()
                 .map_err(|e| RenderArtifactError::Render(format!("font cache: {e}")))?;
             let renderer = PrintPdfRenderer::new(fonts);
-            let theme = load_report_theme();
+            let theme = theme_for_draft(&draft);
             let file = std::fs::File::create(&tmp_for_task)?;
             let mut writer = BufWriter::new(file);
             let rt = tokio::runtime::Handle::current();
@@ -173,8 +173,10 @@ mod tests {
                 content: PdfPageContent::Text {
                     content: format!("Stress fixture body for {name}"),
                 },
+                theme_override: None,
             }],
             page_size: PdfPageSize::A4,
+            theme_patch: None,
             status: DraftStatus::Building,
             created_at: Utc::now(),
             updated_at: Utc::now(),
@@ -217,6 +219,366 @@ mod tests {
         }
         // Drop must not panic when the path doesn't exist.
         assert!(!tmp.exists());
+    }
+
+    #[tokio::test]
+    async fn cover_page_followed_by_markdown_renders_multi_page_pdf() {
+        let td = tempfile::tempdir().unwrap();
+        let draft = PdfDraft {
+            pdf_id: "pdf_cover".to_string(),
+            filename: "cover.pdf".to_string(),
+            title: "Phase 2 Test".to_string(),
+            pages: vec![
+                DraftPage {
+                    id: "page_cover".to_string(),
+                    index: 0,
+                    content: PdfPageContent::Cover {
+                        title: "Quarterly Report".to_string(),
+                        subtitle: Some("Q1 2026".to_string()),
+                        author: Some("Ada Lovelace".to_string()),
+                        date: Some("2026-04-22".to_string()),
+                    },
+                    theme_override: None,
+                },
+                DraftPage {
+                    id: "page_body".to_string(),
+                    index: 1,
+                    content: PdfPageContent::Markdown {
+                        content: "# Introduction\n\nBody text here.".to_string(),
+                    },
+                    theme_override: None,
+                },
+            ],
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        let final_path = td.path().join(&draft.filename);
+        let (_, size) = render_to_artifact(draft, final_path.clone(), CancellationToken::new())
+            .await
+            .expect("cover render succeeds");
+        assert!(size > 0);
+
+        let bytes = std::fs::read(&final_path).unwrap();
+        assert!(bytes.starts_with(b"%PDF-1."));
+        let pdf = lopdf::Document::load_mem(&bytes).expect("lopdf parses");
+        assert!(
+            pdf.page_iter().count() >= 2,
+            "cover + markdown must produce at least 2 pages"
+        );
+    }
+
+    #[tokio::test]
+    async fn cover_plus_markdown_produces_exactly_two_pages_no_blank() {
+        // Regression: `emit_cover_page` used to force a trailing
+        // `break_page()`, which stacked with `build_document`'s own
+        // `PageBreak` between draft pages and produced a blank page
+        // between the cover and the first content page.
+        let td = tempfile::tempdir().unwrap();
+        let draft = PdfDraft {
+            pdf_id: "pdf_cover_pgcount".to_string(),
+            filename: "cover_pgcount.pdf".to_string(),
+            title: "Cover page count check".to_string(),
+            pages: vec![
+                DraftPage {
+                    id: "p0".to_string(),
+                    index: 0,
+                    content: PdfPageContent::Cover {
+                        title: "T".to_string(),
+                        subtitle: None,
+                        author: None,
+                        date: None,
+                    },
+                    theme_override: None,
+                },
+                DraftPage {
+                    id: "p1".to_string(),
+                    index: 1,
+                    content: PdfPageContent::Markdown {
+                        content: "# Body\n\nOne line.".to_string(),
+                    },
+                    theme_override: None,
+                },
+            ],
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let final_path = td.path().join(&draft.filename);
+        render_to_artifact(draft, final_path.clone(), CancellationToken::new())
+            .await
+            .expect("render ok");
+        let bytes = std::fs::read(&final_path).unwrap();
+        let pdf = lopdf::Document::load_mem(&bytes).expect("lopdf parses");
+        assert_eq!(
+            pdf.page_iter().count(),
+            2,
+            "cover + one-line markdown must be exactly 2 pages, no stray blank"
+        );
+    }
+
+    #[tokio::test]
+    async fn cover_alone_produces_exactly_one_page() {
+        // Regression: a cover-only document used to leave a trailing
+        // blank page because emit_cover_page always called break_page.
+        let td = tempfile::tempdir().unwrap();
+        let draft = PdfDraft {
+            pdf_id: "pdf_cover_only".to_string(),
+            filename: "cover_only.pdf".to_string(),
+            title: "Cover only".to_string(),
+            pages: vec![DraftPage {
+                id: "p0".to_string(),
+                index: 0,
+                content: PdfPageContent::Cover {
+                    title: "Only Title".to_string(),
+                    subtitle: None,
+                    author: None,
+                    date: None,
+                },
+                theme_override: None,
+            }],
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let final_path = td.path().join(&draft.filename);
+        render_to_artifact(draft, final_path.clone(), CancellationToken::new())
+            .await
+            .expect("render ok");
+        let bytes = std::fs::read(&final_path).unwrap();
+        let pdf = lopdf::Document::load_mem(&bytes).expect("lopdf parses");
+        assert_eq!(
+            pdf.page_iter().count(),
+            1,
+            "cover-only draft must produce exactly 1 page, no trailing blank"
+        );
+    }
+
+    #[tokio::test]
+    async fn per_page_margin_override_affects_layout() {
+        use crate::core::documents::pdf::theme_patch::{PageDefaultsPatch, ThemePatch};
+
+        // Regression: LayoutParams::from_doc used to read margins from
+        // doc.geometry.margins, which is fixed at document construction,
+        // so per-page margin overrides were silently ignored.
+        let td = tempfile::tempdir().unwrap();
+        let body_md = "Line one. Line two. Line three. Line four. \
+            Line five with more words to force wrapping across columns \
+            so differences in usable width become visible in the byte \
+            output of the rendered PDF."
+            .to_string();
+
+        let baseline = PdfDraft {
+            pdf_id: "pdf_margin_base".to_string(),
+            filename: "margin_base.pdf".to_string(),
+            title: "Margin baseline".to_string(),
+            pages: vec![DraftPage {
+                id: "p0".to_string(),
+                index: 0,
+                content: PdfPageContent::Markdown {
+                    content: body_md.clone(),
+                },
+                theme_override: None,
+            }],
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let baseline_path = td.path().join("base.pdf");
+        render_to_artifact(baseline, baseline_path.clone(), CancellationToken::new())
+            .await
+            .expect("baseline renders");
+
+        let wide = PdfDraft {
+            pdf_id: "pdf_margin_wide".to_string(),
+            filename: "margin_wide.pdf".to_string(),
+            title: "Margin override".to_string(),
+            pages: vec![DraftPage {
+                id: "p0".to_string(),
+                index: 0,
+                content: PdfPageContent::Markdown {
+                    content: body_md,
+                },
+                theme_override: Some(ThemePatch {
+                    page_defaults: Some(PageDefaultsPatch {
+                        margin_mm: Some(60.0),
+                    }),
+                    ..ThemePatch::default()
+                }),
+            }],
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let wide_path = td.path().join("wide.pdf");
+        render_to_artifact(wide, wide_path.clone(), CancellationToken::new())
+            .await
+            .expect("wide renders");
+
+        let baseline_bytes = std::fs::read(&baseline_path).unwrap();
+        let wide_bytes = std::fs::read(&wide_path).unwrap();
+        assert_ne!(
+            baseline_bytes, wide_bytes,
+            "per-page margin override must produce different layout bytes"
+        );
+    }
+
+    #[tokio::test]
+    async fn per_page_theme_override_changes_rendered_output() {
+        use crate::core::documents::pdf::theme_patch::{
+            PalettePatch, RgbPatch, ThemePatch, TypographyPatch,
+        };
+
+        let td = tempfile::tempdir().unwrap();
+
+        let baseline = PdfDraft {
+            pdf_id: "pdf_base".to_string(),
+            filename: "base.pdf".to_string(),
+            title: "Per-page baseline".to_string(),
+            pages: vec![
+                DraftPage {
+                    id: "page_0".to_string(),
+                    index: 0,
+                    content: PdfPageContent::Markdown {
+                        content: "# First\n\nBody of first page.".to_string(),
+                    },
+                    theme_override: None,
+                },
+                DraftPage {
+                    id: "page_1".to_string(),
+                    index: 1,
+                    content: PdfPageContent::Markdown {
+                        content: "# Second\n\nBody of second page.".to_string(),
+                    },
+                    theme_override: None,
+                },
+            ],
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let baseline_path = td.path().join("baseline.pdf");
+        render_to_artifact(baseline, baseline_path.clone(), CancellationToken::new())
+            .await
+            .expect("baseline renders");
+
+        let overridden = PdfDraft {
+            pdf_id: "pdf_ovr".to_string(),
+            filename: "ovr.pdf".to_string(),
+            title: "Per-page override".to_string(),
+            pages: vec![
+                DraftPage {
+                    id: "page_0".to_string(),
+                    index: 0,
+                    content: PdfPageContent::Markdown {
+                        content: "# First\n\nBody of first page.".to_string(),
+                    },
+                    theme_override: None,
+                },
+                DraftPage {
+                    id: "page_1".to_string(),
+                    index: 1,
+                    content: PdfPageContent::Markdown {
+                        content: "# Second\n\nBody of second page.".to_string(),
+                    },
+                    theme_override: Some(ThemePatch {
+                        typography: Some(TypographyPatch {
+                            body_font_size_pt: Some(18.0),
+                            ..TypographyPatch::default()
+                        }),
+                        palette: Some(PalettePatch {
+                            heading: Some(RgbPatch {
+                                r: Some(0.8),
+                                g: Some(0.0),
+                                b: Some(0.0),
+                            }),
+                            ..PalettePatch::default()
+                        }),
+                        ..ThemePatch::default()
+                    }),
+                },
+            ],
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let overridden_path = td.path().join("ovr.pdf");
+        render_to_artifact(overridden, overridden_path.clone(), CancellationToken::new())
+            .await
+            .expect("override renders");
+
+        let baseline_bytes = std::fs::read(&baseline_path).unwrap();
+        let overridden_bytes = std::fs::read(&overridden_path).unwrap();
+        assert_ne!(
+            baseline_bytes, overridden_bytes,
+            "per-page theme override must change the rendered output"
+        );
+        let pdf = lopdf::Document::load_mem(&overridden_bytes).expect("lopdf parses");
+        assert!(
+            pdf.page_iter().count() >= 2,
+            "two draft pages must produce at least 2 PDF pages"
+        );
+    }
+
+    #[tokio::test]
+    async fn theme_patch_on_draft_changes_rendered_output() {
+        use crate::core::documents::pdf::theme_patch::{
+            PalettePatch, RgbPatch, ThemePatch, TypographyPatch,
+        };
+
+        let td = tempfile::tempdir().unwrap();
+
+        let baseline = fixture_draft("baseline_theme");
+        let baseline_path = td.path().join("baseline.pdf");
+        let (_, baseline_size) =
+            render_to_artifact(baseline, baseline_path.clone(), CancellationToken::new())
+                .await
+                .expect("baseline renders");
+
+        let mut patched = fixture_draft("patched_theme");
+        patched.theme_patch = Some(ThemePatch {
+            typography: Some(TypographyPatch {
+                body_font_size_pt: Some(18.0),
+                ..TypographyPatch::default()
+            }),
+            palette: Some(PalettePatch {
+                heading: Some(RgbPatch {
+                    r: Some(0.8),
+                    g: Some(0.1),
+                    b: Some(0.1),
+                }),
+                ..PalettePatch::default()
+            }),
+            ..ThemePatch::default()
+        });
+        let patched_path = td.path().join("patched.pdf");
+        let (_, patched_size) =
+            render_to_artifact(patched, patched_path.clone(), CancellationToken::new())
+                .await
+                .expect("patched renders");
+
+        assert!(baseline_size > 0 && patched_size > 0);
+        let baseline_bytes = std::fs::read(&baseline_path).unwrap();
+        let patched_bytes = std::fs::read(&patched_path).unwrap();
+        assert_ne!(
+            baseline_bytes, patched_bytes,
+            "theme patch must change the rendered output"
+        );
     }
 
     #[tokio::test]

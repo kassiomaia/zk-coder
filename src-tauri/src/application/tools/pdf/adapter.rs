@@ -18,7 +18,7 @@
 //! - Pipe tables (`| A | B |` with header separator)
 
 use crate::core::documents::pdf::block::{
-    Block, Callout, CodeBlock, ColumnWidth, ImageBlock, InlineRun, InlineStyle, ListBlock,
+    Block, Callout, CodeBlock, ColumnWidth, CoverBlock, ImageBlock, ImageFit, InlineRun, InlineStyle, ListBlock,
     ListItem, Paragraph, TableBlock, TableCell, TableRow,
 };
 use crate::core::documents::pdf::error::PdfModelError;
@@ -34,7 +34,24 @@ pub fn page_to_blocks(content: &PdfPageContent) -> Result<Vec<Block>, PdfModelEr
     match content {
         PdfPageContent::Text { content } => text_to_blocks(content),
         PdfPageContent::Markdown { content } => markdown_to_blocks(content),
-        PdfPageContent::Image { path, caption } => image_to_blocks(path, caption.as_deref()),
+        PdfPageContent::Image {
+            path,
+            caption,
+            width_mm,
+            height_mm,
+            fit,
+        } => image_to_blocks(path, caption.as_deref(), *width_mm, *height_mm, *fit),
+        PdfPageContent::Cover {
+            title,
+            subtitle,
+            author,
+            date,
+        } => cover_to_blocks(
+            title,
+            subtitle.as_deref(),
+            author.as_deref(),
+            date.as_deref(),
+        ),
     }
 }
 
@@ -59,7 +76,13 @@ fn text_to_blocks(text: &str) -> Result<Vec<Block>, PdfModelError> {
 
 const MAX_IMAGE_FILE_BYTES: u64 = 50 * 1024 * 1024;
 
-fn image_to_blocks(path: &str, caption: Option<&str>) -> Result<Vec<Block>, PdfModelError> {
+fn image_to_blocks(
+    path: &str,
+    caption: Option<&str>,
+    width_mm: Option<f32>,
+    height_mm: Option<f32>,
+    fit: ImageFit,
+) -> Result<Vec<Block>, PdfModelError> {
     let image_path = std::path::Path::new(path);
     if image_path
         .components()
@@ -98,7 +121,44 @@ fn image_to_blocks(path: &str, caption: Option<&str>) -> Result<Vec<Block>, PdfM
             img = img.with_alt(trimmed);
         }
     }
+    if let Some(w) = width_mm {
+        img = img.with_width_mm(w);
+    }
+    if let Some(h) = height_mm {
+        img = img.with_height_mm(h);
+    }
+    img = img.with_fit(fit);
     Ok(vec![Block::Image(img)])
+}
+
+// ── Cover ─────────────────────────────────────────────────────────
+
+fn cover_to_blocks(
+    title: &str,
+    subtitle: Option<&str>,
+    author: Option<&str>,
+    date: Option<&str>,
+) -> Result<Vec<Block>, PdfModelError> {
+    let mut cover = CoverBlock::new(title.trim())?;
+    if let Some(text) = subtitle {
+        let trimmed = text.trim();
+        if !trimmed.is_empty() {
+            cover = cover.with_subtitle(trimmed);
+        }
+    }
+    if let Some(text) = author {
+        let trimmed = text.trim();
+        if !trimmed.is_empty() {
+            cover = cover.with_author(trimmed);
+        }
+    }
+    if let Some(text) = date {
+        let trimmed = text.trim();
+        if !trimmed.is_empty() {
+            cover = cover.with_date(trimmed);
+        }
+    }
+    Ok(vec![Block::CoverPage(cover)])
 }
 
 // ── Markdown ──────────────────────────────────────────────────────
@@ -769,6 +829,9 @@ mod tests {
         let blocks = page_to_blocks(&PdfPageContent::Image {
             path: "/nonexistent/file.png".to_string(),
             caption: Some("cap".to_string()),
+            width_mm: None,
+            height_mm: None,
+            fit: ImageFit::Contain,
         })
         .unwrap();
         assert_eq!(blocks.len(), 2);
@@ -780,6 +843,9 @@ mod tests {
         let result = page_to_blocks(&PdfPageContent::Image {
             path: "../../etc/passwd".to_string(),
             caption: None,
+            width_mm: None,
+            height_mm: None,
+            fit: ImageFit::Contain,
         });
         assert!(result.is_err(), "path with .. must be rejected");
         let err = result.unwrap_err();
@@ -794,9 +860,66 @@ mod tests {
         let blocks = page_to_blocks(&PdfPageContent::Image {
             path: "/nonexistent/absolute/image.png".to_string(),
             caption: None,
+            width_mm: None,
+            height_mm: None,
+            fit: ImageFit::Contain,
         })
         .unwrap();
         assert!(!blocks.is_empty());
+    }
+
+    // -- Cover --
+
+    #[test]
+    fn cover_produces_single_cover_block_with_all_fields() {
+        let blocks = page_to_blocks(&PdfPageContent::Cover {
+            title: "Quarterly Report".to_string(),
+            subtitle: Some("Q1 2026".to_string()),
+            author: Some("Ada Lovelace".to_string()),
+            date: Some("2026-04-22".to_string()),
+        })
+        .unwrap();
+        assert_eq!(blocks.len(), 1);
+        match &blocks[0] {
+            Block::CoverPage(cover) => {
+                assert_eq!(cover.title, "Quarterly Report");
+                assert_eq!(cover.subtitle.as_deref(), Some("Q1 2026"));
+                assert_eq!(cover.author.as_deref(), Some("Ada Lovelace"));
+                assert_eq!(cover.date.as_deref(), Some("2026-04-22"));
+            }
+            other => panic!("expected CoverPage, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cover_trims_whitespace_and_drops_blank_optionals() {
+        let blocks = page_to_blocks(&PdfPageContent::Cover {
+            title: "  Report  ".to_string(),
+            subtitle: Some("   ".to_string()),
+            author: None,
+            date: None,
+        })
+        .unwrap();
+        match &blocks[0] {
+            Block::CoverPage(cover) => {
+                assert_eq!(cover.title, "Report");
+                assert!(cover.subtitle.is_none(), "blank subtitle must be dropped");
+                assert!(cover.author.is_none());
+                assert!(cover.date.is_none());
+            }
+            other => panic!("expected CoverPage, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cover_with_empty_title_is_rejected() {
+        let result = page_to_blocks(&PdfPageContent::Cover {
+            title: "   ".to_string(),
+            subtitle: None,
+            author: None,
+            date: None,
+        });
+        assert!(result.is_err(), "empty title must be rejected");
     }
 
     // -- Edge cases --
