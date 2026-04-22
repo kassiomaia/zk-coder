@@ -46,8 +46,7 @@ The root `theme` object mirrors the typed `Theme` in `src-tauri/src/core/documen
 
 Semantics:
 
-- Takes effect from the overridden page onward and persists through subsequent pages until another `theme_override` fires.
-- Pages that follow an overridden page but themselves have no override automatically reset to the document theme — the adapter inserts a synthetic reset `ThemeSwitch` at that boundary so styling does not bleed forward.
+- Applies only to the page(s) that explicitly carry it. When the renderer reaches the next page without a `theme_override`, it automatically resets to the document theme at that page boundary — `build_document` inserts a synthetic reset `ThemeSwitch` so styling does not bleed forward.
 - Only body-level fields take effect: `typography`, `palette`, `spacing`, `page_defaults.margin_mm`.
 - `decorations` (header/footer templates) and `fonts.*` (font family filenames) are **not** honoured per-page. The decorator runs a single pass after layout completes, and bundled fonts are loaded once at document construction — both remain document-wide. If the LLM supplies those sections in a page override, they are accepted at validation but ignored at render. This is called out explicitly in the tool description and in `docs/features/pdf-styling.md`.
 - Validation ranges are the same as the document `theme`; out-of-range values reject the `pdf_add_page` call with a `ToolError::invalid_args` naming the dotted JSON path.

@@ -186,9 +186,9 @@ fn build_input_schema() -> JsonValue {
     });
 
     let theme_schema = serde_json::json!({
-        "type": "object",
+        "type": ["object", "null"],
         "additionalProperties": false,
-        "description": "Optional styling overlay on top of the bundled report theme. Every field is optional — supply only the knobs the user asked to change. Field-level ranges are enforced; out-of-range values reject the call with a descriptive error.",
+        "description": "Optional styling overlay on top of the bundled report theme. Every field is optional — supply only the knobs the user asked to change. Pass explicit JSON null (or omit the key) to keep all defaults. Field-level ranges are enforced; out-of-range values reject the call with a descriptive error. Unknown section or field names are also rejected, so typos fail loudly instead of being silently ignored.",
         "properties": {
             "typography": {
                 "type": "object",

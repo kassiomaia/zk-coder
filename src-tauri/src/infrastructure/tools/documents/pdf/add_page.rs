@@ -143,6 +143,45 @@ fn decode_theme_override(raw: Option<JsonValue>) -> Result<Option<ThemePatch>, T
     Ok(Some(patch))
 }
 
+/// Inclusive range for image display dimensions in mm.
+///
+/// The JSON schema advertises these bounds, but serde doesn't enforce
+/// `minimum`/`maximum` keywords — so we validate explicitly at the tool
+/// boundary to keep the promise. Zero or negative values would produce
+/// nonsense DPI math downstream; oversize values would silently overflow
+/// the page.
+const IMAGE_DIMENSION_MIN_MM: f32 = 1.0;
+const IMAGE_DIMENSION_MAX_MM: f32 = 400.0;
+
+fn validate_image_sizing(content: &PdfPageContentInput) -> Result<(), ToolError> {
+    let PdfPageContentInput::Image {
+        width_mm,
+        height_mm,
+        ..
+    } = content
+    else {
+        return Ok(());
+    };
+    check_image_mm("width_mm", *width_mm)?;
+    check_image_mm("height_mm", *height_mm)?;
+    Ok(())
+}
+
+fn check_image_mm(field: &str, value: Option<f32>) -> Result<(), ToolError> {
+    let Some(v) = value else { return Ok(()) };
+    if !v.is_finite() {
+        return Err(ToolError::invalid_args(format!(
+            "pdf_add_page: content.{field} must be a finite number"
+        )));
+    }
+    if v < IMAGE_DIMENSION_MIN_MM || v > IMAGE_DIMENSION_MAX_MM {
+        return Err(ToolError::invalid_args(format!(
+            "pdf_add_page: content.{field} = {v:.2} out of range [{IMAGE_DIMENSION_MIN_MM:.2}, {IMAGE_DIMENSION_MAX_MM:.2}] mm"
+        )));
+    }
+    Ok(())
+}
+
 /// Output from adding a page.
 #[derive(Debug, Serialize)]
 pub struct PdfAddPageOutput {
@@ -236,9 +275,9 @@ impl Tool for PdfAddPageTool {
                         "description": "Where to insert this page (default: end)"
                     },
                     "theme_override": {
-                        "type": "object",
+                        "type": ["object", "null"],
                         "additionalProperties": true,
-                        "description": "Optional per-page styling patch, same shape as the document-level `theme` on pdf_start. Applies from this page until another theme_override appears (or the document theme resumes). Only body-level fields (typography, palette, spacing, page_defaults.margin_mm) take effect — decorations and fonts are fixed at document level."
+                        "description": "Optional per-page styling patch, same shape as the document-level `theme` on pdf_start. Applies only to the page(s) that explicitly carry it; the renderer automatically resets to the document theme at the next page without an override. Only body-level fields (typography, palette, spacing, page_defaults.margin_mm) take effect — decorations (header/footer) and font family filenames are fixed at document level and cannot be changed mid-render. Pass null or omit the key to keep the document theme for this page."
                     }
                 },
                 "required": ["pdf_id", "content"]
@@ -258,6 +297,11 @@ impl Tool for PdfAddPageTool {
     ) -> ToolFuture {
         Box::pin(async move {
             let args: PdfAddPageArgs = parse_args("pdf_add_page", arguments)?;
+
+            // Validate image sizing BEFORE conversion so we surface the
+            // tool-facing field name (content.width_mm / content.height_mm)
+            // rather than a deserialized-struct error.
+            validate_image_sizing(&args.content)?;
 
             // Convert content input to internal type
             let content: PdfPageContent = args.content.into();
@@ -380,6 +424,77 @@ mod tests {
             }
             _ => panic!("Expected Image"),
         }
+    }
+
+    #[test]
+    fn validate_image_sizing_accepts_missing_dimensions() {
+        let input = PdfPageContentInput::Image {
+            path: "/logo.png".to_string(),
+            caption: None,
+            width_mm: None,
+            height_mm: None,
+            fit: ImageFit::Contain,
+        };
+        validate_image_sizing(&input).expect("no dimensions is valid");
+    }
+
+    #[test]
+    fn validate_image_sizing_accepts_in_range_dimensions() {
+        let input = PdfPageContentInput::Image {
+            path: "/logo.png".to_string(),
+            caption: None,
+            width_mm: Some(80.0),
+            height_mm: Some(40.0),
+            fit: ImageFit::Contain,
+        };
+        validate_image_sizing(&input).expect("in-range dimensions accepted");
+    }
+
+    #[test]
+    fn validate_image_sizing_rejects_zero_width() {
+        let input = PdfPageContentInput::Image {
+            path: "/logo.png".to_string(),
+            caption: None,
+            width_mm: Some(0.0),
+            height_mm: None,
+            fit: ImageFit::Contain,
+        };
+        let err = validate_image_sizing(&input).expect_err("zero width must be rejected");
+        assert!(err.to_string().contains("width_mm"));
+    }
+
+    #[test]
+    fn validate_image_sizing_rejects_oversize_height() {
+        let input = PdfPageContentInput::Image {
+            path: "/logo.png".to_string(),
+            caption: None,
+            width_mm: None,
+            height_mm: Some(1000.0),
+            fit: ImageFit::Contain,
+        };
+        let err = validate_image_sizing(&input).expect_err("oversize height must be rejected");
+        assert!(err.to_string().contains("height_mm"));
+    }
+
+    #[test]
+    fn validate_image_sizing_rejects_nan() {
+        let input = PdfPageContentInput::Image {
+            path: "/logo.png".to_string(),
+            caption: None,
+            width_mm: Some(f32::NAN),
+            height_mm: None,
+            fit: ImageFit::Contain,
+        };
+        let err = validate_image_sizing(&input).expect_err("NaN must be rejected");
+        assert!(err.to_string().contains("width_mm"));
+    }
+
+    #[test]
+    fn validate_image_sizing_ignores_non_image_content() {
+        let input = PdfPageContentInput::Markdown {
+            content: "# Heading".to_string(),
+        };
+        validate_image_sizing(&input).expect("non-image content must pass through");
     }
 
     #[test]

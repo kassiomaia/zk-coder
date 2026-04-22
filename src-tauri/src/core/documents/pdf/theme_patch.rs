@@ -68,6 +68,7 @@ pub enum ThemeError {
 
 /// Optional override for [`Rgb`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub struct RgbPatch {
     /// Red channel.
@@ -83,6 +84,7 @@ pub struct RgbPatch {
 
 /// Optional override for [`TypographyScale`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub struct TypographyPatch {
     /// Body font size, in points. Range `[6.0, 72.0]`.
@@ -98,6 +100,7 @@ pub struct TypographyPatch {
 
 /// Optional override for [`Palette`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub struct PalettePatch {
     /// Body text color.
@@ -128,6 +131,7 @@ pub struct PalettePatch {
 
 /// Optional override for [`Spacing`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub struct SpacingPatch {
     /// Vertical gap multiplier. Range `[0.0, 5.0]`.
@@ -146,6 +150,7 @@ pub struct SpacingPatch {
 
 /// Optional override for [`PageDefaults`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub struct PageDefaultsPatch {
     /// Uniform page margin in mm. Range `[5.0, 80.0]`.
@@ -159,13 +164,22 @@ pub struct PageDefaultsPatch {
 /// explicitly clears the corresponding strip; omitting the field leaves
 /// the base theme's template in place.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub struct DecorationsPatch {
     /// Header template. Wrap the string in explicit `null` to drop it.
-    #[serde(default, deserialize_with = "deserialize_double_optional")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_double_optional",
+        skip_serializing_if = "DoubleOption::is_unset"
+    )]
     pub header: DoubleOption<String>,
     /// Footer template. Same semantics as `header`.
-    #[serde(default, deserialize_with = "deserialize_double_optional")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_double_optional",
+        skip_serializing_if = "DoubleOption::is_unset"
+    )]
     pub footer: DoubleOption<String>,
     /// Skip header/footer on the first page.
     #[serde(default)]
@@ -183,6 +197,7 @@ pub struct DecorationsPatch {
 /// Each filename must be a member of `BUNDLED_FONTS` — callers cannot
 /// upload custom fonts in this surface.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FontsPatch {
     /// Regular weight.
     #[serde(default)]
@@ -202,7 +217,14 @@ pub struct FontsPatch {
 }
 
 /// Full [`Theme`] patch — the root LLM-facing shape.
+///
+/// `deny_unknown_fields` is applied top-level and on every nested patch
+/// so typos in LLM-supplied JSON — e.g. `heading_size_pt` instead of
+/// `heading_font_size_pt` — surface as a clear
+/// `ToolError::invalid_args` instead of being silently ignored while
+/// `theme_applied: true` lies about the outcome.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 pub struct ThemePatch {
     /// Font sizes and leading.
@@ -444,6 +466,13 @@ fn check_font(field: &str, name: Option<&str>) -> Result<(), ThemeError> {
 /// Three-state option: JSON `null` clears; missing key leaves the base
 /// alone. Serde normally collapses both to `Option::None`, so we keep
 /// our own marker.
+///
+/// Container structs must pair the field with
+/// `#[serde(skip_serializing_if = "DoubleOption::is_unset")]` so that
+/// `Unset` is omitted from JSON entirely — otherwise a serialize /
+/// deserialize round-trip would coerce `Unset` → JSON `null` → `Null`
+/// and silently flip the semantics from "leave the base alone" to
+/// "explicitly clear".
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum DoubleOption<T> {
     /// Key was absent from the JSON object.
@@ -455,8 +484,23 @@ pub enum DoubleOption<T> {
     Set(T),
 }
 
+impl<T> DoubleOption<T> {
+    /// Returns `true` when this is the `Unset` variant. Used as
+    /// `skip_serializing_if` on struct fields so JSON output omits the
+    /// key entirely rather than emitting `null`.
+    #[must_use]
+    pub const fn is_unset(&self) -> bool {
+        matches!(self, Self::Unset)
+    }
+}
+
 impl<T: Serialize> Serialize for DoubleOption<T> {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        // `Unset` is normally skipped via `skip_serializing_if` on the
+        // container field; if it somehow reaches this impl (e.g. a
+        // caller serialising a bare `DoubleOption`) we still emit
+        // `null` rather than panic — the round-trip guarantee only
+        // holds for struct fields that apply the skip attribute.
         match self {
             Self::Unset | Self::Null => s.serialize_none(),
             Self::Set(v) => v.serialize(s),
@@ -568,6 +612,61 @@ mod tests {
     }
 
     #[test]
+    fn decorations_patch_round_trips_unset_header_as_absent_not_null() {
+        // Build a patch that supplies `margin_mm` but leaves `header`
+        // as `Unset`. Serialising + deserialising must not coerce the
+        // unset header into a `Null` (which would explicitly clear it).
+        let json = serde_json::json!({
+            "decorations": {"margin_mm": 15.0}
+        });
+        let patch: ThemePatch = serde_json::from_value(json).unwrap();
+        let serialised = serde_json::to_value(&patch).unwrap();
+        // The round-tripped JSON must NOT contain a `header` key at all.
+        let decorations = serialised
+            .get("decorations")
+            .expect("decorations present");
+        assert!(
+            decorations.get("header").is_none(),
+            "Unset header must be omitted, got: {decorations}"
+        );
+        assert!(
+            decorations.get("footer").is_none(),
+            "Unset footer must be omitted, got: {decorations}"
+        );
+
+        // Round-trip through deserialisation to confirm semantics hold.
+        let back: ThemePatch = serde_json::from_value(serialised).unwrap();
+        let base_header = Theme::default_report().decorations.header.clone();
+        let merged = Theme::default_report().with_patch(&back);
+        assert_eq!(
+            merged.decorations.header, base_header,
+            "round-tripped patch must not have cleared the header"
+        );
+    }
+
+    #[test]
+    fn decorations_patch_preserves_explicit_null_through_round_trip() {
+        let json = serde_json::json!({
+            "decorations": {"header": null}
+        });
+        let patch: ThemePatch = serde_json::from_value(json).unwrap();
+        let serialised = serde_json::to_value(&patch).unwrap();
+        let decorations = serialised.get("decorations").expect("present");
+        assert_eq!(
+            decorations.get("header"),
+            Some(&serde_json::Value::Null),
+            "Null header must serialise as explicit JSON null"
+        );
+
+        let back: ThemePatch = serde_json::from_value(serialised).unwrap();
+        let merged = Theme::default_report().with_patch(&back);
+        assert!(
+            merged.decorations.header.is_none(),
+            "explicit-null header must still clear after round-trip"
+        );
+    }
+
+    #[test]
     fn decorations_footer_replaces_string() {
         let json = serde_json::json!({
             "decorations": {"footer": "Confidential — {page}"}
@@ -590,6 +689,32 @@ mod tests {
             ..ThemePatch::default()
         };
         patch.validate().expect("bundled font is accepted");
+    }
+
+    #[test]
+    fn theme_patch_rejects_unknown_top_level_key() {
+        let json = serde_json::json!({
+            "typographyy": {"body_font_size_pt": 13}
+        });
+        let err = serde_json::from_value::<ThemePatch>(json)
+            .expect_err("typo in section name must be rejected");
+        assert!(
+            err.to_string().contains("typographyy"),
+            "error should surface the unknown key, got: {err}"
+        );
+    }
+
+    #[test]
+    fn typography_patch_rejects_unknown_nested_key() {
+        let json = serde_json::json!({
+            "typography": {"heading_size_pt": 16}
+        });
+        let err = serde_json::from_value::<ThemePatch>(json)
+            .expect_err("typo in nested field must be rejected");
+        assert!(
+            err.to_string().contains("heading_size_pt"),
+            "error should surface the misspelled field, got: {err}"
+        );
     }
 
     #[test]

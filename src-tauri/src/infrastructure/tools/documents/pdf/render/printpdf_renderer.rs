@@ -416,8 +416,21 @@ fn layout_sections(
                     // When toc_entries is None (measurement pass), skip.
                 }
             }
-            let gap = engine.params().block_gap_mm;
-            engine.advance(gap);
+            // Control / self-paginating blocks manage their own spacing:
+            // PageBreak resets the cursor to the top of the next page;
+            // CoverPage lays out within the whole page and ends with the
+            // cursor below its centred content; ThemeSwitch has no
+            // visual footprint. Adding block_gap after any of these
+            // would either waste space on a fresh page or (for cover)
+            // push subsequent content below the top margin.
+            let is_control_block = matches!(
+                block,
+                Block::PageBreak | Block::CoverPage(_) | Block::ThemeSwitch(_)
+            );
+            if !is_control_block {
+                let gap = engine.params().block_gap_mm;
+                engine.advance(gap);
+            }
         }
     }
     Ok(())
@@ -1157,8 +1170,12 @@ fn emit_cover_page(
         }
     }
 
-    // Always break to a fresh page so subsequent content starts clean.
-    engine.break_page();
+    // Trailing page breaks are intentionally NOT forced here. The block
+    // stream from `build_document` interleaves `Block::PageBreak` between
+    // draft pages, so adding one here would stack two breaks and produce
+    // a blank page. When a cover is the final draft page, leaving the
+    // cursor where it is simply ends the document after the cover —
+    // which is what callers want.
     Ok(())
 }
 

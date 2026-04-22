@@ -46,12 +46,12 @@ pub fn build_document(draft: &PdfDraft, theme: &Theme) -> Result<PdfDocument, Pd
     let mut blocks: Vec<Block> = Vec::new();
     let mut prev_had_override = false;
     for (idx, page) in draft.pages.iter().enumerate() {
-        if idx > 0 {
-            blocks.push(Block::PageBreak);
-        }
-        // Per-page theme override: push a ThemeSwitch so the renderer
-        // rebuilds LayoutParams for this page and the pages that follow
-        // until the next ThemeSwitch (or the implicit reset below).
+        // Emit the theme switch BEFORE the page break so the new page's
+        // cursor is initialised with the incoming params' leading. If the
+        // switch fired after the break, `break_page()` would compute
+        // `initial_y_mm` from the outgoing theme and then the switch
+        // would silently shift leading on an already-placed cursor,
+        // starting the overridden page at the wrong y-position.
         match page.theme_override.as_ref() {
             Some(patch) => {
                 blocks.push(Block::ThemeSwitch(patch.clone()));
@@ -65,6 +65,9 @@ pub fn build_document(draft: &PdfDraft, theme: &Theme) -> Result<PdfDocument, Pd
                 prev_had_override = false;
             }
             None => {}
+        }
+        if idx > 0 {
+            blocks.push(Block::PageBreak);
         }
         blocks.extend(page_to_blocks(&page.content)?);
     }
