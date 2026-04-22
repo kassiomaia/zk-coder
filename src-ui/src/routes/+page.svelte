@@ -655,7 +655,6 @@
 			})
 		);
 
-
 		// Initialize config store and show providers modal if no providers configured
 		await configStore.initialize();
 		configInitialized = true;

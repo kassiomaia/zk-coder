@@ -639,11 +639,21 @@ describe('agentStore', () => {
 
 	describe('Agent Event Bus', () => {
 		it('no longer exposes the legacy setXxxCallback surface on the agent store', () => {
-			expect((agentStore as unknown as Record<string, unknown>).setExecutionCompleteCallback).toBeUndefined();
-			expect((agentStore as unknown as Record<string, unknown>).setSystemMessageCallback).toBeUndefined();
-			expect((agentStore as unknown as Record<string, unknown>).setAgentActivityCallback).toBeUndefined();
-			expect((agentStore as unknown as Record<string, unknown>).setCleanupTransientCallback).toBeUndefined();
-			expect((agentStore as unknown as Record<string, unknown>).setPersistAssistantMessageCallback).toBeUndefined();
+			expect(
+				(agentStore as unknown as Record<string, unknown>).setExecutionCompleteCallback
+			).toBeUndefined();
+			expect(
+				(agentStore as unknown as Record<string, unknown>).setSystemMessageCallback
+			).toBeUndefined();
+			expect(
+				(agentStore as unknown as Record<string, unknown>).setAgentActivityCallback
+			).toBeUndefined();
+			expect(
+				(agentStore as unknown as Record<string, unknown>).setCleanupTransientCallback
+			).toBeUndefined();
+			expect(
+				(agentStore as unknown as Record<string, unknown>).setPersistAssistantMessageCallback
+			).toBeUndefined();
 		});
 	});
 
