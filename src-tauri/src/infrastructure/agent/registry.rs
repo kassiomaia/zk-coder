@@ -457,6 +457,8 @@ Example — pass the following as the pdf_start arguments: filename=invoice.pdf,
 
 PDF PAGE CONTENT TYPES: `pdf_add_page` accepts four content variants — 'markdown' (primary), 'text' (plain unformatted), 'image' (embeds a PNG/JPEG from disk), and 'cover' (vertically-centred title page). For formal documents open with a cover as the first call: {type:'cover', title, subtitle?, author?, date?}; the renderer forces a dedicated page and auto-suppresses header/footer on it via the theme's suppress_on_first_page. For images, pass width_mm and/or height_mm in millimetres to control display size; when both are set use fit='contain' (default, preserves aspect and letterboxes) or fit='stretch' (uses both dimensions literally).
 
+PDF PER-PAGE STYLING: pdf_add_page also accepts a `theme_override` object with the same shape as the document-level theme on pdf_start. Use it sparingly — only when a specific page needs styling that differs from the document (e.g. a coloured chapter divider or a larger-type section). It takes effect from that page onward until another theme_override fires; pages without an override that follow an overridden page automatically reset to the document theme. Only body-level fields (typography, palette, spacing, page_defaults.margin_mm) take effect — decorations (header/footer templates) and font family filenames are fixed at document level and cannot be changed mid-render.
+
 ## BACKUP & ROLLBACK
 
 Before changes: prefer git checkpoint/branch, backup files before risky edits

@@ -44,9 +44,27 @@ pub fn build_document(draft: &PdfDraft, theme: &Theme) -> Result<PdfDocument, Pd
     let mut doc = PdfDocument::new(metadata).with_geometry(geometry);
 
     let mut blocks: Vec<Block> = Vec::new();
+    let mut prev_had_override = false;
     for (idx, page) in draft.pages.iter().enumerate() {
         if idx > 0 {
             blocks.push(Block::PageBreak);
+        }
+        // Per-page theme override: push a ThemeSwitch so the renderer
+        // rebuilds LayoutParams for this page and the pages that follow
+        // until the next ThemeSwitch (or the implicit reset below).
+        match page.theme_override.as_ref() {
+            Some(patch) => {
+                blocks.push(Block::ThemeSwitch(patch.clone()));
+                prev_had_override = true;
+            }
+            None if prev_had_override => {
+                // Restore the document's base theme for this page.
+                blocks.push(Block::ThemeSwitch(
+                    crate::core::documents::pdf::theme_patch::ThemePatch::default(),
+                ));
+                prev_had_override = false;
+            }
+            None => {}
         }
         blocks.extend(page_to_blocks(&page.content)?);
     }
@@ -123,6 +141,7 @@ mod tests {
                 id: format!("page_{i}"),
                 index: i,
                 content,
+                theme_override: None,
             })
             .collect();
         PdfDraft {
@@ -183,6 +202,133 @@ mod tests {
             .filter(|b| matches!(b, Block::PageBreak))
             .count();
         assert_eq!(break_count, 1, "exactly one page break between two pages");
+    }
+
+    #[test]
+    fn build_document_inserts_theme_switch_only_for_overridden_page() {
+        use crate::core::documents::pdf::theme_patch::{
+            PalettePatch, RgbPatch, ThemePatch,
+        };
+
+        let pages = vec![
+            DraftPage {
+                id: "p0".to_string(),
+                index: 0,
+                content: PdfPageContent::Text {
+                    content: "first".to_string(),
+                },
+                theme_override: None,
+            },
+            DraftPage {
+                id: "p1".to_string(),
+                index: 1,
+                content: PdfPageContent::Text {
+                    content: "second".to_string(),
+                },
+                theme_override: Some(ThemePatch {
+                    palette: Some(PalettePatch {
+                        heading: Some(RgbPatch {
+                            r: Some(0.8),
+                            g: Some(0.1),
+                            b: Some(0.1),
+                        }),
+                        ..PalettePatch::default()
+                    }),
+                    ..ThemePatch::default()
+                }),
+            },
+            DraftPage {
+                id: "p2".to_string(),
+                index: 2,
+                content: PdfPageContent::Text {
+                    content: "third".to_string(),
+                },
+                theme_override: None,
+            },
+        ];
+        let draft = PdfDraft {
+            pdf_id: "pdf_t".to_string(),
+            filename: "t.pdf".to_string(),
+            title: "T".to_string(),
+            pages,
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let doc = build_document(&draft, &Theme::default()).unwrap();
+        let blocks = &doc.sections[0].blocks;
+        let switches: Vec<&Block> = blocks
+            .iter()
+            .filter(|b| matches!(b, Block::ThemeSwitch(_)))
+            .collect();
+        assert_eq!(
+            switches.len(),
+            2,
+            "one switch to apply the override, one to reset"
+        );
+        // First switch carries the override's palette patch.
+        match switches[0] {
+            Block::ThemeSwitch(patch) => {
+                assert!(patch.palette.is_some(), "first switch has palette patch");
+            }
+            _ => panic!("expected ThemeSwitch"),
+        }
+        // Second switch resets to an empty patch.
+        match switches[1] {
+            Block::ThemeSwitch(patch) => {
+                assert!(
+                    patch.palette.is_none(),
+                    "reset switch has no palette override"
+                );
+                assert!(patch.typography.is_none());
+            }
+            _ => panic!("expected ThemeSwitch"),
+        }
+    }
+
+    #[test]
+    fn build_document_emits_no_theme_switch_when_no_overrides() {
+        let pages = vec![
+            DraftPage {
+                id: "p0".to_string(),
+                index: 0,
+                content: PdfPageContent::Text {
+                    content: "a".to_string(),
+                },
+                theme_override: None,
+            },
+            DraftPage {
+                id: "p1".to_string(),
+                index: 1,
+                content: PdfPageContent::Text {
+                    content: "b".to_string(),
+                },
+                theme_override: None,
+            },
+        ];
+        let draft = PdfDraft {
+            pdf_id: "pdf_n".to_string(),
+            filename: "n.pdf".to_string(),
+            title: "N".to_string(),
+            pages,
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let doc = build_document(&draft, &Theme::default()).unwrap();
+        let switches = doc.sections[0]
+            .blocks
+            .iter()
+            .filter(|b| matches!(b, Block::ThemeSwitch(_)))
+            .count();
+        assert_eq!(
+            switches, 0,
+            "no overrides → no ThemeSwitch blocks (backwards-compatible path)"
+        );
     }
 
     #[test]

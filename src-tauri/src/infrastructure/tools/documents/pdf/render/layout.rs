@@ -180,6 +180,17 @@ impl<'a> LayoutEngine<'a> {
         &self.params
     }
 
+    /// Replaces the active [`LayoutParams`] with a freshly-built set.
+    ///
+    /// Used by the renderer when it encounters a `Block::ThemeSwitch`:
+    /// the incoming params reflect the merged (document theme + page
+    /// patch) so typography, palette, spacing, and margins take effect
+    /// from the next block onward. Cursor position and page list are
+    /// untouched — only the layout knobs change.
+    pub fn set_params(&mut self, params: LayoutParams) {
+        self.params = params;
+    }
+
     /// Current page's layer. A fresh clone is cheap (`PdfLayerReference`
     /// is a thin wrapper around indices). `layers` is seeded with one
     /// entry by [`Self::new`] and only ever grows, so `last()` is

@@ -153,8 +153,15 @@ impl PrintPdfRenderer {
 
         let font_refs = embed_all_fonts(&pdf_doc, &self.fonts)?;
         let mut missing = BTreeSet::new();
+        let theme_ctx = RenderThemeCtx {
+            doc,
+            base_theme: theme,
+            page_width_mm,
+            page_height_mm,
+        };
         layout_sections(
             &mut engine,
+            &theme_ctx,
             &font_refs,
             &self.fonts,
             &doc.sections,
@@ -213,8 +220,15 @@ impl PrintPdfRenderer {
         let mut engine = LayoutEngine::new(&pdf_doc, page_idx, first_layer, params);
 
         let mut missing: BTreeSet<char> = BTreeSet::new();
+        let theme_ctx = RenderThemeCtx {
+            doc,
+            base_theme: theme,
+            page_width_mm,
+            page_height_mm,
+        };
         layout_sections(
             &mut engine,
+            &theme_ctx,
             &font_refs,
             &self.fonts,
             &doc.sections,
@@ -322,8 +336,21 @@ const fn page_dimensions(doc: &PdfDocument) -> (f32, f32) {
     }
 }
 
+/// Contextual slice needed to rebuild `LayoutParams` mid-render.
+///
+/// `Block::ThemeSwitch` merges a `ThemePatch` onto `base_theme` and
+/// asks the layout engine to adopt the resulting params; we keep the
+/// inputs on hand so the renderer doesn't have to re-derive them.
+struct RenderThemeCtx<'a> {
+    doc: &'a PdfDocument,
+    base_theme: &'a Theme,
+    page_width_mm: f32,
+    page_height_mm: f32,
+}
+
 fn layout_sections(
     engine: &mut LayoutEngine<'_>,
+    theme_ctx: &RenderThemeCtx<'_>,
     font_refs: &FontRefMap,
     fonts: &FontCache,
     sections: &[Section],
@@ -366,6 +393,21 @@ fn layout_sections(
                 Block::Image(img) => emit_image(engine, img)?,
                 Block::CoverPage(cover) => {
                     emit_cover_page(engine, font_refs, fonts, cover, missing)?;
+                }
+                Block::ThemeSwitch(patch) => {
+                    // Rebuild LayoutParams with the merged theme so
+                    // typography/palette/spacing/margins update for the
+                    // blocks that follow. Cursor and page state are
+                    // preserved.
+                    let mut merged = theme_ctx.base_theme.clone();
+                    merged.apply_patch(patch);
+                    let new_params = LayoutParams::from_doc(
+                        theme_ctx.doc,
+                        &merged,
+                        theme_ctx.page_width_mm,
+                        theme_ctx.page_height_mm,
+                    );
+                    engine.set_params(new_params);
                 }
                 Block::Toc => {
                     if let Some(entries) = toc_entries {

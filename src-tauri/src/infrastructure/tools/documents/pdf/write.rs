@@ -173,6 +173,7 @@ mod tests {
                 content: PdfPageContent::Text {
                     content: format!("Stress fixture body for {name}"),
                 },
+                theme_override: None,
             }],
             page_size: PdfPageSize::A4,
             theme_patch: None,
@@ -237,6 +238,7 @@ mod tests {
                         author: Some("Ada Lovelace".to_string()),
                         date: Some("2026-04-22".to_string()),
                     },
+                    theme_override: None,
                 },
                 DraftPage {
                     id: "page_body".to_string(),
@@ -244,6 +246,7 @@ mod tests {
                     content: PdfPageContent::Markdown {
                         content: "# Introduction\n\nBody text here.".to_string(),
                     },
+                    theme_override: None,
                 },
             ],
             page_size: PdfPageSize::A4,
@@ -265,6 +268,107 @@ mod tests {
         assert!(
             pdf.page_iter().count() >= 2,
             "cover + markdown must produce at least 2 pages"
+        );
+    }
+
+    #[tokio::test]
+    async fn per_page_theme_override_changes_rendered_output() {
+        use crate::core::documents::pdf::theme_patch::{
+            PalettePatch, RgbPatch, ThemePatch, TypographyPatch,
+        };
+
+        let td = tempfile::tempdir().unwrap();
+
+        let baseline = PdfDraft {
+            pdf_id: "pdf_base".to_string(),
+            filename: "base.pdf".to_string(),
+            title: "Per-page baseline".to_string(),
+            pages: vec![
+                DraftPage {
+                    id: "page_0".to_string(),
+                    index: 0,
+                    content: PdfPageContent::Markdown {
+                        content: "# First\n\nBody of first page.".to_string(),
+                    },
+                    theme_override: None,
+                },
+                DraftPage {
+                    id: "page_1".to_string(),
+                    index: 1,
+                    content: PdfPageContent::Markdown {
+                        content: "# Second\n\nBody of second page.".to_string(),
+                    },
+                    theme_override: None,
+                },
+            ],
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let baseline_path = td.path().join("baseline.pdf");
+        render_to_artifact(baseline, baseline_path.clone(), CancellationToken::new())
+            .await
+            .expect("baseline renders");
+
+        let overridden = PdfDraft {
+            pdf_id: "pdf_ovr".to_string(),
+            filename: "ovr.pdf".to_string(),
+            title: "Per-page override".to_string(),
+            pages: vec![
+                DraftPage {
+                    id: "page_0".to_string(),
+                    index: 0,
+                    content: PdfPageContent::Markdown {
+                        content: "# First\n\nBody of first page.".to_string(),
+                    },
+                    theme_override: None,
+                },
+                DraftPage {
+                    id: "page_1".to_string(),
+                    index: 1,
+                    content: PdfPageContent::Markdown {
+                        content: "# Second\n\nBody of second page.".to_string(),
+                    },
+                    theme_override: Some(ThemePatch {
+                        typography: Some(TypographyPatch {
+                            body_font_size_pt: Some(18.0),
+                            ..TypographyPatch::default()
+                        }),
+                        palette: Some(PalettePatch {
+                            heading: Some(RgbPatch {
+                                r: Some(0.8),
+                                g: Some(0.0),
+                                b: Some(0.0),
+                            }),
+                            ..PalettePatch::default()
+                        }),
+                        ..ThemePatch::default()
+                    }),
+                },
+            ],
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let overridden_path = td.path().join("ovr.pdf");
+        render_to_artifact(overridden, overridden_path.clone(), CancellationToken::new())
+            .await
+            .expect("override renders");
+
+        let baseline_bytes = std::fs::read(&baseline_path).unwrap();
+        let overridden_bytes = std::fs::read(&overridden_path).unwrap();
+        assert_ne!(
+            baseline_bytes, overridden_bytes,
+            "per-page theme override must change the rendered output"
+        );
+        let pdf = lopdf::Document::load_mem(&overridden_bytes).expect("lopdf parses");
+        assert!(
+            pdf.page_iter().count() >= 2,
+            "two draft pages must produce at least 2 PDF pages"
         );
     }
 

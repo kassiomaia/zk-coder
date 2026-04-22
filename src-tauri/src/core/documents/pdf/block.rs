@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::error::PdfModelError;
 use super::section::Heading;
+use super::theme_patch::ThemePatch;
 
 /// Horizontal alignment applied to a paragraph.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -729,6 +730,19 @@ pub enum Block {
     Image(ImageBlock),
     /// Vertically-centred cover / title page.
     CoverPage(CoverBlock),
+    /// Replace the active render theme for subsequent blocks.
+    ///
+    /// The renderer merges this patch onto the document's base theme
+    /// and rebuilds `LayoutParams` so typography, palette, spacing, and
+    /// margins take effect from the next block onward. An empty patch
+    /// restores the document defaults. Used by the adapter to realise
+    /// per-page `theme_override` at draft boundaries; not emitted by
+    /// markdown/text content directly.
+    ///
+    /// Header / footer templates and bundled fonts are fixed at document
+    /// construction and cannot be swapped mid-render — only body-level
+    /// fields take effect through `ThemeSwitch`.
+    ThemeSwitch(ThemePatch),
     /// Table of contents placeholder.
     ///
     /// The renderer replaces this marker with the actual TOC content

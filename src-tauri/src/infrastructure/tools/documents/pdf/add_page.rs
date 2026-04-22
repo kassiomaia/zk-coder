@@ -1,6 +1,7 @@
 //! Add a page to a PDF document.
 
 use crate::core::documents::pdf::block::ImageFit;
+use crate::core::documents::pdf::theme_patch::ThemePatch;
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
     documents::shared::{get_draft_store, PdfInsertPosition, PdfPageContent},
@@ -22,6 +23,13 @@ pub struct PdfAddPageArgs {
     /// Position to insert (default: "end")
     #[serde(default)]
     pub position: String,
+    /// Optional per-page styling patch, merged onto the document theme
+    /// at render time. Shape matches the `theme` argument on `pdf_start`.
+    /// Only body-level fields (typography, palette, spacing, margins)
+    /// take effect — decorations (header/footer) and font families are
+    /// fixed at document level.
+    #[serde(default)]
+    pub theme_override: Option<JsonValue>,
 }
 
 /// Page content input for serialization.
@@ -112,6 +120,27 @@ fn parse_position(raw: &str) -> PdfInsertPosition {
         "start" => PdfInsertPosition::Start,
         _ => PdfInsertPosition::End,
     }
+}
+
+/// Decodes and validates the LLM-supplied `theme_override` argument.
+///
+/// Returns `Ok(None)` when the argument is missing or JSON null.
+/// Returns `ToolError::invalid_args` with the dotted JSON path of the
+/// offending field on shape or range failures so the LLM can self-correct.
+fn decode_theme_override(raw: Option<JsonValue>) -> Result<Option<ThemePatch>, ToolError> {
+    let Some(value) = raw else { return Ok(None) };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let patch: ThemePatch = serde_json::from_value(value).map_err(|e| {
+        ToolError::invalid_args(format!(
+            "pdf_add_page: invalid `theme_override` argument: {e}"
+        ))
+    })?;
+    patch
+        .validate()
+        .map_err(|e| ToolError::invalid_args(format!("pdf_add_page: {e}")))?;
+    Ok(Some(patch))
 }
 
 /// Output from adding a page.
@@ -205,6 +234,11 @@ impl Tool for PdfAddPageTool {
                         "enum": ["start", "end"],
                         "default": "end",
                         "description": "Where to insert this page (default: end)"
+                    },
+                    "theme_override": {
+                        "type": "object",
+                        "additionalProperties": true,
+                        "description": "Optional per-page styling patch, same shape as the document-level `theme` on pdf_start. Applies from this page until another theme_override appears (or the document theme resumes). Only body-level fields (typography, palette, spacing, page_defaults.margin_mm) take effect — decorations and fonts are fixed at document level."
                     }
                 },
                 "required": ["pdf_id", "content"]
@@ -228,6 +262,7 @@ impl Tool for PdfAddPageTool {
             // Convert content input to internal type
             let content: PdfPageContent = args.content.into();
             let position = parse_position(&args.position);
+            let theme_override = decode_theme_override(args.theme_override)?;
 
             let draft_store = get_draft_store();
             let (page_id, page_number, total_pages) = {
@@ -236,7 +271,7 @@ impl Tool for PdfAddPageTool {
                 })?;
 
                 let page_id = store
-                    .add_pdf_page(&args.pdf_id, content, position)
+                    .add_pdf_page(&args.pdf_id, content, position, theme_override)
                     .map_err(|e| ToolError::failed(format!("Failed to add page: {e}")))?;
 
                 let draft = store
@@ -345,6 +380,40 @@ mod tests {
             }
             _ => panic!("Expected Image"),
         }
+    }
+
+    #[test]
+    fn decode_theme_override_accepts_missing() {
+        assert!(decode_theme_override(None).unwrap().is_none());
+    }
+
+    #[test]
+    fn decode_theme_override_accepts_null() {
+        assert!(decode_theme_override(Some(serde_json::Value::Null))
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn decode_theme_override_accepts_valid_patch() {
+        let raw = serde_json::json!({
+            "typography": {"body_font_size_pt": 14}
+        });
+        let patch = decode_theme_override(Some(raw)).expect("valid patch accepted");
+        assert!(patch.is_some());
+    }
+
+    #[test]
+    fn decode_theme_override_rejects_out_of_range() {
+        let raw = serde_json::json!({
+            "typography": {"body_font_size_pt": 200}
+        });
+        let err = decode_theme_override(Some(raw)).expect_err("out-of-range rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("theme.typography.body_font_size_pt"),
+            "error must name the offending field: {msg}"
+        );
     }
 
     #[test]

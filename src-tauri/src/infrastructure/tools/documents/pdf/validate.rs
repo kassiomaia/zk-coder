@@ -303,6 +303,7 @@ mod tests {
                     content: PdfPageContent::Text {
                         content: "Test content".to_string(),
                     },
+                    theme_override: None,
                 },
             ],
             page_size:

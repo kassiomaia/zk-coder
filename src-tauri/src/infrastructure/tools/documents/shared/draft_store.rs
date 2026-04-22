@@ -216,11 +216,15 @@ impl DraftStore {
     }
 
     /// Add a page to a PDF draft at the given position.
+    ///
+    /// `theme_override` is an optional styling patch applied only to
+    /// this page. `None` keeps the document-level styling.
     pub fn add_pdf_page(
         &mut self,
         pdf_id: &str,
         content: PdfPageContent,
         position: PdfInsertPosition,
+        theme_override: Option<ThemePatch>,
     ) -> Result<String, DraftError> {
         let draft = self
             .pdf_drafts
@@ -242,6 +246,7 @@ impl DraftStore {
                 id: page_id.clone(),
                 index: insert_index,
                 content,
+                theme_override,
             },
         );
         // Re-sequence page indices so they reflect insertion order.
@@ -446,6 +451,12 @@ pub struct DraftPage {
     pub index: usize,
     /// Content of the page.
     pub content: PdfPageContent,
+    /// Optional per-page styling patch, merged onto the document theme
+    /// at render time. Only body-level fields (typography, palette,
+    /// spacing, page margins) take effect — decorations and font
+    /// families are fixed at document level.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_override: Option<ThemePatch>,
 }
 
 // === Content Types ===
@@ -862,7 +873,7 @@ mod tests {
         };
 
         let page_id = store
-            .add_pdf_page(&id, content, PdfInsertPosition::End)
+            .add_pdf_page(&id, content, PdfInsertPosition::End, None)
             .unwrap();
 
         let draft = store.get_pdf_draft(&id).unwrap();
@@ -887,6 +898,7 @@ mod tests {
                     content: "first".to_string(),
                 },
                 PdfInsertPosition::End,
+                None,
             )
             .unwrap();
         let second = store
@@ -896,6 +908,7 @@ mod tests {
                     content: "prepended".to_string(),
                 },
                 PdfInsertPosition::Start,
+                None,
             )
             .unwrap();
 

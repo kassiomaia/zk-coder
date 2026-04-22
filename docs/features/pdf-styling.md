@@ -27,9 +27,32 @@ The root `theme` object mirrors the typed `Theme` in `src-tauri/src/core/documen
 
 ### Precedence
 
-`bundled report theme` → `draft.theme_patch` applied at render time in `theme_for_draft`.
+`bundled report theme` → `draft.theme_patch` (document-level, set at `pdf_start`) → `page.theme_override` (per-page, set at `pdf_add_page`). Each layer merges on top of the previous one; `Some` fields replace, `None` leaves the lower layer untouched.
 
-No per-page overrides exist yet (Phase 2 follow-up). Styling is fixed once at `pdf_start` and applies to every page in the draft.
+### Per-page `theme_override`
+
+`pdf_add_page` accepts an optional `theme_override` with the same shape as the document `theme`. Use it when a specific page needs styling that differs from the document (for example a coloured chapter divider, a larger-type section, or different margins on a fold-out table).
+
+```json
+{
+  "pdf_id": "pdf_...",
+  "content": {"type": "markdown", "content": "# Chapter 2\n\n..."},
+  "theme_override": {
+    "typography": {"body_font_size_pt": 14},
+    "palette":    {"heading": {"r": 0.7, "g": 0.1, "b": 0.1}}
+  }
+}
+```
+
+Semantics:
+
+- Takes effect from the overridden page onward and persists through subsequent pages until another `theme_override` fires.
+- Pages that follow an overridden page but themselves have no override automatically reset to the document theme — the adapter inserts a synthetic reset `ThemeSwitch` at that boundary so styling does not bleed forward.
+- Only body-level fields take effect: `typography`, `palette`, `spacing`, `page_defaults.margin_mm`.
+- `decorations` (header/footer templates) and `fonts.*` (font family filenames) are **not** honoured per-page. The decorator runs a single pass after layout completes, and bundled fonts are loaded once at document construction — both remain document-wide. If the LLM supplies those sections in a page override, they are accepted at validation but ignored at render. This is called out explicitly in the tool description and in `docs/features/pdf-styling.md`.
+- Validation ranges are the same as the document `theme`; out-of-range values reject the `pdf_add_page` call with a `ToolError::invalid_args` naming the dotted JSON path.
+
+Under the hood, `build_document` in `src-tauri/src/application/tools/pdf/finalize.rs` emits a `Block::ThemeSwitch(ThemePatch)` marker before each overridden page (and an empty-patch reset after) into the block stream. The renderer handles the marker in `layout_sections` by calling `LayoutEngine::set_params` with freshly-built `LayoutParams` for the merged theme — cursor position and page state are preserved, only the layout knobs swap.
 
 ## Validation and errors
 
@@ -165,7 +188,7 @@ Sizing rules:
 
 ## Non-goals (tracked as follow-ups)
 
-- Per-page theme overrides. Styling is document-wide for now. Implementing this requires rebuilding `LayoutParams` at page boundaries inside the `printpdf` renderer (a ~130 LOC change through ~15 function signatures) — deferred to Phase 3 so it can be reviewed in isolation from cover/image work.
+- Per-page overrides of `decorations` or `fonts.*`. Header/footer templates and bundled font family filenames are fixed document-wide because the decorator runs a single post-layout pass and the font cache is built once at document construction. If the LLM includes these sections in a page `theme_override`, they are accepted at validation (same shape) but ignored at render.
 - Custom font upload. Only bundled TTFs are accepted.
 - Named-color escape hatch (e.g., `"navy"`). Colors are always RGB triples.
 - HTML/CSS rendering path.
