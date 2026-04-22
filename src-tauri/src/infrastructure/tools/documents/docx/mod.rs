@@ -2,7 +2,9 @@
 
 mod add_section;
 mod r#final;
+mod generator;
 mod r#list;
+mod schema;
 mod start;
 mod validate;
 

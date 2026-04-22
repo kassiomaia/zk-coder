@@ -10,26 +10,38 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tauri::AppHandle;
 
+use super::schema::{section_content_schema, theme_schema};
+use super::start::decode_theme_patch;
+
 /// Arguments for adding a section to a DOCX document.
 #[derive(Debug, Deserialize)]
 pub struct DocxAddSectionArgs {
-    /// Document ID from `docx_start`
+    /// Document ID from `docx_start`.
     pub document_id: String,
-    /// Section content to add
+    /// Section content to add.
     pub content: DocxContent,
+    /// Optional per-section styling patch. When present, opens a new
+    /// OOXML section break with distinct page geometry (paper,
+    /// orientation, margins) or decorations. Body-level fields
+    /// (typography, palette, spacing, fonts) are ignored here — those
+    /// live at the document level.
+    #[serde(default)]
+    pub theme_override: Option<JsonValue>,
 }
 
 /// Output from adding a section.
 #[derive(Debug, Serialize)]
 pub struct DocxAddSectionOutput {
-    /// Section ID that was added
+    /// Section ID that was added.
     pub section_id: String,
-    /// Document ID
+    /// Document ID.
     pub document_id: String,
-    /// Index of the section in the document
+    /// Index of the section in the document.
     pub section_index: usize,
-    /// Total number of sections in the document
+    /// Total number of sections in the document.
     pub current_section_count: usize,
+    /// `true` when a `theme_override` was supplied and validated.
+    pub theme_override_applied: bool,
 }
 
 /// Tool to add a section to a DOCX document.
@@ -39,7 +51,10 @@ impl Tool for DocxAddSectionTool {
     fn meta(&self) -> ToolMeta {
         ToolMeta {
             id: ToolId::new("docx", "add_section"),
-            description: "Add a section (heading, paragraph, list, table, image, or page break) to a DOCX document. Use this repeatedly to build documents incrementally.",
+            description: "Add a section (heading, paragraph, list, table, image, page break, or rule) to a DOCX document. \
+              Text fields accept either a plain string or an array of runs `[{ text, bold?, italic?, underline?, strike?, code?, color?, link? }]` \
+              for inline formatting. Pass an optional `theme_override` to open a new OOXML section break with distinct page geometry. \
+              Use this repeatedly to build documents incrementally.",
             input_schema: serde_json::json!({
                 "type": "object",
                 "additionalProperties": false,
@@ -48,69 +63,8 @@ impl Tool for DocxAddSectionTool {
                         "type": "string",
                         "description": "Document ID from docx_start"
                     },
-                    "content": {
-                        "description": "Section content to add",
-                        "oneOf": [
-                            {
-                                "type": "object",
-                                "required": ["type", "level", "text", "page_break_before"],
-                                "properties": {
-                                    "type": { "const": "Heading" },
-                                    "level": { "type": "integer", "minimum": 1, "maximum": 6 },
-                                    "text": { "type": "string" },
-                                    "page_break_before": { "type": "boolean" }
-                                }
-                            },
-                            {
-                                "type": "object",
-                                "required": ["type", "text", "style"],
-                                "properties": {
-                                    "type": { "const": "Paragraph" },
-                                    "text": { "type": "string" },
-                                    "style": { "type": "string" }
-                                }
-                            },
-                            {
-                                "type": "object",
-                                "required": ["type", "items"],
-                                "properties": {
-                                    "type": { "const": "BulletList" },
-                                    "items": { "type": "array", "items": { "type": "string" } }
-                                }
-                            },
-                            {
-                                "type": "object",
-                                "required": ["type", "items", "start_at"],
-                                "properties": {
-                                    "type": { "const": "NumberedList" },
-                                    "items": { "type": "array", "items": { "type": "string" } },
-                                    "start_at": { "type": "integer" }
-                                }
-                            },
-                            {
-                                "type": "object",
-                                "required": ["type", "headers", "rows", "caption"],
-                                "properties": {
-                                    "type": { "const": "Table" },
-                                    "headers": { "type": "array", "items": { "type": "string" } },
-                                    "rows": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
-                                    "caption": { "type": "string" }
-                                }
-                            },
-                            {
-                                "type": "object",
-                                "required": ["type", "path", "caption", "width"],
-                                "properties": {
-                                    "type": { "const": "Image" },
-                                    "path": { "type": "string" },
-                                    "caption": { "type": "string" },
-                                    "width": { "type": "string" }
-                                }
-                            },
-                            { "type": "object", "required": ["type"], "properties": { "type": { "const": "PageBreak" } } },
-                            { "type": "object", "required": ["type"], "properties": { "type": { "const": "HorizontalRule" } } }
-                        ]
-                    }
+                    "content": section_content_schema(),
+                    "theme_override": theme_schema()
                 },
                 "required": ["document_id", "content"]
             }),
@@ -129,6 +83,8 @@ impl Tool for DocxAddSectionTool {
     ) -> ToolFuture {
         Box::pin(async move {
             let args: DocxAddSectionArgs = parse_args("docx_add_section", arguments)?;
+            let theme_override = decode_theme_patch(args.theme_override.as_ref())?;
+            let theme_override_applied = theme_override.is_some();
 
             let draft_store = DraftStore::get_draft_store();
             let mut store = draft_store.lock().map_err(|e| {
@@ -136,7 +92,7 @@ impl Tool for DocxAddSectionTool {
             })?;
 
             let section_id = store
-                .add_docx_section(&args.document_id, args.content)
+                .add_docx_section(&args.document_id, args.content, theme_override)
                 .map_err(|e| ToolError::failed(format!("Failed to add section: {e}")))?;
 
             let draft = store.get_docx_draft(&args.document_id).ok_or_else(|| {
@@ -151,6 +107,7 @@ impl Tool for DocxAddSectionTool {
                 document_id: args.document_id,
                 section_index: draft.sections.len() - 1,
                 current_section_count: draft.sections.len(),
+                theme_override_applied,
             };
 
             Ok(serde_json::to_value(output)?)
@@ -159,71 +116,65 @@ impl Tool for DocxAddSectionTool {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use crate::infrastructure::tools::documents::shared::ParagraphText;
     use serde_json::json;
 
     #[test]
-    fn test_add_heading_args() {
+    fn heading_with_plain_text_parses() {
         let args = json!({
             "document_id": "docx_123",
             "content": {
                 "type": "Heading",
                 "level": 1,
-                "text": "Introduction",
-                "page_break_before": false
+                "text": "Introduction"
             }
         });
-
         let parsed: DocxAddSectionArgs = serde_json::from_value(args).unwrap();
-        assert_eq!(parsed.document_id, "docx_123");
         match parsed.content {
             DocxContent::Heading { level, text, .. } => {
                 assert_eq!(level, 1);
-                assert_eq!(text, "Introduction");
+                assert_eq!(text.as_plain_string(), "Introduction");
             }
-            _ => panic!("Expected Heading content"),
+            _ => panic!("expected Heading"),
         }
     }
 
     #[test]
-    fn test_add_paragraph_args() {
+    fn paragraph_with_rich_runs_parses() {
         let args = json!({
             "document_id": "docx_123",
             "content": {
                 "type": "Paragraph",
-                "text": "This is a paragraph.",
-                "style": null
+                "text": [
+                    { "text": "Important: ", "bold": true },
+                    { "text": "read carefully." }
+                ]
             }
         });
-
         let parsed: DocxAddSectionArgs = serde_json::from_value(args).unwrap();
         match parsed.content {
-            DocxContent::Paragraph { text, style } => {
-                assert_eq!(text, "This is a paragraph.");
-                assert!(style.is_none());
+            DocxContent::Paragraph { text: ParagraphText::Rich(runs), .. } => {
+                assert_eq!(runs.len(), 2);
+                assert!(runs[0].bold);
             }
-            _ => panic!("Expected Paragraph content"),
+            _ => panic!("expected rich paragraph"),
         }
     }
 
     #[test]
-    fn test_add_bullet_list_args() {
+    fn theme_override_accepts_partial_page_override() {
         let args = json!({
             "document_id": "docx_123",
-            "content": {
-                "type": "BulletList",
-                "items": ["Item 1", "Item 2", "Item 3"]
+            "content": { "type": "PageBreak" },
+            "theme_override": {
+                "page": { "landscape": true, "margin_top_mm": 15.0 }
             }
         });
-
         let parsed: DocxAddSectionArgs = serde_json::from_value(args).unwrap();
-        match parsed.content {
-            DocxContent::BulletList { items } => {
-                assert_eq!(items.len(), 3);
-                assert_eq!(items[0], "Item 1");
-            }
-            _ => panic!("Expected BulletList content"),
-        }
+        let patch = decode_theme_patch(parsed.theme_override.as_ref()).unwrap().unwrap();
+        assert_eq!(patch.page.unwrap().landscape, Some(true));
     }
 }

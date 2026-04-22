@@ -1,16 +1,18 @@
 //! Shared types and utilities for document tools.
 
 pub mod artifact_store;
+pub mod docx_content;
 pub mod draft_store;
 pub mod validation;
 
 pub use artifact_store::{
     Artifact, ArtifactError, ArtifactMetadata, ArtifactRef, ArtifactStore, ArtifactType,
 };
+pub use docx_content::{Alignment, DocxContent, ListItem, ParagraphRole, ParagraphText, TextRun};
 pub use draft_store::{
-    get_draft_store, DocxContent, DocxDraft, DraftCounts, DraftError, DraftPage, DraftSection,
-    DraftSlide, DraftStatus, DraftStore, PdfDraft, PdfInsertPosition, PdfPageContent, PdfPageSize,
-    PptxDraft, PptxSlide, SlideContent, SlideLayout,
+    get_draft_store, DocxDraft, DraftCounts, DraftError, DraftPage, DraftSection, DraftSlide,
+    DraftStatus, DraftStore, PdfDraft, PdfInsertPosition, PdfPageContent, PdfPageSize, PptxDraft,
+    PptxSlide, SlideContent, SlideLayout,
 };
 pub use validation::{
     sanitize_filename, validate_file_exists, validate_file_size, validate_magic_bytes,
