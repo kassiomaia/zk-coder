@@ -16,15 +16,40 @@
 	let { toolCalls }: Props = $props();
 	let container: HTMLDivElement | undefined = $state();
 
-	/** Auto-scroll to bottom when new tool calls arrive */
+	// Follow new tool calls only while the user is pinned to the bottom. If
+	// they have scrolled up to inspect an earlier call, preserve their
+	// position — forcing scrollTop on every update made manual scrolling
+	// impossible. 24px of slack accounts for sub-pixel rounding.
+	let followBottom = true;
+
+	function handleScroll() {
+		if (!container) return;
+		const distanceFromBottom =
+			container.scrollHeight - container.scrollTop - container.clientHeight;
+		followBottom = distanceFromBottom <= 24;
+	}
+
 	$effect(() => {
-		if (toolCalls.length > 0 && container) {
-			container.scrollTop = container.scrollHeight;
+		// Re-read the reactive length so the effect re-runs on new calls.
+		const count = toolCalls.length;
+		if (count > 0 && container && followBottom) {
+			// Bypass the container's `scroll-behavior: smooth` for
+			// programmatic follow — a smooth animation fires intermediate
+			// `scroll` events with distance > 0, which would flip
+			// `followBottom` to false mid-animation when another call
+			// arrives.
+			container.scrollTo({ top: container.scrollHeight, behavior: 'instant' });
 		}
 	});
 </script>
 
-<div class="tool-calls-view" bind:this={container} role="log" aria-label="Tool calls history">
+<div
+	class="tool-calls-view"
+	bind:this={container}
+	onscroll={handleScroll}
+	role="log"
+	aria-label="Tool calls history"
+>
 	<div class="tool-calls-list">
 		{#each toolCalls as record (record.id)}
 			<ToolCallItem {record} />

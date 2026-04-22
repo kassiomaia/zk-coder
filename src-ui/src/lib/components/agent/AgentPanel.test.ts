@@ -38,12 +38,6 @@ vi.mock('./WorkspaceSelector.svelte', () => ({
 	}))
 }));
 
-vi.mock('./SessionTabs.svelte', () => ({
-	default: vi.fn(() => ({
-		render: () => '<div class="mock-session-tabs">Session Tabs</div>'
-	}))
-}));
-
 vi.mock('./SessionHistory.svelte', () => ({
 	default: vi.fn(() => ({
 		render: () => '<div class="mock-session-history">Session History</div>'
@@ -156,9 +150,8 @@ describe('AgentPanel', () => {
 			expect(screen.getByText('Tool Calls')).toBeInTheDocument();
 		});
 
-		it('accepts multiple sessions without breaking the active panel view', () => {
-			const allSessions = [mockSession, { ...mockSession, id: 'session-2' }];
-			render(AgentPanel, { ...defaultProps, allSessions });
+		it('renders the active panel regardless of sibling session count', () => {
+			render(AgentPanel, { ...defaultProps });
 
 			expect(screen.getByText('Activity')).toBeInTheDocument();
 			expect(screen.getByText('Requests')).toBeInTheDocument();
@@ -189,8 +182,11 @@ describe('AgentPanel', () => {
 
 			expect(screen.getByText('Session Summary')).toBeInTheDocument();
 			expect(screen.getByText('Workspace should be verified before resuming')).toBeInTheDocument();
-			expect(screen.getByText('Add live harness updates')).toBeInTheDocument();
-			expect(screen.getByText('Resume after verification')).toBeInTheDocument();
+			// Handoff details (current objective / next action / last increment /
+			// environment / open issues) are intentionally not surfaced in the
+			// panel — they were removed to reduce noise in the sidebar.
+			expect(screen.queryByText('Add live harness updates')).not.toBeInTheDocument();
+			expect(screen.queryByText('Resume after verification')).not.toBeInTheDocument();
 		});
 
 		it('renders Continue and Replan actions when paused with resume_verifier mode', async () => {
@@ -268,7 +264,11 @@ describe('AgentPanel', () => {
 			expect(replanBtn).not.toBeDisabled();
 		});
 
-		it('shows clean handoff summary when session is finished with clean exit recorded', () => {
+		it('does not surface handoff copy when session finishes with clean exit recorded', () => {
+			// The clean-handoff notice used to render in the summary panel;
+			// it was removed alongside the rest of the handoff text to keep
+			// the sidebar focused on actionable state. Without other summary
+			// triggers (verification or resume), the section should stay hidden.
 			render(AgentPanel, {
 				...defaultProps,
 				session: {
@@ -285,8 +285,8 @@ describe('AgentPanel', () => {
 			});
 
 			expect(
-				screen.getByText('Clean handoff saved for the next session.')
-			).toBeInTheDocument();
+				screen.queryByText('Clean handoff saved for the next session.')
+			).not.toBeInTheDocument();
 		});
 	});
 

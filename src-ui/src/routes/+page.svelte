@@ -360,29 +360,31 @@
 		};
 	});
 
-	// Agent panel visibility logic based on conversation and thread selection
+	// Agent panel visibility: auto-close when no conversation, and auto-open
+	// ONLY when the conversation/thread selection actually changes. Without
+	// the change check, clicking the panel's close button would be undone on
+	// the next reactive tick because `agentPanelOpen` re-reads as false and
+	// the effect re-opens it. Tracking the last-seen selection lets the user
+	// keep the panel closed for a given conversation/thread.
+	let lastAutoOpenKey: string | null = null;
 	$effect(() => {
 		const conversation = $selectedConversation;
 		const threadId = selectedThreadId;
 
-		// Rule 1: No conversation or thread selected - close agent panel
 		if (!conversation) {
+			lastAutoOpenKey = null;
 			if (agentPanelOpen) {
 				agentStore.togglePanel();
 			}
 			return;
 		}
 
-		// Rule 2: Thread is selected - show agent panel automatically
-		if (threadId) {
-			if (!agentPanelOpen) {
-				agentStore.togglePanel();
-			}
+		const key = `${conversation.id}::${threadId ?? ''}`;
+		if (lastAutoOpenKey === key) {
 			return;
 		}
+		lastAutoOpenKey = key;
 
-		// Rule 3: Conversation selected but no thread (empty chat) - open agent panel for workspace setup
-		// This allows user to set workspace before starting a thread
 		if (!agentPanelOpen) {
 			agentStore.togglePanel();
 		}

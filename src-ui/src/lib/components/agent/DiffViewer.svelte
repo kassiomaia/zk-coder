@@ -54,17 +54,24 @@
 	let codeEditor = $state<monaco.editor.IStandaloneCodeEditor | null>(null);
 	let fontSize = $state(13);
 
-	// Handle CTRL + Scroll for zoom
-	function handleWheel(e: any) {
-		const browserEvent = e.browserEvent || e;
-		if (browserEvent.ctrlKey || browserEvent.metaKey) {
-			browserEvent.preventDefault();
-			const delta = browserEvent.deltaY > 0 ? -1 : 1;
-			const newSize = Math.max(8, Math.min(32, fontSize + delta));
-			if (newSize !== fontSize) {
-				fontSize = newSize;
-				updateEditorOptions();
-			}
+	// Handle CTRL + Scroll for zoom.
+	//
+	// The listener is registered with `capture: true` below. Monaco's own
+	// wheel handling sits on descendants of `container` and calls
+	// `stopPropagation()` while scrolling, which would stop a bubble-phase
+	// listener from ever firing — that is why the earlier implementation
+	// appeared broken. Running in the capture phase lets us observe CTRL+
+	// wheel first, stop propagation ourselves, and perform the font-size
+	// zoom before Monaco consumes the event for its internal scroll.
+	function handleWheel(e: WheelEvent) {
+		if (!(e.ctrlKey || e.metaKey)) return;
+		e.preventDefault();
+		e.stopPropagation();
+		const delta = e.deltaY > 0 ? -1 : 1;
+		const newSize = Math.max(8, Math.min(32, fontSize + delta));
+		if (newSize !== fontSize) {
+			fontSize = newSize;
+			updateEditorOptions();
 		}
 	}
 
@@ -209,8 +216,9 @@
 			renderOverviewRuler: false
 		});
 
-		// Add native wheel listener for zoom control
-		container.addEventListener('wheel', handleWheel, { passive: false });
+		// Capture-phase so Monaco's own descendants can't stopPropagation
+		// the event before we see it (see handleWheel comment).
+		container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
 
 		updateDiffModels();
 	}
@@ -245,8 +253,9 @@
 			hideCursorInOverviewRuler: true
 		});
 
-		// Add native wheel listener for zoom control
-		container.addEventListener('wheel', handleWheel, { passive: false });
+		// Capture-phase so Monaco's own descendants can't stopPropagation
+		// the event before we see it (see handleWheel comment).
+		container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
 
 		updateCodeModel();
 	}
@@ -286,7 +295,8 @@
 	onDestroy(() => {
 		diffEditor?.dispose();
 		codeEditor?.dispose();
-		container?.removeEventListener('wheel', handleWheel);
+		// Capture flag must match the registration to unbind correctly.
+		container?.removeEventListener('wheel', handleWheel, { capture: true } as EventListenerOptions);
 	});
 </script>
 

@@ -23,9 +23,17 @@ impl AgentServiceImpl {
         let agent_id = self.to_agents_agent_id(&request.agent_id);
         let workspace_root = request.workspace_root.map(PathBuf::from);
 
+        // Resolve the human-facing display name from the registry so the UI
+        // shows e.g. "Agent" instead of the raw "code-agent" identifier.
+        // Falls back to the agent id for agents that aren't in the registry.
+        let agent_name = self
+            .block_on(self.registry.get(&agent_id))
+            .map(|a| a.name)
+            .unwrap_or_else(|| request.agent_id.clone());
+
         let session = AgentSession::new(
             agent_id,
-            request.agent_id.clone(),
+            agent_name,
             request.conversation_id,
             request.thread_id,
             workspace_root,

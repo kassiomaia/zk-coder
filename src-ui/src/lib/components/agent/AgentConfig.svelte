@@ -3,8 +3,9 @@
 	 * AgentConfig Component
 	 * Displays available agents and allows viewing their configuration.
 	 */
-	import { Check, ChevronDown, ChevronRight, Cpu, Settings, Shield, Wrench } from 'lucide-svelte';
+	import { Check, ChevronDown, ChevronRight, Cpu, Shield, Wrench } from 'lucide-svelte';
 	import type { Agent, TrustMode } from '$lib/types/agent';
+	import Modal from '$lib/components/shared/Modal.svelte';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import LoadingState from '$lib/components/shared/LoadingState.svelte';
 	import StatusBadge from '$lib/components/shared/StatusBadge.svelte';
@@ -95,214 +96,119 @@
 	}
 </script>
 
-{#if open}
-	<div
-		class="overlay"
-		role="presentation"
-		onclick={(e) => {
-			if (e.target === e.currentTarget) onClose();
-		}}
-		onkeydown={(e) => e.key === 'Escape' && onClose()}
-	>
-		<div
-			class="panel"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="agent-config-title"
-			tabindex="-1"
-		>
-			<div class="header">
-				<div class="header-title">
-					<Settings size={20} />
-					<h2 id="agent-config-title">Agent Configuration</h2>
-				</div>
-				<button class="close-btn" onclick={onClose} type="button" aria-label="Close"> × </button>
-			</div>
-
-			<div class="content">
-				{#if loading}
-					<LoadingState class="loading-state" message="Loading agents..." />
-				{:else if agents.length === 0}
-					<EmptyState icon={Cpu} message="No agents available" />
-				{:else}
-					<div class="agents-list">
-						{#each agents as agent (agent.id)}
-							{@const isExpanded = expandedAgentId === agent.id}
-							{@const isSelected = selectedAgentId === agent.id}
-							<div class="agent-card" class:selected={isSelected}>
-								<div class="agent-header">
-									<button
-										class="agent-main"
-										onclick={() => toggleExpand(agent.id)}
-										type="button"
-										aria-expanded={isExpanded}
-									>
-										<div class="agent-info">
-											<h3 class="agent-name">
-												{agent.name}
-												{#if isSelected}
-													<Check size={14} class="selected-icon" />
-												{/if}
-											</h3>
-											<p class="agent-description">{agent.description}</p>
-										</div>
-										{#if isExpanded}
-											<ChevronDown size={16} class="expand-icon" />
-										{:else}
-											<ChevronRight size={16} class="expand-icon" />
+<Modal title="Agent Configuration" {open} onclose={onClose}>
+	{#snippet children()}
+		{#if loading}
+			<LoadingState message="Loading agents..." />
+		{:else if agents.length === 0}
+			<EmptyState icon={Cpu} message="No agents available" />
+		{:else}
+			<div class="agents-list">
+				{#each agents as agent (agent.id)}
+					{@const isExpanded = expandedAgentId === agent.id}
+					{@const isSelected = selectedAgentId === agent.id}
+					<div class="agent-card" class:selected={isSelected}>
+						<div class="agent-header">
+							<button
+								class="agent-main"
+								onclick={() => toggleExpand(agent.id)}
+								type="button"
+								aria-expanded={isExpanded}
+							>
+								<div class="agent-info">
+									<h3 class="agent-name">
+										{agent.name}
+										{#if isSelected}
+											<Check size={14} class="selected-icon" />
 										{/if}
-									</button>
-									{#if onSelectAgent && !isSelected}
-										<button
-											class="select-btn"
-											onclick={() => handleSelectAgent(agent.id)}
-											type="button"
-										>
-											Select
-										</button>
-									{/if}
+									</h3>
+									<p class="agent-description">{agent.description}</p>
+								</div>
+								{#if isExpanded}
+									<ChevronDown size={16} class="expand-icon" />
+								{:else}
+									<ChevronRight size={16} class="expand-icon" />
+								{/if}
+							</button>
+							{#if onSelectAgent && !isSelected}
+								<button
+									class="select-btn"
+									onclick={() => handleSelectAgent(agent.id)}
+									type="button"
+								>
+									Select
+								</button>
+							{/if}
+						</div>
+
+						{#if isExpanded}
+							<div class="agent-details">
+								<!-- Trust Mode -->
+								<div class="detail-row">
+									<div class="detail-icon">
+										{#if agent.trustMode === 'trusted'}
+											<Check size={14} />
+										{:else}
+											<Shield size={14} />
+										{/if}
+									</div>
+									<div class="detail-content">
+										<span class="detail-label">Trust Mode</span>
+										<span class="detail-value {getTrustModeClass(agent.trustMode)}">
+											{getTrustModeText(agent.trustMode)}
+										</span>
+									</div>
 								</div>
 
-								{#if isExpanded}
-									<div class="agent-details">
-										<!-- Trust Mode -->
-										<div class="detail-row">
-											<div class="detail-icon">
-												{#if agent.trustMode === 'trusted'}
-													<Check size={14} />
-												{:else}
-													<Shield size={14} />
-												{/if}
-											</div>
-											<div class="detail-content">
-												<span class="detail-label">Trust Mode</span>
-												<span class="detail-value {getTrustModeClass(agent.trustMode)}">
-													{getTrustModeText(agent.trustMode)}
-												</span>
-											</div>
-										</div>
+								<!-- Default Model -->
+								<div class="detail-row">
+									<div class="detail-icon">
+										<Cpu size={14} />
+									</div>
+									<div class="detail-content">
+										<span class="detail-label">Default Model</span>
+										<span class="detail-value">{agent.defaultModelId}</span>
+									</div>
+								</div>
 
-										<!-- Default Model -->
-										<div class="detail-row">
-											<div class="detail-icon">
-												<Cpu size={14} />
-											</div>
-											<div class="detail-content">
-												<span class="detail-label">Default Model</span>
-												<span class="detail-value">{agent.defaultModelId}</span>
-											</div>
-										</div>
-
-										<!-- Allowed Tools -->
-										<div class="detail-row tools-row">
-											<div class="detail-icon">
-												<Wrench size={14} />
-											</div>
-											<div class="detail-content">
-												<span class="detail-label">Allowed Tools</span>
-												<div class="tools-list">
-													{#each agent.allowedTools as tool}
-														<StatusBadge variant="tag" size="sm" text={tool} />
-													{/each}
-												</div>
-											</div>
-										</div>
-
-										<!-- System Prompt -->
-										<div class="detail-row">
-											<div class="detail-content full-width">
-												<span class="detail-label">System Prompt</span>
-												<pre class="system-prompt">{agent.systemPrompt}</pre>
-											</div>
+								<!-- Allowed Tools -->
+								<div class="detail-row tools-row">
+									<div class="detail-icon">
+										<Wrench size={14} />
+									</div>
+									<div class="detail-content">
+										<span class="detail-label">Allowed Tools</span>
+										<div class="tools-list">
+											{#each agent.allowedTools as tool}
+												<StatusBadge variant="tag" size="sm" text={tool} />
+											{/each}
 										</div>
 									</div>
-								{/if}
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
+								</div>
 
-			<div class="footer">
-				<p class="footer-text">
-					Agents determine how the AI assistant interacts with your workspace and files.
-				</p>
+								<!-- System Prompt -->
+								<div class="detail-row">
+									<div class="detail-content full-width">
+										<span class="detail-label">System Prompt</span>
+										<pre class="system-prompt">{agent.systemPrompt}</pre>
+									</div>
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/each}
 			</div>
-		</div>
-	</div>
-{/if}
+		{/if}
+	{/snippet}
+
+	{#snippet footer()}
+		<p class="footer-text">
+			Agents determine how the AI assistant interacts with your workspace and files.
+		</p>
+	{/snippet}
+</Modal>
 
 <style>
-	.overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-	}
-
-	.panel {
-		background: var(--color-bg-primary);
-		border-radius: var(--radius-lg);
-		width: 90%;
-		max-width: 600px;
-		max-height: 80vh;
-		display: flex;
-		flex-direction: column;
-		box-shadow:
-			0 20px 25px -5px rgb(0 0 0 / 0.1),
-			0 8px 10px -6px rgb(0 0 0 / 0.1);
-	}
-
-	.header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--space-4);
-		border-bottom: 1px solid var(--color-border-subtle);
-	}
-
-	.header-title {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-	}
-
-	.header-title h2 {
-		font-size: var(--text-lg);
-		font-weight: 600;
-		color: var(--color-text-primary);
-		margin: 0;
-	}
-
-	.close-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		color: var(--color-text-muted);
-		background: transparent;
-		border: none;
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		font-size: var(--text-xl);
-		transition: color var(--transition-fast);
-	}
-
-	.close-btn:hover {
-		color: var(--color-text-primary);
-		background: var(--color-interactive-hover);
-	}
-
-	.content {
-		flex: 1;
-		overflow-y: auto;
-		padding: var(--space-4);
-	}
-
 	.agents-list {
 		display: flex;
 		flex-direction: column;
@@ -360,20 +266,10 @@
 		margin: 0;
 	}
 
-	.selected-icon {
-		color: var(--color-primary-500);
-	}
-
 	.agent-description {
 		font-size: var(--text-sm);
 		color: var(--color-text-secondary);
 		margin: var(--space-0-5) 0 0 0;
-	}
-
-	.expand-icon {
-		color: var(--color-text-muted);
-		flex-shrink: 0;
-		transition: transform var(--transition-fast);
 	}
 
 	.select-btn {
@@ -476,17 +372,11 @@
 		overflow-y: auto;
 	}
 
-	.footer {
-		padding: var(--space-3) var(--space-4);
-		border-top: 1px solid var(--color-border-subtle);
-		background: var(--color-bg-secondary);
-		border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-	}
-
 	.footer-text {
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
 		text-align: center;
 		margin: 0;
+		flex: 1;
 	}
 </style>

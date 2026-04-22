@@ -23,12 +23,9 @@
 	let { sessionId, sessionState, harnessState, onContinue, onReplan }: Props = $props();
 
 	let verification = $derived(harnessState.startupVerification);
-	let handoff = $derived(harnessState.handoff);
 	let isPaused = $derived(sessionState.type === 'paused');
 	let canResume = $derived(isPaused && harnessState.mode === 'resume_verifier');
-	let isBlocked = $derived(
-		verification?.state === 'failed' || handoff?.environmentHealth === 'blocked'
-	);
+	let isBlocked = $derived(verification?.state === 'failed');
 	let busy = $state(false);
 
 	function modeLabel(mode: AgentSessionHarnessState['mode']): string {
@@ -86,13 +83,13 @@
 	<div class="summary-header-row">
 		<div>
 			<h4 class="summary-title">Session Summary</h4>
-			<p class="summary-subtitle">Durable handoff and verification context for this session.</p>
+			<p class="summary-subtitle">Verification context for this session.</p>
 		</div>
 		<span class="summary-mode">{modeLabel(harnessState.mode)}</span>
 	</div>
 
-	<div class="summary-grid">
-		{#if verification}
+	{#if verification}
+		<div class="summary-grid">
 			<div class="summary-item">
 				<span class="summary-label">Verification</span>
 				<span class="summary-value verification-value">
@@ -109,46 +106,8 @@
 					</ul>
 				{/if}
 			</div>
-		{/if}
-
-		{#if handoff}
-			<div class="summary-item">
-				<span class="summary-label">Current objective</span>
-				<span class="summary-value">{handoff.currentObjective}</span>
-			</div>
-			<div class="summary-item">
-				<span class="summary-label">Next action</span>
-				<span class="summary-value">{handoff.nextRecommendedAction}</span>
-			</div>
-			<div class="summary-item">
-				<span class="summary-label">Last increment</span>
-				<span class="summary-value">{handoff.lastCompletedIncrement}</span>
-			</div>
-			<div class="summary-item">
-				<span class="summary-label">Environment</span>
-				<span class="summary-value" class:environment-blocked={isBlocked}>
-					{handoff.environmentHealth.replace('_', ' ')}
-				</span>
-			</div>
-			{#if handoff.openIssues.length > 0}
-				<div class="summary-item summary-item-wide">
-					<span class="summary-label">Open issues</span>
-					<ul class="open-issues">
-						{#each handoff.openIssues as issue}
-							<li>{issue}</li>
-						{/each}
-					</ul>
-				</div>
-			{/if}
-		{/if}
-
-		{#if harnessState.cleanExitRecorded && sessionState.type === 'finished'}
-			<div class="summary-item summary-item-wide clean-exit">
-				<span class="summary-label">Handoff</span>
-				<span class="summary-value">Clean handoff saved for the next session.</span>
-			</div>
-		{/if}
-	</div>
+		</div>
+	{/if}
 
 	{#if canResume}
 		<div class="resume-actions" role="group" aria-label="Resume options">
@@ -243,10 +202,6 @@
 		min-width: 0;
 	}
 
-	.summary-item-wide {
-		grid-column: 1 / -1;
-	}
-
 	.summary-label {
 		font-size: var(--text-2xs);
 		font-weight: var(--font-medium);
@@ -282,23 +237,6 @@
 		line-height: 1.4;
 	}
 
-	.open-issues {
-		margin: var(--space-0-5) 0 0;
-		padding-left: var(--space-4);
-		font-size: var(--text-xs);
-		color: var(--color-text-primary);
-		line-height: 1.4;
-	}
-
-	.open-issues li {
-		word-break: break-word;
-	}
-
-	.environment-blocked {
-		color: var(--color-warning);
-		font-weight: var(--font-medium);
-	}
-
 	.pill {
 		display: inline-flex;
 		align-items: center;
@@ -330,11 +268,6 @@
 	.pill-idle {
 		background: var(--color-surface-hover);
 		color: var(--color-text-muted);
-	}
-
-	.clean-exit .summary-value {
-		color: var(--color-success);
-		font-weight: var(--font-medium);
 	}
 
 	.resume-actions {

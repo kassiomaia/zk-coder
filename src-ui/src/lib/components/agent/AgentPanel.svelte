@@ -7,7 +7,6 @@
 	import { openAgentTraceWindow } from '$lib/api/agent';
 	import { openFileDiffWindow } from '$lib/api/file';
 	import { agentStore } from '$lib/stores/agent';
-	import SessionTabs from './SessionTabs.svelte';
 	import SessionHistory from './SessionHistory.svelte';
 	import AgentConfig from './AgentConfig.svelte';
 	import AgentPanelHeader from './AgentPanelHeader.svelte';
@@ -27,14 +26,11 @@
 
 	interface Props {
 		session: AgentSession;
-		allSessions?: AgentSession[];
-		sessionTitles?: Map<string, string>;
 		pendingActions: PendingAction[];
 		onApprove: (actionId: string) => void;
 		onDeny: (actionId: string) => void;
 		onWorkspaceChange: (path: string) => void;
 		onSelectSession?: (sessionId: string) => void;
-		onCreateSession?: () => void;
 		onChangeAgent?: (agentId: string) => void;
 		onRetryLastRequest?: (sessionId: string) => void;
 		onContinueExecution?: (sessionId: string) => void;
@@ -52,14 +48,11 @@
 
 	let {
 		session,
-		allSessions = [],
-		sessionTitles = new Map(),
 		pendingActions,
 		onApprove,
 		onDeny,
 		onWorkspaceChange,
 		onSelectSession,
-		onCreateSession,
 		onChangeAgent,
 		onRetryLastRequest,
 		onContinueExecution,
@@ -84,10 +77,15 @@
 		return latestStep.result?.tokensUsed ?? 0;
 	});
 	let harnessState = $derived(session.harnessState);
+	// Handoff text (current objective / next action / last increment /
+	// environment / clean-exit notice) was removed from the summary panel.
+	// Only render the section when there's verification context to show or
+	// when a paused session can be resumed via its action buttons.
+	let canResumeFromHarness = $derived(
+		session.state.type === 'paused' && harnessState?.mode === 'resume_verifier'
+	);
 	let hasSessionSummary = $derived(
-		!!harnessState?.startupVerification ||
-			!!harnessState?.handoff ||
-			!!(harnessState?.cleanExitRecorded && session.state.type === 'finished')
+		!!harnessState?.startupVerification || canResumeFromHarness
 	);
 	// Workstream E.4 — surface an inline clarification prompt when the
 	// backend has paused the harness awaiting a user reply.
@@ -152,16 +150,6 @@
 			{#if !session.workspaceRoot}
 				<!-- Empty state shown in AgentPanelHeader -->
 			{:else}
-				{#if allSessions.length > 1 || allSessions.length === 0}
-					<SessionTabs
-						sessions={allSessions}
-						activeSessionId={session.id}
-						threadTitles={sessionTitles}
-						onSelect={(id) => onSelectSession?.(id)}
-						onCreate={() => onCreateSession?.()}
-					/>
-				{/if}
-
 				{#if clarificationDetails && onReplyToClarification}
 					<AgentClarificationPrompt
 						sessionId={session.id}

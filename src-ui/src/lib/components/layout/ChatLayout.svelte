@@ -403,14 +403,11 @@
 				{#if agentSession}
 					<AgentPanel
 						session={agentSession}
-						allSessions={agentSessions}
-						sessionTitles={agentSessionTitles}
 						pendingActions={agentPendingActions}
 						onApprove={(id) => onApproveAction?.(agentSession.id, id)}
 						onDeny={(id) => onDenyAction?.(agentSession.id, id)}
 						onWorkspaceChange={(path) => onWorkspaceChange?.(path)}
 						onSelectSession={(id) => onSelectSession?.(id)}
-						onCreateSession={() => onCreateSession?.()}
 						onRetryLastRequest={(id) => onRetryLastRequest?.(id)}
 						onclose={() => onToggleAgentPanel?.()}
 					/>

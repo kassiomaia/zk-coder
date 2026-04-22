@@ -19,6 +19,8 @@
 	import { createLogger } from '$lib/utils/logger';
 	import { getThreadAgentState } from '$lib/utils/threadAgentState';
 	import type { Snippet } from 'svelte';
+	import { get } from 'svelte/store';
+	import { appZoom, zoomIn, zoomOut, resetZoom } from '$lib/utils/appZoom';
 
 	const log = createLogger('AppShell');
 
@@ -136,6 +138,10 @@
 	let isResizingLeft = $state(false);
 	let isResizingRight = $state(false);
 
+	// Scaler container — everything inside is subject to CTRL+wheel zoom.
+	// AppHeader is a sibling and is NOT scaled.
+	let shellScalerRef: HTMLDivElement | undefined = $state();
+
 	// Sync right sidebar open state with agent panel prop
 	let rightSidebarOpen = $derived(agentPanelOpen ?? false);
 
@@ -182,10 +188,57 @@
 				e.preventDefault();
 				onToggleAgentPanel?.();
 			}
+			// Cmd/Ctrl + 0 resets app zoom (browser-consistent shortcut)
+			if ((e.metaKey || e.ctrlKey) && e.key === '0') {
+				e.preventDefault();
+				resetZoom();
+			}
 		};
 
 		window.addEventListener('keydown', handleKeydown);
 		return () => window.removeEventListener('keydown', handleKeydown);
+	});
+
+	// CTRL + wheel → zoom the app shell (everything below the title bar).
+	// Events are accepted only when the target is inside the scaler subtree,
+	// so wheel on the AppHeader never triggers zoom. Wheel deltas are coalesced
+	// per animation frame so a single gesture produces a smooth stepping motion
+	// rather than one zoom step per wheel event.
+	onMount(() => {
+		let pendingDelta = 0;
+		let frame = 0;
+
+		const flush = () => {
+			frame = 0;
+			if (pendingDelta < 0) zoomIn();
+			else if (pendingDelta > 0) zoomOut();
+			pendingDelta = 0;
+		};
+
+		const onWheel = (e: WheelEvent) => {
+			if (!(e.ctrlKey || e.metaKey)) return;
+			const scaler = shellScalerRef;
+			if (!scaler) return;
+			const target = e.target;
+			if (!(target instanceof Node) || !scaler.contains(target)) return;
+			// Let embedded code viewers (Monaco) handle CTRL+wheel themselves
+			// so their native font-size zoom works. Without this opt-out the
+			// capture-phase handler below would swallow the event before the
+			// editor's own wheel listener runs.
+			if (target instanceof Element && target.closest('.monaco-editor, [data-app-zoom="skip"]')) {
+				return;
+			}
+			e.preventDefault();
+			e.stopPropagation();
+			pendingDelta += e.deltaY;
+			if (!frame) frame = requestAnimationFrame(flush);
+		};
+
+		window.addEventListener('wheel', onWheel, { passive: false, capture: true });
+		return () => {
+			window.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions);
+			if (frame) cancelAnimationFrame(frame);
+		};
 	});
 
 	// Handlers
@@ -248,8 +301,10 @@
 
 	function handleLeftResizerMove(event: MouseEvent) {
 		if (!isResizingLeft) return;
-		// Left sidebar: drag left to increase
-		leftSidebarWidth = Math.max(200, Math.min(480, event.clientX));
+		// Left sidebar: drag left to increase. Divide by current zoom so the
+		// cursor stays aligned with the resizer handle under CSS scale.
+		const zoom = get(appZoom) || 1;
+		leftSidebarWidth = Math.max(200, Math.min(480, event.clientX / zoom));
 	}
 
 	function handleLeftResizerUp() {
@@ -270,8 +325,10 @@
 
 	function handleRightResizerMove(event: MouseEvent) {
 		if (!isResizingRight) return;
-		// Right sidebar: drag right to increase (distance from right edge)
-		rightSidebarWidth = Math.max(280, Math.min(500, window.innerWidth - event.clientX));
+		// Right sidebar: drag right to increase (distance from right edge).
+		// Divide by zoom so the cursor stays aligned with the resizer under CSS scale.
+		const zoom = get(appZoom) || 1;
+		rightSidebarWidth = Math.max(280, Math.min(500, (window.innerWidth - event.clientX) / zoom));
 	}
 
 	function handleRightResizerUp() {
@@ -293,11 +350,13 @@
 </script>
 
 <div class="app-shell">
-	<!-- Custom header -->
+	<!-- Custom header (never scaled) -->
 	<AppHeader subtitle={headerSubtitle} {onCommandPalette} showControls={true} />
 
-	<!-- Main layout -->
-	<div class="shell-main">
+	<!-- Scaler wrapper: host for CTRL+wheel zoom. Everything inside scales together. -->
+	<div class="shell-scaler" bind:this={shellScalerRef} style="--app-zoom: {$appZoom};">
+		<!-- Main layout -->
+		<div class="shell-main">
 		<!-- Left sidebar - conversations -->
 		{#if leftSidebarOpen}
 			<aside class="sidebar-left" style:width="{leftSidebarWidth}px">
@@ -419,14 +478,11 @@
 				{#if agentSession}
 					<AgentPanel
 						session={agentSession}
-						allSessions={agentSessions}
-						sessionTitles={agentSessionTitles}
 						pendingActions={agentPendingActions}
 						onApprove={(id) => onApproveAction?.(agentSession.id, id)}
 						onDeny={(id) => onDenyAction?.(agentSession.id, id)}
 						onWorkspaceChange={(path) => onWorkspaceChange?.(path)}
 						onSelectSession={(id) => onSelectSession?.(id)}
-						onCreateSession={() => onCreateSession?.()}
 						onRetryLastRequest={(id) => onRetryLastRequest?.(id)}
 						onContinueExecution={(id) => onContinueExecution?.(id)}
 						onReplanExecution={(id) => onReplanExecution?.(id)}
@@ -443,6 +499,7 @@
 				{/if}
 			</aside>
 		{/if}
+		</div>
 	</div>
 </div>
 
@@ -456,11 +513,29 @@
 		background: var(--depth-bg-1);
 	}
 
-	.shell-main {
+	/* Scaler wrapper — flex child of .app-shell that fills the vertical space
+	   below the AppHeader. It clips the transformed .shell-main so the scaled
+	   content never leaks over the header or window chrome. */
+	.shell-scaler {
 		flex: 1;
+		min-height: 0;
+		min-width: 0;
+		position: relative;
+		overflow: hidden;
+	}
+
+	.shell-main {
 		display: flex;
 		min-height: 0;
 		position: relative;
+
+		/* CSS scale for app-level zoom. Inverse sizing (100% / zoom) ensures
+		   the scaled content still fills the scaler at any zoom level. */
+		transform: scale(var(--app-zoom, 1));
+		transform-origin: 0 0;
+		width: calc(100% / var(--app-zoom, 1));
+		height: calc(100% / var(--app-zoom, 1));
+		will-change: transform;
 	}
 
 	/* Sidebars */

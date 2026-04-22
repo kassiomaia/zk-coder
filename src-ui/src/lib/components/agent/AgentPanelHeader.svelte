@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Activity, Bug, History, Settings, X, FileText } from 'lucide-svelte';
 	import type { AgentSession } from '$lib/types/agent';
+	import { displayAgentName } from '$lib/utils/agentDisplay';
 	import WorkspaceSelector from './WorkspaceSelector.svelte';
 
 	interface Props {
@@ -91,7 +92,7 @@
 <header class="panel-header">
 	<div class="header-left">
 		<div class="context-info">
-			<h3 class="panel-title">{session.agentName}</h3>
+			<h3 class="panel-title">{displayAgentName(session)}</h3>
 			<span class="system-label">Agent Session</span>
 		</div>
 

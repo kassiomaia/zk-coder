@@ -9,6 +9,7 @@
 	import type { AgentSession } from '$lib/types/agent';
 	import { agentStore } from '$lib/stores';
 	import { createLogger } from '$lib/utils/logger';
+	import { displayAgentName } from '$lib/utils/agentDisplay';
 	import EmptyState from '$lib/components/shared/EmptyState.svelte';
 	import LoadingState from '$lib/components/shared/LoadingState.svelte';
 	import StatusBadge from '$lib/components/shared/StatusBadge.svelte';
@@ -34,27 +35,37 @@
 	let loading = $state(false);
 	let expandedSessionId = $state<string | null>(null);
 
-	// Fetch history when panel opens or inline mode is active
+	// The parent passes `session.conversationId` which is read through a
+	// reactive proxy; any unrelated session mutation (streaming tokens, new
+	// tool calls, etc.) would otherwise re-fire this effect and trigger an
+	// infinite refetch. Cache the last-fetched key and skip when it is
+	// unchanged.
+	let lastFetchKey: string | null = null;
 	$effect(() => {
 		const cid = conversationId;
 		const isActive = open || inline;
+		const key = isActive && cid ? `${cid}` : null;
 
-		if (isActive && cid) {
-			loading = true;
-			agentStore
-				.getSessionHistory(cid)
-				.then((res) => {
-					sessions = res;
-					loading = false;
-				})
-				.catch((err) => {
-					log.error('Failed to fetch session history:', err);
-					loading = false;
-				});
-		} else {
+		if (key === lastFetchKey) return;
+		lastFetchKey = key;
+
+		if (!key || !cid) {
 			sessions = [];
 			expandedSessionId = null;
+			return;
 		}
+
+		loading = true;
+		agentStore
+			.getSessionHistory(cid)
+			.then((res) => {
+				sessions = res;
+				loading = false;
+			})
+			.catch((err) => {
+				log.error('Failed to fetch session history:', err);
+				loading = false;
+			});
 	});
 
 	async function handleToggleExpand(sessionId: string) {
@@ -118,7 +129,7 @@
 			const shortId = session.id.split('-')[0] || session.id.substring(0, 8);
 			return `#${shortId}`;
 		}
-		return session.agentName || 'Agent';
+		return displayAgentName(session);
 	}
 </script>
 

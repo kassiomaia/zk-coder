@@ -1,0 +1,2871 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Coder — Dark / Light parity (v2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TOKENS — lifted from design-system.css with the light-mode
+   polish pass and the 3 small dark-mode tweaks from v1.
+   ============================================================ */
+:root {
+  --color-neutral-0:   #ffffff;
+  --color-neutral-50:  #faf9f7;
+  --color-neutral-100: #f3f2ee;
+  --color-neutral-200: #e6e5df;
+  --color-neutral-300: #d6d5ce;
+  --color-neutral-400: #a3a29a;
+  --color-neutral-500: #73726a;
+  --color-neutral-600: #545350;
+  --color-neutral-700: #3e3d3a;
+  --color-neutral-800: #282726;
+  --color-neutral-850: #201f1e;
+  --color-neutral-900: #1a1918;
+  --color-neutral-925: #141413;
+  --color-neutral-950: #0b0b0a;
+
+  --color-primary-300: #9ea2b4;
+  --color-primary-400: #7a7f96;
+  --color-primary-500: #5c6178;
+  --color-primary-600: #4b5068;
+  --color-primary-700: #3e4259;
+
+  --color-success: #3d9970;
+  --color-warning: #d4930d;
+  --color-error:   #c94a4a;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+
+  --text-2xs: 0.625rem;
+  --text-xs:  0.75rem;
+  --text-sm:  0.875rem;
+  --text-base:1rem;
+  --text-lg:  1.125rem;
+
+  --leading-tight:   1.25;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.625;
+
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-7: 32px;
+
+  --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 12px; --radius-full: 9999px;
+
+  --transition-fast:   150ms cubic-bezier(0.2, 0, 0, 1);
+  --transition-normal: 250ms cubic-bezier(0.2, 0, 0, 1);
+  --transition-slow:   350ms cubic-bezier(0.2, 0, 0, 1);
+  --ease-expand:       cubic-bezier(0.16, 1, 0.3, 1);   /* used for row reveal */
+}
+
+[data-theme='dark'] {
+  --color-bg-base:      var(--color-neutral-950);
+  --color-bg-primary:   var(--color-neutral-950);
+  --color-bg-secondary: var(--color-neutral-925);
+  --color-bg-tertiary:  var(--color-neutral-900);
+  --color-bg-elevated:  var(--color-neutral-850);
+
+  --color-surface:          var(--color-neutral-925);
+  --color-surface-hover:    var(--color-neutral-900);
+  --color-surface-active:   var(--color-neutral-850);
+  --color-surface-elevated: var(--color-neutral-900);
+
+  --color-text-primary:   #e6e5e0;
+  --color-text-secondary: var(--color-neutral-400);
+  --color-text-tertiary:  var(--color-neutral-500);
+  --color-text-muted:     var(--color-neutral-600);
+
+  --color-border-subtle:    rgba(255, 252, 245, 0.05);
+  --color-border-primary:   rgba(255, 252, 245, 0.08);
+  --color-border-secondary: rgba(255, 252, 245, 0.12);
+
+  --color-interactive-hover:          rgba(255, 252, 245, 0.035);
+  --color-interactive-active:         rgba(255, 252, 245, 0.065);
+  --color-interactive-selected:       rgba(92, 97, 120, 0.14);
+  --color-interactive-selected-hover: rgba(92, 97, 120, 0.20);
+
+  --color-accent-primary:       var(--color-primary-400);
+  --color-accent-primary-hover: var(--color-primary-300);
+  --color-accent-primary-muted: rgba(122, 127, 150, 0.14);
+
+  --color-success-text:  rgba(61, 153, 112, 0.95);
+  --color-success-muted: rgba(61, 153, 112, 0.12);
+
+  --color-code-bg: rgba(255, 252, 245, 0.045);
+
+  /* Status-soft tokens — bg tints for finding emphasis, unified */
+  --color-warning-soft: rgba(212, 147, 13, 0.08);
+  --color-error-soft:   rgba(201, 74, 74, 0.08);
+  --color-success-soft: rgba(61, 153, 112, 0.08);
+
+  /* Inset top-edge highlight on elevated dark surfaces — adds depth without shadows */
+  --inset-top: inset 0 1px 0 rgba(255, 252, 245, 0.035);
+
+  --shadow-sm: 0 1px 3px 0 rgba(0,0,0,.40), 0 1px 2px -1px rgba(0,0,0,.30);
+  --shadow-md: 0 4px 12px -2px rgba(0,0,0,.40), 0 2px 4px -2px rgba(0,0,0,.28);
+  --shadow-lg: 0 16px 32px -8px rgba(0,0,0,.55);
+
+  --shadow-focus-ring: 0 0 0 2px var(--color-bg-primary), 0 0 0 3px var(--color-primary-400);
+
+  --scroll-thumb: rgba(255, 252, 245, 0.08);
+  --scroll-thumb-hover: rgba(255, 252, 245, 0.14);
+}
+
+[data-theme='light'] {
+  --color-bg-base:      #f4f2ec;
+  --color-bg-primary:   #f4f2ec;
+  --color-bg-secondary: #eeeae1;
+  --color-bg-tertiary:  #e6e1d4;
+  --color-bg-elevated:  #ffffff;
+
+  --color-surface:          #fbfaf6;
+  --color-surface-hover:    #f3f1ea;
+  --color-surface-active:   #ebe8df;
+  --color-surface-elevated: #ffffff;
+
+  --color-text-primary:   #1a1a18;
+  --color-text-secondary: #55544f;
+  --color-text-tertiary:  #83827c;
+  --color-text-muted:     #a8a7a1;
+
+  --color-border-subtle:    #ede9de;
+  --color-border-primary:   #ddd8c9;
+  --color-border-secondary: #c4bea9;
+
+  --color-interactive-hover:          rgba(26, 26, 24, 0.045);
+  --color-interactive-active:         rgba(26, 26, 24, 0.075);
+  --color-interactive-selected:       rgba(75, 80, 104, 0.10);
+  --color-interactive-selected-hover: rgba(75, 80, 104, 0.14);
+
+  --color-accent-primary:       #4b5068;
+  --color-accent-primary-hover: #3e4259;
+  --color-accent-primary-muted: rgba(75, 80, 104, 0.09);
+
+  --color-success-text:  #2a7a56;
+  --color-success-muted: rgba(45, 148, 104, 0.11);
+
+  --color-code-bg: #efeadc;
+
+  --color-warning-soft: rgba(184, 126, 10, 0.09);
+  --color-error-soft:   rgba(201, 74, 74, 0.07);
+  --color-success-soft: rgba(45, 148, 104, 0.08);
+
+  /* On warm paper, inset top-edge becomes a near-white hairline for lift */
+  --inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+
+  --shadow-sm: 0 1px 2px 0 rgba(40,35,25,.06), 0 1px 1px 0 rgba(40,35,25,.03);
+  --shadow-md: 0 4px 12px -2px rgba(40,35,25,.09), 0 2px 4px -2px rgba(40,35,25,.05);
+  --shadow-lg: 0 16px 32px -8px rgba(40,35,25,.14);
+
+  --shadow-focus-ring: 0 0 0 2px var(--color-bg-primary), 0 0 0 3px rgba(75,80,104,.55);
+
+  --scroll-thumb: rgba(26, 26, 24, 0.12);
+  --scroll-thumb-hover: rgba(26, 26, 24, 0.22);
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--transition-slow), color var(--transition-slow);
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; background: transparent; border: 0; cursor: pointer; }
+
+:focus-visible { outline: none; box-shadow: var(--shadow-focus-ring); border-radius: var(--radius-md); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: var(--radius-full); border: 2px solid var(--color-bg-primary); }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ============================================================
+   APP SHELL
+   ============================================================ */
+.app {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 340px;
+  grid-template-rows: 32px 1fr;
+  grid-template-areas:
+    "titlebar titlebar titlebar"
+    "sidebar  chat     session";
+  height: 100vh;
+}
+@media (max-width: 1180px) { .app { grid-template-columns: 240px 1fr 320px; } }
+@media (max-width: 960px)  { .app { grid-template-columns: 240px 1fr; } .session { display: none; } }
+
+/* Title bar */
+.titlebar {
+  grid-area: titlebar;
+  display: flex; align-items: center; gap: var(--s-2);
+  padding: 0 var(--s-3);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--text-2xs);
+  color: var(--color-text-tertiary);
+  user-select: none;
+}
+.titlebar-brand {
+  display: flex; align-items: center; gap: 6px;
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  letter-spacing: -0.01em;
+}
+.titlebar-brand svg { width: 11px; height: 11px; color: var(--color-text-secondary); }
+.titlebar-spacer { flex: 1; }
+.titlebar-ctl {
+  width: 20px; height: 20px;
+  display: grid; place-items: center;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+.titlebar-ctl:hover { background: var(--color-interactive-hover); color: var(--color-text-secondary); }
+.titlebar-ctl svg { width: 11px; height: 11px; }
+
+/* =================== SIDEBAR =================== */
+.sidebar {
+  grid-area: sidebar;
+  background: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border-subtle);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.sidebar-head {
+  display: flex; align-items: center; gap: var(--s-2);
+  padding: var(--s-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.search {
+  flex: 1;
+  display: flex; align-items: center; gap: var(--s-2);
+  padding: 6px var(--s-3);
+  background: var(--color-bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.search:focus-within { border-color: var(--color-border-secondary); background: var(--color-surface); }
+.search input { all: unset; flex: 1; color: var(--color-text-primary); font-size: var(--text-xs); }
+.search input::placeholder { color: var(--color-text-muted); }
+.search svg { width: 12px; height: 12px; flex-shrink: 0; }
+.icon-btn {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  color: var(--color-text-tertiary);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.icon-btn:hover { background: var(--color-interactive-hover); color: var(--color-text-primary); }
+.icon-btn svg { width: 14px; height: 14px; }
+
+.sidebar-list { flex: 1; overflow-y: auto; padding: var(--s-2) 0 var(--s-4); }
+.group-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  padding: var(--s-4) var(--s-5) var(--s-2);
+  font-weight: var(--font-medium);
+  letter-spacing: -0.005em;
+}
+/* ---- Conversations (top-level sidebar rows) ---- */
+.conv-item {
+  display: flex; align-items: center; gap: var(--s-2);
+  margin: 0 var(--s-3);
+  padding: 7px var(--s-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.conv-item:hover { background: var(--color-interactive-hover); color: var(--color-text-primary); }
+.conv-item[aria-current="true"] {
+  background: var(--color-interactive-selected);
+  color: var(--color-text-primary);
+  font-weight: var(--font-medium);
+}
+.conv-icon {
+  width: 13px; height: 13px;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+.conv-item[aria-current="true"] .conv-icon { color: var(--color-text-secondary); }
+.conv-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-badge {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+.conv-item[aria-current="true"] .conv-badge { color: var(--color-text-tertiary); }
+
+/* ---- Inline thread list (nested under selected conversation) ---- */
+.thread-group {
+  margin: 2px var(--s-3) var(--s-2);
+  padding-left: 16px;                         /* indent so threads read as nested */
+  border-left: 1px solid var(--color-border-primary);  /* confident guide, not subtle */
+  position: relative;
+}
+.thread-group-label {
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  padding: 6px var(--s-2) 3px;
+  font-weight: var(--font-medium);
+  letter-spacing: -0.005em;
+}
+.thread-item {
+  display: flex; align-items: center; gap: var(--s-2);
+  padding: 5px var(--s-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.thread-item:hover { background: var(--color-interactive-hover); color: var(--color-text-primary); }
+.thread-item[aria-current="true"] {
+  background: var(--color-interactive-selected);
+  color: var(--color-text-primary);
+}
+.thread-dot {
+  width: 6px; height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: background var(--transition-fast);
+}
+.thread-item[data-state="streaming"] .thread-dot {
+  background: var(--color-warning);
+  box-shadow: 0 0 0 3px rgba(212, 147, 13, 0.14);
+}
+.thread-item[data-state="resolved"] { opacity: 0.65; }
+.thread-item[data-state="resolved"] .thread-dot { background: var(--color-success); }
+.thread-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thread-unread {
+  width: 6px; height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-primary);
+  flex-shrink: 0;
+}
+
+.sidebar-foot {
+  padding: var(--s-2) var(--s-3);
+  border-top: 1px solid var(--color-border-subtle);
+}
+.settings-row {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: 6px var(--s-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.settings-row:hover { background: var(--color-interactive-hover); color: var(--color-text-primary); }
+.settings-row svg { width: 13px; height: 13px; color: var(--color-text-tertiary); }
+
+/* =================== CHAT =================== */
+.chat {
+  grid-area: chat;
+  background: var(--color-bg-primary);
+  display: flex; flex-direction: column;
+  min-width: 0; min-height: 0;
+}
+.chat-head {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-4) var(--s-6);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.chat-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  letter-spacing: -0.005em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0;
+}
+.chat-head-spacer { flex: 1; }
+.chat-head .icon-btn { width: 28px; height: 28px; }
+
+.transcript { flex: 1; overflow-y: auto; padding: var(--s-7) 0 200px; }
+.transcript-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 var(--s-6);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  color: var(--color-text-primary);
+}
+
+/* Stronger rhythm between turns — 48px; within a turn — 16px */
+.msg { margin-bottom: 48px; }
+.msg:last-of-type { margin-bottom: 0; }
+.msg-head {
+  display: flex; align-items: center; gap: var(--s-2);
+  margin-bottom: var(--s-3);
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+}
+.msg-author {
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  letter-spacing: -0.005em;
+}
+.msg-time { color: var(--color-text-muted); }
+.msg-body p { color: var(--color-text-primary); margin-bottom: var(--s-4); }
+.msg-body p:last-child { margin-bottom: 0; }
+.msg-body ul, .msg-body ol { padding-left: 22px; margin: 0 0 var(--s-4); }
+.msg-body li { margin-bottom: 7px; color: var(--color-text-primary); line-height: 1.55; }
+.msg-body li:last-child { margin-bottom: 0; }
+
+/* Section headings inside an agent message — real pivots, not bold paragraphs.
+   Slight size bump + a hairline mark on the left makes them scannable in long runs. */
+.msg-body h3 {
+  font-size: 15px;
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin: var(--s-6) 0 10px;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+}
+.msg-body h3:first-child { margin-top: 0; }
+.msg-body strong { font-weight: var(--font-semibold); color: var(--color-text-primary); }
+.msg-body code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 1px 6px;
+  background: var(--color-code-bg);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+}
+
+/* ============================================================
+   TOOL CALLS — inline, subordinate to prose
+   Matches the existing .prototypes/tool-widgets and
+   .prototypes/document-download-card patterns, unified under
+   the main design-system tokens.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   GROUPED TOOL CALLS — each call is a single aligned row.
+   Icon · title · sub · meter · chev share columns across every
+   row via CSS subgrid, so everything lines up perfectly vertically.
+   ------------------------------------------------------------ */
+.tool-group {
+  margin: var(--s-4) 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--inset-top);
+
+  display: grid;
+  grid-template-columns:
+    minmax(auto, max-content)    /* title */
+    minmax(0, 1fr)               /* subtitle (grows/truncates) */
+    max-content                  /* meter */
+    14px;                        /* chevron */
+  column-gap: 12px;              /* subgrid inherits this — spaces every column */
+}
+
+.tool-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  padding: 9px 12px;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  transition: background var(--transition-fast);
+  position: relative;
+  border-left: 2px solid transparent;       /* reserved track; only finding rows light up */
+}
+.tool-row + .tool-row,
+.tool-row-body + .tool-row { border-top: 1px solid var(--color-border-subtle); }
+.tool-row:hover { background: var(--color-interactive-hover); }
+
+/* Finding emphasis — the whole row carries the weight, not just the subtitle */
+.tool-row:has(.tool-row-sub[data-finding="review"]) {
+  border-left-color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+.tool-row:has(.tool-row-sub[data-finding="review"]):hover {
+  background: color-mix(in oklab, var(--color-warning) 14%, transparent);
+}
+
+.tool-row-icon {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-primary-muted);
+  color: var(--color-accent-primary);
+}
+.tool-row-icon svg { width: 13px; height: 13px; }
+
+.tool-row[data-state="running"] .tool-row-icon {
+  color: var(--color-warning);
+  background: rgba(212, 147, 13, 0.14);
+  animation: toolPulse 1.6s ease-in-out infinite;
+}
+.tool-row[data-state="error"] .tool-row-icon {
+  color: var(--color-error);
+  background: rgba(201, 74, 74, 0.12);
+}
+
+.tool-row-main {
+  font-size: 12.5px;
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+.tool-row-sub {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tool-row-sub .finding-dot {
+  width: 5px; height: 5px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  background: var(--color-text-muted);
+}
+.tool-row-sub[data-finding="review"] { color: var(--color-warning); }
+.tool-row-sub[data-finding="review"] .finding-dot { background: var(--color-warning); }
+.tool-row-sub[data-finding="ok"] .finding-dot { background: var(--color-success); }
+.tool-row-meter {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.tool-row[data-state="running"] .tool-row-meter { color: var(--color-warning); }
+.tool-row-chev {
+  width: 12px; height: 12px;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+  justify-self: end;
+}
+.tool-row[data-open="true"] .tool-row-chev { transform: rotate(180deg); }
+
+/* Expandable body — grid-rows transition for tactile, non-jarring reveal */
+.tool-row-body {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 280ms var(--ease-expand);
+  background: var(--color-bg-primary);
+}
+.tool-row[data-open="true"] + .tool-row-body { grid-template-rows: 1fr; }
+.tool-row-body > .tool-row-body-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.tool-row[data-open="true"] + .tool-row-body > .tool-row-body-inner {
+  padding: 14px 18px 16px 22px;          /* flush-left indent now that there's no icon column */
+}
+/* Hairline above the expanded body — only when open */
+.tool-row[data-open="true"] + .tool-row-body { border-top: 1px solid var(--color-border-subtle); }
+
+/* Summary — human-readable conclusion (first-class content) */
+.tool-summary {
+  font-size: 12.5px;
+  color: var(--color-text-primary);
+  line-height: 1.55;
+  padding-right: 24px;
+  letter-spacing: -0.003em;
+}
+.tool-summary strong {
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+}
+
+/* Evidence — demoted to secondary, no right-aligned utility tags */
+.tool-evidence {
+  margin-top: 10px;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.tool-evidence-label {
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  margin-bottom: 3px;
+  font-weight: var(--font-medium);
+  letter-spacing: -0.003em;
+}
+.tool-evidence-item {
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+  line-height: 1.55;
+  padding: 2px 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.tool-evidence-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tool-evidence-desc {
+  color: var(--color-text-tertiary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-evidence-more {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  padding-top: 4px;
+}
+
+/* ------------------------------------------------------------
+   STANDALONE TOOL CARD — used for diffs, terminal output,
+   deliverable (anything that needs a real body to read).
+   ------------------------------------------------------------ */
+.tool {
+  margin: var(--s-4) 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--inset-top);
+  transition: border-color var(--transition-fast);
+}
+.tool:hover { border-color: var(--color-border-primary); }
+.tool[data-state="running"] { border-color: var(--color-accent-primary-muted); }
+.tool[data-state="error"]   { border-color: rgba(201, 74, 74, 0.25); }
+
+/* Standalone tool head — same compact single-row as grouped .tool-row */
+.tool-head {
+  display: grid;
+  grid-template-columns:
+    minmax(auto, max-content)    /* title */
+    minmax(0, 1fr)               /* subtitle */
+    max-content                  /* meter */
+    14px;                        /* chevron */
+  column-gap: 12px;
+  align-items: center;
+  padding: 9px 12px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--color-text-primary);
+  transition: background var(--transition-fast);
+}
+.tool-head:hover { background: var(--color-interactive-hover); }
+.tool[data-open="false"] .tool-head { border-bottom: 0; }
+.tool[data-open="true"] .tool-head { border-bottom: 1px solid var(--color-border-subtle); }
+
+.tool-icon {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-primary-muted);
+  color: var(--color-accent-primary);
+  flex-shrink: 0;
+}
+.tool-icon svg { width: 13px; height: 13px; }
+.tool[data-state="running"] .tool-icon { color: var(--color-warning); background: rgba(212, 147, 13, 0.12); }
+.tool[data-state="error"]   .tool-icon { color: var(--color-error);   background: rgba(201, 74, 74, 0.12); }
+
+/* Flatten .tool-title into the parent grid so main + sub sit side-by-side on one line */
+.tool-title {
+  display: contents;
+}
+.tool-title-main {
+  font-size: 12.5px;
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+.tool-title-sub {
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.tool-meter {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.tool[data-state="running"] .tool-meter { color: var(--color-warning); }
+
+.tool-chev {
+  width: 14px; height: 14px;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+.tool[data-open="true"] .tool-chev { transform: rotate(180deg); }
+
+.tool-body {
+  display: none;
+  padding: 2px 10px 8px;
+}
+.tool[data-open="true"] .tool-body { display: block; }
+
+/* File-list variant — used by Read/Write/Search */
+.tool-file {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 5px 4px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.tool-file:hover { background: var(--color-interactive-hover); color: var(--color-text-primary); }
+.tool-file svg { width: 12px; height: 12px; color: var(--color-text-muted); }
+.tool-file-range {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  padding: 1px 5px;
+  background: var(--color-code-bg);
+  border-radius: var(--radius-sm);
+}
+
+/* Command variant — Bash / shell output */
+.tool-cmd {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 6px 8px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  margin: 4px 0;
+}
+.tool-cmd-out {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  padding: 4px 8px 0;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+/* Diff variant — write/edit tools */
+.tool-diff {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  padding: 4px 0 0;
+}
+.tool-diff-line {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 8px;
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+.tool-diff-line[data-type="add"] { background: var(--color-success-muted); color: var(--color-text-primary); }
+.tool-diff-line[data-type="del"] { background: rgba(201, 74, 74, 0.08); color: var(--color-text-primary); }
+.tool-diff-line[data-type="ctx"] { color: var(--color-text-tertiary); }
+.tool-diff-marker {
+  color: var(--color-text-muted);
+  font-weight: var(--font-medium);
+  text-align: center;
+}
+.tool-diff-line[data-type="add"] .tool-diff-marker { color: var(--color-success-text); }
+.tool-diff-line[data-type="del"] .tool-diff-marker { color: var(--color-error); }
+
+/* Deliverable variant — earned artifact (document generated). Larger, more present, inset-lifted. */
+.tool--deliverable {
+  background: var(--color-surface);
+  border-color: var(--color-border-primary);
+  box-shadow: var(--shadow-sm), var(--inset-top);
+  margin-top: var(--s-4);
+}
+.tool--deliverable .tool-head {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  column-gap: 14px;
+  padding: 14px 16px;
+  cursor: default;
+}
+.tool--deliverable .tool-head:hover { background: transparent; }
+.tool--deliverable .tool-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--inset-top);
+}
+.tool--deliverable .tool-icon svg { width: 22px; height: 22px; }
+/* Deliverable needs title+sub stacked (different layout from compact rows) */
+.tool--deliverable .tool-title {
+  display: flex; flex-direction: column; gap: 2px;
+  min-width: 0;
+}
+.tool--deliverable .tool-title-main {
+  font-size: 14px;
+  font-weight: var(--font-semibold);
+  letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tool--deliverable .tool-title-sub {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+.tool-download {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px;
+  background: var(--color-accent-primary);
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: var(--font-medium);
+  letter-spacing: -0.005em;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+  text-decoration: none;
+  box-shadow: var(--inset-top);
+}
+.tool-download:hover { background: var(--color-accent-primary-hover); transform: translateY(-1px); }
+.tool-download:active { transform: translateY(0); }
+.tool-download svg { width: 13px; height: 13px; }
+
+/* PDF tile — gradient over provider color for a richer "earned" feel */
+.tool-icon--pdf {
+  background:
+    linear-gradient(140deg, rgba(244, 15, 2, 0.18), rgba(244, 15, 2, 0.08)) !important;
+  color: #d92c1f !important;
+}
+[data-theme='light'] .tool-icon--pdf {
+  background:
+    linear-gradient(140deg, rgba(244, 15, 2, 0.14), rgba(244, 15, 2, 0.06)) !important;
+}
+
+/* Running pulse — tied to status, no decoration */
+@keyframes toolPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
+.tool[data-state="running"] .tool-icon { animation: toolPulse 1.6s ease-in-out infinite; }
+
+/* ============================================================
+   CHAT-AREA COMPONENTS
+   Approve container · Compact notice · Thinking · Awaiting
+   All built on the same token system as tool cards and sections.
+   ============================================================ */
+
+/* ============================================================
+   1) APPROVE CONTAINER — high-trust decision surface
+   Three-zone flow: STRIP (frame) · CONTENT (what & why) ·
+   EVIDENCE (file ribbon + inline diff) · DECISION (actions).
+   ============================================================ */
+.approve {
+  margin: var(--s-5) 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent-primary-muted);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--inset-top), var(--shadow-sm);
+}
+
+/* ── STRIP ─────────────────────────────────────────────
+   Frame row — identity on the left, risk/scope on the right.
+   Tinted background that reads as a "review chip" extended across the card. */
+.approve-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: 8px 14px;
+  background: var(--color-accent-primary-muted);
+  border-bottom: 1px solid var(--color-accent-primary-muted);
+}
+.approve-kind {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11px;
+  font-weight: var(--font-medium);
+  color: var(--color-accent-primary);
+  letter-spacing: -0.003em;
+}
+.approve-kind::before {
+  content: "";
+  width: 5px; height: 5px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+.approve-scope {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+.approve-scope-dot {
+  width: 5px; height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-success);
+}
+.approve-scope[data-risk="moderate"] .approve-scope-dot { background: var(--color-warning); }
+.approve-scope[data-risk="high"]     .approve-scope-dot { background: var(--color-error); }
+
+/* ── CONTENT ──────────────────────────────────────────
+   Title (confident) + description (scan-friendly).
+   Real spatial separation from the strip and from the evidence below. */
+.approve-content {
+  padding: 14px 16px 4px;
+}
+.approve-title {
+  font-size: 14px;
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.012em;
+  line-height: 1.35;
+  margin: 0 0 6px;
+}
+.approve-desc {
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── EVIDENCE ──────────────────────────────────────────
+   File ribbon — clickable, expands the diff in-place below it.
+   Replaces both the fake preview block AND the "View diff" button. */
+.approve-evidence {
+  padding: 12px 16px 0;
+}
+.approve-file {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto 12px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+.approve-file:hover {
+  background: var(--color-surface);
+  border-color: var(--color-border-primary);
+}
+.approve-file:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus-ring);
+}
+.approve-file-icon {
+  width: 14px; height: 14px;
+  color: var(--color-text-tertiary);
+}
+.approve-file-path {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.approve-file-delta {
+  display: inline-flex;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.approve-file-delta .add { color: var(--color-success-text); }
+.approve-file-delta .del { color: var(--color-error); }
+.approve-file-chev {
+  width: 11px; height: 11px;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+  transform: rotate(90deg);
+}
+.approve-file[data-open="true"] .approve-file-chev { transform: rotate(-90deg); }
+.approve-file[data-open="true"] {
+  background: var(--color-surface);
+  border-color: var(--color-border-primary);
+}
+
+/* Diff expansion — grid-rows transition, same as the rest of the app */
+.approve-diff {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 280ms var(--ease-expand);
+}
+.approve-file[data-open="true"] + .approve-diff { grid-template-rows: 1fr; }
+.approve-diff-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.approve-diff-body {
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.diff-line {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 10px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  white-space: pre;
+}
+.diff-line[data-type="add"] { background: var(--color-success-soft); color: var(--color-text-primary); }
+.diff-line[data-type="del"] { background: var(--color-error-soft);   color: var(--color-text-primary); }
+.diff-line[data-type="ctx"] { color: var(--color-text-tertiary); }
+.diff-marker {
+  color: var(--color-text-muted);
+  font-weight: var(--font-medium);
+  text-align: center;
+}
+.diff-line[data-type="add"] .diff-marker { color: var(--color-success-text); }
+.diff-line[data-type="del"] .diff-marker { color: var(--color-error); }
+
+/* ── DECISION ──────────────────────────────────────────
+   Integrated footer. Keyboard hint on the left, actions on the right.
+   No different background — just a hairline separating content from decision. */
+.approve-decision {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.approve-shortcuts {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: -0.005em;
+}
+.approve-shortcuts kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+  box-shadow: var(--inset-top);
+  line-height: 1.3;
+}
+.approve-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+/* Button refinements specific to the approval footer */
+.approve-actions .btn {
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: var(--font-medium);
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+.approve-actions .btn--ghost {
+  color: var(--color-text-secondary);
+  background: transparent;
+  border-color: var(--color-border-subtle);
+}
+.approve-actions .btn--ghost:hover {
+  color: var(--color-error);
+  background: var(--color-error-soft);
+  border-color: color-mix(in oklab, var(--color-error) 30%, transparent);
+}
+.approve-actions .btn--primary {
+  background: var(--color-accent-primary);
+  color: #fff;
+  font-weight: var(--font-semibold);
+  padding: 7px 18px;
+  box-shadow: var(--inset-top), var(--shadow-sm);
+}
+.approve-actions .btn--primary:hover {
+  background: var(--color-accent-primary-hover);
+  transform: translateY(-1px);
+}
+.approve-actions .btn--primary:active { transform: translateY(0); }
+
+/* Loading — spinner inside Approve */
+.approve-actions .btn--primary[data-loading="true"] {
+  pointer-events: none;
+  padding-left: 34px;
+  position: relative;
+}
+.approve-actions .btn--primary[data-loading="true"]::before {
+  content: "";
+  position: absolute;
+  left: 14px; top: 50%;
+  transform: translateY(-50%);
+  width: 11px; height: 11px;
+  border: 1.5px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: var(--radius-full);
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── STATES ─────────────────────────────────────────── */
+.approve[data-state="approved"] {
+  border-color: color-mix(in oklab, var(--color-success) 35%, var(--color-border-primary));
+}
+.approve[data-state="approved"] .approve-strip {
+  background: var(--color-success-soft);
+  border-bottom-color: color-mix(in oklab, var(--color-success) 20%, transparent);
+}
+.approve[data-state="approved"] .approve-kind { color: var(--color-success-text); }
+.approve[data-state="approved"] .approve-actions .btn,
+.approve[data-state="denied"]   .approve-actions .btn { pointer-events: none; opacity: 0.4; }
+
+.approve[data-state="denied"] {
+  opacity: 0.68;
+  border-color: var(--color-border-primary);
+}
+.approve[data-state="denied"] .approve-strip {
+  background: var(--color-bg-tertiary);
+  border-bottom-color: var(--color-border-subtle);
+}
+.approve[data-state="denied"] .approve-kind { color: var(--color-error); }
+
+.approve[data-state="error"] {
+  border-color: color-mix(in oklab, var(--color-error) 35%, var(--color-border-primary));
+}
+.approve[data-state="error"] .approve-strip {
+  background: var(--color-error-soft);
+  border-bottom-color: color-mix(in oklab, var(--color-error) 20%, transparent);
+}
+.approve[data-state="error"] .approve-kind { color: var(--color-error); }
+
+/* Legacy .btn rule kept for any other consumers (composer etc.) */
+.btn {
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: var(--font-medium);
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.btn--primary {
+  background: var(--color-accent-primary);
+  color: #fff;
+  box-shadow: var(--inset-top);
+}
+.btn--primary:hover { background: var(--color-accent-primary-hover); }
+.btn--ghost {
+  color: var(--color-text-secondary);
+  background: transparent;
+}
+.btn--ghost:hover {
+  background: var(--color-interactive-hover);
+  color: var(--color-text-primary);
+}
+
+/* ---- 2) COMPACT CONTAINER (system notice) ----
+   Quiet inline ribbon for small events — checkpoints, mode switches, session resumes.
+   No avatar, no header, no border. One-line typographic statement. */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0;
+  padding: 0;
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+}
+.notice::before,
+.notice::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-subtle);
+}
+.notice-text {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 0 2px;
+  white-space: nowrap;
+}
+.notice-icon {
+  width: 4px; height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+}
+.notice[data-tone="success"] .notice-icon { background: var(--color-success); }
+.notice[data-tone="warning"] .notice-icon { background: var(--color-warning); }
+.notice-time {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+}
+
+/* ---- 3) THINKING ----
+   Collapsible reasoning block. Quieter than prose, with a left guide
+   that clearly reads as "internal process, not the answer." */
+.thinking {
+  margin: var(--s-3) 0;
+  padding: 8px 0 8px 14px;
+  border-left: 2px solid var(--color-border-primary);
+}
+.thinking-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast);
+}
+.thinking-head:hover { color: var(--color-text-primary); }
+.thinking[data-state="streaming"] .thinking-head { color: var(--color-text-primary); }
+.thinking-indicator {
+  width: 11px; height: 11px;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+}
+.thinking-spinner {
+  width: 11px; height: 11px;
+  border: 1.5px solid var(--color-border-primary);
+  border-top-color: var(--color-accent-primary);
+  border-radius: var(--radius-full);
+  animation: spin 0.9s linear infinite;
+}
+.thinking-check {
+  width: 11px; height: 11px;
+  color: var(--color-success-text);
+}
+.thinking-label {
+  /* the mutable status phrase — fades while streaming */
+}
+.thinking[data-state="streaming"] .thinking-label::after {
+  content: "…";
+  display: inline-block;
+  animation: thinkingDots 1.2s steps(4) infinite;
+  overflow: hidden;
+  vertical-align: bottom;
+  width: 0;
+}
+@keyframes thinkingDots { to { width: 10px; } }
+.thinking-meter {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+.thinking-chev {
+  width: 11px; height: 11px;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+  transform: rotate(90deg);
+}
+.thinking[data-open="false"] .thinking-chev { transform: rotate(0deg); }
+
+.thinking-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 240ms var(--ease-expand);
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+.thinking[data-open="false"] .thinking-body { grid-template-rows: 0fr; }
+.thinking-body-inner {
+  overflow: hidden;
+  min-height: 0;
+  padding-top: 10px;
+}
+.thinking-body p { margin: 0 0 8px; }
+.thinking-body p:last-child { margin-bottom: 0; }
+
+/* ---- 4) AWAITING INDICATOR ----
+   Live status while the agent is working. Sits at the bottom of the
+   transcript where the next response will appear. */
+.awaiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px 7px 10px;
+  margin: var(--s-4) 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-warning-soft);
+  border: 1px solid color-mix(in oklab, var(--color-warning) 20%, transparent);
+  border-radius: var(--radius-full);
+  line-height: 1.2;
+}
+.awaiting-dot {
+  width: 7px; height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-warning);
+  box-shadow: 0 0 0 3px var(--color-warning-soft);
+  animation: toolPulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.awaiting-verb {
+  color: var(--color-text-primary);
+  font-weight: var(--font-medium);
+  letter-spacing: -0.005em;
+}
+.awaiting-target {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+.awaiting-sep { color: var(--color-text-muted); user-select: none; }
+.awaiting-elapsed {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+}
+
+/* Stall / recovery tone */
+.awaiting[data-tone="stall"] {
+  background: var(--color-error-soft);
+  border-color: color-mix(in oklab, var(--color-error) 20%, transparent);
+}
+.awaiting[data-tone="stall"] .awaiting-dot {
+  background: var(--color-error);
+  box-shadow: 0 0 0 3px var(--color-error-soft);
+}
+
+/* User message — quiet card with a subtle left accent to carry "this is the ask" */
+.msg--user .msg-body { color: var(--color-text-primary); }
+.msg--user .msg-body p {
+  padding: var(--s-3) var(--s-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-left: 2px solid var(--color-border-secondary);
+  border-radius: var(--radius-md);
+  margin: 0;
+  color: var(--color-text-primary);
+  line-height: 1.55;
+}
+
+/* Score — the earned moment. Full-width, proper numeric weight, clear hierarchy. */
+.score {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--s-5);
+  margin: var(--s-5) 0;
+  padding: 14px var(--s-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--inset-top);
+}
+.score-figure {
+  display: flex; align-items: baseline; gap: 2px;
+  line-height: 1;
+}
+.score-value {
+  font-size: 30px;
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+.score-unit {
+  font-size: 15px;
+  font-weight: var(--font-medium);
+  color: var(--color-text-tertiary);
+  letter-spacing: -0.01em;
+}
+.score-body {
+  display: flex; flex-direction: column; gap: 2px;
+  min-width: 0;
+}
+.score-label {
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+  letter-spacing: -0.005em;
+}
+.score-hint {
+  font-size: 12.5px;
+  color: var(--color-text-primary);
+  font-weight: var(--font-medium);
+  letter-spacing: -0.005em;
+}
+
+/* message footer — single ellipsis menu by default, actions on hover */
+.msg-foot {
+  display: flex; gap: 2px;
+  margin-top: var(--s-4);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+.msg:hover .msg-foot { opacity: 1; }
+.msg-foot .icon-btn { width: 26px; height: 26px; }
+.msg-foot .icon-btn svg { width: 13px; height: 13px; }
+
+/* composer */
+.composer-wrap {
+  position: relative;
+  padding: 0 var(--s-6) var(--s-5);
+  background: linear-gradient(to top, var(--color-bg-primary) 60%, transparent);
+  margin-top: -180px; /* overlay fade */
+  z-index: 2;
+}
+.composer {
+  max-width: 720px; margin: 0 auto;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border-primary);
+  border-radius: 14px;
+  padding: 10px 10px 8px;
+  box-shadow: var(--shadow-md), var(--inset-top);
+  transition:
+    border-color var(--transition-normal),
+    box-shadow var(--transition-normal),
+    background var(--transition-normal);
+}
+.composer:focus-within {
+  border-color: var(--color-border-secondary);
+  box-shadow:
+    var(--shadow-md),
+    var(--inset-top),
+    0 0 0 3px var(--color-accent-primary-muted);
+}
+.composer-input {
+  min-height: 24px;
+  max-height: 200px;
+  padding: 4px var(--s-2) var(--s-2);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  outline: none;
+  overflow-y: auto;
+  white-space: pre-wrap; word-break: break-word;
+}
+.composer-input:empty::before {
+  content: "Send a message...";
+  color: var(--color-text-muted);
+}
+.composer-bar {
+  display: flex; align-items: center; gap: 2px;
+  padding: var(--s-2) 4px 0;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.chip:hover { background: var(--color-interactive-hover); color: var(--color-text-primary); }
+.chip svg { width: 11px; height: 11px; opacity: 0.7; }
+.composer-spacer { flex: 1; }
+.composer-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-muted);
+  padding-right: 6px;
+}
+.send-btn {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-primary);
+  color: #fff;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.send-btn:hover { background: var(--color-accent-primary-hover); }
+.send-btn:active { transform: scale(0.96); }
+.send-btn svg { width: 13px; height: 13px; }
+.send-btn[disabled] {
+  background: var(--color-interactive-active);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* =================== SESSION PANEL =================== */
+.session {
+  grid-area: session;
+  background: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border-subtle);
+  display: flex; flex-direction: column; min-height: 0;
+}
+
+/* ---- Session panel — calmer hierarchy, consistent left rhythm ---- */
+/* Every label and value sits on the same left gutter (--session-gutter).
+   Blocks are separated by a single quiet hairline, no card chrome. */
+.session { --session-gutter: var(--s-5); }
+
+.session-head {
+  padding: var(--s-4) var(--session-gutter) var(--s-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+/* Title row — baseline-aligned, close button sits with the title text */
+.session-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  min-height: 22px;
+}
+.session-agent {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.session-head .icon-btn {
+  width: 22px; height: 22px;
+  margin-right: -4px;            /* optical align to the panel edge */
+}
+.session-head .icon-btn svg { width: 12px; height: 12px; }
+
+/* Status row — its own line, tight to title */
+.session-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: var(--font-medium);
+  color: var(--color-success-text);
+  line-height: 1.2;
+}
+.session-status[data-state="running"] { color: var(--color-warning); }
+.session-status[data-state="running"] .status-dot { animation: toolPulse 1.6s ease-in-out infinite; }
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Folder row — reserved line for the project path, truncates on overflow */
+.session-folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+  line-height: 1.3;
+}
+.session-folder svg {
+  width: 12px; height: 12px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.session-folder-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;                 /* truncate from the left — keep the leaf visible */
+  text-align: left;
+}
+
+.session-body { flex: 1; overflow-y: auto; padding: 0; }
+
+/* Section — consistent structure across the panel */
+.sec {
+  padding: var(--s-4) var(--session-gutter);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.sec:last-of-type { border-bottom: 0; }
+
+/* Section head — two-column layout: label block (may include hint) on the left,
+   count + chevron on the right. Perfectly aligned to the label's first baseline. */
+.sec-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-3);
+  cursor: pointer;
+  user-select: none;
+  min-height: 18px;                          /* normalizes head height across sections */
+  transition: color var(--transition-fast);
+}
+.sec-head:hover .sec-label { color: var(--color-text-primary); }
+
+.sec-head-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sec-head-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  /* right column pins to the first baseline of the left column */
+  height: 18px;
+  flex-shrink: 0;               /* never compress — forces long hints to wrap, not the count */
+  white-space: nowrap;
+}
+
+.sec-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-medium);
+  letter-spacing: -0.005em;
+  line-height: 18px;                         /* locked to min-height — perfect alignment */
+  transition: color var(--transition-fast);
+}
+/* Hero section label — Task is the primary context */
+.sec--primary .sec-label {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  font-weight: var(--font-semibold);
+  line-height: 18px;
+}
+
+/* Micro-copy — one-line description below the label */
+.sec-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-normal);
+  line-height: 1.35;
+  letter-spacing: -0.003em;
+}
+
+.sec-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 18px;                         /* shares the label baseline */
+  white-space: nowrap;
+}
+.sec-chev {
+  width: 11px; height: 11px;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+  transform: rotate(90deg);                  /* open = points down */
+}
+.sec[data-collapsed="true"] .sec-chev {
+  transform: rotate(0deg);                   /* closed = points right */
+}
+
+/* Body wrapper — smooth collapse with grid-rows transition */
+.sec-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 240ms var(--ease-expand);
+}
+.sec[data-collapsed="true"] .sec-body { grid-template-rows: 0fr; }
+.sec-body-inner {
+  overflow: hidden;
+  min-height: 0;
+  padding-top: var(--s-3);
+}
+.sec-action {
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+.sec-action:hover { color: var(--color-text-primary); }
+
+/* Usage footer — telemetry at the bottom, quieter, no hairline above */
+.usage-foot {
+  display: flex; flex-wrap: wrap; gap: 3px 10px;
+  padding: var(--s-3) var(--session-gutter);
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+  align-items: baseline;
+}
+.usage-foot .usage-num { color: var(--color-text-secondary); }
+.usage-foot .usage-lbl { color: var(--color-text-muted); font-size: 11px; }
+
+/* Latest — prominent natural-language body */
+.latest-body {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  line-height: 1.5;
+}
+.latest-time {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-text-tertiary);
+  font-size: 11.5px;
+}
+
+/* ---- Task tree (root task + subtasks) ---- */
+/* Matches the existing TaskList.svelte model: AgentTask → SubTask[].
+   Status icons: pending (empty circle), in_progress (spinning),
+   completed (check), failed (x). */
+.task-tree { display: flex; flex-direction: column; }
+
+.task-root {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  gap: var(--s-2);
+  align-items: start;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.task-root-icon {
+  margin-top: 2px;
+  width: 14px; height: 14px;
+  display: grid; place-items: center;
+  color: var(--color-text-tertiary);
+}
+.task-root-title {
+  font-size: 12.5px;
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  letter-spacing: -0.005em;
+}
+.task-root-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+/* Subtasks — nested under root with a guide line */
+.subtasks {
+  margin: 6px 0 0 6px;
+  padding-left: 14px;
+  border-left: 1px solid var(--color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.subtask {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: var(--s-2);
+  align-items: center;
+  padding: 4px 6px 4px 2px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.subtask:hover { background: var(--color-interactive-hover); }
+.subtask-icon {
+  width: 12px; height: 12px;
+  display: grid; place-items: center;
+  color: var(--color-text-tertiary);
+}
+.subtask-title {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.subtask-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Status-driven colors (shared between root and subtasks) */
+[data-status="completed"] .task-root-icon,
+[data-status="completed"] .subtask-icon { color: var(--color-success-text); }
+[data-status="completed"] .subtask-title { color: var(--color-text-tertiary); }
+
+[data-status="in_progress"] .task-root-icon,
+[data-status="in_progress"] .subtask-icon { color: var(--color-warning); }
+[data-status="in_progress"] .task-root-title,
+[data-status="in_progress"] .subtask-title { color: var(--color-text-primary); font-weight: var(--font-medium); }
+[data-status="in_progress"] .task-root-icon svg,
+[data-status="in_progress"] .subtask-icon svg { animation: spin 1s linear infinite; }
+
+[data-status="failed"] .task-root-icon,
+[data-status="failed"] .subtask-icon { color: var(--color-error); }
+
+[data-status="pending"] .subtask-title { color: var(--color-text-tertiary); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Subtask mode badge — read / write / execute / full_access */
+.mode-badge {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+  letter-spacing: -0.005em;
+}
+
+/* Usage — single line, mono numbers, quiet dividers */
+.usage-line {
+  display: flex; align-items: baseline; flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 12.5px;
+  color: var(--color-text-primary);
+}
+.usage-stat {
+  display: inline-flex; align-items: baseline; gap: 5px;
+}
+.usage-num {
+  font-family: var(--font-mono);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+.usage-lbl {
+  color: var(--color-text-tertiary);
+  font-size: 11.5px;
+}
+.usage-sep {
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+/* File tree — expandable folders, guide-line indent, consistent rhythm */
+.files-list { display: flex; flex-direction: column; }
+
+.file-row {
+  display: grid;
+  grid-template-columns: 12px 12px 1fr;  /* chevron · icon · name */
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.file-row:hover { color: var(--color-text-primary); background: var(--color-interactive-hover); }
+
+.file-chev {
+  width: 11px; height: 11px;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+  justify-self: center;
+}
+.file-row[data-open="true"] > .file-chev { transform: rotate(90deg); }
+.file-row[data-leaf="true"] > .file-chev { visibility: hidden; }   /* files keep the column for alignment */
+
+.file-icon {
+  width: 12px; height: 12px;
+  color: var(--color-text-muted);
+  justify-self: center;
+}
+.file-row[data-dir="true"] .file-icon { color: var(--color-text-tertiary); }
+
+.file-name {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Nested children — indent + guide line, matches the sidebar thread pattern */
+.file-children {
+  margin-left: 8px;
+  padding-left: 10px;
+  border-left: 1px solid var(--color-border-subtle);
+  display: none;
+}
+.file-row[data-open="true"] + .file-children { display: flex; flex-direction: column; }
+
+/* Bottom drawer — technical details, collapsed by default */
+.details-toggle {
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--s-3) var(--session-gutter);
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  border-top: 1px solid var(--color-border-subtle);
+  background: transparent;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.details-toggle:hover { background: var(--color-interactive-hover); color: var(--color-text-primary); }
+.details-toggle svg { width: 12px; height: 12px; transition: transform var(--transition-fast); }
+.session[data-details="true"] .details-toggle svg { transform: rotate(180deg); }
+.details-panel { display: none; padding: 0 var(--session-gutter) var(--s-4); }
+.session[data-details="true"] .details-panel { display: block; }
+
+.kv-row {
+  display: grid; grid-template-columns: 1fr auto;
+  gap: var(--s-3); align-items: baseline;
+  padding: 6px 0;
+  font-size: 11.5px;
+  border-bottom: 1px dashed var(--color-border-subtle);
+}
+.kv-row:last-child { border-bottom: 0; }
+.kv-row-key { color: var(--color-text-tertiary); }
+.kv-row-val { color: var(--color-text-primary); font-family: var(--font-mono); font-size: 11px; }
+
+/* Theme toggle */
+.theme-toggle {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+}
+.theme-toggle button {
+  padding: 2px 10px;
+  font-size: 10.5px;
+  color: var(--color-text-tertiary);
+  border-radius: var(--radius-full);
+  font-weight: var(--font-medium);
+  transition: all var(--transition-fast);
+}
+.theme-toggle button[aria-pressed="true"] {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+}
+.theme-toggle button:not([aria-pressed="true"]):hover { color: var(--color-text-secondary); }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M4 12a7 7 0 0 1 7-7h2a7 7 0 0 1 0 14H8l-4 3v-4a7 7 0 0 1 0-6z"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h7l-1 8 10-13h-7z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+  <symbol id="i-attach" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21 12-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8L13 4.5a3.5 3.5 0 0 1 5 5L9.5 18a1.5 1.5 0 1 1-2.1-2.1l7.6-7.6"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 4H6a2 2 0 0 0-2 2v10"/></symbol>
+  <symbol id="i-regen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-min" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 12h14"/></symbol>
+  <symbol id="i-max" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="14" height="14" rx="1"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.7 4.8L18.5 8 14 10l-2 5-2-5-4.5-1.2L10 6.5z"/></symbol>
+  <symbol id="i-read" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a2 2 0 0 1 2-2h5v18H5a2 2 0 0 1-2-2zM21 5a2 2 0 0 0-2-2h-5v18h5a2 2 0 0 0 2-2z"/></symbol>
+  <symbol id="i-write" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-5-5-5M12 19h8"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></symbol>
+  <symbol id="i-pdf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 14h1a1.5 1.5 0 0 1 0 3H8zM13 14h2v3h-2zM18 14h-2v3"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></symbol>
+
+  <!-- Task status icons (match lucide-svelte shapes used in TaskList.svelte) -->
+  <symbol id="i-circle-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-x-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
+  <symbol id="i-loader" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v4M12 17v4M5.6 5.6l2.9 2.9M15.5 15.5l2.9 2.9M3 12h4M17 12h4M5.6 18.4l2.9-2.9M15.5 8.5l2.9-2.9"/></symbol>
+  <symbol id="i-chev-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></symbol>
+</svg>
+
+<div class="app">
+
+  <!-- ============ TITLE BAR ============ -->
+  <header class="titlebar">
+    <div class="titlebar-brand">
+      <svg><use href="#i-bolt"/></svg>
+      Coder
+    </div>
+    <div class="titlebar-spacer"></div>
+
+    <div class="theme-toggle" role="group" aria-label="Theme">
+      <button id="theme-dark" aria-pressed="true">Dark</button>
+      <button id="theme-light" aria-pressed="false">Light</button>
+    </div>
+
+    <button class="titlebar-ctl" aria-label="Minimize"><svg><use href="#i-min"/></svg></button>
+    <button class="titlebar-ctl" aria-label="Maximize"><svg><use href="#i-max"/></svg></button>
+    <button class="titlebar-ctl" aria-label="Close"><svg><use href="#i-x"/></svg></button>
+  </header>
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" aria-label="Threads">
+    <div class="sidebar-head">
+      <label class="search">
+        <svg aria-hidden="true"><use href="#i-search"/></svg>
+        <input type="search" placeholder="Search threads" />
+      </label>
+      <button class="icon-btn" aria-label="New thread" title="New thread"><svg><use href="#i-plus"/></svg></button>
+    </div>
+
+    <div class="sidebar-list">
+      <div class="group-label">Today</div>
+
+      <!-- Selected conversation — its threads render inline below -->
+      <div class="conv-item" aria-current="true" aria-expanded="true">
+        <svg class="conv-icon" aria-hidden="true"><use href="#i-chat"/></svg>
+        <span class="conv-label">zk1 production review</span>
+        <span class="conv-badge">4</span>
+      </div>
+
+      <div class="thread-group" role="group" aria-label="Threads in zk1 production review">
+        <div class="thread-group-label">Open</div>
+        <div class="thread-item" aria-current="true" data-state="streaming">
+          <span class="thread-dot" aria-hidden="true"></span>
+          <span class="thread-label">Rate-limit auth endpoints</span>
+        </div>
+        <div class="thread-item">
+          <span class="thread-dot" aria-hidden="true"></span>
+          <span class="thread-label">Move secrets to env vars</span>
+          <span class="thread-unread" aria-label="unread" title="Unread reply"></span>
+        </div>
+        <div class="thread-item">
+          <span class="thread-dot" aria-hidden="true"></span>
+          <span class="thread-label">Markdown XSS patch</span>
+        </div>
+
+        <div class="thread-group-label" style="margin-top:var(--s-2)">Resolved</div>
+        <div class="thread-item" data-state="resolved">
+          <span class="thread-dot" aria-hidden="true"></span>
+          <span class="thread-label">Initial assessment</span>
+        </div>
+      </div>
+
+      <div class="conv-item">
+        <svg class="conv-icon" aria-hidden="true"><use href="#i-chat"/></svg>
+        <span class="conv-label">API agents discovery</span>
+        <span class="conv-badge">2</span>
+      </div>
+
+      <div class="group-label">Yesterday</div>
+      <div class="conv-item">
+        <svg class="conv-icon" aria-hidden="true"><use href="#i-chat"/></svg>
+        <span class="conv-label">Agent social onboarding</span>
+        <span class="conv-badge">1</span>
+      </div>
+      <div class="conv-item">
+        <svg class="conv-icon" aria-hidden="true"><use href="#i-chat"/></svg>
+        <span class="conv-label">ZK-Coder website rewrite</span>
+        <span class="conv-badge">3</span>
+      </div>
+
+      <div class="group-label">This week</div>
+      <div class="conv-item">
+        <svg class="conv-icon" aria-hidden="true"><use href="#i-chat"/></svg>
+        <span class="conv-label">Igex — CSS token audit</span>
+      </div>
+      <div class="conv-item">
+        <svg class="conv-icon" aria-hidden="true"><use href="#i-chat"/></svg>
+        <span class="conv-label">Scroll regression triage</span>
+      </div>
+    </div>
+
+    <div class="sidebar-foot">
+      <div class="settings-row">
+        <svg aria-hidden="true"><use href="#i-settings"/></svg>
+        Settings
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ CHAT ============ -->
+  <main class="chat">
+    <header class="chat-head">
+      <button class="icon-btn" aria-label="Toggle sidebar"><svg><use href="#i-menu"/></svg></button>
+      <h1 class="chat-title">Production readiness review</h1>
+      <div class="chat-head-spacer"></div>
+      <button class="icon-btn" aria-label="Share"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v14"/></svg></button>
+      <button class="icon-btn" aria-label="More"><svg><use href="#i-more"/></svg></button>
+    </header>
+
+    <div class="transcript">
+      <div class="transcript-inner">
+
+        <!-- USER -->
+        <article class="msg msg--user">
+          <div class="msg-head">
+            <span class="msg-author">You</span>
+            <span class="msg-time">14:02</span>
+          </div>
+          <div class="msg-body">
+            <p>Run a full production readiness review on <code>zk1</code>. Generate a 10-page PDF covering architecture, code quality, security, performance, and maintainability. Score the project and list the top prioritized fixes.</p>
+          </div>
+        </article>
+
+        <!-- AGENT -->
+        <article class="msg msg--agent">
+          <div class="msg-head">
+            <span class="msg-author">code-agent</span>
+            <span class="msg-time">14:04 · 2m 18s</span>
+          </div>
+          <div class="msg-body">
+            <p>I'll review the project structure first, then analyze each layer and produce the assessment.</p>
+
+            <!-- GROUPED TOOL CALLS: execution narrative — conclusion-first, evidence secondary -->
+            <div class="tool-group">
+
+              <div class="tool-row" role="button" tabindex="0" aria-expanded="false" data-state="done" data-open="false">
+                <span class="tool-row-main">Mapped the codebase</span>
+                <span class="tool-row-sub">Next.js 15 App Router · Drizzle · Better Auth</span>
+                <span class="tool-row-meter">0.8s</span>
+                <svg class="tool-row-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+              </div>
+              <div class="tool-row-body"><div class="tool-row-body-inner">
+                <div class="tool-summary">
+                  Standard Next.js 15 App Router layout with colocated routes, a Drizzle migration folder, and e2e tests. Source concentrated under <strong>src/</strong>; the app is small enough to review end-to-end.
+                </div>
+                <div class="tool-evidence">
+                  <div class="tool-evidence-label">Evidence</div>
+                  <div class="tool-evidence-item">
+                    <span class="tool-evidence-path">src/</span>
+                    <span class="tool-evidence-desc">application code</span>
+                  </div>
+                  <div class="tool-evidence-item">
+                    <span class="tool-evidence-path">drizzle/</span>
+                    <span class="tool-evidence-desc">database migrations</span>
+                  </div>
+                  <div class="tool-evidence-item">
+                    <span class="tool-evidence-path">e2e/</span>
+                    <span class="tool-evidence-desc">end-to-end test suite</span>
+                  </div>
+                </div>
+              </div></div>
+
+              <div class="tool-row" role="button" tabindex="0" aria-expanded="false" data-state="done" data-open="false">
+                <span class="tool-row-main">Loaded the security surface</span>
+                <span class="tool-row-sub">Auth flow, middleware, and all API routes now in scope</span>
+                <span class="tool-row-meter">1.4s</span>
+                <svg class="tool-row-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+              </div>
+              <div class="tool-row-body"><div class="tool-row-body-inner">
+                <div class="tool-summary">
+                  Read the authentication configuration, request middleware, and every API route handler. This is enough surface to reason about rate-limiting, input validation, and secret handling across the app.
+                </div>
+                <div class="tool-evidence">
+                  <div class="tool-evidence-label">Evidence</div>
+                  <div class="tool-evidence-item">
+                    <span class="tool-evidence-path">src/lib/auth.ts</span>
+                    <span class="tool-evidence-desc">Better Auth configuration and session logic</span>
+                  </div>
+                  <div class="tool-evidence-item">
+                    <span class="tool-evidence-path">src/middleware.ts</span>
+                    <span class="tool-evidence-desc">request pipeline; no rate limiting today</span>
+                  </div>
+                  <div class="tool-evidence-item">
+                    <span class="tool-evidence-path">src/app/api/**/route.ts</span>
+                    <span class="tool-evidence-desc">handlers — input validation inconsistent</span>
+                  </div>
+                  <div class="tool-evidence-more">and 11 more files</div>
+                </div>
+              </div></div>
+
+              <div class="tool-row" role="button" tabindex="0" aria-expanded="false" data-state="done" data-open="false">
+                <span class="tool-row-main">Swept for secrets and injection risks</span>
+                <span class="tool-row-sub" data-finding="review"><span class="finding-dot" aria-hidden="true"></span>3 high-severity issues need review</span>
+                <span class="tool-row-meter">0.3s</span>
+                <svg class="tool-row-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+              </div>
+              <div class="tool-row-body"><div class="tool-row-body-inner">
+                <div class="tool-summary">
+                  Found a hardcoded API key in config, a <strong>dangerouslySetInnerHTML</strong> path in the markdown renderer, and public <strong>NEXT_PUBLIC_</strong> vars leaking server secrets. All three are addressed in the recommendations below.
+                </div>
+                <div class="tool-evidence">
+                  <div class="tool-evidence-label">Evidence</div>
+                  <div class="tool-evidence-item">
+                    <span class="tool-evidence-path">src/lib/config.ts:14</span>
+                    <span class="tool-evidence-desc">hardcoded API key</span>
+                  </div>
+                  <div class="tool-evidence-item">
+                    <span class="tool-evidence-path">src/components/Markdown.tsx:22</span>
+                    <span class="tool-evidence-desc">unsafe HTML rendering</span>
+                  </div>
+                  <div class="tool-evidence-item">
+                    <span class="tool-evidence-path">src/app/settings/page.tsx:41</span>
+                    <span class="tool-evidence-desc">server secret exposed via NEXT_PUBLIC_</span>
+                  </div>
+                  <div class="tool-evidence-more">8 lower-severity matches collapsed</div>
+                </div>
+              </div></div>
+            </div>
+
+            <p>The stack and schema are modern and sound; the main risks are in API routing, input validation, and a markdown XSS vector.</p>
+
+            <div class="score" role="group" aria-label="Production readiness score">
+              <div class="score-figure">
+                <span class="score-value">75</span>
+                <span class="score-unit">%</span>
+              </div>
+              <div class="score-body">
+                <div class="score-label">Production readiness</div>
+                <div class="score-hint">Solid foundation — needs security and performance work</div>
+              </div>
+            </div>
+
+            <h3>Strengths</h3>
+            <ul>
+              <li>Modern stack — Next.js 15 App Router, Drizzle ORM, Better Auth, PostgreSQL</li>
+              <li>Strong TypeScript usage with proper type definitions</li>
+              <li>Clean separation of concerns and comprehensive API surface</li>
+              <li>Sound schema design with proper constraints</li>
+            </ul>
+
+            <h3>Critical issues</h3>
+            <ul>
+              <li><strong>Security</strong> — missing rate limiting on all API routes, hardcoded API keys, client-side secrets, XSS in markdown rendering</li>
+              <li><strong>Performance</strong> — missing indexes on foreign keys, N+1 queries in loops, potential SSE memory leaks</li>
+              <li><strong>Validation</strong> — no input validation on API routes, no env variable checks</li>
+              <li><strong>Error handling</strong> — inconsistent patterns, swallowed errors</li>
+            </ul>
+
+            <h3>Top recommendations</h3>
+            <ol>
+              <li>Add rate limiting on all API routes</li>
+              <li>Move secrets to environment variables</li>
+              <li>Add database indexes on foreign keys</li>
+              <li>Implement input validation on every endpoint</li>
+              <li>Fix the markdown XSS vector</li>
+              <li>Split files that exceed 600 lines</li>
+              <li>Standardize error handling and logging</li>
+            </ol>
+
+            <p>I've drafted a patch that rate-limits the auth endpoints as an example of the approach recommended for all routes.</p>
+
+            <!-- TOOL: write / edit a file (with inline diff) -->
+            <div class="tool" data-state="done" data-open="true">
+              <div class="tool-head" role="button" tabindex="0" aria-expanded="true">
+                <div class="tool-title">
+                  <div class="tool-title-main">Edited src/middleware.ts</div>
+                  <div class="tool-title-sub">+8 −1 · rate limit for /api/auth/*</div>
+                </div>
+                <span class="tool-meter">0.2s</span>
+                <svg class="tool-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+              </div>
+              <div class="tool-body">
+                <div class="tool-diff">
+                  <div class="tool-diff-line" data-type="ctx"><span class="tool-diff-marker">·</span><span>export async function middleware(req: NextRequest) {</span></div>
+                  <div class="tool-diff-line" data-type="ctx"><span class="tool-diff-marker">·</span><span>&nbsp;&nbsp;const { pathname } = req.nextUrl;</span></div>
+                  <div class="tool-diff-line" data-type="del"><span class="tool-diff-marker">−</span><span>&nbsp;&nbsp;if (pathname.startsWith('/api/auth')) return NextResponse.next();</span></div>
+                  <div class="tool-diff-line" data-type="add"><span class="tool-diff-marker">+</span><span>&nbsp;&nbsp;if (pathname.startsWith('/api/auth')) {</span></div>
+                  <div class="tool-diff-line" data-type="add"><span class="tool-diff-marker">+</span><span>&nbsp;&nbsp;&nbsp;&nbsp;const ip = req.ip ?? req.headers.get('x-forwarded-for') ?? 'unknown';</span></div>
+                  <div class="tool-diff-line" data-type="add"><span class="tool-diff-marker">+</span><span>&nbsp;&nbsp;&nbsp;&nbsp;const { success } = await rateLimiter.check(ip, 10, '1m');</span></div>
+                  <div class="tool-diff-line" data-type="add"><span class="tool-diff-marker">+</span><span>&nbsp;&nbsp;&nbsp;&nbsp;if (!success) return new NextResponse('Too Many Requests', { status: 429 });</span></div>
+                  <div class="tool-diff-line" data-type="add"><span class="tool-diff-marker">+</span><span>&nbsp;&nbsp;&nbsp;&nbsp;return NextResponse.next();</span></div>
+                  <div class="tool-diff-line" data-type="add"><span class="tool-diff-marker">+</span><span>&nbsp;&nbsp;}</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TOOL: shell command -->
+            <div class="tool" data-state="done" data-open="false">
+              <div class="tool-head" role="button" tabindex="0" aria-expanded="false">
+                <div class="tool-title">
+                  <div class="tool-title-main">Ran type-check</div>
+                  <div class="tool-title-sub">tsc --noEmit</div>
+                </div>
+                <span class="tool-meter">3.2s</span>
+                <svg class="tool-chev" aria-hidden="true"><use href="#i-chev"/></svg>
+              </div>
+              <div class="tool-body">
+                <div class="tool-cmd">$ npx tsc --noEmit</div>
+                <div class="tool-cmd-out">Found 0 errors. Watching for file changes.</div>
+              </div>
+            </div>
+
+            <p>Full assessment packaged as a PDF.</p>
+
+            <!-- TOOL: deliverable (document generated) -->
+            <div class="tool tool--deliverable" data-state="done">
+              <div class="tool-head">
+                <span class="tool-icon tool-icon--pdf"><svg><use href="#i-pdf"/></svg></span>
+                <div class="tool-title">
+                  <div class="tool-title-main">project-quality-review.pdf</div>
+                  <div class="tool-title-sub">10 pages · 284 KB · generated 2 min ago</div>
+                </div>
+                <a class="tool-download" href="#" aria-label="Download PDF">
+                  <svg><use href="#i-download"/></svg>
+                  Download
+                </a>
+              </div>
+            </div>
+
+            <div class="msg-foot">
+              <button class="icon-btn" aria-label="Copy"><svg><use href="#i-copy"/></svg></button>
+              <button class="icon-btn" aria-label="Regenerate"><svg><use href="#i-regen"/></svg></button>
+              <button class="icon-btn" aria-label="More"><svg><use href="#i-more"/></svg></button>
+            </div>
+          </div>
+        </article>
+
+        <!-- ============ SECOND TURN — demonstrates the four new components ============ -->
+
+        <!-- COMPACT NOTICE — quiet inline ribbon for session events -->
+        <div class="notice" data-tone="success">
+          <span class="notice-text">
+            <span class="notice-icon" aria-hidden="true"></span>
+            Resumed from checkpoint
+          </span>
+          <span class="notice-time">10:42</span>
+        </div>
+
+        <!-- USER -->
+        <article class="msg msg--user">
+          <div class="msg-head">
+            <span class="msg-author">You</span>
+            <span class="msg-time">14:06</span>
+          </div>
+          <div class="msg-body">
+            <p>Start applying the top three recommendations. Run each change through the type-check and pause for approval before anything that modifies files.</p>
+          </div>
+        </article>
+
+        <!-- AGENT (in progress) -->
+        <article class="msg msg--agent">
+          <div class="msg-head">
+            <span class="msg-author">code-agent</span>
+            <span class="msg-time">14:06</span>
+          </div>
+          <div class="msg-body">
+
+            <!-- THINKING — streaming, auto-expanded -->
+            <div class="thinking" data-state="streaming" data-open="true">
+              <div class="thinking-head" role="button" tabindex="0" aria-expanded="true">
+                <span class="thinking-indicator"><span class="thinking-spinner" aria-hidden="true"></span></span>
+                <span class="thinking-label">Planning the patch order</span>
+                <span class="thinking-meter">4s</span>
+                <svg class="thinking-chev" aria-hidden="true"><use href="#i-chev-right"/></svg>
+              </div>
+              <div class="thinking-body">
+                <div class="thinking-body-inner">
+                  <p>The rate-limit patch is the smallest and safest — it touches only <code>middleware.ts</code> and has no downstream impact on handlers. That's the right first step.</p>
+                  <p>Secrets migration comes second because it shifts config shape and needs a matching <code>.env.example</code> update. Index migration is last — schema changes should land after the app-level fixes pass type-check.</p>
+                </div>
+              </div>
+            </div>
+
+            <p>Starting with the smallest, lowest-risk change. Here's the diff — it needs your approval before I write it.</p>
+
+            <!-- APPROVAL — three-zone flow: strip · content · evidence · decision -->
+            <div class="approve" data-state="pending">
+
+              <div class="approve-strip">
+                <div class="approve-kind">Approval required · file edit</div>
+                <div class="approve-scope" data-risk="low">
+                  <span class="approve-scope-dot" aria-hidden="true"></span>
+                  Low risk · 1 file · reversible
+                </div>
+              </div>
+
+              <div class="approve-content">
+                <div class="approve-title">Add rate limiting to /api/auth/*</div>
+                <p class="approve-desc">The agent will apply a 10-request-per-minute limit on authentication routes before forwarding requests to their handlers. No other code paths are affected.</p>
+              </div>
+
+              <div class="approve-evidence">
+                <div class="approve-file" role="button" tabindex="0" data-open="false" aria-expanded="false" aria-controls="diff-middleware">
+                  <svg class="approve-file-icon" aria-hidden="true"><use href="#i-doc"/></svg>
+                  <span class="approve-file-path">src/middleware.ts</span>
+                  <span class="approve-file-delta">
+                    <span class="add">+8</span>
+                    <span class="del">−1</span>
+                  </span>
+                  <svg class="approve-file-chev" aria-hidden="true"><use href="#i-chev-right"/></svg>
+                </div>
+                <div class="approve-diff" id="diff-middleware">
+                  <div class="approve-diff-inner">
+                    <div class="approve-diff-body">
+                      <div class="diff-line" data-type="ctx"><span class="diff-marker">·</span><span>export async function middleware(req: NextRequest) {</span></div>
+                      <div class="diff-line" data-type="ctx"><span class="diff-marker">·</span><span>  const { pathname } = req.nextUrl;</span></div>
+                      <div class="diff-line" data-type="del"><span class="diff-marker">−</span><span>  if (pathname.startsWith('/api/auth')) return NextResponse.next();</span></div>
+                      <div class="diff-line" data-type="add"><span class="diff-marker">+</span><span>  if (pathname.startsWith('/api/auth')) {</span></div>
+                      <div class="diff-line" data-type="add"><span class="diff-marker">+</span><span>    const ip = req.ip ?? req.headers.get('x-forwarded-for') ?? 'unknown';</span></div>
+                      <div class="diff-line" data-type="add"><span class="diff-marker">+</span><span>    const { success } = await rateLimiter.check(ip, 10, '1m');</span></div>
+                      <div class="diff-line" data-type="add"><span class="diff-marker">+</span><span>    if (!success) return new NextResponse('Too Many Requests', { status: 429 });</span></div>
+                      <div class="diff-line" data-type="add"><span class="diff-marker">+</span><span>    return NextResponse.next();</span></div>
+                      <div class="diff-line" data-type="add"><span class="diff-marker">+</span><span>  }</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="approve-decision">
+                <div class="approve-shortcuts">
+                  <kbd>⌘↵</kbd> approve
+                  <span>·</span>
+                  <kbd>esc</kbd> deny
+                </div>
+                <div class="approve-actions">
+                  <button class="btn btn--ghost" type="button">Deny</button>
+                  <button class="btn btn--primary" type="button">Approve</button>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- AWAITING INDICATOR — compact live status at the transcript tail -->
+            <div class="awaiting" role="status" aria-live="polite">
+              <span class="awaiting-dot" aria-hidden="true"></span>
+              <span class="awaiting-verb">Awaiting approval</span>
+              <span class="awaiting-sep">·</span>
+              <span class="awaiting-target">src/middleware.ts</span>
+              <span class="awaiting-sep">·</span>
+              <span class="awaiting-elapsed">12s</span>
+            </div>
+
+          </div>
+        </article>
+
+      </div>
+    </div>
+
+    <div class="composer-wrap">
+      <form class="composer" onsubmit="event.preventDefault()" aria-label="Compose">
+        <div class="composer-input" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message"></div>
+        <div class="composer-bar">
+          <button type="button" class="chip" aria-label="Model">
+            zapi / glm-4.7
+            <svg><use href="#i-chev"/></svg>
+          </button>
+          <button type="button" class="chip" aria-label="Attach">
+            <svg><use href="#i-attach"/></svg>
+            Attach
+          </button>
+          <div class="composer-spacer"></div>
+          <span class="composer-hint">⌘↵</span>
+          <button type="submit" class="send-btn" aria-label="Send"><svg><use href="#i-send"/></svg></button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <!-- ============ SESSION PANEL ============ -->
+  <aside class="session" aria-label="Session" id="session">
+    <header class="session-head">
+      <div class="session-title-row">
+        <div class="session-agent">Production readiness review</div>
+        <button class="icon-btn" aria-label="Close session"><svg><use href="#i-x"/></svg></button>
+      </div>
+      <div class="session-status" data-state="running">
+        <span class="status-dot" aria-hidden="true"></span>
+        Running
+      </div>
+      <div class="session-folder" title="/home/kassiomaia/devel/zk/zk1">
+        <svg aria-hidden="true"><use href="#i-folder"/></svg>
+        <span class="session-folder-path">/home/kassiomaia/devel/zk/zk1</span>
+      </div>
+    </header>
+
+    <div class="session-body">
+
+      <section class="sec sec--primary" data-collapsed="false">
+        <div class="sec-head" role="button" tabindex="0" aria-expanded="true">
+          <div class="sec-head-label">
+            <div class="sec-label">Task</div>
+            <div class="sec-hint">Plan and progress for this run</div>
+          </div>
+          <div class="sec-head-right">
+            <div class="sec-count">3 of 6</div>
+            <svg class="sec-chev" aria-hidden="true"><use href="#i-chev-right"/></svg>
+          </div>
+        </div>
+
+        <div class="sec-body"><div class="sec-body-inner">
+        <div class="task-tree">
+          <!-- Root task -->
+          <div class="task-root" data-status="in_progress">
+            <span class="task-root-icon"><svg width="14" height="14"><use href="#i-loader"/></svg></span>
+            <span class="task-root-title">Production readiness review of zk1</span>
+            <span class="task-root-meta">2m 18s</span>
+          </div>
+
+          <!-- Subtasks -->
+          <div class="subtasks" role="list">
+            <div class="subtask" data-status="completed" role="listitem">
+              <span class="subtask-icon"><svg width="12" height="12"><use href="#i-check-circle"/></svg></span>
+              <span class="subtask-title">Scan project structure</span>
+              <span class="mode-badge">read</span>
+            </div>
+            <div class="subtask" data-status="completed" role="listitem">
+              <span class="subtask-icon"><svg width="12" height="12"><use href="#i-check-circle"/></svg></span>
+              <span class="subtask-title">Read configuration and schema</span>
+              <span class="mode-badge">read</span>
+            </div>
+            <div class="subtask" data-status="completed" role="listitem">
+              <span class="subtask-icon"><svg width="12" height="12"><use href="#i-check-circle"/></svg></span>
+              <span class="subtask-title">Analyze security posture</span>
+              <span class="mode-badge">read</span>
+            </div>
+            <div class="subtask" data-status="in_progress" role="listitem">
+              <span class="subtask-icon"><svg width="12" height="12"><use href="#i-loader"/></svg></span>
+              <span class="subtask-title">Generate assessment PDF</span>
+              <span class="mode-badge">write</span>
+            </div>
+            <div class="subtask" data-status="pending" role="listitem">
+              <span class="subtask-icon"><svg width="12" height="12"><use href="#i-circle-empty"/></svg></span>
+              <span class="subtask-title">Draft rate-limit patch</span>
+              <span class="mode-badge">write</span>
+            </div>
+            <div class="subtask" data-status="pending" role="listitem">
+              <span class="subtask-icon"><svg width="12" height="12"><use href="#i-circle-empty"/></svg></span>
+              <span class="subtask-title">Run type-check</span>
+              <span class="mode-badge">execute</span>
+            </div>
+          </div>
+        </div>
+        </div></div>
+      </section>
+
+      <section class="sec" data-collapsed="true">
+        <div class="sec-head" role="button" tabindex="0" aria-expanded="false">
+          <div class="sec-head-label">
+            <div class="sec-label">Recent activity</div>
+            <div class="sec-hint">The most recent step the agent completed</div>
+          </div>
+          <div class="sec-head-right">
+            <div class="sec-count">2m ago</div>
+            <svg class="sec-chev" aria-hidden="true"><use href="#i-chev-right"/></svg>
+          </div>
+        </div>
+        <div class="sec-body"><div class="sec-body-inner">
+        <div class="latest-body">Generated a 10-page quality assessment PDF.</div>
+        </div></div>
+      </section>
+
+      <section class="sec" data-collapsed="false">
+        <div class="sec-head" role="button" tabindex="0" aria-expanded="true">
+          <div class="sec-head-label">
+            <div class="sec-label">Files</div>
+            <div class="sec-hint">Browse the workspace folder</div>
+          </div>
+          <div class="sec-head-right">
+            <svg class="sec-chev" aria-hidden="true"><use href="#i-chev-right"/></svg>
+          </div>
+        </div>
+        <div class="sec-body"><div class="sec-body-inner">
+        <div class="files-list" id="files-list">
+
+          <!-- src/ (open) -->
+          <div class="file-row" data-dir="true" data-open="true">
+            <svg class="file-chev" aria-hidden="true"><use href="#i-chev-right"/></svg>
+            <svg class="file-icon"><use href="#i-folder"/></svg>
+            <span class="file-name">src</span>
+          </div>
+          <div class="file-children">
+            <div class="file-row" data-dir="true" data-open="false">
+              <svg class="file-chev" aria-hidden="true"><use href="#i-chev-right"/></svg>
+              <svg class="file-icon"><use href="#i-folder"/></svg>
+              <span class="file-name">app</span>
+            </div>
+            <div class="file-children">
+              <div class="file-row" data-leaf="true">
+                <svg class="file-chev" aria-hidden="true"></svg>
+                <svg class="file-icon"><use href="#i-doc"/></svg>
+                <span class="file-name">layout.tsx</span>
+              </div>
+              <div class="file-row" data-leaf="true">
+                <svg class="file-chev" aria-hidden="true"></svg>
+                <svg class="file-icon"><use href="#i-doc"/></svg>
+                <span class="file-name">page.tsx</span>
+              </div>
+            </div>
+
+            <div class="file-row" data-dir="true" data-open="true">
+              <svg class="file-chev" aria-hidden="true"><use href="#i-chev-right"/></svg>
+              <svg class="file-icon"><use href="#i-folder"/></svg>
+              <span class="file-name">lib</span>
+            </div>
+            <div class="file-children">
+              <div class="file-row" data-leaf="true">
+                <svg class="file-chev" aria-hidden="true"></svg>
+                <svg class="file-icon"><use href="#i-doc"/></svg>
+                <span class="file-name">auth.ts</span>
+              </div>
+              <div class="file-row" data-leaf="true">
+                <svg class="file-chev" aria-hidden="true"></svg>
+                <svg class="file-icon"><use href="#i-doc"/></svg>
+                <span class="file-name">config.ts</span>
+              </div>
+              <div class="file-row" data-leaf="true">
+                <svg class="file-chev" aria-hidden="true"></svg>
+                <svg class="file-icon"><use href="#i-doc"/></svg>
+                <span class="file-name">db/schema.ts</span>
+              </div>
+            </div>
+
+            <div class="file-row" data-leaf="true">
+              <svg class="file-chev" aria-hidden="true"></svg>
+              <svg class="file-icon"><use href="#i-doc"/></svg>
+              <span class="file-name">middleware.ts</span>
+            </div>
+          </div>
+
+          <!-- drizzle/ (closed) -->
+          <div class="file-row" data-dir="true" data-open="false">
+            <svg class="file-chev" aria-hidden="true"><use href="#i-chev-right"/></svg>
+            <svg class="file-icon"><use href="#i-folder"/></svg>
+            <span class="file-name">drizzle</span>
+          </div>
+          <div class="file-children">
+            <div class="file-row" data-dir="true" data-open="false">
+              <svg class="file-chev" aria-hidden="true"><use href="#i-chev-right"/></svg>
+              <svg class="file-icon"><use href="#i-folder"/></svg>
+              <span class="file-name">migrations</span>
+            </div>
+            <div class="file-children"></div>
+            <div class="file-row" data-leaf="true">
+              <svg class="file-chev" aria-hidden="true"></svg>
+              <svg class="file-icon"><use href="#i-doc"/></svg>
+              <span class="file-name">schema.ts</span>
+            </div>
+          </div>
+
+          <!-- docs/ (closed) -->
+          <div class="file-row" data-dir="true" data-open="false">
+            <svg class="file-chev" aria-hidden="true"><use href="#i-chev-right"/></svg>
+            <svg class="file-icon"><use href="#i-folder"/></svg>
+            <span class="file-name">docs</span>
+          </div>
+          <div class="file-children"></div>
+
+          <!-- root files -->
+          <div class="file-row" data-leaf="true">
+            <svg class="file-chev" aria-hidden="true"></svg>
+            <svg class="file-icon"><use href="#i-doc"/></svg>
+            <span class="file-name">AGENTS.md</span>
+          </div>
+          <div class="file-row" data-leaf="true">
+            <svg class="file-chev" aria-hidden="true"></svg>
+            <svg class="file-icon"><use href="#i-doc"/></svg>
+            <span class="file-name">package.json</span>
+          </div>
+          <div class="file-row" data-leaf="true">
+            <svg class="file-chev" aria-hidden="true"></svg>
+            <svg class="file-icon"><use href="#i-doc"/></svg>
+            <span class="file-name">drizzle.config.ts</span>
+          </div>
+        </div>
+        </div></div>
+      </section>
+
+    </div>
+
+    <!-- Quiet telemetry footer — sits at the bottom above the details drawer -->
+    <div class="usage-foot" aria-label="Session usage">
+      <span><span class="usage-num">35</span> <span class="usage-lbl">requests</span></span>
+      <span class="usage-sep">·</span>
+      <span><span class="usage-num">48.3s</span> <span class="usage-lbl">compute</span></span>
+      <span class="usage-sep">·</span>
+      <span><span class="usage-num">1</span> <span class="usage-lbl">pdf</span></span>
+    </div>
+
+    <!-- Technical drawer — hidden by default -->
+    <button class="details-toggle" id="details-toggle" aria-expanded="false">
+      <span>Session details</span>
+      <svg aria-hidden="true"><use href="#i-chev"/></svg>
+    </button>
+    <div class="details-panel">
+      <div class="kv-row"><span class="kv-row-key">Session ID</span><span class="kv-row-val">ses_01h7gz…</span></div>
+      <div class="kv-row"><span class="kv-row-key">Worker</span><span class="kv-row-val">code-agent@v1.4</span></div>
+      <div class="kv-row"><span class="kv-row-key">Environment</span><span class="kv-row-val">healthy</span></div>
+      <div class="kv-row"><span class="kv-row-key">Avg latency</span><span class="kv-row-val">1.38s</span></div>
+      <div class="kv-row"><span class="kv-row-key">Peak latency</span><span class="kv-row-val">6.06s</span></div>
+      <div class="kv-row"><span class="kv-row-key">Started</span><span class="kv-row-val">14:02:11</span></div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+  const root = document.documentElement;
+  const bDark = document.getElementById('theme-dark');
+  const bLight = document.getElementById('theme-light');
+  const setTheme = (m) => {
+    root.dataset.theme = m;
+    bDark.setAttribute('aria-pressed', String(m === 'dark'));
+    bLight.setAttribute('aria-pressed', String(m === 'light'));
+  };
+  bDark.addEventListener('click', () => setTheme('dark'));
+  bLight.addEventListener('click', () => setTheme('light'));
+
+  const session = document.getElementById('session');
+  const toggle = document.getElementById('details-toggle');
+  toggle.addEventListener('click', () => {
+    const open = session.getAttribute('data-details') === 'true';
+    session.setAttribute('data-details', String(!open));
+    toggle.setAttribute('aria-expanded', String(!open));
+  });
+
+  // Standalone tool cards (write/diff, terminal) — click header to expand
+  document.querySelectorAll('.tool .tool-head').forEach(head => {
+    if (head.closest('.tool--deliverable')) return;
+    const tool = head.closest('.tool');
+    const toggle = () => {
+      const open = tool.getAttribute('data-open') === 'true';
+      tool.setAttribute('data-open', String(!open));
+      head.setAttribute('aria-expanded', String(!open));
+    };
+    head.addEventListener('click', toggle);
+    head.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  });
+
+  // Grouped tool-call rows — each row toggles its own body
+  document.querySelectorAll('.tool-group .tool-row').forEach(row => {
+    const toggle = () => {
+      const open = row.getAttribute('data-open') === 'true';
+      row.setAttribute('data-open', String(!open));
+      row.setAttribute('aria-expanded', String(!open));
+    };
+    row.addEventListener('click', toggle);
+    row.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  });
+
+  // File tree — folder rows expand, leaf rows do nothing (select in real app)
+  document.querySelectorAll('.files-list .file-row[data-dir="true"]').forEach(row => {
+    row.addEventListener('click', () => {
+      const open = row.getAttribute('data-open') === 'true';
+      row.setAttribute('data-open', String(!open));
+    });
+  });
+
+  // Session panel sections — collapsible heads
+  document.querySelectorAll('.session .sec-head').forEach(head => {
+    const sec = head.closest('.sec');
+    const toggle = () => {
+      const collapsed = sec.getAttribute('data-collapsed') === 'true';
+      sec.setAttribute('data-collapsed', String(!collapsed));
+      head.setAttribute('aria-expanded', String(collapsed));
+    };
+    head.addEventListener('click', toggle);
+    head.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  });
+
+  // Thinking block — collapse/expand reasoning
+  document.querySelectorAll('.thinking .thinking-head').forEach(head => {
+    const th = head.closest('.thinking');
+    const toggle = () => {
+      const open = th.getAttribute('data-open') === 'true';
+      th.setAttribute('data-open', String(!open));
+      head.setAttribute('aria-expanded', String(!open));
+    };
+    head.addEventListener('click', toggle);
+    head.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  });
+
+  // Approval card — file-ribbon expands the diff; buttons transition state
+  document.querySelectorAll('.approve').forEach(card => {
+    // File ribbon expand/collapse
+    const ribbon = card.querySelector('.approve-file');
+    if (ribbon) {
+      const toggleRibbon = () => {
+        const open = ribbon.getAttribute('data-open') === 'true';
+        ribbon.setAttribute('data-open', String(!open));
+        ribbon.setAttribute('aria-expanded', String(!open));
+      };
+      ribbon.addEventListener('click', toggleRibbon);
+      ribbon.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRibbon(); }
+      });
+    }
+
+    // Approve / Deny
+    const approveBtn = card.querySelector('.approve-actions .btn--primary');
+    const denyBtn    = card.querySelector('.approve-actions .btn--ghost');
+
+    if (approveBtn) {
+      approveBtn.addEventListener('click', () => {
+        // Show loading state, then resolve as approved
+        approveBtn.setAttribute('data-loading', 'true');
+        approveBtn.textContent = '';
+        approveBtn.insertAdjacentText('beforeend', 'Approving');
+        setTimeout(() => {
+          card.setAttribute('data-state', 'approved');
+          approveBtn.removeAttribute('data-loading');
+          approveBtn.textContent = 'Approved';
+          const kind = card.querySelector('.approve-kind');
+          if (kind) kind.textContent = 'Approved · file edit applied';
+        }, 900);
+      });
+    }
+
+    if (denyBtn) {
+      denyBtn.addEventListener('click', () => {
+        card.setAttribute('data-state', 'denied');
+        const kind = card.querySelector('.approve-kind');
+        if (kind) kind.textContent = 'Denied · no changes made';
+      });
+    }
+
+    // Keyboard — ⌘↵ approve, esc deny (while card has focus)
+    card.addEventListener('keydown', e => {
+      if (card.getAttribute('data-state') !== 'pending') return;
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        approveBtn?.click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        denyBtn?.click();
+      }
+    });
+  });
+</script>
+</body>
+</html>
