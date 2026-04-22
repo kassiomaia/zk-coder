@@ -142,6 +142,7 @@ fn get_content_type_name(
         PdfPageContent::Markdown { .. } => "markdown",
         PdfPageContent::Text { .. } => "text",
         PdfPageContent::Image { .. } => "image",
+        PdfPageContent::Cover { .. } => "cover",
     }
     .to_string()
 }

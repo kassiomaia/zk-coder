@@ -221,6 +221,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn cover_page_followed_by_markdown_renders_multi_page_pdf() {
+        let td = tempfile::tempdir().unwrap();
+        let draft = PdfDraft {
+            pdf_id: "pdf_cover".to_string(),
+            filename: "cover.pdf".to_string(),
+            title: "Phase 2 Test".to_string(),
+            pages: vec![
+                DraftPage {
+                    id: "page_cover".to_string(),
+                    index: 0,
+                    content: PdfPageContent::Cover {
+                        title: "Quarterly Report".to_string(),
+                        subtitle: Some("Q1 2026".to_string()),
+                        author: Some("Ada Lovelace".to_string()),
+                        date: Some("2026-04-22".to_string()),
+                    },
+                },
+                DraftPage {
+                    id: "page_body".to_string(),
+                    index: 1,
+                    content: PdfPageContent::Markdown {
+                        content: "# Introduction\n\nBody text here.".to_string(),
+                    },
+                },
+            ],
+            page_size: PdfPageSize::A4,
+            theme_patch: None,
+            status: DraftStatus::Building,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        let final_path = td.path().join(&draft.filename);
+        let (_, size) = render_to_artifact(draft, final_path.clone(), CancellationToken::new())
+            .await
+            .expect("cover render succeeds");
+        assert!(size > 0);
+
+        let bytes = std::fs::read(&final_path).unwrap();
+        assert!(bytes.starts_with(b"%PDF-1."));
+        let pdf = lopdf::Document::load_mem(&bytes).expect("lopdf parses");
+        assert!(
+            pdf.page_iter().count() >= 2,
+            "cover + markdown must produce at least 2 pages"
+        );
+    }
+
+    #[tokio::test]
     async fn theme_patch_on_draft_changes_rendered_output() {
         use crate::core::documents::pdf::theme_patch::{
             PalettePatch, RgbPatch, ThemePatch, TypographyPatch,

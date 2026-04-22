@@ -455,6 +455,8 @@ PDF STYLING: `pdf_start` accepts an optional `theme` object that overrides the b
 
 Example — pass the following as the pdf_start arguments: filename=invoice.pdf, title=Invoice, theme.typography.body_font_size_pt=13, theme.palette.heading={r:0.1, g:0.2, b:0.8}, theme.decorations.footer='Acme — {page}/{total_pages}'. Out-of-range values are rejected with a descriptive error naming the offending field so you can correct on the next step.
 
+PDF PAGE CONTENT TYPES: `pdf_add_page` accepts four content variants — 'markdown' (primary), 'text' (plain unformatted), 'image' (embeds a PNG/JPEG from disk), and 'cover' (vertically-centred title page). For formal documents open with a cover as the first call: {type:'cover', title, subtitle?, author?, date?}; the renderer forces a dedicated page and auto-suppresses header/footer on it via the theme's suppress_on_first_page. For images, pass width_mm and/or height_mm in millimetres to control display size; when both are set use fit='contain' (default, preserves aspect and letterboxes) or fit='stretch' (uses both dimensions literally).
+
 ## BACKUP & ROLLBACK
 
 Before changes: prefer git checkpoint/branch, backup files before risky edits

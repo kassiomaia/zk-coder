@@ -190,6 +190,7 @@ impl PdfValidator {
                 !content.trim().is_empty()
             }
             PdfPageContent::Image { .. } => false,
+            PdfPageContent::Cover { title, .. } => !title.trim().is_empty(),
         });
         report.add_check(ValidationCheck {
             name: "Extractable Text".to_string(),
@@ -235,6 +236,7 @@ impl PdfValidator {
                     content.trim().is_empty()
                 }
                 PdfPageContent::Image { .. } => false,
+                PdfPageContent::Cover { title, .. } => title.trim().is_empty(),
             })
             .count();
         report.add_check(ValidationCheck {

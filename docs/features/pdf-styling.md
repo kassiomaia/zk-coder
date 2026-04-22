@@ -109,11 +109,63 @@ Rejected cases:
 - `theme` is optional; existing call patterns work unchanged.
 - Absent patch → `theme_for_draft` returns the bundled report theme, byte-identical to pre-change behaviour. Verified by the `theme_for_draft_without_patch_matches_bundled` unit test.
 
+## Content types: cover page and sized images
+
+`pdf_add_page` accepts four `content` variants. The Phase 1 surface shipped `markdown` / `text` / `image` (auto-sized). Phase 2 adds explicit image sizing and a first-class cover page.
+
+### Cover page — `type: "cover"`
+
+Renders a dedicated page with title / subtitle / author / date centred horizontally and vertically within the usable area.
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `title` | string | yes | Rendered at heading font size. |
+| `subtitle` | string | no | Italic, body font size. |
+| `author` | string | no | Body font size. |
+| `date` | string | no | Body font size. |
+
+```json
+{ "type": "cover", "title": "Quarterly Report", "subtitle": "Q1 2026", "author": "Ada Lovelace", "date": "2026-04-22" }
+```
+
+Behaviour:
+
+- Forces a page break before the cover if the cursor has already moved below the top margin.
+- Records the title on the PDF outline so bookmarks still point at the cover.
+- Always forces a page break after so subsequent content starts on a fresh page.
+- Header / footer suppression on the cover is handled by the existing `decorations.suppress_on_first_page` flag — the bundled default is `true`, which leaves the cover clean. Set it to `false` in the document `theme` if you want decorations on page 1.
+
+### Image sizing — `type: "image"`
+
+`width_mm`, `height_mm`, and `fit` are all optional.
+
+| Field | Type | Range | Notes |
+|-------|------|-------|-------|
+| `width_mm` | number | `[1, 400]` | Display width in mm. Omit to fit the page. |
+| `height_mm` | number | `[1, 400]` | Display height in mm. Omit to derive from aspect ratio. |
+| `fit` | enum | `contain` \| `stretch` | Only used when both dimensions are set. |
+
+Sizing rules:
+
+- Neither set → full usable page width, aspect preserved.
+- Only `width_mm` → height from aspect ratio.
+- Only `height_mm` → width from aspect ratio.
+- Both set + `fit: "contain"` (default) → scale to fit inside the box, aspect preserved (letterboxed).
+- Both set + `fit: "stretch"` → use exact box, may distort.
+
+```json
+{ "type": "image", "path": "/abs/path/logo.png", "width_mm": 80, "height_mm": 40, "fit": "contain", "caption": "Acme Inc." }
+```
+
+## Backwards compatibility
+
+- `theme` on `pdf_start` is optional; existing call patterns work unchanged.
+- Absent patch → `theme_for_draft` returns the bundled report theme, byte-identical to pre-change behaviour. Verified by the `theme_for_draft_without_patch_matches_bundled` unit test.
+- `cover` and the new image sizing fields are additive — existing `pdf_add_page` calls without them behave identically to before.
+
 ## Non-goals (tracked as follow-ups)
 
-- Per-page theme overrides. Styling is document-wide for now.
-- Cover / title page as a first-class content type.
-- Image sizing parameters (`width_mm`, `height_mm`, `fit`). Images still auto-size.
+- Per-page theme overrides. Styling is document-wide for now. Implementing this requires rebuilding `LayoutParams` at page boundaries inside the `printpdf` renderer (a ~130 LOC change through ~15 function signatures) — deferred to Phase 3 so it can be reviewed in isolation from cover/image work.
 - Custom font upload. Only bundled TTFs are accepted.
 - Named-color escape hatch (e.g., `"navy"`). Colors are always RGB triples.
 - HTML/CSS rendering path.

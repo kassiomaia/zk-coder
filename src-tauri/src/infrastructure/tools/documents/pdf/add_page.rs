@@ -1,5 +1,6 @@
 //! Add a page to a PDF document.
 
+use crate::core::documents::pdf::block::ImageFit;
 use crate::infrastructure::tools::{
     context::ToolExecutionContext,
     documents::shared::{get_draft_store, PdfInsertPosition, PdfPageContent},
@@ -40,13 +41,36 @@ pub enum PdfPageContentInput {
         /// The text content.
         content: String,
     },
-    /// Image reference with optional caption.
+    /// Image reference with optional caption and sizing.
     Image {
         /// Path to the image file.
         path: String,
         /// Optional caption.
         #[serde(default)]
         caption: Option<String>,
+        /// Optional display width in mm.
+        #[serde(default)]
+        width_mm: Option<f32>,
+        /// Optional display height in mm.
+        #[serde(default)]
+        height_mm: Option<f32>,
+        /// Fit mode when both dimensions are set.
+        #[serde(default)]
+        fit: ImageFit,
+    },
+    /// Vertically-centred cover / title page.
+    Cover {
+        /// Main title.
+        title: String,
+        /// Optional subtitle.
+        #[serde(default)]
+        subtitle: Option<String>,
+        /// Optional author line.
+        #[serde(default)]
+        author: Option<String>,
+        /// Optional date line.
+        #[serde(default)]
+        date: Option<String>,
     },
 }
 
@@ -55,7 +79,30 @@ impl From<PdfPageContentInput> for PdfPageContent {
         match item {
             PdfPageContentInput::Markdown { content } => Self::Markdown { content },
             PdfPageContentInput::Text { content } => Self::Text { content },
-            PdfPageContentInput::Image { path, caption } => Self::Image { path, caption },
+            PdfPageContentInput::Image {
+                path,
+                caption,
+                width_mm,
+                height_mm,
+                fit,
+            } => Self::Image {
+                path,
+                caption,
+                width_mm,
+                height_mm,
+                fit,
+            },
+            PdfPageContentInput::Cover {
+                title,
+                subtitle,
+                author,
+                date,
+            } => Self::Cover {
+                title,
+                subtitle,
+                author,
+                date,
+            },
         }
     }
 }
@@ -94,6 +141,11 @@ impl Tool for PdfAddPageTool {
               blockquotes (> text → callout box), horizontal rules (--- → page break), \
               and images via the image content type. \
               Prefer 'markdown' type for most content. Use 'image' type only to embed a file from disk. \
+              For formal documents, open with a 'cover' content as the first pdf_add_page call — it \
+              renders a vertically-centred title page with optional subtitle/author/date. \
+              For images, set width_mm and/or height_mm to control display size; fit ('contain' default, \
+              preserves aspect ratio; 'stretch' uses both dimensions literally) decides what happens \
+              when both are set. \
               Each pdf_add_page call adds one logical page of content; the renderer paginates automatically.",
             input_schema: serde_json::json!({
                 "type": "object",
@@ -105,7 +157,7 @@ impl Tool for PdfAddPageTool {
                     },
                     "content": {
                         "type": "object",
-                        "description": "Page content. Use type='markdown' for rich text (headings, lists, tables, code, links, bold/italic). Use type='text' for plain unformatted text. Use type='image' to embed a file.",
+                        "description": "Page content. Use type='markdown' for rich text; type='text' for plain text; type='image' to embed a file with optional width_mm/height_mm/fit; type='cover' for a vertically-centred title page.",
                         "oneOf": [
                             {
                                 "type": "object",
@@ -129,7 +181,21 @@ impl Tool for PdfAddPageTool {
                                 "properties": {
                                     "type": {"const": "image"},
                                     "path": {"type": "string", "description": "Absolute path to a PNG or JPEG image file"},
-                                    "caption": {"type": "string", "description": "Optional image caption / alt text"}
+                                    "caption": {"type": "string", "description": "Optional image caption / alt text"},
+                                    "width_mm": {"type": "number", "minimum": 1, "maximum": 400, "description": "Display width in mm. Omit to fit the page; omit with height_mm to derive from aspect."},
+                                    "height_mm": {"type": "number", "minimum": 1, "maximum": 400, "description": "Display height in mm. Omit with width_mm to derive from aspect."},
+                                    "fit": {"type": "string", "enum": ["contain", "stretch"], "default": "contain", "description": "When both dimensions are set: 'contain' preserves aspect (letterbox); 'stretch' uses both literally (may distort)."}
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "required": ["type", "title"],
+                                "properties": {
+                                    "type": {"const": "cover"},
+                                    "title": {"type": "string", "description": "Title, rendered centred at heading size."},
+                                    "subtitle": {"type": "string", "description": "Optional subtitle, italic, below the title."},
+                                    "author": {"type": "string", "description": "Optional author line below the subtitle."},
+                                    "date": {"type": "string", "description": "Optional date line below the author."}
                                 }
                             }
                         ]
@@ -231,15 +297,79 @@ mod tests {
         let input = PdfPageContentInput::Image {
             path: "/path/to/image.png".to_string(),
             caption: Some("A caption".to_string()),
+            width_mm: None,
+            height_mm: None,
+            fit: ImageFit::Contain,
         };
 
         let content: PdfPageContent = input.into();
         match content {
-            PdfPageContent::Image { path, caption } => {
+            PdfPageContent::Image {
+                path,
+                caption,
+                width_mm,
+                height_mm,
+                fit,
+            } => {
                 assert_eq!(path, "/path/to/image.png");
                 assert_eq!(caption, Some("A caption".to_string()));
+                assert_eq!(width_mm, None);
+                assert_eq!(height_mm, None);
+                assert_eq!(fit, ImageFit::Contain);
             }
             _ => panic!("Expected Image"),
+        }
+    }
+
+    #[test]
+    fn test_image_content_conversion_preserves_sizing() {
+        let input = PdfPageContentInput::Image {
+            path: "/logo.png".to_string(),
+            caption: None,
+            width_mm: Some(80.0),
+            height_mm: Some(40.0),
+            fit: ImageFit::Stretch,
+        };
+
+        let content: PdfPageContent = input.into();
+        match content {
+            PdfPageContent::Image {
+                width_mm,
+                height_mm,
+                fit,
+                ..
+            } => {
+                assert_eq!(width_mm, Some(80.0));
+                assert_eq!(height_mm, Some(40.0));
+                assert_eq!(fit, ImageFit::Stretch);
+            }
+            _ => panic!("Expected Image"),
+        }
+    }
+
+    #[test]
+    fn test_cover_content_conversion() {
+        let input = PdfPageContentInput::Cover {
+            title: "Report".to_string(),
+            subtitle: Some("2026".to_string()),
+            author: Some("Ada".to_string()),
+            date: None,
+        };
+
+        let content: PdfPageContent = input.into();
+        match content {
+            PdfPageContent::Cover {
+                title,
+                subtitle,
+                author,
+                date,
+            } => {
+                assert_eq!(title, "Report");
+                assert_eq!(subtitle.as_deref(), Some("2026"));
+                assert_eq!(author.as_deref(), Some("Ada"));
+                assert_eq!(date, None);
+            }
+            _ => panic!("Expected Cover"),
         }
     }
 }

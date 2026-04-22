@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use uuid::Uuid;
 
+use crate::core::documents::pdf::block::ImageFit;
 use crate::core::documents::pdf::theme_patch::ThemePatch;
 
 /// Global draft store instance.
@@ -607,12 +608,35 @@ pub enum PdfPageContent {
         /// The text content.
         content: String,
     },
-    /// An image with optional caption.
+    /// An image with optional caption and explicit sizing.
     Image {
         /// Path to the image file.
         path: String,
         /// Optional image caption.
         caption: Option<String>,
+        /// Optional display width in mm.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        width_mm: Option<f32>,
+        /// Optional display height in mm.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        height_mm: Option<f32>,
+        /// Fit mode when both `width_mm` and `height_mm` are set.
+        #[serde(default)]
+        fit: ImageFit,
+    },
+    /// A centred cover / title page.
+    Cover {
+        /// Title, rendered large and centred.
+        title: String,
+        /// Optional subtitle below the title.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        subtitle: Option<String>,
+        /// Optional author line.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        author: Option<String>,
+        /// Optional date line.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        date: Option<String>,
     },
 }
 

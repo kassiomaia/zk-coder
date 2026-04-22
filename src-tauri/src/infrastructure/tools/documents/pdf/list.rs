@@ -147,6 +147,7 @@ fn get_content_type_name(
         PdfPageContent::Markdown { .. } => "markdown",
         PdfPageContent::Text { .. } => "text",
         PdfPageContent::Image { .. } => "image",
+        PdfPageContent::Cover { .. } => "cover",
     }
     .to_string()
 }
@@ -158,7 +159,7 @@ fn format_content_content(
     use crate::infrastructure::tools::documents::shared::PdfPageContent;
     match content {
         PdfPageContent::Markdown { content } | PdfPageContent::Text { content } => content.clone(),
-        PdfPageContent::Image { path, caption } => {
+        PdfPageContent::Image { path, caption, .. } => {
             format!(
                 "[Image: {}]{}",
                 path,
@@ -167,6 +168,24 @@ fn format_content_content(
                     .map(|c| format!(" - {c}"))
                     .unwrap_or_default()
             )
+        }
+        PdfPageContent::Cover {
+            title,
+            subtitle,
+            author,
+            date,
+        } => {
+            let mut parts = vec![format!("[Cover: {title}]")];
+            if let Some(s) = subtitle {
+                parts.push(s.clone());
+            }
+            if let Some(a) = author {
+                parts.push(a.clone());
+            }
+            if let Some(d) = date {
+                parts.push(d.clone());
+            }
+            parts.join(" — ")
         }
     }
 }
@@ -180,7 +199,7 @@ fn format_content_preview(
         PdfPageContent::Markdown { content } | PdfPageContent::Text { content } => {
             truncate(content, 100)
         }
-        PdfPageContent::Image { path, caption } => {
+        PdfPageContent::Image { path, caption, .. } => {
             format!(
                 "[Image: {}]{}",
                 truncate(path, 50),
@@ -189,6 +208,9 @@ fn format_content_preview(
                     .map(|c| format!(" - {c}"))
                     .unwrap_or_default()
             )
+        }
+        PdfPageContent::Cover { title, .. } => {
+            format!("[Cover: {}]", truncate(title, 60))
         }
     }
 }
@@ -340,8 +362,19 @@ mod tests {
         let image = PdfPageContent::Image {
             path: "/test.png".to_string(),
             caption: None,
+            width_mm: None,
+            height_mm: None,
+            fit: crate::core::documents::pdf::block::ImageFit::Contain,
         };
         assert_eq!(get_content_type_name(&image), "image");
+
+        let cover = PdfPageContent::Cover {
+            title: "Title".to_string(),
+            subtitle: None,
+            author: None,
+            date: None,
+        };
+        assert_eq!(get_content_type_name(&cover), "cover");
     }
 
     #[test]

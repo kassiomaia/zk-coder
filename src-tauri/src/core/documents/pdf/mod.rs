@@ -20,7 +20,7 @@ pub mod section;
 pub mod theme;
 pub mod theme_patch;
 
-pub use block::{Align, Block, InlineRun, InlineStyle, Paragraph};
+pub use block::{Align, Block, CoverBlock, ImageBlock, ImageFit, InlineRun, InlineStyle, Paragraph};
 pub use document::PdfDocument;
 pub use error::PdfModelError;
 pub use geometry::{Margins, Orientation, PageGeometry, PageSize};

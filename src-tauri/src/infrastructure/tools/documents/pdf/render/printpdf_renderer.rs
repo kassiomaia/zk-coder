@@ -331,16 +331,23 @@ fn layout_sections(
     toc_entries: Option<&[TocEntry]>,
 ) -> Result<(), RenderError> {
     for section in sections {
-        emit_heading(
-            engine,
-            font_refs,
-            fonts,
-            section.heading.text(),
-            section.heading.level.get(),
-            missing,
-        )?;
-        let block_gap = engine.params().block_gap_mm;
-        engine.advance(block_gap);
+        // When the section's first block is a cover page, skip the auto
+        // section heading — the cover carries its own visual title. The
+        // outline still records the heading text via emit_cover_page so
+        // bookmarks remain complete.
+        let skip_section_heading = matches!(section.blocks.first(), Some(Block::CoverPage(_)));
+        if !skip_section_heading {
+            emit_heading(
+                engine,
+                font_refs,
+                fonts,
+                section.heading.text(),
+                section.heading.level.get(),
+                missing,
+            )?;
+            let block_gap = engine.params().block_gap_mm;
+            engine.advance(block_gap);
+        }
         for block in &section.blocks {
             match block {
                 Block::Paragraph(p) => emit_paragraph(engine, font_refs, fonts, p, missing)?,
@@ -357,6 +364,9 @@ fn layout_sections(
                     emit_table(engine, font_refs, fonts, table, missing)?;
                 }
                 Block::Image(img) => emit_image(engine, img)?,
+                Block::CoverPage(cover) => {
+                    emit_cover_page(engine, font_refs, fonts, cover, missing)?;
+                }
                 Block::Toc => {
                     if let Some(entries) = toc_entries {
                         emit_toc(engine, font_refs, fonts, entries, missing)?;
@@ -899,10 +909,8 @@ fn emit_image(engine: &mut LayoutEngine<'_>, block: &ImageBlock) -> Result<(), R
         return Ok(());
     }
     let aspect = px_h as f32 / px_w as f32;
-    let display_w_mm = block
-        .width_mm
-        .unwrap_or(engine.params().usable_width_mm);
-    let display_h_mm = display_w_mm * aspect;
+    let (display_w_mm, display_h_mm) =
+        block.resolved_size_mm(aspect, engine.params().usable_width_mm);
 
     engine.ensure_space_for(display_h_mm);
     let layer = engine.current_layer();
@@ -910,13 +918,33 @@ fn emit_image(engine: &mut LayoutEngine<'_>, block: &ImageBlock) -> Result<(), R
     let y_mm = engine.cursor_y_mm() - display_h_mm + engine.params().body_leading_mm;
 
     let pdf_image = PdfImage::from_dynamic_image(&dynamic);
-    let dpi = px_w as f32 / (display_w_mm / MM_PER_INCH);
+    // DPI controls raster scale; for Stretch mode with different x/y
+    // target sizes, printpdf does not expose independent axis scaling, so
+    // we pick the DPI that matches the width and let the image stretch
+    // vertically in the transform. For Contain, width-based DPI is
+    // correct since the aspect is preserved.
+    let dpi = if display_w_mm > 0.0 {
+        px_w as f32 / (display_w_mm / MM_PER_INCH)
+    } else {
+        FALLBACK_IMAGE_DPI
+    };
+    let scale_y = if display_h_mm > 0.0 && display_w_mm > 0.0 {
+        (display_h_mm / display_w_mm) / (aspect.max(f32::EPSILON))
+    } else {
+        1.0
+    };
+    let scale_y_opt = if (scale_y - 1.0).abs() > 1e-4 {
+        Some(scale_y)
+    } else {
+        None
+    };
     pdf_image.add_to_layer(
         layer,
         ImageTransform {
             translate_x: Some(Mm(x_mm)),
             translate_y: Some(Mm(y_mm)),
             dpi: Some(dpi),
+            scale_y: scale_y_opt,
             ..ImageTransform::default()
         },
     );
@@ -927,6 +955,170 @@ fn emit_image(engine: &mut LayoutEngine<'_>, block: &ImageBlock) -> Result<(), R
 
 /// Millimetres per inch, used to convert pixel DPI.
 const MM_PER_INCH: f32 = 25.4;
+
+/// Fallback DPI used when width resolves to zero — matches printpdf's
+/// default so the image still embeds rather than disappearing.
+const FALLBACK_IMAGE_DPI: f32 = 72.0;
+
+/// Half; used for vertical centring (`available / HALF`) and for
+/// horizontal centring (`remaining / HALF`) on cover pages.
+const HALF: f32 = 2.0;
+
+/// Multiplier applied to body leading to compute the vertical gap above
+/// the author/date block on cover pages.
+const COVER_META_GAP_MULTIPLIER: f32 = 2.0;
+
+/// Emits a vertically-centred cover page on its own page.
+///
+/// Forces a page break if the cursor has already moved below the top,
+/// then lays out title / subtitle / author / date horizontally centred
+/// and vertically centred within the page's usable area. A trailing
+/// page break guarantees subsequent content starts on a fresh page.
+///
+/// The title is recorded on the outline so bookmarks still point at the
+/// cover. Header/footer suppression on page 1 is handled by the theme's
+/// existing `suppress_on_first_page` flag — no new machinery needed.
+fn emit_cover_page(
+    engine: &mut LayoutEngine<'_>,
+    font_refs: &FontRefMap,
+    fonts: &FontCache,
+    cover: &crate::core::documents::pdf::block::CoverBlock,
+    missing: &mut BTreeSet<char>,
+) -> Result<(), RenderError> {
+    // Start on a fresh page unless the cursor is still at the top.
+    if engine.cursor_y_mm() < engine.params().initial_y_mm {
+        engine.break_page();
+    }
+
+    let heading_leading_mm = engine.params().heading_leading_mm;
+    let body_leading_mm = engine.params().body_leading_mm;
+    let heading_size_pt = engine.params().heading_size_pt;
+    let body_size_pt = engine.params().body_size_pt;
+    let usable_width_pt = engine.params().usable_width_pt;
+    let usable_width_mm = engine.params().usable_width_mm;
+
+    let primary = fonts.primary_for(&InlineStyle::PLAIN);
+    let italic_style = InlineStyle {
+        bold: false,
+        italic: true,
+        code: false,
+    };
+    let italic_slot = fonts.primary_for(&italic_style);
+
+    let title_face = primary.face()?;
+    let body_face = primary.face()?;
+    let italic_face = italic_slot.face()?;
+
+    let title_lines = wrap_with_face(&title_face, cover.title.trim(), heading_size_pt, usable_width_pt);
+    let subtitle_lines: Vec<String> = cover
+        .subtitle
+        .as_deref()
+        .map(|s| wrap_with_face(&italic_face, s.trim(), body_size_pt, usable_width_pt))
+        .unwrap_or_default();
+    let author_lines: Vec<String> = cover
+        .author
+        .as_deref()
+        .map(|s| wrap_with_face(&body_face, s.trim(), body_size_pt, usable_width_pt))
+        .unwrap_or_default();
+    let date_lines: Vec<String> = cover
+        .date
+        .as_deref()
+        .map(|s| wrap_with_face(&body_face, s.trim(), body_size_pt, usable_width_pt))
+        .unwrap_or_default();
+
+    let gap_after_title_mm = body_leading_mm;
+    let gap_before_meta_mm = body_leading_mm * COVER_META_GAP_MULTIPLIER;
+    let mut content_height_mm = title_lines.len() as f32 * heading_leading_mm;
+    if !subtitle_lines.is_empty() {
+        content_height_mm += gap_after_title_mm + subtitle_lines.len() as f32 * body_leading_mm;
+    }
+    let meta_line_count = author_lines.len() + date_lines.len();
+    if meta_line_count > 0 {
+        content_height_mm += gap_before_meta_mm + meta_line_count as f32 * body_leading_mm;
+    }
+
+    let available_mm = engine.params().initial_y_mm - engine.params().min_y_mm;
+    let top_offset_mm = ((available_mm - content_height_mm) / HALF).max(0.0);
+    engine.advance(top_offset_mm);
+
+    let x_mm = engine.params().x_mm;
+
+    // Record outline so the cover still anchors a bookmark.
+    engine.record_outline(1, cover.title.trim());
+
+    for line in &title_lines {
+        engine.ensure_space_for(heading_leading_mm);
+        let line_width_pt = measure_with_face(&title_face, line, heading_size_pt);
+        let line_width_mm = line_width_pt / POINTS_PER_MM;
+        let shift_mm = ((usable_width_mm - line_width_mm) / HALF).max(0.0);
+        let layer = engine.current_layer();
+        let y = engine.cursor_y_mm();
+        emit_line_with_fallback(
+            &layer,
+            font_refs,
+            fonts,
+            &InlineStyle::PLAIN,
+            line,
+            heading_size_pt,
+            x_mm + shift_mm,
+            y,
+            missing,
+        )?;
+        engine.advance(heading_leading_mm);
+    }
+
+    if !subtitle_lines.is_empty() {
+        engine.advance(gap_after_title_mm);
+        for line in &subtitle_lines {
+            engine.ensure_space_for(body_leading_mm);
+            let line_width_pt = measure_with_face(&italic_face, line, body_size_pt);
+            let line_width_mm = line_width_pt / POINTS_PER_MM;
+            let shift_mm = ((usable_width_mm - line_width_mm) / HALF).max(0.0);
+            let layer = engine.current_layer();
+            let y = engine.cursor_y_mm();
+            emit_line_with_fallback(
+                &layer,
+                font_refs,
+                fonts,
+                &italic_style,
+                line,
+                body_size_pt,
+                x_mm + shift_mm,
+                y,
+                missing,
+            )?;
+            engine.advance(body_leading_mm);
+        }
+    }
+
+    if meta_line_count > 0 {
+        engine.advance(gap_before_meta_mm);
+        for line in author_lines.iter().chain(date_lines.iter()) {
+            engine.ensure_space_for(body_leading_mm);
+            let line_width_pt = measure_with_face(&body_face, line, body_size_pt);
+            let line_width_mm = line_width_pt / POINTS_PER_MM;
+            let shift_mm = ((usable_width_mm - line_width_mm) / HALF).max(0.0);
+            let layer = engine.current_layer();
+            let y = engine.cursor_y_mm();
+            emit_line_with_fallback(
+                &layer,
+                font_refs,
+                fonts,
+                &InlineStyle::PLAIN,
+                line,
+                body_size_pt,
+                x_mm + shift_mm,
+                y,
+                missing,
+            )?;
+            engine.advance(body_leading_mm);
+        }
+    }
+
+    // Always break to a fresh page so subsequent content starts clean.
+    engine.break_page();
+    Ok(())
+}
 
 /// Resolves [`ColumnWidth`] specs into concrete widths in mm.
 ///
