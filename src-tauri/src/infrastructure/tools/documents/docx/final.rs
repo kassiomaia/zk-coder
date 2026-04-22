@@ -109,12 +109,16 @@ impl Tool for DocxFinalizeTool {
         Box::pin(async move {
             let args: DocxFinalizeArgs = parse_args("docx_finalize", arguments)?;
 
+            // Clone the draft rather than removing it — validation or
+            // generation can fail (missing image path, write error),
+            // and a removed draft means the LLM must rebuild from
+            // scratch instead of correcting one section and retrying.
             let draft_store = DraftStore::get_draft_store();
             let draft = {
-                let mut store = draft_store.lock().map_err(|e| {
+                let store = draft_store.lock().map_err(|e| {
                     ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
-                store.remove_docx_draft(&args.document_id).ok_or_else(|| {
+                store.get_docx_draft(&args.document_id).cloned().ok_or_else(|| {
                     ToolError::failed(format!("Document not found: {}", args.document_id))
                 })?
             };
@@ -127,6 +131,17 @@ impl Tool for DocxFinalizeTool {
             let artifacts_dir = resolve_artifacts_dir(&app_handle)?;
             let output_path = artifacts_dir.join(&filename);
             let (path, size_bytes) = generate_docx(&draft, &output_path)?;
+
+            // Validation and generation both succeeded — now it is
+            // safe to drop the draft. We ignore a `None` return here
+            // because a concurrent finalize (should not happen with
+            // the LLM, but kept robust) may already have removed it.
+            {
+                let mut store = draft_store.lock().map_err(|e| {
+                    ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
+                })?;
+                store.remove_docx_draft(&args.document_id);
+            }
 
             let artifact_id = if args.auto_save {
                 Some(format!("art_{}", uuid::Uuid::new_v4()))
@@ -240,5 +255,38 @@ mod tests {
         }]);
         let report = build_validation_report(&d).unwrap();
         assert!(report.passed);
+    }
+
+    #[test]
+    fn validation_failure_preserves_draft_in_store() {
+        // Simulates the finalize flow: we clone the draft, hit a
+        // validation error, and must leave the original draft
+        // untouched in the store so the LLM can fix and retry.
+        let draft_store = DraftStore::get_draft_store();
+        let id = {
+            let mut store = draft_store.lock().unwrap();
+            store.create_docx_draft(
+                "preserve.docx".into(),
+                "Preserve".into(),
+                None,
+            )
+        };
+        // Empty draft — validation will fail.
+        let draft = {
+            let store = draft_store.lock().unwrap();
+            store.get_docx_draft(&id).cloned().unwrap()
+        };
+        assert!(build_validation_report(&draft).is_err());
+
+        // The draft must still be in the store after the failed
+        // validation; a successful finalize would have removed it.
+        let still_present = {
+            let store = draft_store.lock().unwrap();
+            store.get_docx_draft(&id).is_some()
+        };
+        assert!(still_present, "draft must survive a failed finalize");
+
+        // Clean up to avoid leaking into other tests.
+        let _ = draft_store.lock().unwrap().remove_docx_draft(&id);
     }
 }

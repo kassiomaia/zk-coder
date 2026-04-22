@@ -71,7 +71,7 @@ fn write_docx(
 
     styles::install(&mut docx, theme);
     if !plan.numbering.is_empty() {
-        lists::install_numbering(&mut docx, &plan.numbering);
+        lists::install_numbering(&mut docx, &plan.numbering, theme);
     }
     images::install_media(&mut docx, &plan.images);
     decorations::install_header_footer(&mut docx, plan, theme);

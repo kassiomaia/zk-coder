@@ -206,6 +206,49 @@ fn plan_decorations(plan: &mut Plan, decorations: &Decorations) {
     }
 }
 
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn write_bytes(dir: &std::path::Path, name: &str, bytes: &[u8]) -> PathBuf {
+        let p = dir.join(name);
+        let mut f = std::fs::File::create(&p).unwrap();
+        f.write_all(bytes).unwrap();
+        p
+    }
+
+    #[test]
+    fn gif_bytes_with_png_extension_are_rejected() {
+        let tmp = tempfile::tempdir().unwrap();
+        // GIF magic bytes, saved as `.png` so a naïve extension check
+        // would accept it.
+        let gif = b"GIF89a\x01\x00\x01\x00\x00\x00\x00";
+        let path = write_bytes(tmp.path(), "fake.png", gif);
+
+        let err = read_image(100, path, 120.0, 0).unwrap_err();
+        let msg = format!("{err:?}");
+        assert!(msg.to_lowercase().contains("png") || msg.to_lowercase().contains("jpeg"));
+    }
+
+    #[test]
+    fn real_png_file_is_accepted_and_part_is_png() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut buf = Vec::new();
+        let img = image::RgbImage::from_fn(4, 4, |_, _| image::Rgb([200u8, 40, 40]));
+        let dyn_img = image::DynamicImage::ImageRgb8(img);
+        dyn_img
+            .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+            .unwrap();
+        // Extension deliberately says jpeg — the bytes should win.
+        let path = write_bytes(tmp.path(), "pic.jpeg", &buf);
+
+        let planned = read_image(100, path, 120.0, 0).unwrap();
+        assert!(planned.filename.ends_with(".png"));
+    }
+}
+
 fn read_image(
     rel_seed: usize,
     path: PathBuf,
@@ -218,21 +261,31 @@ fn read_image(
             path.display()
         ))
     })?;
+    // Detect the real format from the bytes, not the path extension.
+    // A GIF or BMP file renamed to .png would otherwise produce a
+    // content-type / body mismatch in the package that Word rejects.
+    let ext = match image::guess_format(&bytes) {
+        Ok(image::ImageFormat::Png) => "png",
+        Ok(image::ImageFormat::Jpeg) => "jpeg",
+        Ok(other) => {
+            return Err(ToolError::invalid_args(format!(
+                "Image '{}' has format {other:?}; only PNG and JPEG are supported.",
+                path.display()
+            )));
+        }
+        Err(e) => {
+            return Err(ToolError::invalid_args(format!(
+                "Image '{}' is not a recognisable image format: {e}",
+                path.display()
+            )));
+        }
+    };
     let decoded = image::load_from_memory(&bytes).map_err(|e| {
         ToolError::failed(format!(
             "Failed to decode image '{}': {e}",
             path.display()
         ))
     })?;
-    let extension = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|s| s.to_ascii_lowercase())
-        .unwrap_or_else(|| "png".to_string());
-    let ext = match extension.as_str() {
-        "jpg" | "jpeg" => "jpeg",
-        _ => "png",
-    };
     let filename = format!("media/image{}.{}", plan_index + 1, ext);
     Ok(PlannedImage {
         rel_id: format!("rId{rel_seed}"),
