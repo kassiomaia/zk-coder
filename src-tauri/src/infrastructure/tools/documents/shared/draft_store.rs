@@ -10,6 +10,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use uuid::Uuid;
 
+use crate::core::documents::pdf::theme_patch::ThemePatch;
+
 /// Global draft store instance.
 pub static DRAFT_STORE: OnceLock<Arc<Mutex<DraftStore>>> = OnceLock::new();
 
@@ -168,25 +170,37 @@ impl DraftStore {
     // === PDF Draft Methods ===
 
     /// Create a new PDF draft and return its ID.
+    ///
+    /// `theme_patch` is the caller-supplied styling override, if any.
+    /// When `None`, the renderer falls back to the bundled report theme.
     pub fn create_pdf_draft(
         &mut self,
         filename: String,
         title: String,
         page_size: Option<PdfPageSize>,
+        theme_patch: Option<ThemePatch>,
     ) -> String {
         let id = format!("pdf_{}", Uuid::new_v4());
+        let now = Utc::now();
         let draft = PdfDraft {
             pdf_id: id.clone(),
             filename,
             title,
             pages: Vec::new(),
             page_size: page_size.unwrap_or_default(),
+            theme_patch,
             status: DraftStatus::Building,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+            created_at: now,
+            updated_at: now,
         };
         self.pdf_drafts.insert(id.clone(), draft);
         id
+    }
+
+    /// Get the theme patch stored on a PDF draft, if any.
+    #[must_use]
+    pub fn pdf_theme_patch(&self, pdf_id: &str) -> Option<&ThemePatch> {
+        self.pdf_drafts.get(pdf_id).and_then(|d| d.theme_patch.as_ref())
     }
 
     /// Get a mutable reference to a PDF draft.
@@ -388,6 +402,10 @@ pub struct PdfDraft {
     pub pages: Vec<DraftPage>,
     /// The page size for the PDF.
     pub page_size: PdfPageSize,
+    /// Optional LLM-supplied styling overlay, merged onto the bundled
+    /// theme at render time. `None` renders with the default report theme.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_patch: Option<ThemePatch>,
     /// Current status of the draft.
     pub status: DraftStatus,
     /// Timestamp when the draft was created.
@@ -768,6 +786,7 @@ mod tests {
             "document.pdf".to_string(),
             "My Document".to_string(),
             None,
+            None,
         );
 
         let draft = store.get_pdf_draft(&id).unwrap();
@@ -775,6 +794,33 @@ mod tests {
         assert_eq!(draft.title, "My Document");
         assert_eq!(draft.pages.len(), 0);
         assert_eq!(draft.page_size, PdfPageSize::A4);
+        assert!(draft.theme_patch.is_none());
+    }
+
+    #[test]
+    fn test_create_pdf_draft_with_theme_patch() {
+        use crate::core::documents::pdf::theme_patch::{
+            PalettePatch, RgbPatch, ThemePatch,
+        };
+        let mut store = DraftStore::new();
+        let patch = ThemePatch {
+            palette: Some(PalettePatch {
+                heading: Some(RgbPatch {
+                    r: Some(0.2),
+                    g: Some(0.2),
+                    b: Some(0.8),
+                }),
+                ..PalettePatch::default()
+            }),
+            ..ThemePatch::default()
+        };
+        let id = store.create_pdf_draft(
+            "doc.pdf".to_string(),
+            "D".to_string(),
+            None,
+            Some(patch.clone()),
+        );
+        assert_eq!(store.pdf_theme_patch(&id), Some(&patch));
     }
 
     #[test]
@@ -783,6 +829,7 @@ mod tests {
         let id = store.create_pdf_draft(
             "document.pdf".to_string(),
             "Doc".to_string(),
+            None,
             None,
         );
 
@@ -805,6 +852,7 @@ mod tests {
         let id = store.create_pdf_draft(
             "document.pdf".to_string(),
             "Doc".to_string(),
+            None,
             None,
         );
 
@@ -860,7 +908,7 @@ mod tests {
         store.create_docx_draft("test1.docx".to_string());
         store.create_docx_draft("test2.docx".to_string());
         store.create_pptx_draft("test.pptx".to_string());
-        store.create_pdf_draft("test.pdf".to_string(), "T".to_string(), None);
+        store.create_pdf_draft("test.pdf".to_string(), "T".to_string(), None, None);
 
         let counts = store.get_counts();
         assert_eq!(counts.docx_building, 2);

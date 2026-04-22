@@ -445,6 +445,16 @@ NEVER generate documents via `system_execute_command`. Specifically:
 
 The internal tools produce professional output with embedded fonts, bookmarks, headers/footers, and theme-driven styling. External tools are unnecessary and unsupported. The document will be automatically saved to the artifact store and a download link will appear in the chat.
 
+PDF STYLING: `pdf_start` accepts an optional `theme` object that overrides the bundled defaults. Every field is optional — supply only the knobs the user asked to change. Supported sections:
+- `typography`: `body_font_size_pt` (6–72, default 11), `heading_font_size_pt` (8–96, default 18), `line_leading` (1.0–2.5, default 1.3; use 2.0 for double-spaced).
+- `palette`: RGB triples (each channel in [0,1]) for `text`, `heading`, `code_bg`, `code_text`, `callout_bg`, `callout_border`, `table_header_bg`, `table_border`.
+- `spacing`: `block_gap`, `list_indent_mm`, `block_padding_mm`, `table_cell_padding_mm`.
+- `page_defaults.margin_mm` (5–80, default 20).
+- `decorations`: `header` and `footer` templates (tokens: `{title}`, `{page}`, `{total_pages}`, `{section}`) — pass explicit `null` to drop a strip; `suppress_on_first_page` (boolean); `font_size_pt`; `margin_mm`.
+- `fonts`: filenames from the bundled set — `LiberationSans-Regular.ttf`, `LiberationSans-Bold.ttf`, `LiberationSans-Italic.ttf`, `LiberationMono-Regular.ttf`, `DejaVuSans.ttf`.
+
+Example — pass the following as the pdf_start arguments: filename=invoice.pdf, title=Invoice, theme.typography.body_font_size_pt=13, theme.palette.heading={r:0.1, g:0.2, b:0.8}, theme.decorations.footer='Acme — {page}/{total_pages}'. Out-of-range values are rejected with a descriptive error naming the offending field so you can correct on the next step.
+
 ## BACKUP & ROLLBACK
 
 Before changes: prefer git checkpoint/branch, backup files before risky edits

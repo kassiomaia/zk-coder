@@ -21,7 +21,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::application::tools::pdf::finalize::{render_draft, FinalizeError};
 use crate::infrastructure::tools::documents::pdf::render::{
-    bundled_report_cache, load_report_theme, PrintPdfRenderer,
+    bundled_report_cache, theme_for_draft, PrintPdfRenderer,
 };
 use crate::infrastructure::tools::documents::shared::PdfDraft;
 
@@ -96,7 +96,7 @@ pub async fn render_to_artifact(
             let fonts = bundled_report_cache()
                 .map_err(|e| RenderArtifactError::Render(format!("font cache: {e}")))?;
             let renderer = PrintPdfRenderer::new(fonts);
-            let theme = load_report_theme();
+            let theme = theme_for_draft(&draft);
             let file = std::fs::File::create(&tmp_for_task)?;
             let mut writer = BufWriter::new(file);
             let rt = tokio::runtime::Handle::current();
@@ -175,6 +175,7 @@ mod tests {
                 },
             }],
             page_size: PdfPageSize::A4,
+            theme_patch: None,
             status: DraftStatus::Building,
             created_at: Utc::now(),
             updated_at: Utc::now(),
@@ -217,6 +218,52 @@ mod tests {
         }
         // Drop must not panic when the path doesn't exist.
         assert!(!tmp.exists());
+    }
+
+    #[tokio::test]
+    async fn theme_patch_on_draft_changes_rendered_output() {
+        use crate::core::documents::pdf::theme_patch::{
+            PalettePatch, RgbPatch, ThemePatch, TypographyPatch,
+        };
+
+        let td = tempfile::tempdir().unwrap();
+
+        let baseline = fixture_draft("baseline_theme");
+        let baseline_path = td.path().join("baseline.pdf");
+        let (_, baseline_size) =
+            render_to_artifact(baseline, baseline_path.clone(), CancellationToken::new())
+                .await
+                .expect("baseline renders");
+
+        let mut patched = fixture_draft("patched_theme");
+        patched.theme_patch = Some(ThemePatch {
+            typography: Some(TypographyPatch {
+                body_font_size_pt: Some(18.0),
+                ..TypographyPatch::default()
+            }),
+            palette: Some(PalettePatch {
+                heading: Some(RgbPatch {
+                    r: Some(0.8),
+                    g: Some(0.1),
+                    b: Some(0.1),
+                }),
+                ..PalettePatch::default()
+            }),
+            ..ThemePatch::default()
+        });
+        let patched_path = td.path().join("patched.pdf");
+        let (_, patched_size) =
+            render_to_artifact(patched, patched_path.clone(), CancellationToken::new())
+                .await
+                .expect("patched renders");
+
+        assert!(baseline_size > 0 && patched_size > 0);
+        let baseline_bytes = std::fs::read(&baseline_path).unwrap();
+        let patched_bytes = std::fs::read(&patched_path).unwrap();
+        assert_ne!(
+            baseline_bytes, patched_bytes,
+            "theme patch must change the rendered output"
+        );
     }
 
     #[tokio::test]

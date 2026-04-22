@@ -131,6 +131,7 @@ mod tests {
             title: title.to_string(),
             pages,
             page_size: PdfPageSize::A4,
+            theme_patch: None,
             status: DraftStatus::Building,
             created_at: Utc::now(),
             updated_at: Utc::now(),

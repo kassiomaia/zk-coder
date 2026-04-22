@@ -18,6 +18,7 @@ pub mod metadata;
 pub mod render;
 pub mod section;
 pub mod theme;
+pub mod theme_patch;
 
 pub use block::{Align, Block, InlineRun, InlineStyle, Paragraph};
 pub use document::PdfDocument;
@@ -26,4 +27,8 @@ pub use geometry::{Margins, Orientation, PageGeometry, PageSize};
 pub use metadata::{Lang, Metadata};
 pub use render::{FontRef, PdfRenderer, ProgressSink, RenderError, RenderOutcome, RenderWarning};
 pub use section::{Heading, HeadingLevel, Section};
-pub use theme::{PageDefaults, Palette, Rgb, Spacing, Theme, TypographyScale};
+pub use theme::{Decorations, Fonts, PageDefaults, Palette, Rgb, Spacing, Theme, TypographyScale};
+pub use theme_patch::{
+    DecorationsPatch, FontsPatch, PageDefaultsPatch, PalettePatch, RgbPatch, SpacingPatch,
+    ThemeError, ThemePatch, TypographyPatch,
+};

@@ -305,6 +305,7 @@ mod tests {
             ],
             page_size:
                 crate::infrastructure::tools::documents::shared::draft_store::PdfPageSize::A4,
+            theme_patch: None,
             status:
                 crate::infrastructure::tools::documents::shared::draft_store::DraftStatus::Building,
             created_at: Utc::now(),
@@ -329,6 +330,7 @@ mod tests {
             pages: Vec::new(),
             page_size:
                 crate::infrastructure::tools::documents::shared::draft_store::PdfPageSize::A4,
+            theme_patch: None,
             status:
                 crate::infrastructure::tools::documents::shared::draft_store::DraftStatus::Building,
             created_at: Utc::now(),
