@@ -819,16 +819,18 @@
 
 	function handleConfigureProvider(providerId: string) {
 		selectedProviderId = providerId;
-		// Keep SettingsModal open behind the new modal
+		previousModal = activeModal;
 		activeModal = 'config';
 	}
 
 	function handleConfigSaved() {
-		// Return to SettingsModal
-		activeModal = 'settings';
+		activeModal = previousModal;
+		previousModal = 'closed';
+		selectedProviderId = null;
 	}
 
 	function handleAddCustomProvider() {
+		previousModal = activeModal;
 		activeModal = 'custom-provider';
 	}
 
@@ -906,40 +908,48 @@
 
 <!-- Configuration Modals -->
 {#if configInitialized}
+	<!-- Parent modals first so child modals (declared after) win on both z-index and DOM stacking order -->
+
 	<!-- Providers Modal (shown when no providers configured) -->
 	<ProvidersModal
-		open={activeModal === 'providers'}
+		open={activeModal === 'providers' || previousModal === 'providers'}
 		onclose={handleCloseModal}
 		oncontinue={handleCloseModal}
 		onconfigure={handleConfigureProvider}
 		onaddcustom={handleAddCustomProvider}
 	/>
 
+	<!-- Settings Modal (full settings) -->
+	<SettingsModal
+		open={activeModal === 'settings' || previousModal === 'settings'}
+		onclose={handleCloseModal}
+		onconfigure={handleConfigureProvider}
+		onaddcustom={handleAddCustomProvider}
+		onremoveprovider={handleRemoveProvider}
+	/>
+
+	<!-- Child modals declared after parents: stacked={true} gives z-index+10, and later DOM position is a further guarantee -->
+
 	<!-- Config Modal (for entering API key) -->
 	<ConfigModal
 		open={activeModal === 'config'}
-		onclose={handleCloseModal}
+		onclose={() => { activeModal = previousModal; previousModal = 'closed'; selectedProviderId = null; }}
 		providerId={selectedProviderId}
-		onsaved={handleConfigSaved}
+		onsaved={() => {
+			const returnModal = previousModal;
+			handleConfigSaved();
+			previousModal = returnModal;
+		}}
 	/>
 
 	<!-- Custom Provider Modal -->
 	<CustomProviderModal
 		open={activeModal === 'custom-provider'}
-		onclose={() => (activeModal = 'providers')}
+		onclose={() => { activeModal = previousModal; previousModal = 'closed'; }}
 		onsaved={(providerId: string) => {
 			selectedProviderId = providerId;
 			activeModal = 'config';
 		}}
-	/>
-
-	<!-- Settings Modal (full settings) -->
-	<SettingsModal
-		open={activeModal === 'settings'}
-		onclose={handleCloseModal}
-		onconfigure={handleConfigureProvider}
-		onaddcustom={handleAddCustomProvider}
-		onremoveprovider={handleRemoveProvider}
 	/>
 {/if}
 
