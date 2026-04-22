@@ -1,19 +1,24 @@
 //! Context compaction policies (V1 and V2) and their orchestration.
 //!
-//! Owns the runtime-facing entry points (`maybe_compact_context`,
-//! `apply_context_policy_v2`), the deterministic block extractors that
-//! feed them, and the helper that selects between the typed
-//! `MemorizedFailure` overlay and the legacy context-scan fallback.
+//! Owns the `apply_context_policy_v2` runtime-facing entry point, the
+//! deterministic block extractors that feed it, and the helper that
+//! selects between the typed `MemorizedFailure` overlay and the legacy
+//! context-scan fallback.
+//!
+//! The V1 policy (token-threshold compaction) now lives behind the
+//! `ContextCompactionStrategy` trait — see
+//! `strategies::token_threshold::TokenThresholdStrategy`.
 
 use serde_json::Value as JsonValue;
 
+use crate::core::agent::context::{CompactionDetails, ContextPackOutcome};
 use crate::core::llm::entities::{ChatMessage as Message, MessageRole};
 
 use super::budget::{
     adaptive_compression_threshold, estimate_context_tokens, estimate_message_tokens,
     estimate_text_tokens, model_context_window, BUDGET_ACTIVE_SUBTASK_TOKENS,
     BUDGET_FAILURE_MEMORY_TOKENS, BUDGET_FILE_RELEVANCE_TOKENS, BUDGET_RECENT_DIALOGUE_TOKENS,
-    BUDGET_TASK_SUMMARY_TOKENS, KEEP_RECENT_MESSAGES, KEEP_RECENT_TAIL_MESSAGES,
+    BUDGET_TASK_SUMMARY_TOKENS, KEEP_RECENT_TAIL_MESSAGES,
 };
 use super::failure::{select_failure_memory_body, MemorizedFailure};
 use super::render::{
@@ -27,37 +32,6 @@ pub const MIN_SAVINGS_TOKENS: usize = 200;
 pub const MIN_SAVINGS_RATIO: f64 = 0.05;
 /// Forced packing is skipped when context usage is below this ratio of the window.
 pub const TINY_CONTEXT_RATIO: f64 = 0.10;
-
-/// Categorization of the outcome of a context packing pass.
-///
-/// This distinguishes meaningful compaction from benign reorganization,
-/// so callers can decide whether to surface the change to the user.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ContextPackOutcome {
-    /// Packing produced a measurable token reduction.
-    Compacted,
-    /// Packing changed the context structure but did not reduce tokens meaningfully.
-    Reorganized,
-    /// Packing produced no change in counts or tokens.
-    Unchanged,
-}
-
-/// Details about context compaction.
-#[derive(Debug, Clone)]
-pub struct CompactionDetails {
-    /// Qualitative outcome of the packing pass.
-    pub outcome: ContextPackOutcome,
-    /// Number of messages before compaction.
-    pub before_count: usize,
-    /// Number of messages after compaction.
-    pub after_count: usize,
-    /// Estimated tokens before compaction.
-    pub before_tokens: usize,
-    /// Estimated tokens after compaction.
-    pub after_tokens: usize,
-    /// Whether reinjection of context is needed.
-    pub needs_reinjection: bool,
-}
 
 /// Inputs for ContextPolicyV2 deterministic packing.
 #[derive(Debug, Clone, Default)]
@@ -95,7 +69,7 @@ pub struct ContextPolicyInput {
 }
 
 /// Classifies a packing pass by comparing before/after counts and tokens.
-pub(super) fn classify_outcome(
+pub(in crate::infrastructure::agent::runtime::context) fn classify_outcome(
     before_tokens: usize,
     after_tokens: usize,
     before_count: usize,
@@ -115,65 +89,6 @@ pub(super) fn classify_outcome(
     } else {
         ContextPackOutcome::Reorganized
     }
-}
-
-/// Compacts the message context if it exceeds the compression threshold.
-///
-/// Returns `Some` with compaction details if compaction was performed,
-/// `None` if the context was below the threshold.
-///
-/// # Algorithm
-///
-/// 1. Preserve the first message (usually system prompt)
-/// 2. Keep the most recent messages
-/// 3. Remove old messages in between
-pub fn maybe_compact_context(context: &mut Vec<Message>, model_name: &str) -> Option<CompactionDetails> {
-    let before_count = context.len();
-    let before_tokens = estimate_context_tokens(context);
-
-    // Calculate if we need compaction
-    let effective_window = model_context_window(model_name);
-    let threshold = adaptive_compression_threshold(model_name);
-    let usage_ratio = before_tokens as f64 / effective_window as f64;
-    if usage_ratio < threshold {
-        return None;
-    }
-
-    // Compact: keep first message + recent messages
-    if before_count <= KEEP_RECENT_MESSAGES + 1 {
-        return None;
-    }
-
-    let mut new_context = Vec::new();
-
-    // Always keep the first message (usually system prompt)
-    if let Some(first) = context.first() {
-        new_context.push(first.clone());
-    }
-
-    if let Some(summary) = build_compaction_summary(context) {
-        new_context.push(summary);
-    }
-
-    // Keep the most recent messages
-    let recent_start = before_count.saturating_sub(KEEP_RECENT_MESSAGES);
-    for msg in context.iter().skip(recent_start) {
-        new_context.push(msg.clone());
-    }
-
-    let after_count = new_context.len();
-    let after_tokens = estimate_context_tokens(&new_context);
-
-    *context = new_context;
-
-    Some(CompactionDetails {
-        outcome: classify_outcome(before_tokens, after_tokens, before_count, after_count),
-        before_count,
-        after_count,
-        before_tokens,
-        after_tokens,
-        needs_reinjection: true, // Always signal for re-injection after compaction
-    })
 }
 
 /// Applies ContextPolicyV2 deterministic packing when context is large or explicitly forced.
@@ -335,7 +250,9 @@ pub fn apply_context_policy_v2(
     })
 }
 
-pub(super) fn build_compaction_summary(context: &[Message]) -> Option<Message> {
+pub(in crate::infrastructure::agent::runtime::context) fn build_compaction_summary(
+    context: &[Message],
+) -> Option<Message> {
     let task_goal = extract_task_goal(context);
     let (subtasks, active_index) = extract_plan_subtasks(context);
     let file_actions = extract_recent_file_actions(context, 3);

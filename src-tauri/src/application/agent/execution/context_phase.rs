@@ -3,33 +3,46 @@
 //! This module is responsible for preparing the context for the LLM call,
 //! which includes summarizing the current subtask, managing the context window,
 //! performing retrieval passes, and deriving the system prompt.
+//!
+//! Two concerns that used to crowd this module have been extracted:
+//!
+//! - [`resolution`] — memory-refresh triggers, retrieval pass, drop
+//!   identification, and compaction trace + event recording.
+//! - [`projection`] — builders that turn durable state into the
+//!   value objects consumed by the context policy
+//!   (`ExecutionBrief`, `MemoryReference`).
+//!
+//! The helpers those submodules expose are re-used here only; the
+//! public entry point for the phase remains [`resolve_context`].
 
 use log::info;
 use serde_json::json;
-use tauri::Emitter;
 
 use super::deps::ExecutionDeps;
-use super::memory_refresh::{
-    apply_memory_refresh, MemoryMutation, MemoryRefreshTrigger, RETRIEVAL_BURST_THRESHOLD,
-};
+use super::memory_refresh::RETRIEVAL_BURST_THRESHOLD;
 use super::state::{ExecutionContext, ResolvedContext};
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::AgentRequest;
-use crate::core::llm::entities::{ToolCall, ToolDefinition};
-use crate::infrastructure::agent::events::{AgentEvent, ContextCompactionReason, AGENT_EVENT_NAME};
-use crate::core::agent::session::SessionId;
+use crate::core::llm::entities::ToolDefinition;
+use crate::infrastructure::agent::registry::SystemPromptBuilder;
 use crate::infrastructure::agent::runtime::context::{
     adaptive_compression_threshold, apply_context_policy_v2, estimate_context_tokens,
-    maybe_compact_context, model_context_window, CompactionDetails,
-    ContextPackOutcome, ContextPolicyInput, ExecutionBrief, MemorizedFailure, MemoryReference,
+    maybe_compact_context, model_context_window, ContextPackOutcome, ContextPolicyInput,
 };
-use crate::infrastructure::llm::LlmClient;
-use crate::infrastructure::agent::registry::SystemPromptBuilder;
 use crate::infrastructure::agent::runtime::{
     derive_system_prompt, AgentRuntimeError, SubtaskSummary,
 };
-use crate::infrastructure::tools::context::ToolExecutionContext;
+use crate::infrastructure::llm::LlmClient;
+
+mod projection;
+mod resolution;
+
+use projection::{build_execution_brief, lookup_memory_reference};
+use resolution::{
+    identify_messages_to_drop, maybe_fire_compaction_boundary, maybe_fire_retrieval_burst,
+    maybe_fire_subtask_completed, record_compaction, run_retrieval_pass,
+};
 
 /// Resolves the context for the current step of the execution.
 ///
@@ -75,50 +88,46 @@ pub async fn resolve_context(
     // stay stable across subtask transitions (M2.2).
     let loaded_subtasks: Vec<crate::core::agent::task::SubTask> =
         deps.task_repo.get_subtasks(&ctx.task_id).unwrap_or_default();
-    let (
-        current_subtask_summary,
-        current_subtask_id,
-        allowed_tool_names,
-        all_subtasks_completed,
-    ) = if loaded_subtasks.is_empty() {
-        (None, None, None, false)
-    } else {
-        let total = loaded_subtasks.len();
-        if let Some(current) = loaded_subtasks
-            .iter()
-            .find(|st| st.status == crate::core::agent::task::TaskStatus::InProgress)
-        {
-            let summary = SubtaskSummary::from_subtask(current);
-            // `allowed_tools()` returns `None` for FullAccess — that means
-            // "no allowlist enforcement, every registered tool passes". We
-            // forward the Option through to `ctx.current_allowed_tool_names`
-            // so the permission filter in `tool_phase::run_tools` sees
-            // `None` and skips the rejection branch entirely. Restricted
-            // modes produce `Some(Vec<String>)` as before.
-            let allowed = summary.mode.allowed_tools().map(|tools| {
-                tools
-                    .into_iter()
-                    .map(std::string::ToString::to_string)
-                    .collect::<Vec<_>>()
-            });
-            (
-                Some((summary, total)),
-                Some(current.id.clone()),
-                allowed,
-                false,
-            )
+    let (current_subtask_summary, current_subtask_id, allowed_tool_names, all_subtasks_completed) =
+        if loaded_subtasks.is_empty() {
+            (None, None, None, false)
         } else {
-            let all_done = loaded_subtasks.iter().all(|st| {
-                matches!(
-                    st.status,
-                    crate::core::agent::task::TaskStatus::Completed
-                        | crate::core::agent::task::TaskStatus::Failed
-                        | crate::core::agent::task::TaskStatus::Cancelled
+            let total = loaded_subtasks.len();
+            if let Some(current) = loaded_subtasks
+                .iter()
+                .find(|st| st.status == crate::core::agent::task::TaskStatus::InProgress)
+            {
+                let summary = SubtaskSummary::from_subtask(current);
+                // `allowed_tools()` returns `None` for FullAccess — that means
+                // "no allowlist enforcement, every registered tool passes". We
+                // forward the Option through to `ctx.current_allowed_tool_names`
+                // so the permission filter in `tool_phase::run_tools` sees
+                // `None` and skips the rejection branch entirely. Restricted
+                // modes produce `Some(Vec<String>)` as before.
+                let allowed = summary.mode.allowed_tools().map(|tools| {
+                    tools
+                        .into_iter()
+                        .map(std::string::ToString::to_string)
+                        .collect::<Vec<_>>()
+                });
+                (
+                    Some((summary, total)),
+                    Some(current.id.clone()),
+                    allowed,
+                    false,
                 )
-            });
-            (None, None, None, all_done)
-        }
-    };
+            } else {
+                let all_done = loaded_subtasks.iter().all(|st| {
+                    matches!(
+                        st.status,
+                        crate::core::agent::task::TaskStatus::Completed
+                            | crate::core::agent::task::TaskStatus::Failed
+                            | crate::core::agent::task::TaskStatus::Cancelled
+                    )
+                });
+                (None, None, None, all_done)
+            }
+        };
     ctx.current_allowed_tool_names = allowed_tool_names.clone();
 
     let current_order = current_subtask_summary
@@ -366,648 +375,4 @@ pub async fn resolve_context(
         system_prompt,
         active_framing_section,
     })
-}
-
-/// Fires the `SubtaskCompleted` memory-refresh trigger (M3.3) when the
-/// previous subtask id differs from the current one **and** the previous
-/// subtask is now `Completed` on disk. The trigger fires at most once
-/// per completed subtask id — subsequent steps that happen to observe
-/// the same transition skip it via
-/// `ctx.last_completed_subtask_for_memory`.
-fn maybe_fire_subtask_completed(
-    deps: &ExecutionDeps<'_>,
-    ctx: &mut ExecutionContext,
-    previous_subtask_id: Option<&str>,
-    current_subtask_id: Option<&str>,
-    loaded_subtasks: &[crate::core::agent::task::SubTask],
-    current_subtask_title: Option<&str>,
-) {
-    let Some(prev_id) = previous_subtask_id else {
-        return;
-    };
-    if current_subtask_id == Some(prev_id) {
-        return;
-    }
-    if ctx.last_completed_subtask_for_memory.as_deref() == Some(prev_id) {
-        return;
-    }
-    let Some(prev_subtask) = loaded_subtasks.iter().find(|st| st.id == prev_id) else {
-        return;
-    };
-    if prev_subtask.status != crate::core::agent::task::TaskStatus::Completed {
-        return;
-    }
-
-    let trigger = MemoryRefreshTrigger::SubtaskCompleted {
-        subtask_id: prev_subtask.id.clone(),
-        title: prev_subtask.title.clone(),
-        order: prev_subtask.order,
-    };
-    let mutation = MemoryMutation {
-        append_findings: vec![prev_subtask.title.clone()],
-        append_facts: Vec::new(),
-        new_active_plan: current_subtask_title.map(str::to_string),
-    };
-
-    apply_memory_refresh(
-        deps.memory_repo,
-        deps.trace_repo,
-        &ctx.session_id,
-        &ctx.task_id,
-        current_subtask_id,
-        ctx.step_number,
-        &trigger,
-        mutation,
-    );
-    ctx.last_completed_subtask_for_memory = Some(prev_subtask.id.clone());
-}
-
-/// Fires the `RetrievalBurst` memory-refresh trigger (M3.3) once the
-/// per-subtask retrieval counter crosses
-/// `RETRIEVAL_BURST_THRESHOLD`. The mutation appends deduplicated file
-/// paths from the most recent retrieval to `extracted_facts`.
-fn maybe_fire_retrieval_burst(
-    deps: &ExecutionDeps<'_>,
-    ctx: &ExecutionContext,
-    current_subtask_id: Option<&str>,
-    retrieval_snippets: &[String],
-) {
-    let count = ctx.retrieval_count_in_current_subtask;
-    let paths = super::memory_refresh::snippet_paths(retrieval_snippets);
-    let trigger = MemoryRefreshTrigger::RetrievalBurst { count };
-    let mutation = MemoryMutation {
-        append_findings: Vec::new(),
-        append_facts: paths,
-        new_active_plan: None,
-    };
-    apply_memory_refresh(
-        deps.memory_repo,
-        deps.trace_repo,
-        &ctx.session_id,
-        &ctx.task_id,
-        current_subtask_id,
-        ctx.step_number,
-        &trigger,
-        mutation,
-    );
-}
-
-/// Fires the `CompactionBoundary` memory-refresh trigger (M3.3) after a
-/// compaction pass actually reduced the prefix. The mutation only moves
-/// `active_plan` to the currently in-progress subtask title; no
-/// findings/facts are added because the compaction event itself is the
-/// boundary we want to audit.
-fn maybe_fire_compaction_boundary(
-    deps: &ExecutionDeps<'_>,
-    ctx: &ExecutionContext,
-    current_subtask_id: Option<&str>,
-    current_subtask_title: Option<&str>,
-) {
-    let trigger = MemoryRefreshTrigger::CompactionBoundary;
-    let mutation = MemoryMutation {
-        append_findings: Vec::new(),
-        append_facts: Vec::new(),
-        new_active_plan: current_subtask_title.map(str::to_string),
-    };
-    apply_memory_refresh(
-        deps.memory_repo,
-        deps.trace_repo,
-        &ctx.session_id,
-        &ctx.task_id,
-        current_subtask_id,
-        ctx.step_number,
-        &trigger,
-        mutation,
-    );
-}
-
-/// Synthesizes a deterministic `ExecutionBrief` (M4.1) from the current
-/// runtime state. The brief is intentionally derived from durable /
-/// inspectable state (the user's request, the subtask list, the
-/// memorized-failure overlay) rather than a separate stateful cache —
-/// so two calls on the same state produce byte-identical briefs and
-/// `message_prefix_hash` stays stable until the underlying state
-/// actually moves.
-///
-/// Workstream C.2: the `blocker:` field filters through the
-/// subtask-scoped `memorized_failures` overlay so a failure from a
-/// previous subtask does not leak into the active subtask's brief.
-/// Only entries whose `subtask_id == current_subtask_id` or unscoped
-/// entries are eligible; the most recent eligible entry wins.
-///
-/// Workstream D.1 (interim, pre-B): the `next:` field is hidden
-/// unconditionally. The contract-driven transition-readiness gate
-/// arrives with Workstream B; until then, surfacing the next subtask
-/// title only encouraged lookahead blending (P4 in
-/// `docs/planning/agent-fidelity/plan.md`).
-fn build_execution_brief(
-    request_content: &str,
-    active_subtask_title: Option<&str>,
-    loaded_subtasks: &[crate::core::agent::task::SubTask],
-    memorized_failures: &[MemorizedFailure],
-    current_subtask_id: Option<&str>,
-) -> ExecutionBrief {
-    const RECENTLY_COMPLETED_LIMIT: usize = 3;
-
-    let mut completed: Vec<(i32, String)> = loaded_subtasks
-        .iter()
-        .filter(|st| st.status == crate::core::agent::task::TaskStatus::Completed)
-        .map(|st| (st.order, st.title.clone()))
-        .collect();
-    completed.sort_by_key(|(order, _)| *order);
-    let skip = completed.len().saturating_sub(RECENTLY_COMPLETED_LIMIT);
-    let recently_completed: Vec<String> = completed
-        .into_iter()
-        .skip(skip)
-        .map(|(_, title)| title)
-        .collect();
-
-    // D.1 — `next:` is hidden unconditionally (interim pre-B). The
-    // field stays on `ExecutionBrief` so Workstream B can re-enable it
-    // once a contract-aware transition-readiness check exists without a
-    // struct migration.
-    let next_intended_action: Option<String> = None;
-
-    let current_blocker = memorized_failures
-        .iter()
-        .rev()
-        .find(|entry| match (entry.subtask_id.as_deref(), current_subtask_id) {
-            (None, _) => true,
-            (Some(entry_id), Some(current_id)) => entry_id == current_id,
-            (Some(_), None) => false,
-        })
-        .map(|entry| {
-            format!(
-                "{class}: {tool}",
-                class = blocker_class_label(&entry.record),
-                tool = entry.record.tool_name,
-            )
-        });
-
-    ExecutionBrief {
-        task_goal: request_content.to_string(),
-        active_subtask: active_subtask_title.map(str::to_string),
-        recently_completed,
-        next_intended_action,
-        current_blocker,
-    }
-}
-
-/// Short label used by the execution brief's `current_blocker` line.
-/// Kept narrow on purpose — the M4.2 failure-memory block carries the
-/// full structured breakdown, so the brief only needs a pointer.
-fn blocker_class_label(
-    record: &crate::infrastructure::agent::runtime::context::FailureRecord,
-) -> &'static str {
-    record.class.label()
-}
-
-/// Loads the durable session memory (if any) and condenses it into a
-/// `MemoryReference` suitable for inlining in the packed context. The
-/// reference carries only counts + short truncated strings so the block
-/// stays within its token budget even when the memory body grows
-/// unbounded (M3.2).
-fn lookup_memory_reference(
-    deps: &ExecutionDeps<'_>,
-    session_id: &str,
-) -> Option<MemoryReference> {
-    let session_id = SessionId::from(session_id);
-    match deps.memory_repo.get_memory(&session_id) {
-        Ok(Some(memory)) => Some(MemoryReference {
-            session_id: memory.session_id.0.clone(),
-            task_goal: memory.task_goal.clone(),
-            active_plan: memory.active_plan.clone(),
-            completed_findings_count: memory.completed_findings.len(),
-            open_questions_count: memory.open_questions.len(),
-            extracted_facts_count: memory.extracted_facts.len(),
-            updated_at_rfc3339: memory.updated_at.to_rfc3339(),
-        }),
-        Ok(None) => None,
-        Err(err) => {
-            log::warn!(
-                "[AgentRuntime] Failed to load session memory for {session_id}: {err}",
-                session_id = session_id
-            );
-            None
-        }
-    }
-}
-
-async fn run_retrieval_pass(
-    deps: &ExecutionDeps<'_>,
-    session: &AgentSession,
-    request_content: &str,
-    active_subtask_title: Option<&str>,
-) -> Vec<String> {
-    let query = build_retrieval_query(request_content, active_subtask_title);
-    if query.is_empty() {
-        return Vec::new();
-    }
-
-    let call = ToolCall {
-        id: uuid::Uuid::new_v4().to_string(),
-        name: "search_grep".to_string(),
-        arguments: json!({
-            "query": query,
-            "max_results": 12,
-            "case_sensitive": false
-        }),
-    };
-    let context = ToolExecutionContext::new(&session.conversation_id)
-        .with_thread(session.thread_id.clone())
-        .with_session(session.id.0.clone());
-    let context = if let Some(workspace) = &session.workspace_root {
-        context.with_workspace(workspace.clone())
-    } else {
-        context
-    };
-
-    let result = deps
-        .tool_registry
-        .execute(call, context, deps.app_handle.clone())
-        .await;
-    if result.is_error {
-        return Vec::new();
-    }
-
-    result
-        .output
-        .get("matches")
-        .and_then(|value| value.as_array())
-        .map(|matches| {
-            matches
-                .iter()
-                .take(8)
-                .filter_map(|m| {
-                    let path = m.get("path").and_then(|value| value.as_str())?;
-                    let line = m
-                        .get("line")
-                        .and_then(serde_json::Value::as_u64)
-                        .unwrap_or(0);
-                    let text = m.get("text").and_then(|value| value.as_str()).unwrap_or("");
-                    Some(format!("{path}:{line} {text}", text = text.trim()))
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default()
-}
-
-fn build_retrieval_query(request_content: &str, active_subtask_title: Option<&str>) -> String {
-    let mut raw = String::new();
-    raw.push_str(request_content);
-    raw.push(' ');
-    if let Some(title) = active_subtask_title {
-        raw.push_str(title);
-    }
-
-    let stop_words = [
-        "the", "and", "for", "with", "this", "that", "from", "into", "about", "please", "would",
-        "should", "could", "must", "task",
-    ];
-    let mut keywords = Vec::new();
-    for token in raw.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '-') {
-        let token = token.trim().to_lowercase();
-        if token.len() < 4
-            || stop_words.contains(&token.as_str())
-            || keywords.iter().any(|existing| existing == &token)
-        {
-            continue;
-        }
-        keywords.push(token);
-        if keywords.len() >= 8 {
-            break;
-        }
-    }
-
-    keywords.join(" ")
-}
-
-/// Identifies messages that would be dropped by ContextPolicyV2.
-///
-/// Returns messages beyond the recent tail (excluding the system prompt at index 0).
-fn identify_messages_to_drop(context: &[crate::core::llm::entities::ChatMessage]) -> Vec<crate::core::llm::entities::ChatMessage> {
-    const KEEP_RECENT_TAIL_MESSAGES: usize = 12;
-    let tail_start = context.len().saturating_sub(KEEP_RECENT_TAIL_MESSAGES + 4);
-    if tail_start > 1 {
-        context[1..tail_start].to_vec()
-    } else {
-        Vec::new()
-    }
-}
-
-/// Whether a compaction pass should surface as a user-visible chat notice.
-///
-/// Only genuine reductions triggered by token pressure are shown. Forced
-/// subtask-transition repacks and no-op reorganizations are kept as traces.
-fn should_emit_compaction_event(details: &CompactionDetails, triggered_by_token_limit: bool) -> bool {
-    matches!(details.outcome, ContextPackOutcome::Compacted)
-        && triggered_by_token_limit
-        && details.after_tokens < details.before_tokens
-}
-
-/// Records a compaction pass: always appends a trace; optionally emits
-/// the user-visible `ContextCompacted` event when [`should_emit_compaction_event`] agrees.
-fn record_compaction(
-    deps: &ExecutionDeps<'_>,
-    ctx: &ExecutionContext,
-    session: &AgentSession,
-    current_subtask_id: Option<&str>,
-    strategy: &'static str,
-    triggered_by_token_limit: bool,
-    details: &CompactionDetails,
-) {
-    let outcome_label = match details.outcome {
-        ContextPackOutcome::Compacted => "compacted",
-        ContextPackOutcome::Reorganized => "reorganized",
-        ContextPackOutcome::Unchanged => "unchanged",
-    };
-    let reason_label = if triggered_by_token_limit {
-        "token_limit"
-    } else {
-        "subtask_transition"
-    };
-
-    let _ = deps.tracer().append_trace(
-        &ctx.session_id,
-        &ctx.task_id,
-        current_subtask_id,
-        ctx.step_number,
-        RuntimeTraceType::ContextPolicyEvaluated,
-        json!({
-            "strategy": strategy,
-            "outcome": outcome_label,
-            "reason": reason_label,
-            "beforeCount": details.before_count,
-            "afterCount": details.after_count,
-            "beforeTokens": details.before_tokens,
-            "afterTokens": details.after_tokens,
-        }),
-    );
-
-    if should_emit_compaction_event(details, triggered_by_token_limit) {
-        let _ = deps.app_handle.emit(
-            AGENT_EVENT_NAME,
-            AgentEvent::ContextCompacted {
-                session_id: ctx.session_id.clone(),
-                conversation_id: session.conversation_id.clone(),
-                reason: ContextCompactionReason::TokenLimit,
-                before_count: details.before_count,
-                after_count: details.after_count,
-                before_tokens: details.before_tokens,
-                after_tokens: details.after_tokens,
-                timestamp: chrono::Utc::now(),
-            },
-        );
-    } else {
-        log::debug!(
-            "[AgentRuntime] context pack outcome={outcome_label} reason={reason_label} strategy={strategy} \
-             before_tokens={} after_tokens={}",
-            details.before_tokens,
-            details.after_tokens,
-        );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn sample_details(outcome: ContextPackOutcome, before: usize, after: usize) -> CompactionDetails {
-        CompactionDetails {
-            outcome,
-            before_count: 20,
-            after_count: 15,
-            before_tokens: before,
-            after_tokens: after,
-            needs_reinjection: true,
-        }
-    }
-
-    #[test]
-    fn emits_only_when_compacted_and_token_limit_driven() {
-        let details = sample_details(ContextPackOutcome::Compacted, 10_000, 4_000);
-        assert!(should_emit_compaction_event(&details, true));
-    }
-
-    #[test]
-    fn suppresses_when_outcome_is_reorganized() {
-        let details = sample_details(ContextPackOutcome::Reorganized, 1_000, 1_000);
-        assert!(!should_emit_compaction_event(&details, true));
-    }
-
-    #[test]
-    fn suppresses_when_outcome_is_unchanged() {
-        let details = sample_details(ContextPackOutcome::Unchanged, 800, 800);
-        assert!(!should_emit_compaction_event(&details, true));
-    }
-
-    #[test]
-    fn suppresses_subtask_transition_even_when_compacted() {
-        let details = sample_details(ContextPackOutcome::Compacted, 10_000, 4_000);
-        assert!(!should_emit_compaction_event(&details, false));
-    }
-
-    #[test]
-    fn suppresses_when_after_tokens_not_lower() {
-        let details = sample_details(ContextPackOutcome::Compacted, 4_000, 4_000);
-        assert!(!should_emit_compaction_event(&details, true));
-    }
-
-    // ------------------------------------------------------------------
-    // Workstream C.1 + C.2 — subtask-scoped failure memory in the
-    // execution brief's `current_blocker` field. The overlay stores
-    // failures with the subtask id that was active at record time; the
-    // brief filters to entries matching the current subtask (or
-    // unscoped).
-    //
-    // Workstream D.1 — `next:` line hidden unconditionally (interim
-    // pre-B). The field remains on `ExecutionBrief`, but
-    // `build_execution_brief` always returns `None` for it.
-    // ------------------------------------------------------------------
-
-    use crate::core::agent::task::{SubTask, SubTaskMode, TaskStatus};
-    use crate::infrastructure::agent::runtime::context::{
-        FailureClass, FailureRecord, MemorizedFailure,
-    };
-
-    fn sample_failure(tool_name: &str, class: FailureClass) -> FailureRecord {
-        FailureRecord {
-            tool_name: tool_name.to_string(),
-            args_fingerprint: "deadbeef".to_string(),
-            class,
-            message: "bounded error".to_string(),
-            repeat_detected: false,
-        }
-    }
-
-    fn sample_subtask(id: &str, title: &str, order: i32, status: TaskStatus) -> SubTask {
-        let mut st = SubTask::new(
-            "task-1".to_string(),
-            title.to_string(),
-            SubTaskMode::Write,
-            order,
-        );
-        st.id = id.to_string();
-        st.status = status;
-        st
-    }
-
-    #[test]
-    fn brief_blocker_filters_failures_from_previous_subtask() {
-        // Replay of the 2026-04-18 trace sequence (plan.md P3):
-        // subtask-2 records an fs_read_file file_not_found failure;
-        // the task advances to subtask-3; subtask-3's brief must not
-        // mention the subtask-2 blocker.
-        let memorized = vec![MemorizedFailure {
-            subtask_id: Some("subtask-2".to_string()),
-            record: sample_failure("fs_read_file", FailureClass::FileNotFound),
-        }];
-        let subtasks = vec![
-            sample_subtask("subtask-2", "read repo", 1, TaskStatus::Completed),
-            sample_subtask("subtask-3", "write draft", 2, TaskStatus::InProgress),
-        ];
-
-        let brief = build_execution_brief(
-            "create release communication files",
-            Some("write draft"),
-            &subtasks,
-            &memorized,
-            Some("subtask-3"),
-        );
-
-        assert!(
-            brief.current_blocker.is_none(),
-            "subtask-2 failure must not leak into subtask-3's brief; got {:?}",
-            brief.current_blocker,
-        );
-    }
-
-    #[test]
-    fn brief_blocker_surfaces_failure_from_current_subtask() {
-        let memorized = vec![MemorizedFailure {
-            subtask_id: Some("subtask-3".to_string()),
-            record: sample_failure("fs_write_file", FailureClass::PermissionDenied),
-        }];
-        let subtasks = vec![sample_subtask(
-            "subtask-3",
-            "write draft",
-            2,
-            TaskStatus::InProgress,
-        )];
-
-        let brief = build_execution_brief(
-            "goal",
-            Some("write draft"),
-            &subtasks,
-            &memorized,
-            Some("subtask-3"),
-        );
-
-        let blocker = brief.current_blocker.expect("blocker must surface");
-        assert!(blocker.contains("permission_denied"), "got {blocker}");
-        assert!(blocker.contains("fs_write_file"), "got {blocker}");
-    }
-
-    #[test]
-    fn brief_blocker_surfaces_unscoped_failures_in_any_subtask() {
-        let memorized = vec![MemorizedFailure {
-            subtask_id: None,
-            record: sample_failure("search_grep", FailureClass::Timeout),
-        }];
-        let subtasks = vec![sample_subtask(
-            "subtask-7",
-            "review",
-            0,
-            TaskStatus::InProgress,
-        )];
-
-        let brief = build_execution_brief(
-            "goal",
-            Some("review"),
-            &subtasks,
-            &memorized,
-            Some("subtask-7"),
-        );
-
-        assert!(brief.current_blocker.is_some());
-    }
-
-    #[test]
-    fn brief_blocker_picks_most_recent_eligible_entry() {
-        // Two failures for the same subtask, latest should win.
-        let memorized = vec![
-            MemorizedFailure {
-                subtask_id: Some("subtask-3".to_string()),
-                record: sample_failure("fs_read_file", FailureClass::FileNotFound),
-            },
-            MemorizedFailure {
-                subtask_id: Some("subtask-3".to_string()),
-                record: sample_failure("fs_write_file", FailureClass::ValidationFailed),
-            },
-        ];
-        let subtasks = vec![sample_subtask(
-            "subtask-3",
-            "write draft",
-            2,
-            TaskStatus::InProgress,
-        )];
-
-        let brief = build_execution_brief(
-            "goal",
-            Some("write draft"),
-            &subtasks,
-            &memorized,
-            Some("subtask-3"),
-        );
-
-        let blocker = brief.current_blocker.expect("blocker must surface");
-        assert!(blocker.contains("validation_failed"), "got {blocker}");
-        assert!(blocker.contains("fs_write_file"), "got {blocker}");
-    }
-
-    #[test]
-    fn brief_next_is_hidden_unconditionally_pre_workstream_b() {
-        // D.1 (interim): even when a pending subtask exists, the brief
-        // must not surface `next:`. The field stays on the struct so
-        // Workstream B can re-enable it with a transition-readiness
-        // gate without a migration.
-        let subtasks = vec![
-            sample_subtask("subtask-1", "active", 0, TaskStatus::InProgress),
-            sample_subtask("subtask-2", "pending next", 1, TaskStatus::Pending),
-        ];
-
-        let brief = build_execution_brief(
-            "goal",
-            Some("active"),
-            &subtasks,
-            &[],
-            Some("subtask-1"),
-        );
-
-        assert!(
-            brief.next_intended_action.is_none(),
-            "D.1: `next:` must be hidden until B lands; got {:?}",
-            brief.next_intended_action,
-        );
-    }
-
-    #[test]
-    fn brief_without_memorized_failures_has_no_blocker() {
-        let subtasks = vec![sample_subtask(
-            "subtask-1",
-            "active",
-            0,
-            TaskStatus::InProgress,
-        )];
-
-        let brief = build_execution_brief(
-            "goal",
-            Some("active"),
-            &subtasks,
-            &[],
-            Some("subtask-1"),
-        );
-
-        assert!(brief.current_blocker.is_none());
-    }
 }

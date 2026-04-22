@@ -4,7 +4,8 @@
 	 * Right-side panel showing agent session state, tasks, files, and terminal output.
 	 * Contains collapsible sections for session management.
 	 */
-	import { invoke } from '@tauri-apps/api/core';
+	import { openAgentTraceWindow } from '$lib/api/agent';
+	import { openFileDiffWindow } from '$lib/api/file';
 	import { agentStore } from '$lib/stores/agent';
 	import SessionTabs from './SessionTabs.svelte';
 	import SessionHistory from './SessionHistory.svelte';
@@ -117,11 +118,7 @@
 	async function handleFileClick(path: string) {
 		if (!session.workspaceRoot) return;
 		try {
-			await invoke('open_file_diff_window', {
-				filePath: path,
-				workspaceRoot: session.workspaceRoot,
-				sessionId: session.id
-			});
+			await openFileDiffWindow(path, session.workspaceRoot, session.id);
 		} catch (error) {
 			log.warn('Failed to open file diff window', error);
 		}
@@ -130,7 +127,7 @@
 	async function openTraceWindow() {
 		if (!import.meta.env.DEV) return;
 		try {
-			await invoke('open_agent_trace_window', { sessionId: session.id });
+			await openAgentTraceWindow(session.id);
 		} catch (error) {
 			log.warn('Failed to open trace window', error);
 		}

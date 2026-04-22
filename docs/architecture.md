@@ -53,7 +53,7 @@ The core layer contains foundational domain entities and interfaces with no depe
 
 **Modules:**
 - `chat/` - Chat domain entities (Conversation, Thread, Message)
-- `agent/` - Agent domain entities (Session, Task, Action)
+- `agent/` - Agent domain entities (Session, Task, Action) and strategy contracts (`agent/context.rs` defines `ContextCompactionStrategy` + `ContextPackOutcome` / `CompactionDetails` / `ContextState` value objects)
 - `config/` - Provider/model configuration domain contracts
 - `llm/` - LLM domain entities (Provider, Model, Message)
 - `nlp/` - NLP domain contracts and context entities
@@ -63,7 +63,20 @@ The core layer contains foundational domain entities and interfaces with no depe
 Service implementations that coordinate business logic.
 
 **Modules:**
-- `agent/` - Agent planning, execution orchestration, and conversions
+- `agent/` - Agent planning, execution orchestration, and conversions. The
+  execution pipeline is split into focused modules under
+  `application/agent/execution/`: `bootstrap`, `context_phase`, `tool_phase`,
+  `response_phase`, `step_gate`, `park`, and `termination`. Both
+  `context_phase` and `termination` are directory modules — their entry
+  files retain the public phase entry point (`resolve_context` /
+  `cancel_execution` + siblings) while dedicated submodules own narrower
+  concerns. `context_phase/resolution.rs` owns memory-refresh triggers,
+  retrieval-pass execution, and compaction recording;
+  `context_phase/projection.rs` owns pure builders that turn durable state
+  into context-policy value objects (`ExecutionBrief`, `MemoryReference`).
+  `termination/streaming.rs` owns `StreamingContent` chunking/emission;
+  `termination/subtasks.rs` owns the subtask state transitions used when a
+  run finishes.
 - `chat/` - Chat orchestration and service logic
 - `llm/` - Provider-agnostic LLM service implementation
 - `nlp/` - NLP orchestration and service logic
@@ -92,6 +105,21 @@ Tauri commands expose backend functionality to the frontend via IPC.
 | `infrastructure/sqlite/` | SQLite migrations and repository implementations |
 | `infrastructure/tools/` | Tool execution, file operations, and document artifacts |
 
+Agent meta-tool dispatch (`agent_plan_subtasks`, `agent_advance_to_next_subtask`, `agent_mark_subtask_status`, `agent_narrate`) runs through a static registry at `infrastructure/agent/runtime/tool_handlers/registry.rs`. Every handler module exposes a zero-sized unit struct + `'static` instance implementing the `ToolHandler` trait (`tool_handlers/dispatcher.rs`); the registry is a `OnceLock<HashMap<&'static str, &'static dyn ToolHandler>>` initialised once from an inline array. Adding a new meta-tool is one new handler module plus one entry in that array — no `match` arm to edit in `handle_agent_tool_call`.
+
+Agent SQLite persistence is split by domain (`infrastructure/sqlite/repositories/agent/`). Each core trait is implemented by its own struct over a shared `Arc<Mutex<Connection>>`, so consumers depend only on the interface they need:
+
+| Struct | Traits | File |
+|--------|--------|------|
+| `SqliteSessionRepository` | `SessionRepository` | `mod.rs` |
+| `SqliteTaskRepository` | `TaskRepository` | `task_repo.rs` |
+| `SqliteExecutionRepository` | `ExecutionRepository` + `RuntimeTraceRepository` | `execution_repo.rs` |
+| `SqliteClarificationRepository` | `ClarificationRepository` + `ExecutionCheckpointRepository` | `clarification_repo.rs` |
+| `SqliteMemoryRepository` | `MemoryRepository` | `memory_repo.rs` |
+| `SqliteAgentTelemetryRepository` | `AgentTelemetryRepository` | `telemetry.rs` |
+
+Wiring in `commands/agent/state.rs` builds every repo from the shared connection and hands `AgentRuntime` / `AgentServiceImpl` pre-typed `Arc<dyn …>` objects — the concrete SQLite types never cross into the application layer. Tests that need more than one repo use `infrastructure/sqlite/repositories/agent/test_support::TestAgentRepos`.
+
 ## Frontend Structure
 
 ### Component Organization
@@ -107,6 +135,8 @@ src-ui/src/lib/components/
 └── shared/         # Reusable primitives used across feature modules
 ```
 
+Components never import `@tauri-apps/api/core` directly — every IPC call goes through a typed wrapper in `src-ui/src/lib/api/`, which uses the shared `invokeCommand` / `createInvoker` helpers from `api/core.ts`. That keeps command names, argument shapes, and error classes out of the component layer and puts them behind per-domain modules (`chat`, `config`, `nlp`, `llm`, `file`, `agent`, `artifact`, plus feature-specific ones for web-search, workspace, etc.). Each domain has its own `*ApiError` subclass so callers can `instanceof`-check without conflating unrelated failures.
+
 ### State Management
 
 Svelte 5 runes are used for reactive state management:
@@ -116,6 +146,39 @@ Svelte 5 runes are used for reactive state management:
 - `$effect` - Side effects
 
 Global stores are in `src-ui/src/lib/stores/` for cross-component state sharing.
+
+The chat store (`src-ui/src/lib/stores/chat.ts`) owns a single `writable<ChatState>` but delegates per-domain mutations to sibling factory modules under `src-ui/src/lib/stores/chat/`. Each factory receives `update` / `getState` (and, for NLP, the shared debounced classifier), returns a bag of methods, and the host store spreads those bags into the final store shape:
+
+| Module | Responsibility |
+|---|---|
+| `chat/nlp-methods.ts` | Intent classification, ambiguity detection, and resolution |
+| `chat/conversation-methods.ts` | Conversation CRUD (create / rename / delete / archive / settings / workspace) |
+| `chat/thread-methods.ts` | Simple thread CRUD (resolve / archive / YOLO / delete / rename) |
+| `chat/message-methods.ts` | Message CRUD (add / delete / status / feedback / update / remove transient) |
+| `chat/utility-methods.ts` | Thin helpers (`clearError`, `markThreadRead`, `setThreadWorkspace`) |
+| `chat/llm-handler.ts` | Streaming LLM request lifecycle (validate / init / stream / cancel) |
+| `chat/utils.ts` | Pure helpers — factories (`createNewConversation`, …), `deriveThreadTitle`, `sortThreadsByRecent`, `touchThreadAndConversation` |
+| `chat/derived-stores.ts` | All `derived(...)` exports, built from the host store to avoid circular deps |
+
+Cross-domain orchestration (`initialize`, `selectConversation`, `selectThread`, `createThread`, `sendMessage`, `sendMessageWithLlm`, `cancelLlmStream`, `reset`) stays in `chat.ts` because each method reaches across more than one domain (e.g. thread selection activates an agent session and surfaces a paused-session recovery message). That keeps the split honest — domain modules do not need to know about each other.
+
+#### Agent ↔ chat event bus
+
+The agent store does not call into the chat store. It emits typed events through a standalone pub/sub module at `src-ui/src/lib/stores/agent/eventBus.ts`, and the route shell (`src-ui/src/routes/+page.svelte`) subscribes to convert each event into the appropriate chat-side side-effect (persist an assistant message, append a system notice, attach artifacts, clean up transients, surface agent activity). Handlers register via `agentEventBus.on(event, handler)` — which returns an unsubscribe function — and emitters call `agentEventBus.emit(event, payload)`. The event contract is the `AgentEventMap` discriminated record:
+
+| Event | Meaning |
+|---|---|
+| `execution-complete` | Agent session produced a final assistant message + artifacts |
+| `system-message` | Agent needs a system notice appended to the thread (errors, approvals, narration) |
+| `agent-activity` | Streaming/terminal update for the live agent message bubble |
+| `cleanup-transients` | Session ended — drop any placeholder/streaming messages for it |
+| `persist-assistant-message` | Persist a streamed assistant message once its content is final |
+
+Emitter isolation is enforced inside the bus: `emit` iterates handlers in a `try/catch` so a broken subscriber cannot break sibling subscribers. Multiple handlers per event are supported — new subscribers do not require any change to the agent store.
+
+### Runtime Configuration
+
+Shared runtime constants (stream timeouts, buffering caps, retention windows, debounce intervals) live in `src-ui/src/lib/config/runtime.ts`. Stores and utilities import named constants from this module instead of inlining magic numbers.
 
 ## Data Flow
 

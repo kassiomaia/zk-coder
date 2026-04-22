@@ -1,23 +1,21 @@
-//! Tests for 
+//! Tests for
 //! Extracted into a sibling file during Phase 6 of the permissions-
 //! decomposition refactor to keep the host module under the 800-LoC cap.
 
 use super::*;
-use crate::core::agent::repositories::TaskRepository as _;
-use crate::core::agent::session::{AgentSession, SessionId};
+use crate::core::agent::repositories::TaskRepository;
+use crate::core::agent::session::AgentSession;
 use crate::core::agent::task::{
     AgentRequest, AgentTask, ArtifactKind, ArtifactSpec, SubTask, SubTaskContract, SubTaskMode,
     TaskStatus,
 };
 use crate::core::agent::types::AgentId;
-use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
+use crate::infrastructure::sqlite::repositories::agent::test_support::TestAgentRepos;
+use crate::infrastructure::sqlite::repositories::agent::SqliteTaskRepository;
 use serde_json::{json, Value};
-use std::sync::Arc;
 
-fn make_repo_with_task() -> (Arc<SqliteSessionRepository>, String) {
-    let repo = Arc::new(
-        SqliteSessionRepository::new(":memory:").expect("in-memory repo"),
-    );
+fn make_repos_with_task() -> (TestAgentRepos, String) {
+    let repos = TestAgentRepos::in_memory().expect("in-memory repos");
     let session = AgentSession::new(
         AgentId::new("agent"),
         "Agent".to_string(),
@@ -26,7 +24,8 @@ fn make_repo_with_task() -> (Arc<SqliteSessionRepository>, String) {
         None,
         None,
     );
-    repo.as_ref()
+    repos
+        .session
         .create_session(&session)
         .expect("session create");
     let task = AgentTask::new(
@@ -38,13 +37,12 @@ fn make_repo_with_task() -> (Arc<SqliteSessionRepository>, String) {
         },
     );
     let task_id = task.id.clone();
-    <SqliteSessionRepository as TaskRepository>::create_task(repo.as_ref(), &task)
-        .expect("task create");
-    (repo, task_id)
+    repos.task.create_task(&task).expect("task create");
+    (repos, task_id)
 }
 
 fn persist_skeleton(
-    repo: &SqliteSessionRepository,
+    task_repo: &SqliteTaskRepository,
     task_id: &str,
     titles: &[&str],
 ) -> Vec<SubTask> {
@@ -56,8 +54,7 @@ fn persist_skeleton(
             SubTaskMode::FullAccess,
             idx as i32,
         );
-        <SqliteSessionRepository as TaskRepository>::create_subtask(repo, &subtask)
-            .expect("subtask create");
+        task_repo.create_subtask(&subtask).expect("subtask create");
         created.push(subtask);
     }
     created
@@ -92,16 +89,14 @@ fn contract_for_path(path: &str) -> Value {
 
 #[test]
 fn merge_attaches_contract_and_refines_fields_on_pending_skeleton() {
-    let (repo, task_id) = make_repo_with_task();
-    persist_skeleton(repo.as_ref(), &task_id, &[
+    let (repos, task_id) = make_repos_with_task();
+    persist_skeleton(repos.task.as_ref(), &task_id, &[
         "Investigate auth module",
         "Implement fix",
         "Verify behavior",
     ]);
 
-    let existing =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let existing = repos.task.get_subtasks(&task_id).unwrap();
     let session = make_session();
     let app = tauri::test::mock_app();
     let app_handle = app.handle().clone();
@@ -135,7 +130,7 @@ fn merge_attaches_contract_and_refines_fields_on_pending_skeleton() {
         &model_plan,
         &existing,
         &app_handle,
-        repo.as_ref(),
+        repos.task.as_ref(),
     );
 
     assert!(!result.is_error, "merge should succeed: {:?}", result.output);
@@ -144,9 +139,7 @@ fn merge_attaches_contract_and_refines_fields_on_pending_skeleton() {
     assert_eq!(refined, 3);
     assert_eq!(appended, 0);
 
-    let after =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let after = repos.task.get_subtasks(&task_id).unwrap();
     assert_eq!(after.len(), 3);
     for st in &after {
         assert!(
@@ -171,12 +164,10 @@ fn merge_attaches_contract_and_refines_fields_on_pending_skeleton() {
 
 #[test]
 fn merge_appends_when_model_declares_more_subtasks() {
-    let (repo, task_id) = make_repo_with_task();
-    persist_skeleton(repo.as_ref(), &task_id, &["Plan", "Execute"]);
+    let (repos, task_id) = make_repos_with_task();
+    persist_skeleton(repos.task.as_ref(), &task_id, &["Plan", "Execute"]);
 
-    let existing =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let existing = repos.task.get_subtasks(&task_id).unwrap();
     let session = make_session();
     let app = tauri::test::mock_app();
     let app_handle = app.handle().clone();
@@ -207,15 +198,13 @@ fn merge_appends_when_model_declares_more_subtasks() {
         &model_plan,
         &existing,
         &app_handle,
-        repo.as_ref(),
+        repos.task.as_ref(),
     );
     assert!(!result.is_error, "{:?}", result.output);
     assert_eq!(result.output["appended"], 1);
     assert_eq!(result.output["refined"], 2);
 
-    let after =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let after = repos.task.get_subtasks(&task_id).unwrap();
     assert_eq!(after.len(), 3);
     assert_eq!(after[2].title, "Verify outputs");
     assert!(after[2].contract.is_some());
@@ -223,12 +212,10 @@ fn merge_appends_when_model_declares_more_subtasks() {
 
 #[test]
 fn merge_ignores_extras_when_model_declares_fewer_subtasks() {
-    let (repo, task_id) = make_repo_with_task();
-    persist_skeleton(repo.as_ref(), &task_id, &["A", "B", "C"]);
+    let (repos, task_id) = make_repos_with_task();
+    persist_skeleton(repos.task.as_ref(), &task_id, &["A", "B", "C"]);
 
-    let existing =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let existing = repos.task.get_subtasks(&task_id).unwrap();
     let session = make_session();
     let app = tauri::test::mock_app();
     let app_handle = app.handle().clone();
@@ -247,13 +234,11 @@ fn merge_ignores_extras_when_model_declares_fewer_subtasks() {
         &model_plan,
         &existing,
         &app_handle,
-        repo.as_ref(),
+        repos.task.as_ref(),
     );
     assert!(!result.is_error);
 
-    let after =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let after = repos.task.get_subtasks(&task_id).unwrap();
     assert_eq!(after.len(), 3, "extra skeleton slots must be preserved");
     assert!(
         after[0].contract.is_some(),
@@ -265,18 +250,14 @@ fn merge_ignores_extras_when_model_declares_fewer_subtasks() {
 
 #[test]
 fn merge_refuses_to_redefine_completed_subtask_with_requires_replan() {
-    let (repo, task_id) = make_repo_with_task();
-    let created = persist_skeleton(repo.as_ref(), &task_id, &["Investigate", "Implement"]);
-    <SqliteSessionRepository as TaskRepository>::update_subtask_status(
-        repo.as_ref(),
-        &created[0].id,
-        TaskStatus::Completed,
-    )
-    .unwrap();
+    let (repos, task_id) = make_repos_with_task();
+    let created = persist_skeleton(repos.task.as_ref(), &task_id, &["Investigate", "Implement"]);
+    repos
+        .task
+        .update_subtask_status(&created[0].id, TaskStatus::Completed)
+        .unwrap();
 
-    let existing =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let existing = repos.task.get_subtasks(&task_id).unwrap();
     let session = make_session();
     let app = tauri::test::mock_app();
     let app_handle = app.handle().clone();
@@ -299,7 +280,7 @@ fn merge_refuses_to_redefine_completed_subtask_with_requires_replan() {
         &model_plan,
         &existing,
         &app_handle,
-        repo.as_ref(),
+        repos.task.as_ref(),
     );
     assert!(result.is_error);
     assert_eq!(result.output["requires_replan"], true);
@@ -313,18 +294,14 @@ fn merge_refuses_to_redefine_completed_subtask_with_requires_replan() {
 
 #[test]
 fn merge_refuses_to_append_when_a_completed_subtask_exists() {
-    let (repo, task_id) = make_repo_with_task();
-    let created = persist_skeleton(repo.as_ref(), &task_id, &["First", "Second"]);
-    <SqliteSessionRepository as TaskRepository>::update_subtask_status(
-        repo.as_ref(),
-        &created[0].id,
-        TaskStatus::Completed,
-    )
-    .unwrap();
+    let (repos, task_id) = make_repos_with_task();
+    let created = persist_skeleton(repos.task.as_ref(), &task_id, &["First", "Second"]);
+    repos
+        .task
+        .update_subtask_status(&created[0].id, TaskStatus::Completed)
+        .unwrap();
 
-    let existing =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let existing = repos.task.get_subtasks(&task_id).unwrap();
     let session = make_session();
     let app = tauri::test::mock_app();
     let app_handle = app.handle().clone();
@@ -343,7 +320,7 @@ fn merge_refuses_to_append_when_a_completed_subtask_exists() {
         &model_plan,
         &existing,
         &app_handle,
-        repo.as_ref(),
+        repos.task.as_ref(),
     );
     assert!(result.is_error);
     assert_eq!(result.output["requires_replan"], true);
@@ -351,18 +328,14 @@ fn merge_refuses_to_append_when_a_completed_subtask_exists() {
 
 #[test]
 fn merge_does_not_mutate_completed_subtask_when_shape_matches() {
-    let (repo, task_id) = make_repo_with_task();
-    let created = persist_skeleton(repo.as_ref(), &task_id, &["First", "Second"]);
-    <SqliteSessionRepository as TaskRepository>::update_subtask_status(
-        repo.as_ref(),
-        &created[0].id,
-        TaskStatus::Completed,
-    )
-    .unwrap();
+    let (repos, task_id) = make_repos_with_task();
+    let created = persist_skeleton(repos.task.as_ref(), &task_id, &["First", "Second"]);
+    repos
+        .task
+        .update_subtask_status(&created[0].id, TaskStatus::Completed)
+        .unwrap();
 
-    let existing =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let existing = repos.task.get_subtasks(&task_id).unwrap();
     let session = make_session();
     let app = tauri::test::mock_app();
     let app_handle = app.handle().clone();
@@ -384,13 +357,11 @@ fn merge_does_not_mutate_completed_subtask_when_shape_matches() {
         &model_plan,
         &existing,
         &app_handle,
-        repo.as_ref(),
+        repos.task.as_ref(),
     );
     assert!(!result.is_error, "{:?}", result.output);
 
-    let after =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let after = repos.task.get_subtasks(&task_id).unwrap();
     assert_eq!(after[0].status, TaskStatus::Completed);
     assert!(
         after[0].contract.is_none(),
@@ -401,12 +372,10 @@ fn merge_does_not_mutate_completed_subtask_when_shape_matches() {
 
 #[test]
 fn merge_rejects_malformed_contract_with_structured_error() {
-    let (repo, task_id) = make_repo_with_task();
-    persist_skeleton(repo.as_ref(), &task_id, &["One"]);
+    let (repos, task_id) = make_repos_with_task();
+    persist_skeleton(repos.task.as_ref(), &task_id, &["One"]);
 
-    let existing =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let existing = repos.task.get_subtasks(&task_id).unwrap();
     let session = make_session();
     let app = tauri::test::mock_app();
     let app_handle = app.handle().clone();
@@ -425,7 +394,7 @@ fn merge_rejects_malformed_contract_with_structured_error() {
         &model_plan,
         &existing,
         &app_handle,
-        repo.as_ref(),
+        repos.task.as_ref(),
     );
     assert!(result.is_error);
     let err = result.output.get("error").and_then(Value::as_str).unwrap();
@@ -434,7 +403,7 @@ fn merge_rejects_malformed_contract_with_structured_error() {
 
 #[test]
 fn merge_characterization_7_subtasks_all_gain_contract() {
-    let (repo, task_id) = make_repo_with_task();
+    let (repos, task_id) = make_repos_with_task();
     let skeleton_titles = [
         "Plan architecture and tech stack",
         "Design database schema",
@@ -444,11 +413,9 @@ fn merge_characterization_7_subtasks_all_gain_contract() {
         "Wire up error middleware",
         "Run smoke tests",
     ];
-    persist_skeleton(repo.as_ref(), &task_id, &skeleton_titles);
+    persist_skeleton(repos.task.as_ref(), &task_id, &skeleton_titles);
 
-    let existing =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let existing = repos.task.get_subtasks(&task_id).unwrap();
     let session = make_session();
     let app = tauri::test::mock_app();
     let app_handle = app.handle().clone();
@@ -473,15 +440,13 @@ fn merge_characterization_7_subtasks_all_gain_contract() {
         &model_plan,
         &existing,
         &app_handle,
-        repo.as_ref(),
+        repos.task.as_ref(),
     );
     assert!(!result.is_error, "{:?}", result.output);
     assert_eq!(result.output["appended"], 0);
     assert_eq!(result.output["refined"], 7);
 
-    let after =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let after = repos.task.get_subtasks(&task_id).unwrap();
     assert_eq!(after.len(), 7);
     for st in &after {
         let contract = st
@@ -498,12 +463,10 @@ fn merge_characterization_7_subtasks_all_gain_contract() {
 
 #[test]
 fn merge_not_invoked_leaves_skeleton_contracts_none() {
-    let (repo, task_id) = make_repo_with_task();
-    persist_skeleton(repo.as_ref(), &task_id, &["Only"]);
+    let (repos, task_id) = make_repos_with_task();
+    persist_skeleton(repos.task.as_ref(), &task_id, &["Only"]);
 
-    let subtasks =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let subtasks = repos.task.get_subtasks(&task_id).unwrap();
     assert_eq!(subtasks.len(), 1);
     assert!(
         subtasks[0].contract.is_none(),
@@ -516,8 +479,8 @@ fn merge_not_invoked_leaves_skeleton_contracts_none() {
 fn refine_subtask_round_trip_updates_named_fields_only() {
     use crate::core::agent::repositories::SubTaskRefinement;
 
-    let (repo, task_id) = make_repo_with_task();
-    let created = persist_skeleton(repo.as_ref(), &task_id, &["slot"]);
+    let (repos, task_id) = make_repos_with_task();
+    let created = persist_skeleton(repos.task.as_ref(), &task_id, &["slot"]);
     let slot = &created[0];
 
     let contract = SubTaskContract {
@@ -532,16 +495,9 @@ fn refine_subtask_round_trip_updates_named_fields_only() {
         mode: Some(SubTaskMode::Write),
         contract: Some(contract.clone()),
     };
-    <SqliteSessionRepository as TaskRepository>::refine_subtask(
-        repo.as_ref(),
-        &slot.id,
-        refinement,
-    )
-    .unwrap();
+    repos.task.refine_subtask(&slot.id, refinement).unwrap();
 
-    let after =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let after = repos.task.get_subtasks(&task_id).unwrap();
     assert_eq!(after.len(), 1);
     assert_eq!(after[0].title, "refined title");
     assert_eq!(after[0].description.as_deref(), Some("refined description"));
@@ -552,25 +508,16 @@ fn refine_subtask_round_trip_updates_named_fields_only() {
         description: Some("newer desc".to_string()),
         ..SubTaskRefinement::default()
     };
-    <SqliteSessionRepository as TaskRepository>::refine_subtask(
-        repo.as_ref(),
-        &after[0].id,
-        partial,
-    )
-    .unwrap();
+    repos.task.refine_subtask(&after[0].id, partial).unwrap();
 
-    let after2 =
-        <SqliteSessionRepository as TaskRepository>::get_subtasks(repo.as_ref(), &task_id)
-            .unwrap();
+    let after2 = repos.task.get_subtasks(&task_id).unwrap();
     assert_eq!(after2[0].title, "refined title");
     assert_eq!(after2[0].description.as_deref(), Some("newer desc"));
     assert_eq!(after2[0].mode, SubTaskMode::Write);
     assert_eq!(after2[0].contract.as_ref(), Some(&contract));
 
-    <SqliteSessionRepository as TaskRepository>::refine_subtask(
-        repo.as_ref(),
-        &after[0].id,
-        SubTaskRefinement::default(),
-    )
-    .unwrap();
+    repos
+        .task
+        .refine_subtask(&after[0].id, SubTaskRefinement::default())
+        .unwrap();
 }

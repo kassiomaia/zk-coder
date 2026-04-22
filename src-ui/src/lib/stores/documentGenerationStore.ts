@@ -9,6 +9,7 @@
 import { derived, writable } from 'svelte/store';
 import type { DocumentGenerationJob } from '$lib/utils/documentGenerationTracker';
 import { documentGenerationTracker } from '$lib/utils/documentGenerationTracker';
+import { DOC_GEN_MAX_AGE_MS } from '$lib/config/runtime';
 
 // ============================================================================
 // Types
@@ -91,7 +92,7 @@ function createDocumentGenerationStore() {
 	}
 
 	// Clear old completed jobs
-	function clearOldJobs(maxAgeMs: number = 5 * 60 * 1000) {
+	function clearOldJobs(maxAgeMs: number = DOC_GEN_MAX_AGE_MS) {
 		documentGenerationTracker.clearOldJobs(maxAgeMs);
 		refresh();
 	}

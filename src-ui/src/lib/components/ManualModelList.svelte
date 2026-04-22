@@ -4,7 +4,11 @@
 	 * Displays and manages manually configured models for a provider.
 	 */
 	import styles from './ManualModelList.module.css';
-	import { invoke } from '@tauri-apps/api/core';
+	import {
+		addManualModel,
+		getManualModels,
+		removeManualModel
+	} from '$lib/api/config';
 
 	interface ModelCapabilities {
 		analysis: boolean;
@@ -46,12 +50,9 @@
 		isLoading = true;
 		errorMessage = '';
 		try {
-			const result = await invoke<ManualModelEntry[]>('get_manual_models', {
-				providerId
-			});
-			models = result;
+			models = await getManualModels(providerId);
 		} catch (error) {
-			errorMessage = error as string;
+			errorMessage = error instanceof Error ? error.message : String(error);
 		} finally {
 			isLoading = false;
 		}
@@ -66,12 +67,9 @@
 		isSaving = true;
 		errorMessage = '';
 		try {
-			await invoke('add_manual_model', {
-				request: {
-					providerId,
-					name: newModelName.trim(),
-					capabilities: newCapabilities
-				}
+			await addManualModel(providerId, newModelName.trim(), {
+				...newCapabilities,
+				streaming: true
 			});
 			newModelName = '';
 			newCapabilities = {
@@ -85,7 +83,7 @@
 			showAddDialog = false;
 			await loadModels();
 		} catch (error) {
-			errorMessage = error as string;
+			errorMessage = error instanceof Error ? error.message : String(error);
 		} finally {
 			isSaving = false;
 		}
@@ -98,13 +96,10 @@
 
 		errorMessage = '';
 		try {
-			await invoke('remove_manual_model', {
-				providerId,
-				modelName
-			});
+			await removeManualModel(providerId, modelName);
 			await loadModels();
 		} catch (error) {
-			errorMessage = error as string;
+			errorMessage = error instanceof Error ? error.message : String(error);
 		}
 	}
 

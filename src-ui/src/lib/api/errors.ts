@@ -52,3 +52,17 @@ export class FileApiError extends ApiError {
 		this.name = 'FileApiError';
 	}
 }
+
+export class AgentApiError extends ApiError {
+	constructor(message: string, command: string, cause?: unknown) {
+		super(message, command, cause);
+		this.name = 'AgentApiError';
+	}
+}
+
+export class ArtifactApiError extends ApiError {
+	constructor(message: string, command: string, cause?: unknown) {
+		super(message, command, cause);
+		this.name = 'ArtifactApiError';
+	}
+}

@@ -12,6 +12,7 @@ use log::warn;
 use tauri::{AppHandle, Emitter};
 
 use super::contract_verification::verify_contract_artifacts;
+use super::dispatcher::{ToolHandler, ToolHandlerContext};
 use super::shared::{core_task_to_event_subtask, parse_status};
 use crate::core::agent::repositories::{SessionRepository, TaskRepository};
 use crate::core::agent::session::AgentSession;
@@ -21,6 +22,35 @@ use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::session_scope::RuntimeSessionScope;
 use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
 use crate::infrastructure::tools::OrchestratorToolResult;
+
+/// Zero-sized marker for the `agent_mark_subtask_status` meta-tool.
+pub(super) struct MarkSubtaskStatusHandler;
+
+/// Static instance the registry references so lookups stay allocation-free.
+pub(super) static MARK_SUBTASK_STATUS: MarkSubtaskStatusHandler = MarkSubtaskStatusHandler;
+
+impl ToolHandler for MarkSubtaskStatusHandler {
+    fn name(&self) -> &'static str {
+        "agent_mark_subtask_status"
+    }
+
+    fn handle(
+        &self,
+        call: &ToolCall,
+        ctx: &mut ToolHandlerContext<'_>,
+    ) -> OrchestratorToolResult {
+        handle_mark_subtask_status(
+            call,
+            ctx.session,
+            ctx.task_id,
+            ctx.app_handle,
+            ctx.session_repo,
+            ctx.task_repo,
+            ctx.telemetry_repo,
+            ctx.scope,
+        )
+    }
+}
 
 /// Prefix used on the `description` field of auto-decomposed children
 /// so the repository-based idempotency guard can recognise them.

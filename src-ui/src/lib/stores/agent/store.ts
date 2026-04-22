@@ -9,10 +9,7 @@ import type { AgentState as CoreAgentState } from './state';
 import { createInitialState } from './state';
 import * as Actions from './actions';
 import * as Events from './events';
-import * as Streaming from './streaming';
-import * as Callbacks from './callbacks';
 import * as UiState from './uiState';
-import type { SystemMessagePayload } from './callbacks';
 import { createLogger } from '$lib/utils/logger';
 
 const log = createLogger('agentStore');
@@ -60,38 +57,6 @@ export interface AgentStore {
 	togglePanel(): void;
 	setActiveSession(sessionId: string | null): void;
 	clearError(): void;
-	setExecutionCompleteCallback(
-		callback: (
-			sessionId: string,
-			conversationId: string,
-			threadId: string,
-			content: string,
-			artifacts: import('$lib/types/agent').ArtifactReference[]
-		) => void
-	): void;
-	setSystemMessageCallback(
-		callback: (
-			sessionId: string,
-			conversationId: string,
-			threadId: string,
-			message: SystemMessagePayload
-		) => void
-	): void;
-	setAgentActivityCallback(
-		callback: (conversationId: string, threadId: string, message: Partial<any>) => void
-	): void;
-	setCleanupTransientCallback(
-		callback: (conversationId: string, threadId: string, sessionId: string) => void
-	): void;
-	setPersistAssistantMessageCallback(
-		callback: (
-			sessionId: string,
-			conversationId: string,
-			threadId: string,
-			messageId: string,
-			content: string
-		) => void
-	): void;
 }
 
 /**
@@ -348,70 +313,6 @@ function createAgentStore(): AgentStore {
 		UiState.clearError(update);
 	}
 
-	/**
-	 * Set a callback for execution completion.
-	 */
-	function setExecutionCompleteCallback(
-		callback: (
-			sessionId: string,
-			conversationId: string,
-			threadId: string,
-			content: string,
-			artifacts: import('$lib/types/agent').ArtifactReference[]
-		) => void
-	) {
-		Callbacks.setExecutionCompleteCallback(callback);
-	}
-
-	/**
-	 * Set a callback for system messages.
-	 */
-	function setSystemMessageCallback(
-		callback: (
-			sessionId: string,
-			conversationId: string,
-			threadId: string,
-			message: SystemMessagePayload
-		) => void
-	) {
-		Callbacks.setSystemMessageCallback(callback);
-	}
-
-	/**
-	 * Set a callback for agent activity messages.
-	 */
-	function setAgentActivityCallback(
-		callback: (conversationId: string, threadId: string, message: Partial<any>) => void
-	) {
-		Callbacks.setAgentActivityCallback(callback);
-		// Also initialize streaming with this callback
-		Streaming.initializeStreaming(callback);
-	}
-
-	/**
-	 * Set a callback to clean up transient messages.
-	 */
-	function setCleanupTransientCallback(
-		callback: (conversationId: string, threadId: string, sessionId: string) => void
-	) {
-		Callbacks.setCleanupTransientCallback(callback);
-	}
-
-	/**
-	 * Set a callback to persist streamed assistant messages.
-	 */
-	function setPersistAssistantMessageCallback(
-		callback: (
-			sessionId: string,
-			conversationId: string,
-			threadId: string,
-			messageId: string,
-			content: string
-		) => void
-	) {
-		Callbacks.setPersistAssistantMessageCallback(callback);
-	}
-
 	return {
 		subscribe,
 		initialize,
@@ -438,12 +339,7 @@ function createAgentStore(): AgentStore {
 		getAgent,
 		togglePanel,
 		setActiveSession,
-		clearError,
-		setExecutionCompleteCallback,
-		setSystemMessageCallback,
-		setAgentActivityCallback,
-		setCleanupTransientCallback,
-		setPersistAssistantMessageCallback
+		clearError
 	};
 }
 

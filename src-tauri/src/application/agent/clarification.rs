@@ -497,14 +497,15 @@ pub fn test_serializer() -> &'static std::sync::Mutex<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
+    use crate::infrastructure::sqlite::repositories::agent::test_support::TestAgentRepos;
+    use crate::infrastructure::sqlite::repositories::agent::SqliteClarificationRepository;
     use std::sync::Arc;
 
-    fn with_test_repo() -> Arc<SqliteSessionRepository> {
-        let repo = Arc::new(SqliteSessionRepository::new(":memory:").unwrap());
+    fn with_test_repo() -> Arc<SqliteClarificationRepository> {
+        let repos = TestAgentRepos::in_memory().unwrap();
         // Satisfy the FK on agent_sessions for the sessions our tests touch.
         {
-            let conn = repo.conn.lock().unwrap();
+            let conn = repos.session.conn.lock().unwrap();
             conn.execute(
                 "INSERT INTO agent_sessions (id, agent_id, agent_name, conversation_id, thread_id, state, created_at, updated_at, needs_review)
                  VALUES (?1, 'a', 'Agent', 'c', 't', '{\"type\":\"running\",\"currentStep\":0,\"contextUsage\":0.0}', ?2, ?2, 0)",
@@ -516,8 +517,9 @@ mod tests {
                 rusqlite::params!["session-B", "2026-04-19T00:00:00Z"],
             ).unwrap();
         }
-        init_clarification_store(repo.clone() as Arc<dyn ClarificationRepository>);
-        repo
+        let clarification = repos.clarification.clone();
+        init_clarification_store(clarification.clone() as Arc<dyn ClarificationRepository>);
+        clarification
     }
 
     // ---- Legacy in-memory API ----

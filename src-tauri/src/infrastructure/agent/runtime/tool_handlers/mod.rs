@@ -1,19 +1,27 @@
 //! Per-tool handler implementations for the agent permissions pipeline.
 //!
-//! Each handler module owns one `agent_*` meta-tool. The dispatcher
-//! below picks the right handler by tool name and forwards arguments,
-//! returning `None` when the call is for a regular (non-agent) tool
-//! that the shared `ToolRegistry` should execute.
+//! Each handler module owns one `agent_*` meta-tool and exposes both
+//! the existing free-function entry point (unchanged, for direct
+//! callers) and a zero-sized unit struct implementing
+//! [`dispatcher::ToolHandler`]. The handler instances are held as
+//! `&'static dyn ToolHandler` inside [`registry`] so
+//! [`handle_agent_tool_call`] is a single hash-map lookup plus a
+//! virtual call — no hardcoded `match` arm to edit when a new meta-tool
+//! lands.
 //!
-//! The dispatcher exports the same shape the pre-refactor
-//! `handle_agent_tool_call` used, preserving the public surface.
+//! Returns `None` when the call is for a regular (non-agent) tool that
+//! the shared `ToolRegistry` should execute; callers rely on this
+//! signal to fall through to the generic tool path, so the behaviour
+//! matches the pre-refactor `match _ => None` arm exactly.
 
 pub(crate) mod contract_verification;
 
 mod advance_subtask;
+mod dispatcher;
 mod mark_subtask_status;
 mod narrate;
 mod plan_subtasks;
+mod registry;
 pub(crate) mod shared;
 
 use tauri::AppHandle;
@@ -25,7 +33,9 @@ use crate::infrastructure::agent::runtime::session_scope::RuntimeSessionScope;
 use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
 use crate::infrastructure::tools::OrchestratorToolResult;
 
-/// Dispatches an agent meta-tool call to the matching handler module.
+use dispatcher::ToolHandlerContext;
+
+/// Dispatches an agent meta-tool call to the matching handler.
 /// Returns `None` when the call is not for an agent meta-tool, letting
 /// the caller fall through to the shared `ToolRegistry`.
 #[allow(clippy::too_many_arguments)]
@@ -40,43 +50,16 @@ pub(crate) fn handle_agent_tool_call(
     telemetry_repo: &dyn AgentTelemetryRepository,
     scope: &mut RuntimeSessionScope,
 ) -> Option<OrchestratorToolResult> {
-    match call.name.as_str() {
-        "agent_plan_subtasks" => Some(plan_subtasks::handle_plan_subtasks(
-            call,
-            session,
-            task_id,
-            app_handle,
-            task_repo,
-            telemetry_repo,
-            scope,
-        )),
-        "agent_advance_to_next_subtask" => Some(advance_subtask::handle_advance_subtask(
-            call,
-            session,
-            task_id,
-            app_handle,
-            task_repo,
-            telemetry_repo,
-            scope,
-        )),
-        "agent_mark_subtask_status" => Some(mark_subtask_status::handle_mark_subtask_status(
-            call,
-            session,
-            task_id,
-            app_handle,
-            session_repo,
-            task_repo,
-            telemetry_repo,
-            scope,
-        )),
-        "agent_narrate" => Some(narrate::handle_narrate(
-            call,
-            session,
-            task_id,
-            current_subtask_id,
-            app_handle,
-            telemetry_repo,
-        )),
-        _ => None,
-    }
+    let handler = registry::lookup(call.name.as_str())?;
+    let mut ctx = ToolHandlerContext {
+        session,
+        task_id,
+        current_subtask_id,
+        app_handle,
+        session_repo,
+        task_repo,
+        telemetry_repo,
+        scope,
+    };
+    Some(handler.handle(call, &mut ctx))
 }

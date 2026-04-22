@@ -3,7 +3,7 @@
 	 * Main Page - Chat Interface
 	 * Connected to the real backend via chat store.
 	 */
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { invoke } from '@tauri-apps/api/core';
 	import AppShell from '$lib/components/shell/AppShell.svelte';
@@ -30,6 +30,7 @@
 	import { resolvePersistedAgentContent } from '$lib/utils/agentStreaming';
 	import {
 		agentStore,
+		agentEventBus,
 		activeSession,
 		allSessions,
 		conversationSessions,
@@ -41,6 +42,16 @@
 	import { createLogger } from '$lib/utils/logger';
 
 	const log = createLogger('MainPage');
+
+	// Collected unsubscribe functions returned by `agentEventBus.on(...)` so
+	// every bus listener is detached when the page component is destroyed.
+	const unsubscribeAgentBus: Array<() => void> = [];
+	onDestroy(() => {
+		for (const unsub of unsubscribeAgentBus) {
+			unsub();
+		}
+		unsubscribeAgentBus.length = 0;
+	});
 
 	// App state
 	let appInfo = $state<{ name: string; version: string } | null>(null);
@@ -455,176 +466,194 @@
 			}
 		}
 
-		// Set callback to add assistant message when agent completes execution
-		// Import the API function to persist messages to backend
-		agentStore.setExecutionCompleteCallback(
-			async (sessionId, conversationId, threadId, content, artifacts) => {
-				log.debug('Execution complete callback invoked:', {
-					sessionId,
-					conversationId,
-					threadId,
-					contentLength: content?.length ?? 0,
-					content,
-					artifactCount: artifacts.length
-				});
+		// Subscribe to agent-side events via the typed event bus. Each
+		// `agentEventBus.on(...)` call returns an unsubscribe function; they
+		// are collected so the top-level `onDestroy` handler can detach
+		// every listener when the page tears down.
 
-				try {
-					const streamingMessageId = `streaming-assistant-${sessionId}`;
-					const artifactMetadata = createArtifactMetadata(artifacts);
-					await persistAssistantMessage(
-						streamingMessageId,
+		// Persist the final assistant message emitted when the agent finishes a run.
+		unsubscribeAgentBus.push(
+			agentEventBus.on(
+				'execution-complete',
+				async ({ sessionId, conversationId, threadId, content, artifacts }) => {
+					log.debug('Execution complete event received:', {
+						sessionId,
 						conversationId,
 						threadId,
+						contentLength: content?.length ?? 0,
 						content,
-						artifactMetadata
-					);
-					log.debug('Agent message persisted and added to chatStore:', streamingMessageId);
-				} catch (error) {
-					log.error('Failed to persist agent message:', error);
-					// Still add locally even if backend save fails
-					chatStore.addMessage({
-						id: crypto.randomUUID(),
-						conversationId,
-						threadId,
-						role: 'assistant',
-						content,
-						timestamp: new Date(),
-						status: 'error',
-						metadata: createArtifactMetadata(artifacts)
+						artifactCount: artifacts.length
 					});
-				}
-			}
-		);
-		log.debug('Execution complete callback registered');
 
-		agentStore.setPersistAssistantMessageCallback(
-			async (sessionId, conversationId, threadId, messageId, content) => {
-				log.debug('Persist assistant streaming message callback invoked:', {
-					sessionId,
-					conversationId,
-					threadId,
-					messageId,
-					contentLength: content.length
-				});
-
-				await persistAssistantMessage(messageId, conversationId, threadId, content);
-			}
-		);
-
-		// Set callback to add system messages from agent (e.g., context compaction)
-		agentStore.setSystemMessageCallback(async (sessionId, conversationId, threadId, message) => {
-			log.debug('System message callback invoked:', {
-				sessionId,
-				conversationId,
-				threadId,
-				message
-			});
-
-			try {
-				const { sendMessage } = await import('$lib/api/chat');
-				const savedMessage = await sendMessage({
-					conversationId,
-					threadId,
-					role: message.role,
-					content: message.content
-				});
-
-				// Add to local state
-				chatStore.addMessage({
-					...savedMessage,
-					metadata: {
-						...savedMessage.metadata,
-						...message.metadata
+					try {
+						const streamingMessageId = `streaming-assistant-${sessionId}`;
+						const artifactMetadata = createArtifactMetadata(artifacts);
+						await persistAssistantMessage(
+							streamingMessageId,
+							conversationId,
+							threadId,
+							content,
+							artifactMetadata
+						);
+						log.debug('Agent message persisted and added to chatStore:', streamingMessageId);
+					} catch (error) {
+						log.error('Failed to persist agent message:', error);
+						// Still add locally even if backend save fails
+						chatStore.addMessage({
+							id: crypto.randomUUID(),
+							conversationId,
+							threadId,
+							role: 'assistant',
+							content,
+							timestamp: new Date(),
+							status: 'error',
+							metadata: createArtifactMetadata(artifacts)
+						});
 					}
-				});
-				log.debug('System message persisted and added to chatStore:', savedMessage.id);
-			} catch (error) {
-				log.error('Failed to persist system message:', error);
-				// Still add locally even if backend save fails
-				chatStore.addMessage({
-					id: crypto.randomUUID(),
-					conversationId,
-					threadId,
-					role: message.role,
-					content: message.content,
-					timestamp: new Date(),
-					status: 'error',
-					metadata: message.metadata
-				});
-			}
-		});
-		log.debug('System message callback registered');
+				}
+			)
+		);
 
-		// Set callback to add agent activity messages (thinking, tool_call, terminal, streaming) to chat
-		// These messages show agent progress and the final response
+		// Persist an in-flight streaming assistant message when the stream marks it final.
+		unsubscribeAgentBus.push(
+			agentEventBus.on(
+				'persist-assistant-message',
+				async ({ sessionId, conversationId, threadId, messageId, content }) => {
+					log.debug('Persist assistant streaming message event received:', {
+						sessionId,
+						conversationId,
+						threadId,
+						messageId,
+						contentLength: content.length
+					});
 
-		// Track known message IDs for O(1) lookup instead of O(n) array find
+					await persistAssistantMessage(messageId, conversationId, threadId, content);
+				}
+			)
+		);
+
+		// Persist system messages emitted by the agent (e.g. context compaction notices).
+		unsubscribeAgentBus.push(
+			agentEventBus.on(
+				'system-message',
+				async ({ sessionId, conversationId, threadId, message }) => {
+					log.debug('System message event received:', {
+						sessionId,
+						conversationId,
+						threadId,
+						message
+					});
+
+					try {
+						const { sendMessage } = await import('$lib/api/chat');
+						const savedMessage = await sendMessage({
+							conversationId,
+							threadId,
+							role: message.role,
+							content: message.content
+						});
+
+						// Add to local state
+						chatStore.addMessage({
+							...savedMessage,
+							metadata: {
+								...savedMessage.metadata,
+								...message.metadata
+							}
+						});
+						log.debug('System message persisted and added to chatStore:', savedMessage.id);
+					} catch (error) {
+						log.error('Failed to persist system message:', error);
+						// Still add locally even if backend save fails
+						chatStore.addMessage({
+							id: crypto.randomUUID(),
+							conversationId,
+							threadId,
+							role: message.role,
+							content: message.content,
+							timestamp: new Date(),
+							status: 'error',
+							metadata: message.metadata
+						});
+					}
+				}
+			)
+		);
+
+		// Agent activity messages (thinking, tool_call, terminal, streaming) surface in chat.
+		// Track known message IDs for O(1) lookup instead of O(n) array find.
 		const knownMessageIds = new Set<string>();
 		let messagesLength = 0; // Track length to detect when to rebuild cache
 
-		agentStore.setAgentActivityCallback((conversationId, threadId, messageData) => {
-			const messageId = messageData.id ?? crypto.randomUUID();
+		unsubscribeAgentBus.push(
+			agentEventBus.on('agent-activity', ({ conversationId, threadId, message: messageData }) => {
+				const messageId = messageData.id ?? crypto.randomUUID();
 
-			// Check if message with this ID already exists (for thinking, tool_call, and streaming assistant messages)
-			// These should update in-place rather than creating duplicates
-			if (messageData.id) {
-				// Fast path: check Set cache first
-				let exists = knownMessageIds.has(messageData.id);
+				// Check if message with this ID already exists (for thinking, tool_call, and streaming assistant messages)
+				// These should update in-place rather than creating duplicates
+				if (messageData.id) {
+					// Fast path: check Set cache first
+					let exists = knownMessageIds.has(messageData.id);
 
-				// Slow path: rebuild cache if messages changed (thread switch, etc.)
-				if (!exists || messagesLength !== get(chatStore).messages.length) {
-					const chatState = get(chatStore);
-					messagesLength = chatState.messages.length;
-					// Rebuild cache
-					knownMessageIds.clear();
-					for (const m of chatState.messages) {
-						knownMessageIds.add(m.id);
-					}
-					exists = knownMessageIds.has(messageData.id);
-				}
-
-				if (exists) {
-					const chatState = get(chatStore);
-					const existingMessage = chatState.messages.find((m: Message) => m.id === messageData.id);
-					if (existingMessage) {
-						// Update existing message
-						// For agentData, merge with existing to preserve fields like toolArgs
-						const updates: Partial<Message> = {};
-						if (messageData.content !== undefined) updates.content = messageData.content;
-						if (messageData.status !== undefined) updates.status = messageData.status as any;
-						if (messageData.reasoning !== undefined)
-							updates.reasoning = messageData.reasoning as string;
-						if (messageData.agentData) {
-							// Deep merge agentData to preserve existing fields
-							updates.agentData = {
-								...existingMessage.agentData,
-								...messageData.agentData
-							};
+					// Slow path: rebuild cache if messages changed (thread switch, etc.)
+					if (!exists || messagesLength !== get(chatStore).messages.length) {
+						const chatState = get(chatStore);
+						messagesLength = chatState.messages.length;
+						// Rebuild cache
+						knownMessageIds.clear();
+						for (const m of chatState.messages) {
+							knownMessageIds.add(m.id);
 						}
-						chatStore.updateMessage(messageData.id, updates);
-						return;
+						exists = knownMessageIds.has(messageData.id);
 					}
+
+					if (exists) {
+						const chatState = get(chatStore);
+						const existingMessage = chatState.messages.find(
+							(m: Message) => m.id === messageData.id
+						);
+						if (existingMessage) {
+							// Update existing message
+							// For agentData, merge with existing to preserve fields like toolArgs
+							const updates: Partial<Message> = {};
+							if (messageData.content !== undefined) updates.content = messageData.content;
+							if (messageData.status !== undefined) updates.status = messageData.status as any;
+							if (messageData.reasoning !== undefined)
+								updates.reasoning = messageData.reasoning as string;
+							if (messageData.agentData) {
+								// Deep merge agentData to preserve existing fields
+								updates.agentData = {
+									...existingMessage.agentData,
+									...messageData.agentData
+								};
+							}
+							chatStore.updateMessage(messageData.id, updates);
+							return;
+						}
+					}
+
+					// Add to cache when creating new message
+					knownMessageIds.add(messageData.id);
 				}
 
-				// Add to cache when creating new message
-				knownMessageIds.add(messageData.id);
-			}
-
-			// Create new message if it doesn't exist yet
-			chatStore.addMessage({
-				...messageData,
-				id: messageId,
-				conversationId,
-				threadId,
-				timestamp: messageData.timestamp ?? new Date()
-			} as Message);
-		});
+				// Create new message if it doesn't exist yet
+				chatStore.addMessage({
+					...messageData,
+					id: messageId,
+					conversationId,
+					threadId,
+					timestamp: messageData.timestamp ?? new Date()
+				} as Message);
+			})
+		);
 
 		// Remove transient tool/thinking bubbles after the persistent assistant message lands.
-		agentStore.setCleanupTransientCallback((_conversationId, _threadId, sessionId) => {
-			log.debug('Cleaning up transient messages for session:', sessionId);
-			chatStore.removeTransientMessages(sessionId);
-		});
+		unsubscribeAgentBus.push(
+			agentEventBus.on('cleanup-transients', ({ sessionId }) => {
+				log.debug('Cleaning up transient messages for session:', sessionId);
+				chatStore.removeTransientMessages(sessionId);
+			})
+		);
 
 		// Initialize config store and show providers modal if no providers configured
 		await configStore.initialize();

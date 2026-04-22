@@ -3,12 +3,18 @@ import { createInitialState } from '../state';
 import type { AgentSession } from '$lib/types/agent';
 import { handleToolCall, handleToolResult } from './toolEvents';
 
-const callbackMocks = vi.hoisted(() => ({
-	getOnAgentActivity: vi.fn()
+const busMocks = vi.hoisted(() => ({
+	emit: vi.fn(),
+	on: vi.fn(),
+	clear: vi.fn()
 }));
 
-vi.mock('../callbacks', () => ({
-	getOnAgentActivity: callbackMocks.getOnAgentActivity
+vi.mock('../eventBus', () => ({
+	agentEventBus: {
+		emit: busMocks.emit,
+		on: busMocks.on,
+		clear: busMocks.clear
+	}
 }));
 
 function makeSession(): AgentSession {
@@ -26,14 +32,12 @@ function makeSession(): AgentSession {
 
 describe('toolEvents', () => {
 	beforeEach(() => {
-		callbackMocks.getOnAgentActivity.mockReset();
+		busMocks.emit.mockReset();
 	});
 
 	it('creates an assistant-visible tool activity message for tool_call events', () => {
 		const state = createInitialState();
 		state.sessions.set('session-1', makeSession());
-		const onAgentActivity = vi.fn();
-		callbackMocks.getOnAgentActivity.mockReturnValue(onAgentActivity);
 
 		handleToolCall(state, {
 			type: 'tool_call',
@@ -44,20 +48,24 @@ describe('toolEvents', () => {
 			content: 'Let me read `src/main.ts` and inspect its contents.'
 		});
 
-		expect(onAgentActivity).toHaveBeenCalledWith('conv-1', 'thread-1', {
-			id: 'tool-call-session-1-call-1',
+		expect(busMocks.emit).toHaveBeenCalledWith('agent-activity', {
 			conversationId: 'conv-1',
 			threadId: 'thread-1',
-			role: 'assistant',
-			kind: 'tool_call',
-			content: '',
-			timestamp: expect.any(Date),
-			status: 'sending',
-			agentData: {
-				sessionId: 'session-1',
-				toolName: 'fs_read_file',
-				toolArgs: { path: 'src/main.ts' },
-				toolCallStatus: 'pending'
+			message: {
+				id: 'tool-call-session-1-call-1',
+				conversationId: 'conv-1',
+				threadId: 'thread-1',
+				role: 'assistant',
+				kind: 'tool_call',
+				content: '',
+				timestamp: expect.any(Date),
+				status: 'sending',
+				agentData: {
+					sessionId: 'session-1',
+					toolName: 'fs_read_file',
+					toolArgs: { path: 'src/main.ts' },
+					toolCallStatus: 'pending'
+				}
 			}
 		});
 	});
@@ -65,8 +73,6 @@ describe('toolEvents', () => {
 	it('updates the same assistant-visible tool activity message on tool_result', () => {
 		const state = createInitialState();
 		state.sessions.set('session-1', makeSession());
-		const onAgentActivity = vi.fn();
-		callbackMocks.getOnAgentActivity.mockReturnValue(onAgentActivity);
 
 		handleToolResult(state, {
 			type: 'tool_result',
@@ -78,15 +84,19 @@ describe('toolEvents', () => {
 			content: 'I inspected `src` and found 4 item(s).'
 		});
 
-		expect(onAgentActivity).toHaveBeenCalledWith('conv-1', 'thread-1', {
-			id: 'tool-call-session-1-call-1',
-			status: 'sent',
-			agentData: {
-				sessionId: 'session-1',
-				toolName: 'fs_list_files',
-				toolResult: { path: 'src', count: 4 },
-				toolError: false,
-				toolCallStatus: 'success'
+		expect(busMocks.emit).toHaveBeenCalledWith('agent-activity', {
+			conversationId: 'conv-1',
+			threadId: 'thread-1',
+			message: {
+				id: 'tool-call-session-1-call-1',
+				status: 'sent',
+				agentData: {
+					sessionId: 'session-1',
+					toolName: 'fs_list_files',
+					toolResult: { path: 'src', count: 4 },
+					toolError: false,
+					toolCallStatus: 'success'
+				}
 			}
 		});
 	});

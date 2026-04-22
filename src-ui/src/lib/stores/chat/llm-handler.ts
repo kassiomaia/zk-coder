@@ -19,6 +19,7 @@ import {
 import { configStore } from '../configStore';
 import type { ChatState, LlmRequestOptions, StreamingContext, ThreadStreamingState } from './types';
 import { createLogger } from '$lib/utils/logger';
+import { STREAM_INACTIVITY_TIMEOUT_MS, STREAM_MAX_BUFFERED_EVENTS } from '$lib/config/runtime';
 
 const log = createLogger('llmHandler');
 
@@ -57,11 +58,6 @@ interface StreamEventHandler {
 	onEvent: (event: LlmEvent) => void;
 	bindRequestId: (requestId: string) => void;
 }
-
-// Allow slower providers/models enough time before declaring stream inactivity.
-// Backend/provider request timeouts and explicit cancellation still bound total wait.
-const STREAM_INACTIVITY_TIMEOUT_MS = 150_000;
-const MAX_BUFFERED_EVENTS = 300;
 
 // ============================================================================
 // LLM Handler Class
@@ -566,7 +562,7 @@ export class LlmHandler {
 
 			if (sessionState.expectedRequestId === null) {
 				if (!event.requestId) return;
-				if (sessionState.bufferedEvents.length >= MAX_BUFFERED_EVENTS) {
+				if (sessionState.bufferedEvents.length >= STREAM_MAX_BUFFERED_EVENTS) {
 					sessionState.bufferedEvents.shift();
 				}
 				sessionState.bufferedEvents.push(event);

@@ -8,6 +8,7 @@ use chrono::Utc;
 use log::warn;
 use tauri::{AppHandle, Emitter};
 
+use super::dispatcher::{ToolHandler, ToolHandlerContext};
 use super::shared::{
     core_task_to_event_subtask, detect_code_change_intent, parse_and_validate_framing,
 };
@@ -19,6 +20,35 @@ use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::session_scope::RuntimeSessionScope;
 use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
 use crate::infrastructure::tools::OrchestratorToolResult;
+
+/// Zero-sized marker for the `agent_plan_subtasks` meta-tool. Held as a
+/// `'static` reference by the tool-handler registry.
+pub(super) struct PlanSubtasksHandler;
+
+/// Static instance the registry references so lookups stay allocation-free.
+pub(super) static PLAN_SUBTASKS: PlanSubtasksHandler = PlanSubtasksHandler;
+
+impl ToolHandler for PlanSubtasksHandler {
+    fn name(&self) -> &'static str {
+        "agent_plan_subtasks"
+    }
+
+    fn handle(
+        &self,
+        call: &ToolCall,
+        ctx: &mut ToolHandlerContext<'_>,
+    ) -> OrchestratorToolResult {
+        handle_plan_subtasks(
+            call,
+            ctx.session,
+            ctx.task_id,
+            ctx.app_handle,
+            ctx.task_repo,
+            ctx.telemetry_repo,
+            ctx.scope,
+        )
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn handle_plan_subtasks<R: tauri::Runtime>(

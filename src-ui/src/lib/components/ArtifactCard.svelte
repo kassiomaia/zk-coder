@@ -5,6 +5,7 @@
 	 * Shows icon, filename, size, and download link.
 	 */
 	import styles from './ArtifactCard.module.css';
+	import { downloadArtifact } from '$lib/api/artifacts';
 	import { createLogger } from '$lib/utils/logger';
 
 	const log = createLogger('ArtifactCard');
@@ -84,13 +85,7 @@
 			if (onDownload) {
 				await onDownload(artifact);
 			} else {
-				// Default: invoke Tauri command to download artifact
-				const { invoke } = await import('@tauri-apps/api/core');
-				const [filename, content] = (await invoke('documents_download_artifact', {
-					artifactId: artifact.id
-				})) as [string, number[]];
-
-				// Create blob and trigger download
+				const { filename, content } = await downloadArtifact(artifact.id);
 				const uint8Array = new Uint8Array(content);
 				const blob = new Blob([uint8Array], { type: mimeTypes[artifact.artifactType] });
 				const url = URL.createObjectURL(blob);

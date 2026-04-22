@@ -39,12 +39,20 @@ export type { ConfigState, ValidationState } from './configStore.js';
 // Agent store
 export {
 	agentStore,
+	agentEventBus,
 	activeSession,
 	allSessions,
 	pendingActions,
 	agentPanelOpen,
 	agentLoading,
 	agentError
+} from './agentStore.js';
+export type {
+	AgentEventBus,
+	AgentEventHandler,
+	AgentEventMap,
+	AgentEventName,
+	SystemMessagePayload
 } from './agentStore.js';
 
 // Document generation store

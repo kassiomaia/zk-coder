@@ -80,3 +80,9 @@ export type { WebSearchCacheStats } from './webSearchCache.js';
 
 export { listWorkspaceDir } from './workspace.js';
 export type { WorkspaceDirResponse } from './workspace.js';
+
+// Agent API
+export { AgentApiError, openAgentTraceWindow } from './agent.js';
+
+// Artifact API
+export { ArtifactApiError, downloadArtifact, saveArtifactToPath } from './artifacts.js';

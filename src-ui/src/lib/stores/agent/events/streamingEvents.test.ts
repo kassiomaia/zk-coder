@@ -6,8 +6,13 @@ import { handleStreamingContent } from './streamingEvents';
 
 const streamingMocks = vi.hoisted(() => ({
 	clearStreamingUpdates: vi.fn(),
-	scheduleStreamingUpdate: vi.fn(),
-	getOnPersistAssistantMessage: vi.fn(() => null)
+	scheduleStreamingUpdate: vi.fn()
+}));
+
+const busMocks = vi.hoisted(() => ({
+	emit: vi.fn(),
+	on: vi.fn(),
+	clear: vi.fn()
 }));
 
 vi.mock('../streaming', () => ({
@@ -15,10 +20,12 @@ vi.mock('../streaming', () => ({
 	scheduleStreamingUpdate: streamingMocks.scheduleStreamingUpdate
 }));
 
-vi.mock('../callbacks', () => ({
-	getOnAgentActivity: vi.fn(() => null),
-	getOnSystemMessage: vi.fn(() => null),
-	getOnPersistAssistantMessage: streamingMocks.getOnPersistAssistantMessage
+vi.mock('../eventBus', () => ({
+	agentEventBus: {
+		emit: busMocks.emit,
+		on: busMocks.on,
+		clear: busMocks.clear
+	}
 }));
 
 function makeSession(): AgentSession {
@@ -44,8 +51,7 @@ describe('handleStreamingContent', () => {
 	beforeEach(() => {
 		streamingMocks.clearStreamingUpdates.mockReset();
 		streamingMocks.scheduleStreamingUpdate.mockReset();
-		streamingMocks.getOnPersistAssistantMessage.mockReset();
-		streamingMocks.getOnPersistAssistantMessage.mockReturnValue(null);
+		busMocks.emit.mockReset();
 	});
 
 	it('accumulates non-final chunks sharing the same messageId and schedules throttled updates', () => {
@@ -109,9 +115,7 @@ describe('handleStreamingContent', () => {
 			messageId
 		});
 
-		expect(streamingMocks.clearStreamingUpdates).toHaveBeenCalledWith(
-			`session-1:${messageId}`
-		);
+		expect(streamingMocks.clearStreamingUpdates).toHaveBeenCalledWith(`session-1:${messageId}`);
 		expect(state.sessions.get('session-1')?.streamingMessages).toBeUndefined();
 		expect(streamingMocks.scheduleStreamingUpdate).toHaveBeenLastCalledWith(
 			`session-1:${messageId}`,
@@ -126,8 +130,6 @@ describe('handleStreamingContent', () => {
 
 	it('persists dedicated streamed assistant messages when requested', () => {
 		const state = makeState();
-		const onPersistAssistantMessage = vi.fn();
-		streamingMocks.getOnPersistAssistantMessage.mockReturnValue(onPersistAssistantMessage);
 
 		handleStreamingContent(state, {
 			type: 'streaming_content',
@@ -149,23 +151,21 @@ describe('handleStreamingContent', () => {
 			'sent',
 			true
 		);
-		expect(onPersistAssistantMessage).toHaveBeenCalledWith(
-			'session-1',
-			'conv-1',
-			'thread-1',
-			'streaming-tool-preamble-session-1-1',
-			'Let me inspect the repository structure.'
-		);
+		expect(busMocks.emit).toHaveBeenCalledWith('persist-assistant-message', {
+			sessionId: 'session-1',
+			conversationId: 'conv-1',
+			threadId: 'thread-1',
+			messageId: 'streaming-tool-preamble-session-1-1',
+			content: 'Let me inspect the repository structure.'
+		});
 	});
 
 	// Regression guard for the "subtask summary vanishes on reload" bug. The
 	// backend emits the subtask-result stream with persistMessage: true once the
 	// bug is fixed; this test pins the frontend side of the contract so a future
-	// refactor cannot silently drop the callback invocation for that path.
+	// refactor cannot silently drop the event emission for that path.
 	it('persists subtask-result summaries emitted by the backend', () => {
 		const state = makeState();
-		const onPersistAssistantMessage = vi.fn();
-		streamingMocks.getOnPersistAssistantMessage.mockReturnValue(onPersistAssistantMessage);
 
 		const messageId = 'stream-subtask-result-session-1-task-1-sub-investigate-s3';
 
@@ -180,22 +180,21 @@ describe('handleStreamingContent', () => {
 			persistMessage: true
 		});
 
-		expect(onPersistAssistantMessage).toHaveBeenCalledWith(
-			'session-1',
-			'conv-1',
-			'thread-1',
+		expect(busMocks.emit).toHaveBeenCalledWith('persist-assistant-message', {
+			sessionId: 'session-1',
+			conversationId: 'conv-1',
+			threadId: 'thread-1',
 			messageId,
-			'Subtask complete: found the offending module.'
-		);
+			content: 'Subtask complete: found the offending module.'
+		});
 	});
 
-	// Negative regression guard: when persistMessage is absent the callback must
-	// NOT fire. This is what distinguishes transient UI fillers (the "Continuing
-	// with next subtask..." message) from real persisted summaries.
+	// Negative regression guard: when persistMessage is absent the bus must
+	// NOT receive a persist-assistant-message event. This is what
+	// distinguishes transient UI fillers (the "Continuing with next
+	// subtask..." message) from real persisted summaries.
 	it('does not persist final chunks that lack the persistMessage flag', () => {
 		const state = makeState();
-		const onPersistAssistantMessage = vi.fn();
-		streamingMocks.getOnPersistAssistantMessage.mockReturnValue(onPersistAssistantMessage);
 
 		handleStreamingContent(state, {
 			type: 'streaming_content',
@@ -207,7 +206,10 @@ describe('handleStreamingContent', () => {
 			messageId: 'stream-subtask-continuation-session-1-task-1-sub-A-s5'
 		});
 
-		expect(onPersistAssistantMessage).not.toHaveBeenCalled();
+		const persistCalls = busMocks.emit.mock.calls.filter(
+			([name]) => name === 'persist-assistant-message'
+		);
+		expect(persistCalls.length).toBe(0);
 	});
 
 	it('keeps two concurrent streams in the same session under distinct keys when messageIds are distinct', () => {
@@ -272,9 +274,6 @@ describe('handleStreamingContent', () => {
 	});
 
 	it('includes the session id when updating the thinking message from status phrases', async () => {
-		const callbacks = await import('../callbacks');
-		const onAgentActivity = vi.fn();
-		vi.mocked(callbacks.getOnAgentActivity).mockReturnValue(onAgentActivity);
 		const state = makeState();
 
 		const { handleStatusPhrase } = await import('./streamingEvents');
@@ -285,17 +284,21 @@ describe('handleStreamingContent', () => {
 			timestamp: new Date().toISOString()
 		});
 
-		expect(onAgentActivity).toHaveBeenCalledWith('conv-1', 'thread-1', {
-			id: 'thinking-session-1',
+		expect(busMocks.emit).toHaveBeenCalledWith('agent-activity', {
 			conversationId: 'conv-1',
 			threadId: 'thread-1',
-			role: 'assistant',
-			kind: 'thinking',
-			content: 'Reviewing the request',
-			reasoning: 'Reviewing the request',
-			timestamp: expect.any(Date),
-			agentData: {
-				sessionId: 'session-1'
+			message: {
+				id: 'thinking-session-1',
+				conversationId: 'conv-1',
+				threadId: 'thread-1',
+				role: 'assistant',
+				kind: 'thinking',
+				content: 'Reviewing the request',
+				reasoning: 'Reviewing the request',
+				timestamp: expect.any(Date),
+				agentData: {
+					sessionId: 'session-1'
+				}
 			}
 		});
 	});

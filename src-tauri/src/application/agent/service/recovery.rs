@@ -141,7 +141,6 @@ mod tests {
     };
     use crate::application::agent::AgentServiceImpl;
     use crate::application::ChatServiceImpl;
-    use crate::core::agent::repositories::{SessionRepository, TaskRepository};
     use crate::core::agent::services::{AgentService, CreateSessionRequest};
     use crate::core::agent::session::SessionState;
     use crate::core::agent::task::{
@@ -152,15 +151,14 @@ mod tests {
     use crate::infrastructure::agent::approval::ApprovalQueue;
     use crate::infrastructure::agent::registry::AgentRegistry;
     use crate::infrastructure::agent::runtime::AgentRuntime;
-    use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
+    use crate::infrastructure::sqlite::repositories::agent::test_support::TestAgentRepos;
     use crate::infrastructure::sqlite::repositories::chat::SqliteChatRepository;
     use crate::infrastructure::sqlite::repositories::config::SqliteConfigRepository;
     use crate::infrastructure::tools::ToolRegistry;
 
     fn create_test_service() -> AgentServiceImpl {
         let registry = Arc::new(AgentRegistry::new());
-        let session_store =
-            Arc::new(SqliteSessionRepository::new(":memory:").expect("store"));
+        let repos = TestAgentRepos::in_memory().expect("store");
         let chat_repository =
             Arc::new(SqliteChatRepository::in_memory().expect("chat repository"));
         let chat_service = Arc::new(ChatServiceImpl::new(chat_repository)) as Arc<dyn ChatService>;
@@ -170,14 +168,14 @@ mod tests {
         let approval_queue = Arc::new(ApprovalQueue::new());
         let tool_registry = Arc::new(ToolRegistry::new().expect("tool registry"));
         let runtime = Arc::new(AgentRuntime::new(
-            session_store.clone(),
+            repos.session.clone(),
             chat_service,
-            session_store.clone(),
-            session_store.clone(),
-            session_store.clone(),
-            session_store.clone(),
-            session_store.clone(),
-            session_store.clone(),
+            repos.task.clone(),
+            repos.telemetry.clone(),
+            repos.execution.clone(),
+            repos.clarification.clone(),
+            repos.execution.clone(),
+            repos.memory.clone(),
             approval_queue.clone(),
             tool_registry,
             config_repository,
@@ -185,11 +183,11 @@ mod tests {
 
         AgentServiceImpl::new(
             registry,
-            session_store.clone(),
-            session_store.clone(),
-            session_store.clone(),
-            session_store.clone(),
-            session_store,
+            repos.session.clone(),
+            repos.task.clone(),
+            repos.telemetry.clone(),
+            repos.execution.clone(),
+            repos.execution.clone(),
             approval_queue,
             runtime,
         )

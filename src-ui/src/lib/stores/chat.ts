@@ -6,50 +6,32 @@
  */
 
 import { get, writable } from 'svelte/store';
-import type { Conversation, ConversationSettings, Thread } from '$lib/types/thread';
+import type { Thread } from '$lib/types/thread';
 import type { Message } from '$lib/types/message';
+import { createDebouncedClassifier, isBackendAvailable } from '$lib/api/nlp';
 import {
-	addContextMessage,
-	applyResolutions,
-	createDebouncedClassifier,
-	detectAmbiguities,
-	isBackendAvailable,
-	resolveAmbiguity
-} from '$lib/api/nlp';
-import type { ResolutionType } from '$lib/types/nlp';
-import {
-	archiveConversation as apiArchiveConversation,
-	archiveThread as apiArchiveThread,
-	createConversation as apiCreateConversation,
 	createThread as apiCreateThread,
 	createThreadWithMessage as apiCreateThreadWithMessage,
-	deleteConversation as apiDeleteConversation,
-	deleteMessage as apiDeleteMessage,
-	deleteThread as apiDeleteThread,
 	loadConversations,
 	loadThreadMessages,
 	loadThreads,
-	renameConversation as apiRenameConversation,
-	renameThread as apiRenameThread,
-	resolveThread as apiResolveThread,
 	sendMessage as apiSendMessage,
-	setConversationWorkspace as apiSetConversationWorkspace,
-	setThreadAgentSession,
-	setYoloMode as apiSetYoloMode,
-	updateConversationSettings as apiUpdateConversationSettings,
-	updateMessageFeedback as apiUpdateMessageFeedback,
-	updateMessageStatus as apiUpdateMessageStatus
+	setThreadAgentSession
 } from '$lib/api/chat';
 import { LlmHandler } from './chat/llm-handler';
+import { createConversationMethods } from './chat/conversation-methods';
+import { createMessageMethods } from './chat/message-methods';
+import { createNlpMethods } from './chat/nlp-methods';
+import { createThreadMethods } from './chat/thread-methods';
+import { createUtilityMethods } from './chat/utility-methods';
 import type { ChatState, LlmRequestOptions } from './chat/types';
-import { deriveThreadTitle, sortThreadsByRecent } from './chat/utils';
+import { deriveThreadTitle, sortThreadsByRecent, touchThreadAndConversation } from './chat/utils';
 import { clearUnreadForThread } from '$lib/utils/state';
-import { findById, updateById, removeById, updateNestedById, removeNestedById } from '$lib/utils/collection';
-import { isValidDate } from '$lib/utils/date';
 import { agentStore } from './agentStore';
 import { configStore } from './configStore';
 import { createDerivedStores } from './chat/derived-stores';
 import { createLogger } from '$lib/utils/logger';
+import { NLP_DEBOUNCE_MS } from '$lib/config/runtime';
 
 const log = createLogger('chatStore');
 
@@ -98,54 +80,42 @@ function createChatStore() {
 	const { subscribe, set, update } = writable<ChatState>(initialState);
 
 	// Debounced intent classifier
-	const classifier = createDebouncedClassifier(300);
+	const classifier = createDebouncedClassifier(NLP_DEBOUNCE_MS);
 
 	// LLM handler for streaming operations
 	const llmHandler = new LlmHandler(update, () => get({ subscribe }));
 
+	// NLP methods (classification / ambiguity detection / resolution)
+	const nlp = createNlpMethods({
+		update,
+		getState: () => get({ subscribe }),
+		classifier
+	});
+
+	// Conversation CRUD methods (no cross-domain orchestration)
+	const conversationMethods = createConversationMethods({
+		update,
+		getState: () => get({ subscribe })
+	});
+
+	// Thread CRUD methods (no cross-domain orchestration)
+	const threadMethods = createThreadMethods({
+		update,
+		getState: () => get({ subscribe })
+	});
+
+	// Message CRUD methods (non-send path)
+	const messageMethods = createMessageMethods({
+		update,
+		getState: () => get({ subscribe })
+	});
+
+	// Small utilities that touch a single state field
+	const utilityMethods = createUtilityMethods({ update });
+
 	// Pending thread creation tracking to prevent race conditions
 	let pendingThreadReady: Promise<Thread | null> | null = null;
 	let pendingThreadConversationId: string | null = null;
-
-const touchThreadAndConversation = (
-		state: ChatState,
-		threadId: string,
-		conversationId: string,
-		options?: { messageDelta?: number; timestamp?: Date }
-	): ChatState => {
-		const now = options?.timestamp ?? new Date();
-		const messageDelta = options?.messageDelta ?? 0;
-
-		return {
-			...state,
-			threads: state.threads.map((thread) =>
-				thread.id === threadId
-					? {
-							...thread,
-							updatedAt: now,
-							messageCount: Math.max(0, thread.messageCount + messageDelta)
-						}
-					: thread
-			),
-			conversations: state.conversations.map((conversation) =>
-				conversation.id === conversationId
-					? {
-							...conversation,
-							updatedAt: now,
-							threads: (conversation.threads || []).map((thread) =>
-								thread.id === threadId
-									? {
-											...thread,
-											updatedAt: now,
-											messageCount: Math.max(0, thread.messageCount + messageDelta)
-										}
-									: thread
-							)
-						}
-					: conversation
-			)
-		};
-	};
 
 	return {
 		subscribe,
@@ -185,204 +155,10 @@ const touchThreadAndConversation = (
 		},
 
 		// ====================================================================
-		// Conversation Methods
+		// Conversation Methods (implemented in ./chat/conversation-methods.ts)
 		// ====================================================================
 
-		/**
-		 * Set all conversations.
-		 */
-		setConversations(conversations: Conversation[]) {
-			update((state) => ({ ...state, conversations }));
-		},
-
-		/**
-		 * Create a new conversation in the backend.
-		 */
-		async createConversation(title: string = 'New Conversation'): Promise<Conversation | null> {
-			try {
-				const conversation = await apiCreateConversation(title);
-				update((state) => ({
-					...state,
-					conversations: [conversation, ...state.conversations]
-				}));
-				return conversation;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to create conversation'
-				}));
-				return null;
-			}
-		},
-
-		/**
-		 * Add a new conversation (local only, for backward compatibility).
-		 */
-		addConversation(conversation: Conversation) {
-			update((state) => ({
-				...state,
-				conversations: [conversation, ...state.conversations]
-			}));
-		},
-
-		/**
-		 * Rename a conversation.
-		 */
-		async renameConversation(id: string, title: string): Promise<boolean> {
-			try {
-				const updated = await apiRenameConversation(id, title);
-				update((state) => ({
-					...state,
-					conversations: state.conversations.map((c) =>
-						c.id === id ? { ...c, title: updated.title, updatedAt: updated.updatedAt } : c
-					)
-				}));
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to rename conversation'
-				}));
-				return false;
-			}
-		},
-
-		/**
-		 * Update a conversation (local only).
-		 */
-		updateConversation(id: string, updates: Partial<Conversation>) {
-			update((state) => ({
-				...state,
-				conversations: updateById(state.conversations, id, updates)
-			}));
-		},
-
-		/**
-		 * Delete a conversation.
-		 */
-		async deleteConversation(id: string): Promise<boolean> {
-			try {
-				await apiDeleteConversation(id);
-				update((state) => ({
-					...state,
-					conversations: removeById(state.conversations, id),
-					selectedConversationId:
-						state.selectedConversationId === id ? null : state.selectedConversationId,
-					messages: state.selectedConversationId === id ? [] : state.messages,
-					threads: state.selectedConversationId === id ? [] : state.threads
-				}));
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to delete conversation'
-				}));
-				return false;
-			}
-		},
-
-		/**
-		 * Archive or restore a conversation.
-		 */
-		async archiveConversation(id: string, archived: boolean): Promise<boolean> {
-			try {
-				await apiArchiveConversation(id, archived);
-				if (archived && get({ subscribe }).selectedConversationId === id) {
-					agentStore.setActiveSession(null);
-				}
-				update((state) => {
-					const nextConversationId =
-						archived && state.selectedConversationId === id ? null : state.selectedConversationId;
-					return {
-						...state,
-						conversations: state.conversations.map((c) =>
-							c.id === id ? { ...c, archived, updatedAt: new Date() } : c
-						),
-						selectedConversationId: nextConversationId,
-						selectedThreadId:
-							archived && state.selectedConversationId === id ? null : state.selectedThreadId,
-						messages: archived && state.selectedConversationId === id ? [] : state.messages,
-						threads: archived && state.selectedConversationId === id ? [] : state.threads
-					};
-				});
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to archive conversation'
-				}));
-				return false;
-			}
-		},
-
-		/**
-		 * Update a conversation's settings (model, temperature, etc.).
-		 */
-		async updateConversationSettings(
-			id: string,
-			settings: Partial<ConversationSettings>
-		): Promise<boolean> {
-			try {
-				const state = get({ subscribe });
-				const conversation = state.conversations.find((c) => c.id === id);
-				if (!conversation) {
-					update((s) => ({ ...s, error: 'Conversation not found' }));
-					return false;
-				}
-
-				// Merge with existing settings
-				const newSettings: ConversationSettings = {
-					...conversation.settings,
-					...settings
-				};
-
-				const updated = await apiUpdateConversationSettings(id, {
-					model: newSettings.model,
-					temperature: newSettings.temperature,
-					maxTokens: newSettings.maxTokens,
-					systemPrompt: newSettings.systemPrompt,
-					workspaceRoot: newSettings.workspaceRoot
-				});
-
-				update((state) => ({
-					...state,
-					conversations: state.conversations.map((c) =>
-						c.id === id ? { ...c, settings: updated.settings } : c
-					)
-				}));
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to update settings'
-				}));
-				return false;
-			}
-		},
-
-		/**
-		 * Set a conversation's workspace root.
-		 */
-		async setConversationWorkspace(id: string, workspaceRoot: string): Promise<boolean> {
-			try {
-				const updated = await apiSetConversationWorkspace(id, workspaceRoot);
-				update((state) => ({
-					...state,
-					conversations: state.conversations.map((c) =>
-						c.id === id
-							? { ...c, settings: { ...c.settings, workspaceRoot: updated.settings.workspaceRoot } }
-							: c
-					)
-				}));
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to set workspace'
-				}));
-				return false;
-			}
-		},
+		...conversationMethods,
 
 		/**
 		 * Select a conversation and load its threads.
@@ -647,181 +423,8 @@ const touchThreadAndConversation = (
 			}
 		},
 
-		/**
-		 * Resolve or unresolve a thread.
-		 */
-		async resolveThread(id: string, resolved: boolean): Promise<boolean> {
-			try {
-				await apiResolveThread(id, resolved);
-				update((state) => ({
-					...state,
-					threads: state.threads.map((t) =>
-						t.id === id ? { ...t, metadata: { ...t.metadata, resolved }, updatedAt: new Date() } : t
-					),
-					conversations: state.conversations.map((c) =>
-						c.id === state.selectedConversationId
-							? {
-									...c,
-									threads: (c.threads || []).map((t) =>
-										t.id === id
-											? {
-													...t,
-													metadata: { ...t.metadata, resolved },
-													updatedAt: new Date()
-												}
-											: t
-									)
-								}
-							: c
-					)
-				}));
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to update thread'
-				}));
-				return false;
-			}
-		},
-
-		/**
-		 * Archive or restore a thread.
-		 */
-		async archiveThread(id: string, archived: boolean): Promise<boolean> {
-			try {
-				await apiArchiveThread(id, archived);
-				if (archived && get({ subscribe }).selectedThreadId === id) {
-					agentStore.setActiveSession(null);
-				}
-				update((state) => {
-					const shouldClearSelection = archived && state.selectedThreadId === id;
-					return {
-						...state,
-						threads: archived ? removeById(state.threads, id) : state.threads,
-						conversations: state.selectedConversationId
-							? removeNestedById(
-									state.conversations,
-									state.selectedConversationId,
-									'threads',
-									id
-								)
-							: state.conversations,
-						selectedThreadId: shouldClearSelection ? null : state.selectedThreadId,
-						messages: shouldClearSelection ? [] : state.messages,
-						unreadThreadIds: state.unreadThreadIds.filter((threadId) => threadId !== id)
-					};
-				});
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to archive thread'
-				}));
-				return false;
-			}
-		},
-
-		/**
-		 * Set YOLO mode for a thread.
-		 */
-		async setYoloMode(id: string, yoloMode: boolean): Promise<boolean> {
-			try {
-				await apiSetYoloMode(id, yoloMode);
-				update((state) => ({
-					...state,
-					threads: state.threads.map((t) =>
-						t.id === id ? { ...t, metadata: { ...t.metadata, yoloMode }, updatedAt: new Date() } : t
-					),
-					conversations: state.conversations.map((c) =>
-						c.id === state.selectedConversationId
-							? {
-									...c,
-									threads: (c.threads || []).map((t) =>
-										t.id === id
-											? {
-													...t,
-													metadata: { ...t.metadata, yoloMode },
-													updatedAt: new Date()
-												}
-											: t
-									)
-								}
-							: c
-					)
-				}));
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to update thread'
-				}));
-				return false;
-			}
-		},
-
-		/**
-		 * Delete a thread.
-		 */
-		async deleteThread(id: string): Promise<boolean> {
-			try {
-				await apiDeleteThread(id);
-				update((state) => ({
-					...state,
-					threads: removeById(state.threads, id),
-					threadStreaming: Object.fromEntries(
-						Object.entries(state.threadStreaming).filter(([threadId]) => threadId !== id)
-					),
-					unreadThreadIds: state.unreadThreadIds.filter((threadId) => threadId !== id),
-					selectedThreadId: state.selectedThreadId === id ? null : state.selectedThreadId,
-					messages: state.selectedThreadId === id ? [] : state.messages,
-					conversations: state.selectedConversationId
-						? removeNestedById(
-								state.conversations,
-								state.selectedConversationId,
-								'threads',
-								id
-							)
-						: state.conversations
-				}));
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to delete thread'
-				}));
-				return false;
-			}
-		},
-
-		/**
-		 * Rename a thread.
-		 */
-		async renameThread(id: string, title: string): Promise<boolean> {
-			try {
-				const updated = await apiRenameThread(id, title);
-				update((state) => ({
-					...state,
-					threads: updateById(state.threads, id, updated),
-					conversations: state.selectedConversationId
-						? updateNestedById(
-								state.conversations,
-								state.selectedConversationId,
-								'threads',
-								id,
-								updated
-							)
-						: state.conversations
-				}));
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to rename thread'
-				}));
-				return false;
-			}
-		},
+		// Simple thread CRUD (implemented in ./chat/thread-methods.ts)
+		...threadMethods,
 
 		// ====================================================================
 		// Message Methods
@@ -973,323 +576,14 @@ const touchThreadAndConversation = (
 			}
 		},
 
-		/**
-		 * Add a message to the current conversation (local only).
-		 */
-		async addMessage(message: Message) {
-			update((state) => {
-				// Only add if message belongs to the current view
-				if (
-					message.threadId &&
-					state.selectedThreadId &&
-					message.threadId !== state.selectedThreadId
-				) {
-					return state; // Message belongs to a different thread
-				}
-				return { ...state, messages: [...state.messages, message] };
-			});
-
-			const state = get({ subscribe });
-			if (state.nlp.backendAvailable && message.conversationId) {
-				try {
-					await addContextMessage({
-						conversationId: message.conversationId,
-						role: message.role,
-						content: message.content
-					});
-				} catch (error) {
-					log.error('Failed to sync message with backend:', error);
-				}
-			}
-		},
-
-		/**
-		 * Delete a message.
-		 */
-		async deleteMessage(id: string): Promise<boolean> {
-			try {
-				await apiDeleteMessage(id);
-				update((state) => ({
-					...state,
-					messages: removeById(state.messages, id)
-				}));
-				return true;
-			} catch (error) {
-				update((state) => ({
-					...state,
-					error: error instanceof Error ? error.message : 'Failed to delete message'
-				}));
-				return false;
-			}
-		},
-
-		/**
-		 * Remove transient agent messages (tool_call, thinking) for a session.
-		 * Called after execution completes — the Code Agent panel preserves tool call history.
-		 */
-		removeTransientMessages(sessionId: string) {
-			update((state) => ({
-				...state,
-				messages: state.messages.filter((m) => {
-					if (m.agentData?.sessionId !== sessionId) return true;
-					if (m.kind === 'tool_call' || m.kind === 'thinking') return false;
-					return true;
-				})
-			}));
-		},
-
-		/**
-		 * Update a message status.
-		 */
-		async updateMessageStatus(
-			id: string,
-			status: 'sending' | 'sent' | 'delivered' | 'error'
-		): Promise<boolean> {
-			try {
-				await apiUpdateMessageStatus(id, status);
-				update((state) => ({
-					...state,
-					messages: state.messages.map((m) => (m.id === id ? { ...m, status } : m))
-				}));
-				return true;
-			} catch (error) {
-				log.error('Failed to update message status:', error);
-				return false;
-			}
-		},
-
-		/**
-		 * Update a message's feedback (like/dislike).
-		 * Pass null to clear the feedback.
-		 * Clicking the same feedback toggles it off.
-		 */
-		async updateMessageFeedback(id: string, feedback: 'like' | 'dislike' | null): Promise<boolean> {
-			try {
-				await apiUpdateMessageFeedback(id, feedback);
-				update((state) => ({
-					...state,
-					messages: state.messages.map((m) =>
-						m.id === id
-							? {
-									...m,
-									metadata: {
-										...m.metadata,
-										feedback: feedback ?? undefined
-									}
-								}
-							: m
-					)
-				}));
-				return true;
-			} catch (error) {
-				log.error('Failed to update message feedback:', error);
-				return false;
-			}
-		},
-
-		/**
-		 * Update a message (local only).
-		 */
-		updateMessage(id: string, updates: Partial<Message>) {
-			update((state) => {
-				// Only update if the message exists in the current view and belongs to the selected thread
-				const messageExists = state.messages.some((m) => m.id === id);
-				if (!messageExists) {
-					return state; // Message not in current view
-				}
-				return {
-					...state,
-					messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m))
-				};
-			});
-		},
+		// Message CRUD (implemented in ./chat/message-methods.ts)
+		...messageMethods,
 
 		// ====================================================================
-		// NLP Methods
+		// NLP Methods (implemented in ./chat/nlp-methods.ts)
 		// ====================================================================
 
-		/**
-		 * Classify intent for input text.
-		 */
-		async classifyInput(input: string) {
-			const state = get({ subscribe });
-			if (!state.nlp.backendAvailable || !state.selectedConversationId) return;
-
-			update((s) => ({ ...s, nlp: { ...s.nlp, processing: true, error: null } }));
-
-			try {
-				const result = await classifier.classify({
-					input,
-					conversationId: state.selectedConversationId
-				});
-
-				update((s) => ({
-					...s,
-					nlp: { ...s.nlp, detectedIntent: result, processing: false }
-				}));
-			} catch (error) {
-				update((s) => ({
-					...s,
-					nlp: {
-						...s.nlp,
-						processing: false,
-						error: error instanceof Error ? error.message : 'Classification failed'
-					}
-				}));
-			}
-		},
-
-		/**
-		 * Detect ambiguities for input text.
-		 */
-		async detectAmbiguitiesForInput(input: string) {
-			const state = get({ subscribe });
-			if (!state.nlp.backendAvailable || !state.selectedConversationId) return;
-
-			try {
-				const ambiguities = await detectAmbiguities({
-					input,
-					conversationId: state.selectedConversationId
-				});
-				update((s) => ({
-					...s,
-					nlp: {
-						...s.nlp,
-						ambiguities,
-						// Auto-populate pending ambiguities for high/medium severity
-						pendingAmbiguities: ambiguities.filter((a) => a.severity !== 'low')
-					}
-				}));
-			} catch (error) {
-				log.error('Failed to detect ambiguities:', error);
-			}
-		},
-
-		/**
-		 * Clear NLP state.
-		 */
-		clearNlpState() {
-			classifier.cancel();
-			update((state) => ({
-				...state,
-				nlp: {
-					...state.nlp,
-					detectedIntent: null,
-					ambiguities: [],
-					pendingAmbiguities: [],
-					resolvedAmbiguities: new Map(),
-					processing: false,
-					error: null
-				}
-			}));
-		},
-
-		/**
-		 * Resolve an ambiguity with the provided resolution.
-		 */
-		async resolveAmbiguity(
-			ambiguityId: string,
-			resolution: string,
-			resolutionType: ResolutionType
-		): Promise<boolean> {
-			const state = get({ subscribe });
-			const ambiguity = state.nlp.pendingAmbiguities.find((a) => a.id === ambiguityId);
-
-			if (!ambiguity) {
-				update((s) => ({
-					...s,
-					nlp: { ...s.nlp, error: 'Ambiguity not found' }
-				}));
-				return false;
-			}
-
-			try {
-				const resolved = await resolveAmbiguity({
-					ambiguityId,
-					originalText: ambiguity.span.text,
-					resolution,
-					resolutionType
-				});
-
-				update((s) => {
-					const newResolvedAmbiguities = new Map(s.nlp.resolvedAmbiguities);
-					newResolvedAmbiguities.set(ambiguityId, resolved);
-
-					return {
-						...s,
-						nlp: {
-							...s.nlp,
-							pendingAmbiguities: s.nlp.pendingAmbiguities.filter((a) => a.id !== ambiguityId),
-							resolvedAmbiguities: newResolvedAmbiguities
-						}
-					};
-				});
-
-				return true;
-			} catch (error) {
-				update((s) => ({
-					...s,
-					nlp: {
-						...s.nlp,
-						error: error instanceof Error ? error.message : 'Failed to resolve ambiguity'
-					}
-				}));
-				return false;
-			}
-		},
-
-		/**
-		 * Dismiss an ambiguity without resolving it.
-		 */
-		async dismissAmbiguity(ambiguityId: string): Promise<boolean> {
-			return this.resolveAmbiguity(ambiguityId, '', 'dismissed');
-		},
-
-		/**
-		 * Check if there are any blocking ambiguities.
-		 */
-		hasBlockingAmbiguities(): boolean {
-			const state = get({ subscribe });
-			return state.nlp.pendingAmbiguities.some((a) => a.severity === 'high');
-		},
-
-		/**
-		 * Apply all resolved ambiguities to the input text.
-		 */
-		async applyAmbiguityResolutions(input: string): Promise<string> {
-			const state = get({ subscribe });
-			const resolutions: Record<string, string> = {};
-
-			state.nlp.resolvedAmbiguities.forEach((resolved, id) => {
-				if (resolved.resolution_type !== 'dismissed') {
-					resolutions[id] = resolved.resolution;
-				}
-			});
-
-			if (Object.keys(resolutions).length === 0) {
-				return input;
-			}
-
-			try {
-				return await applyResolutions({ input, resolutions });
-			} catch (error) {
-				log.error('Failed to apply resolutions:', error);
-				return input;
-			}
-		},
-
-		/**
-		 * Clear resolved ambiguities after they've been applied.
-		 */
-		clearResolvedAmbiguities() {
-			update((state) => ({
-				...state,
-				nlp: {
-					...state.nlp,
-					resolvedAmbiguities: new Map()
-				}
-			}));
-		},
+		...nlp,
 
 		// ====================================================================
 		// LLM Integration Methods
@@ -1439,48 +733,10 @@ const touchThreadAndConversation = (
 		},
 
 		// ====================================================================
-		// Utility Methods
+		// Utility Methods (implemented in ./chat/utility-methods.ts)
 		// ====================================================================
 
-		/**
-		 * Clear error state.
-		 */
-		clearError() {
-			update((state) => ({ ...state, error: null }));
-		},
-
-		/**
-		 * Mark a thread as read (clears unread indicator).
-		 */
-		markThreadRead(threadId: string) {
-			update((state) => {
-				if (!state.unreadThreadIds.includes(threadId)) {
-					return state;
-				}
-				return {
-					...state,
-					unreadThreadIds: clearUnreadForThread(state.unreadThreadIds, threadId)
-				};
-			});
-		},
-
-		/**
-		 * Set a thread's workspace root.
-		 */
-		async setThreadWorkspace(id: string, workspaceRoot: string): Promise<boolean> {
-			try {
-				update((state) => ({
-					...state,
-					threads: state.threads.map((t) =>
-						t.id === id ? { ...t, metadata: { ...t.metadata, workspaceRoot } } : t
-					)
-				}));
-				return true;
-			} catch (error) {
-				log.error('Failed to set thread workspace:', error);
-				return false;
-			}
-		},
+		...utilityMethods,
 
 		/**
 		 * Reset the entire store.

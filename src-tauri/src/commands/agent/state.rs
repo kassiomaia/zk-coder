@@ -14,7 +14,10 @@ use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::registry::AgentRegistry;
 use crate::infrastructure::agent::runtime::AgentRuntime;
 use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
-use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
+use crate::infrastructure::sqlite::repositories::agent::{
+    SqliteAgentTelemetryRepository, SqliteClarificationRepository, SqliteExecutionRepository,
+    SqliteMemoryRepository, SqliteSessionRepository, SqliteTaskRepository,
+};
 
 /// Application state for agent commands.
 pub struct AgentState {
@@ -32,19 +35,26 @@ impl AgentState {
         chat_service: Arc<dyn ChatService>,
         config_repository: Arc<dyn ConfigRepository>,
     ) -> Result<Self, String> {
-        let sqlite_repository = Arc::new(
-            SqliteSessionRepository::new(db_path)
-                .map_err(|e| format!("Failed to init session repository: {e}"))?,
+        let session_repo = SqliteSessionRepository::new(db_path)
+            .map_err(|e| format!("Failed to init session repository: {e}"))?;
+        let conn = session_repo.conn.clone();
+        let session_repository: Arc<dyn SessionRepository> = Arc::new(session_repo);
+        let task_repository: Arc<dyn TaskRepository> =
+            Arc::new(SqliteTaskRepository::from_shared(conn.clone()));
+        let telemetry_repository: Arc<dyn AgentTelemetryRepository> = Arc::new(
+            SqliteAgentTelemetryRepository::from_shared(conn.clone()),
         );
-        let session_repository: Arc<dyn SessionRepository> = sqlite_repository.clone();
-        let task_repository: Arc<dyn TaskRepository> = sqlite_repository.clone();
-        let telemetry_repository: Arc<dyn AgentTelemetryRepository> = sqlite_repository.clone();
-        let execution_repository: Arc<dyn ExecutionRepository> = sqlite_repository.clone();
-        let trace_repository: Arc<dyn RuntimeTraceRepository> = sqlite_repository.clone();
-        let clarification_repository: Arc<dyn ClarificationRepository> = sqlite_repository.clone();
+        let execution_shared = Arc::new(SqliteExecutionRepository::from_shared(conn.clone()));
+        let execution_repository: Arc<dyn ExecutionRepository> = execution_shared.clone();
+        let trace_repository: Arc<dyn RuntimeTraceRepository> = execution_shared;
+        let clarification_shared =
+            Arc::new(SqliteClarificationRepository::from_shared(conn.clone()));
+        let clarification_repository: Arc<dyn ClarificationRepository> =
+            clarification_shared.clone();
         let execution_checkpoint_repository: Arc<dyn ExecutionCheckpointRepository> =
-            sqlite_repository.clone();
-        let memory_repository: Arc<dyn MemoryRepository> = sqlite_repository;
+            clarification_shared;
+        let memory_repository: Arc<dyn MemoryRepository> =
+            Arc::new(SqliteMemoryRepository::from_shared(conn));
         crate::application::agent::clarification::init_clarification_store(
             clarification_repository,
         );
@@ -97,17 +107,24 @@ impl AgentState {
         chat_service: Arc<dyn ChatService>,
         config_repository: Arc<dyn ConfigRepository>,
     ) -> Result<Self, String> {
-        let sqlite_repository =
-            Arc::new(SqliteSessionRepository::from_shared(conn));
-        let session_repository: Arc<dyn SessionRepository> = sqlite_repository.clone();
-        let task_repository: Arc<dyn TaskRepository> = sqlite_repository.clone();
-        let telemetry_repository: Arc<dyn AgentTelemetryRepository> = sqlite_repository.clone();
-        let execution_repository: Arc<dyn ExecutionRepository> = sqlite_repository.clone();
-        let trace_repository: Arc<dyn RuntimeTraceRepository> = sqlite_repository.clone();
-        let clarification_repository: Arc<dyn ClarificationRepository> = sqlite_repository.clone();
+        let session_repository: Arc<dyn SessionRepository> =
+            Arc::new(SqliteSessionRepository::from_shared(conn.clone()));
+        let task_repository: Arc<dyn TaskRepository> =
+            Arc::new(SqliteTaskRepository::from_shared(conn.clone()));
+        let telemetry_repository: Arc<dyn AgentTelemetryRepository> = Arc::new(
+            SqliteAgentTelemetryRepository::from_shared(conn.clone()),
+        );
+        let execution_shared = Arc::new(SqliteExecutionRepository::from_shared(conn.clone()));
+        let execution_repository: Arc<dyn ExecutionRepository> = execution_shared.clone();
+        let trace_repository: Arc<dyn RuntimeTraceRepository> = execution_shared;
+        let clarification_shared =
+            Arc::new(SqliteClarificationRepository::from_shared(conn.clone()));
+        let clarification_repository: Arc<dyn ClarificationRepository> =
+            clarification_shared.clone();
         let execution_checkpoint_repository: Arc<dyn ExecutionCheckpointRepository> =
-            sqlite_repository.clone();
-        let memory_repository: Arc<dyn MemoryRepository> = sqlite_repository;
+            clarification_shared;
+        let memory_repository: Arc<dyn MemoryRepository> =
+            Arc::new(SqliteMemoryRepository::from_shared(conn));
         crate::application::agent::clarification::init_clarification_store(
             clarification_repository,
         );

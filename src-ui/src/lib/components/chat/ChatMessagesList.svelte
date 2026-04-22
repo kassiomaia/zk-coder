@@ -39,7 +39,7 @@
 	import messageStyles from './MessageBubbles.module.css';
 	import inputStyles from './ChatInputContainer.module.css';
 	import { createLogger } from '$lib/utils/logger';
-	import { invoke } from '@tauri-apps/api/core';
+	import { saveArtifactToPath } from '$lib/api/artifacts';
 	import { save } from '@tauri-apps/plugin-dialog';
 
 	const log = createLogger('ChatMessagesList');
@@ -324,10 +324,7 @@
 		if (!destination) return; // user cancelled
 
 		try {
-			await invoke('save_artifact_to_path', {
-				artifactId: job.artifactId,
-				destination
-			});
+			await saveArtifactToPath(job.artifactId, destination);
 		} catch (err) {
 			log.error('Failed to save artifact:', err);
 		}

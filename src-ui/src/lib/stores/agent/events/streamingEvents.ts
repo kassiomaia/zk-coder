@@ -6,7 +6,7 @@
 import type { AgentEvent } from '$lib/types/agent';
 import type { AgentState } from '../state';
 import { clearStreamingUpdates, scheduleStreamingUpdate } from '../streaming';
-import { getOnAgentActivity, getOnPersistAssistantMessage, getOnSystemMessage } from '../callbacks';
+import { agentEventBus } from '../eventBus';
 import { appendStatusPhrase } from '../statusStore';
 import { buildContextNoticeContent } from '$lib/utils/systemNotices';
 import { createLogger } from '$lib/utils/logger';
@@ -92,16 +92,13 @@ export function handleStreamingContent(
 			}
 
 			if (event.persistMessage && newContent.trim().length > 0) {
-				const onPersistAssistantMessage = getOnPersistAssistantMessage();
-				if (onPersistAssistantMessage) {
-					onPersistAssistantMessage(
-						event.sessionId,
-						session.conversationId,
-						session.threadId,
-						assistantMessageId,
-						newContent
-					);
-				}
+				agentEventBus.emit('persist-assistant-message', {
+					sessionId: event.sessionId,
+					conversationId: session.conversationId,
+					threadId: session.threadId,
+					messageId: assistantMessageId,
+					content: newContent
+				});
 			}
 		}
 	}
@@ -128,9 +125,10 @@ export function handleStatusPhrase(
 	const session = state.sessions.get(event.sessionId);
 	if (!session) return;
 
-	const onAgentActivity = getOnAgentActivity();
-	if (onAgentActivity) {
-		onAgentActivity(session.conversationId, session.threadId, {
+	agentEventBus.emit('agent-activity', {
+		conversationId: session.conversationId,
+		threadId: session.threadId,
+		message: {
 			id: `thinking-${event.sessionId}`,
 			conversationId: session.conversationId,
 			threadId: session.threadId,
@@ -142,8 +140,8 @@ export function handleStatusPhrase(
 			agentData: {
 				sessionId: event.sessionId
 			}
-		});
-	}
+		}
+	});
 }
 
 /**
@@ -161,9 +159,13 @@ export function handleContextCompacted(
 	}
 
 	const session = state.sessions.get(event.sessionId);
-	const onSystemMessage = getOnSystemMessage();
-	if (onSystemMessage && session) {
-		onSystemMessage(event.sessionId, event.conversationId, session.threadId, {
+	if (!session) return;
+
+	agentEventBus.emit('system-message', {
+		sessionId: event.sessionId,
+		conversationId: event.conversationId,
+		threadId: session.threadId,
+		message: {
 			role: 'system',
 			content: buildContextNoticeContent(event),
 			metadata: {
@@ -176,8 +178,8 @@ export function handleContextCompacted(
 					afterTokens: event.afterTokens
 				}
 			}
-		});
-	}
+		}
+	});
 }
 
 /**
@@ -191,9 +193,10 @@ export function handleAgentNarration(
 	const session = state.sessions.get(event.sessionId);
 	if (!session) return;
 
-	const onAgentActivity = getOnAgentActivity();
-	if (onAgentActivity) {
-		onAgentActivity(event.conversationId, event.threadId, {
+	agentEventBus.emit('agent-activity', {
+		conversationId: event.conversationId,
+		threadId: event.threadId,
+		message: {
 			id: `narration-${event.sessionId}-${Date.now()}`,
 			conversationId: event.conversationId,
 			threadId: event.threadId,
@@ -202,6 +205,6 @@ export function handleAgentNarration(
 			content: event.content,
 			timestamp: new Date(event.timestamp),
 			agentData: { sessionId: event.sessionId }
-		});
-	}
+		}
+	});
 }

@@ -1,14 +1,12 @@
 /**
  * Streaming Module Index
  * Exports all streaming functionality.
+ *
+ * Both submodules emit `agent-activity` events on the shared
+ * `agentEventBus`; no explicit wire-up step is required.
  */
 
-import type { Message } from '$lib/types/message';
-import { setOnAgentActivity as setStreamingCallback } from './streamingThrottle';
-import { setOnAgentActivity as setTerminalCallback } from './terminalBatch';
-
 export {
-	setOnAgentActivity,
 	flushStreamingUpdate,
 	scheduleStreamingUpdate,
 	clearStreamingUpdates,
@@ -16,20 +14,9 @@ export {
 } from './streamingThrottle';
 
 export {
-	setOnAgentActivity as setOnAgentActivityTerminal,
 	flushTerminalOutput,
 	scheduleTerminalOutput,
 	flushPendingTerminalOutput,
 	clearTerminalOutput,
 	TERMINAL_BATCH_MS
 } from './terminalBatch';
-
-/**
- * Initialize streaming with the agent activity callback.
- */
-export function initializeStreaming(
-	callback: (conversationId: string, threadId: string, message: Partial<Message>) => void
-) {
-	setStreamingCallback(callback);
-	setTerminalCallback(callback);
-}

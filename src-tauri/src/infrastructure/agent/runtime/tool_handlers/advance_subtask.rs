@@ -9,6 +9,7 @@ use log::warn;
 use tauri::{AppHandle, Emitter};
 
 use super::contract_verification::{has_subtask_evidence, verify_contract_artifacts};
+use super::dispatcher::{ToolHandler, ToolHandlerContext};
 use super::shared::core_task_to_event_subtask;
 use crate::core::agent::repositories::TaskRepository;
 use crate::core::agent::session::AgentSession;
@@ -18,6 +19,34 @@ use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 use crate::infrastructure::agent::runtime::session_scope::RuntimeSessionScope;
 use crate::infrastructure::agent::session_telemetry::AgentTelemetryRepository;
 use crate::infrastructure::tools::OrchestratorToolResult;
+
+/// Zero-sized marker for the `agent_advance_to_next_subtask` meta-tool.
+pub(super) struct AdvanceSubtaskHandler;
+
+/// Static instance the registry references so lookups stay allocation-free.
+pub(super) static ADVANCE_SUBTASK: AdvanceSubtaskHandler = AdvanceSubtaskHandler;
+
+impl ToolHandler for AdvanceSubtaskHandler {
+    fn name(&self) -> &'static str {
+        "agent_advance_to_next_subtask"
+    }
+
+    fn handle(
+        &self,
+        call: &ToolCall,
+        ctx: &mut ToolHandlerContext<'_>,
+    ) -> OrchestratorToolResult {
+        handle_advance_subtask(
+            call,
+            ctx.session,
+            ctx.task_id,
+            ctx.app_handle,
+            ctx.task_repo,
+            ctx.telemetry_repo,
+            ctx.scope,
+        )
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn handle_advance_subtask(

@@ -11,6 +11,8 @@
 // Main store and derived stores
 export {
 	agentStore,
+	agentEventBus,
+	createAgentEventBus,
 	activeSession,
 	allSessions,
 	pendingActions,
@@ -21,3 +23,10 @@ export {
 
 // Type exports for convenience
 export type { AgentState } from './agent/state';
+export type {
+	AgentEventBus,
+	AgentEventHandler,
+	AgentEventMap,
+	AgentEventName,
+	SystemMessagePayload
+} from './agent/index';

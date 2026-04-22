@@ -9,13 +9,23 @@ import {
 	handleSessionPaused
 } from './harnessEvents';
 
-const callbackMocks = vi.hoisted(() => ({
-	getOnAgentActivity: vi.fn()
+const busMocks = vi.hoisted(() => ({
+	emit: vi.fn(),
+	on: vi.fn(),
+	clear: vi.fn()
 }));
 
-vi.mock('../callbacks', () => ({
-	getOnAgentActivity: callbackMocks.getOnAgentActivity
+vi.mock('../eventBus', () => ({
+	agentEventBus: {
+		emit: busMocks.emit,
+		on: busMocks.on,
+		clear: busMocks.clear
+	}
 }));
+
+function agentActivityCalls() {
+	return busMocks.emit.mock.calls.filter(([name]) => name === 'agent-activity');
+}
 
 function makeSession(overrides: Partial<AgentSession> = {}): AgentSession {
 	return {
@@ -39,15 +49,12 @@ function makeState(session: AgentSession = makeSession()): AgentState {
 
 describe('harnessEvents', () => {
 	beforeEach(() => {
-		callbackMocks.getOnAgentActivity.mockReset();
-		callbackMocks.getOnAgentActivity.mockReturnValue(null);
+		busMocks.emit.mockReset();
 	});
 
 	describe('handleHarnessStateUpdated (startup verification & handoff)', () => {
 		it('stores startup verification running state on the session without touching chat', () => {
 			const state = makeState();
-			const onAgentActivity = vi.fn();
-			callbackMocks.getOnAgentActivity.mockReturnValue(onAgentActivity);
 
 			handleHarnessStateUpdated(state, {
 				type: 'harness_state_updated',
@@ -69,7 +76,7 @@ describe('harnessEvents', () => {
 					headline: 'Checking workspace state'
 				}
 			});
-			expect(onAgentActivity).not.toHaveBeenCalled();
+			expect(agentActivityCalls().length).toBe(0);
 		});
 
 		it('replaces prior harness state when a new handoff summary arrives', () => {
@@ -174,8 +181,6 @@ describe('harnessEvents', () => {
 	describe('handleSessionPaused (recovery)', () => {
 		it('transitions the session to paused and injects an unresolved recovery card', () => {
 			const state = makeState();
-			const onAgentActivity = vi.fn();
-			callbackMocks.getOnAgentActivity.mockReturnValue(onAgentActivity);
 
 			handleSessionPaused(state, {
 				type: 'session_paused',
@@ -193,17 +198,21 @@ describe('harnessEvents', () => {
 				currentSubtaskId: 'subtask-9'
 			});
 
-			expect(onAgentActivity).toHaveBeenCalledWith('conv-1', 'thread-1', {
-				id: 'recovery-session-1',
+			expect(busMocks.emit).toHaveBeenCalledWith('agent-activity', {
 				conversationId: 'conv-1',
 				threadId: 'thread-1',
-				role: 'assistant',
-				kind: 'recovery',
-				content: 'Interrupted while updating status handling',
-				timestamp: new Date('2024-01-01T12:05:00Z'),
-				agentData: {
-					sessionId: 'session-1',
-					recoveryResolved: false
+				message: {
+					id: 'recovery-session-1',
+					conversationId: 'conv-1',
+					threadId: 'thread-1',
+					role: 'assistant',
+					kind: 'recovery',
+					content: 'Interrupted while updating status handling',
+					timestamp: new Date('2024-01-01T12:05:00Z'),
+					agentData: {
+						sessionId: 'session-1',
+						recoveryResolved: false
+					}
 				}
 			});
 		});
@@ -240,72 +249,60 @@ describe('harnessEvents', () => {
 			expect(session?.state.type).toBe('paused');
 			expect(session?.harnessState?.handoff?.currentObjective).toBe('Land Slice 10');
 		});
-
-		it('updates session state even when the chat activity callback is unset', () => {
-			const state = makeState();
-			callbackMocks.getOnAgentActivity.mockReturnValue(null);
-
-			handleSessionPaused(state, {
-				type: 'session_paused',
-				sessionId: 'session-1',
-				message: 'Paused',
-				pausedAt: '2024-01-01T12:06:00Z'
-			});
-
-			expect(state.sessions.get('session-1')?.state.type).toBe('paused');
-		});
 	});
 
 	describe('handleRecoveryContinue / handleRecoveryReplan', () => {
 		it('marks the recovery card resolved with "continued" decision', () => {
 			const state = makeState();
-			const onAgentActivity = vi.fn();
-			callbackMocks.getOnAgentActivity.mockReturnValue(onAgentActivity);
 
 			handleRecoveryContinue(state, {
 				type: 'recovery_continue',
 				sessionId: 'session-1'
 			});
 
-			expect(onAgentActivity).toHaveBeenCalledWith('conv-1', 'thread-1', {
-				id: 'recovery-session-1',
-				agentData: {
-					sessionId: 'session-1',
-					recoveryResolved: true,
-					recoveryDecision: 'continued'
+			expect(busMocks.emit).toHaveBeenCalledWith('agent-activity', {
+				conversationId: 'conv-1',
+				threadId: 'thread-1',
+				message: {
+					id: 'recovery-session-1',
+					agentData: {
+						sessionId: 'session-1',
+						recoveryResolved: true,
+						recoveryDecision: 'continued'
+					}
 				}
 			});
 		});
 
 		it('marks the recovery card resolved with "replanned" decision', () => {
 			const state = makeState();
-			const onAgentActivity = vi.fn();
-			callbackMocks.getOnAgentActivity.mockReturnValue(onAgentActivity);
 
 			handleRecoveryReplan(state, {
 				type: 'recovery_replan',
 				sessionId: 'session-1'
 			});
 
-			expect(onAgentActivity).toHaveBeenCalledWith('conv-1', 'thread-1', {
-				id: 'recovery-session-1',
-				agentData: {
-					sessionId: 'session-1',
-					recoveryResolved: true,
-					recoveryDecision: 'replanned'
+			expect(busMocks.emit).toHaveBeenCalledWith('agent-activity', {
+				conversationId: 'conv-1',
+				threadId: 'thread-1',
+				message: {
+					id: 'recovery-session-1',
+					agentData: {
+						sessionId: 'session-1',
+						recoveryResolved: true,
+						recoveryDecision: 'replanned'
+					}
 				}
 			});
 		});
 
 		it('does not fire chat activity when the session is unknown', () => {
 			const state = createInitialState();
-			const onAgentActivity = vi.fn();
-			callbackMocks.getOnAgentActivity.mockReturnValue(onAgentActivity);
 
 			handleRecoveryContinue(state, { type: 'recovery_continue', sessionId: 'missing' });
 			handleRecoveryReplan(state, { type: 'recovery_replan', sessionId: 'missing' });
 
-			expect(onAgentActivity).not.toHaveBeenCalled();
+			expect(agentActivityCalls().length).toBe(0);
 		});
 	});
 });

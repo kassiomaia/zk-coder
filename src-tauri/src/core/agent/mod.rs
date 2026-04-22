@@ -3,6 +3,7 @@
 //! Contains agent entities, repository interfaces, and service interfaces.
 
 pub mod clarification;
+pub mod context;
 pub mod errors;
 pub mod execution;
 pub mod memory;
@@ -30,6 +31,9 @@ pub use execution::{
     RuntimeTrace, RuntimeTraceType,
 };
 pub use clarification::PendingClarificationRecord;
+pub use context::{
+    CompactionDetails, ContextCompactionStrategy, ContextPackOutcome, ContextState,
+};
 pub use memory::{MemoryRepository, SessionMemory};
 pub use repositories::{
     AgentRepository, ApprovalRepository, ClarificationRepository, ExecutionCheckpointRepository,
