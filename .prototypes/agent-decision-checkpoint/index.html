@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent question — v7 (before/after)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  /* tokens — subset of src-ui/src/lib/styles/design-system.css */
+  :root {
+    --color-primary-400: #7a7f96;
+    --color-primary-500: #5c6178;
+    --color-primary-600: #4b5068;
+
+    --color-neutral-400: #a3a29a;
+    --color-neutral-500: #73726a;
+    --color-neutral-600: #545350;
+    --color-neutral-700: #3e3d3a;
+    --color-neutral-850: #201f1e;
+    --color-neutral-900: #1a1918;
+    --color-neutral-925: #141413;
+    --color-neutral-950: #0b0b0a;
+
+    --color-warning: #d4930d;
+    --color-warning-light: rgba(212, 147, 13, 0.12);
+    --color-warning-border: rgba(212, 147, 13, 0.18);
+    --color-warning-dark: #b87e0a;
+
+    --space-1: 0.25rem;
+    --space-1-5: 0.375rem;
+    --space-2: 0.5rem;
+    --space-2-5: 0.625rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.5rem;
+
+    --text-2xs: 0.625rem;
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+
+    --font-medium: 500;
+    --font-semibold: 600;
+    --tracking-wide: 0.05em;
+    --tracking-widest: 0.08em;
+
+    --transition-fast: 150ms cubic-bezier(0.2, 0, 0, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+  }
+
+  [data-theme='dark'] {
+    --color-bg-base: var(--color-neutral-950);
+    --color-bg-secondary: var(--color-neutral-925);
+    --color-bg-tertiary: var(--color-neutral-900);
+    --color-surface: var(--color-neutral-925);
+    --color-surface-hover: var(--color-neutral-900);
+
+    --color-text-primary: #e6e5e0;
+    --color-text-secondary: var(--color-neutral-400);
+    --color-text-tertiary: var(--color-neutral-500);
+    --color-text-muted: var(--color-neutral-600);
+
+    --color-border-subtle: rgba(255, 252, 245, 0.04);
+    --color-border-primary: rgba(255, 252, 245, 0.07);
+    --color-border-secondary: rgba(255, 252, 245, 0.1);
+    --color-interactive-hover: rgba(255, 252, 245, 0.03);
+
+    --color-accent-primary: var(--color-primary-400);
+    --color-primary-light: rgba(92, 97, 120, 0.12);
+  }
+
+  [data-theme='light'] {
+    --color-bg-base: #f7f6f3;
+    --color-bg-secondary: #f2f1ed;
+    --color-bg-tertiary: #eae9e4;
+    --color-surface: #fdfcfa;
+    --color-surface-hover: #f4f3ef;
+
+    --color-text-primary: #1c1c1a;
+    --color-text-secondary: #5a5955;
+    --color-text-tertiary: #8a8984;
+    --color-text-muted: #b5b4ae;
+
+    --color-border-subtle: #edece6;
+    --color-border-primary: #e0dfda;
+    --color-border-secondary: #d2d1cb;
+    --color-interactive-hover: rgba(28, 28, 26, 0.03);
+
+    --color-accent-primary: #4b5068;
+    --color-primary-light: rgba(75, 80, 104, 0.07);
+
+    --color-warning: #c4880a;
+    --color-warning-light: rgba(196, 136, 10, 0.08);
+    --color-warning-border: rgba(196, 136, 10, 0.15);
+    --color-warning-dark: #a87308;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--color-bg-base);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- prototype chrome ---- */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-5);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .top-bar .title { font-size: var(--text-sm); font-weight: var(--font-medium); }
+  .top-bar .sub {
+    font-size: var(--text-xs); color: var(--color-text-tertiary);
+  }
+  .theme-toggle {
+    margin-left: auto; display: inline-flex; gap: 2px; padding: 2px;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono); font-size: var(--text-2xs);
+    text-transform: uppercase; letter-spacing: var(--tracking-wide);
+  }
+  .theme-toggle button {
+    appearance: none; background: transparent; border: none;
+    padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm);
+    color: var(--color-text-tertiary); font: inherit; cursor: pointer;
+  }
+  .theme-toggle button[aria-pressed='true'] {
+    background: var(--color-surface); color: var(--color-text-primary);
+  }
+
+  /* compare layout — before/after */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-6);
+    padding: var(--space-6) var(--space-5);
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (max-width: 960px) {
+    .compare { grid-template-columns: 1fr; }
+  }
+  .compare-col { display: flex; flex-direction: column; gap: var(--space-3); }
+  .compare-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    font-weight: var(--font-semibold);
+    letter-spacing: var(--tracking-widest);
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .compare-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--color-border-subtle);
+  }
+
+  /* =====================================================
+     BEFORE — reproduces the current AgentClarificationPrompt
+     (matches the screenshot content and styling)
+     ===================================================== */
+  .before {
+    display: flex; flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--color-warning-light);
+    border: 1px solid var(--color-warning-border);
+    border-left: 3px solid var(--color-warning);
+    border-radius: var(--radius-md);
+  }
+  .before-head {
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .before-head-icon {
+    width: 16px; height: 16px; color: var(--color-warning);
+    display: grid; place-items: center;
+  }
+  .before-head-label {
+    font-size: var(--text-2xs);
+    font-weight: var(--font-semibold);
+    letter-spacing: var(--tracking-widest);
+    text-transform: uppercase;
+    color: var(--color-warning-dark);
+  }
+  [data-theme='dark'] .before-head-label { color: var(--color-warning); }
+  .before-head-time {
+    margin-left: auto;
+    font-size: var(--text-2xs);
+    color: var(--color-text-tertiary);
+  }
+  .before-q {
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    color: var(--color-text-primary);
+  }
+  .before-form {
+    display: flex; flex-direction: column;
+    gap: var(--space-2);
+  }
+  .before-textarea {
+    min-height: 84px;
+    padding: var(--space-2);
+    font: inherit;
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    background: var(--color-bg-base);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
+    resize: vertical;
+  }
+  .before-textarea::placeholder { color: var(--color-text-muted); }
+  .before-hint {
+    margin: 0;
+    font-size: var(--text-2xs);
+    color: var(--color-text-tertiary);
+  }
+  .before-actions { display: flex; justify-content: flex-end; }
+  .before-send {
+    appearance: none;
+    display: inline-flex; align-items: center; gap: var(--space-1-5);
+    padding: var(--space-1) var(--space-3);
+    background: var(--color-warning);
+    border: 1px solid var(--color-warning-dark);
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font: inherit;
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+  }
+
+  /* =====================================================
+     AFTER — v7 redesign
+     Structure: agent-attributed, narrative paragraph,
+     extracted options, secondary custom reply.
+     ===================================================== */
+  .aq {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    animation: aq-in 200ms var(--ease-out) backwards;
+  }
+  @keyframes aq-in {
+    from { opacity: 0; transform: translateY(3px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .aq-msg {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4) var(--space-3) var(--space-3);
+  }
+  .aq-avatar {
+    width: 24px; height: 24px; flex: none; border-radius: 50%;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-subtle);
+    display: grid; place-items: center;
+    font-size: var(--text-2xs); font-family: var(--font-mono);
+    font-weight: var(--font-medium);
+    color: var(--color-accent-primary);
+  }
+  .aq-body { flex: 1; min-width: 0; }
+  .aq-header {
+    display: flex; align-items: baseline; gap: var(--space-2);
+    margin-bottom: var(--space-1);
+  }
+  .aq-role {
+    font-size: var(--text-2xs);
+    font-weight: var(--font-semibold);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-accent-primary);
+  }
+  .aq-role-sep { color: var(--color-text-muted); font-size: var(--text-2xs); }
+  .aq-role-sub {
+    font-size: var(--text-2xs);
+    font-weight: var(--font-medium);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+  }
+  .aq-time {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--color-text-muted);
+  }
+
+  .aq-para {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+  }
+  .aq-para code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+  }
+
+  .aq-question {
+    margin: 0;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    line-height: 1.45;
+    color: var(--color-text-primary);
+  }
+
+  /* decision bar */
+  .aq-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    padding: var(--space-1-5) var(--space-2);
+    border-top: 1px solid var(--color-border-subtle);
+    min-height: 36px;
+  }
+  .aq-opt {
+    appearance: none;
+    padding: var(--space-1) var(--space-2-5);
+    background: transparent;
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition:
+      background var(--transition-fast),
+      border-color var(--transition-fast),
+      color var(--transition-fast);
+  }
+  .aq-opt:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-border-secondary);
+    color: var(--color-text-primary);
+  }
+  .aq-opt:focus-visible {
+    outline: none;
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+  }
+  .aq-opt.primary {
+    background: var(--color-accent-primary);
+    border-color: var(--color-accent-primary);
+    color: #fff;
+  }
+  .aq-opt.primary:hover {
+    background: var(--color-primary-600);
+    border-color: var(--color-primary-600);
+  }
+  [data-theme='dark'] .aq-opt.primary {
+    background: var(--color-primary-500);
+    border-color: var(--color-primary-500);
+  }
+  [data-theme='dark'] .aq-opt.primary:hover {
+    background: var(--color-primary-400);
+    border-color: var(--color-primary-400);
+  }
+  .aq-spacer { flex: 1; }
+
+  .aq-reply-trigger {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: var(--space-1) var(--space-2);
+    font: inherit;
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast), background var(--transition-fast);
+  }
+  .aq-reply-trigger:hover {
+    color: var(--color-text-primary);
+    background: var(--color-interactive-hover);
+  }
+  .aq-reply-trigger:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+  }
+
+  /* reply mode */
+  .aq-reply { display: none; flex-direction: column; border-top: 1px solid var(--color-border-subtle); }
+  .aq.is-reply .aq-reply { display: flex; }
+  .aq.is-reply .aq-bar { display: none; }
+
+  .aq-textarea {
+    width: 100%;
+    min-height: 44px;
+    max-height: 160px;
+    padding: var(--space-2-5) var(--space-4);
+    background: transparent;
+    border: none; outline: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    resize: none;
+  }
+  .aq-textarea::placeholder { color: var(--color-text-muted); }
+  .aq-reply-bar {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-1-5) var(--space-2);
+    min-height: 36px;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+  .aq-reply-cancel {
+    appearance: none; background: transparent; border: none;
+    padding: var(--space-1) var(--space-2);
+    font: inherit; font-size: var(--text-xs);
+    color: var(--color-text-tertiary); cursor: pointer;
+    border-radius: var(--radius-sm);
+  }
+  .aq-reply-cancel:hover { color: var(--color-text-primary); }
+  .aq-hint {
+    font-family: var(--font-mono); font-size: var(--text-2xs);
+    color: var(--color-text-muted); margin-left: auto;
+  }
+  .aq-send {
+    appearance: none;
+    padding: var(--space-1) var(--space-2-5);
+    background: var(--color-accent-primary);
+    border: 1px solid var(--color-accent-primary);
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font: inherit; font-size: var(--text-xs); font-weight: var(--font-medium);
+    cursor: pointer;
+  }
+  [data-theme='dark'] .aq-send {
+    background: var(--color-primary-500); border-color: var(--color-primary-500);
+  }
+  .aq-send:hover { background: var(--color-primary-600); border-color: var(--color-primary-600); }
+  [data-theme='dark'] .aq-send:hover { background: var(--color-primary-400); border-color: var(--color-primary-400); }
+  .aq-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  @media (max-width: 620px) {
+    .aq-bar { flex-wrap: wrap; }
+    .aq-spacer { flex-basis: 100%; height: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition-duration: 0ms !important; }
+  }
+
+  .notes {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: 1.55;
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--color-border-subtle);
+  }
+  .notes strong { color: var(--color-text-secondary); font-weight: var(--font-medium); }
+</style>
+</head>
+
+<body>
+
+<header class="top-bar">
+  <span class="title">Agent question — redesign</span>
+  <span class="sub">before → after, same content</span>
+  <div class="theme-toggle" role="tablist" aria-label="Theme">
+    <button aria-pressed="true" data-theme-btn="dark">Dark</button>
+    <button aria-pressed="false" data-theme-btn="light">Light</button>
+  </div>
+</header>
+
+<main class="compare">
+
+  <!-- =================== BEFORE =================== -->
+  <section class="compare-col">
+    <span class="compare-label">Before · current</span>
+
+    <div class="before" aria-label="Current component">
+      <div class="before-head">
+        <span class="before-head-icon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </span>
+        <span class="before-head-label">Question for you</span>
+        <span class="before-head-time">2m ago</span>
+      </div>
+      <p class="before-q">
+        The minimal notes application is complete and functional. A system bug is preventing the subtask from being marked complete - it checks source files (src/main/main.ts, src/preload/preload.ts, etc.) against the dist/**/* pattern and reports them as missing, even though the dist compiled output exists and the app runs correctly. How would you like to proceed? Should I skip this subtask or do you have another way to verify completion?
+      </p>
+      <form class="before-form" onsubmit="event.preventDefault();">
+        <textarea class="before-textarea" placeholder="Answer the question to resume execution..." rows="3"></textarea>
+        <p class="before-hint">Enter to send · Shift+Enter for a new line</p>
+        <div class="before-actions">
+          <button type="button" class="before-send">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Send reply
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <p class="notes">
+      <strong>Problems.</strong> Alarmist yellow signals "warning", not "decision". The whole question collapses into one dense paragraph. Textarea is the only response path — the agent's own proposals ("skip" / "another way") are buried in prose. The component reads as an error, not an informed decision point.
+    </p>
+  </section>
+
+  <!-- =================== AFTER =================== -->
+  <section class="compare-col">
+    <span class="compare-label">After · v7</span>
+
+    <section class="aq" id="aq" aria-label="Agent question">
+
+      <div class="aq-msg">
+        <div class="aq-avatar" aria-hidden="true">A</div>
+        <div class="aq-body">
+          <div class="aq-header">
+            <span class="aq-role">Agent</span>
+            <span class="aq-role-sep">·</span>
+            <span class="aq-role-sub">asking</span>
+            <span class="aq-time">2m ago</span>
+          </div>
+
+          <p class="aq-para">
+            The minimal notes application is complete and functional, but a system bug is blocking the subtask: it checks source files (<code>src/main/main.ts</code>, <code>src/preload/preload.ts</code>, …) against the <code>dist/**/*</code> pattern and reports them as missing, even though the <code>dist</code> output exists and the app runs correctly.
+          </p>
+          <p class="aq-question">
+            How should I verify completion?
+          </p>
+        </div>
+      </div>
+
+      <div class="aq-bar">
+        <button type="button" class="aq-opt primary" data-action="skip">Skip this subtask</button>
+        <button type="button" class="aq-opt" data-action="alternate">Use another check</button>
+        <span class="aq-spacer"></span>
+        <button type="button" class="aq-reply-trigger" id="reply-trigger">Reply instead</button>
+      </div>
+
+      <div class="aq-reply">
+        <textarea
+          id="aq-textarea"
+          class="aq-textarea"
+          placeholder="Tell the agent how to verify completion…"
+          rows="1"
+        ></textarea>
+        <div class="aq-reply-bar">
+          <button type="button" class="aq-reply-cancel" id="reply-cancel">Cancel</button>
+          <span class="aq-hint">↵ send · ⇧↵ newline</span>
+          <button type="button" class="aq-send" id="aq-send" disabled>Send reply</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="notes">
+      <strong>What changed.</strong> Agent attribution (avatar + role) replaces the warning icon — this reads as <em>the agent is asking you something</em>, not <em>something went wrong</em>. The prose is kept (context matters) but split: situation paragraph in secondary tone, the actual question in primary weight. The agent's two inline proposals are extracted as structured actions — pressing one submits in a single click. A textarea is still available via "Reply instead" for the cases where the answer is free-form. Slate accent only; no warning color.
+    </p>
+  </section>
+
+</main>
+
+<script>
+  const root = document.documentElement;
+  document.querySelectorAll('[data-theme-btn]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      root.setAttribute('data-theme', btn.getAttribute('data-theme-btn'));
+      document.querySelectorAll('[data-theme-btn]').forEach(b =>
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+    });
+  });
+
+  const aq = document.getElementById('aq');
+  const replyTrigger = document.getElementById('reply-trigger');
+  const replyCancel = document.getElementById('reply-cancel');
+  const textarea = document.getElementById('aq-textarea');
+  const send = document.getElementById('aq-send');
+
+  function enterReply() {
+    aq.classList.add('is-reply');
+    setTimeout(() => textarea.focus(), 30);
+  }
+  function exitReply() {
+    aq.classList.remove('is-reply');
+    textarea.value = '';
+    send.disabled = true;
+  }
+  replyTrigger.addEventListener('click', enterReply);
+  replyCancel.addEventListener('click', exitReply);
+
+  textarea.addEventListener('input', () => {
+    send.disabled = textarea.value.trim().length === 0;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+  });
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') exitReply();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!send.disabled) flash('reply sent');
+    }
+  });
+  send.addEventListener('click', () => { if (!send.disabled) flash('reply sent'); });
+
+  document.querySelectorAll('.aq-opt').forEach(btn => {
+    btn.addEventListener('click', () => flash(btn.dataset.action.replace(/^\w/, c => c.toUpperCase())));
+  });
+  function flash(msg) {
+    const role = document.querySelector('.aq-role-sub');
+    const orig = role.textContent;
+    role.textContent = msg;
+    setTimeout(() => { role.textContent = orig; }, 1200);
+  }
+</script>
+</body>
+</html>
