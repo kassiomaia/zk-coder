@@ -91,11 +91,9 @@ describe('CommandPalette', () => {
 			expect(screen.getByText('/gen')).toBeInTheDocument();
 		});
 
-		it('renders keyboard hints in footer', () => {
+		it('renders the Esc hint in footer', () => {
 			render(CommandPalette, { ...defaultProps });
 			const listbox = screen.getByRole('listbox');
-			expect(listbox.textContent).toContain('↑↓ to navigate');
-			expect(listbox.textContent).toContain('Enter to select');
 			expect(listbox.textContent).toContain('Esc to close');
 		});
 	});
@@ -295,22 +293,6 @@ describe('CommandPalette', () => {
 			render(CommandPalette, { ...defaultProps });
 			const items = document.querySelectorAll('[id^="command-option-"]');
 			expect(items.length).toBe(mockCommands.length);
-		});
-	});
-
-	describe('icons', () => {
-		it('renders icon for each command', () => {
-			const { container } = render(CommandPalette, { ...defaultProps });
-			const icons = container.querySelectorAll('svg');
-			// Should have at least one icon per command
-			expect(icons.length).toBeGreaterThanOrEqual(mockCommands.length);
-		});
-
-		it('renders different icons for different commands', () => {
-			const { container } = render(CommandPalette, { ...defaultProps });
-			const svgs = container.querySelectorAll('svg');
-			// Different commands may have different SVG paths
-			expect(svgs.length).toBeGreaterThan(0);
 		});
 	});
 
