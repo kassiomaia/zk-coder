@@ -16,3 +16,4 @@ Each issue is a self-contained folder with:
 |----|------|--------|-------|
 | `agent-plan-subtasks-malformed-json` | LLM runtime | fixed (recovery path shipped) | `agent_plan_subtasks` malformed-JSON error aborts agent session |
 | `agent-final-summary-tool-call-discard` | Agent coordinator | investigated — awaiting team review | Final-summary path silently discards LLM responses when tool calls slip through `ToolChoiceMode::None` |
+| `agent-recovery-banner-in-yolo-and-live-streaming` | Agent pause/recovery | frontend band-aid shipped — awaiting backend design review | "Your progress is saved" card surfaces in yolo mode and during live streaming |
