@@ -25,6 +25,7 @@
 		configStore,
 		hasConfiguredProvider
 	} from '$lib/stores';
+	import { promptTemplatesStore } from '$lib/stores/promptTemplatesStore';
 	import type { Conversation, Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
 	import type { AgentSession, PendingAction } from '$lib/types/agent';
@@ -681,6 +682,9 @@
 		// Initialize config store and show providers modal if no providers configured
 		await configStore.initialize();
 		configInitialized = true;
+
+		// Load slash-command prompt templates for the chat input palette.
+		await promptTemplatesStore.initialize();
 
 		// Show providers modal if no providers are configured
 		if (!$hasConfiguredProvider) {

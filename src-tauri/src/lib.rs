@@ -241,6 +241,10 @@ pub fn run() {
             commands::config::pdf_theme::list_pdf_themes,
             commands::config::pdf_theme::get_pdf_theme,
             commands::config::pdf_theme::set_pdf_theme,
+            commands::config::prompt_templates::list_prompt_templates,
+            commands::config::prompt_templates::save_prompt_template,
+            commands::config::prompt_templates::delete_prompt_template,
+            commands::config::prompt_templates::reset_prompt_template,
             // LLM commands
             commands::llm::commands::send_chat_message,
             commands::llm::commands::send_chat_message_streaming,

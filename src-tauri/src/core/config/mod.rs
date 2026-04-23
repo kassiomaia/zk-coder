@@ -4,17 +4,19 @@
 //! models, and their default assignments for various operations. These entities
 //! form the contract for how the application's configuration is structured.
 
+pub mod prompt_template;
 pub mod repositories;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+pub use prompt_template::{PromptTemplate, SavePromptTemplateRequest, ARGS_PLACEHOLDER};
 pub use repositories::{
     ApiKeyRepository, CachedWebSearchEntry, ConfigDomainError, ConfigRepository,
     ManualModelRepository, ModelRepository, NewCachedWebSearchEntry, OperationDefaultsRepository,
-    PdfThemeRepository, ProviderRepository, RepositoryResult as ConfigRepositoryResult,
-    StoredWorkspaceSearchPolicy, ToolCredentialsRepository, WebSearchCacheRepository,
-    WorkspaceSearchPolicyRepository,
+    PdfThemeRepository, PromptTemplateRepository, ProviderRepository,
+    RepositoryResult as ConfigRepositoryResult, StoredWorkspaceSearchPolicy,
+    ToolCredentialsRepository, WebSearchCacheRepository, WorkspaceSearchPolicyRepository,
 };
 
 /// Represents the type of an API provider.

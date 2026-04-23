@@ -8,6 +8,8 @@ pub mod orchestrator;
 /// Re-exports for LLM command handlers.
 pub mod commands;
 mod helpers;
+/// Slash-command to prompt-template expansion.
+pub mod slash_resolver;
 mod state;
 #[cfg(test)]
 mod tests;

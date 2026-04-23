@@ -129,6 +129,34 @@ pub fn init_schema(conn: &Connection) -> Result<(), ConfigRepositoryError> {
             theme_name      TEXT NOT NULL,
             updated_at      TEXT NOT NULL
         );
+
+        -- Prompt templates.
+        --
+        -- Each row maps a slash-command slug (the token after / in chat,
+        -- e.g. refactor) to a prompt body with a {args} placeholder. The
+        -- backend expands /{slug} <rest> into the body with {args} replaced
+        -- by <rest> before the user message reaches the LLM.
+        --
+        -- is_builtin = 1 rows are seeded on startup via INSERT OR IGNORE,
+        -- so deleting a builtin row and re-running seed restores it exactly
+        -- to the factory default (used by the reset action in the UI).
+        CREATE TABLE IF NOT EXISTS prompt_templates (
+            id           TEXT PRIMARY KEY,
+            slug         TEXT NOT NULL UNIQUE,
+            title        TEXT NOT NULL,
+            description  TEXT NOT NULL,
+            icon         TEXT,
+            category     TEXT NOT NULL,
+            content      TEXT NOT NULL,
+            is_builtin   INTEGER NOT NULL DEFAULT 0,
+            is_enabled   INTEGER NOT NULL DEFAULT 1,
+            sort_order   INTEGER NOT NULL DEFAULT 0,
+            created_at   TEXT NOT NULL,
+            updated_at   TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_prompt_templates_slug
+        ON prompt_templates(slug);
         ",
     )?;
     Ok(())
@@ -160,6 +188,7 @@ mod tests {
         assert!(tables.contains(&"tool_credentials".to_string()));
         assert!(tables.contains(&"workspace_search_policy".to_string()));
         assert!(tables.contains(&"web_search_cache".to_string()));
+        assert!(tables.contains(&"prompt_templates".to_string()));
     }
 
     #[test]

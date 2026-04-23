@@ -12,9 +12,10 @@
 	import IconButton from '$lib/components/shared/IconButton.svelte';
 	import { ArrowUpIcon, CloseIcon, CodeIcon, FileIcon, PaperclipIcon, ZapIcon } from '$lib/icons';
 	import type { Command } from '$lib/types/command';
-	import { BUILT_IN_COMMANDS, filterCommands } from '$lib/types/command';
+	import { filterCommands } from '$lib/types/command';
 	import type { IntentClassification } from '$lib/types/nlp';
 	import { agentStore, chatStore, isLlmStreaming, nlpState } from '$lib/stores';
+	import { promptTemplateCommands } from '$lib/stores/promptTemplatesStore';
 	import { get } from 'svelte/store';
 	import { isValidModelId, sanitizeModelId } from '$lib/utils/validation';
 	import { createLogger } from '$lib/utils/logger';
@@ -98,7 +99,7 @@
 		onattach,
 		onremoveattachment,
 		maxLength,
-		commands = BUILT_IN_COMMANDS,
+		commands,
 		mentionItems = [],
 		showIntent = true,
 		enableMarkdownPreview = false,
@@ -131,8 +132,10 @@
 
 	// Note: $nlpState and $isLlmStreaming auto-subscribe to stores from $lib/stores
 
-	// Derived values
-	let filteredCommands = $derived(filterCommands(commands, commandQuery));
+	// Derived values — fall back to backend-sourced prompt templates when the
+	// parent doesn't supply an explicit command list.
+	let effectiveCommands = $derived(commands ?? $promptTemplateCommands);
+	let filteredCommands = $derived(filterCommands(effectiveCommands, commandQuery));
 	let filteredMentions = $derived(
 		mentionItems.filter((item) => item.name.toLowerCase().includes(mentionQuery.toLowerCase()))
 	);

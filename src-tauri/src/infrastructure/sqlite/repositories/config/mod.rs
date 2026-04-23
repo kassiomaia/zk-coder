@@ -13,9 +13,10 @@ use crate::infrastructure::sqlite::migrations::{config, config_schema};
 use crate::core::config::{
     ApiKeyRepository, CachedWebSearchEntry, ConfigDomainError, ManualModelEntry,
     ManualModelRepository, Model, ModelRepository, ModelsSource, NewCachedWebSearchEntry,
-    OperationDefault, OperationDefaultsRepository, OperationType, PdfThemeRepository, Provider,
-    ProviderRepository, StoredWorkspaceSearchPolicy, ToolCredentialsRepository,
-    WebSearchCacheRepository, WorkspaceSearchPolicyRepository,
+    OperationDefault, OperationDefaultsRepository, OperationType, PdfThemeRepository,
+    PromptTemplate, PromptTemplateRepository, Provider, ProviderRepository,
+    StoredWorkspaceSearchPolicy, ToolCredentialsRepository, WebSearchCacheRepository,
+    WorkspaceSearchPolicyRepository,
 };
 
 // Re-export submodule functions
@@ -24,6 +25,7 @@ pub mod helpers;
 pub(crate) mod manual_models;
 pub(crate) mod models;
 pub(crate) mod operation_defaults;
+pub(crate) mod prompt_templates;
 pub(crate) mod providers;
 pub(crate) mod tool_credentials;
 pub(crate) mod pdf_theme;
@@ -68,6 +70,7 @@ impl SqliteConfigRepository {
             conn: Arc::new(Mutex::new(conn)),
         };
         store.seed_builtin_providers()?;
+        store.seed_builtin_prompt_templates()?;
         Ok(store)
     }
 
@@ -81,6 +84,7 @@ impl SqliteConfigRepository {
     pub fn from_shared(conn: Arc<Mutex<Connection>>) -> Result<Self, ConfigRepositoryError> {
         let store = Self { conn };
         store.seed_builtin_providers()?;
+        store.seed_builtin_prompt_templates()?;
         Ok(store)
     }
 
@@ -100,6 +104,7 @@ impl SqliteConfigRepository {
             conn: Arc::new(Mutex::new(conn)),
         };
         store.seed_builtin_providers()?;
+        store.seed_builtin_prompt_templates()?;
         Ok(store)
     }
 
@@ -113,6 +118,77 @@ impl SqliteConfigRepository {
         let conn = self.acquire_lock()?;
         providers::seed_builtin_providers(&conn)?;
         Ok(())
+    }
+
+    fn seed_builtin_prompt_templates(&self) -> Result<(), ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        prompt_templates::seed_builtin_prompt_templates(&conn)?;
+        Ok(())
+    }
+
+    // =========================================================================
+    // Prompt Template Operations
+    // =========================================================================
+
+    /// Lists all prompt templates.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn list_prompt_templates(&self) -> Result<Vec<PromptTemplate>, ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        prompt_templates::list_prompt_templates(&conn)
+    }
+
+    /// Retrieves a prompt template by slug.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn get_prompt_template_by_slug(
+        &self,
+        slug: &str,
+    ) -> Result<Option<PromptTemplate>, ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        prompt_templates::get_prompt_template_by_slug(&conn, slug)
+    }
+
+    /// Upserts a prompt template.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database operation fails.
+    pub fn upsert_prompt_template(
+        &self,
+        template: &PromptTemplate,
+    ) -> Result<PromptTemplate, ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        prompt_templates::upsert_prompt_template(&conn, template)
+    }
+
+    /// Deletes a prompt template. Builtins are rejected.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the template is a builtin, does not exist, or
+    /// the database operation fails.
+    pub fn delete_prompt_template(&self, id: &str) -> Result<(), ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        prompt_templates::delete_prompt_template(&conn, id)
+    }
+
+    /// Resets a builtin prompt template to its seeded default.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `slug` is not a known builtin or the database
+    /// operation fails.
+    pub fn reset_prompt_template(
+        &self,
+        slug: &str,
+    ) -> Result<PromptTemplate, ConfigRepositoryError> {
+        let conn = self.acquire_lock()?;
+        prompt_templates::reset_prompt_template(&conn, slug)
     }
 
     // =========================================================================
@@ -893,6 +969,42 @@ impl WebSearchCacheRepository for SqliteConfigRepository {
 
     fn count(&self) -> crate::core::config::ConfigRepositoryResult<usize> {
         Self::count_web_search_cache(self).map_err(Into::into)
+    }
+}
+
+impl PromptTemplateRepository for SqliteConfigRepository {
+    fn list_prompt_templates(
+        &self,
+    ) -> crate::core::config::ConfigRepositoryResult<Vec<PromptTemplate>> {
+        Self::list_prompt_templates(self).map_err(Into::into)
+    }
+
+    fn get_prompt_template_by_slug(
+        &self,
+        slug: &str,
+    ) -> crate::core::config::ConfigRepositoryResult<Option<PromptTemplate>> {
+        Self::get_prompt_template_by_slug(self, slug).map_err(Into::into)
+    }
+
+    fn upsert_prompt_template(
+        &self,
+        template: &PromptTemplate,
+    ) -> crate::core::config::ConfigRepositoryResult<PromptTemplate> {
+        Self::upsert_prompt_template(self, template).map_err(Into::into)
+    }
+
+    fn delete_prompt_template(
+        &self,
+        id: &str,
+    ) -> crate::core::config::ConfigRepositoryResult<()> {
+        Self::delete_prompt_template(self, id).map_err(Into::into)
+    }
+
+    fn reset_prompt_template(
+        &self,
+        slug: &str,
+    ) -> crate::core::config::ConfigRepositoryResult<PromptTemplate> {
+        Self::reset_prompt_template(self, slug).map_err(Into::into)
     }
 }
 

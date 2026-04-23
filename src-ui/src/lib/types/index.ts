@@ -28,9 +28,9 @@ export type {
 } from './thread.js';
 
 // Command types
-export type { Command, CommandCategory, CommandPaletteProps } from './command.js';
+export type { Command, CommandPaletteProps } from './command.js';
 export {
-	BUILT_IN_COMMANDS,
+	CommandCategory,
 	filterCommands,
 	groupCommandsByCategory,
 	getCategoryLabel

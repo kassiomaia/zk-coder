@@ -9,6 +9,8 @@ pub mod defaults;
 mod helpers;
 /// Re-exports for model management commands.
 pub mod models;
+/// Re-exports for prompt-template management commands.
+pub mod prompt_templates;
 /// Re-exports for provider management commands.
 pub mod providers;
 mod state;
@@ -38,6 +40,10 @@ pub use helpers::{
 pub use models::{
     add_manual_model, get_manual_models, get_models, remove_manual_model,
     set_provider_models_source,
+};
+// Re-exports from prompt_templates module
+pub use prompt_templates::{
+    delete_prompt_template, list_prompt_templates, reset_prompt_template, save_prompt_template,
 };
 // Re-exports from providers module
 pub use providers::{get_providers, remove_provider, save_provider};

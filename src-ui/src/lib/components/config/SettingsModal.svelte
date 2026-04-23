@@ -11,6 +11,7 @@
 	import ModelCard from './ModelCard.svelte';
 	import ProviderIcon from './ProviderIcon.svelte';
 	import OperationIcon from './OperationIcon.svelte';
+	import PromptTemplatesSection from './PromptTemplatesSection.svelte';
 	import Select from '../shared/Select.svelte';
 	import WebSearchModal from '../settings/web-search/WebSearchModal.svelte';
 	import { AlertCircleIcon, BoxIcon, CheckIcon, SearchIcon, UserIcon } from '$lib/icons';
@@ -200,6 +201,9 @@
 					</div>
 				</div>
 			</section>
+
+			<!-- Prompt Templates Section -->
+			<PromptTemplatesSection />
 
 			<!-- Models Section -->
 			<section class="modal-section {styles.section}">

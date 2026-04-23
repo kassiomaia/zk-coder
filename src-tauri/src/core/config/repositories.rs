@@ -6,7 +6,10 @@
 
 use thiserror::Error;
 
-use super::{ManualModelEntry, Model, ModelsSource, OperationDefault, OperationType, Provider};
+use super::{
+    ManualModelEntry, Model, ModelsSource, OperationDefault, OperationType, PromptTemplate,
+    Provider,
+};
 
 /// A specialized `Result` type for configuration repository operations.
 pub type RepositoryResult<T> = Result<T, ConfigDomainError>;
@@ -220,6 +223,28 @@ pub trait PdfThemeRepository: Send + Sync {
     fn set_pdf_theme(&self, workspace_path: &str, theme_name: &str) -> RepositoryResult<()>;
 }
 
+/// A repository for prompt templates (slash-command expansions).
+pub trait PromptTemplateRepository: Send + Sync {
+    /// Returns all templates ordered by `sort_order`, then `slug`.
+    fn list_prompt_templates(&self) -> RepositoryResult<Vec<PromptTemplate>>;
+    /// Looks up a template by slug, or `None` when absent.
+    fn get_prompt_template_by_slug(
+        &self,
+        slug: &str,
+    ) -> RepositoryResult<Option<PromptTemplate>>;
+    /// Creates or updates a template. Returns the persisted row.
+    fn upsert_prompt_template(
+        &self,
+        template: &PromptTemplate,
+    ) -> RepositoryResult<PromptTemplate>;
+    /// Deletes a template by id. Builtins are not deletable; callers should
+    /// use `reset_prompt_template` instead.
+    fn delete_prompt_template(&self, id: &str) -> RepositoryResult<()>;
+    /// Restores a builtin template's row to its seeded factory default.
+    /// Returns the refreshed row. Fails for non-builtin slugs.
+    fn reset_prompt_template(&self, slug: &str) -> RepositoryResult<PromptTemplate>;
+}
+
 /// Combined configuration repository trait that aggregates all config-related
 /// repository capabilities (providers, models, API keys, tool credentials, etc.).
 pub trait ConfigRepository:
@@ -232,6 +257,7 @@ pub trait ConfigRepository:
     + WorkspaceSearchPolicyRepository
     + WebSearchCacheRepository
     + PdfThemeRepository
+    + PromptTemplateRepository
 {
 }
 
@@ -247,5 +273,6 @@ impl<T> ConfigRepository for T where
         + WorkspaceSearchPolicyRepository
         + WebSearchCacheRepository
         + PdfThemeRepository
+        + PromptTemplateRepository
 {
 }

@@ -324,3 +324,63 @@ export async function setProviderModelsSource(
 ): Promise<void> {
 	await invokeCommand<void>('config', 'set_provider_models_source', { providerId, modelsSource });
 }
+
+// ============================================================================
+// Prompt Template Commands
+// ============================================================================
+
+export interface PromptTemplate {
+	id: string;
+	slug: string;
+	title: string;
+	description: string;
+	icon: string | null;
+	category: string;
+	content: string;
+	isBuiltin: boolean;
+	isEnabled: boolean;
+	sortOrder: number;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface SavePromptTemplateRequest {
+	id?: string;
+	slug: string;
+	title: string;
+	description: string;
+	icon?: string | null;
+	category: string;
+	content: string;
+	isEnabled: boolean;
+}
+
+/**
+ * Lists all prompt templates.
+ */
+export async function listPromptTemplates(): Promise<PromptTemplate[]> {
+	return invokeCommand<PromptTemplate[]>('config', 'list_prompt_templates');
+}
+
+/**
+ * Creates or updates a prompt template.
+ */
+export async function savePromptTemplate(
+	request: SavePromptTemplateRequest
+): Promise<PromptTemplate> {
+	return invokeCommand<PromptTemplate>('config', 'save_prompt_template', { request });
+}
+
+/**
+ * Deletes a custom prompt template. Rejected for builtins by the backend.
+ */
+export async function deletePromptTemplate(id: string): Promise<void> {
+	await invokeCommand<void>('config', 'delete_prompt_template', { id });
+}
+
+/**
+ * Resets a builtin prompt template to its seeded default content.
+ */
+export async function resetPromptTemplate(slug: string): Promise<PromptTemplate> {
+	return invokeCommand<PromptTemplate>('config', 'reset_prompt_template', { slug });
+}

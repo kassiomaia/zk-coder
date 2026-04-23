@@ -2,7 +2,6 @@ import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CommandPalette from './CommandPalette.svelte';
 import type { Command } from '$lib/types/command';
-import { CommandCategory } from '$lib/types/command';
 
 describe('CommandPalette', () => {
 	const mockCommands: Command[] = [
@@ -11,33 +10,29 @@ describe('CommandPalette', () => {
 			name: 'generate',
 			description: 'Generate code from description',
 			icon: 'code',
-			category: CommandCategory.CODE,
-			handler: vi.fn()
+			category: 'code'
 		},
 		{
 			id: 'explain',
 			name: 'explain',
 			description: 'Explain selected code',
 			icon: 'book',
-			category: CommandCategory.CODE,
-			handler: vi.fn()
+			category: 'code'
 		},
 		{
 			id: 'new-chat',
 			name: 'new-chat',
 			description: 'Start a new conversation',
 			icon: 'message-square',
-			category: CommandCategory.CONVERSATION,
-			shortcut: 'Ctrl+N',
-			handler: vi.fn()
+			category: 'conversation',
+			shortcut: 'Ctrl+N'
 		},
 		{
 			id: 'settings',
 			name: 'settings',
 			description: 'Open settings',
 			icon: 'settings',
-			category: CommandCategory.SETTINGS,
-			handler: vi.fn()
+			category: 'settings'
 		}
 	];
 
@@ -351,8 +346,7 @@ describe('CommandPalette', () => {
 					name: 'only',
 					description: 'Only command',
 					icon: 'code',
-					category: CommandCategory.CODE,
-					handler: vi.fn()
+					category: 'code'
 				}
 			];
 
@@ -370,8 +364,7 @@ describe('CommandPalette', () => {
 					name: 'a'.repeat(100),
 					description: 'A command with a very long name',
 					icon: 'code',
-					category: CommandCategory.CODE,
-					handler: vi.fn()
+					category: 'code'
 				}
 			];
 
@@ -390,8 +383,7 @@ describe('CommandPalette', () => {
 					name: 'long-desc',
 					description: 'A'.repeat(200),
 					icon: 'code',
-					category: CommandCategory.CODE,
-					handler: vi.fn()
+					category: 'code'
 				}
 			];
 
@@ -418,8 +410,7 @@ describe('CommandPalette', () => {
 					id: 'no-icon',
 					name: 'no-icon',
 					description: 'Command without icon',
-					category: CommandCategory.CODE,
-					handler: vi.fn()
+					category: 'code'
 				}
 			];
 
