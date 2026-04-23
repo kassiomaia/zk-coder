@@ -336,7 +336,7 @@
 					<IconButton
 						label={agentPanelOpen ? 'Hide agent panel' : 'Show agent panel'}
 						tooltip={agentPanelOpen ? 'Hide agent panel' : 'Show agent panel'}
-						tooltipPosition="bottom"
+						tooltipPosition="left"
 						variant="ghost"
 						size="sm"
 						active={agentPanelOpen}

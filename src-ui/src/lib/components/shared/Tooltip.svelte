@@ -165,6 +165,42 @@
 	let showTimeout: ReturnType<typeof setTimeout> | null = null;
 	let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
+	/**
+	 * Svelte action: move the node to `document.body` so it escapes any
+	 * ancestor that creates a containing block for `position: fixed`
+	 * descendants (e.g. the `transform: scale()` on `.shell-main` used
+	 * for the app-level zoom).
+	 *
+	 * Without this portal, a fixed-positioned tooltip computed from
+	 * viewport-space `getBoundingClientRect()` coordinates would resolve
+	 * relative to the transformed ancestor and render far from its
+	 * trigger.
+	 */
+	function portalToBody(node: HTMLElement) {
+		const target = typeof document !== 'undefined' ? document.body : null;
+		if (target) target.appendChild(node);
+		return {
+			destroy() {
+				if (node.parentNode) node.parentNode.removeChild(node);
+			}
+		};
+	}
+
+	/**
+	 * Measure the trigger's real on-screen box.
+	 *
+	 * The `.trigger` wrapper uses `display: contents`, which produces no
+	 * CSS box, so `getBoundingClientRect()` on it returns a zero rect.
+	 * When that happens, fall back to the first rendered child (the real
+	 * trigger — e.g. the `<button>` inside an `IconButton`).
+	 */
+	function measureTrigger(el: HTMLElement): DOMRect {
+		const rect = el.getBoundingClientRect();
+		if (rect.width > 0 || rect.height > 0) return rect;
+		const child = el.firstElementChild as HTMLElement | null;
+		return child ? child.getBoundingClientRect() : rect;
+	}
+
 	// Sync actualPosition with position prop changes
 	$effect(() => {
 		actualPosition = position;
@@ -229,7 +265,7 @@
 	function calculatePosition() {
 		if (!triggerRef || !tooltipRef) return;
 
-		const triggerRect = triggerRef.getBoundingClientRect();
+		const triggerRect = measureTrigger(triggerRef);
 		const tooltipRect = tooltipRef.getBoundingClientRect();
 		const viewportWidth = window.innerWidth;
 		const viewportHeight = window.innerHeight;
@@ -308,7 +344,7 @@
 	let positionStyle = $derived.by((): Record<string, string> => {
 		if (!triggerRef) return { position: 'fixed', opacity: '0' };
 
-		const triggerRect = triggerRef.getBoundingClientRect();
+		const triggerRect = measureTrigger(triggerRef);
 		// Get tooltip dimensions if already rendered, otherwise use estimates
 		// This handles the initial frame where tooltipRef is being established
 		const tooltipWidth = tooltipRef?.offsetWidth ?? 0;
@@ -452,6 +488,7 @@
 			.join('; ')}
 		style:max-width={maxWidth}
 		bind:this={tooltipRef}
+		use:portalToBody
 		role="tooltip"
 		aria-hidden={!visible}
 	>

@@ -14,6 +14,14 @@
 	z-index: var(--z-tooltip);
 	pointer-events: none;
 	opacity: 0;
+	/*
+	 * Size by content (clamped by `max-width` on the element). Without
+	 * this, shrink-to-fit constrains the tooltip to the space between
+	 * its `left` value and the right edge of the viewport — which
+	 * squeezes it into an unwanted multi-line wrap when anchored near
+	 * the right side of the screen.
+	 */
+	width: max-content;
 	/* Use will-change for smoother animations */
 	will-change: opacity, transform;
 	/* Sub-pixel rendering optimization */
