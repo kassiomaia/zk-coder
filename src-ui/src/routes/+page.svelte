@@ -6,6 +6,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { invoke } from '@tauri-apps/api/core';
+	import { open as openFolderDialog } from '@tauri-apps/plugin-dialog';
 	import AppShell from '$lib/components/shell/AppShell.svelte';
 	import ProvidersModal from '$lib/components/config/ProvidersModal.svelte';
 	import ConfigModal from '$lib/components/config/ConfigModal.svelte';
@@ -687,10 +688,28 @@
 	}
 
 	async function handleCreateConversation() {
-		const conversation = await chatStore.createConversation('New Conversation');
-		if (conversation) {
-			await chatStore.selectConversation(conversation.id);
+		// Conversations own the workspace (conversation.settings.workspaceRoot);
+		// every thread underneath inherits it. Gating here — before the row is
+		// created — avoids the broken state where tools run with cwd=None, and
+		// prevents an orphaned empty conversation if the user cancels.
+		let workspace: string;
+		try {
+			const result = await openFolderDialog({
+				directory: true,
+				multiple: false,
+				title: 'Select Workspace Folder'
+			});
+			if (typeof result !== 'string') return;
+			workspace = result;
+		} catch (error) {
+			log.error('Failed to open workspace picker:', error);
+			return;
 		}
+
+		const conversation = await chatStore.createConversation('New Conversation');
+		if (!conversation) return;
+		await chatStore.setConversationWorkspace(conversation.id, workspace);
+		await chatStore.selectConversation(conversation.id);
 	}
 
 	async function handleCreateThread() {

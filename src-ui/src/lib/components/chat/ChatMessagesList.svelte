@@ -113,6 +113,12 @@
 		/** Replan execution handler */
 		onReplanExecution?: (sessionId: string) => void;
 
+		/** Create conversation handler — wired to the empty-state CTA when no conversation is selected */
+		onCreateConversation?: () => void;
+
+		/** Create thread handler — wired to the empty-state CTA when a conversation has no thread */
+		onCreateThread?: () => void;
+
 		/**
 		 * Called immediately before `visibleCount` grows and older messages get
 		 * prepended to the DOM. The parent should capture scroll state here so
@@ -149,6 +155,8 @@
 		onDenyAction,
 		onContinueExecution,
 		onReplanExecution,
+		onCreateConversation,
+		onCreateThread,
 		onBeforeProgressiveChunk,
 		onAfterProgressiveChunk
 	}: Props = $props();
@@ -472,7 +480,13 @@
 	</div>
 {:else if messages.length === 0}
 	<div class={inputStyles.emptyWrapper}>
-		<EmptyThreadState {hasInputActivity} context={emptyContext} {conversationTitle} />
+		<EmptyThreadState
+			{hasInputActivity}
+			context={emptyContext}
+			{conversationTitle}
+			{onCreateConversation}
+			{onCreateThread}
+		/>
 	</div>
 {:else}
 	<!-- Messages - flat rendering to avoid Svelte 5 nested #each reconciliation issues.

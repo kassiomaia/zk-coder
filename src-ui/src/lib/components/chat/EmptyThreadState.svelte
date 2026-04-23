@@ -23,8 +23,10 @@
 		context?: EmptyContext;
 		/** Optional conversation title for context */
 		conversationTitle?: string;
-		/** Create conversation callback */
+		/** Create conversation callback (fires when context is 'none') */
 		onCreateConversation?: () => void;
+		/** Create thread callback (fires when context is 'conversation') */
+		onCreateThread?: () => void;
 	}
 
 	let {
@@ -32,7 +34,8 @@
 		showSecondary = true,
 		context = 'none',
 		conversationTitle,
-		onCreateConversation
+		onCreateConversation,
+		onCreateThread
 	}: Props = $props();
 
 	// Animation state management
@@ -85,8 +88,9 @@
 	function handleAction() {
 		if (context === 'none') {
 			onCreateConversation?.();
+		} else if (context === 'conversation') {
+			onCreateThread?.();
 		}
-		// Other contexts handled by parent
 	}
 </script>
 

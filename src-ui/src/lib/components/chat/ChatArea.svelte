@@ -124,6 +124,12 @@
 
 		/** Replan execution handler */
 		onReplanExecution?: (sessionId: string) => void;
+
+		/** Create conversation handler — wired to the empty-state CTA when no conversation is selected */
+		onCreateConversation?: () => void;
+
+		/** Create thread handler — wired to the empty-state CTA when a conversation has no thread */
+		onCreateThread?: () => void;
 	}
 
 	let {
@@ -153,7 +159,9 @@
 		onApproveAction,
 		onDenyAction,
 		onContinueExecution,
-		onReplanExecution
+		onReplanExecution,
+		onCreateConversation,
+		onCreateThread
 	}: Props = $props();
 
 	// Input state
@@ -494,6 +502,8 @@
 			{onDenyAction}
 			{onContinueExecution}
 			{onReplanExecution}
+			{onCreateConversation}
+			{onCreateThread}
 			onBeforeProgressiveChunk={handleBeforeProgressiveChunk}
 			onAfterProgressiveChunk={handleAfterProgressiveChunk}
 		/>

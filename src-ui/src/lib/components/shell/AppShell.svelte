@@ -436,6 +436,7 @@
 					onSendMessage={handleSendMessage}
 					onThreadClick={handleSelectThreadById}
 					onOpenSettings={onSettings}
+					onCreateThread={() => onCreateThread?.()}
 					{initialModelId}
 					onModelChange={handleModelChange}
 					{onMessageFeedback}
@@ -455,6 +456,7 @@
 					agentSessionId={currentThreadAgentState.sessionId}
 					onSendMessage={handleSendMessage}
 					onOpenSettings={onSettings}
+					onCreateConversation={() => onCreateConversation?.()}
 					onApproveAction={(sessionId, actionId) => onApproveAction?.(sessionId, actionId)}
 					onDenyAction={(sessionId, actionId) => onDenyAction?.(sessionId, actionId)}
 					onContinueExecution={(sessionId) => onContinueExecution?.(sessionId)}
