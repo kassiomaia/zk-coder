@@ -1,101 +1,255 @@
+/**
+ * PromptTemplateEditorModal Styles
+ * Flat sections with hairline dividers — mirrors SettingsModal pattern.
+ */
+
 .form {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-5);
+	gap: var(--space-10);
+}
+
+/* ============================================================================
+   SECTION — mirrors SettingsModal.sectionHeader pattern
+   ============================================================================ */
+
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-6);
+}
+
+.sectionHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-4);
+	padding-bottom: var(--space-3);
+	border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.sectionTitleGroup {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	min-width: 0;
+}
+
+.sectionIcon {
+	color: var(--color-text-secondary);
+	opacity: 0.8;
+	display: inline-flex;
+	flex-shrink: 0;
+}
+
+.sectionTitle {
+	font-size: var(--text-sm);
+	font-weight: var(--font-semibold);
+	color: var(--color-text-primary);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-wider);
+	margin: 0;
+}
+
+/* Right-side control slot on the section header (e.g. Enabled).
+   Matches the native checkbox pattern from ManualModelList — restrained
+   styling via `accent-color` so the control reads as a status indicator,
+   not a primary action. */
+.enabledToggle {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-1) 0;
+	font-size: var(--text-sm);
+	color: var(--color-text-secondary);
+	cursor: pointer;
+	user-select: none;
+	flex-shrink: 0;
+}
+
+.enabledToggle:hover {
+	color: var(--color-text-primary);
+}
+
+.enabledToggle input[type='checkbox'] {
+	width: 14px;
+	height: 14px;
+	margin: 0;
+	accent-color: var(--color-primary-500);
+	cursor: pointer;
+}
+
+/* ============================================================================
+   FIELDS — single-column default, two-column via .row
+   ============================================================================ */
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	min-width: 0;
+}
+
+.field + .field {
+	margin-top: var(--space-4);
 }
 
 .row {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	gap: var(--space-4);
+	gap: var(--space-5);
 }
 
-.field {
-	display: flex;
-	flex-direction: column;
-	gap: var(--space-2);
+.row > .field + .field {
+	margin-top: 0;
 }
 
-.label {
+/* ============================================================================
+   NATIVE CONTROLS — kept local for the Category datalist, Icon picker,
+   and Template textarea. Mirrors Input.module.css tokens so the visual
+   language stays consistent with the shared primitives.
+   ============================================================================ */
+
+.nativeLabel {
+	display: block;
+	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
+	color: var(--color-text-primary);
+	margin-bottom: var(--space-1);
+}
+
+.helperText {
+	margin: var(--space-1) 0 0;
 	font-size: var(--text-xs);
-	font-weight: var(--font-semibold);
 	color: var(--color-text-secondary);
-	text-transform: uppercase;
-	letter-spacing: var(--tracking-wider);
+}
+
+.helperText code {
+	font-family: var(--font-mono);
+	font-size: var(--text-2xs);
+	padding: 0 var(--space-1);
+	background: var(--color-bg-tertiary);
+	border-radius: var(--radius-sm);
+	color: var(--color-text-secondary);
+}
+
+.nativeInput,
+.nativeSelect,
+.textarea {
+	width: 100%;
+	padding: var(--space-2) var(--space-3);
+	font-size: var(--text-sm);
+	font-family: var(--font-sans);
+	color: var(--color-text-primary);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border-primary);
+	border-radius: var(--radius-lg);
+	transition: all var(--transition-fast);
+}
+
+.nativeInput::placeholder,
+.textarea::placeholder {
+	color: var(--color-text-muted);
+}
+
+.nativeInput:hover:not(:disabled),
+.nativeSelect:hover:not(:disabled),
+.textarea:hover:not(:disabled) {
+	border-color: var(--color-border-secondary);
+}
+
+.nativeInput:focus,
+.nativeSelect:focus,
+.textarea:focus {
+	outline: none;
+	border-color: var(--color-primary-500);
+	box-shadow: 0 0 0 1px var(--color-primary-500);
+}
+
+.nativeInput:disabled,
+.nativeSelect:disabled {
+	opacity: var(--opacity-disabled);
+	cursor: not-allowed;
+	background: var(--color-bg-tertiary);
 }
 
 .textarea {
-	width: 100%;
-	min-height: 10rem;
-	padding: var(--space-3);
-	background: var(--color-surface-1);
-	color: var(--color-text-primary);
-	border: 1px solid var(--color-border-subtle);
-	border-radius: var(--radius-md);
 	font-family: var(--font-mono);
 	font-size: var(--text-sm);
-	line-height: 1.5;
+	line-height: 1.55;
+	min-height: 14rem;
 	resize: vertical;
 }
 
-.textarea:focus {
-	outline: none;
-	border-color: var(--color-accent);
-	box-shadow: 0 0 0 3px var(--color-accent-soft);
+/* Select + arrow (matches Select.svelte layout) */
+.selectWrapper {
+	position: relative;
+	width: 100%;
 }
 
-.helper {
-	margin: 0;
-	font-size: var(--text-xs);
-	color: var(--color-text-secondary);
-}
-
-.helper code {
-	padding: 0 var(--space-1);
-	font-family: var(--font-mono);
-	background: var(--color-surface-2);
-	border-radius: var(--radius-sm);
-}
-
-.toggle {
-	display: flex;
-	align-items: center;
-	gap: var(--space-2);
-	font-size: var(--text-sm);
-	color: var(--color-text-primary);
+.nativeSelect {
+	appearance: none;
+	padding-right: var(--space-8);
 	cursor: pointer;
 }
 
-.preview {
+.selectArrow {
+	position: absolute;
+	right: var(--space-2-5);
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--color-text-muted);
+	pointer-events: none;
+	display: inline-flex;
+}
+
+/* Icon row — 32x32 preview glyph beside the native select.
+   Matches .operationIcon / .providerIconWrapper in SettingsModal. */
+.iconRow {
+	display: grid;
+	grid-template-columns: 32px 1fr;
+	gap: var(--space-3);
+	align-items: center;
+}
+
+.iconGlyph {
+	width: 32px;
+	height: 32px;
 	display: flex;
-	flex-direction: column;
-	gap: var(--space-2);
-	padding: var(--space-3);
-	background: var(--color-surface-1);
-	border: 1px dashed var(--color-border-subtle);
+	align-items: center;
+	justify-content: center;
 	border-radius: var(--radius-md);
-}
-
-.previewLabel {
-	font-size: var(--text-xs);
+	background: var(--color-bg-secondary);
 	color: var(--color-text-secondary);
-	text-transform: uppercase;
-	letter-spacing: var(--tracking-wider);
+	flex-shrink: 0;
 }
 
-.previewBody {
-	margin: 0;
-	font-family: var(--font-mono);
+.iconGlyphEmpty {
+	color: var(--color-text-muted);
 	font-size: var(--text-sm);
-	color: var(--color-text-primary);
-	white-space: pre-wrap;
-	word-break: break-word;
+	line-height: 1;
 }
+
+/* ============================================================================
+   ERROR
+   ============================================================================ */
 
 .error {
-	padding: var(--space-3);
+	padding: var(--space-3) var(--space-4);
 	font-size: var(--text-sm);
-	color: var(--color-danger);
-	background: var(--color-danger-soft);
-	border-radius: var(--radius-md);
+	color: var(--color-error);
+	background: var(--color-error-light);
+	border: 1px solid var(--color-error-border);
+	border-radius: var(--radius-lg);
+}
+
+/* ============================================================================
+   NARROW WIDTHS
+   ============================================================================ */
+
+@media (max-width: 640px) {
+	.row {
+		grid-template-columns: 1fr;
+		gap: var(--space-4);
+	}
 }

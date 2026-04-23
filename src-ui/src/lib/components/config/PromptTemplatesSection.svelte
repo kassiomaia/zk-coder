@@ -115,7 +115,7 @@
 	{:else}
 		<ul class={styles.list}>
 			{#each sortedTemplates as template (template.id)}
-				<li class={styles.item} class:isDisabled={!template.isEnabled}>
+				<li class={[styles.item, !template.isEnabled && styles.isDisabled].filter(Boolean).join(' ')}>
 					<div class={styles.info}>
 						<div class={styles.titleRow}>
 							<span class={styles.slug}>/{template.slug}</span>
@@ -139,9 +139,13 @@
 						>
 							{template.isEnabled ? 'Disable' : 'Enable'}
 						</Button>
-						<Button variant="ghost" size="sm" onclick={() => openEdit(template)}>
-							<EditIcon size={14} />
-							<span>Edit</span>
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => openEdit(template)}
+							icon={editIcon}
+						>
+							Edit
 						</Button>
 						{#if template.isBuiltin}
 							<Button
@@ -149,18 +153,18 @@
 								size="sm"
 								onclick={() => handleReset(template)}
 								disabled={$promptTemplatesStore.loading === 'loading'}
+								icon={resetIcon}
 							>
-								<RefreshIcon size={14} />
-								<span>Reset</span>
+								Reset
 							</Button>
 						{:else}
 							<Button
 								variant="ghost"
 								size="sm"
 								onclick={() => (pendingDelete = template)}
+								icon={deleteIcon}
 							>
-								<DeleteIcon size={14} />
-								<span>Delete</span>
+								Delete
 							</Button>
 						{/if}
 					</div>
@@ -173,6 +177,18 @@
 		<div class={styles.error} role="alert">{$promptTemplatesStore.error}</div>
 	{/if}
 </section>
+
+{#snippet editIcon()}
+	<EditIcon size={14} />
+{/snippet}
+
+{#snippet resetIcon()}
+	<RefreshIcon size={14} />
+{/snippet}
+
+{#snippet deleteIcon()}
+	<DeleteIcon size={14} />
+{/snippet}
 
 <PromptTemplateEditorModal open={editorOpen} template={editing} onclose={closeEditor} />
 

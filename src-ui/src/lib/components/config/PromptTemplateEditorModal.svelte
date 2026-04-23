@@ -5,16 +5,23 @@
 	 * `promptTemplatesStore`; the caller only decides which template to edit
 	 * and when to close the modal.
 	 */
+	import { derived } from 'svelte/store';
 	import Modal from '../shared/Modal.svelte';
 	import Button from '../shared/Button.svelte';
 	import Input from '../shared/Input.svelte';
-	import Select from '../shared/Select.svelte';
 	import styles from './PromptTemplateEditorModal.module.css';
 	import {
 		promptTemplatesStore,
 		type PromptTemplate
 	} from '$lib/stores/promptTemplatesStore';
 	import type { SavePromptTemplateRequest } from '$lib/api/config';
+	import {
+		BoxIcon,
+		ChevronDownIcon,
+		CodeIcon,
+		FileIcon,
+		UserIcon
+	} from '$lib/icons';
 	import { createLogger } from '$lib/utils/logger';
 
 	const log = createLogger('PromptTemplateEditor');
@@ -31,7 +38,7 @@
 	let slug = $state('');
 	let title = $state('');
 	let description = $state('');
-	let category = $state('code');
+	let category = $state('custom');
 	let icon = $state('');
 	let content = $state('');
 	let isEnabled = $state(true);
@@ -49,12 +56,16 @@
 		{ value: 'settings', label: 'Settings' }
 	];
 
-	const categoryOptions = [
-		{ value: 'code', label: 'Code' },
-		{ value: 'custom', label: 'Custom' }
-	];
-
 	const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
+
+	const categorySuggestions = derived(promptTemplatesStore, ($s) => {
+		const seen = new Set<string>();
+		for (const t of $s.templates) {
+			const c = t.category?.trim();
+			if (c) seen.add(c);
+		}
+		return Array.from(seen).sort();
+	});
 
 	$effect(() => {
 		if (!open) return;
@@ -72,14 +83,13 @@
 			description = '';
 			category = 'custom';
 			icon = '';
-			content = '\n\n{args}';
+			content = '';
 			isEnabled = true;
 		}
 		errorMessage = null;
 	});
 
 	let isBuiltin = $derived(template?.isBuiltin ?? false);
-	let preview = $derived(content.replace(/\{args\}/g, 'YOUR INPUT'));
 	let canSave = $derived(
 		!saving &&
 			title.trim().length > 0 &&
@@ -87,6 +97,7 @@
 			category.trim().length > 0 &&
 			(isBuiltin || SLUG_RE.test(slug.trim()))
 	);
+	let modalTitle = $derived(template ? `Edit /${template.slug}` : 'New prompt template');
 
 	async function handleSave() {
 		if (!canSave) return;
@@ -120,7 +131,7 @@
 </script>
 
 <Modal
-	title={template ? `Edit /${template.slug}` : 'New prompt template'}
+	title={modalTitle}
 	{open}
 	size="lg"
 	stacked
@@ -128,79 +139,158 @@
 >
 	{#snippet children()}
 		<div class={styles.form}>
-			<div class={styles.row}>
-				<Input
-					name="template-slug"
-					label="Slug"
-					value={slug}
-					onchange={(v) => (slug = v)}
-					placeholder="refactor"
-					helper={isBuiltin
-						? 'Builtin slug cannot be changed.'
-						: 'Lowercase letters, digits, and dashes. Must start with a letter or digit.'}
-					disabled={isBuiltin}
-					required
-				/>
-				<Input
-					name="template-title"
-					label="Title"
-					value={title}
-					onchange={(v) => (title = v)}
-					placeholder="Refactor"
-					required
-				/>
-			</div>
+			<!-- IDENTITY -->
+			<section class="modal-section {styles.section}">
+				<header class={styles.sectionHeader}>
+					<div class={styles.sectionTitleGroup}>
+						<span class={styles.sectionIcon} aria-hidden="true">
+							<UserIcon size={16} />
+						</span>
+						<h3 class={styles.sectionTitle}>Identity</h3>
+					</div>
+					<label class={styles.enabledToggle}>
+						<input
+							type="checkbox"
+							checked={isEnabled}
+							onchange={(e) => (isEnabled = (e.currentTarget as HTMLInputElement).checked)}
+						/>
+						<span>Enabled</span>
+					</label>
+				</header>
 
-			<Input
-				name="template-description"
-				label="Description"
-				value={description}
-				onchange={(v) => (description = v)}
-				placeholder="Short subtitle shown in the command palette"
-			/>
+				{#if !isBuiltin}
+					<div class={styles.field}>
+						<Input
+							name="template-slug"
+							label="Slug"
+							value={slug}
+							onchange={(v) => (slug = v)}
+							placeholder="commit-message"
+							helper="Lowercase letters, digits, and dashes. Must start with a letter or digit. Appears in the palette as /slug."
+							required
+						/>
+					</div>
+				{/if}
 
-			<div class={styles.row}>
-				<div class={styles.field}>
-					<label class={styles.label} for="template-category">Category</label>
-					<Select
-						value={category}
-						options={categoryOptions}
-						onchange={(v) => (category = v)}
-					/>
+				<div class={styles.row}>
+					<div class={styles.field}>
+						<Input
+							name="template-title"
+							label="Title"
+							value={title}
+							onchange={(v) => (title = v)}
+							placeholder="Commit message"
+							required
+						/>
+					</div>
+					<div class={styles.field}>
+						<Input
+							name="template-description"
+							label="Description"
+							value={description}
+							onchange={(v) => (description = v)}
+							placeholder="Short subtitle shown in the palette"
+						/>
+					</div>
 				</div>
-				<div class={styles.field}>
-					<label class={styles.label} for="template-icon">Icon</label>
-					<Select value={icon} options={iconOptions} onchange={(v) => (icon = v)} />
+			</section>
+
+			<!-- APPEARANCE -->
+			<section class="modal-section {styles.section}">
+				<header class={styles.sectionHeader}>
+					<div class={styles.sectionTitleGroup}>
+						<span class={styles.sectionIcon} aria-hidden="true">
+							<BoxIcon size={16} />
+						</span>
+						<h3 class={styles.sectionTitle}>Appearance</h3>
+					</div>
+				</header>
+
+				<div class={styles.row}>
+					<div class={styles.field}>
+						<label class={styles.nativeLabel} for="template-category">Category</label>
+						<input
+							id="template-category"
+							class={styles.nativeInput}
+							list="template-category-options"
+							value={category}
+							oninput={(e) => (category = (e.currentTarget as HTMLInputElement).value)}
+							placeholder="custom"
+						/>
+						<datalist id="template-category-options">
+							{#each $categorySuggestions as option (option)}
+								<option value={option}></option>
+							{/each}
+						</datalist>
+						<p class={styles.helperText}>
+							Free text. Templates with the same category are grouped in the palette.
+						</p>
+					</div>
+
+					<div class={styles.field}>
+						<label class={styles.nativeLabel} for="template-icon">Icon</label>
+						<div class={styles.iconRow}>
+							<div class={styles.iconGlyph} aria-hidden="true">
+								{#if icon === 'code'}
+									<CodeIcon size={16} />
+								{:else if icon === 'book' || icon === 'document'}
+									<FileIcon size={16} />
+								{:else if icon === 'settings'}
+									<BoxIcon size={16} />
+								{:else}
+									<span class={styles.iconGlyphEmpty}>—</span>
+								{/if}
+							</div>
+							<div class={styles.selectWrapper}>
+								<select
+									id="template-icon"
+									class={styles.nativeSelect}
+									value={icon}
+									onchange={(e) => (icon = (e.currentTarget as HTMLSelectElement).value)}
+								>
+									{#each iconOptions as option (option.value)}
+										<option value={option.value} selected={option.value === icon}>
+											{option.label}
+										</option>
+									{/each}
+								</select>
+								<span class={styles.selectArrow} aria-hidden="true">
+									<ChevronDownIcon size={16} />
+								</span>
+							</div>
+						</div>
+					</div>
 				</div>
-			</div>
+			</section>
 
-			<div class={styles.field}>
-				<label class={styles.label} for="template-content">Template</label>
-				<textarea
-					id="template-content"
-					class={styles.textarea}
-					rows="8"
-					value={content}
-					oninput={(e) => (content = (e.currentTarget as HTMLTextAreaElement).value)}
-				></textarea>
-				<p class={styles.helper}>
-					Use <code>&#123;args&#125;</code> where the user's input should be inserted.
-				</p>
-			</div>
+			<!-- TEMPLATE -->
+			<section class="modal-section {styles.section}">
+				<header class={styles.sectionHeader}>
+					<div class={styles.sectionTitleGroup}>
+						<span class={styles.sectionIcon} aria-hidden="true">
+							<FileIcon size={16} />
+						</span>
+						<h3 class={styles.sectionTitle}>Template</h3>
+					</div>
+				</header>
 
-			<label class={styles.toggle}>
-				<input
-					type="checkbox"
-					checked={isEnabled}
-					onchange={(e) => (isEnabled = (e.currentTarget as HTMLInputElement).checked)}
-				/>
-				<span>Enabled (appears in the palette)</span>
-			</label>
+				<div class={styles.field}>
+					<label class={styles.nativeLabel} for="template-content">Body</label>
+					<textarea
+						id="template-content"
+						class={styles.textarea}
+						rows="10"
+						placeholder="Write instructions for the model. Use &#123;args&#125; where the user's input should be inserted."
+						value={content}
+						oninput={(e) => (content = (e.currentTarget as HTMLTextAreaElement).value)}
+					></textarea>
+					<p class={styles.helperText}>
+						Use <code>&#123;args&#125;</code> where the user's input should be inserted.
+						Multi-line arguments are preserved verbatim.
+					</p>
+				</div>
 
-			<div class={styles.preview}>
-				<div class={styles.previewLabel}>Preview (with YOUR INPUT substituted for &#123;args&#125;):</div>
-				<pre class={styles.previewBody}>{preview}</pre>
-			</div>
+			</section>
 
 			{#if errorMessage}
 				<div class={styles.error} role="alert">{errorMessage}</div>
@@ -211,7 +301,7 @@
 	{#snippet footer()}
 		<Button variant="ghost" onclick={handleClose} disabled={saving}>Cancel</Button>
 		<Button variant="primary" onclick={handleSave} disabled={!canSave}>
-			{saving ? 'Saving…' : 'Save'}
+			{saving ? 'Saving…' : template ? 'Save changes' : 'Save'}
 		</Button>
 	{/snippet}
 </Modal>
