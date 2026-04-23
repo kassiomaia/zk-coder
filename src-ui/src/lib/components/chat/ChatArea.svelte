@@ -382,6 +382,29 @@
 		lastScrollTop = ref.scrollTop;
 	}
 
+	// Progressive-render scroll preservation. When ChatMessagesList prepends
+	// older messages in chunks, we capture `(scrollHeight - scrollTop)` — the
+	// distance from the current viewport top to the bottom of the scrollable
+	// content — before Svelte reconciles, then restore it after. If the user
+	// was at the bottom, they stay at the bottom. If they scrolled up to read
+	// older content, their visual anchor is preserved.
+	let progressiveScrollAnchor = 0;
+
+	function handleBeforeProgressiveChunk() {
+		const ref = messagesWrapperRef;
+		if (!ref) return;
+		progressiveScrollAnchor = ref.scrollHeight - ref.scrollTop;
+	}
+
+	function handleAfterProgressiveChunk() {
+		const ref = messagesWrapperRef;
+		if (!ref) return;
+		ref.scrollTop = ref.scrollHeight - progressiveScrollAnchor;
+		// Sync our tracking so `handleScroll` doesn't misinterpret this as a
+		// user scroll-up gesture.
+		lastScrollTop = ref.scrollTop;
+	}
+
 	// Track input activity for empty state transitions
 	function handleInputChange(value: string) {
 		inputValue = value;
@@ -471,6 +494,8 @@
 			{onDenyAction}
 			{onContinueExecution}
 			{onReplanExecution}
+			onBeforeProgressiveChunk={handleBeforeProgressiveChunk}
+			onAfterProgressiveChunk={handleAfterProgressiveChunk}
 		/>
 
 		<!-- Scroll to bottom button -->

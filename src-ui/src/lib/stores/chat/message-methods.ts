@@ -18,6 +18,7 @@ import { removeById } from '$lib/utils/collection';
 import { createLogger } from '$lib/utils/logger';
 import type { Message } from '$lib/types/message';
 import type { ChatState } from './types';
+import { documentGenerationStore } from '$lib/stores/documentGenerationStore';
 
 type Updater = (fn: (state: ChatState) => ChatState) => void;
 type GetState = () => ChatState;
@@ -42,6 +43,11 @@ export function createMessageMethods({ update, getState }: Deps) {
 			}
 			return { ...state, messages: [...state.messages, message] };
 		});
+
+		// Feed the append into doc-gen tracking. Previously this was a per-render
+		// `$effect` in ChatMessagesList that scanned every message on every reactive
+		// update (O(N) per streaming tick). Hooking it here makes it O(1) per append.
+		documentGenerationStore.processMessage(message);
 
 		const state = getState();
 		if (state.nlp.backendAvailable && message.conversationId) {
@@ -130,16 +136,24 @@ export function createMessageMethods({ update, getState }: Deps) {
 	}
 
 	function updateMessage(id: string, updates: Partial<Message>) {
+		let merged: Message | null = null;
 		update((state) => {
-			const messageExists = state.messages.some((m) => m.id === id);
-			if (!messageExists) {
+			const existing = state.messages.find((m) => m.id === id);
+			if (!existing) {
 				return state;
 			}
+			merged = { ...existing, ...updates };
 			return {
 				...state,
-				messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m))
+				messages: state.messages.map((m) => (m === existing ? merged! : m))
 			};
 		});
+
+		// Tool-call status/result updates arrive via this path (agent event bus).
+		// Doc-gen tracking needs to see them to advance phase / mark completion.
+		if (merged) {
+			documentGenerationStore.processMessage(merged);
+		}
 	}
 
 	return {

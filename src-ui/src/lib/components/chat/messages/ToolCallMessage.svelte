@@ -10,7 +10,7 @@
 	import styles from './ToolCallMessage.module.css';
 	import { AlertCircle, CheckCircle2, ChevronRight, Code } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
-	import hljs from 'highlight.js';
+	import hljs from '$lib/utils/hljs';
 	import 'highlight.js/styles/github-dark.css';
 	import { getToolRenderer } from './tool-renderers/registry';
 	import type { ToolCallStatus } from './tool-renderers/types';

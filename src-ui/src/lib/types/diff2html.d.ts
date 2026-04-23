@@ -12,59 +12,85 @@ declare module 'diff2html/bundles/css/diff2html.min.css' {
 }
 
 declare module 'highlight.js/lib/core' {
-	const hljs: {
-		registerLanguage(name: string, module: any): void;
-		highlight(code: string, language: string): { value: string };
-	};
+	import type { HLJSApi } from 'highlight.js';
+	const hljs: HLJSApi;
 	export default hljs;
 }
 
 declare module 'highlight.js/lib/languages/typescript' {
-	const typescript: any;
+	import type { LanguageFn } from 'highlight.js';
+	const typescript: LanguageFn;
 	export default typescript;
 }
 
 declare module 'highlight.js/lib/languages/javascript' {
-	const javascript: any;
+	import type { LanguageFn } from 'highlight.js';
+	const javascript: LanguageFn;
 	export default javascript;
 }
 
 declare module 'highlight.js/lib/languages/rust' {
-	const rust: any;
+	import type { LanguageFn } from 'highlight.js';
+	const rust: LanguageFn;
 	export default rust;
 }
 
 declare module 'highlight.js/lib/languages/python' {
-	const python: any;
+	import type { LanguageFn } from 'highlight.js';
+	const python: LanguageFn;
 	export default python;
 }
 
 declare module 'highlight.js/lib/languages/css' {
-	const css: any;
+	import type { LanguageFn } from 'highlight.js';
+	const css: LanguageFn;
 	export default css;
 }
 
 declare module 'highlight.js/lib/languages/scss' {
-	const scss: any;
+	import type { LanguageFn } from 'highlight.js';
+	const scss: LanguageFn;
 	export default scss;
 }
 
 declare module 'highlight.js/lib/languages/json' {
-	const json: any;
+	import type { LanguageFn } from 'highlight.js';
+	const json: LanguageFn;
 	export default json;
 }
 
 declare module 'highlight.js/lib/languages/yaml' {
-	const yaml: any;
+	import type { LanguageFn } from 'highlight.js';
+	const yaml: LanguageFn;
 	export default yaml;
 }
 
 declare module 'highlight.js/lib/languages/markdown' {
-	const markdown: any;
+	import type { LanguageFn } from 'highlight.js';
+	const markdown: LanguageFn;
 	export default markdown;
 }
 
 declare module 'highlight.js/lib/languages/xml' {
-	const xml: any;
+	import type { LanguageFn } from 'highlight.js';
+	const xml: LanguageFn;
 	export default xml;
+}
+
+declare module 'highlight.js/lib/languages/bash' {
+	import type { LanguageFn } from 'highlight.js';
+	const bash: LanguageFn;
+	export default bash;
+}
+
+declare module 'highlight.js/lib/languages/sql' {
+	import type { LanguageFn } from 'highlight.js';
+	const sql: LanguageFn;
+	export default sql;
+}
+
+declare module 'highlight.js/lib/languages/plaintext' {
+	import type { LanguageFn } from 'highlight.js';
+	const plaintext: LanguageFn;
+	export default plaintext;
 }

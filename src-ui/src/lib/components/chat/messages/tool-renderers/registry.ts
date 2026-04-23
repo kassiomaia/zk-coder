@@ -11,6 +11,7 @@
  * *same renderer instance* as the canonical name; tests rely on reference
  * equality to detect accidental divergence.
  */
+import { agentPlanSubtasksRenderer } from './agentRenderers';
 import { bashRenderer } from './bashRenderer';
 import { defaultRenderer } from './defaultRenderer';
 import {
@@ -54,7 +55,10 @@ const RENDERERS: Record<string, AnyToolRenderer> = {
 	// misc
 	llm_request: llmRequestRenderer,
 	skill: skillRenderer,
-	task: taskRenderer
+	task: taskRenderer,
+
+	// agent orchestration
+	agent_plan_subtasks: agentPlanSubtasksRenderer
 };
 
 /**

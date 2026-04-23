@@ -63,6 +63,18 @@ function createDocumentGenerationStore() {
 		return null;
 	}
 
+	// Replay an entire message list into the tracker. Used on thread select
+	// to reconstruct doc-gen card state from history in a single batched pass,
+	// replacing the per-render `$effect` that previously iterated all messages
+	// on every reactive update.
+	function rebuildFromMessages(messages: import('$lib/types/message').Message[]) {
+		let any = false;
+		for (const message of messages) {
+			if (documentGenerationTracker.processMessage(message)) any = true;
+		}
+		if (any) refresh();
+	}
+
 	// Get job by session ID
 	function getJobBySession(sessionId: string): DocumentGenerationJob | undefined {
 		return documentGenerationTracker.getJobBySession(sessionId);
@@ -107,6 +119,7 @@ function createDocumentGenerationStore() {
 		subscribe,
 		refresh,
 		processMessage,
+		rebuildFromMessages,
 		getJobBySession,
 		getJob,
 		retryJob,

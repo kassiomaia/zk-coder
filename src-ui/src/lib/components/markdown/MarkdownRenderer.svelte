@@ -1,11 +1,25 @@
 <script lang="ts">
 	/**
 	 * MarkdownRenderer Component
-	 * Renders markdown content with syntax highlighting, tables, task lists, and image support.
-	 * Includes content validation and sanitization for security.
+	 *
+	 * Renders markdown content with syntax highlighting, tables, task lists,
+	 * and image support. Validates and sanitizes input for XSS protection.
+	 *
+	 * Performance notes:
+	 * - Uses `renderMarkdownWithBlocks` to split markdown into html parts and
+	 *   extracted code blocks via sentinel comments. No DOM round-trip.
+	 * - Memoizes the rendered result by input content so streaming tokens
+	 *   don't re-run marked + hljs on every reactive update for stable messages.
 	 */
 	import { browser } from '$app/environment';
-	import { escapeHtml, renderMarkdown } from '$lib/utils/markdown';
+	import {
+		escapeHtml,
+		renderMarkdownWithBlocks,
+		splitOnSentinels,
+		type CodeBlockData,
+		type RenderedMarkdown,
+		type RenderedPart
+	} from '$lib/utils/markdown';
 	import CodeBlock from './code/CodeBlock.svelte';
 	import {
 		type ContentValidationConfig,
@@ -36,9 +50,7 @@
 		skipValidation = false
 	}: Props = $props();
 
-	// Validate and render content
 	let validationResult = $derived.by(() => {
-		// Skip validation if explicitly requested or if config is null
 		if (skipValidation || validationConfig === null) {
 			return {
 				isValid: true,
@@ -48,7 +60,6 @@
 			};
 		}
 
-		// Quick check for content that doesn't need sanitization
 		if (!mightNeedSanitization(content)) {
 			return {
 				isValid: true,
@@ -58,81 +69,61 @@
 			};
 		}
 
-		// Full validation with merged config
 		const mergedConfig = { ...defaultValidationConfig, ...validationConfig };
 		return validateContent(content, mergedConfig);
 	});
 
-	// Only render markdown on the client to avoid SSR issues with highlight.js
-	// On the server, show plain text as fallback using comprehensive HTML escaping
-	let renderedHtml = $derived.by(() => {
+	// Per-instance memoization. Streaming only mutates the trailing message's
+	// `content`, so non-streaming messages hit this cache and skip marked + hljs
+	// entirely on re-renders caused by surrounding reactivity.
+	let lastInput: string | null = null;
+	let lastRendered: RenderedMarkdown | null = null;
+
+	let rendered = $derived.by<RenderedMarkdown>(() => {
 		if (!validationResult.isValid) {
-			// Return error message HTML for invalid content
-			return `<div class="${styles.validationError}" role="alert">
-        <span class="${styles.errorIcon}">!</span>
-        <span class="${styles.errorMessage}">${escapeHtml(validationResult.error ?? 'Content validation failed')}</span>
-      </div>`;
+			const errMsg = escapeHtml(validationResult.error ?? 'Content validation failed');
+			return {
+				html: `<div class="${styles.validationError}" role="alert"><span class="${styles.errorIcon}">!</span><span class="${styles.errorMessage}">${errMsg}</span></div>`,
+				codeBlocks: []
+			};
 		}
 
-		const contentToRender = validationResult.sanitizedContent;
-		return browser
-			? renderMarkdown(contentToRender)
-			: escapeHtml(contentToRender).replace(/\n/g, '<br>');
+		const sanitized = validationResult.sanitizedContent;
+
+		if (!browser) {
+			return {
+				html: escapeHtml(sanitized).replace(/\n/g, '<br>'),
+				codeBlocks: []
+			};
+		}
+
+		if (lastInput !== null && lastInput === sanitized && lastRendered) {
+			return lastRendered;
+		}
+
+		const result = renderMarkdownWithBlocks(sanitized);
+		lastInput = sanitized;
+		lastRendered = result;
+		return result;
 	});
 
-	let blocks = $derived.by(() => {
-		if (!browser) return [];
-
-		const container = document.createElement('div');
-		container.innerHTML = renderedHtml;
-
-		const newBlocks: Array<{
-			type: 'html' | 'code';
-			content: string;
-			language?: string;
-			code?: string;
-		}> = [];
-
-		Array.from(container.childNodes).forEach((node) => {
-			if (node instanceof HTMLElement && node.classList.contains('code-block')) {
-				const codeElem = node.querySelector('code');
-				newBlocks.push({
-					type: 'code',
-					content: codeElem?.innerHTML || '',
-					code: codeElem?.innerText || '',
-					language: node.getAttribute('data-language') || ''
-				});
-			} else {
-				const wrapper = document.createElement('div');
-				if (node.nodeType === Node.TEXT_NODE) {
-					wrapper.textContent = node.textContent;
-				} else {
-					wrapper.appendChild(node.cloneNode(true));
-				}
-				newBlocks.push({
-					type: 'html',
-					content: wrapper.innerHTML
-				});
-			}
-		});
-
-		return newBlocks;
-	});
+	let parts = $derived<RenderedPart[]>(splitOnSentinels(rendered.html, rendered.codeBlocks));
 </script>
 
 <div class={`${styles.markdown} ${className}`}>
 	{#if !browser}
-		{@html renderedHtml}
+		{@html rendered.html}
 	{:else}
-		{#each blocks as block}
-			{#if block.type === 'code'}
+		{#each parts as part, i (i)}
+			{#if part.type === 'code'}
+				{@const data = part.data as CodeBlockData}
 				<CodeBlock
-					code={block.code || ''}
-					language={block.language}
-					highlightedCode={block.content}
+					code={data.code}
+					language={data.language}
+					highlightedCode={data.highlightedHtml}
 				/>
 			{:else}
-				{@html block.content}
+				{@html part.html}
 			{/if}
 		{/each}
 	{/if}

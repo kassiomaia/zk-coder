@@ -39,6 +39,7 @@
 		agentPanelOpen as agentPanelOpenStore
 	} from '$lib/stores';
 	import { setThreadAgentSession } from '$lib/api/chat';
+	import { threadAgentPanelPrefs } from '$lib/stores/threadAgentPanelPrefs';
 	import { createLogger } from '$lib/utils/logger';
 
 	const log = createLogger('MainPage');
@@ -109,7 +110,11 @@
 	});
 
 	function handleToggleAgentPanel() {
-		agentStore.togglePanel();
+		const nextOpen = !agentPanelOpen;
+		agentStore.setPanel(nextOpen);
+		if (selectedThreadId) {
+			threadAgentPanelPrefs.set(selectedThreadId, nextOpen);
+		}
 	}
 
 	async function handleApproveAction(sessionId: string, actionId: string) {
@@ -360,33 +365,33 @@
 		};
 	});
 
-	// Agent panel visibility: auto-close when no conversation, and auto-open
-	// ONLY when the conversation/thread selection actually changes. Without
-	// the change check, clicking the panel's close button would be undone on
-	// the next reactive tick because `agentPanelOpen` re-reads as false and
-	// the effect re-opens it. Tracking the last-seen selection lets the user
-	// keep the panel closed for a given conversation/thread.
-	let lastAutoOpenKey: string | null = null;
+	// Agent panel visibility: restore the per-thread preference whenever the
+	// active conversation/thread selection changes. Threads default to closed
+	// so a fresh selection does not pop the panel open; users opt in via the
+	// robot toggle in the thread header (which writes to
+	// threadAgentPanelPrefs).
+	let lastAppliedThreadKey: string | null = null;
 	$effect(() => {
 		const conversation = $selectedConversation;
 		const threadId = selectedThreadId;
 
 		if (!conversation) {
-			lastAutoOpenKey = null;
+			lastAppliedThreadKey = null;
 			if (agentPanelOpen) {
-				agentStore.togglePanel();
+				agentStore.setPanel(false);
 			}
 			return;
 		}
 
 		const key = `${conversation.id}::${threadId ?? ''}`;
-		if (lastAutoOpenKey === key) {
+		if (lastAppliedThreadKey === key) {
 			return;
 		}
-		lastAutoOpenKey = key;
+		lastAppliedThreadKey = key;
 
-		if (!agentPanelOpen) {
-			agentStore.togglePanel();
+		const desiredOpen = threadId ? threadAgentPanelPrefs.get(threadId) : false;
+		if (agentPanelOpen !== desiredOpen) {
+			agentStore.setPanel(desiredOpen);
 		}
 	});
 

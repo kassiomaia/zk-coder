@@ -30,6 +30,7 @@ import { clearUnreadForThread } from '$lib/utils/state';
 import { agentStore } from './agentStore';
 import { configStore } from './configStore';
 import { createDerivedStores } from './chat/derived-stores';
+import { documentGenerationStore } from './documentGenerationStore';
 import { createLogger } from '$lib/utils/logger';
 import { NLP_DEBOUNCE_MS } from '$lib/config/runtime';
 
@@ -288,6 +289,12 @@ function createChatStore() {
 							loadedMessages = [...loadedMessages, pausedSessionRecoveryMessage];
 						}
 					}
+
+					// Replay tool-call history into doc-gen tracker once, in a batched pass.
+					// Replaces a per-render O(N) reactive scan that used to run inside
+					// ChatMessagesList on every streaming tick.
+					documentGenerationStore.rebuildFromMessages(loadedMessages);
+
 					update((state) => {
 						const threadStream = state.threadStreaming[id];
 						const sessionWasRecovered = !!pausedSessionRecoveryMessage;

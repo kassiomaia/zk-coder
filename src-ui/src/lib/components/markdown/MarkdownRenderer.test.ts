@@ -2,16 +2,30 @@ import { render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import MarkdownRenderer from './MarkdownRenderer.svelte';
 
-// Mock the markdown utilities
-vi.mock('$lib/utils/markdown', () => ({
-	renderMarkdown: vi.fn((content) => {
-		// Simple mock rendering for testing
+// Mock the markdown utilities.
+// The real `renderMarkdownWithBlocks` returns sentinel-bearing HTML + extracted
+// code blocks; for component tests we simulate a prose-only pass (no code
+// blocks) so `splitOnSentinels` returns a single html part and the component
+// renders through the `{@html ...}` branch.
+const { simpleRender } = vi.hoisted(() => ({
+	simpleRender: (content: string) => {
 		if (!content) return '';
 		return content
 			.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 			.replace(/`(.*?)`/g, '<code>$1</code>')
 			.replace(/\n/g, '<br>');
-	}),
+	}
+}));
+vi.mock('$lib/utils/markdown', () => ({
+	renderMarkdown: vi.fn(simpleRender),
+	renderMarkdownWithBlocks: vi.fn((content: string) => ({
+		html: simpleRender(content),
+		codeBlocks: []
+	})),
+	splitOnSentinels: vi.fn((html: string) =>
+		html === '' ? [] : [{ type: 'html', html }]
+	),
+	CODE_BLOCK_SENTINEL_RE: /<!--CODEBLOCK:(\d+)-->/g,
 	escapeHtml: vi.fn((str) => {
 		if (!str) return '';
 		return str

@@ -55,6 +55,7 @@ export interface AgentStore {
 	listAgents(): Promise<import('$lib/types/agent').Agent[]>;
 	getAgent(agentId: string): Promise<import('$lib/types/agent').Agent | null>;
 	togglePanel(): void;
+	setPanel(open: boolean): void;
 	setActiveSession(sessionId: string | null): void;
 	clearError(): void;
 }
@@ -300,6 +301,13 @@ function createAgentStore(): AgentStore {
 	}
 
 	/**
+	 * Set the agent panel visibility directly.
+	 */
+	function setPanel(open: boolean) {
+		UiState.setPanel(update, open);
+	}
+
+	/**
 	 * Set the active session.
 	 */
 	function setActiveSession(sessionId: string | null) {
@@ -338,6 +346,7 @@ function createAgentStore(): AgentStore {
 		listAgents,
 		getAgent,
 		togglePanel,
+		setPanel,
 		setActiveSession,
 		clearError
 	};

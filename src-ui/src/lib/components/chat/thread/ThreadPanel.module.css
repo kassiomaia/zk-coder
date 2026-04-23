@@ -86,10 +86,24 @@
 	letter-spacing: var(--tracking-tight);
 }
 
+/* Right-side action group in the header */
+.rightActions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	flex-shrink: 0;
+	margin-left: var(--space-4);
+}
+
 /* Status indicator on the right */
 .statusIndicator {
 	flex-shrink: 0;
-	margin-left: var(--space-4);
+}
+
+/* Wrapper for the agent panel toggle button */
+.agentToggleWrap {
+	display: flex;
+	align-items: center;
 }
 
 .resolvedBadge {

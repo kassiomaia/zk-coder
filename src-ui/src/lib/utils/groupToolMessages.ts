@@ -7,8 +7,15 @@
  * - Consecutive candidates with the SAME stepNumber form a run.
  * - Runs of length ≥ 2 are emitted as a ToolGroup.
  * - Runs of length 1 are emitted as the original Message unchanged.
- * - All non-tool_call messages pass through immediately without breaking runs
- *   — wait, actually non-tool_call messages DO break the run (different kind).
+ * - Non-tool_call messages break a run (pass through as-is).
+ *
+ * Memoization: callers invoke this function on every reactive update to the
+ * `messages` array. During streaming that means once per token. To keep the
+ * output reference-stable (so Svelte's keyed {#each} can skip rerendering
+ * unchanged subtrees), we reuse prior output entries whose source messages
+ * have not changed. Stability is checked by (id, content) pair — strings are
+ * immutable in JS, so a content reference change is exactly what streaming
+ * updates produce.
  */
 
 import type { Message } from '$lib/types/message';
@@ -79,12 +86,17 @@ export function getGroupLabel(messages: Message[]): string {
 }
 
 /**
- * Collapses consecutive tool_call messages with the same non-undefined
- * stepNumber into ToolGroup nodes. All other messages pass through unchanged.
- * Groups of size 1 are NOT created — single tool calls render as before.
+ * Pure grouping algorithm. Returns each display item paired with the ids of
+ * the source messages that produced it, which lets the memoized wrapper know
+ * how much of the input each output entry consumed.
  */
-export function groupToolMessages(messages: Message[]): DisplayItem[] {
-	const result: DisplayItem[] = [];
+interface ComputedEntry {
+	item: DisplayItem;
+	sourceIds: string[];
+}
+
+function computeEntries(messages: Message[], startIndex: number): ComputedEntry[] {
+	const entries: ComputedEntry[] = [];
 
 	let runStep: number | undefined = undefined;
 	let runBuffer: Message[] = [];
@@ -92,48 +104,99 @@ export function groupToolMessages(messages: Message[]): DisplayItem[] {
 	function flushRun() {
 		if (runBuffer.length === 0) return;
 		if (runBuffer.length >= 2 && runStep !== undefined) {
-			result.push({
-				kind: 'tool_group',
-				stepNumber: runStep,
-				messages: [...runBuffer]
+			entries.push({
+				item: {
+					kind: 'tool_group',
+					stepNumber: runStep,
+					messages: [...runBuffer]
+				},
+				sourceIds: runBuffer.map((m) => m.id)
 			});
 		} else {
-			// Single item — emit unchanged
 			for (const msg of runBuffer) {
-				result.push(msg);
+				entries.push({ item: msg, sourceIds: [msg.id] });
 			}
 		}
 		runBuffer = [];
 		runStep = undefined;
 	}
 
-	for (const message of messages) {
+	for (let i = startIndex; i < messages.length; i++) {
+		const message = messages[i];
 		const isToolCall = message.kind === 'tool_call';
 		const step = message.agentData?.stepNumber;
 
 		if (isToolCall && step !== undefined) {
 			if (runStep === undefined) {
-				// Start a new run
 				runStep = step;
 				runBuffer.push(message);
 			} else if (step === runStep) {
-				// Continue the current run
 				runBuffer.push(message);
 			} else {
-				// Different stepNumber — flush current run and start a new one
 				flushRun();
 				runStep = step;
 				runBuffer.push(message);
 			}
 		} else {
-			// Not a groupable tool_call — flush any pending run first
 			flushRun();
-			result.push(message);
+			entries.push({ item: message, sourceIds: [message.id] });
 		}
 	}
 
-	// Flush any trailing run
 	flushRun();
+	return entries;
+}
 
-	return result;
+/**
+ * Memoization state. Reset implicitly whenever the input prefix no longer
+ * matches (different thread, edits, etc.), so there is no leak risk — the
+ * cache is a performance hint, never a source of truth.
+ */
+let memoEntries: ComputedEntry[] = [];
+let memoContents: Map<string, string> = new Map();
+
+/**
+ * Collapses consecutive tool_call messages with the same non-undefined
+ * stepNumber into ToolGroup nodes. All other messages pass through unchanged.
+ * Groups of size 1 are NOT created — single tool calls render as before.
+ */
+export function groupToolMessages(messages: Message[]): DisplayItem[] {
+	// Walk prior entries; reuse each whose sources still match the head of the new input.
+	const reusedEntries: ComputedEntry[] = [];
+	let msgIndex = 0;
+
+	for (const entry of memoEntries) {
+		if (msgIndex + entry.sourceIds.length > messages.length) break;
+		let allMatch = true;
+		for (let k = 0; k < entry.sourceIds.length; k++) {
+			const srcId = entry.sourceIds[k];
+			const current = messages[msgIndex + k];
+			if (current.id !== srcId || current.content !== memoContents.get(srcId)) {
+				allMatch = false;
+				break;
+			}
+		}
+		if (!allMatch) break;
+		reusedEntries.push(entry);
+		msgIndex += entry.sourceIds.length;
+	}
+
+	// Compute the tail that didn't match.
+	const tailEntries = msgIndex < messages.length ? computeEntries(messages, msgIndex) : [];
+
+	// Rebuild memo to cover exactly the current input. Entries track source
+	// messages in input order, so we walk messages in parallel rather than
+	// searching for each id.
+	const newEntries = reusedEntries.concat(tailEntries);
+	memoEntries = newEntries;
+	memoContents = new Map();
+	let contentCursor = 0;
+	for (const entry of newEntries) {
+		for (let k = 0; k < entry.sourceIds.length; k++) {
+			const msg = messages[contentCursor++];
+			memoContents.set(msg.id, msg.content);
+		}
+	}
+
+	return newEntries.map((e) => e.item);
 }

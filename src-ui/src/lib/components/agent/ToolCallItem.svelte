@@ -13,11 +13,12 @@
 		Search,
 		Eye,
 		PlayCircle,
-		ExternalLink
+		ExternalLink,
+		ListChecks
 	} from 'lucide-svelte';
 	import type { ToolCallRecord } from '$lib/types/agent';
 	import { slide } from 'svelte/transition';
-	import hljs from 'highlight.js';
+	import hljs from '$lib/utils/hljs';
 	import 'highlight.js/styles/github-dark.css';
 
 	interface Props {
@@ -43,7 +44,8 @@
 		bash: Terminal,
 		webfetch: Globe,
 		skill: PlayCircle,
-		task: Eye
+		task: Eye,
+		agent_plan_subtasks: ListChecks
 	};
 
 	const ToolIcon = $derived(toolIconMap[record.tool] || Code);
@@ -55,6 +57,19 @@
 		} catch (e) {
 			return String(obj);
 		}
+	}
+
+	// Safe subtitle fallback: only primitive arg values are rendered inline.
+	// Arrays/objects are skipped — Svelte's implicit string coercion would
+	// otherwise produce `[object Object],...`.
+	function firstPrimitiveValue(args: Record<string, unknown>): string | undefined {
+		if (!args || typeof args !== 'object') return undefined;
+		const first = Object.values(args)[0];
+		if (first === null || first === undefined) return undefined;
+		const t = typeof first;
+		if (t === 'string') return first as string;
+		if (t === 'number' || t === 'boolean') return String(first);
+		return undefined;
 	}
 
 	function getActionSummary(record: ToolCallRecord): { title: string; subtitle?: string } {
@@ -84,8 +99,18 @@
 				return { title: 'Loaded skill', subtitle: args.name };
 			case 'task':
 				return { title: 'Spawned agent', subtitle: args.description };
+			case 'agent_plan_subtasks': {
+				const subtasks = (args.subtasks as Array<{ title?: string }> | undefined) ?? [];
+				const count = subtasks.length;
+				const first = subtasks[0]?.title;
+				let subtitle: string | undefined;
+				if (count === 0) subtitle = undefined;
+				else if (count === 1) subtitle = first;
+				else subtitle = first ? `${first} (+${count - 1} more)` : `${count} subtasks`;
+				return { title: 'Planned subtasks', subtitle };
+			}
 			default:
-				return { title: tool, subtitle: Object.values(args)[0] as string };
+				return { title: tool, subtitle: firstPrimitiveValue(args) };
 		}
 	}
 

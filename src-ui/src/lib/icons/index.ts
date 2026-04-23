@@ -89,3 +89,4 @@ export { default as PaperclipIcon } from './PaperclipIcon.svelte';
 export { default as UserIcon } from './UserIcon.svelte';
 export { default as BoxIcon } from './BoxIcon.svelte';
 export { default as ZapIcon } from './ZapIcon.svelte';
+export { default as RobotIcon } from './RobotIcon.svelte';

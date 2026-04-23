@@ -29,10 +29,7 @@
 	import type { AgentStatus } from '$lib/utils/agentStatus';
 	import type { DocumentGenerationJob } from '$lib/utils/documentGenerationTracker';
 	import type { DocumentGenerationState } from '$lib/stores/documentGenerationStore';
-	import {
-		documentGenerationTracker,
-		shouldHideMessageInDocGen
-	} from '$lib/utils/documentGenerationTracker';
+	import { shouldHideMessageInDocGen } from '$lib/utils/documentGenerationTracker';
 	import { documentGenerationStore } from '$lib/stores/documentGenerationStore';
 	import { groupToolMessages, isToolGroup } from '$lib/utils/groupToolMessages';
 	import type { DisplayItem } from '$lib/utils/groupToolMessages';
@@ -41,8 +38,19 @@
 	import { createLogger } from '$lib/utils/logger';
 	import { saveArtifactToPath } from '$lib/api/artifacts';
 	import { save } from '@tauri-apps/plugin-dialog';
+	import { tick } from 'svelte';
 
 	const log = createLogger('ChatMessagesList');
+
+	// Progressive rendering budget. Opening a long thread used to mount every
+	// message on one frame, blocking the main thread for seconds. Instead we
+	// render the most recent `INITIAL_VISIBLE_COUNT` synchronously (the user
+	// starts at the bottom, so these are what they actually see), then prepend
+	// older messages in `PROGRESSIVE_CHUNK_SIZE` batches across subsequent
+	// animation frames. Scroll preservation is handled by the parent via the
+	// `onBeforeProgressiveChunk` / `onAfterProgressiveChunk` callbacks.
+	const INITIAL_VISIBLE_COUNT = 50;
+	const PROGRESSIVE_CHUNK_SIZE = 50;
 
 	interface Props {
 		/** Array of messages to display */
@@ -104,6 +112,20 @@
 
 		/** Replan execution handler */
 		onReplanExecution?: (sessionId: string) => void;
+
+		/**
+		 * Called immediately before `visibleCount` grows and older messages get
+		 * prepended to the DOM. The parent should capture scroll state here so
+		 * it can restore the anchor after Svelte reconciles.
+		 */
+		onBeforeProgressiveChunk?: () => void;
+
+		/**
+		 * Called after the next chunk has been reconciled into the DOM
+		 * (i.e. after `await tick()` inside the growth loop). The parent should
+		 * restore the captured scroll anchor here.
+		 */
+		onAfterProgressiveChunk?: () => void;
 	}
 
 	let {
@@ -126,7 +148,9 @@
 		onApproveAction,
 		onDenyAction,
 		onContinueExecution,
-		onReplanExecution
+		onReplanExecution,
+		onBeforeProgressiveChunk,
+		onAfterProgressiveChunk
 	}: Props = $props();
 
 	// Document generation state - use centralized store
@@ -151,18 +175,90 @@
 
 	// Track which messages should be hidden due to doc gen aggregation,
 	// then group consecutive tool_call messages by stepNumber.
+	// Doc-gen tracking is fed from the message append/update path in
+	// chat/message-methods.ts and from selectThread's one-shot replay, so
+	// this component does not need a per-render scan.
 	const displayItems = $derived.by<DisplayItem[]>(() => {
 		const visible = messages.filter((msg) => !shouldHideMessageInDocGen(msg));
 		return groupToolMessages(visible);
 	});
 
-	// Process messages to update document generation tracking
+	// Progressive rendering state. `visibleCount` is how many trailing items we
+	// want to render; `effectiveCount` clamps it to `[0, displayItems.length]`
+	// so the template and `firstVisibleIndex` are always consistent even when
+	// the `$effect` below hasn't yet reacted to a `displayItems` change on the
+	// same tick. `lastKnownTotal` is the last `displayItems.length` we reacted
+	// to, used to distinguish thread switches from simple appends.
+	let visibleCount = $state(INITIAL_VISIBLE_COUNT);
+	let lastKnownTotal = $state(0);
+	// Per-run cancel token so that a thread switch mid-growth-loop doesn't keep
+	// advancing the previous thread's counter into the new thread's items.
+	let currentRun: { cancelled: boolean } = $state({ cancelled: true });
+
+	const effectiveCount = $derived(
+		Math.min(displayItems.length, Math.max(0, visibleCount))
+	);
+	const firstVisibleIndex = $derived(displayItems.length - effectiveCount);
+	const visibleItems = $derived.by<DisplayItem[]>(() => {
+		if (effectiveCount === 0) return [];
+		if (effectiveCount >= displayItems.length) return displayItems;
+		return displayItems.slice(-effectiveCount);
+	});
+
 	$effect(() => {
-		// Process each message to update doc gen jobs via the store
-		for (const message of messages) {
-			documentGenerationStore.processMessage(message);
+		const total = displayItems.length;
+
+		// No content: cancel any in-flight growth; let `visibleItems` naturally
+		// return []. We intentionally do NOT reset `visibleCount` here — keeping
+		// it at its last value avoids an inconsistent single-frame window on
+		// the following thread load where `visibleCount` would be 0 while
+		// `displayItems.length` was already the new total.
+		if (total === 0) {
+			currentRun.cancelled = true;
+			lastKnownTotal = 0;
+			return;
+		}
+
+		// Simple append while already showing everything: reveal the new tail.
+		if (lastKnownTotal > 0 && total > lastKnownTotal && visibleCount >= lastKnownTotal) {
+			visibleCount = total;
+			lastKnownTotal = total;
+			return;
+		}
+
+		// New or replaced content (thread switch / bulk load). Start over.
+		if (total !== lastKnownTotal) {
+			currentRun.cancelled = true;
+			lastKnownTotal = total;
+
+			const initial = Math.min(total, INITIAL_VISIBLE_COUNT);
+			visibleCount = initial;
+
+			if (initial < total) {
+				const run = { cancelled: false };
+				currentRun = run;
+				void growVisibleCount(run);
+			}
 		}
 	});
+
+	async function growVisibleCount(run: { cancelled: boolean }) {
+		// Let the initial chunk paint before we start prepending older items.
+		await nextFrame();
+		while (!run.cancelled && visibleCount < displayItems.length) {
+			onBeforeProgressiveChunk?.();
+			visibleCount = Math.min(visibleCount + PROGRESSIVE_CHUNK_SIZE, displayItems.length);
+			await tick();
+			if (run.cancelled) break;
+			onAfterProgressiveChunk?.();
+			if (visibleCount >= displayItems.length) break;
+			await nextFrame();
+		}
+	}
+
+	function nextFrame(): Promise<void> {
+		return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+	}
 
 	// Get the current doc gen job for display (most recent active)
 	let currentDocGenJob = $derived(docGenState.activeJob);
@@ -381,8 +477,12 @@
 {:else}
 	<!-- Messages - flat rendering to avoid Svelte 5 nested #each reconciliation issues.
 	     displayItems is derived from messages: doc-gen-hidden items are filtered out
-	     and consecutive same-step tool_call messages are collapsed into ToolGroup nodes. -->
-	{#each displayItems as item, index (isToolGroup(item) ? `group_${item.stepNumber}` : item.id)}
+	     and consecutive same-step tool_call messages are collapsed into ToolGroup nodes.
+	     For long threads we render `visibleItems` (the trailing slice) and grow
+	     progressively — see `growVisibleCount` above. `index` below is the
+	     absolute index into `displayItems`, so header-gap helpers still work. -->
+	{#each visibleItems as item, i (isToolGroup(item) ? `group_${item.stepNumber}` : item.id)}
+		{@const index = firstVisibleIndex + i}
 		{#if isToolGroup(item)}
 			<!-- ---- Grouped tool call (2+ consecutive tool_calls sharing a stepNumber) ---- -->
 			{#if shouldShowAgentHeader(index)}

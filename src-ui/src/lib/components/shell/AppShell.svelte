@@ -408,6 +408,8 @@
 					onOpenSettings={onSettings}
 					onReopenThread={handleReopenThread}
 					onToggleSidebar={() => (leftSidebarOpen = !leftSidebarOpen)}
+					onToggleAgentPanel={() => onToggleAgentPanel?.()}
+					agentPanelOpen={agentPanelOpen ?? false}
 					{loading}
 					isTyping={currentThreadAgentState.isWorking}
 					agentStatus={currentThreadAgentState.status}

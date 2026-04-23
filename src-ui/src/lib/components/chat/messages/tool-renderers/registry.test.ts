@@ -45,6 +45,27 @@ describe('tool-renderers registry', () => {
 		expect(summary.subtitle).toBe('bar');
 	});
 
+	it('default renderer does not stringify array/object first values', () => {
+		const arrArgs = { subtasks: [{ title: 'a' }, { title: 'b' }] };
+		expect(
+			defaultRenderer.getSummary(arrArgs as unknown, 'agent_plan_subtasks').subtitle
+		).toBeUndefined();
+
+		const objArgs = { config: { foo: 1 } };
+		expect(defaultRenderer.getSummary(objArgs as unknown, 'x').subtitle).toBeUndefined();
+	});
+
+	it('agent_plan_subtasks renderer shows plan title and count-based subtitle', () => {
+		const r = getToolRenderer('agent_plan_subtasks');
+		expect(r).not.toBe(defaultRenderer);
+		const s = r.getSummary(
+			{ subtasks: [{ title: 'Analyze code' }, { title: 'Implement' }] } as unknown,
+			'agent_plan_subtasks'
+		);
+		expect(s.title).toBe('Planned subtasks');
+		expect(s.subtitle).toBe('Analyze code (+1 more)');
+	});
+
 	it('default renderer maps status to outcome phrase', () => {
 		expect(defaultRenderer.getOutcome(undefined, 'pending')).toBe('Executing...');
 		expect(defaultRenderer.getOutcome(undefined, 'error')).toBe('Action failed');

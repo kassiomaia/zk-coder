@@ -13,6 +13,16 @@ export function togglePanel(update: (fn: (state: AgentState) => AgentState) => v
 }
 
 /**
+ * Set the agent panel visibility directly.
+ */
+export function setPanel(
+	update: (fn: (state: AgentState) => AgentState) => void,
+	open: boolean
+) {
+	update((s) => (s.panelOpen === open ? s : { ...s, panelOpen: open }));
+}
+
+/**
  * Set the active session.
  */
 export function setActiveSession(

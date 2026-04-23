@@ -108,6 +108,7 @@ Documentation is a first-class citizen in this repository.
 | Agent Clarification | `docs/features/agent-clarification.md` | Pause/resume on `agent_narrate { intent: "question" }`; dual-layer store, `ExecutionCheckpoint`, restart rehydration, timeout fallback |
 | PDF Styling | `docs/features/pdf-styling.md` | Optional `theme` argument on `pdf_start`; `ThemePatch` contract, validation limits, LLM examples |
 | DOCX Styling | `docs/features/docx-styling.md` | Optional `theme` on `docx_start` + per-section `theme_override` on `docx_add_section`; `DocxThemePatch` contract, rich runs, real images/lists/rules |
+| Thread Loading Performance | `docs/features/thread-loading-performance.md` | Markdown sentinel pipeline, slim `hljs` + heuristic fallback, progressive rendering + scroll-anchor preservation, doc-gen tracker hook contract |
 | Database Access & Debugging | `docs/database-reference.md` | SQLite schema, SQL queries, tracing, tips |
 
 > Note: Files under `docs/archive/` are preserved for historical context and migration traceability. Archived documents may reference legacy paths and do **not** necessarily reflect current architecture or shipped features.

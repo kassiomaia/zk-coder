@@ -6,7 +6,9 @@
 	import styles from './ThreadPanel.module.css';
 	import ChatArea from '../ChatArea.svelte';
 	import Button from '../../shared/Button.svelte';
+	import IconButton from '../../shared/IconButton.svelte';
 	import Tooltip from '../../shared/Tooltip.svelte';
+	import { RobotIcon } from '$lib/icons';
 	import { chatStore, unreadThreadIds } from '$lib/stores';
 	import type { Thread } from '$lib/types/thread';
 	import type { Message } from '$lib/types/message';
@@ -33,6 +35,10 @@
 		onReopenThread?: () => void;
 		/** Handler to toggle the thread sidebar */
 		onToggleSidebar?: () => void;
+		/** Handler to toggle the agent (right) panel for this thread */
+		onToggleAgentPanel?: () => void;
+		/** Whether the agent panel is currently open */
+		agentPanelOpen?: boolean;
 		/** Initial model ID from conversation settings */
 		initialModelId?: string | null;
 		/** Handler when model selection changes */
@@ -69,6 +75,8 @@
 		onRetry,
 		onReopenThread,
 		onToggleSidebar,
+		onToggleAgentPanel,
+		agentPanelOpen = false,
 		initialModelId = null,
 		onModelChange,
 		onMessageFeedback,
@@ -294,33 +302,53 @@
 			</div>
 		</div>
 
-		{#if thread.metadata.resolved}
-			<div class={styles.statusIndicator}>
-				<Tooltip
-					content="This thread is resolved and locked. It is currently in read-only mode to preserve the conversation state."
-					position="bottom"
-				>
-					<div class={styles.resolvedBadge}>
-						<span class={styles.resolvedIcon}>
-							<svg
-								width="14"
-								height="14"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2.5"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-								<polyline points="22 4 12 14.01 9 11.01" />
-							</svg>
-						</span>
-						<span class={styles.resolvedText}>Resolved</span>
-					</div>
-				</Tooltip>
-			</div>
-		{/if}
+		<div class={styles.rightActions}>
+			{#if thread.metadata.resolved}
+				<div class={styles.statusIndicator}>
+					<Tooltip
+						content="This thread is resolved and locked. It is currently in read-only mode to preserve the conversation state."
+						position="bottom"
+					>
+						<div class={styles.resolvedBadge}>
+							<span class={styles.resolvedIcon}>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+									<polyline points="22 4 12 14.01 9 11.01" />
+								</svg>
+							</span>
+							<span class={styles.resolvedText}>Resolved</span>
+						</div>
+					</Tooltip>
+				</div>
+			{/if}
+
+			{#if onToggleAgentPanel}
+				<div class={styles.agentToggleWrap}>
+					<IconButton
+						label={agentPanelOpen ? 'Hide agent panel' : 'Show agent panel'}
+						tooltip={agentPanelOpen ? 'Hide agent panel' : 'Show agent panel'}
+						tooltipPosition="bottom"
+						variant="ghost"
+						size="sm"
+						active={agentPanelOpen}
+						onclick={() => onToggleAgentPanel?.()}
+					>
+						{#snippet icon()}
+							<RobotIcon size={18} />
+						{/snippet}
+					</IconButton>
+				</div>
+			{/if}
+		</div>
 	</header>
 	<div class={styles.headerDivider}></div>
 
