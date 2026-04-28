@@ -1,9 +1,32 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>Coder</title>
+		<script>
+			// Pre-hydration theme bootstrap: avoids a flash on dark-theme users
+			// while the async backend lookup in themeStore.initTheme runs.
+			// The store reconciles with the persisted backend value on mount.
+			(function () {
+				try {
+					var saved = localStorage.getItem('theme');
+					var resolved;
+					if (saved === 'light' || saved === 'dark') {
+						resolved = saved;
+					} else if (saved === 'system' || !saved) {
+						resolved = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+							? 'dark'
+							: 'light';
+					} else {
+						resolved = 'light';
+					}
+					document.documentElement.setAttribute('data-theme', resolved);
+				} catch (err) {
+					document.documentElement.setAttribute('data-theme', 'light');
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

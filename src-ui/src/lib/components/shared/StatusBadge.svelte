@@ -64,7 +64,7 @@
 	}
 
 	.mono {
-		background: var(--color-neutral-850);
+		background: var(--color-bg-secondary);
 		border-color: var(--color-border-primary);
 		color: var(--color-text-tertiary);
 		font-family: var(--font-mono);

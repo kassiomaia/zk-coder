@@ -7,9 +7,9 @@
 	align-items: center;
 	height: 36px;
 	padding: 0 12px 0 14px;
-	background: #111110;
+	background: var(--color-strip-bg);
 	border-top: 1px solid var(--color-border-subtle);
-	border-left: 2px solid var(--color-primary, #5c6178);
+	border-left: 2px solid var(--color-primary-500);
 	gap: 10px;
 	overflow: hidden;
 	user-select: none;
@@ -32,8 +32,8 @@
 	background: linear-gradient(
 		90deg,
 		transparent 0%,
-		var(--color-primary, #5c6178) 30%,
-		var(--color-primary, #5c6178) 50%,
+		var(--color-primary-500) 30%,
+		var(--color-primary-500) 50%,
 		transparent 80%
 	);
 	animation: rail-flow 2.2s linear infinite;
@@ -56,7 +56,7 @@
 
 .bar {
 	width: 2px;
-	background: var(--color-primary, #5c6178);
+	background: var(--color-primary-500);
 	border-radius: 0;
 	animation: wave-think 1.4s ease-in-out infinite;
 	opacity: 0.8;
@@ -112,7 +112,7 @@
 /* ─── Elapsed counter ─── */
 .elapsed {
 	font-size: 10px;
-	color: #302f2e;
+	color: var(--color-text-disabled);
 	white-space: nowrap;
 	flex-shrink: 0;
 	letter-spacing: 0.04em;
@@ -123,7 +123,7 @@
 
 /* ─── Check mark ─── */
 .check {
-	color: var(--color-success, #3d9970);
+	color: var(--color-success);
 	font-size: 11px;
 	line-height: 1;
 	flex-shrink: 0;
@@ -135,11 +135,11 @@
 
 /* — thinking (default) — */
 .stateThinking {
-	border-left-color: var(--color-primary, #5c6178);
+	border-left-color: var(--color-primary-500);
 }
 
 .stateThinking .bar {
-	background: var(--color-primary, #5c6178);
+	background: var(--color-primary-500);
 	animation-name: wave-think;
 	animation-duration: 1.4s;
 }
@@ -148,19 +148,19 @@
 	background: linear-gradient(
 		90deg,
 		transparent 0%,
-		var(--color-primary, #5c6178) 30%,
-		var(--color-primary, #5c6178) 50%,
+		var(--color-primary-500) 30%,
+		var(--color-primary-500) 50%,
 		transparent 80%
 	);
 }
 
 /* — tool — */
 .stateTool {
-	border-left-color: #7aa5d4;
+	border-left-color: var(--color-state-tool);
 }
 
 .stateTool .bar {
-	background: #7aa5d4;
+	background: var(--color-state-tool);
 	animation-name: wave-tool;
 	animation-duration: 0.9s;
 }
@@ -169,15 +169,15 @@
 	background: linear-gradient(
 		90deg,
 		transparent 0%,
-		#7aa5d4 30%,
-		#7aa5d4 50%,
+		var(--color-state-tool) 30%,
+		var(--color-state-tool) 50%,
 		transparent 80%
 	);
 	animation-duration: 1.4s;
 }
 
 .stateTool .statusVerb {
-	color: #7aa5d4;
+	color: var(--color-state-tool);
 	opacity: 0.9;
 }
 
@@ -187,11 +187,11 @@
 
 /* — stall — */
 .stateStall {
-	border-left-color: var(--color-warning, #d4930d);
+	border-left-color: var(--color-warning);
 }
 
 .stateStall .bar {
-	background: var(--color-warning, #d4930d);
+	background: var(--color-warning);
 	animation-name: wave-stall;
 	animation-duration: 2.8s;
 }
@@ -200,8 +200,8 @@
 	background: linear-gradient(
 		90deg,
 		transparent 0%,
-		var(--color-warning, #d4930d) 30%,
-		var(--color-warning, #d4930d) 50%,
+		var(--color-warning) 30%,
+		var(--color-warning) 50%,
 		transparent 80%
 	);
 	animation-duration: 4s;
@@ -209,22 +209,22 @@
 }
 
 .stateStall .statusVerb {
-	color: var(--color-warning, #d4930d);
+	color: var(--color-warning);
 	opacity: 0.85;
 }
 
 .stateStall .elapsed {
-	color: var(--color-warning, #d4930d);
+	color: var(--color-warning);
 	opacity: 0.7;
 }
 
 /* — complete — */
 .stateComplete {
-	border-left-color: var(--color-success, #3d9970);
+	border-left-color: var(--color-success);
 }
 
 .stateComplete .bar {
-	background: var(--color-success, #3d9970);
+	background: var(--color-success);
 	animation: none;
 	height: 10px;
 	opacity: 0.75;
@@ -234,8 +234,8 @@
 .stateComplete::after {
 	background: linear-gradient(
 		90deg,
-		var(--color-success, #3d9970) 0%,
-		var(--color-success, #3d9970) 100%
+		var(--color-success) 0%,
+		var(--color-success) 100%
 	);
 	animation: none;
 	transform: translateX(0);
@@ -245,11 +245,11 @@
 }
 
 .stateComplete .statusVerb {
-	color: var(--color-success, #3d9970);
+	color: var(--color-success);
 }
 
 .stateComplete .elapsed {
-	color: var(--color-success, #3d9970);
+	color: var(--color-success);
 	opacity: 0.55;
 }
 

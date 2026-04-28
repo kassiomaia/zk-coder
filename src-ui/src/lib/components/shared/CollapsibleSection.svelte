@@ -166,7 +166,7 @@
 
 	.badge {
 		padding: var(--space-px) var(--space-1-5);
-		background: var(--color-neutral-800);
+		background: var(--color-bg-tertiary);
 		border: 1px solid var(--color-border-primary);
 		border-radius: var(--radius-sm);
 		font-size: var(--text-2xs);
@@ -183,7 +183,7 @@
 	}
 
 	.badge.tokens {
-		background: var(--color-neutral-900);
+		background: var(--color-bg-secondary);
 		border-color: var(--color-border-primary);
 		color: var(--color-text-muted);
 		font-family: var(--font-mono);

@@ -338,7 +338,7 @@
 		min-height: 200px;
 		display: flex;
 		flex-direction: column;
-		background: var(--color-neutral-950);
+		background: var(--color-bg-base);
 		margin-top: auto;
 	}
 
@@ -363,7 +363,7 @@
 	}
 
 	.panel-content::-webkit-scrollbar-thumb {
-		background: var(--color-neutral-700);
+		background: var(--color-border-secondary);
 		border-radius: var(--radius-full);
 	}
 </style>

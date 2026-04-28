@@ -130,6 +130,19 @@ pub fn init_schema(conn: &Connection) -> Result<(), ConfigRepositoryError> {
             updated_at      TEXT NOT NULL
         );
 
+        -- UI preferences (single-row global app preferences).
+        --
+        -- Holds the user-selected UI theme. Value is one of:
+        --   'light'  | 'dark' | 'system'
+        -- 'system' means follow the OS preferred-color-scheme. The frontend
+        -- still computes the effective theme on boot — this row only
+        -- persists the user's intent so it survives app restarts.
+        CREATE TABLE IF NOT EXISTS ui_preferences (
+            id          INTEGER PRIMARY KEY CHECK (id = 1),
+            theme       TEXT NOT NULL CHECK (theme IN ('light', 'dark', 'system')),
+            updated_at  TEXT NOT NULL
+        );
+
         -- Prompt templates.
         --
         -- Each row maps a slash-command slug (the token after / in chat,

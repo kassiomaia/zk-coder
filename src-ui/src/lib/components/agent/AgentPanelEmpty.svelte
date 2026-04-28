@@ -193,8 +193,8 @@
 	.empty-button:disabled {
 		opacity: var(--opacity-disabled);
 		cursor: not-allowed;
-		background: var(--color-neutral-800);
-		border-color: var(--color-neutral-700);
+		background: var(--color-bg-secondary);
+		border-color: var(--color-border-secondary);
 		color: var(--color-text-muted);
 	}
 

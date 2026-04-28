@@ -15,8 +15,8 @@ use crate::core::config::{
     ManualModelRepository, Model, ModelRepository, ModelsSource, NewCachedWebSearchEntry,
     OperationDefault, OperationDefaultsRepository, OperationType, PdfThemeRepository,
     PromptTemplate, PromptTemplateRepository, Provider, ProviderRepository,
-    StoredWorkspaceSearchPolicy, ToolCredentialsRepository, WebSearchCacheRepository,
-    WorkspaceSearchPolicyRepository,
+    StoredWorkspaceSearchPolicy, ToolCredentialsRepository, UiThemeRepository,
+    WebSearchCacheRepository, WorkspaceSearchPolicyRepository,
 };
 
 // Re-export submodule functions
@@ -29,6 +29,7 @@ pub(crate) mod prompt_templates;
 pub(crate) mod providers;
 pub(crate) mod tool_credentials;
 pub(crate) mod pdf_theme;
+pub(crate) mod ui_theme;
 pub(crate) mod web_search_cache;
 pub(crate) mod workspace_search_policy;
 
@@ -1024,6 +1025,18 @@ impl PdfThemeRepository for SqliteConfigRepository {
     ) -> crate::core::config::ConfigRepositoryResult<()> {
         let conn = self.acquire_lock()?;
         pdf_theme::set_pdf_theme(&conn, workspace_path, theme_name).map_err(Into::into)
+    }
+}
+
+impl UiThemeRepository for SqliteConfigRepository {
+    fn get_ui_theme(&self) -> crate::core::config::ConfigRepositoryResult<Option<String>> {
+        let conn = self.acquire_lock()?;
+        ui_theme::get_ui_theme(&conn).map_err(Into::into)
+    }
+
+    fn set_ui_theme(&self, theme: &str) -> crate::core::config::ConfigRepositoryResult<()> {
+        let conn = self.acquire_lock()?;
+        ui_theme::set_ui_theme(&conn, theme).map_err(Into::into)
     }
 }
 

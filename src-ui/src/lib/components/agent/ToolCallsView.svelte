@@ -87,7 +87,7 @@
 	}
 
 	.tool-calls-view::-webkit-scrollbar-thumb {
-		background: var(--color-neutral-700);
+		background: var(--color-border-secondary);
 		border-radius: var(--radius-full);
 	}
 </style>

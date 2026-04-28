@@ -90,3 +90,6 @@ export { default as UserIcon } from './UserIcon.svelte';
 export { default as BoxIcon } from './BoxIcon.svelte';
 export { default as ZapIcon } from './ZapIcon.svelte';
 export { default as RobotIcon } from './RobotIcon.svelte';
+export { default as SunIcon } from './SunIcon.svelte';
+export { default as MoonIcon } from './MoonIcon.svelte';
+export { default as MonitorIcon } from './MonitorIcon.svelte';

@@ -1,0 +1,217 @@
+/**
+ * AppearanceSection styles.
+ *
+ * Three-card radio group. Each card holds a miniature app preview composed
+ * from the same neutral palette the real app uses, so the previews stay
+ * truthful to the rendered theme without snapshot images.
+ */
+
+.themeGrid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: var(--space-4);
+}
+
+.themeOption {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding: var(--space-3);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border-primary);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	text-align: left;
+	font-family: inherit;
+	transition:
+		border-color var(--transition-fast),
+		background var(--transition-fast),
+		box-shadow var(--transition-fast);
+}
+
+.themeOption:hover {
+	background: var(--color-surface-hover);
+	border-color: var(--color-border-secondary);
+}
+
+.themeOption:focus-visible {
+	outline: 2px solid var(--color-accent-primary);
+	outline-offset: 2px;
+}
+
+.themeOption[aria-checked='true'] {
+	border-color: var(--color-accent-primary);
+	box-shadow: 0 0 0 1px var(--color-accent-primary);
+}
+
+/* ============================================================================
+   Preview tile — composed from per-option preview color tokens so each card
+   renders the actual theme palette, not a screenshot.
+   ============================================================================ */
+
+.preview {
+	width: 100%;
+	aspect-ratio: 16 / 9;
+	border-radius: var(--radius-md);
+	overflow: hidden;
+	display: grid;
+	grid-template-columns: 28% 1fr;
+	grid-template-rows: 22% 1fr;
+	background: var(--preview-bg);
+	border: 1px solid var(--preview-border);
+}
+
+.previewLight {
+	--preview-bg: #f2f1ed;
+	--preview-border: #e0dfda;
+	--preview-sidebar: #fdfcfa;
+	--preview-header: #eae9e4;
+	--preview-line-1: #d2d1cb;
+	--preview-line-2: #b5b4ae;
+	--preview-accent: #4b5068;
+}
+
+.previewDark {
+	--preview-bg: #0b0b0a;
+	--preview-border: rgba(255, 252, 245, 0.07);
+	--preview-sidebar: #141413;
+	--preview-header: #1a1918;
+	--preview-line-1: #3e3d3a;
+	--preview-line-2: #545350;
+	--preview-accent: #7a7f96;
+}
+
+.previewSystem {
+	--preview-bg: linear-gradient(135deg, #f2f1ed 0% 50%, #0b0b0a 50% 100%);
+	--preview-border: rgba(120, 120, 120, 0.18);
+	--preview-sidebar: linear-gradient(135deg, #fdfcfa 0% 50%, #141413 50% 100%);
+	--preview-header: linear-gradient(135deg, #eae9e4 0% 50%, #1a1918 50% 100%);
+	--preview-line-1: rgba(120, 120, 120, 0.4);
+	--preview-line-2: rgba(120, 120, 120, 0.25);
+	--preview-accent: var(--color-primary-500);
+}
+
+.previewHeader {
+	grid-column: 1 / -1;
+	background: var(--preview-header);
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0 6px;
+}
+
+.previewDot {
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--preview-line-2);
+	opacity: 0.6;
+}
+
+.previewSidebar {
+	background: var(--preview-sidebar);
+	padding: 6px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.previewSidebarRow {
+	height: 5px;
+	border-radius: 2px;
+	background: var(--preview-line-1);
+}
+
+.previewSidebarRowActive {
+	background: var(--preview-accent);
+	opacity: 0.7;
+}
+
+.previewContent {
+	padding: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}
+
+.previewContentRow {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--preview-line-2);
+}
+
+.previewContentRowShort {
+	width: 60%;
+}
+
+.previewContentRowMedium {
+	width: 80%;
+}
+
+/* ============================================================================
+   Meta — label, icon, check, description.
+   ============================================================================ */
+
+.meta {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-0-5);
+	padding: 0 var(--space-1) var(--space-1);
+}
+
+.label {
+	font-size: var(--text-sm);
+	font-weight: var(--font-medium);
+	color: var(--color-text-primary);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+}
+
+.labelText {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.labelIcon {
+	display: inline-flex;
+	color: var(--color-text-secondary);
+}
+
+.description {
+	font-size: var(--text-xs);
+	color: var(--color-text-tertiary);
+	line-height: 1.4;
+}
+
+.checkMark {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--color-neutral-0);
+	background: var(--color-accent-primary);
+	flex-shrink: 0;
+	opacity: 0;
+	transform: scale(0.6);
+	transition:
+		opacity 150ms var(--ease-out),
+		transform 200ms var(--ease-bounce);
+}
+
+.themeOption[aria-checked='true'] .checkMark {
+	opacity: 1;
+	transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.themeOption,
+	.checkMark {
+		transition: none;
+	}
+}

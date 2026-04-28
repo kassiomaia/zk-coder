@@ -322,7 +322,7 @@
 		font-weight: 600;
 		color: var(--color-text-tertiary);
 		padding: 1px 6px;
-		background: var(--color-neutral-850);
+		background: var(--color-bg-secondary);
 		border: 1px solid var(--color-border-primary);
 		border-radius: 4px;
 		font-family: var(--font-mono);

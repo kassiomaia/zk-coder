@@ -16,7 +16,8 @@ pub use repositories::{
     ManualModelRepository, ModelRepository, NewCachedWebSearchEntry, OperationDefaultsRepository,
     PdfThemeRepository, PromptTemplateRepository, ProviderRepository,
     RepositoryResult as ConfigRepositoryResult, StoredWorkspaceSearchPolicy,
-    ToolCredentialsRepository, WebSearchCacheRepository, WorkspaceSearchPolicyRepository,
+    ToolCredentialsRepository, UiThemeRepository, WebSearchCacheRepository,
+    WorkspaceSearchPolicyRepository,
 };
 
 /// Represents the type of an API provider.

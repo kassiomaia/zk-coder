@@ -384,3 +384,27 @@ export async function deletePromptTemplate(id: string): Promise<void> {
 export async function resetPromptTemplate(slug: string): Promise<PromptTemplate> {
 	return invokeCommand<PromptTemplate>('config', 'reset_prompt_template', { slug });
 }
+
+// ============================================================================
+// UI Theme Commands
+// ============================================================================
+
+/** Allowed values for the persisted UI theme preference. */
+export type UiThemePreference = 'light' | 'dark' | 'system';
+
+/**
+ * Returns the persisted UI theme, or `null` when the user has not set one yet.
+ */
+export async function getUiTheme(): Promise<UiThemePreference | null> {
+	const value = await invokeCommand<string | null>('config', 'get_ui_theme');
+	if (value === null || value === undefined) return null;
+	if (value === 'light' || value === 'dark' || value === 'system') return value;
+	return null;
+}
+
+/**
+ * Persists the UI theme preference. The backend rejects unknown values.
+ */
+export async function setUiTheme(theme: UiThemePreference): Promise<void> {
+	await invokeCommand<void>('config', 'set_ui_theme', { theme });
+}

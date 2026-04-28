@@ -91,14 +91,14 @@
 	const langColor = $derived(
 		(() => {
 			switch (ext) {
-				case '.rs': return '#f74c00';
-				case '.ts': case '.tsx': return '#3178c6';
-				case '.svelte': return '#ff3e00';
-				case '.js': case '.jsx': return '#f7df1e';
-				case '.toml': case '.yaml': case '.yml': return '#8fb47a';
-				case '.md': return '#a3a29a';
-				case '.json': return '#c29a6e';
-				default: return '#545350';
+				case '.rs': return 'var(--color-lang-rust)';
+				case '.ts': case '.tsx': return 'var(--color-lang-typescript)';
+				case '.svelte': return 'var(--color-lang-svelte)';
+				case '.js': case '.jsx': return 'var(--color-lang-javascript)';
+				case '.toml': case '.yaml': case '.yml': return 'var(--color-lang-toml)';
+				case '.md': return 'var(--color-lang-markdown)';
+				case '.json': return 'var(--color-lang-json)';
+				default: return 'var(--color-lang-default)';
 			}
 		})()
 	);

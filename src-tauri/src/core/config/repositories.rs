@@ -223,6 +223,18 @@ pub trait PdfThemeRepository: Send + Sync {
     fn set_pdf_theme(&self, workspace_path: &str, theme_name: &str) -> RepositoryResult<()>;
 }
 
+/// UI theme preference persistence (global, single-row).
+///
+/// The stored value is one of `light`, `dark`, or `system`. `None` means the
+/// user has not set a preference yet, and the frontend should fall back to the
+/// operating system's preferred color scheme.
+pub trait UiThemeRepository: Send + Sync {
+    /// Returns the persisted UI theme, or `None` when no preference is set.
+    fn get_ui_theme(&self) -> RepositoryResult<Option<String>>;
+    /// Persists the UI theme. Implementations enforce the allowed value set.
+    fn set_ui_theme(&self, theme: &str) -> RepositoryResult<()>;
+}
+
 /// A repository for prompt templates (slash-command expansions).
 pub trait PromptTemplateRepository: Send + Sync {
     /// Returns all templates ordered by `sort_order`, then `slug`.
@@ -257,6 +269,7 @@ pub trait ConfigRepository:
     + WorkspaceSearchPolicyRepository
     + WebSearchCacheRepository
     + PdfThemeRepository
+    + UiThemeRepository
     + PromptTemplateRepository
 {
 }
@@ -273,6 +286,7 @@ impl<T> ConfigRepository for T where
         + WorkspaceSearchPolicyRepository
         + WebSearchCacheRepository
         + PdfThemeRepository
+        + UiThemeRepository
         + PromptTemplateRepository
 {
 }

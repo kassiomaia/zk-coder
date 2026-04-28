@@ -12,9 +12,10 @@
 	import ProviderIcon from './ProviderIcon.svelte';
 	import OperationIcon from './OperationIcon.svelte';
 	import PromptTemplatesSection from './PromptTemplatesSection.svelte';
+	import AppearanceSection from './AppearanceSection.svelte';
 	import Select from '../shared/Select.svelte';
 	import WebSearchModal from '../settings/web-search/WebSearchModal.svelte';
-	import { AlertCircleIcon, BoxIcon, CheckIcon, SearchIcon, UserIcon } from '$lib/icons';
+	import { AlertCircleIcon, BoxIcon, CheckIcon, SearchIcon, SunIcon, UserIcon } from '$lib/icons';
 
 	import { createLogger } from '$lib/utils/logger';
 
@@ -116,6 +117,20 @@
 <Modal title="Settings" {open} size="xl" {onclose}>
 	{#snippet children()}
 		<div class={styles.sections}>
+			<!-- Appearance Section -->
+			<section class="modal-section {styles.section}">
+				<header class={styles.sectionHeader}>
+					<div class={styles.sectionTitleGroup}>
+						<div class={styles.sectionIcon}>
+							<SunIcon size={16} />
+						</div>
+						<h3 class={styles.sectionTitle}>Appearance</h3>
+					</div>
+				</header>
+
+				<AppearanceSection />
+			</section>
+
 			<!-- Providers Section -->
 			<section class="modal-section {styles.section}">
 				<header class={styles.sectionHeader}>

@@ -27,25 +27,25 @@
 		(() => {
 			switch (ext) {
 				case '.rs':
-					return '#f74c00';
+					return 'var(--color-lang-rust)';
 				case '.ts':
 				case '.tsx':
-					return '#3178c6';
+					return 'var(--color-lang-typescript)';
 				case '.svelte':
-					return '#ff3e00';
+					return 'var(--color-lang-svelte)';
 				case '.js':
 				case '.jsx':
-					return '#f7df1e';
+					return 'var(--color-lang-javascript)';
 				case '.toml':
 				case '.yaml':
 				case '.yml':
-					return '#8fb47a';
+					return 'var(--color-lang-toml)';
 				case '.md':
-					return '#a3a29a';
+					return 'var(--color-lang-markdown)';
 				case '.json':
-					return '#c29a6e';
+					return 'var(--color-lang-json)';
 				default:
-					return 'var(--color-text-muted)';
+					return 'var(--color-lang-default)';
 			}
 		})()
 	);

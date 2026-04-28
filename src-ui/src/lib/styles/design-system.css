@@ -66,6 +66,7 @@
 	--color-lang-python: #3776ab;
 	--color-lang-javascript: #f7df1e;
 	--color-lang-typescript: #3178c6;
+	--color-lang-svelte: #ff3e00;
 	--color-lang-go: #00add8;
 	--color-lang-java: #007396;
 	--color-lang-cpp: #00599c;
@@ -74,6 +75,9 @@
 	--color-lang-php: #777bb4;
 	--color-lang-swift: #f05138;
 	--color-lang-kotlin: #7f52ff;
+	--color-lang-toml: var(--color-syntax-string);
+	--color-lang-markdown: var(--color-text-muted);
+	--color-lang-json: var(--color-syntax-number);
 	--color-lang-default: var(--color-text-muted);
 
 	/* Artifact Type Colors - for artifact type icons */
@@ -577,6 +581,31 @@
 	--color-status-open-text: var(--color-text-tertiary);
 	--color-status-resolved-bg: rgba(61, 153, 112, 0.08);
 	--color-status-resolved-text: rgba(61, 153, 112, 0.9);
+
+	/* Strip surfaces - thin status/header strips (AnsweringIndicator, file headers) */
+	--color-strip-bg: #111110;
+	--color-strip-bg-hover: #131211;
+	--color-strip-line-faint: #302f2e;
+
+	/* Terminal output (BashBody, etc.) */
+	--color-terminal-bg: #0d0d0d;
+	--color-terminal-fg: #c8c7c1;
+	--color-terminal-scrollbar-thumb: #302f2e;
+
+	/* Tool execution state accent (used in indicators, badges) */
+	--color-state-tool: var(--color-syntax-function);
+	--color-state-tool-bg: rgba(122, 165, 212, 0.12);
+
+	/* Diff colors - row backgrounds + marker columns (InlineDiff) */
+	--color-diff-add-text: var(--color-syntax-string);
+	--color-diff-add-bg: var(--color-syntax-addition-bg);
+	--color-diff-add-marker-bg: rgba(143, 180, 122, 0.2);
+	--color-diff-add-marker-text: rgba(143, 180, 122, 0.5);
+	--color-diff-del-text: var(--color-syntax-variable);
+	--color-diff-del-bg: var(--color-syntax-deletion-bg);
+	--color-diff-del-marker-bg: rgba(200, 122, 130, 0.2);
+	--color-diff-del-marker-text: rgba(200, 122, 130, 0.5);
+	--color-diff-hunk-bg: rgba(92, 97, 120, 0.05);
 }
 
 /* Light Mode Theme - Pale, refined, softly layered */
@@ -717,6 +746,31 @@
 	--color-provider-openai-border: rgba(16, 163, 127, 0.14);
 	--color-provider-google-border: rgba(59, 130, 246, 0.14);
 	--color-provider-custom-border: rgba(75, 80, 104, 0.14);
+
+	/* Strip surfaces - subtle pale strips that read as headers in light theme */
+	--color-strip-bg: #f0efea;
+	--color-strip-bg-hover: #e8e7e1;
+	--color-strip-line-faint: #c5c4be;
+
+	/* Terminal output - light theme keeps a calm pale surface so output stays legible */
+	--color-terminal-bg: #1c1c1a;
+	--color-terminal-fg: #e6e5e0;
+	--color-terminal-scrollbar-thumb: #5a5955;
+
+	/* Tool execution state accent - tuned for pale backgrounds */
+	--color-state-tool: var(--color-syntax-function);
+	--color-state-tool-bg: rgba(59, 107, 165, 0.1);
+
+	/* Diff colors - row backgrounds + marker columns (light-theme balanced) */
+	--color-diff-add-text: var(--color-syntax-string);
+	--color-diff-add-bg: var(--color-syntax-addition-bg);
+	--color-diff-add-marker-bg: rgba(77, 122, 62, 0.16);
+	--color-diff-add-marker-text: rgba(77, 122, 62, 0.55);
+	--color-diff-del-text: var(--color-syntax-variable);
+	--color-diff-del-bg: var(--color-syntax-deletion-bg);
+	--color-diff-del-marker-bg: rgba(160, 66, 74, 0.16);
+	--color-diff-del-marker-text: rgba(160, 66, 74, 0.55);
+	--color-diff-hunk-bg: rgba(75, 80, 104, 0.04);
 }
 
 /* Fallback for legacy variables - maps to new system */

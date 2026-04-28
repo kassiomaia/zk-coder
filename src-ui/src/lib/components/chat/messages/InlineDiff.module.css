@@ -8,14 +8,14 @@
 	align-items: center;
 	gap: 7px;
 	padding: 5px 10px;
-	background: #111110;
+	background: var(--color-strip-bg);
 	cursor: pointer;
 	border-bottom: 1px solid var(--color-border-subtle);
 	user-select: none;
 }
 
 .fileHeader:hover {
-	background: #131211;
+	background: var(--color-strip-bg-hover);
 }
 
 .fileChevron {
@@ -49,7 +49,7 @@
 	width: 5px;
 	height: 5px;
 	border-radius: 50%;
-	border: 1px solid #111110;
+	border: 1px solid var(--color-strip-bg);
 }
 
 .filePathText {
@@ -79,12 +79,12 @@
 }
 
 .statAdd {
-	color: #8fb47a;
+	color: var(--color-diff-add-text);
 	opacity: 0.8;
 }
 
 .statDel {
-	color: #c87a82;
+	color: var(--color-diff-del-text);
 	opacity: 0.8;
 }
 
@@ -92,7 +92,7 @@
 .diffWrap {
 	overflow-x: auto;
 	scrollbar-width: thin;
-	scrollbar-color: #222 transparent;
+	scrollbar-color: var(--color-terminal-scrollbar-thumb) transparent;
 }
 
 .diffWrap::-webkit-scrollbar {
@@ -100,7 +100,7 @@
 }
 
 .diffWrap::-webkit-scrollbar-thumb {
-	background: #222;
+	background: var(--color-terminal-scrollbar-thumb);
 }
 
 .diffTable {
@@ -133,7 +133,7 @@
 	user-select: none;
 	font-size: 10.5px;
 	border-right: 1px solid var(--color-border-subtle);
-	color: #302f2e;
+	color: var(--color-strip-line-faint);
 }
 
 .gt {
@@ -156,7 +156,7 @@
 }
 
 .ctx .ln {
-	color: #302f2e;
+	color: var(--color-strip-line-faint);
 }
 
 .ctx .code {
@@ -164,17 +164,17 @@
 }
 
 .del td {
-	background: rgba(200, 122, 130, 0.09);
+	background: var(--color-diff-del-bg);
 }
 
 .del .ln {
-	background: rgba(200, 122, 130, 0.20);
-	color: rgba(200, 122, 130, 0.50);
+	background: var(--color-diff-del-marker-bg);
+	color: var(--color-diff-del-marker-text);
 }
 
 .del .gt {
-	background: rgba(200, 122, 130, 0.20);
-	color: #c87a82;
+	background: var(--color-diff-del-marker-bg);
+	color: var(--color-diff-del-text);
 }
 
 .del .code {
@@ -182,17 +182,17 @@
 }
 
 .add td {
-	background: rgba(143, 180, 122, 0.09);
+	background: var(--color-diff-add-bg);
 }
 
 .add .ln {
-	background: rgba(143, 180, 122, 0.20);
-	color: rgba(143, 180, 122, 0.50);
+	background: var(--color-diff-add-marker-bg);
+	color: var(--color-diff-add-marker-text);
 }
 
 .add .gt {
-	background: rgba(143, 180, 122, 0.20);
-	color: #8fb47a;
+	background: var(--color-diff-add-marker-bg);
+	color: var(--color-diff-add-text);
 }
 
 .add .code {
@@ -200,7 +200,7 @@
 }
 
 .hunk td {
-	background: rgba(92, 97, 120, 0.05);
+	background: var(--color-diff-hunk-bg);
 }
 
 .hunk .code {
@@ -214,7 +214,7 @@
 	display: flex;
 	justify-content: center;
 	padding: 8px;
-	background: #111110;
+	background: var(--color-strip-bg);
 	border-top: 1px solid var(--color-border-subtle);
 }
 
@@ -235,6 +235,6 @@
 }
 
 .showAllBtn:hover {
-	background: rgba(255, 252, 245, 0.03);
+	background: var(--color-interactive-hover);
 	color: var(--color-text-secondary);
 }

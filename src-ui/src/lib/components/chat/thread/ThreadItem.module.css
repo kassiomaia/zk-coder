@@ -29,7 +29,7 @@
 
 /* Maintain active state when menu is open */
 .item.menuOpen .button {
-	background: rgba(0, 0, 0, 0.03);
+	background: var(--color-interactive-hover);
 }
 
 .item.menuOpen .icon {
@@ -79,7 +79,7 @@
 }
 
 .button:hover {
-	background: rgba(0, 0, 0, 0.03);
+	background: var(--color-interactive-hover);
 	transform: translateY(-0.5px);
 }
 
@@ -95,12 +95,12 @@
 
 /* Selected state - subtle neutral highlight */
 .item.selected .button {
-	background: rgba(0, 0, 0, 0.05);
+	background: var(--color-interactive-active);
 	color: var(--color-text-primary);
 }
 
 .item.selected .button:hover {
-	background: rgba(0, 0, 0, 0.07);
+	background: var(--color-interactive-selected);
 }
 
 .item.hasUnread:not(.selected) .button {
@@ -114,7 +114,7 @@
 .button:focus-visible {
 	outline: 2px solid var(--color-primary-500);
 	outline-offset: -2px;
-	background: rgba(0, 0, 0, 0.02);
+	background: var(--color-interactive-hover);
 }
 
 /* Icon container - Normalized to match parent */
@@ -312,7 +312,7 @@
 */
 
 .item[data-variant='inline'].selected .button {
-	background: rgba(0, 0, 0, 0.04);
+	background: var(--color-interactive-active);
 }
 
 .item[data-variant='inline'].selected .title {

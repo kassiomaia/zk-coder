@@ -517,7 +517,7 @@
 		flex-direction: column;
 		gap: var(--space-2);
 		padding: var(--space-2);
-		background: var(--color-neutral-925);
+		background: var(--color-bg-secondary);
 		border-radius: var(--radius-none);
 	}
 
@@ -531,7 +531,7 @@
 	.json-block {
 		margin: 0;
 		padding: var(--space-2);
-		background: var(--color-neutral-950);
+		background: var(--color-bg-tertiary);
 		border-radius: var(--radius-none);
 		font-family: var(--font-mono);
 		font-size: var(--text-2xs);
@@ -778,7 +778,7 @@
 		flex-direction: column;
 		gap: var(--space-2);
 		padding: var(--space-2);
-		background: var(--color-neutral-925);
+		background: var(--color-bg-secondary);
 		border-radius: var(--radius-md);
 	}
 
@@ -792,7 +792,7 @@
 	.json-block {
 		margin: 0;
 		padding: var(--space-2);
-		background: var(--color-neutral-950);
+		background: var(--color-bg-tertiary);
 		border-radius: var(--radius-sm);
 		font-family: var(--font-mono);
 		font-size: var(--text-2xs);

@@ -6,10 +6,13 @@
 	import '$lib/styles/global.css';
 	import { onMount } from 'svelte';
 	import favicon from '$lib/assets/favicon.svg';
+	import { initTheme, theme as themeStore } from '$lib/stores/themeStore';
 
 	/**
 	 * Theme colors from the design system.
-	 * These match the CSS variables in design-system.css.
+	 * These match the CSS variables in design-system.css and are surfaced to
+	 * the OS via <meta name="theme-color"> so the chromeless window's frame
+	 * blends with the in-app palette.
 	 */
 	const THEME_COLORS = {
 		dark: '#0b0b0a', // --color-neutral-950 (warm)
@@ -18,45 +21,24 @@
 
 	let { children } = $props();
 
-	// Theme handling
-	let theme = $state<'light' | 'dark'>('light');
+	let resolvedTheme = $state<'light' | 'dark'>('light');
 
 	onMount(() => {
-		// Check for saved theme preference
-		const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-		if (savedTheme) {
-			theme = savedTheme;
-		} else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-			theme = 'dark';
-		}
-
-		// Apply theme
-		document.documentElement.setAttribute('data-theme', theme);
-
-		// Listen for system theme changes
-		const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-		const handler = (e: MediaQueryListEvent) => {
-			if (!localStorage.getItem('theme')) {
-				theme = e.matches ? 'dark' : 'light';
-				document.documentElement.setAttribute('data-theme', theme);
-			}
+		const unsubscribeTheme = themeStore.subscribe((value) => {
+			resolvedTheme = value;
+		});
+		const teardownPromise = initTheme();
+		return () => {
+			unsubscribeTheme();
+			teardownPromise.then((teardown) => teardown()).catch(() => {});
 		};
-		mediaQuery.addEventListener('change', handler);
-
-		return () => mediaQuery.removeEventListener('change', handler);
 	});
-
-	function toggleTheme() {
-		theme = theme === 'dark' ? 'light' : 'dark';
-		document.documentElement.setAttribute('data-theme', theme);
-		localStorage.setItem('theme', theme);
-	}
 </script>
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<meta name="theme-color" content={THEME_COLORS[theme]} />
+	<meta name="theme-color" content={THEME_COLORS[resolvedTheme]} />
 	<!-- Transparent background for chromeless window with rounded corners -->
 	<style>
 		html,
@@ -66,7 +48,7 @@
 	</style>
 </svelte:head>
 
-<div class="app" data-theme={theme}>
+<div class="app" data-theme={resolvedTheme}>
 	{@render children()}
 </div>
 

@@ -110,6 +110,7 @@ Documentation is a first-class citizen in this repository.
 | DOCX Styling | `docs/features/docx-styling.md` | Optional `theme` on `docx_start` + per-section `theme_override` on `docx_add_section`; `DocxThemePatch` contract, rich runs, real images/lists/rules |
 | Thread Loading Performance | `docs/features/thread-loading-performance.md` | Markdown sentinel pipeline, slim `hljs` + heuristic fallback, progressive rendering + scroll-anchor preservation, doc-gen tracker hook contract |
 | Slash Prompt Templates | `docs/features/slash-prompt-templates.md` | DB-backed `/slug` → prompt expansion. Builtins + user templates in `coder_config.db`, `{args}` placeholder, Settings UI for CRUD + reset |
+| UI Theme | `docs/features/ui-theme.md` | User-selectable Light/Dark/System theme. SQLite-backed `ui_preferences` row, `themeStore` facade, pre-hydration FOUC guard, Appearance section in Settings |
 | Database Access & Debugging | `docs/database-reference.md` | SQLite schema, SQL queries, tracing, tips |
 
 > Note: Files under `docs/archive/` are preserved for historical context and migration traceability. Archived documents may reference legacy paths and do **not** necessarily reflect current architecture or shipped features.

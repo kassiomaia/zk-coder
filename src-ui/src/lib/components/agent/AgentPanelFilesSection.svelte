@@ -85,7 +85,7 @@
 
 	.refresh-btn:hover {
 		color: var(--color-text-primary);
-		background: var(--color-neutral-800);
+		background: var(--color-interactive-active);
 		border-color: var(--color-border-primary);
 	}
 
