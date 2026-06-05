@@ -260,7 +260,14 @@ mod tests {
     fn theme_schema_has_all_sections() {
         let s = theme_schema();
         let props = s["properties"].as_object().unwrap();
-        for key in ["typography", "palette", "spacing", "page", "decorations", "fonts"] {
+        for key in [
+            "typography",
+            "palette",
+            "spacing",
+            "page",
+            "decorations",
+            "fonts",
+        ] {
             assert!(props.contains_key(key), "missing {key}");
         }
     }

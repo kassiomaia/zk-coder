@@ -202,6 +202,7 @@ describe('AgentPanel', () => {
 					state: {
 						type: 'paused',
 						pausedAt: '2024-01-01T00:00:00Z',
+						pauseReason: 'startup_recovery',
 						message: 'Interrupted'
 					},
 					harnessState: {
@@ -244,6 +245,7 @@ describe('AgentPanel', () => {
 					state: {
 						type: 'paused',
 						pausedAt: '2024-01-01T00:00:00Z',
+						pauseReason: 'startup_recovery',
 						message: 'Interrupted'
 					},
 					harnessState: {
@@ -434,6 +436,7 @@ describe('AgentPanel', () => {
 				state: {
 					type: 'paused',
 					pausedAt: '2024-01-01T00:00:00Z',
+					pauseReason: 'startup_recovery',
 					message: 'Session interrupted'
 				},
 				harnessState: {

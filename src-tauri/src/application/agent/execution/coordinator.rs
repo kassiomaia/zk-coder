@@ -7,9 +7,9 @@ use std::sync::Arc;
 use tauri::AppHandle;
 
 use crate::application::agent::harness::HarnessStateStore;
-use crate::core::agent::permissions::PermissionResolver;
 use crate::core::agent::execution::RuntimeTraceType;
 use crate::core::agent::memory::MemoryRepository;
+use crate::core::agent::permissions::PermissionResolver;
 use crate::core::agent::repositories::{
     ExecutionCheckpointRepository, ExecutionRepository, RuntimeTraceRepository, SessionRepository,
     TaskRepository,
@@ -19,7 +19,9 @@ use crate::core::agent::task::{AgentExecutionResult, AgentRequest};
 use crate::core::agent::types::TrustMode;
 use crate::core::chat::services::ChatService;
 use crate::core::config::ConfigRepository;
-use crate::core::llm::entities::{ChatMessage as Message, MessageRole, ToolChoiceMode, ToolDefinition};
+use crate::core::llm::entities::{
+    ChatMessage as Message, MessageRole, ToolChoiceMode, ToolDefinition,
+};
 use crate::infrastructure::agent::approval::ApprovalQueue;
 use crate::infrastructure::agent::file_snapshot_registry::FileSnapshotRegistry;
 use crate::infrastructure::agent::runtime::AgentRuntimeError;
@@ -236,8 +238,15 @@ pub async fn execute(
             StepGateOutcome::Cancelled => return Err(AgentRuntimeError::Cancelled),
         }
 
-        let resolved =
-            resolve_context(&deps, &mut ctx, session, &request, agent_system_prompt, client.as_ref()).await?;
+        let resolved = resolve_context(
+            &deps,
+            &mut ctx,
+            session,
+            &request,
+            agent_system_prompt,
+            client.as_ref(),
+        )
+        .await?;
 
         if resolved.all_subtasks_completed {
             match run_final_summary_step(
@@ -307,9 +316,7 @@ mod final_summary_guard_tests {
     //! iteration — producing two consecutive `User` messages that
     //! Anthropic rejects with HTTP 400.
 
-    use super::{
-        last_message_is_final_summary_prompt, FINAL_SUMMARY_PROMPT,
-    };
+    use super::{last_message_is_final_summary_prompt, FINAL_SUMMARY_PROMPT};
     use crate::core::llm::entities::{ChatMessage as Message, ToolCall};
     use serde_json::json;
 
@@ -378,7 +385,10 @@ mod final_summary_guard_tests {
             4,
             "guard must allow a fresh push when the tail is no longer the prompt"
         );
-        assert_eq!(messages.last().and_then(Message::as_text), Some(FINAL_SUMMARY_PROMPT));
+        assert_eq!(
+            messages.last().and_then(Message::as_text),
+            Some(FINAL_SUMMARY_PROMPT)
+        );
     }
 
     #[test]
@@ -392,7 +402,10 @@ mod final_summary_guard_tests {
         ];
         push_prompt_if_needed(&mut messages);
         assert_eq!(messages.len(), 3);
-        assert_eq!(messages.last().and_then(Message::as_text), Some(FINAL_SUMMARY_PROMPT));
+        assert_eq!(
+            messages.last().and_then(Message::as_text),
+            Some(FINAL_SUMMARY_PROMPT)
+        );
     }
 
     #[test]
@@ -403,7 +416,10 @@ mod final_summary_guard_tests {
         let mut messages: Vec<Message> = vec![Message::user("ping")];
         push_prompt_if_needed(&mut messages);
         assert_eq!(messages.len(), 2);
-        assert_eq!(messages.last().and_then(Message::as_text), Some(FINAL_SUMMARY_PROMPT));
+        assert_eq!(
+            messages.last().and_then(Message::as_text),
+            Some(FINAL_SUMMARY_PROMPT)
+        );
     }
 
     #[test]

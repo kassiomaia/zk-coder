@@ -1,7 +1,7 @@
 # Agent Clarification: Pause with Persistent Resume
 
 **Status**: ACTIVE
-**Last reviewed**: 2026-04-19
+**Last reviewed**: 2026-06-05
 **Purpose**: User-facing behavior + architecture reference for the
 clarification pause/resume flow implemented by the
 `agent-clarification-resume` plan. Supersedes the Workstream E
@@ -32,8 +32,11 @@ on the rehydrated session.
 4. **Timeout fallback.** If `CODER_CLARIFICATION_TIMEOUT_MINUTES`
    (default `30`) elapses before a reply, the active subtask is
    marked `Failed` with reason `unanswered_clarification` and the
-   session transitions to `Paused`. A retry affordance surfaces in
-   the UI.
+   session transitions to `Paused` with
+   `pauseReason = clarification_timeout`. This is a runtime timeout
+   state, not startup recovery: the UI surfaces the timeout-specific
+   retry affordance via `clarification_timed_out` and does not inject
+   the "Your progress is saved" recovery card.
 5. **Restart.** If the app closes while parked, the next launch
    re-emits `ClarificationRestored` for the paused session. The
    reply path recognises the post-restart condition and rebuilds the
@@ -73,16 +76,17 @@ the cancellation signal observed by the coordinator's park stage.
 |---|---|---|
 | `send_agent_request` | UI → backend | Main chat input. Auto-routes to `reply_to_clarification` when a pending clarification exists. |
 | `reply_to_clarification` | UI → backend | Clarification composer. Persists the reply to the transcript and delivers it to the parked coordinator (live path) or rebuilds from checkpoint (post-restart path). |
-| `initialize_agent_recovery` | UI → backend | Called at startup. Rehydrates paused clarifications, emitting `ClarificationRestored` / `ClarificationTimedOut` as appropriate. |
+| `initialize_agent_recovery` | UI → backend | Called at startup. Emits `session_paused` only for startup-recovery pauses (`pauseReason = startup_recovery`) and separately rehydrates paused clarifications, emitting `ClarificationRestored` / `ClarificationTimedOut` as appropriate. |
 
 ## Events
 
 | Event | Purpose |
 |---|---|
 | `session_state_changed` with `state.type = 'awaiting_clarification'` | Session entered the pause. Carries `prompt`, `askedAt`, optional `subtaskId`. |
+| `session_state_changed` with `state.type = 'paused'` and `pauseReason = 'clarification_timeout'` | Durable paused session after the clarification deadline elapsed. Used for state reloads, not for recovery-card UX. |
 | `clarification_replied` | The reply was delivered. Mirrors the transcript append. |
 | `clarification_timed_out` | Timeout elapsed before a reply. Carries the original prompt for the UI fallback message. |
-| `clarification_restored` | Emitted at startup when a paused session is rehydrated. Carries the same payload as the original pause event. |
+| `clarification_restored` | Emitted at startup when a pending clarification is rehydrated. Carries the original prompt payload; this is distinct from startup recovery of an unterminated running session. |
 
 ## Persistence
 

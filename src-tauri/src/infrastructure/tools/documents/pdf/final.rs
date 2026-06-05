@@ -171,10 +171,7 @@ impl Tool for PdfFinalizeTool {
 /// The [`CancellationToken`] slot is built fresh here because there is
 /// no UI channel wired in yet. T3.1 will replace this with a token
 /// supplied by the card so the user can stop a long render.
-async fn write_pdf(
-    draft: PdfDraft,
-    app_handle: &AppHandle,
-) -> Result<(PathBuf, u64), ToolError> {
+async fn write_pdf(draft: PdfDraft, app_handle: &AppHandle) -> Result<(PathBuf, u64), ToolError> {
     let artifacts_dir = resolve_artifacts_dir(app_handle)?;
     migrate_from_legacy_home(&artifacts_dir);
     let output_path = artifacts_dir.join(&draft.filename);
@@ -302,21 +299,14 @@ mod sweep_tests {
     #[test]
     fn finalize_does_not_hardcode_session_id() {
         let src = include_str!("final.rs");
-        let execute_start = src
-            .find("fn execute(")
-            .expect("Tool::execute must exist");
-        let sweep_start = src
-            .find("mod sweep_tests")
-            .expect("sweep_tests must exist");
+        let execute_start = src.find("fn execute(").expect("Tool::execute must exist");
+        let sweep_start = src.find("mod sweep_tests").expect("sweep_tests must exist");
         let exec_region = &src[execute_start..sweep_start];
         assert!(
             !exec_region.contains(r#""current".to_string()"#),
             "execute must not fabricate a 'current' session_id literal",
         );
-        let normalized: String = exec_region
-            .chars()
-            .filter(|c| !c.is_whitespace())
-            .collect();
+        let normalized: String = exec_region.chars().filter(|c| !c.is_whitespace()).collect();
         assert!(
             normalized.contains("context.session_id"),
             "execute must thread context.session_id into ArtifactCreated",

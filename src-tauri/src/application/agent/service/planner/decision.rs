@@ -111,10 +111,12 @@ async fn decide_resume(
     state: ExecutionState<'_>,
     model_id: Option<&str>,
 ) -> Result<PlanDecision, String> {
-    let (client, actual_model) =
-        create_llm_client(config_repository, model_id.map(std::string::ToString::to_string))
-            .await
-            .map_err(|e| format!("Failed to create LLM client for resume planning: {e}"))?;
+    let (client, actual_model) = create_llm_client(
+        config_repository,
+        model_id.map(std::string::ToString::to_string),
+    )
+    .await
+    .map_err(|e| format!("Failed to create LLM client for resume planning: {e}"))?;
 
     let system_prompt = build_resume_system_prompt();
     let user_prompt = build_resume_user_prompt(user_message, &state);
@@ -194,7 +196,7 @@ fn validate_resume_decision(
         PlanAction::Replan => {
             if decision.plan.is_none() {
                 return Err(
-                    "Resume planner returned action=replan without an updated plan".to_string()
+                    "Resume planner returned action=replan without an updated plan".to_string(),
                 );
             }
             Ok(())

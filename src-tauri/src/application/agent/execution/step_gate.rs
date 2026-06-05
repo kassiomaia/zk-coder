@@ -8,9 +8,7 @@ use serde_json::json;
 
 use super::deps::ExecutionDeps;
 use super::state::ExecutionContext;
-use super::termination::{
-    cancel_execution, mark_step_budget_exhausted, update_session_state,
-};
+use super::termination::{cancel_execution, mark_step_budget_exhausted, update_session_state};
 use super::utils::max_execution_steps;
 use crate::core::agent::execution::{ExecutionPhase, RuntimeTraceType};
 use crate::core::agent::session::{SessionId, SessionState};
@@ -175,9 +173,7 @@ mod step_budget_exhausted_tests {
     use crate::core::agent::execution::{RuntimeTrace, RuntimeTraceType};
     use crate::core::agent::repositories::SessionRepository;
     use crate::core::agent::session::{AgentSession, SessionId};
-    use crate::core::agent::task::{
-        AgentRequest, AgentTask, SubTask, SubTaskMode, TaskStatus,
-    };
+    use crate::core::agent::task::{AgentRequest, AgentTask, SubTask, SubTaskMode, TaskStatus};
     use crate::core::agent::types::AgentId;
     use crate::infrastructure::agent::runtime::AgentRuntimeError;
     use crate::infrastructure::sqlite::repositories::agent::SqliteSessionRepository;
@@ -272,7 +268,10 @@ mod step_budget_exhausted_tests {
         let err = AgentRuntimeError::StepBudgetExhausted { used, budget };
         assert!(matches!(
             err,
-            AgentRuntimeError::StepBudgetExhausted { used: 120, budget: 120 }
+            AgentRuntimeError::StepBudgetExhausted {
+                used: 120,
+                budget: 120
+            }
         ));
         // Must not be conflated with the runaway-loop variant that the
         // gate previously emitted on this branch.
@@ -344,4 +343,3 @@ mod step_budget_exhausted_tests {
         assert_eq!(payload["budget"], json!(135));
     }
 }
-

@@ -330,8 +330,8 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
-    use crate::application::ChatServiceImpl;
     use crate::application::agent::read_models::{HarnessMode, StartupVerificationState};
+    use crate::application::ChatServiceImpl;
     use crate::core::agent::services::{AgentService, CreateSessionRequest};
     use crate::core::chat::services::ChatService;
     use crate::core::config::ConfigRepository;
@@ -469,6 +469,7 @@ mod tests {
         session
             .set_state(SessionState::Paused {
                 paused_at: chrono::Utc::now(),
+                pause_reason: crate::core::agent::session::PauseReason::StartupRecovery,
                 message: "Interrupted while updating status handling".to_string(),
                 current_subtask_id: None,
             })
@@ -503,8 +504,6 @@ mod tests {
 
     #[test]
     fn load_session_runtime_details_reflects_recorded_clean_exit_override() {
-        use crate::application::agent::harness::HarnessStateStore;
-
         let service = create_test_service();
         let session = service
             .create_session(CreateSessionRequest {

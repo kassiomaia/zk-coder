@@ -52,10 +52,15 @@ export function handleSessionPaused(
 		state: {
 			type: 'paused',
 			pausedAt: event.pausedAt,
+			pauseReason: event.pauseReason,
 			message: event.message,
 			currentSubtaskId: event.currentSubtaskId
 		}
 	});
+
+	if (event.pauseReason !== 'startup_recovery') {
+		return;
+	}
 
 	agentEventBus.emit('agent-activity', {
 		conversationId: session.conversationId,

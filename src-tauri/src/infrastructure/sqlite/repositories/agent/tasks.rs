@@ -699,7 +699,13 @@ mod tests {
         let expected_title = "Create release communication files and copy";
         let expected_description =
             "Generate launch communication assets (email, social, blog) for the release.";
-        create_task(&conn, &task, Some(expected_title), Some(expected_description)).unwrap();
+        create_task(
+            &conn,
+            &task,
+            Some(expected_title),
+            Some(expected_description),
+        )
+        .unwrap();
 
         let tasks = get_session_tasks(&conn, &session_id).unwrap();
         assert_eq!(tasks.len(), 1);

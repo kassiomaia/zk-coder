@@ -67,8 +67,7 @@ fn accepts_query_exactly_at_max_length() {
 
 #[test]
 fn clamps_num_results_to_1_10_range() {
-    let too_low =
-        parse_and_validate(json!({ "query": "rust", "num_results": 0 })).expect("valid");
+    let too_low = parse_and_validate(json!({ "query": "rust", "num_results": 0 })).expect("valid");
     assert_eq!(too_low.num_results, 1, "zero clamps up to 1");
 
     let too_high =
@@ -78,8 +77,7 @@ fn clamps_num_results_to_1_10_range() {
         "excess clamps down to the provider max"
     );
 
-    let in_range =
-        parse_and_validate(json!({ "query": "rust", "num_results": 7 })).expect("valid");
+    let in_range = parse_and_validate(json!({ "query": "rust", "num_results": 7 })).expect("valid");
     assert_eq!(in_range.num_results, 7, "in-range values are preserved");
 }
 
@@ -95,8 +93,7 @@ fn accepts_optional_language_tag() {
 
 #[test]
 fn normalizes_empty_language_to_none() {
-    let args =
-        parse_and_validate(json!({ "query": "svelte", "language": "   " })).expect("valid");
+    let args = parse_and_validate(json!({ "query": "svelte", "language": "   " })).expect("valid");
     assert_eq!(args.language, None);
 }
 

@@ -33,7 +33,11 @@ impl ParagraphText {
     pub fn as_plain_string(&self) -> String {
         match self {
             ParagraphText::Plain(s) => s.clone(),
-            ParagraphText::Rich(runs) => runs.iter().map(|r| r.text.clone()).collect::<Vec<_>>().join(""),
+            ParagraphText::Rich(runs) => runs
+                .iter()
+                .map(|r| r.text.clone())
+                .collect::<Vec<_>>()
+                .join(""),
         }
     }
 }
@@ -213,8 +217,14 @@ mod tests {
     fn text_len_covers_both_variants() {
         assert_eq!(ParagraphText::Plain("abc".to_string()).text_len(), 3);
         let rich = ParagraphText::Rich(vec![
-            TextRun { text: "ab".to_string(), ..Default::default() },
-            TextRun { text: "cd".to_string(), ..Default::default() },
+            TextRun {
+                text: "ab".to_string(),
+                ..Default::default()
+            },
+            TextRun {
+                text: "cd".to_string(),
+                ..Default::default()
+            },
         ]);
         assert_eq!(rich.text_len(), 4);
     }

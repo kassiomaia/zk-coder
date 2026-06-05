@@ -5,8 +5,8 @@
 //! important decisions, errors, and state information.
 
 use crate::core::llm::entities::ChatMessage as Message;
-use crate::infrastructure::llm::LlmClient;
 use crate::core::llm::entities::ChatRequest;
+use crate::infrastructure::llm::LlmClient;
 use log::warn;
 
 const SUMMARIZER_MAX_INPUT_CHARS: usize = 60_000;

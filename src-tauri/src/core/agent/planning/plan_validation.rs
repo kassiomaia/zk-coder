@@ -97,9 +97,7 @@ pub(crate) fn validate_plan_subtasks(
 ///
 /// Anything beyond these three rules is treated as non-overlapping to
 /// avoid false-positive rejections.
-pub(crate) fn detect_overlapping_contracts(
-    subtasks: &[serde_json::Value],
-) -> Result<(), String> {
+pub(crate) fn detect_overlapping_contracts(subtasks: &[serde_json::Value]) -> Result<(), String> {
     // Gather (subtask_index, title, pattern) tuples for every declared
     // path_pattern on every subtask with a contract. Subtasks without
     // contracts or with empty expected_artifacts contribute nothing
@@ -260,9 +258,7 @@ pub(crate) fn literal_matches_glob(candidate: &str, pattern: &str) -> Option<boo
 /// contract, and lets any subtask with a declared contract through
 /// untouched. This keeps legitimate final-step documentation subtasks
 /// (which declare where they write) out of the reject set.
-pub(crate) fn detect_noop_final_subtask(
-    subtasks: &[serde_json::Value],
-) -> Result<(), String> {
+pub(crate) fn detect_noop_final_subtask(subtasks: &[serde_json::Value]) -> Result<(), String> {
     // Need at least two subtasks — a single-subtask plan cannot be a
     // "documentation of prior subtasks" redundancy.
     if subtasks.len() < 2 {

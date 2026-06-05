@@ -1,6 +1,6 @@
 # Recovery ("Your progress is saved") banner surfaces in yolo mode and during live streaming
 
-- **Status**: frontend band-aid shipped 2026-04-23 — awaiting backend design review
+- **Status**: fixed 2026-06-05
 - **Reported**: 2026-04-23
 - **Area**:
   - Backend: `src-tauri/src/application/agent/execution/park.rs`,
@@ -17,21 +17,25 @@
 
 ## Summary
 
-The recovery card ("Your progress is saved — Replan / Continue") was designed
-for app-startup recovery: when the process restarts mid-execution, previously
-unterminated sessions are transitioned to `SessionState::Paused` and the user
-is offered a choice. In practice the same card now surfaces in two wrong
-situations:
+Root cause was a contract bug, not a rendering bug: the backend used one
+coarse `SessionState::Paused` bucket for both startup recovery and
+clarification timeouts, and the frontend treated every `session_paused`
+event and every persisted paused session as recovery UX.
 
-1. **Mid-execution pauses** — e.g. a clarification timeout fires while the
-   agent is still producing tool output. The session state transitions to
-   `Paused` in the database and a `session_paused` event is emitted, but the
-   execution loop does not actually halt. New narration and tool-call
-   messages continue to stream into the transcript *below* the card.
-2. **Yolo / auto-approve mode** — the card is a human-decision surface, yet
-   the pause emission path never consults the thread's `yolo_mode` flag.
-   Yolo is only checked in the tool-approval layer
-   (`src-tauri/src/infrastructure/agent/runtime/permissions.rs`).
+The shipped fix adds an explicit pause reason contract:
+
+- `SessionState::Paused` now carries `pauseReason`
+  (`startup_recovery`, `clarification_timeout`, `user_initiated`).
+- `AgentEvent::SessionPaused` carries the same `pauseReason`.
+- `initialize_agent_recovery` remains the sole source of recovery-card
+  events and emits `session_paused` only for
+  `pauseReason = startup_recovery`.
+- Clarification timeout paths persist
+  `pauseReason = clarification_timeout` and keep the UI-facing signal on
+  `clarification_timed_out`, so no recovery card is injected during live
+  execution or on thread reload.
+- The frontend route-level yolo suppression band-aid was removed because
+  recovery-card rendering is now reason-based instead of heuristic.
 
 ## Evidence
 
@@ -118,35 +122,16 @@ a structured clarification question.
 Actual: "Your progress is saved — Replan / Continue" card appears inline
 while tool-call streaming continues below it.
 
-## Mitigation shipped
+## Resolution
 
-Frontend band-aid in `src-ui/src/routes/+page.svelte` (agent-activity
-subscriber): drop `kind: 'recovery'` messages for threads where
-`thread.metadata.yoloMode === true`. This suppresses the contradictory
-banner in yolo mode but does not fix the underlying coordination bug.
+Recovery cards now render only for explicit startup recovery pauses. A
+clarification-timeout session still persists as `Paused`, but it no longer
+produces recovery transcript UI on event handling or thread selection.
 
-## Proposed direction (for team discussion)
-
-Two layers to fix properly, in order:
-
-1. **Backend — emit with context, honor yolo**. Enrich the
-   `session_paused` payload with a `reason` enum
-   (`startup_recovery` | `clarification_timeout` | `user_pause` | ...)
-   and, in the emitters under `park.rs` / `clarification.rs` /
-   `termination.rs`, consult the thread's `yolo_mode` before emitting a
-   human-decision event. Yolo threads should either auto-continue or emit
-   a distinct "yolo-auto-resume" event that the UI treats as informational.
-2. **Backend — make Paused actually pause**. The execution loop should
-   observe session state transitions and cooperatively yield when
-   `Paused` is set, so the transcript stops growing until the user resolves
-   the card (or the auto-resume fires). This is the larger change and
-   needs design input on how the loop cancels in-flight LLM requests.
-
-Frontend-side, once the payload carries `reason`, the
-`handleSessionPaused` handler should branch: only
-`startup_recovery` should render the "Replan / Continue" card; other
-reasons should surface via the existing clarification UI or be silently
-informational.
+The remaining known limitation from the original investigation still stands:
+`SessionState::Paused` does not itself halt an already-running executor.
+That is a separate runtime coordination concern, but it no longer leaks into
+the recovery UX contract.
 
 ## Database correlation
 

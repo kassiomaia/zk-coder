@@ -73,8 +73,19 @@ pub(super) fn detect_code_change_intent(
         .unwrap_or_default();
 
     let keywords = [
-        "fix", "bug", "implement", "update", "write", "refactor", "create", "add", "remove",
-        "rename", "build", "compile", "test",
+        "fix",
+        "bug",
+        "implement",
+        "update",
+        "write",
+        "refactor",
+        "create",
+        "add",
+        "remove",
+        "rename",
+        "build",
+        "compile",
+        "test",
     ];
     let heuristic_hit = keywords.iter().any(|k| task_text.contains(k));
     if heuristic_hit {

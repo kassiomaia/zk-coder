@@ -25,10 +25,10 @@ pub mod helpers;
 pub(crate) mod manual_models;
 pub(crate) mod models;
 pub(crate) mod operation_defaults;
+pub(crate) mod pdf_theme;
 pub(crate) mod prompt_templates;
 pub(crate) mod providers;
 pub(crate) mod tool_credentials;
-pub(crate) mod pdf_theme;
 pub(crate) mod ui_theme;
 pub(crate) mod web_search_cache;
 pub(crate) mod workspace_search_policy;
@@ -580,14 +580,14 @@ impl SqliteConfigRepository {
         workspace_path: &str,
     ) -> Result<Option<StoredWorkspaceSearchPolicy>, ConfigRepositoryError> {
         let conn = self.acquire_lock()?;
-        Ok(workspace_search_policy::get_workspace_policy(
-            &conn,
-            workspace_path,
-        )?
-        .map(|p| StoredWorkspaceSearchPolicy {
-            allowlist: p.allowlist,
-            denylist: p.denylist,
-        }))
+        Ok(
+            workspace_search_policy::get_workspace_policy(&conn, workspace_path)?.map(|p| {
+                StoredWorkspaceSearchPolicy {
+                    allowlist: p.allowlist,
+                    denylist: p.denylist,
+                }
+            }),
+        )
     }
 
     /// Upserts the policy for `workspace_path`.
@@ -633,12 +633,12 @@ impl SqliteConfigRepository {
         now: chrono::DateTime<chrono::Utc>,
     ) -> Result<Option<CachedWebSearchEntry>, ConfigRepositoryError> {
         let conn = self.acquire_lock()?;
-        Ok(web_search_cache::get_fresh(&conn, cache_key, now)?.map(|e| {
-            CachedWebSearchEntry {
+        Ok(
+            web_search_cache::get_fresh(&conn, cache_key, now)?.map(|e| CachedWebSearchEntry {
                 results_json: e.results_json,
                 provider: e.provider,
-            }
-        }))
+            }),
+        )
     }
 
     /// Persists a new cache entry.
@@ -994,10 +994,7 @@ impl PromptTemplateRepository for SqliteConfigRepository {
         Self::upsert_prompt_template(self, template).map_err(Into::into)
     }
 
-    fn delete_prompt_template(
-        &self,
-        id: &str,
-    ) -> crate::core::config::ConfigRepositoryResult<()> {
+    fn delete_prompt_template(&self, id: &str) -> crate::core::config::ConfigRepositoryResult<()> {
         Self::delete_prompt_template(self, id).map_err(Into::into)
     }
 

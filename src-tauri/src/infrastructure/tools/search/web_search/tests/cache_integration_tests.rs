@@ -13,9 +13,7 @@ use serde_json::json;
 
 use crate::core::config::WebSearchCacheRepository;
 use crate::infrastructure::sqlite::repositories::config::SqliteConfigRepository;
-use crate::infrastructure::tools::constants::{
-    web_search_test_env_lock, ENV_WEB_SEARCH_ENABLED,
-};
+use crate::infrastructure::tools::constants::{web_search_test_env_lock, ENV_WEB_SEARCH_ENABLED};
 use crate::infrastructure::tools::search::web_search::cache::CacheHandle;
 use crate::infrastructure::tools::search::web_search::execute_inner_for_tests;
 use crate::infrastructure::tools::search::web_search::locale::FixedLocale;
@@ -43,9 +41,7 @@ fn flag_on() -> EnvGuard {
 }
 
 fn make_cache(ttl: Duration) -> (CacheHandle, Arc<SqliteConfigRepository>) {
-    let repo = Arc::new(
-        SqliteConfigRepository::in_memory().expect("in-memory config repo"),
-    );
+    let repo = Arc::new(SqliteConfigRepository::in_memory().expect("in-memory config repo"));
     let handle = CacheHandle {
         repo: repo.clone() as Arc<dyn WebSearchCacheRepository>,
         ttl,

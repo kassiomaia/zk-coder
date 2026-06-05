@@ -41,9 +41,8 @@ impl AgentState {
         let session_repository: Arc<dyn SessionRepository> = Arc::new(session_repo);
         let task_repository: Arc<dyn TaskRepository> =
             Arc::new(SqliteTaskRepository::from_shared(conn.clone()));
-        let telemetry_repository: Arc<dyn AgentTelemetryRepository> = Arc::new(
-            SqliteAgentTelemetryRepository::from_shared(conn.clone()),
-        );
+        let telemetry_repository: Arc<dyn AgentTelemetryRepository> =
+            Arc::new(SqliteAgentTelemetryRepository::from_shared(conn.clone()));
         let execution_shared = Arc::new(SqliteExecutionRepository::from_shared(conn.clone()));
         let execution_repository: Arc<dyn ExecutionRepository> = execution_shared.clone();
         let trace_repository: Arc<dyn RuntimeTraceRepository> = execution_shared;
@@ -111,9 +110,8 @@ impl AgentState {
             Arc::new(SqliteSessionRepository::from_shared(conn.clone()));
         let task_repository: Arc<dyn TaskRepository> =
             Arc::new(SqliteTaskRepository::from_shared(conn.clone()));
-        let telemetry_repository: Arc<dyn AgentTelemetryRepository> = Arc::new(
-            SqliteAgentTelemetryRepository::from_shared(conn.clone()),
-        );
+        let telemetry_repository: Arc<dyn AgentTelemetryRepository> =
+            Arc::new(SqliteAgentTelemetryRepository::from_shared(conn.clone()));
         let execution_shared = Arc::new(SqliteExecutionRepository::from_shared(conn.clone()));
         let execution_repository: Arc<dyn ExecutionRepository> = execution_shared.clone();
         let trace_repository: Arc<dyn RuntimeTraceRepository> = execution_shared;

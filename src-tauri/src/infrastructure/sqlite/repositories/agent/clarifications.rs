@@ -143,7 +143,9 @@ mod tests {
         let conn = fresh_conn();
         let record = sample("s1", Some("sub-1"));
         upsert_pending(&conn, &record).unwrap();
-        let loaded = get_pending(&conn, "s1").unwrap().expect("pending should exist");
+        let loaded = get_pending(&conn, "s1")
+            .unwrap()
+            .expect("pending should exist");
         assert_eq!(loaded.session_id, "s1");
         assert_eq!(loaded.task_id, "task-1");
         assert_eq!(loaded.subtask_id.as_deref(), Some("sub-1"));
@@ -193,7 +195,8 @@ mod tests {
         let conn = fresh_conn();
         upsert_pending(&conn, &sample("s1", Some("sub-1"))).unwrap();
         conn.execute("PRAGMA foreign_keys = ON", []).unwrap();
-        conn.execute("DELETE FROM agent_sessions WHERE id = 's1'", []).unwrap();
+        conn.execute("DELETE FROM agent_sessions WHERE id = 's1'", [])
+            .unwrap();
         assert!(get_pending(&conn, "s1").unwrap().is_none());
     }
 }

@@ -187,7 +187,10 @@ mod tests {
 
     #[test]
     fn tool_catalog_hash_is_stable_for_identical_input() {
-        let catalog = vec![tool("fs_read_file", "Read a file"), tool("fs_write_file", "Write a file")];
+        let catalog = vec![
+            tool("fs_read_file", "Read a file"),
+            tool("fs_write_file", "Write a file"),
+        ];
         let first = tool_catalog_hash(&catalog);
         let second = tool_catalog_hash(&catalog);
         assert_eq!(first, second);
@@ -242,7 +245,10 @@ mod tests {
         let mut variant_b = shared_prefix.clone();
         variant_b.push(user_message("tail B"));
 
-        assert_eq!(message_prefix_hash(&variant_a), message_prefix_hash(&variant_b));
+        assert_eq!(
+            message_prefix_hash(&variant_a),
+            message_prefix_hash(&variant_b)
+        );
     }
 
     #[test]
@@ -257,6 +263,9 @@ mod tests {
             user_message("Universe"),
             user_message("tail"),
         ];
-        assert_ne!(message_prefix_hash(&original), message_prefix_hash(&mutated));
+        assert_ne!(
+            message_prefix_hash(&original),
+            message_prefix_hash(&mutated)
+        );
     }
 }

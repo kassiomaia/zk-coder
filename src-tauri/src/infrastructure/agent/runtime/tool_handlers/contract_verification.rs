@@ -250,8 +250,7 @@ mod contract_verification_tests {
         fn get_session_execution_steps(
             &self,
             _session_id: &SessionId,
-        ) -> Result<Vec<crate::core::agent::task::ExecutionStep>, SessionRepositoryError>
-        {
+        ) -> Result<Vec<crate::core::agent::task::ExecutionStep>, SessionRepositoryError> {
             Ok(vec![])
         }
         fn add_file_touched(
@@ -380,9 +379,8 @@ mod contract_verification_tests {
     #[test]
     fn contract_passes_when_overlay_records_a_matching_write() {
         let session = session_with_workspace(None);
-        let telemetry = OverlayTelemetry::new(vec![
-            ("docs/communications/social/twitter.md", "write"),
-        ]);
+        let telemetry =
+            OverlayTelemetry::new(vec![("docs/communications/social/twitter.md", "write")]);
         let c = contract("docs/communications/social/*.md", ArtifactKind::File);
         verify_contract_artifacts(&c, &session, &telemetry)
             .expect("overlay write matching the glob satisfies the pattern");

@@ -27,7 +27,10 @@ pub fn strip_html(input: &str) -> String {
     // below drops the extras.
     let tag_re = Regex::new(r"<[^>]+>").expect("sanitize: tag regex is a static literal");
     let without_tags = tag_re.replace_all(input, " ").to_string();
-    without_tags.split_whitespace().collect::<Vec<_>>().join(" ")
+    without_tags
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Decodes common HTML entities (`&amp;`, `&lt;`, `&gt;`, `&quot;`, `&#39;`,

@@ -86,8 +86,10 @@ pub async fn resolve_context(
     // happen here — it now lives in the runtime (tool_phase) via
     // `ctx.current_allowed_tool_names`, so the visible catalog and its hash
     // stay stable across subtask transitions (M2.2).
-    let loaded_subtasks: Vec<crate::core::agent::task::SubTask> =
-        deps.task_repo.get_subtasks(&ctx.task_id).unwrap_or_default();
+    let loaded_subtasks: Vec<crate::core::agent::task::SubTask> = deps
+        .task_repo
+        .get_subtasks(&ctx.task_id)
+        .unwrap_or_default();
     let (current_subtask_summary, current_subtask_id, allowed_tool_names, all_subtasks_completed) =
         if loaded_subtasks.is_empty() {
             (None, None, None, false)
@@ -337,8 +339,7 @@ pub async fn resolve_context(
         // planned before H.2.b shipped.
         agent_system_prompt.to_string()
     };
-    let active_framing_section =
-        SystemPromptBuilder::active_framing_section(task_framing.as_ref());
+    let active_framing_section = SystemPromptBuilder::active_framing_section(task_framing.as_ref());
     let system_prompt = derive_system_prompt(&static_prompt, &current_subtask_summary);
     info!(
         "[AgentRuntime] System prompt length: {}{}",

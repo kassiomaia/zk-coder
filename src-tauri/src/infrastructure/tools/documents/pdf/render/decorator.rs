@@ -36,10 +36,7 @@ pub(super) fn expand_template(template: &str, ctx: &PageContext<'_>) -> String {
 /// `section_starts` lists `(starting_page_one_based, title)` in
 /// document order. The matching section is the last one whose start
 /// page is `<= page`. Empty input yields an empty string.
-pub(super) fn section_for_page<'a>(
-    section_starts: &'a [(usize, String)],
-    page: usize,
-) -> &'a str {
+pub(super) fn section_for_page<'a>(section_starts: &'a [(usize, String)], page: usize) -> &'a str {
     let mut current: &str = "";
     for (start, title) in section_starts {
         if *start <= page {

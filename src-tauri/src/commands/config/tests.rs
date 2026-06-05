@@ -90,8 +90,8 @@ mod tests {
             .expect("Failed to set operation default");
 
         // Test: Get the code operation model
-        let result = get_code_operation_model(store.as_ref())
-            .expect("Failed to get code operation model");
+        let result =
+            get_code_operation_model(store.as_ref()).expect("Failed to get code operation model");
 
         assert_eq!(result.name, "gpt-4");
         assert_eq!(result.provider_id, "openai");
@@ -129,8 +129,7 @@ mod tests {
             .expect("Failed to set operation default");
 
         // Test: Get full LLM config
-        let result =
-            get_code_llm_config(store.as_ref()).expect("Failed to get code LLM config");
+        let result = get_code_llm_config(store.as_ref()).expect("Failed to get code LLM config");
 
         assert_eq!(result.name, "gpt-4-turbo");
         assert_eq!(result.provider_id, "openai");
@@ -767,12 +766,9 @@ mod tests {
             .expect("Failed to save model");
         drop(store);
 
-        let result = get_models(
-            provider.id.clone(),
-            crate::test_support::state(&state),
-        )
-        .await
-        .expect("Failed to get models");
+        let result = get_models(provider.id.clone(), crate::test_support::state(&state))
+            .await
+            .expect("Failed to get models");
         assert_eq!(result[0].name, "model-with-dashes");
     }
 

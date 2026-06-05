@@ -10,4 +10,4 @@ pub mod theme_patch;
 pub use theme::{
     Decorations, DocxTheme, Fonts, PageDefaults, Palette, PaperSize, Rgb, Spacing, Typography,
 };
-pub use theme_patch::{DocxThemePatch, DocxThemeError, DoubleOption};
+pub use theme_patch::{DocxThemeError, DocxThemePatch, DoubleOption};

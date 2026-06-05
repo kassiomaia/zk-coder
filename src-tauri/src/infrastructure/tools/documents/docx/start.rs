@@ -48,7 +48,8 @@ impl Tool for DocxStartTool {
     fn meta(&self) -> ToolMeta {
         ToolMeta {
             id: ToolId::new("docx", "start"),
-            description: "GENERATE a Word document (.docx). Use this to create documents from scratch. \
+            description:
+                "GENERATE a Word document (.docx). Use this to create documents from scratch. \
               Workflow: call this tool first, then add content with docx_add_section, \
               then finalize with docx_finalize. The document will be saved to the artifact store \
               and a download link will appear in the chat. Supply an optional `theme` to \
@@ -167,10 +168,7 @@ mod tests {
             "typography": { "body_font_size_pt": 12 }
         });
         let patch = decode_theme_patch(Some(&j)).unwrap().unwrap();
-        assert_eq!(
-            patch.typography.unwrap().body_font_size_pt,
-            Some(12)
-        );
+        assert_eq!(patch.typography.unwrap().body_font_size_pt, Some(12));
     }
 
     #[test]

@@ -107,18 +107,8 @@ fn no_subtask_state_produces_identical_system_prompt_hash_across_invocations() {
 
 #[test]
 fn subtask_transition_changes_system_prompt_hash() {
-    let before = summary(
-        "Review auth",
-        SubTaskMode::Read,
-        TaskStatus::InProgress,
-        0,
-    );
-    let after = summary(
-        "Patch auth",
-        SubTaskMode::Write,
-        TaskStatus::InProgress,
-        1,
-    );
+    let before = summary("Review auth", SubTaskMode::Read, TaskStatus::InProgress, 0);
+    let after = summary("Patch auth", SubTaskMode::Write, TaskStatus::InProgress, 1);
     let prompt_before = derive_system_prompt(BASE_PROMPT, &Some((before, 3)));
     let prompt_after = derive_system_prompt(BASE_PROMPT, &Some((after, 3)));
     assert_ne!(
@@ -133,18 +123,8 @@ fn subtask_moving_out_of_in_progress_reverts_system_prompt_hash_to_base() {
     // The helper only inlines subtask context when status is InProgress.
     // A subtask flipping to Completed must therefore produce the same hash as
     // `None` — and *not* the in-progress variant's hash.
-    let in_progress = summary(
-        "Review auth",
-        SubTaskMode::Read,
-        TaskStatus::InProgress,
-        0,
-    );
-    let completed = summary(
-        "Review auth",
-        SubTaskMode::Read,
-        TaskStatus::Completed,
-        0,
-    );
+    let in_progress = summary("Review auth", SubTaskMode::Read, TaskStatus::InProgress, 0);
+    let completed = summary("Review auth", SubTaskMode::Read, TaskStatus::Completed, 0);
     let in_progress_prompt = derive_system_prompt(BASE_PROMPT, &Some((in_progress, 3)));
     let completed_prompt = derive_system_prompt(BASE_PROMPT, &Some((completed, 3)));
     let base_prompt = derive_system_prompt(BASE_PROMPT, &None);
@@ -378,13 +358,8 @@ fn harness_contract_matches_h6_golden() {
         .join(HARNESS_CONTRACT_GOLDEN_PATH);
 
     if std::env::var_os("UPDATE_HARNESS_CONTRACT_GOLDEN").is_some() {
-        std::fs::write(&golden_path, current)
-            .expect("failed to write harness-contract golden");
-        eprintln!(
-            "wrote {} bytes to {}",
-            current.len(),
-            golden_path.display(),
-        );
+        std::fs::write(&golden_path, current).expect("failed to write harness-contract golden");
+        eprintln!("wrote {} bytes to {}", current.len(), golden_path.display(),);
         return;
     }
 
@@ -397,7 +372,8 @@ fn harness_contract_matches_h6_golden() {
     });
 
     assert_eq!(
-        current, golden,
+        current,
+        golden,
         "harness_contract_prompt() no longer matches the H.6 golden at {}. \
          If this wording change is intentional, regenerate the golden with \
          UPDATE_HARNESS_CONTRACT_GOLDEN=1 cargo test harness_contract_matches_h6_golden.",

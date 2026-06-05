@@ -43,9 +43,7 @@ use self::policy::Policy;
 use self::provider::google::GoogleProvider;
 use self::provider::{RawResult, SearchProvider, SearchRequest};
 use self::sanitize::{sanitize_snippet, source_domain, strip_tracking_params};
-use self::types::{
-    WebSearchArgs, WebSearchOutput, WebSearchResult, PROVIDER_GOOGLE_CUSTOM_SEARCH,
-};
+use self::types::{WebSearchArgs, WebSearchOutput, WebSearchResult, PROVIDER_GOOGLE_CUSTOM_SEARCH};
 use self::workspace_key::canonical_workspace_key;
 
 /// Dependency bundle passed into [`execute_inner`]. Makes it possible to

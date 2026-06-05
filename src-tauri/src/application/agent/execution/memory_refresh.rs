@@ -67,7 +67,7 @@ pub enum MemoryRefreshTrigger {
     /// between a just-hit burst and a sustained burst.
     RetrievalBurst {
         /// Number of retrievals in the burst.
-        count: u32
+        count: u32,
     },
 }
 
@@ -267,9 +267,7 @@ pub fn apply_memory_refresh(
                 outcome.wrote = true;
             }
             Err(err) => {
-                log::warn!(
-                    "[AgentRuntime] memory refresh write failed for {session_id}: {err}"
-                );
+                log::warn!("[AgentRuntime] memory refresh write failed for {session_id}: {err}");
                 outcome.skipped_reason = Some("write_failed");
             }
         }
@@ -314,9 +312,7 @@ fn emit_trace(
         created_at: chrono::Utc::now(),
     };
     if let Err(err) = trace_repo.append_runtime_trace(&trace) {
-        log::warn!(
-            "[AgentRuntime] memory refresh trace append failed for {session_id}: {err}"
-        );
+        log::warn!("[AgentRuntime] memory refresh trace append failed for {session_id}: {err}");
     }
 }
 
@@ -444,11 +440,7 @@ mod tests {
     #[test]
     fn dedupe_append_capped_evicts_oldest_when_over_cap() {
         let mut existing = vec!["old1".into(), "old2".into(), "old3".into()];
-        let added = dedupe_append_capped(
-            &mut existing,
-            vec!["new1".into(), "new2".into()],
-            3,
-        );
+        let added = dedupe_append_capped(&mut existing, vec!["new1".into(), "new2".into()], 3);
         assert_eq!(added, 2);
         assert_eq!(existing, vec!["old3", "new1", "new2"]);
     }
@@ -549,9 +541,7 @@ mod tests {
         assert!(outcome.active_plan_changed);
         assert_eq!(outcome.skipped_reason, None);
 
-        let loaded = repos.memory.get_memory(&id)
-            .unwrap()
-            .unwrap();
+        let loaded = repos.memory.get_memory(&id).unwrap().unwrap();
         assert_eq!(loaded.completed_findings, vec!["Investigate repo"]);
         assert_eq!(loaded.active_plan, "implement; verify");
 
@@ -612,9 +602,7 @@ mod tests {
         assert_eq!(second.findings_added, 0);
         assert_eq!(second.skipped_reason, Some("no_change"));
 
-        let loaded = repos.memory.get_memory(&id)
-            .unwrap()
-            .unwrap();
+        let loaded = repos.memory.get_memory(&id).unwrap().unwrap();
         assert_eq!(loaded.completed_findings, vec!["Investigate repo"]);
 
         let traces = repos.execution.get_runtime_traces(&id.0, None).unwrap();
@@ -627,9 +615,7 @@ mod tests {
         let id = session_id(&repos);
         seed_memory(&repos, &id);
 
-        let pre = repos.memory.get_memory(&id)
-            .unwrap()
-            .unwrap();
+        let pre = repos.memory.get_memory(&id).unwrap().unwrap();
 
         let trigger = MemoryRefreshTrigger::CompactionBoundary;
         let outcome = apply_memory_refresh(
@@ -646,9 +632,7 @@ mod tests {
         assert!(!outcome.wrote);
         assert_eq!(outcome.skipped_reason, Some("no_change"));
 
-        let post = repos.memory.get_memory(&id)
-            .unwrap()
-            .unwrap();
+        let post = repos.memory.get_memory(&id).unwrap().unwrap();
         assert_eq!(pre.updated_at, post.updated_at);
         assert_eq!(pre.completed_findings, post.completed_findings);
 
@@ -682,9 +666,7 @@ mod tests {
         assert!(outcome.wrote);
         assert!(outcome.active_plan_changed);
 
-        let loaded = repos.memory.get_memory(&id)
-            .unwrap()
-            .unwrap();
+        let loaded = repos.memory.get_memory(&id).unwrap().unwrap();
         assert_eq!(loaded.active_plan, "verify");
     }
 
@@ -718,15 +700,16 @@ mod tests {
         assert!(outcome.wrote);
         assert_eq!(outcome.facts_added, 2);
 
-        let loaded = repos.memory.get_memory(&id)
-            .unwrap()
-            .unwrap();
+        let loaded = repos.memory.get_memory(&id).unwrap().unwrap();
         assert_eq!(loaded.extracted_facts, vec!["src/foo.rs", "src/bar.rs"]);
 
         let traces = repos.execution.get_runtime_traces(&id.0, None).unwrap();
         assert_eq!(traces.len(), 1);
         assert_eq!(traces[0].payload_json["trigger"], "retrieval_burst");
-        assert_eq!(traces[0].payload_json["triggerDetails"]["retrievalCount"], 3);
+        assert_eq!(
+            traces[0].payload_json["triggerDetails"]["retrievalCount"],
+            3
+        );
     }
 
     #[test]
@@ -735,14 +718,11 @@ mod tests {
         let id = session_id(&repos);
 
         // Pre-seed with MAX_EXTRACTED_FACTS entries so the cap is immediately relevant.
-        let mut memory = SessionMemory::new(
-            id.clone(),
-            "task-1".into(),
-            "goal".into(),
-            "plan".into(),
-        );
-        memory.extracted_facts =
-            (0..MAX_EXTRACTED_FACTS).map(|i| format!("old-{i}")).collect();
+        let mut memory =
+            SessionMemory::new(id.clone(), "task-1".into(), "goal".into(), "plan".into());
+        memory.extracted_facts = (0..MAX_EXTRACTED_FACTS)
+            .map(|i| format!("old-{i}"))
+            .collect();
         repos.memory.upsert_memory(&memory).unwrap();
 
         let trigger = MemoryRefreshTrigger::RetrievalBurst { count: 3 };
@@ -763,12 +743,13 @@ mod tests {
         assert!(outcome.wrote);
         assert_eq!(outcome.facts_added, 2);
 
-        let loaded = repos.memory.get_memory(&id)
-            .unwrap()
-            .unwrap();
+        let loaded = repos.memory.get_memory(&id).unwrap().unwrap();
         assert_eq!(loaded.extracted_facts.len(), MAX_EXTRACTED_FACTS);
         // Oldest entries are evicted — the cap preserves the newer half.
-        assert_eq!(loaded.extracted_facts.first().map(String::as_str), Some("old-2"));
+        assert_eq!(
+            loaded.extracted_facts.first().map(String::as_str),
+            Some("old-2")
+        );
         assert_eq!(
             loaded.extracted_facts.last().map(String::as_str),
             Some("new-b"),
@@ -784,16 +765,12 @@ mod tests {
         let id = session_id(&repos);
         seed_memory(&repos, &id);
 
-        let before = repos.memory.get_memory(&id)
-            .unwrap()
-            .unwrap();
+        let before = repos.memory.get_memory(&id).unwrap().unwrap();
 
         // Simulate many non-trigger "steps" by doing nothing.
         std::thread::sleep(std::time::Duration::from_millis(2));
 
-        let after = repos.memory.get_memory(&id)
-            .unwrap()
-            .unwrap();
+        let after = repos.memory.get_memory(&id).unwrap().unwrap();
         assert_eq!(before.updated_at, after.updated_at);
         assert_eq!(before.completed_findings, after.completed_findings);
         assert_eq!(before.extracted_facts, after.extracted_facts);

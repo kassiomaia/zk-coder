@@ -16,14 +16,12 @@ use super::utils::{
 };
 use crate::core::agent::execution::{ExecutionPhase, LlmTracePayload, RuntimeTraceType};
 use crate::core::llm::entities::{ChatRequest, ToolChoiceMode};
+use crate::infrastructure::agent::registry::{harness_contract_prompt, quality_baseline_prompt};
 use crate::infrastructure::agent::runtime::client::LlmRetryConfig;
 use crate::infrastructure::agent::runtime::context::estimate_context_tokens;
 use crate::infrastructure::agent::runtime::request_shape::{
     framing_hash, harness_section_hash, message_prefix_hash, quality_baseline_hash,
     system_prompt_hash, tool_catalog_hash,
-};
-use crate::infrastructure::agent::registry::{
-    harness_contract_prompt, quality_baseline_prompt,
 };
 use crate::infrastructure::agent::runtime::{chat_with_retry, AgentRuntimeError};
 

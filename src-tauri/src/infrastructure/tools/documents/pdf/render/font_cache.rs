@@ -248,15 +248,20 @@ pub fn bundled_report_cache() -> Result<FontCache, RenderError> {
         include_bytes!("../../../../../../resources/pdf/fonts/LiberationSans-Italic.ttf");
     const MONO: &[u8] =
         include_bytes!("../../../../../../resources/pdf/fonts/LiberationMono-Regular.ttf");
-    const DEJAVU: &[u8] =
-        include_bytes!("../../../../../../resources/pdf/fonts/DejaVuSans.ttf");
+    const DEJAVU: &[u8] = include_bytes!("../../../../../../resources/pdf/fonts/DejaVuSans.ttf");
 
     let regular = LoadedFont::from_bytes(FontSlot::Regular, REGULAR.to_vec())?;
     let bold = LoadedFont::from_bytes(FontSlot::Bold, BOLD.to_vec())?;
     let italic = LoadedFont::from_bytes(FontSlot::Italic, ITALIC.to_vec())?;
     let mono = LoadedFont::from_bytes(FontSlot::Mono, MONO.to_vec())?;
     let fallback = LoadedFont::from_bytes(FontSlot::Fallback(0), DEJAVU.to_vec())?;
-    Ok(FontCache::from_parts(regular, bold, italic, mono, vec![fallback]))
+    Ok(FontCache::from_parts(
+        regular,
+        bold,
+        italic,
+        mono,
+        vec![fallback],
+    ))
 }
 
 fn load_slot(
@@ -268,8 +273,12 @@ fn load_slot(
     let bytes = std::fs::read(&path)?;
     let family = {
         let face = Face::parse(&bytes, 0).map_err(|e| RenderError::Font(e.to_string()))?;
-        read_family_name(&face)
-            .unwrap_or_else(|| path.file_stem().map_or_else(|| "Unknown".to_string(), |s| s.to_string_lossy().into_owned()))
+        read_family_name(&face).unwrap_or_else(|| {
+            path.file_stem().map_or_else(
+                || "Unknown".to_string(),
+                |s| s.to_string_lossy().into_owned(),
+            )
+        })
     };
     Ok(LoadedFont {
         slot,
@@ -391,11 +400,8 @@ mod tests {
         // Pick any code point present in the DejaVu fallback but not in
         // Liberation Sans. If the fixture ever evolves (different fonts),
         // adjust this locator rather than hard-coding a code point.
-        let only_in_fallback = probe_char_in_second_not_first(
-            &c.regular,
-            &c.fallbacks[0],
-        )
-        .expect("fallback must carry at least one glyph absent from primary");
+        let only_in_fallback = probe_char_in_second_not_first(&c.regular, &c.fallbacks[0])
+            .expect("fallback must carry at least one glyph absent from primary");
         let picked = c
             .resolve(only_in_fallback, &InlineStyle::PLAIN)
             .expect("fallback must supply the glyph");

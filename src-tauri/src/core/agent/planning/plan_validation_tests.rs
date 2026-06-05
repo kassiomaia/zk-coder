@@ -1,4 +1,4 @@
-//! Tests for 
+//! Tests for
 //! Extracted into a sibling file during Phase 6 of the permissions-
 //! decomposition refactor to keep the host module under the 800-LoC cap.
 
@@ -27,8 +27,8 @@ fn overlap_rejects_byte_identical_patterns_on_different_subtasks() {
             }
         }),
     ];
-    let err = detect_overlapping_contracts(&subtasks)
-        .expect_err("identical patterns must be rejected");
+    let err =
+        detect_overlapping_contracts(&subtasks).expect_err("identical patterns must be rejected");
     assert!(err.contains("Write social copy"), "message: {err}");
     assert!(err.contains("Write launch email"), "message: {err}");
     assert!(err.contains("overlapping"), "message: {err}");
@@ -148,10 +148,7 @@ fn overlap_helper_rejects_proper_prefix_alignment() {
 
 #[test]
 fn overlap_helper_accepts_sibling_directories() {
-    assert!(!patterns_overlap(
-        "docs/a/*.md",
-        "docs/alpha/*.md"
-    ));
+    assert!(!patterns_overlap("docs/a/*.md", "docs/alpha/*.md"));
 }
 
 #[test]

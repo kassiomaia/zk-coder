@@ -17,10 +17,8 @@ const CT_PNG: &str = "image/png";
 const CT_JPEG: &str = "image/jpeg";
 const CT_NUMBERING: &str =
     "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml";
-const CT_HEADER: &str =
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml";
-const CT_FOOTER: &str =
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml";
+const CT_HEADER: &str = "application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml";
+const CT_FOOTER: &str = "application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml";
 
 /// Add Default / Override entries to `[Content_Types].xml` for
 /// everything the plan introduces.
@@ -77,12 +75,7 @@ fn ensure_default(docx: &mut Docx<'_>, ext: &str, content_type: &str) {
 }
 
 fn ensure_override(docx: &mut Docx<'_>, part: &str, content_type: &str) {
-    if docx
-        .content_types
-        .overrides
-        .iter()
-        .any(|o| o.part == part)
-    {
+    if docx.content_types.overrides.iter().any(|o| o.part == part) {
         return;
     }
     docx.content_types.overrides.push(OverrideContentType {

@@ -187,6 +187,7 @@ describe('harnessEvents', () => {
 				sessionId: 'session-1',
 				message: 'Interrupted while updating status handling',
 				pausedAt: '2024-01-01T12:05:00Z',
+				pauseReason: 'startup_recovery',
 				currentSubtaskId: 'subtask-9'
 			});
 
@@ -194,6 +195,7 @@ describe('harnessEvents', () => {
 			expect(session?.state).toEqual({
 				type: 'paused',
 				pausedAt: '2024-01-01T12:05:00Z',
+				pauseReason: 'startup_recovery',
 				message: 'Interrupted while updating status handling',
 				currentSubtaskId: 'subtask-9'
 			});
@@ -242,12 +244,35 @@ describe('harnessEvents', () => {
 				type: 'session_paused',
 				sessionId: 'session-1',
 				message: 'Paused before next increment',
-				pausedAt: '2024-01-01T12:07:00Z'
+				pausedAt: '2024-01-01T12:07:00Z',
+				pauseReason: 'startup_recovery'
 			});
 
 			const session = state.sessions.get('session-1');
 			expect(session?.state.type).toBe('paused');
 			expect(session?.harnessState?.handoff?.currentObjective).toBe('Land Slice 10');
+		});
+
+		it('updates paused state without injecting a recovery card for clarification timeout', () => {
+			const state = makeState();
+
+			handleSessionPaused(state, {
+				type: 'session_paused',
+				sessionId: 'session-1',
+				message: 'Clarification timed out',
+				pausedAt: '2024-01-01T12:09:00Z',
+				pauseReason: 'clarification_timeout',
+				currentSubtaskId: 'subtask-2'
+			});
+
+			expect(state.sessions.get('session-1')?.state).toEqual({
+				type: 'paused',
+				pausedAt: '2024-01-01T12:09:00Z',
+				pauseReason: 'clarification_timeout',
+				message: 'Clarification timed out',
+				currentSubtaskId: 'subtask-2'
+			});
+			expect(agentActivityCalls()).toEqual([]);
 		});
 	});
 

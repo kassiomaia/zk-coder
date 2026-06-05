@@ -33,11 +33,7 @@ impl ToolHandler for PlanSubtasksHandler {
         "agent_plan_subtasks"
     }
 
-    fn handle(
-        &self,
-        call: &ToolCall,
-        ctx: &mut ToolHandlerContext<'_>,
-    ) -> OrchestratorToolResult {
+    fn handle(&self, call: &ToolCall, ctx: &mut ToolHandlerContext<'_>) -> OrchestratorToolResult {
         handle_plan_subtasks(
             call,
             ctx.session,
@@ -138,13 +134,7 @@ pub(super) fn handle_plan_subtasks<R: tauri::Runtime>(
     // plan into it by order rather than early-returning.
     if !existing.is_empty() {
         return merge_model_plan_into_existing(
-            call,
-            session,
-            task_id,
-            subtasks,
-            &existing,
-            app_handle,
-            task_repo,
+            call, session, task_id, subtasks, &existing, app_handle, task_repo,
         );
     }
 
@@ -242,10 +232,8 @@ pub(super) fn handle_plan_subtasks<R: tauri::Runtime>(
     if created > 0 {
         let created_subtasks = task_repo.get_subtasks(task_id).ok().unwrap_or_default();
         if let Some(first) = created_subtasks.iter().find(|st| st.order == 0).cloned() {
-            let _ = task_repo.update_subtask_status(
-                &first.id,
-                crate::core::agent::task::TaskStatus::InProgress,
-            );
+            let _ = task_repo
+                .update_subtask_status(&first.id, crate::core::agent::task::TaskStatus::InProgress);
 
             let mut updated = core_task_to_event_subtask(first, task_id);
             updated.status = crate::core::agent::task::TaskStatus::InProgress;

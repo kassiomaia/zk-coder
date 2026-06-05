@@ -4,7 +4,7 @@ use log::{info, warn};
 use crate::application::agent::harness::handoff_from_tasks;
 use crate::application::agent::read_models::HarnessMode;
 use crate::core::agent::repositories::RepositoryResult;
-use crate::core::agent::session::SessionState;
+use crate::core::agent::session::{PauseReason, SessionState};
 use crate::core::agent::task::{AgentTask, TaskStatus};
 
 use super::AgentServiceImpl;
@@ -20,6 +20,8 @@ pub struct RecoveredSession {
     pub thread_id: String,
     pub message: String,
     pub paused_at: chrono::DateTime<chrono::Utc>,
+    pub pause_reason: PauseReason,
+    pub current_subtask_id: Option<String>,
 }
 
 impl AgentServiceImpl {
@@ -67,8 +69,9 @@ impl AgentServiceImpl {
                 &session.id,
                 &SessionState::Paused {
                     paused_at: now,
+                    pause_reason: PauseReason::StartupRecovery,
                     message: RECOVERY_MESSAGE.to_string(),
-                    current_subtask_id,
+                    current_subtask_id: current_subtask_id.clone(),
                 },
             ) {
                 warn!(
@@ -101,6 +104,8 @@ impl AgentServiceImpl {
                 thread_id: session.thread_id,
                 message: RECOVERY_MESSAGE.to_string(),
                 paused_at: now,
+                pause_reason: PauseReason::StartupRecovery,
+                current_subtask_id,
             });
 
             info!(
@@ -111,7 +116,6 @@ impl AgentServiceImpl {
 
         Ok(recovered)
     }
-
 }
 
 /// Returns the id of the first `InProgress` subtask across the snapshotted
@@ -135,17 +139,14 @@ fn first_in_progress_subtask_id(tasks: &[AgentTask]) -> Option<String> {
 mod tests {
     use std::sync::Arc;
 
-    use crate::application::agent::harness::HarnessStateStore;
     use crate::application::agent::read_models::{
         derive_harness_state, HarnessMode, StartupVerificationState,
     };
     use crate::application::agent::AgentServiceImpl;
     use crate::application::ChatServiceImpl;
     use crate::core::agent::services::{AgentService, CreateSessionRequest};
-    use crate::core::agent::session::SessionState;
-    use crate::core::agent::task::{
-        AgentRequest, AgentTask, SubTask, SubTaskMode, TaskStatus,
-    };
+    use crate::core::agent::session::{PauseReason, SessionState};
+    use crate::core::agent::task::{AgentRequest, AgentTask, SubTask, SubTaskMode, TaskStatus};
     use crate::core::chat::services::ChatService;
     use crate::core::config::ConfigRepository;
     use crate::infrastructure::agent::approval::ApprovalQueue;
@@ -159,12 +160,11 @@ mod tests {
     fn create_test_service() -> AgentServiceImpl {
         let registry = Arc::new(AgentRegistry::new());
         let repos = TestAgentRepos::in_memory().expect("store");
-        let chat_repository =
-            Arc::new(SqliteChatRepository::in_memory().expect("chat repository"));
+        let chat_repository = Arc::new(SqliteChatRepository::in_memory().expect("chat repository"));
         let chat_service = Arc::new(ChatServiceImpl::new(chat_repository)) as Arc<dyn ChatService>;
-        let config_repository = Arc::new(
-            SqliteConfigRepository::in_memory().expect("config repository"),
-        ) as Arc<dyn ConfigRepository>;
+        let config_repository =
+            Arc::new(SqliteConfigRepository::in_memory().expect("config repository"))
+                as Arc<dyn ConfigRepository>;
         let approval_queue = Arc::new(ApprovalQueue::new());
         let tool_registry = Arc::new(ToolRegistry::new().expect("tool registry"));
         let runtime = Arc::new(AgentRuntime::new(
@@ -232,7 +232,10 @@ mod tests {
             1,
         );
         service.task_repo.create_subtask(&completed).expect("sub1");
-        service.task_repo.create_subtask(&in_progress).expect("sub2");
+        service
+            .task_repo
+            .create_subtask(&in_progress)
+            .expect("sub2");
         service
             .task_repo
             .update_subtask_status(&completed.id, TaskStatus::Completed)
@@ -261,10 +264,12 @@ mod tests {
         let service = create_test_service();
         let session_id = seed_running_session_with_tasks(&service);
 
-        let recovered = service
-            .recover_unterminated_executions()
-            .expect("recovery");
-        assert_eq!(recovered.len(), 1, "the running session should be recovered");
+        let recovered = service.recover_unterminated_executions().expect("recovery");
+        assert_eq!(
+            recovered.len(),
+            1,
+            "the running session should be recovered"
+        );
 
         let overrides = service.harness_state_store.get(&session_id);
         assert_eq!(overrides.mode, Some(HarnessMode::ResumeVerifier));
@@ -272,16 +277,17 @@ mod tests {
         let handoff = overrides.handoff.expect("handoff summary recorded");
         assert_eq!(handoff.current_objective, "Fix session storage");
         assert_eq!(handoff.last_completed_increment, "Investigate middleware");
-        assert_eq!(handoff.open_issues, vec![super::RECOVERY_MESSAGE.to_string()]);
+        assert_eq!(
+            handoff.open_issues,
+            vec![super::RECOVERY_MESSAGE.to_string()]
+        );
     }
 
     #[test]
     fn recovered_handoff_flows_through_derive_harness_state() {
         let service = create_test_service();
         let session_id = seed_running_session_with_tasks(&service);
-        service
-            .recover_unterminated_executions()
-            .expect("recovery");
+        service.recover_unterminated_executions().expect("recovery");
 
         // Re-read the session (now Paused) and the task snapshot, then derive
         // with the recorded overrides — mirrors the path used by
@@ -333,9 +339,7 @@ mod tests {
             .map(|s| s.id.clone())
             .expect("seeded an in-progress subtask");
 
-        service
-            .recover_unterminated_executions()
-            .expect("recovery");
+        service.recover_unterminated_executions().expect("recovery");
 
         let session = service
             .session_repo
@@ -343,8 +347,11 @@ mod tests {
             .expect("session");
         match session.state {
             SessionState::Paused {
-                current_subtask_id, ..
+                pause_reason,
+                current_subtask_id,
+                ..
             } => {
+                assert_eq!(pause_reason, PauseReason::StartupRecovery);
                 assert_eq!(
                     current_subtask_id,
                     Some(in_progress_id.clone()),
@@ -370,5 +377,18 @@ mod tests {
             TaskStatus::InProgress,
             "InProgress subtasks must be preserved, not marked Failed"
         );
+    }
+
+    #[test]
+    fn recovery_events_are_tagged_as_startup_recovery() {
+        let service = create_test_service();
+        let session_id = seed_running_session_with_tasks(&service);
+
+        let recovered = service.recover_unterminated_executions().expect("recovery");
+
+        assert_eq!(recovered.len(), 1);
+        assert_eq!(recovered[0].pause_reason, PauseReason::StartupRecovery);
+        assert_eq!(recovered[0].session_id, session_id);
+        assert!(recovered[0].current_subtask_id.is_some());
     }
 }

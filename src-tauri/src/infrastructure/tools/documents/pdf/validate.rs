@@ -141,9 +141,7 @@ impl PdfValidator {
             } else {
                 "PDF is not encrypted".to_string()
             },
-            suggestion: Some(
-                "Encrypted PDFs may not allow text extraction or editing".to_string(),
-            ),
+            suggestion: Some("Encrypted PDFs may not allow text extraction or editing".to_string()),
         });
 
         // Check 7: Estimated page count
@@ -364,8 +362,7 @@ mod tests {
         let mut doc = lopdf::Document::new();
         doc.new_object_id();
         // Inject a fake /Encrypt entry in the trailer.
-        doc.trailer
-            .set("Encrypt", lopdf::Object::Integer(42));
+        doc.trailer.set("Encrypt", lopdf::Object::Integer(42));
         assert!(structural_is_encrypted(&doc));
     }
 

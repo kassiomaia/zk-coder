@@ -625,8 +625,7 @@ impl SessionRepository for SqliteSessionRepository {
         &self,
         conversation_id: &str,
     ) -> RepositoryResult<Vec<agent_session::AgentSession>> {
-        Self::get_sessions_for_conversation(self, conversation_id)
-            .map_err(AgentDomainError::from)
+        Self::get_sessions_for_conversation(self, conversation_id).map_err(AgentDomainError::from)
     }
 
     fn list_sessions(&self) -> RepositoryResult<Vec<agent_session::AgentSession>> {
@@ -679,4 +678,3 @@ impl SessionRepository for SqliteSessionRepository {
             .map_err(AgentDomainError::from)
     }
 }
-

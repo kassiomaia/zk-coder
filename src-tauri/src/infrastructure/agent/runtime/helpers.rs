@@ -36,10 +36,7 @@ pub fn derive_system_prompt(
 ///    scope-drift and advancement enforcement.
 /// 2. **Contract absent** — the legacy pre-B wording, byte-identical to
 ///    the shape the prompt_stability tests locked in before Workstream B.
-fn render_active_subtask_appendix(
-    summary: &super::types::SubtaskSummary,
-    total: usize,
-) -> String {
+fn render_active_subtask_appendix(summary: &super::types::SubtaskSummary, total: usize) -> String {
     let has_contract = summary
         .contract
         .as_ref()
@@ -98,13 +95,9 @@ fn render_contract_aware_appendix(
     }
     out.push('\n');
     out.push_str("**Contract**:\n");
-    out.push_str(
-        "- Writes outside expected outputs will be flagged as scope drift.\n",
-    );
+    out.push_str("- Writes outside expected outputs will be flagged as scope drift.\n");
     out.push_str("- Advancing past this subtask requires the expected outputs to exist.\n");
-    out.push_str(
-        "- If you cannot produce them, call agent_mark_subtask_status(Failed, reason).\n",
-    );
+    out.push_str("- If you cannot produce them, call agent_mark_subtask_status(Failed, reason).\n");
     out.push_str(
         "- If you need information you don't have, call agent_narrate with intent=question — execution will pause.",
     );
@@ -570,12 +563,11 @@ mod tests {
         assert!(result.contains("- document: reports/launch/*.pdf"));
         // Contract bullets.
         assert!(result.contains("**Contract**:"));
-        assert!(result.contains(
-            "- Writes outside expected outputs will be flagged as scope drift."
-        ));
-        assert!(result.contains(
-            "- Advancing past this subtask requires the expected outputs to exist."
-        ));
+        assert!(
+            result.contains("- Writes outside expected outputs will be flagged as scope drift.")
+        );
+        assert!(result
+            .contains("- Advancing past this subtask requires the expected outputs to exist."));
         assert!(result.contains(
             "- If you cannot produce them, call agent_mark_subtask_status(Failed, reason)."
         ));

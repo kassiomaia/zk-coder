@@ -552,8 +552,7 @@ mod tests {
         // Legacy detector still skips (proves we did not break it).
         assert!(detect_repetitive_loop(&tool_call, &recent_calls, 3).is_none());
         // State-aware detector with empty allow-list catches the loop.
-        let result =
-            detect_repetitive_loop_in_state(&tool_call, &recent_calls, 3, Some(&empty));
+        let result = detect_repetitive_loop_in_state(&tool_call, &recent_calls, 3, Some(&empty));
         assert_eq!(
             result,
             Some(3),
@@ -579,8 +578,7 @@ mod tests {
         ];
         let allowed = vec!["agent_narrate".to_string()];
         assert!(
-            detect_repetitive_loop_in_state(&tool_call, &recent_calls, 3, Some(&allowed))
-                .is_none(),
+            detect_repetitive_loop_in_state(&tool_call, &recent_calls, 3, Some(&allowed)).is_none(),
             "non-empty allow-list must preserve legacy whitelist skip"
         );
     }

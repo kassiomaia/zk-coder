@@ -194,7 +194,10 @@ impl Tool for PptxAddSlideTool {
                     .map_err(|e| ToolError::failed(format!("Failed to add slide: {e}")))?;
 
                 let deck = store.get_pptx_draft(&args.deck_id).ok_or_else(|| {
-                    ToolError::failed(format!("Deck disappeared after slide add: {}", args.deck_id))
+                    ToolError::failed(format!(
+                        "Deck disappeared after slide add: {}",
+                        args.deck_id
+                    ))
                 })?;
                 (slide_id, deck.slides.len(), total_before + 1)
             };

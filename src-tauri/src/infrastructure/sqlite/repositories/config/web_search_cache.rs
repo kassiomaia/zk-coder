@@ -70,10 +70,7 @@ pub fn get_fresh(
 
 /// Upserts an entry. Reusing the same key refreshes both the payload and the
 /// expiry, matching how the tool layer expects "most recent read wins".
-pub fn put(
-    conn: &Connection,
-    entry: &NewCacheEntry<'_>,
-) -> Result<(), ConfigRepositoryError> {
+pub fn put(conn: &Connection, entry: &NewCacheEntry<'_>) -> Result<(), ConfigRepositoryError> {
     conn.execute(
         "INSERT INTO web_search_cache (
             cache_key, query, num_results, language, site, workspace_path,
@@ -135,7 +132,9 @@ pub fn clear(
 
 /// Total row count (including any expired rows yet to be swept).
 pub fn count(conn: &Connection) -> Result<usize, ConfigRepositoryError> {
-    let n: i64 = conn.query_row("SELECT COUNT(*) FROM web_search_cache", [], |row| row.get(0))?;
+    let n: i64 = conn.query_row("SELECT COUNT(*) FROM web_search_cache", [], |row| {
+        row.get(0)
+    })?;
     Ok(usize::try_from(n).unwrap_or(0))
 }
 
@@ -183,7 +182,11 @@ mod tests {
         let conn = make_conn();
         let now = Utc::now();
         let expired_at = now - Duration::seconds(1);
-        put(&conn, &sample_entry("k1", "/ws", now - Duration::hours(1), expired_at)).unwrap();
+        put(
+            &conn,
+            &sample_entry("k1", "/ws", now - Duration::hours(1), expired_at),
+        )
+        .unwrap();
         assert!(get_fresh(&conn, "k1", now).unwrap().is_none());
     }
 
@@ -212,7 +215,11 @@ mod tests {
         };
         put(&conn, &replacement).unwrap();
 
-        assert_eq!(count(&conn).unwrap(), 1, "upsert must not create duplicates");
+        assert_eq!(
+            count(&conn).unwrap(),
+            1,
+            "upsert must not create duplicates"
+        );
         let hit = get_fresh(&conn, "k1", now).unwrap().expect("hit");
         assert!(hit.results_json.contains("\"url\":\"https://new/\""));
     }
@@ -228,7 +235,12 @@ mod tests {
         .unwrap();
         put(
             &conn,
-            &sample_entry("stale", "/ws", now - Duration::days(2), now - Duration::seconds(5)),
+            &sample_entry(
+                "stale",
+                "/ws",
+                now - Duration::days(2),
+                now - Duration::seconds(5),
+            ),
         )
         .unwrap();
         let removed = sweep_expired(&conn, now).unwrap();

@@ -17,14 +17,12 @@ use super::units::pt_to_twips;
 /// Attach the numbering part to the Docx. Callers gate on
 /// `!numberings.is_empty()` so the crate skips writing the part
 /// entirely when no lists appear in the document.
-pub fn install_numbering(
-    docx: &mut Docx<'_>,
-    numberings: &[PlannedNumbering],
-    theme: &DocxTheme,
-) {
+pub fn install_numbering(docx: &mut Docx<'_>, numberings: &[PlannedNumbering], theme: &DocxTheme) {
     let mut numbering = Numbering::default();
     for planned in numberings {
-        numbering.abstract_numberings.push(abstract_def(planned, theme));
+        numbering
+            .abstract_numberings
+            .push(abstract_def(planned, theme));
         numbering.numberings.push(num_def(planned));
     }
     docx.numbering = Some(numbering);

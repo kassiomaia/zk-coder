@@ -91,25 +91,23 @@ pub async fn render_to_artifact(
     let guard = TempFileGuard::arm(tmp_path.clone());
     let tmp_for_task = tmp_path.clone();
 
-    let mut handle = tokio::task::spawn_blocking(
-        move || -> Result<(), RenderArtifactError> {
-            let fonts = bundled_report_cache()
-                .map_err(|e| RenderArtifactError::Render(format!("font cache: {e}")))?;
-            let renderer = PrintPdfRenderer::new(fonts);
-            let theme = theme_for_draft(&draft);
-            let file = std::fs::File::create(&tmp_for_task)?;
-            let mut writer = BufWriter::new(file);
-            let rt = tokio::runtime::Handle::current();
-            rt.block_on(render_draft(&draft, &renderer, &theme, &mut writer, None))
-                .map_err(|e| {
-                    RenderArtifactError::Render(match e {
-                        FinalizeError::Model(inner) => format!("invalid draft: {inner}"),
-                        FinalizeError::Render(inner) => format!("render engine: {inner}"),
-                    })
-                })?;
-            Ok(())
-        },
-    );
+    let mut handle = tokio::task::spawn_blocking(move || -> Result<(), RenderArtifactError> {
+        let fonts = bundled_report_cache()
+            .map_err(|e| RenderArtifactError::Render(format!("font cache: {e}")))?;
+        let renderer = PrintPdfRenderer::new(fonts);
+        let theme = theme_for_draft(&draft);
+        let file = std::fs::File::create(&tmp_for_task)?;
+        let mut writer = BufWriter::new(file);
+        let rt = tokio::runtime::Handle::current();
+        rt.block_on(render_draft(&draft, &renderer, &theme, &mut writer, None))
+            .map_err(|e| {
+                RenderArtifactError::Render(match e {
+                    FinalizeError::Model(inner) => format!("invalid draft: {inner}"),
+                    FinalizeError::Render(inner) => format!("render engine: {inner}"),
+                })
+            })?;
+        Ok(())
+    });
     let abort = handle.abort_handle();
 
     let joined = tokio::select! {
@@ -405,9 +403,7 @@ mod tests {
             pages: vec![DraftPage {
                 id: "p0".to_string(),
                 index: 0,
-                content: PdfPageContent::Markdown {
-                    content: body_md,
-                },
+                content: PdfPageContent::Markdown { content: body_md },
                 theme_override: Some(ThemePatch {
                     page_defaults: Some(PageDefaultsPatch {
                         margin_mm: Some(60.0),
@@ -518,9 +514,13 @@ mod tests {
             updated_at: Utc::now(),
         };
         let overridden_path = td.path().join("ovr.pdf");
-        render_to_artifact(overridden, overridden_path.clone(), CancellationToken::new())
-            .await
-            .expect("override renders");
+        render_to_artifact(
+            overridden,
+            overridden_path.clone(),
+            CancellationToken::new(),
+        )
+        .await
+        .expect("override renders");
 
         let baseline_bytes = std::fs::read(&baseline_path).unwrap();
         let overridden_bytes = std::fs::read(&overridden_path).unwrap();
@@ -679,10 +679,7 @@ mod tests {
                 }
             } else {
                 // Happy pairs must leave the .pdf and no .tmp.
-                assert!(
-                    outcome.is_ok(),
-                    "happy pair #{i} failed: {outcome:?}"
-                );
+                assert!(outcome.is_ok(), "happy pair #{i} failed: {outcome:?}");
                 assert!(final_path.exists(), "happy pair #{i} missing .pdf");
                 assert!(
                     !tmp_path.exists(),

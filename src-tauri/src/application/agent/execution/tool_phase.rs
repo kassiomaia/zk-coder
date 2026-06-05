@@ -374,11 +374,12 @@ fn record_memorized_failure(ctx: &mut super::state::ExecutionContext) {
             return;
         }
     }
-    ctx.memorized_failures
-        .push(crate::infrastructure::agent::runtime::context::MemorizedFailure {
+    ctx.memorized_failures.push(
+        crate::infrastructure::agent::runtime::context::MemorizedFailure {
             subtask_id: current_subtask_id,
             record,
-        });
+        },
+    );
     let len = ctx.memorized_failures.len();
     if len > MEMORIZED_FAILURES_CAP {
         let drop_count = len - MEMORIZED_FAILURES_CAP;

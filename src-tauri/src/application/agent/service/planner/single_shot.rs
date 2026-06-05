@@ -16,10 +16,12 @@ pub async fn plan_new_task(
     user_message: &str,
     model_id: Option<&str>,
 ) -> Result<TaskPlan, String> {
-    let (client, actual_model) =
-        create_llm_client(config_repository, model_id.map(std::string::ToString::to_string))
-            .await
-            .map_err(|e| format!("Failed to create LLM client for planning: {e}"))?;
+    let (client, actual_model) = create_llm_client(
+        config_repository,
+        model_id.map(std::string::ToString::to_string),
+    )
+    .await
+    .map_err(|e| format!("Failed to create LLM client for planning: {e}"))?;
 
     // Build the planning prompt
     let system_prompt = build_planning_system_prompt();

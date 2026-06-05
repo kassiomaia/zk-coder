@@ -70,7 +70,10 @@ async fn mock_provider_returns_rate_limit_error_on_demand() {
     let mock = MockProvider::with_results(sample_results());
     mock.enqueue(MockResponse::RateLimited);
 
-    let err = mock.search(sample_request()).await.expect_err("should error");
+    let err = mock
+        .search(sample_request())
+        .await
+        .expect_err("should error");
     assert!(matches!(err, SearchProviderError::RateLimited));
 }
 
@@ -79,7 +82,10 @@ async fn mock_provider_returns_network_error_on_demand() {
     let mock = MockProvider::with_results(sample_results());
     mock.enqueue(MockResponse::Network("dns lookup failed".to_string()));
 
-    let err = mock.search(sample_request()).await.expect_err("should error");
+    let err = mock
+        .search(sample_request())
+        .await
+        .expect_err("should error");
     match err {
         SearchProviderError::Network(msg) => assert_eq!(msg, "dns lookup failed"),
         other => panic!("expected Network, got {other:?}"),
@@ -90,7 +96,10 @@ async fn mock_provider_returns_network_error_on_demand() {
 async fn mock_provider_returns_unauthorized_error_on_demand() {
     let mock = MockProvider::with_results(sample_results());
     mock.enqueue(MockResponse::Unauthorized);
-    let err = mock.search(sample_request()).await.expect_err("should error");
+    let err = mock
+        .search(sample_request())
+        .await
+        .expect_err("should error");
     assert!(matches!(err, SearchProviderError::Unauthorized));
 }
 
@@ -98,7 +107,10 @@ async fn mock_provider_returns_unauthorized_error_on_demand() {
 async fn mock_provider_returns_upstream_error_on_demand() {
     let mock = MockProvider::with_results(sample_results());
     mock.enqueue(MockResponse::Upstream("HTTP 503".to_string()));
-    let err = mock.search(sample_request()).await.expect_err("should error");
+    let err = mock
+        .search(sample_request())
+        .await
+        .expect_err("should error");
     match err {
         SearchProviderError::Upstream(msg) => assert_eq!(msg, "HTTP 503"),
         other => panic!("expected Upstream, got {other:?}"),
@@ -124,6 +136,13 @@ async fn mock_provider_scripted_responses_consume_fifo_then_fall_back() {
     assert_eq!(second.len(), 1);
     assert_eq!(second[0].title, "second call");
 
-    let third = mock.search(sample_request()).await.expect("third falls back");
-    assert_eq!(third.len(), 2, "default response returns after script drains");
+    let third = mock
+        .search(sample_request())
+        .await
+        .expect("third falls back");
+    assert_eq!(
+        third.len(),
+        2,
+        "default response returns after script drains"
+    );
 }

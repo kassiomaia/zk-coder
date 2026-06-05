@@ -37,10 +37,7 @@ pub(crate) fn pattern_is_satisfied_on_disk(
 /// matches the compiled glob. Depth-limited to keep accidental
 /// submits against oversized workspaces cheap; the hard bound is
 /// enforced by the max-entries cap below.
-fn walk_workspace_for_match(
-    root: &std::path::Path,
-    matcher: &globset::GlobMatcher,
-) -> bool {
+fn walk_workspace_for_match(root: &std::path::Path, matcher: &globset::GlobMatcher) -> bool {
     const MAX_ENTRIES: usize = 20_000;
     let mut stack: Vec<std::path::PathBuf> = vec![root.to_path_buf()];
     let mut seen = 0usize;
@@ -88,10 +85,7 @@ fn walk_workspace_for_match(
 /// Returns `true` when at least one recorded touched path matches the
 /// compiled glob. Invalid globs silently return `false` — the caller
 /// treats an unparseable pattern identically to a no-match.
-pub(crate) fn pattern_matches_touched_overlay(
-    pattern: &str,
-    touched_paths: &[String],
-) -> bool {
+pub(crate) fn pattern_matches_touched_overlay(pattern: &str, touched_paths: &[String]) -> bool {
     use globset::Glob;
     let Ok(glob) = Glob::new(pattern) else {
         return false;
@@ -156,10 +150,7 @@ mod tests {
     fn on_disk_resolves_literal_path_exists() {
         let temp = tempfile::tempdir().expect("temp");
         std::fs::write(temp.path().join("file.txt"), "x").expect("write");
-        assert!(pattern_is_satisfied_on_disk(
-            "file.txt",
-            Some(temp.path()),
-        ));
+        assert!(pattern_is_satisfied_on_disk("file.txt", Some(temp.path()),));
     }
 
     #[test]

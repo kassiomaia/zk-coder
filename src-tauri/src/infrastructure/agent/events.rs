@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::application::agent::read_models::AgentSessionHarnessState;
 use crate::application::agent::service::planner::SubtaskPlan as SubTaskPlan;
-use crate::core::agent::session::{PendingAction, SessionState};
+use crate::core::agent::session::{PauseReason, PendingAction, SessionState};
 use crate::core::agent::task::{
     AgentExecutionResult, AgentTask, ExecutionStep, SubTask, TaskStatus,
 };
@@ -84,6 +84,9 @@ pub enum AgentEvent {
         /// Timestamp when paused.
         #[serde(rename = "pausedAt")]
         paused_at: DateTime<Utc>,
+        /// Durable reason for the pause.
+        #[serde(rename = "pauseReason")]
+        pause_reason: PauseReason,
         /// Current subtask being worked on (if any).
         #[serde(rename = "currentSubtaskId", skip_serializing_if = "Option::is_none")]
         current_subtask_id: Option<String>,

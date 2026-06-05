@@ -34,11 +34,7 @@ impl ToolHandler for MarkSubtaskStatusHandler {
         "agent_mark_subtask_status"
     }
 
-    fn handle(
-        &self,
-        call: &ToolCall,
-        ctx: &mut ToolHandlerContext<'_>,
-    ) -> OrchestratorToolResult {
+    fn handle(&self, call: &ToolCall, ctx: &mut ToolHandlerContext<'_>) -> OrchestratorToolResult {
         handle_mark_subtask_status(
             call,
             ctx.session,
@@ -228,9 +224,9 @@ fn already_auto_decomposed(
         .ok()
         .map(|subtasks| {
             subtasks.iter().any(|st| {
-                st.description
-                    .as_deref()
-                    .is_some_and(|d| d.starts_with(AUTO_DECOMPOSE_DESCRIPTION_PREFIX) && d.contains(&needle))
+                st.description.as_deref().is_some_and(|d| {
+                    d.starts_with(AUTO_DECOMPOSE_DESCRIPTION_PREFIX) && d.contains(&needle)
+                })
             })
         })
         .unwrap_or(false)

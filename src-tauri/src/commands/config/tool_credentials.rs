@@ -171,7 +171,8 @@ pub async fn test_web_search_credentials(
             1. Custom Search API is not enabled in the project that owns this key\n\
             2. The project needs a valid billing account\n\
             3. The API key has restrictions (HTTP referrers, IP addresses)\n\n\
-            If enabled, wait 5-10 minutes for permissions to propagate.".to_string(),
+            If enabled, wait 5-10 minutes for permissions to propagate."
+                .to_string(),
         )),
         Err(SearchProviderError::RateLimited) => Ok(ValidationResult::failure(
             "Quota exhausted — credentials appear valid but the daily limit has been reached."

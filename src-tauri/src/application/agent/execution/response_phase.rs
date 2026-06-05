@@ -246,9 +246,7 @@ async fn handle_narration_loop_escalation(
     session: &crate::core::agent::session::AgentSession,
     model: &str,
 ) -> Result<ResponseDecision, AgentRuntimeError> {
-    ctx.consecutive_empty_tool_iterations = ctx
-        .consecutive_empty_tool_iterations
-        .saturating_add(1);
+    ctx.consecutive_empty_tool_iterations = ctx.consecutive_empty_tool_iterations.saturating_add(1);
     let stage = classify_narration_loop_stage(ctx.consecutive_empty_tool_iterations);
 
     let _ = deps.tracer().append_trace(

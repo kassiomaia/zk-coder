@@ -83,11 +83,7 @@ pub trait HarnessStateStore: Send + Sync {
     fn record_mode(&self, session_id: &str, mode: HarnessMode);
 
     /// Replaces the recorded startup verification summary for `session_id`.
-    fn record_startup_verification(
-        &self,
-        session_id: &str,
-        summary: StartupVerificationSummary,
-    );
+    fn record_startup_verification(&self, session_id: &str, summary: StartupVerificationSummary);
 
     /// Replaces the recorded handoff summary for `session_id`.
     fn record_handoff(&self, session_id: &str, summary: SessionHandoffSummary);
@@ -182,11 +178,7 @@ impl HarnessStateStore for InMemoryHarnessStateStore {
         });
     }
 
-    fn record_startup_verification(
-        &self,
-        session_id: &str,
-        summary: StartupVerificationSummary,
-    ) {
+    fn record_startup_verification(&self, session_id: &str, summary: StartupVerificationSummary) {
         self.with_entry(session_id, |entry| {
             entry.startup_verification = Some(summary);
         });
@@ -350,9 +342,7 @@ pub fn handoff_from_tasks(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::application::agent::read_models::{
-        EnvironmentHealth, StartupVerificationState,
-    };
+    use crate::application::agent::read_models::{EnvironmentHealth, StartupVerificationState};
 
     fn sample_verification() -> StartupVerificationSummary {
         StartupVerificationSummary {
@@ -442,7 +432,10 @@ mod tests {
     fn passed_startup_verification_preserves_detail_lines() {
         let summary = passed_startup_verification(
             "Session ready",
-            Some(vec!["Tools loaded".to_string(), "Plan generated".to_string()]),
+            Some(vec![
+                "Tools loaded".to_string(),
+                "Plan generated".to_string(),
+            ]),
         );
         assert_eq!(summary.state, StartupVerificationState::Passed);
         assert_eq!(summary.headline, "Session ready");
@@ -451,10 +444,8 @@ mod tests {
 
     #[test]
     fn failed_startup_verification_attaches_error_to_details() {
-        let summary = failed_startup_verification(
-            "Bootstrap failed",
-            "Could not plan task: timed out",
-        );
+        let summary =
+            failed_startup_verification("Bootstrap failed", "Could not plan task: timed out");
         assert_eq!(summary.state, StartupVerificationState::Failed);
         assert_eq!(
             summary.details.as_deref(),
@@ -476,16 +467,19 @@ mod tests {
         }
 
         fn subtask(title: &str, status: TaskStatus, order: i32) -> SubTask {
-            let mut st =
-                SubTask::new("task-root".to_string(), title.to_string(), SubTaskMode::FullAccess, order);
+            let mut st = SubTask::new(
+                "task-root".to_string(),
+                title.to_string(),
+                SubTaskMode::FullAccess,
+                order,
+            );
             st.status = status;
             st
         }
 
         #[test]
         fn handoff_from_empty_tasks_falls_back_to_pause_message() {
-            let handoff =
-                handoff_from_tasks(&[], "Workspace needs confirmation", Utc::now());
+            let handoff = handoff_from_tasks(&[], "Workspace needs confirmation", Utc::now());
             assert_eq!(handoff.current_objective, "Workspace needs confirmation");
             assert_eq!(
                 handoff.last_completed_increment,

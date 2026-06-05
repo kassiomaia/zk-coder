@@ -526,7 +526,10 @@ mod tests {
     #[test]
     fn test_api_type_conversion() {
         assert_eq!(ApiType::from_str_or_default("openai"), ApiType::OpenAI);
-        assert_eq!(ApiType::from_str_or_default("anthropic"), ApiType::Anthropic);
+        assert_eq!(
+            ApiType::from_str_or_default("anthropic"),
+            ApiType::Anthropic
+        );
         assert_eq!(ApiType::from_str_or_default("unknown"), ApiType::OpenAI);
     }
 
@@ -541,10 +544,22 @@ mod tests {
 
     #[test]
     fn test_models_source_conversion() {
-        assert_eq!(ModelsSource::from_str_or_default("auto"), ModelsSource::Auto);
-        assert_eq!(ModelsSource::from_str_or_default("manual"), ModelsSource::Manual);
-        assert_eq!(ModelsSource::from_str_or_default("hybrid"), ModelsSource::Hybrid);
-        assert_eq!(ModelsSource::from_str_or_default("unknown"), ModelsSource::Auto);
+        assert_eq!(
+            ModelsSource::from_str_or_default("auto"),
+            ModelsSource::Auto
+        );
+        assert_eq!(
+            ModelsSource::from_str_or_default("manual"),
+            ModelsSource::Manual
+        );
+        assert_eq!(
+            ModelsSource::from_str_or_default("hybrid"),
+            ModelsSource::Hybrid
+        );
+        assert_eq!(
+            ModelsSource::from_str_or_default("unknown"),
+            ModelsSource::Auto
+        );
     }
 
     #[test]
@@ -558,7 +573,10 @@ mod tests {
     #[test]
     fn test_operation_type_conversion() {
         assert_eq!("code".parse::<OperationType>(), Ok(OperationType::Code));
-        assert_eq!("analysis".parse::<OperationType>(), Ok(OperationType::Analysis));
+        assert_eq!(
+            "analysis".parse::<OperationType>(),
+            Ok(OperationType::Analysis)
+        );
         assert_eq!("vision".parse::<OperationType>(), Ok(OperationType::Vision));
         assert_eq!("audio".parse::<OperationType>(), Ok(OperationType::Audio));
         assert_eq!("tips".parse::<OperationType>(), Ok(OperationType::Tips));

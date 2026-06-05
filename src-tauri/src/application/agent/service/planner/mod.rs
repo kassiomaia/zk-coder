@@ -20,7 +20,7 @@ use crate::core::agent::task::{SubTask, SubTaskMode, TaskStatus};
 use serde::{Deserialize, Serialize};
 
 pub use decision::{plan_or_continue, ExecutionState, PlanAction, PlanDecision};
-pub use replan::{review_and_replan, build_replan_system_prompt, ReplanAction, ReplanOutput};
+pub use replan::{build_replan_system_prompt, review_and_replan, ReplanAction, ReplanOutput};
 pub use single_shot::{build_planning_system_prompt, plan_new_task};
 
 /// Output token budget for single-shot planning calls.

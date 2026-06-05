@@ -87,10 +87,7 @@ pub fn checkpoint_present(
 }
 
 /// Removes the checkpoint for a session.
-pub fn clear_checkpoint(
-    conn: &Connection,
-    session_id: &str,
-) -> Result<(), SessionRepositoryError> {
+pub fn clear_checkpoint(conn: &Connection, session_id: &str) -> Result<(), SessionRepositoryError> {
     conn.execute(
         "DELETE FROM agent_execution_checkpoints WHERE session_id = ?1",
         params![session_id],
@@ -227,14 +224,14 @@ mod tests {
         ];
         save_checkpoint(&conn, &checkpoint).unwrap();
         let loaded = load_checkpoint(&conn, "s1").unwrap().unwrap();
-        let roles: Vec<MessageRole> = loaded
-            .llm_context
-            .iter()
-            .map(|m| m.role.clone())
-            .collect();
+        let roles: Vec<MessageRole> = loaded.llm_context.iter().map(|m| m.role.clone()).collect();
         assert_eq!(
             roles,
-            vec![MessageRole::System, MessageRole::User, MessageRole::Assistant]
+            vec![
+                MessageRole::System,
+                MessageRole::User,
+                MessageRole::Assistant
+            ]
         );
     }
 

@@ -2,9 +2,7 @@
 
 use serde_json::{json, Value as JsonValue};
 
-use crate::core::llm::entities::{
-    ChatMessage as Message, MessageContent, MessageRole, ToolCall,
-};
+use crate::core::llm::entities::{ChatMessage as Message, MessageContent, MessageRole, ToolCall};
 
 use super::super::{ExecutionBrief, FailureClass, FailureRecord, MemoryReference};
 

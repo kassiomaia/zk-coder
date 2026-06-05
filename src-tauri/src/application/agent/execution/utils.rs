@@ -106,16 +106,14 @@ pub fn truncate_text(content: &str, max_len: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        max_execution_steps, EXECUTION_STEPS_CEILING, EXECUTION_STEPS_FLOOR,
-    };
+    use super::{max_execution_steps, EXECUTION_STEPS_CEILING, EXECUTION_STEPS_FLOOR};
 
     #[test]
     fn max_execution_steps_formula_boundaries() {
         // Floor wins for small plans.
         assert_eq!(max_execution_steps(0), EXECUTION_STEPS_FLOOR); // 30 → clamp to 45
         assert_eq!(max_execution_steps(1), EXECUTION_STEPS_FLOOR); // 30+15 = 45, floor tie
-        // Linear region.
+                                                                   // Linear region.
         assert_eq!(max_execution_steps(2), 60);
         assert_eq!(max_execution_steps(7), 135);
         assert_eq!(max_execution_steps(10), 180);

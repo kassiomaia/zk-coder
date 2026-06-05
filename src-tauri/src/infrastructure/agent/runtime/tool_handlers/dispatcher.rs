@@ -51,9 +51,5 @@ pub(super) trait ToolHandler: Send + Sync {
     /// result. Handlers are free to mutate repositories, emit events,
     /// or modify `ctx.scope` as the former free-function
     /// implementations did.
-    fn handle(
-        &self,
-        call: &ToolCall,
-        ctx: &mut ToolHandlerContext<'_>,
-    ) -> OrchestratorToolResult;
+    fn handle(&self, call: &ToolCall, ctx: &mut ToolHandlerContext<'_>) -> OrchestratorToolResult;
 }

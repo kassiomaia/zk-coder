@@ -2,9 +2,7 @@
 
 use serde_json::json;
 
-use crate::core::llm::entities::{
-    ChatMessage as Message, ContentBlock, MessageRole, ToolCall,
-};
+use crate::core::llm::entities::{ChatMessage as Message, ContentBlock, MessageRole, ToolCall};
 
 use super::super::{
     estimate_context_tokens, estimate_message_tokens, COMPRESSION_THRESHOLD, CONTEXT_WINDOW,
@@ -119,7 +117,10 @@ fn test_estimate_counts_blocks_content() {
     );
     let tokens = estimate_message_tokens(&msg);
     // Old estimator returned 0 content for Blocks; with ~800 chars it should be ~200 tokens.
-    assert!(tokens > 150, "text inside Blocks must be counted, got {tokens}");
+    assert!(
+        tokens > 150,
+        "text inside Blocks must be counted, got {tokens}"
+    );
 }
 
 #[test]

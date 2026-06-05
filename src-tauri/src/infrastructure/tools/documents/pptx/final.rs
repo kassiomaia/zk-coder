@@ -256,12 +256,18 @@ fn estimate_duration(draft: &PptxDraft) -> usize {
 }
 
 /// Generate a PPTX file from the draft using the pptx crate.
-async fn generate_pptx(draft: PptxDraft, app_handle: &AppHandle) -> Result<(PathBuf, u64), ToolError> {
+async fn generate_pptx(
+    draft: PptxDraft,
+    app_handle: &AppHandle,
+) -> Result<(PathBuf, u64), ToolError> {
     let artifacts_dir = resolve_artifacts_dir(app_handle)?;
     generate_pptx_to_dir(draft, &artifacts_dir).await
 }
 
-async fn generate_pptx_to_dir(draft: PptxDraft, artifacts_dir: &std::path::Path) -> Result<(PathBuf, u64), ToolError> {
+async fn generate_pptx_to_dir(
+    draft: PptxDraft,
+    artifacts_dir: &std::path::Path,
+) -> Result<(PathBuf, u64), ToolError> {
     let output_path = artifacts_dir.join(&draft.filename);
 
     // Create a new presentation
@@ -643,6 +649,5 @@ mod tests {
         assert!(slide1_xml.contains("Title"));
         assert!(slide2_xml.contains("Item 1"));
         assert!(slide2_xml.contains("Item 2"));
-
     }
 }

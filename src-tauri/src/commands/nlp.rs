@@ -12,8 +12,8 @@ use crate::application::nlp::{
     AmbiguityResolver, CodeAnalyzer, ContextManager, IntentClassifier, MultiIntentDetector,
     NlpLlmGateway,
 };
-use crate::core::config::ConfigRepository;
 use crate::core::chat::entities::MessageRole;
+use crate::core::config::ConfigRepository;
 use crate::core::nlp::ambiguity::{Ambiguity, ResolutionType, ResolvedAmbiguity};
 use crate::core::nlp::code_understanding::{CodeUnderstanding, ProgrammingLanguage};
 use crate::core::nlp::entities::{ContextMessage, ConversationContext};

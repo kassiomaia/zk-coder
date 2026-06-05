@@ -18,17 +18,13 @@ use serde_json::json;
 use tauri::Emitter;
 
 use super::super::deps::ExecutionDeps;
-use super::super::memory_refresh::{
-    apply_memory_refresh, MemoryMutation, MemoryRefreshTrigger,
-};
+use super::super::memory_refresh::{apply_memory_refresh, MemoryMutation, MemoryRefreshTrigger};
 use super::super::state::ExecutionContext;
 use crate::core::agent::execution::RuntimeTraceType;
 use crate::core::agent::session::AgentSession;
 use crate::core::llm::entities::ToolCall;
 use crate::infrastructure::agent::events::{AgentEvent, ContextCompactionReason, AGENT_EVENT_NAME};
-use crate::infrastructure::agent::runtime::context::{
-    CompactionDetails, ContextPackOutcome,
-};
+use crate::infrastructure::agent::runtime::context::{CompactionDetails, ContextPackOutcome};
 use crate::infrastructure::tools::context::ToolExecutionContext;
 
 /// Fires the `SubtaskCompleted` memory-refresh trigger (M3.3) when the

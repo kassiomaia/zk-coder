@@ -39,7 +39,10 @@ impl PageSize {
             Self::A3 => (297.0, 420.0),
             Self::Letter => (215.9, 279.4),
             Self::Legal => (215.9, 355.6),
-            Self::Custom { width_mm, height_mm } => (width_mm, height_mm),
+            Self::Custom {
+                width_mm,
+                height_mm,
+            } => (width_mm, height_mm),
         }
     }
 
@@ -55,7 +58,10 @@ impl PageSize {
         if !height_mm.is_finite() || height_mm <= 0.0 {
             return Err(PdfModelError::InvalidPageDimension(height_mm));
         }
-        Ok(Self::Custom { width_mm, height_mm })
+        Ok(Self::Custom {
+            width_mm,
+            height_mm,
+        })
     }
 }
 

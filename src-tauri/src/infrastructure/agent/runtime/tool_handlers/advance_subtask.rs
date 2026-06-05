@@ -31,11 +31,7 @@ impl ToolHandler for AdvanceSubtaskHandler {
         "agent_advance_to_next_subtask"
     }
 
-    fn handle(
-        &self,
-        call: &ToolCall,
-        ctx: &mut ToolHandlerContext<'_>,
-    ) -> OrchestratorToolResult {
+    fn handle(&self, call: &ToolCall, ctx: &mut ToolHandlerContext<'_>) -> OrchestratorToolResult {
         handle_advance_subtask(
             call,
             ctx.session,
@@ -90,8 +86,8 @@ pub(super) fn handle_advance_subtask(
     };
 
     let current = subtasks[current_pos].clone();
-    let has_evidence =
-        has_subtask_evidence(session, &current.id, telemetry_repo) || scope.has_rationale(&current.id);
+    let has_evidence = has_subtask_evidence(session, &current.id, telemetry_repo)
+        || scope.has_rationale(&current.id);
     if !has_evidence {
         return OrchestratorToolResult {
             call_id: call.id.clone(),

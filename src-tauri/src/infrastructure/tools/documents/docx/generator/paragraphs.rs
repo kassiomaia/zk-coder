@@ -57,9 +57,8 @@ pub fn heading(
     let mut property = ParagraphProperty::default();
     property.style_id = Some(format!("Heading{}", level.max(1).min(9)).into());
     if page_break_before {
-        property.page_break_before = Some(docx_rust::formatting::PageBreakBefore {
-            value: Some(true),
-        });
+        property.page_break_before =
+            Some(docx_rust::formatting::PageBreakBefore { value: Some(true) });
     }
     property.justification = alignment.map(alignment_to_justification);
     property.spacing = Some(theme_spacing(theme));
@@ -152,9 +151,10 @@ fn collect_heading_runs(
     props.bold = Some(Bold { value: Some(true) });
     out.push(ParagraphContent::Run(Run {
         property: Some(props),
-        content: vec![RunContent::Text(
-            docx_rust::document::Text::from((plain, docx_rust::document::TextSpace::Preserve)),
-        )],
+        content: vec![RunContent::Text(docx_rust::document::Text::from((
+            plain,
+            docx_rust::document::TextSpace::Preserve,
+        )))],
         ..Run::default()
     }));
 }
@@ -236,7 +236,11 @@ mod tests {
             &DocxTheme::report_default(),
             &Plan::default(),
         );
-        let style = para.property.as_ref().and_then(|p| p.style_id.as_ref()).unwrap();
+        let style = para
+            .property
+            .as_ref()
+            .and_then(|p| p.style_id.as_ref())
+            .unwrap();
         assert_eq!(style.value, "Heading2");
     }
 
@@ -260,7 +264,11 @@ mod tests {
     #[test]
     fn horizontal_rule_sets_bottom_border() {
         let para = horizontal_rule(&DocxTheme::report_default());
-        let borders = para.property.as_ref().and_then(|p| p.border.as_ref()).unwrap();
+        let borders = para
+            .property
+            .as_ref()
+            .and_then(|p| p.border.as_ref())
+            .unwrap();
         assert!(borders.bottom.is_some());
     }
 }

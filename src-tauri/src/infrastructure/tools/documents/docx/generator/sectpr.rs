@@ -2,7 +2,9 @@
 
 use std::borrow::Cow;
 
-use docx_rust::document::{HeaderFooterReference, HeaderFooterReferenceType, FooterReference, HeaderReference};
+use docx_rust::document::{
+    FooterReference, HeaderFooterReference, HeaderFooterReferenceType, HeaderReference,
+};
 use docx_rust::formatting::{PageMargin, PageSize, SectionProperty, TitlePage};
 
 use crate::core::documents::docx::theme::{DocxTheme, PaperSize};

@@ -98,9 +98,12 @@ impl PrintPdfRenderer {
         sink: &mut (dyn Write + Send),
         progress: &Option<ProgressSink>,
     ) -> Result<RenderOutcome, RenderError> {
-        emit_progress(progress, PdfProgressEvent::PhaseChanged {
-            phase: PdfPhase::Preparing,
-        });
+        emit_progress(
+            progress,
+            PdfProgressEvent::PhaseChanged {
+                phase: PdfPhase::Preparing,
+            },
+        );
         emit_progress(progress, PdfProgressEvent::Progress { percent: 0 });
 
         let has_toc = doc
@@ -109,24 +112,39 @@ impl PrintPdfRenderer {
             .any(|s| s.blocks.iter().any(|b| matches!(b, Block::Toc)));
 
         let toc_entries: Option<Vec<TocEntry>> = if has_toc {
-            let (entries, _toc_page_count) =
-                self.measure_toc(doc, theme)?;
+            let (entries, _toc_page_count) = self.measure_toc(doc, theme)?;
             Some(entries)
         } else {
             None
         };
 
-        emit_progress(progress, PdfProgressEvent::PhaseChanged {
-            phase: PdfPhase::Rendering,
-        });
-        emit_progress(progress, PdfProgressEvent::Progress { percent: PROGRESS_RENDERING });
+        emit_progress(
+            progress,
+            PdfProgressEvent::PhaseChanged {
+                phase: PdfPhase::Rendering,
+            },
+        );
+        emit_progress(
+            progress,
+            PdfProgressEvent::Progress {
+                percent: PROGRESS_RENDERING,
+            },
+        );
 
         let outcome = self.do_render(doc, theme, sink, toc_entries.as_deref(), progress)?;
 
-        emit_progress(progress, PdfProgressEvent::PhaseChanged {
-            phase: PdfPhase::Complete,
-        });
-        emit_progress(progress, PdfProgressEvent::Progress { percent: PROGRESS_COMPLETE });
+        emit_progress(
+            progress,
+            PdfProgressEvent::PhaseChanged {
+                phase: PdfPhase::Complete,
+            },
+        );
+        emit_progress(
+            progress,
+            PdfProgressEvent::Progress {
+                percent: PROGRESS_COMPLETE,
+            },
+        );
 
         Ok(outcome)
     }
@@ -140,12 +158,8 @@ impl PrintPdfRenderer {
         theme: &Theme,
     ) -> Result<(Vec<TocEntry>, usize), RenderError> {
         let (page_width_mm, page_height_mm) = page_dimensions(doc);
-        let (pdf_doc, page_idx, layer_idx) = PrintPdfDoc::new(
-            "measure",
-            Mm(page_width_mm),
-            Mm(page_height_mm),
-            "L1",
-        );
+        let (pdf_doc, page_idx, layer_idx) =
+            PrintPdfDoc::new("measure", Mm(page_width_mm), Mm(page_height_mm), "L1");
         let _font_refs = embed_all_fonts(&pdf_doc, &self.fonts)?;
         let first_layer = pdf_doc.get_page(page_idx).get_layer(layer_idx);
         let params = LayoutParams::from_doc(doc, theme, page_width_mm, page_height_mm);
@@ -257,10 +271,18 @@ impl PrintPdfRenderer {
             }
         }
 
-        emit_progress(progress, PdfProgressEvent::PhaseChanged {
-            phase: PdfPhase::Decorating,
-        });
-        emit_progress(progress, PdfProgressEvent::Progress { percent: PROGRESS_DECORATING });
+        emit_progress(
+            progress,
+            PdfProgressEvent::PhaseChanged {
+                phase: PdfPhase::Decorating,
+            },
+        );
+        emit_progress(
+            progress,
+            PdfProgressEvent::Progress {
+                percent: PROGRESS_DECORATING,
+            },
+        );
 
         let section_starts: Vec<(usize, String)> = outline_marks
             .iter()
@@ -278,10 +300,18 @@ impl PrintPdfRenderer {
             decoration_page_height_mm,
         );
 
-        emit_progress(progress, PdfProgressEvent::PhaseChanged {
-            phase: PdfPhase::Writing,
-        });
-        emit_progress(progress, PdfProgressEvent::Progress { percent: PROGRESS_WRITING });
+        emit_progress(
+            progress,
+            PdfProgressEvent::PhaseChanged {
+                phase: PdfPhase::Writing,
+            },
+        );
+        emit_progress(
+            progress,
+            PdfProgressEvent::Progress {
+                percent: PROGRESS_WRITING,
+            },
+        );
 
         let bytes = pdf_doc
             .save_to_bytes()
@@ -739,8 +769,7 @@ fn emit_code(
     let body_size_pt = engine.params().body_size_pt;
     let body_leading_mm = engine.params().body_leading_mm;
     let padding = engine.params().block_padding_mm;
-    let usable_width_pt =
-        (engine.params().usable_width_mm - padding - padding) * POINTS_PER_MM;
+    let usable_width_pt = (engine.params().usable_width_mm - padding - padding) * POINTS_PER_MM;
 
     let mut wrapped: Vec<String> = Vec::new();
     for src_line in block.code().lines() {
@@ -805,8 +834,7 @@ fn emit_callout(
     let body_size_pt = engine.params().body_size_pt;
     let body_leading_mm = engine.params().body_leading_mm;
     let padding = engine.params().block_padding_mm;
-    let usable_width_pt =
-        (engine.params().usable_width_mm - padding - padding) * POINTS_PER_MM;
+    let usable_width_pt = (engine.params().usable_width_mm - padding - padding) * POINTS_PER_MM;
 
     let plain_face = fonts.primary_for(&InlineStyle::PLAIN).face()?;
     let bold_face = fonts.primary_for(&InlineStyle::bold()).face()?;
@@ -1064,7 +1092,12 @@ fn emit_cover_page(
     let body_face = primary.face()?;
     let italic_face = italic_slot.face()?;
 
-    let title_lines = wrap_with_face(&title_face, cover.title.trim(), heading_size_pt, usable_width_pt);
+    let title_lines = wrap_with_face(
+        &title_face,
+        cover.title.trim(),
+        heading_size_pt,
+        usable_width_pt,
+    );
     let subtitle_lines: Vec<String> = cover
         .subtitle
         .as_deref()
@@ -1342,8 +1375,7 @@ fn emit_table_row(
     is_header: bool,
     missing: &mut BTreeSet<char>,
 ) -> Result<(), RenderError> {
-    let row_content_height =
-        measure_row_height(fonts, row, col_widths, cell_pad, body_size_pt)?;
+    let row_content_height = measure_row_height(fonts, row, col_widths, cell_pad, body_size_pt)?;
     let total_height = row_content_height + cell_pad + cell_pad;
     engine.ensure_space_for(total_height);
 
@@ -1364,8 +1396,22 @@ fn emit_table_row(
     }
 
     let border_color = engine.params().palette.table_border;
-    paint_fill_rect(&layer, border_color, x_base, top_y, table_right, top_y + TABLE_BORDER_THICKNESS_MM);
-    paint_fill_rect(&layer, border_color, x_base, bottom_y - TABLE_BORDER_THICKNESS_MM, table_right, bottom_y);
+    paint_fill_rect(
+        &layer,
+        border_color,
+        x_base,
+        top_y,
+        table_right,
+        top_y + TABLE_BORDER_THICKNESS_MM,
+    );
+    paint_fill_rect(
+        &layer,
+        border_color,
+        x_base,
+        bottom_y - TABLE_BORDER_THICKNESS_MM,
+        table_right,
+        bottom_y,
+    );
 
     let mut cell_x = x_base;
     for (cell, &col_w) in row.cells().iter().zip(col_widths.iter()) {
@@ -1422,8 +1468,7 @@ fn paint_fill_rect(
 ) {
     layer.save_graphics_state();
     layer.set_fill_color(Color::Rgb(PrintRgb::new(color.r, color.g, color.b, None)));
-    let rect =
-        Rect::new(Mm(llx_mm), Mm(lly_mm), Mm(urx_mm), Mm(ury_mm)).with_mode(PaintMode::Fill);
+    let rect = Rect::new(Mm(llx_mm), Mm(lly_mm), Mm(urx_mm), Mm(ury_mm)).with_mode(PaintMode::Fill);
     layer.add_rect(rect);
     layer.restore_graphics_state();
 }
@@ -1796,7 +1841,9 @@ mod tests {
         let mut doc = PdfDocument::new(Metadata::new("Missing Glyph").unwrap());
         let heading = Heading::new(HeadingLevel::new(1).unwrap(), "Warn").unwrap();
         let mut section = Section::new(heading);
-        section.push(Block::Paragraph(Paragraph::plain("before\u{E000}after").unwrap()));
+        section.push(Block::Paragraph(
+            Paragraph::plain("before\u{E000}after").unwrap(),
+        ));
         doc.push_section(section);
 
         let mut buf: Vec<u8> = Vec::new();
@@ -1806,10 +1853,9 @@ mod tests {
             .expect("render does not panic on missing glyphs");
 
         assert!(
-            outcome
-                .warnings
-                .iter()
-                .any(|w| matches!(w, RenderWarning::MissingGlyph { text } if text.contains('\u{E000}'))),
+            outcome.warnings.iter().any(
+                |w| matches!(w, RenderWarning::MissingGlyph { text } if text.contains('\u{E000}'))
+            ),
             "missing PUA glyph must surface as a MissingGlyph warning: {:?}",
             outcome.warnings
         );
@@ -1933,9 +1979,7 @@ mod tests {
     fn gid_signature(face: &Face<'_>, text: &str) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(text.len() * 2);
         for c in text.chars() {
-            let gid = face
-                .glyph_index(c)
-                .map_or(0_u16, |g| g.0);
+            let gid = face.glyph_index(c).map_or(0_u16, |g| g.0);
             bytes.push((gid >> GID_BYTE_SHIFT) as u8);
             bytes.push((gid & GID_LOW_BYTE_MASK) as u8);
         }
@@ -1983,8 +2027,7 @@ mod tests {
             all.extend(page_gid_bytes(&parsed, pn));
         }
 
-        let font_bytes =
-            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let font_bytes = std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
         let face = Face::parse(&font_bytes, 0).unwrap();
         for i in 0..FIFTY_PARA_COUNT {
             let marker = format!("PARAGRAPHMARKER{i:02}");
@@ -2020,18 +2063,29 @@ mod tests {
         );
 
         let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses output");
-        let font_bytes =
-            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let font_bytes = std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
         let face = Face::parse(&font_bytes, 0).unwrap();
         let before = gid_signature(&face, "BEFOREBREAK");
         let after = gid_signature(&face, "AFTERBREAK");
 
         let p1 = page_gid_bytes(&parsed, 1);
         let p2 = page_gid_bytes(&parsed, 2);
-        assert!(contains_gid_signature(&p1, &before), "page 1 missing BEFOREBREAK");
-        assert!(!contains_gid_signature(&p1, &after), "page 1 leaked AFTERBREAK");
-        assert!(contains_gid_signature(&p2, &after), "page 2 missing AFTERBREAK");
-        assert!(!contains_gid_signature(&p2, &before), "page 2 leaked BEFOREBREAK");
+        assert!(
+            contains_gid_signature(&p1, &before),
+            "page 1 missing BEFOREBREAK"
+        );
+        assert!(
+            !contains_gid_signature(&p1, &after),
+            "page 1 leaked AFTERBREAK"
+        );
+        assert!(
+            contains_gid_signature(&p2, &after),
+            "page 2 missing AFTERBREAK"
+        );
+        assert!(
+            !contains_gid_signature(&p2, &before),
+            "page 2 leaked BEFOREBREAK"
+        );
     }
 
     #[tokio::test]
@@ -2062,8 +2116,7 @@ mod tests {
         for pn in 1..=u32::try_from(outcome.page_count).unwrap() {
             all.extend(page_gid_bytes(&parsed, pn));
         }
-        let font_bytes =
-            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let font_bytes = std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
         let face = Face::parse(&font_bytes, 0).unwrap();
         for w in &words {
             let sig = gid_signature(&face, w);
@@ -2227,12 +2280,14 @@ mod tests {
         let doc = three_page_doc("DECORATEDREPORT");
         let theme = Theme::default(); // bundled report.toml has decorations on
         let mut buf: Vec<u8> = Vec::new();
-        let outcome = r.render(&doc, &theme, &mut buf, None).await.expect("render");
+        let outcome = r
+            .render(&doc, &theme, &mut buf, None)
+            .await
+            .expect("render");
         assert_eq!(outcome.page_count, 3, "fixture must produce 3 pages");
 
         let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
-        let font_bytes =
-            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let font_bytes = std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
         let face = Face::parse(&font_bytes, 0).unwrap();
 
         let title_sig = gid_signature(&face, "DECORATEDREPORT");
@@ -2274,11 +2329,12 @@ mod tests {
         let doc = three_page_doc("Title");
         let theme = Theme::default();
         let mut buf: Vec<u8> = Vec::new();
-        r.render(&doc, &theme, &mut buf, None).await.expect("render");
+        r.render(&doc, &theme, &mut buf, None)
+            .await
+            .expect("render");
 
         let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
-        let font_bytes =
-            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let font_bytes = std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
         let face = Face::parse(&font_bytes, 0).unwrap();
 
         let literal = gid_signature(&face, "{total_pages}");
@@ -2298,11 +2354,12 @@ mod tests {
         let mut theme = Theme::default();
         theme.decorations.suppress_on_first_page = false;
         let mut buf: Vec<u8> = Vec::new();
-        r.render(&doc, &theme, &mut buf, None).await.expect("render");
+        r.render(&doc, &theme, &mut buf, None)
+            .await
+            .expect("render");
 
         let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
-        let font_bytes =
-            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let font_bytes = std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
         let face = Face::parse(&font_bytes, 0).unwrap();
         let sig = gid_signature(&face, "HEADERONONE");
         let p1 = page_gid_bytes(&parsed, 1);
@@ -2320,11 +2377,12 @@ mod tests {
         theme.decorations.header = None;
         theme.decorations.footer = None;
         let mut buf: Vec<u8> = Vec::new();
-        r.render(&doc, &theme, &mut buf, None).await.expect("render");
+        r.render(&doc, &theme, &mut buf, None)
+            .await
+            .expect("render");
 
         let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
-        let font_bytes =
-            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let font_bytes = std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
         let face = Face::parse(&font_bytes, 0).unwrap();
         let page_sig = gid_signature(&face, "Page ");
         for pn in 1..=3 {
@@ -2346,11 +2404,8 @@ mod tests {
         // the x-coordinate of the glyph run from each list-item's first
         // `Tj`/`TJ` operand and assert monotonic increase by depth.
         let r = renderer();
-        let inner = ListBlock::new(
-            true,
-            vec![ListItem::plain("innerchildmarker").unwrap()],
-        )
-        .unwrap();
+        let inner =
+            ListBlock::new(true, vec![ListItem::plain("innerchildmarker").unwrap()]).unwrap();
         let outer = ListBlock::new(
             false,
             vec![ListItem::plain("outerparentmarker")
@@ -2370,15 +2425,14 @@ mod tests {
             .await
             .expect("render");
         let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
-        let font_bytes =
-            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let font_bytes = std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
         let face = Face::parse(&font_bytes, 0).unwrap();
         let outer_sig = gid_signature(&face, "outerparentmarker");
         let inner_sig = gid_signature(&face, "innerchildmarker");
-        let outer_x = text_x_for_signature(&parsed, 1, &outer_sig)
-            .expect("outer item text not found");
-        let inner_x = text_x_for_signature(&parsed, 1, &inner_sig)
-            .expect("inner item text not found");
+        let outer_x =
+            text_x_for_signature(&parsed, 1, &outer_sig).expect("outer item text not found");
+        let inner_x =
+            text_x_for_signature(&parsed, 1, &inner_sig).expect("inner item text not found");
         assert!(
             inner_x > outer_x,
             "nested list must indent deeper: inner_x={inner_x} outer_x={outer_x}"
@@ -2457,11 +2511,7 @@ mod tests {
 
     /// Returns the x-coordinate (in points) of the first text-showing
     /// operator on `page_number` whose operand bytes contain `needle`.
-    fn text_x_for_signature(
-        pdf: &lopdf::Document,
-        page_number: u32,
-        needle: &[u8],
-    ) -> Option<f32> {
+    fn text_x_for_signature(pdf: &lopdf::Document, page_number: u32, needle: &[u8]) -> Option<f32> {
         let pages = pdf.get_pages();
         let page_id = pages.get(&page_number).copied()?;
         let content = pdf.get_and_decode_page_content(page_id).ok()?;
@@ -2484,10 +2534,7 @@ mod tests {
                 for operand in &op.operands {
                     collect_text_bytes(&mut bytes, operand);
                 }
-                if bytes
-                    .windows(needle.len())
-                    .any(|w| w == needle)
-                {
+                if bytes.windows(needle.len()).any(|w| w == needle) {
                     return pending_x;
                 }
             }
@@ -2583,12 +2630,10 @@ mod tests {
             .expect("render");
 
         let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
-        let font_bytes =
-            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let font_bytes = std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
         let face = Face::parse(&font_bytes, 0).unwrap();
         let col2_sig = gid_signature(&face, "MARKER_COL2");
-        let col2_x = text_x_for_signature(&parsed, 1, &col2_sig)
-            .expect("col2 text not found");
+        let col2_x = text_x_for_signature(&parsed, 1, &col2_sig).expect("col2 text not found");
         // 40mm + left margin (20mm) → col2 must start at ~170pt or more
         // (40mm ≈ 113pt, margin 20mm ≈ 57pt). Just assert it's past
         // the first column's fixed width in points.
@@ -2605,9 +2650,7 @@ mod tests {
         let cols = vec![ColumnWidth::auto()];
         let header = TableRow::new(vec![TableCell::plain("TABLEHEADERMARKER").unwrap()]);
         let rows: Vec<TableRow> = (0..TABLE_SPLIT_ROW_COUNT)
-            .map(|i| {
-                TableRow::new(vec![TableCell::plain(format!("row{i:03}")).unwrap()])
-            })
+            .map(|i| TableRow::new(vec![TableCell::plain(format!("row{i:03}")).unwrap()]))
             .collect();
         let table = TableBlock::new(cols, Some(header), rows).unwrap();
 
@@ -2629,8 +2672,7 @@ mod tests {
         );
 
         let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
-        let font_bytes =
-            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let font_bytes = std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
         let face = Face::parse(&font_bytes, 0).unwrap();
         let header_sig = gid_signature(&face, "TABLEHEADERMARKER");
 
@@ -2759,10 +2801,7 @@ mod tests {
                 }
             }
         }
-        assert!(
-            has_image_xobj,
-            "rendered PDF must contain an image XObject"
-        );
+        assert!(has_image_xobj, "rendered PDF must contain an image XObject");
     }
 
     #[tokio::test]
@@ -2819,7 +2858,9 @@ mod tests {
         // Section 3
         let h3 = Heading::new(HeadingLevel::new(1).unwrap(), "Conclusion").unwrap();
         let mut s3 = Section::new(h3);
-        s3.push(Block::Paragraph(Paragraph::plain("conclusion text").unwrap()));
+        s3.push(Block::Paragraph(
+            Paragraph::plain("conclusion text").unwrap(),
+        ));
         doc.push_section(s3);
 
         let mut buf: Vec<u8> = Vec::new();
@@ -2830,8 +2871,7 @@ mod tests {
 
         // The TOC must contain the heading titles as glyph signatures.
         let parsed = lopdf::Document::load_mem(&buf).expect("lopdf parses");
-        let font_bytes =
-            std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
+        let font_bytes = std::fs::read(fonts_root().join("LiberationSans-Regular.ttf")).unwrap();
         let face = Face::parse(&font_bytes, 0).unwrap();
 
         let toc_heading_sig = gid_signature(&face, "Table of Contents");
@@ -3132,8 +3172,7 @@ mod tests {
             ("layout.rs", include_str!("layout.rs")),
         ];
 
-        let re = regex::Regex::new(r"\b\d+(?:_\d+)*\.\d+(?:_\d+)*\b")
-            .expect("regex compiles");
+        let re = regex::Regex::new(r"\b\d+(?:_\d+)*\.\d+(?:_\d+)*\b").expect("regex compiles");
 
         let mut violations: Vec<String> = Vec::new();
         for (name, src) in sources {

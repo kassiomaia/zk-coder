@@ -287,9 +287,7 @@ fn bootstrap_cap_for_trivial_task_uses_formula_floor() {
     // (`plan.is_non_trivial = false`). Bootstrap must still populate
     // `max_execution_steps`; the formula floor (45) guarantees a sane
     // budget without special-casing zero.
-    use crate::application::agent::execution::utils::{
-        max_execution_steps, EXECUTION_STEPS_FLOOR,
-    };
+    use crate::application::agent::execution::utils::{max_execution_steps, EXECUTION_STEPS_FLOOR};
 
     assert_eq!(max_execution_steps(0), EXECUTION_STEPS_FLOOR);
     assert_eq!(EXECUTION_STEPS_FLOOR, 45);

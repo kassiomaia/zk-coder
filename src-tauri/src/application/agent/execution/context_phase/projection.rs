@@ -63,11 +63,13 @@ pub(super) fn build_execution_brief(
     let current_blocker = memorized_failures
         .iter()
         .rev()
-        .find(|entry| match (entry.subtask_id.as_deref(), current_subtask_id) {
-            (None, _) => true,
-            (Some(entry_id), Some(current_id)) => entry_id == current_id,
-            (Some(_), None) => false,
-        })
+        .find(
+            |entry| match (entry.subtask_id.as_deref(), current_subtask_id) {
+                (None, _) => true,
+                (Some(entry_id), Some(current_id)) => entry_id == current_id,
+                (Some(_), None) => false,
+            },
+        )
         .map(|entry| {
             format!(
                 "{class}: {tool}",
@@ -278,13 +280,8 @@ mod tests {
             sample_subtask("subtask-2", "pending next", 1, TaskStatus::Pending),
         ];
 
-        let brief = build_execution_brief(
-            "goal",
-            Some("active"),
-            &subtasks,
-            &[],
-            Some("subtask-1"),
-        );
+        let brief =
+            build_execution_brief("goal", Some("active"), &subtasks, &[], Some("subtask-1"));
 
         assert!(
             brief.next_intended_action.is_none(),
@@ -302,13 +299,8 @@ mod tests {
             TaskStatus::InProgress,
         )];
 
-        let brief = build_execution_brief(
-            "goal",
-            Some("active"),
-            &subtasks,
-            &[],
-            Some("subtask-1"),
-        );
+        let brief =
+            build_execution_brief("goal", Some("active"), &subtasks, &[], Some("subtask-1"));
 
         assert!(brief.current_blocker.is_none());
     }

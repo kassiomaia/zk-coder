@@ -18,8 +18,8 @@
 //! - Pipe tables (`| A | B |` with header separator)
 
 use crate::core::documents::pdf::block::{
-    Block, Callout, CodeBlock, ColumnWidth, CoverBlock, ImageBlock, ImageFit, InlineRun, InlineStyle, ListBlock,
-    ListItem, Paragraph, TableBlock, TableCell, TableRow,
+    Block, Callout, CodeBlock, ColumnWidth, CoverBlock, ImageBlock, ImageFit, InlineRun,
+    InlineStyle, ListBlock, ListItem, Paragraph, TableBlock, TableCell, TableRow,
 };
 use crate::core::documents::pdf::error::PdfModelError;
 use crate::core::documents::pdf::section::{Heading, HeadingLevel};
@@ -332,9 +332,7 @@ fn is_list_line(line: &str) -> bool {
 
 fn is_unordered_list_line(line: &str) -> bool {
     let trimmed = line.trim_start();
-    trimmed.starts_with("- ")
-        || trimmed.starts_with("* ")
-        || trimmed.starts_with("+ ")
+    trimmed.starts_with("- ") || trimmed.starts_with("* ") || trimmed.starts_with("+ ")
 }
 
 fn is_ordered_list_line(line: &str) -> bool {
@@ -353,7 +351,8 @@ fn line_indent(line: &str) -> usize {
 
 fn strip_list_marker(line: &str) -> &str {
     let trimmed = line.trim_start();
-    if let Some(rest) = trimmed.strip_prefix("- ")
+    if let Some(rest) = trimmed
+        .strip_prefix("- ")
         .or_else(|| trimmed.strip_prefix("* "))
         .or_else(|| trimmed.strip_prefix("+ "))
     {
@@ -438,12 +437,10 @@ fn parse_list(lines: &[&str]) -> (Option<ListBlock>, usize) {
 fn is_table_separator(line: &str) -> bool {
     let trimmed = line.trim().trim_matches('|').trim();
     !trimmed.is_empty()
-        && trimmed
-            .split('|')
-            .all(|cell| {
-                let c = cell.trim();
-                !c.is_empty() && c.chars().all(|ch| ch == '-' || ch == ':' || ch == ' ')
-            })
+        && trimmed.split('|').all(|cell| {
+            let c = cell.trim();
+            !c.is_empty() && c.chars().all(|ch| ch == '-' || ch == ':' || ch == ' ')
+        })
 }
 
 fn parse_table_row_cells(line: &str) -> Vec<String> {
@@ -471,7 +468,8 @@ fn parse_table(lines: &[&str]) -> (Option<TableBlock>, usize) {
                 } else {
                     let runs = parse_inline_runs(&c);
                     TableCell::new(if runs.is_empty() {
-                        vec![InlineRun::new(&c).unwrap_or_else(|_| InlineRun::new("\u{00A0}").unwrap())]
+                        vec![InlineRun::new(&c)
+                            .unwrap_or_else(|_| InlineRun::new("\u{00A0}").unwrap())]
                     } else {
                         runs
                     })
@@ -499,7 +497,8 @@ fn parse_table(lines: &[&str]) -> (Option<TableBlock>, usize) {
                 } else {
                     let runs = parse_inline_runs(&c);
                     TableCell::new(if runs.is_empty() {
-                        vec![InlineRun::new(&c).unwrap_or_else(|_| InlineRun::new("\u{00A0}").unwrap())]
+                        vec![InlineRun::new(&c)
+                            .unwrap_or_else(|_| InlineRun::new("\u{00A0}").unwrap())]
                     } else {
                         runs
                     })
@@ -672,7 +671,10 @@ mod tests {
     use super::*;
 
     fn assert_is_paragraph(block: &Block) {
-        assert!(matches!(block, Block::Paragraph(_)), "expected Paragraph, got {block:?}");
+        assert!(
+            matches!(block, Block::Paragraph(_)),
+            "expected Paragraph, got {block:?}"
+        );
     }
 
     fn assert_paragraph_text(block: &Block, expected: &str) {
@@ -959,7 +961,11 @@ print("hello")
 Done."#;
         let blocks = markdown_to_blocks(md).unwrap();
         // Should contain: heading, paragraph, heading, table, list, code, callout, page break, heading, paragraph
-        assert!(blocks.len() >= 9, "mixed content should produce 9+ blocks, got {}", blocks.len());
+        assert!(
+            blocks.len() >= 9,
+            "mixed content should produce 9+ blocks, got {}",
+            blocks.len()
+        );
         assert!(matches!(&blocks[0], Block::Heading(_)));
     }
 }

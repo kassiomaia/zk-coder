@@ -99,13 +99,9 @@ fn build_drawing(
                 descr: None,
             },
             graphic: Some(Graphic {
-                a: Cow::Borrowed(
-                    "http://schemas.openxmlformats.org/drawingml/2006/main",
-                ),
+                a: Cow::Borrowed("http://schemas.openxmlformats.org/drawingml/2006/main"),
                 data: GraphicData {
-                    uri: Cow::Borrowed(
-                        "http://schemas.openxmlformats.org/drawingml/2006/picture",
-                    ),
+                    uri: Cow::Borrowed("http://schemas.openxmlformats.org/drawingml/2006/picture"),
                     children: vec![Picture {
                         a: Cow::Borrowed(
                             "http://schemas.openxmlformats.org/drawingml/2006/picture",
@@ -123,9 +119,7 @@ fn build_drawing(
                                 embed: Cow::Owned(planned.rel_id.clone()),
                                 cstate: None,
                             },
-                            stretch: Some(Stretch {
-                                fill_rect: None,
-                            }),
+                            stretch: Some(Stretch { fill_rect: None }),
                         },
                         sp_pr: SpPr {
                             xfrm: None,
@@ -144,9 +138,9 @@ fn build_drawing(
 fn caption_paragraph(text: &str, theme: &DocxTheme) -> docx_rust::document::Paragraph<'static> {
     let mut props = CharacterProperty::default();
     props.italics = Some(Italics { value: Some(true) });
-    props.size = Some(Size::from(
-        pt_to_half_pt(theme.typography.body_font_size_pt.saturating_sub(1).max(6)) as isize,
-    ));
+    props.size = Some(Size::from(pt_to_half_pt(
+        theme.typography.body_font_size_pt.saturating_sub(1).max(6),
+    ) as isize));
     let run = Run {
         property: Some(props),
         content: vec![RunContent::Text(Text::from((

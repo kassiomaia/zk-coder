@@ -3,18 +3,16 @@
 
 use serde_json::json;
 
-use crate::core::llm::entities::{
-    ChatMessage as Message, MessageContent, MessageRole, ToolCall,
-};
+use crate::core::llm::entities::{ChatMessage as Message, MessageContent, MessageRole, ToolCall};
 
+use super::super::estimate_context_tokens;
+use super::super::failure::build_failure_memory;
 use super::super::policy::{classify_outcome, collect_recent_dialogue_tail};
 use super::super::{
     apply_context_policy_v2, maybe_compact_context, ContextPackOutcome, ContextPolicyInput,
     BUDGET_FAILURE_MEMORY_TOKENS, BUDGET_RECENT_DIALOGUE_TOKENS, KEEP_RECENT_MESSAGES,
     KEEP_RECENT_TAIL_MESSAGES,
 };
-use super::super::failure::build_failure_memory;
-use super::super::estimate_context_tokens;
 use super::common::{
     assistant_with_call, brief_block_from, build_above_threshold_context,
     context_with_failed_tool_call, memory_block_from, orphan_tool_result_ids,
@@ -62,7 +60,10 @@ fn test_context_compaction_above_threshold() {
     // Using longer messages to reach threshold faster
     let mut context = vec![Message::system("System prompt")];
     for i in 0..3500 {
-        context.push(Message::user(&format!("User message {} with some additional content to increase token count", i)));
+        context.push(Message::user(&format!(
+            "User message {} with some additional content to increase token count",
+            i
+        )));
         context.push(Message::assistant(&format!(
             "Assistant response {} with more content here to exceed threshold",
             i
@@ -126,8 +127,14 @@ fn test_context_compaction_details() {
     // Need enough messages to exceed 60% of gpt-4's 128k context window
     // Using longer messages to reach token threshold faster
     for i in 0..3500 {
-        context.push(Message::user(&format!("User message {} with extended content", i)));
-        context.push(Message::assistant(&format!("Assistant response {} with additional text", i)));
+        context.push(Message::user(&format!(
+            "User message {} with extended content",
+            i
+        )));
+        context.push(Message::assistant(&format!(
+            "Assistant response {} with additional text",
+            i
+        )));
     }
 
     let result = maybe_compact_context(&mut context, "gpt-4");
@@ -190,7 +197,10 @@ fn test_context_compaction_with_mixed_message_types() {
     // Need enough messages to exceed 60% of CONTEXT_WINDOW (76800 tokens)
     // Need longer messages to exceed 60% of gpt-4's 128k window
     for i in 0..3500 {
-        context.push(Message::user(&format!("User message {} with extended content to reach threshold", i)));
+        context.push(Message::user(&format!(
+            "User message {} with extended content to reach threshold",
+            i
+        )));
         context.push(Message::assistant_with_tool_calls(
             format!("Response {} with additional text", i),
             vec![ToolCall {
@@ -216,7 +226,10 @@ fn test_compaction_details_needs_reinjection_flag() {
     // Need enough messages to exceed 60% of gpt-4's 128k context window
     // With longer messages to ensure we hit the threshold reliably
     for i in 0..5000 {
-        context.push(Message::user(&format!("User message {} with extended content to reach token limit threshold", i)));
+        context.push(Message::user(&format!(
+            "User message {} with extended content to reach token limit threshold",
+            i
+        )));
     }
 
     let result = maybe_compact_context(&mut context, "gpt-4");
@@ -396,7 +409,11 @@ fn test_apply_policy_v2_skips_tiny_forced_context() {
     };
     let result = apply_context_policy_v2(&mut context, &input);
     assert!(result.is_none(), "tiny forced context must skip packing");
-    assert_eq!(context.len(), 3, "context must not be mutated when skipping");
+    assert_eq!(
+        context.len(),
+        3,
+        "context must not be mutated when skipping"
+    );
 }
 
 #[test]
@@ -570,11 +587,7 @@ fn collect_recent_tail_reproduces_session_0ceae112_incident() {
                 arguments: json!({"path": "docs/cxone"}),
             }],
         ),
-        Message::tool_result(
-            "call_function_list_1",
-            json!({"count": 8}),
-            false,
-        ),
+        Message::tool_result("call_function_list_1", json!({"count": 8}), false),
         Message::assistant_with_tool_calls(
             "advancing".to_string(),
             vec![ToolCall {
@@ -583,11 +596,7 @@ fn collect_recent_tail_reproduces_session_0ceae112_incident() {
                 arguments: json!({}),
             }],
         ),
-        Message::tool_result(
-            "call_function_advance_1",
-            json!({"success": true}),
-            false,
-        ),
+        Message::tool_result("call_function_advance_1", json!({"success": true}), false),
         Message::user("now compile the knowledge base".to_string()),
     ];
 

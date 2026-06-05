@@ -1062,9 +1062,8 @@ mod tests {
     fn test_convert_request_tool_choice_mode_auto_maps_to_auto() {
         use crate::core::llm::entities::ToolChoiceMode;
         let client = OpenAiClient::new("test-key".to_string(), None);
-        let openai_request = client.convert_request(build_request_with_tool_choice_mode(
-            ToolChoiceMode::Auto,
-        ));
+        let openai_request =
+            client.convert_request(build_request_with_tool_choice_mode(ToolChoiceMode::Auto));
         assert_eq!(openai_request.tool_choice.as_deref(), Some("auto"));
     }
 
@@ -1082,9 +1081,8 @@ mod tests {
     fn test_convert_request_tool_choice_mode_none_maps_to_none() {
         use crate::core::llm::entities::ToolChoiceMode;
         let client = OpenAiClient::new("test-key".to_string(), None);
-        let openai_request = client.convert_request(build_request_with_tool_choice_mode(
-            ToolChoiceMode::None,
-        ));
+        let openai_request =
+            client.convert_request(build_request_with_tool_choice_mode(ToolChoiceMode::None));
         // The tools are still sent so the provider-side prompt cache can stay
         // warm; only the tool_choice field tells the model not to call them.
         assert!(openai_request.tools.is_some());

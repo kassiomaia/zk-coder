@@ -240,15 +240,10 @@ pub trait PromptTemplateRepository: Send + Sync {
     /// Returns all templates ordered by `sort_order`, then `slug`.
     fn list_prompt_templates(&self) -> RepositoryResult<Vec<PromptTemplate>>;
     /// Looks up a template by slug, or `None` when absent.
-    fn get_prompt_template_by_slug(
-        &self,
-        slug: &str,
-    ) -> RepositoryResult<Option<PromptTemplate>>;
+    fn get_prompt_template_by_slug(&self, slug: &str) -> RepositoryResult<Option<PromptTemplate>>;
     /// Creates or updates a template. Returns the persisted row.
-    fn upsert_prompt_template(
-        &self,
-        template: &PromptTemplate,
-    ) -> RepositoryResult<PromptTemplate>;
+    fn upsert_prompt_template(&self, template: &PromptTemplate)
+        -> RepositoryResult<PromptTemplate>;
     /// Deletes a template by id. Builtins are not deletable; callers should
     /// use `reset_prompt_template` instead.
     fn delete_prompt_template(&self, id: &str) -> RepositoryResult<()>;

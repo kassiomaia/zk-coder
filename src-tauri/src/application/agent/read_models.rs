@@ -9,8 +9,7 @@ use serde::Serialize;
 
 use crate::application::agent::harness::HarnessStateOverrides;
 use crate::core::agent::execution::{ExecutionSnapshot, RuntimeTrace};
-use crate::core::agent::session::{AgentSession, PendingAction};
-use crate::core::agent::session::SessionState;
+use crate::core::agent::session::{AgentSession, PendingAction, SessionState};
 use crate::core::agent::task::{AgentTask, SubTask, TaskStatus};
 use crate::core::agent::types::Agent;
 
@@ -143,11 +142,13 @@ pub struct AgentSessionHarnessState {
 }
 
 fn most_relevant_subtask(tasks: &[AgentTask]) -> Option<&SubTask> {
-    tasks.iter()
+    tasks
+        .iter()
         .flat_map(|task| task.subtasks.iter().flat_map(|subtasks| subtasks.iter()))
         .find(|subtask| subtask.status == TaskStatus::InProgress)
         .or_else(|| {
-            tasks.iter()
+            tasks
+                .iter()
                 .flat_map(|task| task.subtasks.iter().flat_map(|subtasks| subtasks.iter()))
                 .filter(|subtask| subtask.status == TaskStatus::Completed)
                 .last()
@@ -155,7 +156,8 @@ fn most_relevant_subtask(tasks: &[AgentTask]) -> Option<&SubTask> {
 }
 
 fn latest_completed_title(tasks: &[AgentTask]) -> Option<String> {
-    tasks.iter()
+    tasks
+        .iter()
         .flat_map(|task| {
             task.subtasks
                 .iter()
@@ -165,7 +167,8 @@ fn latest_completed_title(tasks: &[AgentTask]) -> Option<String> {
         })
         .last()
         .or_else(|| {
-            tasks.iter()
+            tasks
+                .iter()
                 .rev()
                 .find(|task| task.status == TaskStatus::Completed)
                 .and_then(|task| task.title.clone())
@@ -185,7 +188,9 @@ pub fn derive_harness_state(
 ) -> AgentSessionHarnessState {
     let derived_mode = match session.state {
         SessionState::Launching => HarnessMode::Initializer,
-        SessionState::Paused { .. } => HarnessMode::ResumeVerifier,
+        SessionState::Paused { pause_reason, .. } if pause_reason.is_startup_recovery() => {
+            HarnessMode::ResumeVerifier
+        }
         SessionState::AwaitingClarification { .. } => HarnessMode::AwaitingClarification,
         _ => HarnessMode::Worker,
     };
@@ -197,7 +202,11 @@ pub fn derive_harness_state(
             details: None,
             checked_at: None,
         }),
-        SessionState::Paused { paused_at, .. } => Some(StartupVerificationSummary {
+        SessionState::Paused {
+            paused_at,
+            pause_reason,
+            ..
+        } if pause_reason.is_startup_recovery() => Some(StartupVerificationSummary {
             state: StartupVerificationState::Idle,
             headline: "Workspace should be verified before resuming".to_string(),
             details: None,
@@ -217,8 +226,11 @@ pub fn derive_harness_state(
 
     let derived_handoff = match &session.state {
         SessionState::Paused {
-            paused_at, message, ..
-        } => {
+            paused_at,
+            pause_reason,
+            message,
+            ..
+        } if pause_reason.is_startup_recovery() => {
             let current_subtask = most_relevant_subtask(tasks);
             Some(SessionHandoffSummary {
                 last_completed_increment: latest_completed_title(tasks)
@@ -491,7 +503,10 @@ mod tests {
         };
         let state = derive_harness_state(&session, &[], Some(&overrides));
         assert_eq!(state.mode, HarnessMode::ResumeVerifier);
-        assert_eq!(state.startup_verification, Some(sample_startup_verification()));
+        assert_eq!(
+            state.startup_verification,
+            Some(sample_startup_verification())
+        );
         assert_eq!(state.handoff, Some(sample_handoff()));
         assert!(state.clean_exit_recorded);
     }
@@ -585,6 +600,57 @@ mod tests {
     }
 
     #[test]
+    fn startup_recovery_pause_derives_resume_verifier_metadata() {
+        let mut session = running_session();
+        let paused_at = chrono::DateTime::parse_from_rfc3339("2026-04-20T09:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        session
+            .set_state(SessionState::Paused {
+                paused_at,
+                pause_reason: crate::core::agent::session::PauseReason::StartupRecovery,
+                message: "Recovered after restart".to_string(),
+                current_subtask_id: None,
+            })
+            .expect("running -> paused is valid");
+
+        let state = derive_harness_state(&session, &[], None);
+        assert_eq!(state.mode, HarnessMode::ResumeVerifier);
+        assert_eq!(
+            state
+                .startup_verification
+                .as_ref()
+                .map(|summary| &summary.state),
+            Some(&StartupVerificationState::Idle)
+        );
+        assert_eq!(
+            state
+                .handoff
+                .as_ref()
+                .map(|handoff| handoff.next_recommended_action.as_str()),
+            Some("Verify workspace state, then resume or replan")
+        );
+    }
+
+    #[test]
+    fn clarification_timeout_pause_does_not_derive_recovery_metadata() {
+        let mut session = running_session();
+        session
+            .set_state(SessionState::Paused {
+                paused_at: Utc::now(),
+                pause_reason: crate::core::agent::session::PauseReason::ClarificationTimeout,
+                message: "Clarification timed out".to_string(),
+                current_subtask_id: None,
+            })
+            .expect("running -> paused is valid");
+
+        let state = derive_harness_state(&session, &[], None);
+        assert_eq!(state.mode, HarnessMode::Worker);
+        assert!(state.startup_verification.is_none());
+        assert!(state.handoff.is_none());
+    }
+
+    #[test]
     fn partial_overrides_keep_unrecorded_fields_at_derived_values() {
         let session = finished_session();
         let overrides = HarnessStateOverrides {
@@ -600,7 +666,10 @@ mod tests {
         assert_eq!(state.mode, HarnessMode::Worker);
         assert!(state.clean_exit_recorded);
         // startup_verification replaced.
-        assert_eq!(state.startup_verification, Some(sample_startup_verification()));
+        assert_eq!(
+            state.startup_verification,
+            Some(sample_startup_verification())
+        );
         // handoff stays at the derived "finished" summary.
         assert!(
             state.handoff.is_some(),

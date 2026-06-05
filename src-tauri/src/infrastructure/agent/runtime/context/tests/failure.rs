@@ -6,9 +6,7 @@ use serde_json::json;
 use crate::core::llm::entities::{ChatMessage as Message, ToolCall};
 
 use super::super::failure::{arguments_fingerprint, build_failure_memory};
-use super::super::{
-    select_failure_memory_body, FailureClass, MemorizedFailure,
-};
+use super::super::{select_failure_memory_body, FailureClass, MemorizedFailure};
 use super::common::{context_with_failed_tool_call, failure_record};
 
 #[test]
@@ -58,10 +56,12 @@ fn not_allowed_by_mode_classification_and_retry_copy() {
     assert_eq!(class, FailureClass::NotAllowedByMode);
     assert_eq!(class.label(), "not_allowed_by_mode");
     let retry = class.retry_line();
-    assert!(retry.contains("do not retry"), "expected 'do not retry'; got: {retry}");
     assert!(
-        retry.contains("Wait for a later subtask")
-            || retry.contains("agent_mark_subtask_status"),
+        retry.contains("do not retry"),
+        "expected 'do not retry'; got: {retry}"
+    );
+    assert!(
+        retry.contains("Wait for a later subtask") || retry.contains("agent_mark_subtask_status"),
         "mode-disallowed retry copy must point at the two valid moves; got: {retry}",
     );
     assert!(
@@ -131,11 +131,8 @@ fn select_failure_memory_surfaces_unscoped_entries_in_any_subtask() {
 
 #[test]
 fn select_failure_memory_falls_back_to_context_scan_when_overlay_is_empty() {
-    let context = context_with_failed_tool_call(
-        "fs_read_file",
-        json!({"path": "/nope.txt"}),
-        "No such file",
-    );
+    let context =
+        context_with_failed_tool_call("fs_read_file", json!({"path": "/nope.txt"}), "No such file");
     let body = select_failure_memory_body(&[], Some("subtask-1"), &context)
         .expect("context-scan fallback should fire");
     assert!(body.contains("fs_read_file"));
@@ -151,11 +148,8 @@ fn select_failure_memory_does_not_fallback_when_overlay_present_but_filtered_out
         subtask_id: Some("subtask-other".to_string()),
         record: failure_record("fs_read_file", FailureClass::FileNotFound),
     }];
-    let context = context_with_failed_tool_call(
-        "fs_read_file",
-        json!({"path": "/nope.txt"}),
-        "No such file",
-    );
+    let context =
+        context_with_failed_tool_call("fs_read_file", json!({"path": "/nope.txt"}), "No such file");
     let body = select_failure_memory_body(&memorized, Some("subtask-3"), &context);
     assert!(body.is_none());
 }

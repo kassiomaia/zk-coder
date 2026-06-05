@@ -227,10 +227,7 @@ pub trait ExecutionCheckpointRepository: Send + Sync {
     fn save_checkpoint(&self, checkpoint: &ExecutionCheckpoint) -> RepositoryResult<()>;
 
     /// Returns the persisted checkpoint for a session, if any.
-    fn load_checkpoint(
-        &self,
-        session_id: &str,
-    ) -> RepositoryResult<Option<ExecutionCheckpoint>>;
+    fn load_checkpoint(&self, session_id: &str) -> RepositoryResult<Option<ExecutionCheckpoint>>;
 
     /// Returns `true` if a checkpoint row exists for the session. Used
     /// by the post-restart reply path to distinguish "resume possible"
@@ -251,10 +248,8 @@ pub trait ClarificationRepository: Send + Sync {
     fn upsert_pending(&self, record: &PendingClarificationRecord) -> RepositoryResult<()>;
 
     /// Returns the pending clarification for `session_id`, if any.
-    fn get_pending(
-        &self,
-        session_id: &str,
-    ) -> RepositoryResult<Option<PendingClarificationRecord>>;
+    fn get_pending(&self, session_id: &str)
+        -> RepositoryResult<Option<PendingClarificationRecord>>;
 
     /// Returns every pending clarification across all sessions. Used by
     /// the rehydrate path at startup.

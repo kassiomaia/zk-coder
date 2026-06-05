@@ -1071,7 +1071,9 @@ mod tests {
     fn task_framing_validates_minimum_voice_constraints() {
         let mut framing = sample_framing();
         framing.voice_constraints = vec!["professional and clear".to_string()];
-        let err = framing.validate().expect_err("single voice constraint must fail");
+        let err = framing
+            .validate()
+            .expect_err("single voice constraint must fail");
         assert!(err.contains("voice_constraints"));
         assert!(err.contains(&TaskFraming::MIN_VOICE_CONSTRAINTS.to_string()));
     }

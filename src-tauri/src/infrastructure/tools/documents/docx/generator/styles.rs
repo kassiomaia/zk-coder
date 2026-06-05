@@ -4,7 +4,9 @@
 
 use std::borrow::Cow;
 
-use docx_rust::formatting::{Bold, CharacterProperty, Color, Fonts, Italics, ParagraphProperty, Size, Spacing};
+use docx_rust::formatting::{
+    Bold, CharacterProperty, Color, Fonts, Italics, ParagraphProperty, Size, Spacing,
+};
 use docx_rust::styles::{Style, StyleType};
 use docx_rust::Docx;
 

@@ -3,9 +3,7 @@
 //! trivial on purpose — the mapping table is part of the stable contract, so
 //! a change here is a wire-format break that must be reviewed explicitly.
 
-use crate::infrastructure::tools::search::web_search::error::{
-    ErrorCode, WebSearchFailure,
-};
+use crate::infrastructure::tools::search::web_search::error::{ErrorCode, WebSearchFailure};
 use crate::infrastructure::tools::search::web_search::provider::SearchProviderError;
 
 #[test]

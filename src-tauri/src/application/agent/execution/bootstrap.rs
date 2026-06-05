@@ -393,11 +393,7 @@ async fn bootstrap_continue(
     let resume_subtask = subtasks
         .iter()
         .find(|s| s.order == next_subtask_order)
-        .or_else(|| {
-            subtasks
-                .iter()
-                .find(|s| s.status != TaskStatus::Completed)
-        })
+        .or_else(|| subtasks.iter().find(|s| s.status != TaskStatus::Completed))
         .cloned();
 
     let Some(mut resume_subtask) = resume_subtask else {

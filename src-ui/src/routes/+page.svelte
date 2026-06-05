@@ -596,21 +596,6 @@
 
 		unsubscribeAgentBus.push(
 			agentEventBus.on('agent-activity', ({ conversationId, threadId, message: messageData }) => {
-				// Drop the "Your progress is saved — Replan / Continue" recovery card in
-				// yolo mode: it's a human-decision prompt, and yolo mode is defined as
-				// auto-approve. The backend currently emits `session_paused` for
-				// clarification timeouts and some mid-execution checkpoints without
-				// consulting the thread's yolo flag, which makes the card surface even
-				// while the agent is still actively streaming tool calls below it
-				// (see docs/issues/agent-recovery-banner-in-yolo-and-live-streaming).
-				if (messageData.kind === 'recovery' && threadId) {
-					const thread = get(chatStore).threads.find((t) => t.id === threadId);
-					if (thread?.metadata.yoloMode) {
-						log.debug('Suppressing recovery banner in yolo mode', { threadId });
-						return;
-					}
-				}
-
 				const messageId = messageData.id ?? crypto.randomUUID();
 
 				// Check if message with this ID already exists (for thinking, tool_call, and streaming assistant messages)

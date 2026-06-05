@@ -37,16 +37,10 @@ pub fn install_header_footer(docx: &mut Docx<'_>, plan: &Plan, theme: &DocxTheme
             .insert(f.filename.clone(), build_footer(f, plan, theme));
     }
     if let Some(h) = plan.first_page_header.as_ref() {
-        docx.headers.insert(
-            h.filename.clone(),
-            empty_header(),
-        );
+        docx.headers.insert(h.filename.clone(), empty_header());
     }
     if let Some(f) = plan.first_page_footer.as_ref() {
-        docx.footers.insert(
-            f.filename.clone(),
-            empty_footer(),
-        );
+        docx.footers.insert(f.filename.clone(), empty_footer());
     }
 }
 
@@ -59,7 +53,9 @@ pub fn prepopulate_footer_rels(docx: &mut Docx<'_>, plan: &Plan) {
     if plan.footer.is_none() && plan.first_page_footer.is_none() {
         return;
     }
-    let rels = docx.document_rels.get_or_insert_with(Relationships::default);
+    let rels = docx
+        .document_rels
+        .get_or_insert_with(Relationships::default);
     if let Some(f) = plan.footer.as_ref() {
         register_rel(rels, &f.rel_id, SCHEMA_FOOTER, &f.filename);
     }
@@ -81,31 +77,27 @@ fn register_rel<'a>(rels: &mut Relationships<'a>, id: &str, schema: &str, target
     }
 }
 
-fn build_header(
-    planned: &PlannedDecoration,
-    plan: &Plan,
-    theme: &DocxTheme,
-) -> Header<'static> {
+fn build_header(planned: &PlannedDecoration, plan: &Plan, theme: &DocxTheme) -> Header<'static> {
     let mut header = Header::default();
-    header.content.push(BodyContent::Paragraph(template_paragraph(
-        &planned.template,
-        &plan.title,
-        theme,
-    )));
+    header
+        .content
+        .push(BodyContent::Paragraph(template_paragraph(
+            &planned.template,
+            &plan.title,
+            theme,
+        )));
     header
 }
 
-fn build_footer(
-    planned: &PlannedDecoration,
-    plan: &Plan,
-    theme: &DocxTheme,
-) -> Footer<'static> {
+fn build_footer(planned: &PlannedDecoration, plan: &Plan, theme: &DocxTheme) -> Footer<'static> {
     let mut footer = Footer::default();
-    footer.content.push(BodyContent::Paragraph(template_paragraph(
-        &planned.template,
-        &plan.title,
-        theme,
-    )));
+    footer
+        .content
+        .push(BodyContent::Paragraph(template_paragraph(
+            &planned.template,
+            &plan.title,
+            theme,
+        )));
     footer
 }
 
@@ -136,11 +128,7 @@ fn template_paragraph(template: &str, title: &str, theme: &DocxTheme) -> Paragra
     }
 }
 
-fn emit_template_runs(
-    template: &str,
-    theme: &DocxTheme,
-    out: &mut Vec<ParagraphContent<'static>>,
-) {
+fn emit_template_runs(template: &str, theme: &DocxTheme, out: &mut Vec<ParagraphContent<'static>>) {
     // `{page}` and `{total}` would ideally expand to Word PAGE /
     // NUMPAGES fields, but `docx_rust` 0.1.x does not expose the
     // `InstrText` type publicly so we cannot construct the
@@ -162,9 +150,9 @@ fn text_run(text: String, theme: &DocxTheme) -> Run<'static> {
     props.color = Some(Color {
         value: Cow::Owned(theme.palette.text.hex.clone()),
     });
-    props.size = Some(Size::from(
-        pt_to_half_pt(theme.typography.body_font_size_pt.saturating_sub(1).max(6)) as isize,
-    ));
+    props.size = Some(Size::from(pt_to_half_pt(
+        theme.typography.body_font_size_pt.saturating_sub(1).max(6),
+    ) as isize));
     Run {
         property: Some(props),
         content: vec![RunContent::Text(Text::from((text, TextSpace::Preserve)))],

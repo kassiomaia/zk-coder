@@ -6,9 +6,7 @@
 //! auto-generated summary of the dropped range, and the most recent
 //! [`KEEP_RECENT_MESSAGES`] turns.
 
-use crate::core::agent::context::{
-    CompactionDetails, ContextCompactionStrategy, ContextState,
-};
+use crate::core::agent::context::{CompactionDetails, ContextCompactionStrategy, ContextState};
 use crate::core::llm::entities::ChatMessage as Message;
 
 use super::super::budget::{

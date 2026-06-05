@@ -6,9 +6,7 @@ use std::sync::{Arc, MutexGuard};
 
 use serde_json::json;
 
-use crate::infrastructure::tools::constants::{
-    web_search_test_env_lock, ENV_WEB_SEARCH_ENABLED,
-};
+use crate::infrastructure::tools::constants::{web_search_test_env_lock, ENV_WEB_SEARCH_ENABLED};
 use crate::infrastructure::tools::search::web_search::execute_inner_for_tests;
 use crate::infrastructure::tools::search::web_search::locale::FixedLocale;
 use crate::infrastructure::tools::search::web_search::policy::Policy;
@@ -42,10 +40,7 @@ fn one_raw() -> Vec<RawResult> {
     }]
 }
 
-fn deps_with_locale(
-    provider: Arc<dyn SearchProvider>,
-    locale: Option<&str>,
-) -> ExecuteDeps {
+fn deps_with_locale(provider: Arc<dyn SearchProvider>, locale: Option<&str>) -> ExecuteDeps {
     ExecuteDeps {
         provider,
         policy: Policy::empty(),
@@ -72,12 +67,9 @@ async fn execute_prefers_explicit_language_over_system_locale() {
     let _guard = flag_on();
     let provider = Arc::new(MockProvider::with_results(one_raw()));
     let deps = deps_with_locale(provider.clone(), Some("en-US"));
-    let _ = execute_inner_for_tests(
-        deps,
-        json!({ "query": "rust", "language": "pt-BR" }),
-    )
-    .await
-    .expect("ok");
+    let _ = execute_inner_for_tests(deps, json!({ "query": "rust", "language": "pt-BR" }))
+        .await
+        .expect("ok");
     let observed = provider.observed_requests();
     assert_eq!(
         observed[0].language.as_deref(),

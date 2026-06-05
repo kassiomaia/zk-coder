@@ -139,7 +139,9 @@ pub async fn maybe_park_for_clarification(
     let timeout_budget = timeout_duration;
 
     let wait_result = match timeout_budget {
-        Some(duration) => park_with_timeout(reply_rx, &session_id_str, deps, duration, cancellation_poll).await,
+        Some(duration) => {
+            park_with_timeout(reply_rx, &session_id_str, deps, duration, cancellation_poll).await
+        }
         None => park_without_timeout(reply_rx, &session_id_str, deps, cancellation_poll).await,
     };
 
@@ -284,10 +286,7 @@ fn session_is_cancelled(deps: &ExecutionDeps<'_>, session_id: &str) -> bool {
         .session_repo
         .get_session(&SessionId(session_id.to_string()))
     {
-        Ok(session) => matches!(
-            session.state,
-            SessionState::Cancelled { .. }
-        ),
+        Ok(session) => matches!(session.state, SessionState::Cancelled { .. }),
         Err(_) => false,
     }
 }
@@ -317,6 +316,7 @@ fn handle_clarification_timeout(
         &SessionId(ctx.session_id.clone()),
         SessionState::Paused {
             paused_at: Utc::now(),
+            pause_reason: crate::core::agent::session::PauseReason::ClarificationTimeout,
             message: "Clarification timed out".to_string(),
             current_subtask_id: subtask_id.clone(),
         },
@@ -349,10 +349,7 @@ fn handle_clarification_timeout(
 
     if let Some(subtask_id) = subtask_id {
         deps.task_repo
-            .update_subtask_status(
-                &subtask_id,
-                crate::core::agent::task::TaskStatus::Failed,
-            )
+            .update_subtask_status(&subtask_id, crate::core::agent::task::TaskStatus::Failed)
             .map_err(|e| AgentRuntimeError::Repository(e.to_string()))?;
     }
     Ok(())

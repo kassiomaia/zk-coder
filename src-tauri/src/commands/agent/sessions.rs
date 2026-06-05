@@ -245,7 +245,8 @@ pub async fn initialize_agent_recovery(
                 session_id: session.session_id.clone(),
                 message: session.message.clone(),
                 paused_at: session.paused_at,
-                current_subtask_id: None,
+                pause_reason: session.pause_reason,
+                current_subtask_id: session.current_subtask_id.clone(),
             },
         );
     }
@@ -254,10 +255,7 @@ pub async fn initialize_agent_recovery(
     // that were parked on a clarification question when the app
     // closed. Emits `ClarificationRestored` / `ClarificationTimedOut`
     // and repairs orphan pause rows.
-    if let Err(e) = state
-        .service
-        .rehydrate_paused_clarifications(&app_handle)
-    {
+    if let Err(e) = state.service.rehydrate_paused_clarifications(&app_handle) {
         log::warn!("[AgentRecovery] rehydrate_paused_clarifications failed: {e}");
     }
 

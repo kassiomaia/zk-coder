@@ -105,6 +105,7 @@ describe('getThreadAgentState', () => {
 				state: {
 					type: 'paused',
 					pausedAt: '2024-01-01T12:02:00Z',
+					pauseReason: 'startup_recovery',
 					message: 'Interrupted while updating status handling'
 				},
 				harnessState: {
@@ -173,6 +174,7 @@ describe('getThreadAgentState', () => {
 				state: {
 					type: 'paused',
 					pausedAt: '2024-01-01T12:02:00Z',
+					pauseReason: 'startup_recovery',
 					message: 'Interrupted'
 				},
 				harnessState: {
@@ -197,6 +199,7 @@ describe('getThreadAgentState', () => {
 				state: {
 					type: 'paused',
 					pausedAt: '2024-01-01T12:02:00Z',
+					pauseReason: 'startup_recovery',
 					message: 'Interrupted'
 				},
 				harnessState: {

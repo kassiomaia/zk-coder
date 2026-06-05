@@ -80,10 +80,7 @@ impl ExecutionCheckpointRepository for SqliteClarificationRepository {
         execution_checkpoints::save_checkpoint(&conn, checkpoint).map_err(map_err)
     }
 
-    fn load_checkpoint(
-        &self,
-        session_id: &str,
-    ) -> RepositoryResult<Option<ExecutionCheckpoint>> {
+    fn load_checkpoint(&self, session_id: &str) -> RepositoryResult<Option<ExecutionCheckpoint>> {
         let conn = self.lock_conn()?;
         execution_checkpoints::load_checkpoint(&conn, session_id).map_err(map_err)
     }

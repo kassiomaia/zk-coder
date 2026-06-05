@@ -14,7 +14,9 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::theme::{Decorations, Fonts, PageDefaults, Palette, Rgb, Spacing, Theme, TypographyScale};
+use super::theme::{
+    Decorations, Fonts, PageDefaults, Palette, Rgb, Spacing, Theme, TypographyScale,
+};
 
 /// Allow-listed bundled font filenames.
 ///
@@ -255,8 +257,18 @@ impl ThemePatch {
     /// Returns a [`ThemeError`] describing the offending JSON path.
     pub fn validate(&self) -> Result<(), ThemeError> {
         if let Some(t) = self.typography.as_ref() {
-            check_range("theme.typography.body_font_size_pt", t.body_font_size_pt, 6.0, 72.0)?;
-            check_range("theme.typography.heading_font_size_pt", t.heading_font_size_pt, 8.0, 96.0)?;
+            check_range(
+                "theme.typography.body_font_size_pt",
+                t.body_font_size_pt,
+                6.0,
+                72.0,
+            )?;
+            check_range(
+                "theme.typography.heading_font_size_pt",
+                t.heading_font_size_pt,
+                8.0,
+                96.0,
+            )?;
             check_range("theme.typography.line_leading", t.line_leading, 1.0, 2.5)?;
         }
         if let Some(p) = self.palette.as_ref() {
@@ -272,8 +284,18 @@ impl ThemePatch {
         if let Some(s) = self.spacing.as_ref() {
             check_range("theme.spacing.block_gap", s.block_gap, 0.0, 5.0)?;
             check_range("theme.spacing.list_indent_mm", s.list_indent_mm, 0.0, 40.0)?;
-            check_range("theme.spacing.block_padding_mm", s.block_padding_mm, 0.0, 20.0)?;
-            check_range("theme.spacing.table_cell_padding_mm", s.table_cell_padding_mm, 0.0, 20.0)?;
+            check_range(
+                "theme.spacing.block_padding_mm",
+                s.block_padding_mm,
+                0.0,
+                20.0,
+            )?;
+            check_range(
+                "theme.spacing.table_cell_padding_mm",
+                s.table_cell_padding_mm,
+                0.0,
+                20.0,
+            )?;
         }
         if let Some(p) = self.page_defaults.as_ref() {
             check_range("theme.page_defaults.margin_mm", p.margin_mm, 5.0, 80.0)?;
@@ -548,7 +570,9 @@ mod tests {
             (merged.typography.heading_font_size_pt - base.typography.heading_font_size_pt).abs()
                 < f32::EPSILON
         );
-        assert!((merged.typography.line_leading - base.typography.line_leading).abs() < f32::EPSILON);
+        assert!(
+            (merged.typography.line_leading - base.typography.line_leading).abs() < f32::EPSILON
+        );
     }
 
     #[test]
@@ -566,7 +590,14 @@ mod tests {
         };
         let base = Theme::default_report();
         let merged = base.clone().with_patch(&patch);
-        assert_eq!(merged.palette.heading, Rgb { r: 0.1, g: 0.2, b: 0.8 });
+        assert_eq!(
+            merged.palette.heading,
+            Rgb {
+                r: 0.1,
+                g: 0.2,
+                b: 0.8
+            }
+        );
         assert_eq!(merged.palette.text, base.palette.text);
     }
 
@@ -622,9 +653,7 @@ mod tests {
         let patch: ThemePatch = serde_json::from_value(json).unwrap();
         let serialised = serde_json::to_value(&patch).unwrap();
         // The round-tripped JSON must NOT contain a `header` key at all.
-        let decorations = serialised
-            .get("decorations")
-            .expect("decorations present");
+        let decorations = serialised.get("decorations").expect("decorations present");
         assert!(
             decorations.get("header").is_none(),
             "Unset header must be omitted, got: {decorations}"
@@ -841,7 +870,10 @@ mod tests {
             }),
             ..ThemePatch::default()
         };
-        assert!(matches!(patch.validate(), Err(ThemeError::NotFinite { .. })));
+        assert!(matches!(
+            patch.validate(),
+            Err(ThemeError::NotFinite { .. })
+        ));
     }
 
     #[test]

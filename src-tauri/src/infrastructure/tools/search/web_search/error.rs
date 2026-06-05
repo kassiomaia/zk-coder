@@ -124,9 +124,9 @@ impl WebSearchFailure {
     #[must_use]
     pub fn human_message(&self) -> String {
         match self {
-            Self::DisabledByFlag => format!(
-                "Web search is disabled. Set {ENV_WEB_SEARCH_ENABLED}=1 to enable."
-            ),
+            Self::DisabledByFlag => {
+                format!("Web search is disabled. Set {ENV_WEB_SEARCH_ENABLED}=1 to enable.")
+            }
             Self::NotConfigured => {
                 "Web search is not configured. Add a Google Custom Search API key and Engine ID \
                  to enable this tool."
@@ -140,9 +140,7 @@ impl WebSearchFailure {
                 "Web search credentials were rejected by Google. Verify the API key and Engine ID."
                     .to_string()
             }
-            Self::UpstreamError(_) => {
-                "Web search provider is temporarily unavailable.".to_string()
-            }
+            Self::UpstreamError(_) => "Web search provider is temporarily unavailable.".to_string(),
         }
     }
 

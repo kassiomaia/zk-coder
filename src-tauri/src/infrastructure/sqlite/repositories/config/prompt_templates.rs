@@ -105,9 +105,8 @@ const SELECT_COLUMNS: &str = "id, slug, title, description, icon, category, cont
 pub fn list_prompt_templates(
     conn: &Connection,
 ) -> Result<Vec<PromptTemplate>, ConfigRepositoryError> {
-    let sql = format!(
-        "SELECT {SELECT_COLUMNS} FROM prompt_templates ORDER BY sort_order ASC, slug ASC"
-    );
+    let sql =
+        format!("SELECT {SELECT_COLUMNS} FROM prompt_templates ORDER BY sort_order ASC, slug ASC");
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt
         .query_map([], row_to_template)?
@@ -122,9 +121,7 @@ pub fn get_prompt_template_by_slug(
 ) -> Result<Option<PromptTemplate>, ConfigRepositoryError> {
     let sql = format!("SELECT {SELECT_COLUMNS} FROM prompt_templates WHERE slug = ?1");
     let mut stmt = conn.prepare(&sql)?;
-    let template = stmt
-        .query_row(params![slug], row_to_template)
-        .optional()?;
+    let template = stmt.query_row(params![slug], row_to_template).optional()?;
     Ok(template)
 }
 
@@ -178,10 +175,7 @@ pub fn upsert_prompt_template(
 
 /// Deletes a custom template by id. Builtins are rejected so the user can't
 /// remove them from the palette; the UI routes them through `reset` instead.
-pub fn delete_prompt_template(
-    conn: &Connection,
-    id: &str,
-) -> Result<(), ConfigRepositoryError> {
+pub fn delete_prompt_template(conn: &Connection, id: &str) -> Result<(), ConfigRepositoryError> {
     let rows = conn.execute(
         "DELETE FROM prompt_templates WHERE id = ?1 AND is_builtin = 0",
         params![id],
@@ -212,10 +206,7 @@ pub fn reset_prompt_template(
         .ok_or_else(|| ConfigRepositoryError::NotFound("PromptTemplate", slug.to_string()))
 }
 
-fn insert_builtin(
-    conn: &Connection,
-    b: &BuiltinTemplate,
-) -> Result<(), ConfigRepositoryError> {
+fn insert_builtin(conn: &Connection, b: &BuiltinTemplate) -> Result<(), ConfigRepositoryError> {
     let now = Utc::now().to_rfc3339();
     let id = uuid::Uuid::new_v4().to_string();
     conn.execute(
@@ -238,9 +229,7 @@ fn insert_builtin(
 
 /// Seeds every builtin template. Idempotent: `INSERT OR IGNORE` on the unique
 /// `slug` column leaves any user-edited row untouched.
-pub fn seed_builtin_prompt_templates(
-    conn: &Connection,
-) -> Result<(), ConfigRepositoryError> {
+pub fn seed_builtin_prompt_templates(conn: &Connection) -> Result<(), ConfigRepositoryError> {
     for b in BUILTIN_TEMPLATES {
         insert_builtin(conn, b)?;
     }

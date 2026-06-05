@@ -311,10 +311,7 @@ pub(crate) fn build_not_found_error(
         }
     }
 
-    ToolError::structured(
-        format!("Replacement text not found in '{path}'"),
-        payload,
-    )
+    ToolError::structured(format!("Replacement text not found in '{path}'"), payload)
 }
 
 /// Truncates `text` to at most `max_chars` characters, appending an

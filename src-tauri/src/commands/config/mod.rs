@@ -9,6 +9,8 @@ pub mod defaults;
 mod helpers;
 /// Re-exports for model management commands.
 pub mod models;
+/// Re-exports for PDF theme selection commands.
+pub mod pdf_theme;
 /// Re-exports for prompt-template management commands.
 pub mod prompt_templates;
 /// Re-exports for provider management commands.
@@ -16,12 +18,10 @@ pub mod providers;
 mod state;
 #[cfg(all(test, feature = "integration-test"))]
 mod tests;
-/// Re-exports for PDF theme selection commands.
-pub mod pdf_theme;
-/// Re-exports for global UI theme preference commands.
-pub mod ui_theme;
 /// Re-exports for per-tool credentials commands (web search today).
 pub mod tool_credentials;
+/// Re-exports for global UI theme preference commands.
+pub mod ui_theme;
 /// Re-exports for web-search cache management commands.
 pub mod web_search_cache;
 /// Re-exports for per-workspace web-search policy commands.

@@ -52,9 +52,7 @@ impl DomainPattern {
         match self {
             Self::Any => true,
             Self::Exact(d) => host == *d,
-            Self::SubdomainOf(base) => {
-                host == *base || host.ends_with(&format!(".{base}"))
-            }
+            Self::SubdomainOf(base) => host == *base || host.ends_with(&format!(".{base}")),
         }
     }
 }
@@ -77,17 +75,21 @@ impl Policy {
     #[must_use]
     pub fn from_raw(allowlist: &[String], denylist: &[String]) -> Self {
         Self {
-            allowlist: allowlist.iter().filter_map(|s| DomainPattern::parse(s)).collect(),
-            denylist: denylist.iter().filter_map(|s| DomainPattern::parse(s)).collect(),
+            allowlist: allowlist
+                .iter()
+                .filter_map(|s| DomainPattern::parse(s))
+                .collect(),
+            denylist: denylist
+                .iter()
+                .filter_map(|s| DomainPattern::parse(s))
+                .collect(),
         }
     }
 
     /// Builds a policy from the DB row shape. A `None` stored value means
     /// "no row recorded" → fall back to the empty policy.
     #[must_use]
-    pub fn from_stored(
-        stored: Option<&crate::core::config::StoredWorkspaceSearchPolicy>,
-    ) -> Self {
+    pub fn from_stored(stored: Option<&crate::core::config::StoredWorkspaceSearchPolicy>) -> Self {
         match stored {
             Some(p) => Self::from_raw(&p.allowlist, &p.denylist),
             None => Self::empty(),
@@ -131,7 +133,11 @@ impl Policy {
         if self.allowlist.is_empty() {
             return None;
         }
-        if self.allowlist.iter().any(|p| matches!(p, DomainPattern::Any)) {
+        if self
+            .allowlist
+            .iter()
+            .any(|p| matches!(p, DomainPattern::Any))
+        {
             return None;
         }
         let parts: Vec<String> = self
@@ -155,10 +161,7 @@ impl Policy {
     /// so the tool can set `filtered_by_policy` on the output only when at
     /// least one result was actually removed.
     #[must_use]
-    pub fn filter_results(
-        &self,
-        results: Vec<WebSearchResult>,
-    ) -> (Vec<WebSearchResult>, bool) {
+    pub fn filter_results(&self, results: Vec<WebSearchResult>) -> (Vec<WebSearchResult>, bool) {
         if self.is_noop() {
             return (results, false);
         }
@@ -254,10 +257,7 @@ mod tests {
 
     #[test]
     fn denylist_wins_when_same_entry_is_in_both_lists() {
-        let p = Policy::from_raw(
-            &["example.com".to_string()],
-            &["example.com".to_string()],
-        );
+        let p = Policy::from_raw(&["example.com".to_string()], &["example.com".to_string()]);
         assert!(!p.permits_host("example.com"));
     }
 
@@ -290,7 +290,10 @@ mod tests {
     #[test]
     fn site_rewrite_with_single_allowlist_entry_omits_parentheses() {
         let p = Policy::from_raw(&["github.com".to_string()], &[]);
-        assert_eq!(p.site_rewrite_query_suffix().as_deref(), Some("site:github.com"));
+        assert_eq!(
+            p.site_rewrite_query_suffix().as_deref(),
+            Some("site:github.com")
+        );
     }
 
     #[test]
@@ -308,10 +311,8 @@ mod tests {
     #[test]
     fn filter_results_drops_denylisted_urls() {
         let p = Policy::from_raw(&[], &["pinterest.com".to_string()]);
-        let (kept, dropped) = p.filter_results(vec![
-            result_for("github.com"),
-            result_for("pinterest.com"),
-        ]);
+        let (kept, dropped) =
+            p.filter_results(vec![result_for("github.com"), result_for("pinterest.com")]);
         assert!(dropped);
         assert_eq!(kept.len(), 1);
         assert_eq!(kept[0].source_domain, "github.com");

@@ -54,8 +54,7 @@ impl TaskRepository for SqliteTaskRepository {
             .context
             .as_ref()
             .and_then(|ctx| ctx.selection.as_deref());
-        tasks::create_task(&conn, task, Some(title), description)
-            .map_err(map_err)
+        tasks::create_task(&conn, task, Some(title), description).map_err(map_err)
     }
 
     fn create_subtask(&self, subtask: &agent_task::SubTask) -> RepositoryResult<()> {
@@ -63,19 +62,13 @@ impl TaskRepository for SqliteTaskRepository {
         tasks::create_subtask(&conn, subtask).map_err(map_err)
     }
 
-    fn get_session_tasks(
-        &self,
-        session_id: &str,
-    ) -> RepositoryResult<Vec<agent_task::AgentTask>> {
+    fn get_session_tasks(&self, session_id: &str) -> RepositoryResult<Vec<agent_task::AgentTask>> {
         let conn = self.lock_conn()?;
         let internal_id = agent_session::SessionId(session_id.to_string());
         tasks::get_session_tasks(&conn, &internal_id).map_err(map_err)
     }
 
-    fn get_subtasks(
-        &self,
-        parent_task_id: &str,
-    ) -> RepositoryResult<Vec<agent_task::SubTask>> {
+    fn get_subtasks(&self, parent_task_id: &str) -> RepositoryResult<Vec<agent_task::SubTask>> {
         let conn = self.lock_conn()?;
         tasks::get_subtasks(&conn, parent_task_id).map_err(map_err)
     }

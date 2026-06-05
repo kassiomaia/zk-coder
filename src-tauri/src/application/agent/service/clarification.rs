@@ -17,7 +17,7 @@ use crate::application::agent::clarification::{
 use crate::core::agent::clarification::PendingClarificationRecord;
 use crate::core::agent::errors::AgentDomainError;
 use crate::core::agent::repositories::RepositoryResult;
-use crate::core::agent::session::{SessionId, SessionState};
+use crate::core::agent::session::{PauseReason, SessionId, SessionState};
 use crate::core::chat::entities::ChatMessage as ChatTranscriptMessage;
 use crate::infrastructure::agent::events::{AgentEvent, AGENT_EVENT_NAME};
 
@@ -131,10 +131,7 @@ impl AgentServiceImpl {
     ///    via [`AgentServiceImpl::reply_to_clarification`] and let
     ///    [`AgentServiceImpl::resume_from_checkpoint`] spawn the
     ///    runtime at that point.
-    pub fn rehydrate_paused_clarifications(
-        &self,
-        app_handle: &AppHandle,
-    ) -> RepositoryResult<()> {
+    pub fn rehydrate_paused_clarifications(&self, app_handle: &AppHandle) -> RepositoryResult<()> {
         let pending = match crate::application::agent::clarification::list_pending_clarifications()
         {
             Ok(list) => list,
@@ -177,9 +174,10 @@ impl AgentServiceImpl {
 
         if checkpoint.is_none() {
             // Orphan clarification — repair the session.
-            let _ = crate::application::agent::clarification::clear_pending_clarification_persistent(
-                &record.session_id,
-            );
+            let _ =
+                crate::application::agent::clarification::clear_pending_clarification_persistent(
+                    &record.session_id,
+                );
             self.repair_session_to_recoverable_error(
                 &record.session_id,
                 "Pause state incomplete; please retry",
@@ -197,6 +195,7 @@ impl AgentServiceImpl {
                 &SessionId(record.session_id.clone()),
                 &SessionState::Paused {
                     paused_at: Utc::now(),
+                    pause_reason: PauseReason::ClarificationTimeout,
                     message: "Clarification timed out".to_string(),
                     current_subtask_id: record.subtask_id.clone(),
                 },
@@ -274,9 +273,7 @@ impl AgentServiceImpl {
             ChatTranscriptMessage::user(&session.conversation_id, reply_content)
                 .with_thread(&session.thread_id);
         if let Err(e) = self.runtime.chat_service().add_message(&transcript_message) {
-            warn!(
-                "[AgentService] resume_from_checkpoint: failed to persist transcript: {e}"
-            );
+            warn!("[AgentService] resume_from_checkpoint: failed to persist transcript: {e}");
         }
 
         let _ = clear_pending_clarification_persistent(session_id);

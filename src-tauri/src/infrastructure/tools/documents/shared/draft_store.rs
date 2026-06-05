@@ -85,7 +85,9 @@ impl DraftStore {
     /// Theme patch stored on a DOCX draft, if any.
     #[must_use]
     pub fn docx_theme_patch(&self, doc_id: &str) -> Option<&DocxThemePatch> {
-        self.docx_drafts.get(doc_id).and_then(|d| d.theme_patch.as_ref())
+        self.docx_drafts
+            .get(doc_id)
+            .and_then(|d| d.theme_patch.as_ref())
     }
 
     /// Get a mutable reference to a DOCX draft.
@@ -227,7 +229,9 @@ impl DraftStore {
     /// Get the theme patch stored on a PDF draft, if any.
     #[must_use]
     pub fn pdf_theme_patch(&self, pdf_id: &str) -> Option<&ThemePatch> {
-        self.pdf_drafts.get(pdf_id).and_then(|d| d.theme_patch.as_ref())
+        self.pdf_drafts
+            .get(pdf_id)
+            .and_then(|d| d.theme_patch.as_ref())
     }
 
     /// Get a mutable reference to a PDF draft.
@@ -747,9 +751,7 @@ mod tests {
         let mut store = DraftStore::new();
         let id = docx_draft(&mut store);
 
-        let section_id = store
-            .add_docx_section(&id, heading("Title"), None)
-            .unwrap();
+        let section_id = store.add_docx_section(&id, heading("Title"), None).unwrap();
 
         let draft = store.get_docx_draft(&id).unwrap();
         assert_eq!(draft.sections.len(), 1);
@@ -763,9 +765,7 @@ mod tests {
         let mut store = DraftStore::new();
         let id = docx_draft(&mut store);
 
-        store
-            .add_docx_section(&id, heading("Title"), None)
-            .unwrap();
+        store.add_docx_section(&id, heading("Title"), None).unwrap();
         store
             .add_docx_section(&id, paragraph("Content"), None)
             .unwrap();
@@ -825,9 +825,7 @@ mod tests {
 
     #[test]
     fn test_create_pdf_draft_with_theme_patch() {
-        use crate::core::documents::pdf::theme_patch::{
-            PalettePatch, RgbPatch, ThemePatch,
-        };
+        use crate::core::documents::pdf::theme_patch::{PalettePatch, RgbPatch, ThemePatch};
         let mut store = DraftStore::new();
         let patch = ThemePatch {
             palette: Some(PalettePatch {
@@ -852,12 +850,7 @@ mod tests {
     #[test]
     fn test_add_pdf_page() {
         let mut store = DraftStore::new();
-        let id = store.create_pdf_draft(
-            "document.pdf".to_string(),
-            "Doc".to_string(),
-            None,
-            None,
-        );
+        let id = store.create_pdf_draft("document.pdf".to_string(), "Doc".to_string(), None, None);
 
         let content = PdfPageContent::Text {
             content: "Page content".to_string(),
@@ -875,12 +868,7 @@ mod tests {
     #[test]
     fn test_add_pdf_page_at_start_prepends() {
         let mut store = DraftStore::new();
-        let id = store.create_pdf_draft(
-            "document.pdf".to_string(),
-            "Doc".to_string(),
-            None,
-            None,
-        );
+        let id = store.create_pdf_draft("document.pdf".to_string(), "Doc".to_string(), None, None);
 
         let first = store
             .add_pdf_page(

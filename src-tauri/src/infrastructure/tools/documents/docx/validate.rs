@@ -128,9 +128,7 @@ impl DocxValidator {
 
         for section_title in required {
             let found = draft.sections.iter().any(|s| match &s.content {
-                DocxContent::Heading { text, .. } => {
-                    text.as_plain_string().contains(section_title)
-                }
+                DocxContent::Heading { text, .. } => text.as_plain_string().contains(section_title),
                 _ => false,
             });
 
@@ -406,14 +404,20 @@ mod tests {
     fn empty_draft_fails_has_content() {
         let report = DocxValidator::validate_draft(&draft(vec![]));
         assert!(!report.passed);
-        assert!(report.checks.iter().any(|c| c.name == "Has Content" && !c.passed));
+        assert!(report
+            .checks
+            .iter()
+            .any(|c| c.name == "Has Content" && !c.passed));
     }
 
     #[test]
     fn skipped_heading_level_surfaces_warning() {
         let d = draft(vec![heading(1, "a"), heading(3, "b")]);
         let report = DocxValidator::validate_draft(&d);
-        assert!(report.checks.iter().any(|c| c.name == "Heading Hierarchy" && !c.passed));
+        assert!(report
+            .checks
+            .iter()
+            .any(|c| c.name == "Heading Hierarchy" && !c.passed));
     }
 
     #[test]
@@ -422,14 +426,20 @@ mod tests {
             id: "s".into(),
             index: 0,
             content: DocxContent::Table {
-                headers: vec![ParagraphText::Plain("A".into()), ParagraphText::Plain("B".into())],
+                headers: vec![
+                    ParagraphText::Plain("A".into()),
+                    ParagraphText::Plain("B".into()),
+                ],
                 rows: vec![vec![ParagraphText::Plain("1".into())]],
                 caption: None,
             },
             theme_override: None,
         }]);
         let report = DocxValidator::validate_draft(&d);
-        assert!(report.checks.iter().any(|c| c.name == "Table Shape" && !c.passed));
+        assert!(report
+            .checks
+            .iter()
+            .any(|c| c.name == "Table Shape" && !c.passed));
     }
 
     #[test]
@@ -445,6 +455,9 @@ mod tests {
             theme_override: None,
         }]);
         let report = DocxValidator::validate_draft(&d);
-        assert!(report.checks.iter().any(|c| c.name == "Image Files" && !c.passed));
+        assert!(report
+            .checks
+            .iter()
+            .any(|c| c.name == "Image Files" && !c.passed));
     }
 }

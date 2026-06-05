@@ -118,9 +118,12 @@ impl Tool for DocxFinalizeTool {
                 let store = draft_store.lock().map_err(|e| {
                     ToolError::failed(format!("Failed to acquire draft store lock: {e}"))
                 })?;
-                store.get_docx_draft(&args.document_id).cloned().ok_or_else(|| {
-                    ToolError::failed(format!("Document not found: {}", args.document_id))
-                })?
+                store
+                    .get_docx_draft(&args.document_id)
+                    .cloned()
+                    .ok_or_else(|| {
+                        ToolError::failed(format!("Document not found: {}", args.document_id))
+                    })?
             };
 
             let filename = draft.filename.clone();
@@ -265,11 +268,7 @@ mod tests {
         let draft_store = DraftStore::get_draft_store();
         let id = {
             let mut store = draft_store.lock().unwrap();
-            store.create_docx_draft(
-                "preserve.docx".into(),
-                "Preserve".into(),
-                None,
-            )
+            store.create_docx_draft("preserve.docx".into(), "Preserve".into(), None)
         };
         // Empty draft — validation will fail.
         let draft = {

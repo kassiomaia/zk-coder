@@ -185,10 +185,7 @@ impl MacOsShell {
         // `shell_path` is guaranteed to be Some when effective_mode() is User because
         // `ShellFamily::Unknown` is the only classification that can arise with a None
         // path, and that case downgrades to plain in effective_mode().
-        let shell_path = self
-            .shell_path
-            .as_deref()
-            .unwrap_or("/bin/sh");
+        let shell_path = self.shell_path.as_deref().unwrap_or("/bin/sh");
         let wrapped = match self.shell_family {
             ShellFamily::Zsh => {
                 format!(r#". "$HOME/.zshrc" 2>/dev/null; {command}"#)
@@ -197,9 +194,7 @@ impl MacOsShell {
                 format!(r#". "$HOME/.bashrc" 2>/dev/null; {command}"#)
             }
             ShellFamily::Fish => {
-                format!(
-                    r#"source "$HOME/.config/fish/config.fish" 2>/dev/null; {command}"#
-                )
+                format!(r#"source "$HOME/.config/fish/config.fish" 2>/dev/null; {command}"#)
             }
             ShellFamily::Unknown => command.to_string(),
         };
@@ -268,9 +263,7 @@ impl ShellStrategy for WindowsShell {
         if matches!(self.mode, ShellMode::Plain) {
             c.arg("-NoProfile");
         }
-        c.arg("-NonInteractive")
-            .arg("-EncodedCommand")
-            .arg(encoded);
+        c.arg("-NonInteractive").arg("-EncodedCommand").arg(encoded);
         c
     }
 
@@ -298,8 +291,7 @@ pub fn encode_powershell_command(command: &str) -> String {
 /// alphabet; output is always padded to a multiple of 4 characters with `=`.
 #[cfg(target_os = "windows")]
 pub fn base64_encode(input: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut output = String::with_capacity(input.len().div_ceil(3) * 4);
     let mut iter = input.chunks_exact(3);
     for chunk in iter.by_ref() {
@@ -510,9 +502,21 @@ mod tests {
             let mut out = Vec::with_capacity(bytes.len() * 3 / 4);
             for chunk in bytes.chunks(4) {
                 let v0 = lookup[chunk[0] as usize] as u32;
-                let v1 = if chunk.len() > 1 { lookup[chunk[1] as usize] as u32 } else { 0 };
-                let v2 = if chunk.len() > 2 { lookup[chunk[2] as usize] as u32 } else { 0 };
-                let v3 = if chunk.len() > 3 { lookup[chunk[3] as usize] as u32 } else { 0 };
+                let v1 = if chunk.len() > 1 {
+                    lookup[chunk[1] as usize] as u32
+                } else {
+                    0
+                };
+                let v2 = if chunk.len() > 2 {
+                    lookup[chunk[2] as usize] as u32
+                } else {
+                    0
+                };
+                let v3 = if chunk.len() > 3 {
+                    lookup[chunk[3] as usize] as u32
+                } else {
+                    0
+                };
                 let combined = (v0 << 18) | (v1 << 12) | (v2 << 6) | v3;
                 out.push(((combined >> 16) & 0xFF) as u8);
                 if chunk.len() > 2 {

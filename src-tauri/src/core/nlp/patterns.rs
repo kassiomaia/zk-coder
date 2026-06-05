@@ -13,8 +13,7 @@ use regex::Regex;
 use super::intent::Intent;
 
 /// Compiled intent patterns, initialized once on first access.
-static COMPILED_PATTERNS: LazyLock<Vec<(Intent, Vec<Regex>)>> =
-    LazyLock::new(build_patterns);
+static COMPILED_PATTERNS: LazyLock<Vec<(Intent, Vec<Regex>)>> = LazyLock::new(build_patterns);
 
 /// Pattern matcher for intent recognition.
 pub struct IntentPatterns {
@@ -71,7 +70,7 @@ impl IntentPatterns {
 /// literals — a regex syntax error would be a programmer bug caught on first
 /// use, not a runtime data issue.
 fn build_patterns() -> Vec<(Intent, Vec<Regex>)> {
-        vec![
+    vec![
             // Code generation
             (
                 Intent::GenerateCode,
@@ -266,7 +265,7 @@ fn build_patterns() -> Vec<(Intent, Vec<Regex>)> {
                 ],
             ),
         ]
-    }
+}
 
 impl Default for IntentPatterns {
     fn default() -> Self {

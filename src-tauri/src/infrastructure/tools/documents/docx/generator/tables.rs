@@ -49,8 +49,7 @@ fn table_property(theme: &DocxTheme) -> TableProperty<'static> {
 
 fn table_borders(theme: &DocxTheme) -> WTableBorders<'static> {
     use docx_rust::formatting::{
-        InsideHorizonBorder, InsideVerticalBorder, BottomBorder, LeftBorder, RightBorder,
-        TopBorder,
+        BottomBorder, InsideHorizonBorder, InsideVerticalBorder, LeftBorder, RightBorder, TopBorder,
     };
     let color: Cow<'static, str> = Cow::Owned(theme.palette.table_border.hex.clone());
     let make_top = || TopBorder {

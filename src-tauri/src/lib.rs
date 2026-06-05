@@ -105,12 +105,12 @@ pub fn run() {
                 .expect("Failed to initialize NLP state");
 
             // Initialize Chat state
-            let chat_state = ChatState::from_shared(conn.clone())
-                .expect("Failed to initialize Chat state");
+            let chat_state =
+                ChatState::from_shared(conn.clone()).expect("Failed to initialize Chat state");
 
             // Initialize Config state
             let config_state = ConfigState::from_repository(
-                config_repository.clone() as Arc<dyn crate::core::config::ConfigRepository>,
+                config_repository.clone() as Arc<dyn crate::core::config::ConfigRepository>
             );
 
             let llm_service = Arc::new(LlmServiceImpl::new(config_repository.clone()))

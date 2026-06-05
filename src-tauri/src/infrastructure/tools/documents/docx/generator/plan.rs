@@ -160,7 +160,6 @@ impl Plan {
 
         Ok(plan)
     }
-
 }
 
 fn plan_decorations(plan: &mut Plan, decorations: &Decorations) {
@@ -256,10 +255,7 @@ fn read_image(
     plan_index: usize,
 ) -> Result<PlannedImage, ToolError> {
     let bytes = std::fs::read(&path).map_err(|e| {
-        ToolError::failed(format!(
-            "Failed to read image '{}': {e}",
-            path.display()
-        ))
+        ToolError::failed(format!("Failed to read image '{}': {e}", path.display()))
     })?;
     // Detect the real format from the bytes, not the path extension.
     // A GIF or BMP file renamed to .png would otherwise produce a
@@ -281,10 +277,7 @@ fn read_image(
         }
     };
     let decoded = image::load_from_memory(&bytes).map_err(|e| {
-        ToolError::failed(format!(
-            "Failed to decode image '{}': {e}",
-            path.display()
-        ))
+        ToolError::failed(format!("Failed to decode image '{}': {e}", path.display()))
     })?;
     let filename = format!("media/image{}.{}", plan_index + 1, ext);
     Ok(PlannedImage {

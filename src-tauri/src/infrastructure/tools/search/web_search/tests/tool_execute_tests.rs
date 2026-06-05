@@ -9,9 +9,7 @@ use std::sync::{Arc, MutexGuard};
 
 use serde_json::{json, Value as JsonValue};
 
-use crate::infrastructure::tools::constants::{
-    web_search_test_env_lock, ENV_WEB_SEARCH_ENABLED,
-};
+use crate::infrastructure::tools::constants::{web_search_test_env_lock, ENV_WEB_SEARCH_ENABLED};
 use crate::infrastructure::tools::search::web_search::execute_inner_for_tests;
 use crate::infrastructure::tools::search::web_search::provider::mock::{
     MockProvider, MockResponse,
@@ -147,8 +145,16 @@ async fn execute_removes_utm_tracking_params_from_urls() {
     let provider = Arc::new(MockProvider::with_results(sample_raws()));
     let out = run(provider, json!({ "query": "rust" })).await.expect("ok");
     for result in &out.results {
-        assert!(!result.url.contains("utm_"), "utm param leaked: {}", result.url);
-        assert!(!result.url.contains("fbclid"), "fbclid leaked: {}", result.url);
+        assert!(
+            !result.url.contains("utm_"),
+            "utm param leaked: {}",
+            result.url
+        );
+        assert!(
+            !result.url.contains("fbclid"),
+            "fbclid leaked: {}",
+            result.url
+        );
     }
     // Non-tracking params must be preserved.
     assert!(out.results[0].url.contains("keep=1"));

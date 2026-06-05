@@ -109,8 +109,8 @@ fn resolve_target(root: &Path, rel: &str) -> Result<PathBuf, String> {
     if !target.exists() {
         return Err(format!("Directory does not exist: {trimmed}"));
     }
-    let target_meta = std::fs::symlink_metadata(&target)
-        .map_err(|e| format!("Failed to stat directory: {e}"))?;
+    let target_meta =
+        std::fs::symlink_metadata(&target).map_err(|e| format!("Failed to stat directory: {e}"))?;
     if target_meta.file_type().is_symlink() {
         return Err(format!("Path is a symlink: {trimmed}"));
     }
@@ -126,13 +126,8 @@ fn resolve_target(root: &Path, rel: &str) -> Result<PathBuf, String> {
 /// `root` is the workspace root; returned paths are relative to it
 /// with forward-slash separators. `target` must be a resolved
 /// descendant of `root`.
-fn read_dir_sorted(
-    root: &Path,
-    target: &Path,
-    cap: usize,
-) -> Result<WorkspaceDirResponse, String> {
-    let read = std::fs::read_dir(target)
-        .map_err(|e| format!("Failed to read directory: {e}"))?;
+fn read_dir_sorted(root: &Path, target: &Path, cap: usize) -> Result<WorkspaceDirResponse, String> {
+    let read = std::fs::read_dir(target).map_err(|e| format!("Failed to read directory: {e}"))?;
 
     let at_root = target == root;
 
@@ -413,8 +408,14 @@ mod tests {
         let a = list(tmp.path(), "src");
         let b = list(tmp.path(), "src/");
         assert_eq!(
-            a.entries.iter().map(|e| e.path.as_str()).collect::<Vec<_>>(),
-            b.entries.iter().map(|e| e.path.as_str()).collect::<Vec<_>>()
+            a.entries
+                .iter()
+                .map(|e| e.path.as_str())
+                .collect::<Vec<_>>(),
+            b.entries
+                .iter()
+                .map(|e| e.path.as_str())
+                .collect::<Vec<_>>()
         );
     }
 

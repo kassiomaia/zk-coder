@@ -48,10 +48,12 @@ pub async fn review_and_replan(
     progress_summary: &str,
     model_id: Option<&str>,
 ) -> Result<ReplanOutput, String> {
-    let (client, actual_model) =
-        create_llm_client(config_repository, model_id.map(std::string::ToString::to_string))
-            .await
-            .map_err(|e| format!("Failed to create LLM client for replanning: {e}"))?;
+    let (client, actual_model) = create_llm_client(
+        config_repository,
+        model_id.map(std::string::ToString::to_string),
+    )
+    .await
+    .map_err(|e| format!("Failed to create LLM client for replanning: {e}"))?;
 
     // Build current plan summary
     let current_plan = TaskPlan {

@@ -642,7 +642,6 @@ async fn execute_with_approval(
     }
 }
 
-
 /// Emits file-related events after successful tool execution.
 fn emit_file_events(
     call: &ToolCall,

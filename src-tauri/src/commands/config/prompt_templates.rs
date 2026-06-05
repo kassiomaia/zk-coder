@@ -68,7 +68,9 @@ pub async fn save_prompt_template(
             .map_err(|e| e.to_string())?
         {
             if collision.id != existing.id {
-                return Err(format!("A template with slug '{effective_slug}' already exists"));
+                return Err(format!(
+                    "A template with slug '{effective_slug}' already exists"
+                ));
             }
         }
 
@@ -195,9 +197,10 @@ mod tests {
     #[tokio::test]
     async fn save_creates_and_updates_custom_template() {
         let state = make_state();
-        let created = save_prompt_template(save_request("note"), crate::test_support::state(&state))
-            .await
-            .unwrap();
+        let created =
+            save_prompt_template(save_request("note"), crate::test_support::state(&state))
+                .await
+                .unwrap();
         assert!(!created.is_builtin);
 
         let mut update = save_request("note");
@@ -240,12 +243,10 @@ mod tests {
             .unwrap();
         assert_eq!(edited.content, "EDITED {args}");
 
-        let reset = reset_prompt_template(
-            "refactor".to_string(),
-            crate::test_support::state(&state),
-        )
-        .await
-        .unwrap();
+        let reset =
+            reset_prompt_template("refactor".to_string(), crate::test_support::state(&state))
+                .await
+                .unwrap();
         assert_ne!(reset.content, "EDITED {args}");
         assert!(reset.content.contains("Refactor the following code"));
     }

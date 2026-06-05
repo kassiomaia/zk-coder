@@ -769,7 +769,9 @@ mod tests {
     fn paragraph_preserves_run_order() {
         let p = Paragraph::new(vec![
             InlineRun::new("first ").unwrap(),
-            InlineRun::new("second ").unwrap().with_style(InlineStyle::bold()),
+            InlineRun::new("second ")
+                .unwrap()
+                .with_style(InlineStyle::bold()),
             InlineRun::new("third").unwrap(),
         ])
         .unwrap();
@@ -829,10 +831,7 @@ mod tests {
 
     #[test]
     fn list_block_rejects_empty_items() {
-        assert_eq!(
-            ListBlock::new(false, vec![]),
-            Err(PdfModelError::EmptyList)
-        );
+        assert_eq!(ListBlock::new(false, vec![]), Err(PdfModelError::EmptyList));
     }
 
     #[test]
@@ -845,9 +844,7 @@ mod tests {
         let inner = ListBlock::new(true, vec![ListItem::plain("a").unwrap()]).unwrap();
         let outer = ListBlock::new(
             false,
-            vec![ListItem::plain("top")
-                .unwrap()
-                .with_children(vec![inner])],
+            vec![ListItem::plain("top").unwrap().with_children(vec![inner])],
         )
         .unwrap();
         let json = serde_json::to_string(&outer).unwrap();
@@ -882,9 +879,7 @@ mod tests {
     #[test]
     fn block_list_code_callout_serde_roundtrip() {
         let blocks = vec![
-            Block::List(
-                ListBlock::new(false, vec![ListItem::plain("one").unwrap()]).unwrap(),
-            ),
+            Block::List(ListBlock::new(false, vec![ListItem::plain("one").unwrap()]).unwrap()),
             Block::Code(CodeBlock::new("let x = 1;").unwrap()),
             Block::Callout(Callout::new("Heads up.").unwrap().with_title("Note")),
         ];
@@ -910,7 +905,10 @@ mod tests {
         let err = TableBlock::new(cols, Some(header), vec![]).unwrap_err();
         assert!(matches!(
             err,
-            PdfModelError::TableCellCountMismatch { cells: 1, columns: 2 }
+            PdfModelError::TableCellCountMismatch {
+                cells: 1,
+                columns: 2
+            }
         ));
     }
 
@@ -924,7 +922,10 @@ mod tests {
         let err = TableBlock::new(cols, None, vec![row]).unwrap_err();
         assert!(matches!(
             err,
-            PdfModelError::TableCellCountMismatch { cells: 2, columns: 1 }
+            PdfModelError::TableCellCountMismatch {
+                cells: 2,
+                columns: 1
+            }
         ));
     }
 
@@ -985,9 +986,7 @@ mod tests {
 
     #[test]
     fn resolved_size_width_only_derives_height_from_aspect() {
-        let img = ImageBlock::new(vec![0xFF])
-            .unwrap()
-            .with_width_mm(100.0);
+        let img = ImageBlock::new(vec![0xFF]).unwrap().with_width_mm(100.0);
         let (w, h) = img.resolved_size_mm(0.5, 180.0);
         assert!((w - 100.0).abs() < f32::EPSILON);
         assert!((h - 50.0).abs() < f32::EPSILON);
@@ -995,9 +994,7 @@ mod tests {
 
     #[test]
     fn resolved_size_height_only_derives_width_from_aspect() {
-        let img = ImageBlock::new(vec![0xFF])
-            .unwrap()
-            .with_height_mm(60.0);
+        let img = ImageBlock::new(vec![0xFF]).unwrap().with_height_mm(60.0);
         let (w, h) = img.resolved_size_mm(0.5, 180.0);
         assert!((w - 120.0).abs() < f32::EPSILON);
         assert!((h - 60.0).abs() < f32::EPSILON);

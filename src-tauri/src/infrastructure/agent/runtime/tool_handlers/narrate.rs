@@ -25,11 +25,7 @@ impl ToolHandler for NarrateHandler {
         "agent_narrate"
     }
 
-    fn handle(
-        &self,
-        call: &ToolCall,
-        ctx: &mut ToolHandlerContext<'_>,
-    ) -> OrchestratorToolResult {
+    fn handle(&self, call: &ToolCall, ctx: &mut ToolHandlerContext<'_>) -> OrchestratorToolResult {
         handle_narrate(
             call,
             ctx.session,

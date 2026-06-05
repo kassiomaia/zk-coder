@@ -112,7 +112,9 @@ pub fn is_replace_miss(call: &ToolCall, result: &OrchestratorToolResult) -> bool
 /// Called once at the start of drift evaluation so stale pairings do
 /// not retroactively trigger a nudge.
 pub fn prune_stale(tracker: &mut Vec<ReplaceFailure>, current_step: u32) {
-    tracker.retain(|entry| current_step.saturating_sub(entry.step_number) < REPLACE_FAILURE_WINDOW_STEPS);
+    tracker.retain(|entry| {
+        current_step.saturating_sub(entry.step_number) < REPLACE_FAILURE_WINDOW_STEPS
+    });
 }
 
 /// Evaluates the tracker after a tool phase and returns the correction

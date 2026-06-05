@@ -15,19 +15,19 @@
 
 pub(crate) mod artifact_probe;
 pub mod client;
-pub(crate) mod session_scope;
-pub(crate) mod tool_handlers;
 pub mod context;
 pub mod execution;
 pub mod helpers;
 pub mod loop_detection;
 pub mod permissions;
 pub mod request_shape;
+pub(crate) mod session_scope;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub mod shell;
 pub mod spawn;
 pub mod summarizer;
 mod tool_feedback;
+pub(crate) mod tool_handlers;
 pub mod types;
 
 use std::sync::Arc;
@@ -54,9 +54,9 @@ use crate::infrastructure::tools::ToolRegistry;
 // Re-export submodule types
 pub use client::{chat_with_retry, create_llm_client, LlmRetryConfig};
 pub use context::{
-    apply_context_policy_v2, estimate_context_tokens, maybe_compact_context, CompactionDetails,
-    ContextPolicyInput, COMPRESSION_THRESHOLD, CONTEXT_WINDOW, KEEP_RECENT_MESSAGES,
-    KEEP_RECENT_TAIL_MESSAGES, adaptive_compression_threshold, model_context_window,
+    adaptive_compression_threshold, apply_context_policy_v2, estimate_context_tokens,
+    maybe_compact_context, model_context_window, CompactionDetails, ContextPolicyInput,
+    COMPRESSION_THRESHOLD, CONTEXT_WINDOW, KEEP_RECENT_MESSAGES, KEEP_RECENT_TAIL_MESSAGES,
 };
 pub use execution::execute;
 pub use helpers::{derive_system_prompt, generate_diff_from_content, infer_action_type};

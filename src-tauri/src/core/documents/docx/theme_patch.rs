@@ -244,8 +244,18 @@ impl DocxThemePatch {
     /// Returns a [`DocxThemeError`] describing the offending path.
     pub fn validate(&self) -> Result<(), DocxThemeError> {
         if let Some(t) = self.typography.as_ref() {
-            check_u16("theme.typography.body_font_size_pt", t.body_font_size_pt, 6, 72)?;
-            check_u16("theme.typography.heading_font_size_pt", t.heading_font_size_pt, 8, 96)?;
+            check_u16(
+                "theme.typography.body_font_size_pt",
+                t.body_font_size_pt,
+                6,
+                72,
+            )?;
+            check_u16(
+                "theme.typography.heading_font_size_pt",
+                t.heading_font_size_pt,
+                8,
+                96,
+            )?;
             check_f32("theme.typography.line_spacing", t.line_spacing, 1.0, 2.5)?;
             check_f32("theme.typography.heading_scale", t.heading_scale, 0.5, 1.0)?;
         }
@@ -259,10 +269,25 @@ impl DocxThemePatch {
             check_rgb("theme.palette.table_border", p.table_border.as_ref())?;
         }
         if let Some(s) = self.spacing.as_ref() {
-            check_u16("theme.spacing.paragraph_space_before_pt", s.paragraph_space_before_pt, 0, 72)?;
-            check_u16("theme.spacing.paragraph_space_after_pt", s.paragraph_space_after_pt, 0, 72)?;
+            check_u16(
+                "theme.spacing.paragraph_space_before_pt",
+                s.paragraph_space_before_pt,
+                0,
+                72,
+            )?;
+            check_u16(
+                "theme.spacing.paragraph_space_after_pt",
+                s.paragraph_space_after_pt,
+                0,
+                72,
+            )?;
             check_u16("theme.spacing.list_indent_pt", s.list_indent_pt, 0, 144)?;
-            check_u16("theme.spacing.table_cell_padding_pt", s.table_cell_padding_pt, 0, 36)?;
+            check_u16(
+                "theme.spacing.table_cell_padding_pt",
+                s.table_cell_padding_pt,
+                0,
+                36,
+            )?;
         }
         if let Some(p) = self.page.as_ref() {
             check_f32("theme.page.margin_top_mm", p.margin_top_mm, 5.0, 80.0)?;
@@ -479,8 +504,7 @@ mod tests {
 
     #[test]
     fn double_option_distinguishes_null_from_absent() {
-        let absent: DecorationsPatch =
-            serde_json::from_value(serde_json::json!({})).unwrap();
+        let absent: DecorationsPatch = serde_json::from_value(serde_json::json!({})).unwrap();
         assert!(matches!(absent.header, DoubleOption::Unset));
 
         let explicit_null: DecorationsPatch =

@@ -129,10 +129,7 @@ impl SystemPromptBuilder {
                 "{harness}{sep}{quality}{sep}{framing}",
                 sep = Self::SECTION_SEPARATOR,
             ),
-            None => format!(
-                "{harness}{sep}{quality}",
-                sep = Self::SECTION_SEPARATOR,
-            ),
+            None => format!("{harness}{sep}{quality}", sep = Self::SECTION_SEPARATOR,),
         }
     }
 

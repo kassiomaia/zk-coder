@@ -224,7 +224,9 @@ mod subtask_autocompletion_tests {
         task.id = "task-1".to_string();
         task.title = Some("Test Task".to_string());
         task.status = TaskStatus::InProgress;
-        store.create_task(&task, task.title.as_deref(), None).unwrap();
+        store
+            .create_task(&task, task.title.as_deref(), None)
+            .unwrap();
 
         // Create 3 subtasks (using SubTask type for store.create_subtask)
         let subtask1 = SubTask::new(
@@ -307,7 +309,9 @@ mod subtask_autocompletion_tests {
         task.id = "task-1".to_string();
         task.title = Some("Test Task".to_string());
         task.status = TaskStatus::InProgress;
-        store.create_task(&task, task.title.as_deref(), None).unwrap();
+        store
+            .create_task(&task, task.title.as_deref(), None)
+            .unwrap();
 
         // Create 3 subtasks: Completed, InProgress, and Pending
         let subtask1 = SubTask::new(
@@ -390,7 +394,9 @@ mod subtask_autocompletion_tests {
         task.id = "task-1".to_string();
         task.title = Some("Test Task".to_string());
         task.status = TaskStatus::InProgress;
-        store.create_task(&task, task.title.as_deref(), None).unwrap();
+        store
+            .create_task(&task, task.title.as_deref(), None)
+            .unwrap();
 
         // Create 2 subtasks: both Completed (agent properly advanced through them)
         let subtask1 = SubTask::new(
@@ -466,7 +472,9 @@ mod subtask_autocompletion_tests {
         task.id = "task-1".to_string();
         task.title = Some("Test Task".to_string());
         task.status = TaskStatus::InProgress;
-        store.create_task(&task, task.title.as_deref(), None).unwrap();
+        store
+            .create_task(&task, task.title.as_deref(), None)
+            .unwrap();
 
         // Create 3 subtasks: first is Completed, others are Pending
         let subtask1 = SubTask::new(

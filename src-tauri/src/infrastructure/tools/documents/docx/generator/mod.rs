@@ -102,9 +102,7 @@ fn write_docx(
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::core::documents::docx::theme_patch::{
-        DocxThemePatch, PagePatch, TypographyPatch,
-    };
+    use crate::core::documents::docx::theme_patch::{DocxThemePatch, PagePatch, TypographyPatch};
     use crate::infrastructure::tools::documents::shared::{
         DocxContent, DraftSection, DraftStatus, ParagraphText,
     };

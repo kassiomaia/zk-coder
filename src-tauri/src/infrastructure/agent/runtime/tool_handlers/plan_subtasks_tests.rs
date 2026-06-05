@@ -90,11 +90,15 @@ fn contract_for_path(path: &str) -> Value {
 #[test]
 fn merge_attaches_contract_and_refines_fields_on_pending_skeleton() {
     let (repos, task_id) = make_repos_with_task();
-    persist_skeleton(repos.task.as_ref(), &task_id, &[
-        "Investigate auth module",
-        "Implement fix",
-        "Verify behavior",
-    ]);
+    persist_skeleton(
+        repos.task.as_ref(),
+        &task_id,
+        &[
+            "Investigate auth module",
+            "Implement fix",
+            "Verify behavior",
+        ],
+    );
 
     let existing = repos.task.get_subtasks(&task_id).unwrap();
     let session = make_session();
@@ -133,9 +137,21 @@ fn merge_attaches_contract_and_refines_fields_on_pending_skeleton() {
         repos.task.as_ref(),
     );
 
-    assert!(!result.is_error, "merge should succeed: {:?}", result.output);
-    let refined = result.output.get("refined").and_then(Value::as_u64).unwrap();
-    let appended = result.output.get("appended").and_then(Value::as_u64).unwrap();
+    assert!(
+        !result.is_error,
+        "merge should succeed: {:?}",
+        result.output
+    );
+    let refined = result
+        .output
+        .get("refined")
+        .and_then(Value::as_u64)
+        .unwrap();
+    let appended = result
+        .output
+        .get("appended")
+        .and_then(Value::as_u64)
+        .unwrap();
     assert_eq!(refined, 3);
     assert_eq!(appended, 0);
 
@@ -151,8 +167,7 @@ fn merge_attaches_contract_and_refines_fields_on_pending_skeleton() {
     let by_order: std::collections::HashMap<i32, &SubTask> =
         after.iter().map(|st| (st.order, st)).collect();
     assert_eq!(
-        by_order[&1].title,
-        "Implement session-handoff fix",
+        by_order[&1].title, "Implement session-handoff fix",
         "title should be updated on the pending slot",
     );
     assert_eq!(by_order[&1].mode, SubTaskMode::Write);

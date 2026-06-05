@@ -12,8 +12,7 @@ use crate::core::documents::pdf::theme_patch::ThemePatch;
 use crate::infrastructure::tools::documents::shared::PdfDraft;
 
 /// Bundled default report theme TOML source.
-const REPORT_THEME_TOML: &str =
-    include_str!("../../../../../../resources/pdf/themes/report.toml");
+const REPORT_THEME_TOML: &str = include_str!("../../../../../../resources/pdf/themes/report.toml");
 
 /// Failure mode for [`parse_theme`] / [`load_report_theme`].
 #[derive(Debug, Error)]
@@ -74,9 +73,7 @@ pub fn report_theme_with_patch(patch: &ThemePatch) -> Theme {
 mod tests {
     use super::*;
     use crate::core::documents::pdf::theme_patch::{PalettePatch, RgbPatch, TypographyPatch};
-    use crate::infrastructure::tools::documents::shared::draft_store::{
-        DraftStatus, PdfPageSize,
-    };
+    use crate::infrastructure::tools::documents::shared::draft_store::{DraftStatus, PdfPageSize};
     use chrono::Utc;
 
     fn bare_draft(patch: Option<ThemePatch>) -> PdfDraft {
@@ -112,7 +109,9 @@ mod tests {
         assert!((theme.typography.body_font_size_pt - 14.0).abs() < f32::EPSILON);
         // Heading size left at default (bundled).
         assert!(
-            (theme.typography.heading_font_size_pt - load_report_theme().typography.heading_font_size_pt).abs()
+            (theme.typography.heading_font_size_pt
+                - load_report_theme().typography.heading_font_size_pt)
+                .abs()
                 < f32::EPSILON
         );
     }

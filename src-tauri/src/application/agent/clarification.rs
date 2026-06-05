@@ -208,11 +208,7 @@ pub fn record_pending_clarification(session_id: &str, prompt: &str) {
 /// Used by the timeout tests to avoid the lexical dependency on
 /// `Utc::now()`. Production code should prefer
 /// [`record_pending_clarification`].
-pub fn record_pending_clarification_at(
-    session_id: &str,
-    prompt: &str,
-    asked_at: DateTime<Utc>,
-) {
+pub fn record_pending_clarification_at(session_id: &str, prompt: &str, asked_at: DateTime<Utc>) {
     let mut guard = legacy_registry().lock().unwrap_or_else(|e| e.into_inner());
     guard.insert(
         session_id.to_string(),
@@ -286,8 +282,8 @@ pub fn record_pending_clarification_persistent(
 /// Returns every pending clarification across all sessions — used by
 /// the rehydrate path at app startup (agent-clarification-resume
 /// plan, Phase 6).
-pub fn list_pending_clarifications(
-) -> Result<Vec<PendingClarificationRecord>, ClarificationError> {
+pub fn list_pending_clarifications() -> Result<Vec<PendingClarificationRecord>, ClarificationError>
+{
     repository()?
         .list_pending()
         .map_err(|e| ClarificationError::Repository(e.to_string()))
@@ -302,7 +298,9 @@ pub fn list_pending_clarifications(
 /// park cannot accidentally double-await.
 pub fn take_reply_receiver(session_id: &str) -> Option<oneshot::Receiver<String>> {
     let mut guard = channel_registry().lock().unwrap_or_else(|e| e.into_inner());
-    guard.get_mut(session_id).and_then(|entry| entry.receiver.take())
+    guard
+        .get_mut(session_id)
+        .and_then(|entry| entry.receiver.take())
 }
 
 /// Returns the pending clarification record for `session_id`, consulting
@@ -370,10 +368,7 @@ enum LiveDelivery {
 /// subsequent transactional clear so the state transition (session
 /// state → `Running`, clarification row deleted, checkpoint deleted)
 /// stays atomic.
-pub fn deliver_reply(
-    session_id: &str,
-    content: &str,
-) -> Result<ReplyDelivery, ClarificationError> {
+pub fn deliver_reply(session_id: &str, content: &str) -> Result<ReplyDelivery, ClarificationError> {
     // Attempt live delivery first. Scope the lock tightly so we do not
     // hold it across the fallible repo read below.
     let live_outcome = {
@@ -437,9 +432,7 @@ pub fn deliver_reply(
 /// nothing when the session has no pending entry — that is not an
 /// error, because the caller may not know whether a prior cleanup
 /// already fired (e.g. from a concurrent cancel path).
-pub fn clear_pending_clarification_persistent(
-    session_id: &str,
-) -> Result<(), ClarificationError> {
+pub fn clear_pending_clarification_persistent(session_id: &str) -> Result<(), ClarificationError> {
     {
         let mut guard = channel_registry().lock().unwrap_or_else(|e| e.into_inner());
         guard.remove(session_id);

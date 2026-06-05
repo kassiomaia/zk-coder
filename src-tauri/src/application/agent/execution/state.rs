@@ -10,7 +10,9 @@ use crate::core::agent::execution::{
     ExecutionCheckpoint, ExecutionPhase, ExecutionSnapshot, LlmTracePayload,
 };
 use crate::core::agent::task::ExecutionStep;
-use crate::core::llm::entities::{ChatMessage as Message, ChatResponse, ToolChoiceMode, ToolDefinition};
+use crate::core::llm::entities::{
+    ChatMessage as Message, ChatResponse, ToolChoiceMode, ToolDefinition,
+};
 use crate::infrastructure::agent::runtime::context::MemorizedFailure;
 use crate::infrastructure::agent::runtime::session_scope::RuntimeSessionScope;
 use crate::infrastructure::agent::runtime::SubtaskSummary;
@@ -304,7 +306,10 @@ mod checkpoint_tests {
         );
         assert_eq!(reconstructed.total_input_tokens, ctx.total_input_tokens);
         assert_eq!(reconstructed.total_output_tokens, ctx.total_output_tokens);
-        assert_eq!(reconstructed.context_usage_percent, ctx.context_usage_percent);
+        assert_eq!(
+            reconstructed.context_usage_percent,
+            ctx.context_usage_percent
+        );
         assert_eq!(
             reconstructed.consecutive_empty_tool_iterations,
             ctx.consecutive_empty_tool_iterations

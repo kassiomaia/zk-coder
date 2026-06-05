@@ -441,13 +441,19 @@ mod tests {
             MessageRole::from_str_or_default("assistant"),
             MessageRole::Assistant
         );
-        assert_eq!(MessageRole::from_str_or_default("unknown"), MessageRole::User);
+        assert_eq!(
+            MessageRole::from_str_or_default("unknown"),
+            MessageRole::User
+        );
     }
 
     #[test]
     fn test_message_role_from_str_trait() {
         assert_eq!("user".parse::<MessageRole>(), Ok(MessageRole::User));
-        assert_eq!("assistant".parse::<MessageRole>(), Ok(MessageRole::Assistant));
+        assert_eq!(
+            "assistant".parse::<MessageRole>(),
+            Ok(MessageRole::Assistant)
+        );
         assert_eq!("system".parse::<MessageRole>(), Ok(MessageRole::System));
         assert!("unknown".parse::<MessageRole>().is_err());
         assert!("".parse::<MessageRole>().is_err());

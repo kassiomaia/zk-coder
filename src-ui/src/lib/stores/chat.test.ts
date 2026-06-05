@@ -628,6 +628,72 @@ describe('chatStore', () => {
 			expect(agentStore.setActiveSession).toHaveBeenCalledWith('agent-session-1');
 		});
 
+		it('selectThread injects a recovery card for startup-recovery pauses', async () => {
+			const mockThread = createMockThread('thread-1', 'conv-1', 'Thread 1');
+			mockThread.metadata.agentSessionId = 'agent-session-1';
+
+			const state = get(chatStore);
+			state.threads = [mockThread];
+
+			vi.mocked(agentStore.loadSession).mockResolvedValue({
+				id: 'agent-session-1',
+				agentId: 'code-agent',
+				agentName: 'Code Agent',
+				conversationId: 'conv-1',
+				threadId: 'thread-1',
+				state: {
+					type: 'paused',
+					pausedAt: '2024-01-01T12:05:00Z',
+					pauseReason: 'startup_recovery',
+					message: 'Recovered after restart'
+				},
+				workspaceRoot: '/workspace',
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString()
+			});
+			vi.mocked(loadThreadMessages).mockResolvedValue([]);
+
+			await chatStore.selectThread('thread-1');
+
+			expect(get(chatStore).messages).toMatchObject([
+				{
+					id: 'recovery-agent-session-1',
+					kind: 'recovery',
+					content: 'Recovered after restart'
+				}
+			]);
+		});
+
+		it('selectThread does not inject a recovery card for clarification-timeout pauses', async () => {
+			const mockThread = createMockThread('thread-1', 'conv-1', 'Thread 1');
+			mockThread.metadata.agentSessionId = 'agent-session-1';
+
+			const state = get(chatStore);
+			state.threads = [mockThread];
+
+			vi.mocked(agentStore.loadSession).mockResolvedValue({
+				id: 'agent-session-1',
+				agentId: 'code-agent',
+				agentName: 'Code Agent',
+				conversationId: 'conv-1',
+				threadId: 'thread-1',
+				state: {
+					type: 'paused',
+					pausedAt: '2024-01-01T12:05:00Z',
+					pauseReason: 'clarification_timeout',
+					message: 'Clarification timed out'
+				},
+				workspaceRoot: '/workspace',
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString()
+			});
+			vi.mocked(loadThreadMessages).mockResolvedValue([]);
+
+			await chatStore.selectThread('thread-1');
+
+			expect(get(chatStore).messages).toEqual([]);
+		});
+
 		it('selectThread clears agent session when not present', async () => {
 			const mockThread = createMockThread('thread-1', 'conv-1', 'Thread 1');
 

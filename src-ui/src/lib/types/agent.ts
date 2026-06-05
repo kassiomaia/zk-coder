@@ -223,6 +223,8 @@ export type AgentTraceEvent =
 	| { type: 'runtime_trace'; trace: RuntimeTrace }
 	| { type: 'snapshot_updated'; snapshot: ExecutionSnapshot };
 
+export type PauseReason = 'startup_recovery' | 'clarification_timeout' | 'user_initiated';
+
 /**
  * Session lifecycle state (discriminated union)
  */
@@ -231,7 +233,13 @@ export type SessionState =
 	| { type: 'running'; currentStep: number; contextUsage: number }
 	| { type: 'wait_for_request'; lastActionAt: string }
 	| { type: 'user_input_required'; pendingActionIds: string[] }
-	| { type: 'paused'; pausedAt: string; message: string; currentSubtaskId?: string }
+	| {
+			type: 'paused';
+			pausedAt: string;
+			pauseReason: PauseReason;
+			message: string;
+			currentSubtaskId?: string;
+	  }
 	| {
 			type: 'awaiting_clarification';
 			prompt: string;
@@ -497,6 +505,7 @@ export type AgentEvent =
 			sessionId: string;
 			message: string;
 			pausedAt: string;
+			pauseReason: PauseReason;
 			currentSubtaskId?: string;
 	  }
 	| { type: 'recovery_continue'; sessionId: string }

@@ -180,10 +180,7 @@ fn map_item(item: GoogleItem) -> RawResult {
     RawResult {
         title: item.title,
         url: item.link,
-        snippet_html: item
-            .html_snippet
-            .or(item.snippet)
-            .unwrap_or_default(),
+        snippet_html: item.html_snippet.or(item.snippet).unwrap_or_default(),
     }
 }
 

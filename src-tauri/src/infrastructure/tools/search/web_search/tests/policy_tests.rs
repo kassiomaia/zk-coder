@@ -7,9 +7,7 @@ use std::sync::{Arc, MutexGuard};
 
 use serde_json::{json, Value as JsonValue};
 
-use crate::infrastructure::tools::constants::{
-    web_search_test_env_lock, ENV_WEB_SEARCH_ENABLED,
-};
+use crate::infrastructure::tools::constants::{web_search_test_env_lock, ENV_WEB_SEARCH_ENABLED};
 use crate::infrastructure::tools::search::web_search::error::{ErrorCode, WebSearchFailure};
 use crate::infrastructure::tools::search::web_search::execute_inner_for_tests;
 use crate::infrastructure::tools::search::web_search::locale::FixedLocale;
@@ -208,7 +206,10 @@ async fn does_not_rewrite_query_when_explicit_site_given() {
     .await
     .expect("ok");
     let observed = provider.observed_requests();
-    assert_eq!(observed[0].query, "rust", "explicit site must not trigger rewrite");
+    assert_eq!(
+        observed[0].query, "rust",
+        "explicit site must not trigger rewrite"
+    );
     assert_eq!(observed[0].site.as_deref(), Some("github.com"));
 }
 
@@ -216,9 +217,13 @@ async fn does_not_rewrite_query_when_explicit_site_given() {
 async fn empty_policy_does_not_rewrite_query() {
     let _guard = flag_on();
     let provider = Arc::new(MockProvider::with_results(vec![raw("github.com")]));
-    let _ = run(provider.clone(), Policy::empty(), json!({ "query": "rust" }))
-        .await
-        .expect("ok");
+    let _ = run(
+        provider.clone(),
+        Policy::empty(),
+        json!({ "query": "rust" }),
+    )
+    .await
+    .expect("ok");
     let observed = provider.observed_requests();
     assert_eq!(observed[0].query, "rust");
 }

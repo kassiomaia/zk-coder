@@ -14,9 +14,7 @@ pub fn canonical_workspace_key(path: Option<&Path>) -> String {
     let Some(path) = path else {
         return String::new();
     };
-    let canonical = path
-        .canonicalize()
-        .unwrap_or_else(|_| path.to_path_buf());
+    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
 
     let as_string = canonical.to_string_lossy().into_owned();
 

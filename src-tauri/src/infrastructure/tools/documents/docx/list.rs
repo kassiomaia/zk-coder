@@ -166,9 +166,7 @@ fn summarize_section(section: &DraftSection, include_content: bool) -> SectionSu
             "--- Page Break ---".to_string(),
             None,
         ),
-        DocxContent::HorizontalRule => {
-            ("HorizontalRule".to_string(), "---".to_string(), None)
-        }
+        DocxContent::HorizontalRule => ("HorizontalRule".to_string(), "---".to_string(), None),
     };
 
     SectionSummary {
@@ -255,8 +253,14 @@ mod tests {
             index: 0,
             content: DocxContent::BulletList {
                 items: vec![
-                    ListItem { text: ParagraphText::Plain("alpha".into()), level: None },
-                    ListItem { text: ParagraphText::Plain("beta".into()), level: None },
+                    ListItem {
+                        text: ParagraphText::Plain("alpha".into()),
+                        level: None,
+                    },
+                    ListItem {
+                        text: ParagraphText::Plain("beta".into()),
+                        level: None,
+                    },
                 ],
             },
             theme_override: None,

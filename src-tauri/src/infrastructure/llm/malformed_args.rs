@@ -113,9 +113,7 @@ fn extract_window(raw: &str, column: usize, radius: usize) -> Window<'_> {
     let start_char = at_idx.saturating_sub(radius);
     let end_char = (at_idx + radius).min(char_count);
 
-    let before_start = char_indices
-        .get(start_char)
-        .map_or(0, |(byte, _)| *byte);
+    let before_start = char_indices.get(start_char).map_or(0, |(byte, _)| *byte);
     let before_end = char_indices
         .get(at_idx)
         .map_or(raw.len(), |(byte, _)| *byte);

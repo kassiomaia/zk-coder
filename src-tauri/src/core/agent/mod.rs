@@ -18,21 +18,12 @@ mod tests;
 pub mod types;
 
 // Re-export core types
+pub use clarification::PendingClarificationRecord;
+pub use context::{CompactionDetails, ContextCompactionStrategy, ContextPackOutcome, ContextState};
 pub use errors::AgentDomainError;
-pub use session::{AgentSession, PendingAction, SessionId, SessionState};
-pub use task::{
-    AgentExecutionResult, AgentRequest, AgentTask, Attachment, Complexity, ExecutionStep, Plan,
-    PlanStep, RequestContext, StepAction, StepResult, SubTask, SubTaskMode, TaskStatus,
-    UsageStats,
-};
-pub use types::{ActionPreview, ActionType, Agent, AgentId, PermissionLevel, TrustMode};
 pub use execution::{
     ExecutionCheckpoint, ExecutionPhase, ExecutionSnapshot, ExecutionTransition, LlmTracePayload,
     RuntimeTrace, RuntimeTraceType,
-};
-pub use clarification::PendingClarificationRecord;
-pub use context::{
-    CompactionDetails, ContextCompactionStrategy, ContextPackOutcome, ContextState,
 };
 pub use memory::{MemoryRepository, SessionMemory};
 pub use repositories::{
@@ -41,3 +32,9 @@ pub use repositories::{
     TaskRepository,
 };
 pub use services::AgentService;
+pub use session::{AgentSession, PendingAction, SessionId, SessionState};
+pub use task::{
+    AgentExecutionResult, AgentRequest, AgentTask, Attachment, Complexity, ExecutionStep, Plan,
+    PlanStep, RequestContext, StepAction, StepResult, SubTask, SubTaskMode, TaskStatus, UsageStats,
+};
+pub use types::{ActionPreview, ActionType, Agent, AgentId, PermissionLevel, TrustMode};

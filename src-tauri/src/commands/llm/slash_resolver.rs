@@ -215,10 +215,7 @@ mod tests {
         };
         repo.upsert_prompt_template(&custom).unwrap();
         let expanded = resolve("/commit-msg fix flaky test", &repo);
-        assert_eq!(
-            expanded,
-            "Write a commit message for:\n\nfix flaky test"
-        );
+        assert_eq!(expanded, "Write a commit message for:\n\nfix flaky test");
     }
 
     #[test]

@@ -60,7 +60,12 @@ impl SessionMemory {
     /// Builds a fresh memory record keyed to a session and task with
     /// empty finding/question/fact lists.
     #[must_use]
-    pub fn new(session_id: SessionId, task_id: String, task_goal: String, active_plan: String) -> Self {
+    pub fn new(
+        session_id: SessionId,
+        task_id: String,
+        task_goal: String,
+        active_plan: String,
+    ) -> Self {
         let now = Utc::now();
         Self {
             session_id,

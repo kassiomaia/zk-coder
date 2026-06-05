@@ -226,7 +226,10 @@ async fn network_error_maps_to_network_variant() {
     // Point the provider at a URL guaranteed to fail transport (localhost:1).
     let provider = GoogleProvider::new(RedactedSecret::new("k"), "cx".to_string())
         .with_base_url("http://127.0.0.1:1");
-    let err = provider.search(base_request()).await.expect_err("should error");
+    let err = provider
+        .search(base_request())
+        .await
+        .expect_err("should error");
     assert!(
         matches!(err, SearchProviderError::Network(_)),
         "expected Network, got {err:?}"
@@ -239,9 +242,7 @@ async fn network_error_maps_to_network_variant() {
 #[cfg(feature = "integration-test")]
 #[tokio::test]
 async fn live_search_returns_nonempty_results_for_stable_query() {
-    use crate::infrastructure::tools::constants::{
-        ENV_WEB_SEARCH_API_KEY, ENV_WEB_SEARCH_CX,
-    };
+    use crate::infrastructure::tools::constants::{ENV_WEB_SEARCH_API_KEY, ENV_WEB_SEARCH_CX};
 
     let (Ok(key), Ok(cx)) = (
         std::env::var(ENV_WEB_SEARCH_API_KEY),

@@ -156,7 +156,10 @@ mod tests {
         });
         let parsed: DocxAddSectionArgs = serde_json::from_value(args).unwrap();
         match parsed.content {
-            DocxContent::Paragraph { text: ParagraphText::Rich(runs), .. } => {
+            DocxContent::Paragraph {
+                text: ParagraphText::Rich(runs),
+                ..
+            } => {
                 assert_eq!(runs.len(), 2);
                 assert!(runs[0].bold);
             }
@@ -174,7 +177,9 @@ mod tests {
             }
         });
         let parsed: DocxAddSectionArgs = serde_json::from_value(args).unwrap();
-        let patch = decode_theme_patch(parsed.theme_override.as_ref()).unwrap().unwrap();
+        let patch = decode_theme_patch(parsed.theme_override.as_ref())
+            .unwrap()
+            .unwrap();
         assert_eq!(patch.page.unwrap().landscape, Some(true));
     }
 }

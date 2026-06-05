@@ -14,9 +14,7 @@ pub fn get_operation_defaults(
     let defaults: Vec<OperationDefault> = stmt
         .query_map([], |row| {
             let operation_str: String = row.get(0)?;
-            let operation: OperationType = operation_str
-                .parse()
-                .unwrap_or(OperationType::Analysis);
+            let operation: OperationType = operation_str.parse().unwrap_or(OperationType::Analysis);
 
             // Read model_id as Option<String> to handle NULL values
             let model_id: Option<String> = row.get(1)?;

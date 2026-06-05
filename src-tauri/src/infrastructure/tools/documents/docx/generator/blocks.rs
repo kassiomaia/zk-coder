@@ -70,17 +70,15 @@ fn dispatch(
             alignment,
             page_break_before,
         } => {
-            let para = paragraphs::heading(
-                *level,
-                text,
-                *alignment,
-                *page_break_before,
-                theme,
-                plan,
-            );
+            let para =
+                paragraphs::heading(*level, text, *alignment, *page_break_before, theme, plan);
             docx.document.body.push(BodyContent::Paragraph(para));
         }
-        DocxContent::Paragraph { text, alignment, role } => {
+        DocxContent::Paragraph {
+            text,
+            alignment,
+            role,
+        } => {
             let para = paragraphs::body(text, *role, *alignment, theme, plan);
             docx.document.body.push(BodyContent::Paragraph(para));
         }
@@ -109,7 +107,9 @@ fn dispatch(
                     theme,
                     plan,
                 );
-                docx.document.body.push(BodyContent::Paragraph(caption_para));
+                docx.document
+                    .body
+                    .push(BodyContent::Paragraph(caption_para));
             }
         }
         DocxContent::Image { caption, .. } => {
@@ -119,12 +119,8 @@ fn dispatch(
             let Some(planned) = plan.images.get(*image_idx) else {
                 return;
             };
-            let paragraphs_out = images::paragraph(
-                planned,
-                caption.as_deref(),
-                *image_idx as i32,
-                theme,
-            );
+            let paragraphs_out =
+                images::paragraph(planned, caption.as_deref(), *image_idx as i32, theme);
             for p in paragraphs_out {
                 docx.document.body.push(BodyContent::Paragraph(p));
             }

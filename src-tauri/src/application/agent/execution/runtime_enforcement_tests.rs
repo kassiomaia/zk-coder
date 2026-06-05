@@ -74,7 +74,10 @@ fn write_in_read_mode_is_disallowed() {
 #[test]
 fn execute_in_write_mode_is_disallowed() {
     let allowed = allowed_for(SubTaskMode::Write);
-    assert!(is_disallowed_by_mode("system_execute_command", Some(&allowed)));
+    assert!(is_disallowed_by_mode(
+        "system_execute_command",
+        Some(&allowed)
+    ));
 }
 
 #[test]
@@ -187,10 +190,7 @@ fn call_names_seen_by_runtime_enforcement_come_from_the_full_catalog() {
     // always does).
     let read_allowed = allowed_for(SubTaskMode::Read);
     let write_call = call("fs_write_file");
-    assert!(is_disallowed_by_mode(
-        &write_call.name,
-        Some(&read_allowed)
-    ));
+    assert!(is_disallowed_by_mode(&write_call.name, Some(&read_allowed)));
 }
 
 /// Regression test for the "agent finished but never produced the PDF" bug.

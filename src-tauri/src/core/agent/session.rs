@@ -36,6 +36,32 @@ impl std::fmt::Display for SessionId {
     }
 }
 
+/// Durable reason for a paused session.
+///
+/// This lets the runtime distinguish startup recovery pauses from
+/// clarification timeouts and future pause causes without inferring intent
+/// from the coarse `Paused` state alone.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PauseReason {
+    /// App startup recovered a previously unterminated session and is asking
+    /// the user whether to resume or replan.
+    #[default]
+    StartupRecovery,
+    /// A clarification question timed out before the user replied.
+    ClarificationTimeout,
+    /// Reserved for future explicit user-initiated pause flows.
+    UserInitiated,
+}
+
+impl PauseReason {
+    /// Returns `true` when the paused state should drive startup recovery UX.
+    #[must_use]
+    pub const fn is_startup_recovery(self) -> bool {
+        matches!(self, Self::StartupRecovery)
+    }
+}
+
 impl From<&str> for SessionId {
     fn from(s: &str) -> Self {
         Self(s.to_string())
@@ -203,6 +229,9 @@ pub enum SessionState {
         /// The timestamp of when the session was paused.
         #[serde(rename = "pausedAt")]
         paused_at: DateTime<Utc>,
+        /// Durable reason for the pause.
+        #[serde(rename = "pauseReason", default)]
+        pause_reason: PauseReason,
         /// A message describing the reason for pausing.
         message: String,
         /// The ID of the current subtask, if any.
@@ -343,6 +372,8 @@ enum SessionStateCanonical {
     Paused {
         #[serde(rename = "pausedAt")]
         paused_at: DateTime<Utc>,
+        #[serde(rename = "pauseReason", default)]
+        pause_reason: PauseReason,
         message: String,
         #[serde(rename = "currentSubtaskId", default)]
         current_subtask_id: Option<String>,
@@ -384,10 +415,12 @@ impl From<SessionStateCanonical> for SessionState {
             },
             SessionStateCanonical::Paused {
                 paused_at,
+                pause_reason,
                 message,
                 current_subtask_id,
             } => Self::Paused {
                 paused_at,
+                pause_reason,
                 message,
                 current_subtask_id,
             },
@@ -482,6 +515,7 @@ fn deserialize_legacy_state<E: serde::de::Error>(
         }
         "paused" => Ok(SessionState::Paused {
             paused_at: parse_dt("paused_at")?,
+            pause_reason: PauseReason::default(),
             message: get_str("message"),
             current_subtask_id: None,
         }),
@@ -624,6 +658,7 @@ mod tests {
     fn paused() -> SessionState {
         SessionState::Paused {
             paused_at: Utc::now(),
+            pause_reason: PauseReason::StartupRecovery,
             message: "paused".to_string(),
             current_subtask_id: None,
         }
@@ -797,7 +832,10 @@ mod tests {
         assert_eq!(json["type"], "awaiting_clarification");
         assert_eq!(json["prompt"], "Which tone should the summary take?");
         assert_eq!(json["subtaskId"], "subtask-77");
-        assert!(json["askedAt"].is_string(), "askedAt should serialize to a string");
+        assert!(
+            json["askedAt"].is_string(),
+            "askedAt should serialize to a string"
+        );
         let roundtripped: SessionState = serde_json::from_value(json).expect("deserialize");
         match roundtripped {
             SessionState::AwaitingClarification {
@@ -960,11 +998,29 @@ mod tests {
         match state {
             SessionState::Paused {
                 message,
+                pause_reason,
                 current_subtask_id,
                 ..
             } => {
                 assert_eq!(message, "awaiting input");
+                assert_eq!(pause_reason, PauseReason::StartupRecovery);
                 assert!(current_subtask_id.is_none());
+            }
+            other => panic!("expected Paused, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn canonical_paused_without_reason_defaults_to_startup_recovery() {
+        let json = serde_json::json!({
+            "type": "paused",
+            "pausedAt": "2026-04-16T12:00:00Z",
+            "message": "awaiting input",
+        });
+        let state: SessionState = serde_json::from_value(json).expect("paused");
+        match state {
+            SessionState::Paused { pause_reason, .. } => {
+                assert_eq!(pause_reason, PauseReason::StartupRecovery);
             }
             other => panic!("expected Paused, got {other:?}"),
         }
@@ -976,8 +1032,7 @@ mod tests {
             "state": "wait_for_request",
             "last_action_at": "2026-04-16T12:00:00Z",
         });
-        let state: SessionState =
-            serde_json::from_value(json).expect("legacy wait_for_request");
+        let state: SessionState = serde_json::from_value(json).expect("legacy wait_for_request");
         assert!(matches!(state, SessionState::WaitForRequest { .. }));
     }
 

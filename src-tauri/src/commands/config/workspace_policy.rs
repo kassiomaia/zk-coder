@@ -118,13 +118,8 @@ mod tests {
     #[test]
     fn delete_workspace_policy_removes_entry() {
         let r = repo();
-        set_workspace_search_policy_impl(
-            r.as_ref(),
-            "/ws",
-            &["github.com".to_string()],
-            &[],
-        )
-        .unwrap();
+        set_workspace_search_policy_impl(r.as_ref(), "/ws", &["github.com".to_string()], &[])
+            .unwrap();
         delete_workspace_search_policy_impl(r.as_ref(), "/ws").unwrap();
         let got = get_workspace_search_policy_impl(r.as_ref(), "/ws").unwrap();
         assert!(got.allowlist.is_empty());
@@ -134,13 +129,8 @@ mod tests {
     #[test]
     fn empty_string_workspace_path_is_global_bucket() {
         let r = repo();
-        set_workspace_search_policy_impl(
-            r.as_ref(),
-            "",
-            &[],
-            &["bad.example".to_string()],
-        )
-        .unwrap();
+        set_workspace_search_policy_impl(r.as_ref(), "", &[], &["bad.example".to_string()])
+            .unwrap();
         let got = get_workspace_search_policy_impl(r.as_ref(), "").unwrap();
         assert_eq!(got.denylist, vec!["bad.example"]);
     }

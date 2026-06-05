@@ -31,7 +31,9 @@ pub fn emit(
         ParagraphText::Rich(runs) => {
             for run in runs {
                 if let Some(link) = run.link.as_deref() {
-                    out.push(ParagraphContent::Link(hyperlink_run(run, link, theme, plan)));
+                    out.push(ParagraphContent::Link(hyperlink_run(
+                        run, link, theme, plan,
+                    )));
                 } else {
                     out.push(ParagraphContent::Run(styled_run(run, theme)));
                 }
@@ -46,7 +48,9 @@ fn plain_run(text: String, theme: &DocxTheme) -> Run<'static> {
     props.color = Some(Color {
         value: Cow::Owned(theme.palette.text.hex.clone()),
     });
-    props.size = Some(Size::from(pt_to_half_pt(theme.typography.body_font_size_pt) as isize));
+    props.size = Some(Size::from(
+        pt_to_half_pt(theme.typography.body_font_size_pt) as isize,
+    ));
     Run {
         property: Some(props),
         content: vec![RunContent::Text(preserved_text(text))],
@@ -70,7 +74,9 @@ fn styled_run(run: &TextRun, theme: &DocxTheme) -> Run<'static> {
     props.color = Some(Color {
         value: Cow::Owned(color),
     });
-    props.size = Some(Size::from(pt_to_half_pt(theme.typography.body_font_size_pt) as isize));
+    props.size = Some(Size::from(
+        pt_to_half_pt(theme.typography.body_font_size_pt) as isize,
+    ));
     if run.bold {
         props.bold = Some(Bold { value: Some(true) });
     }
@@ -177,8 +183,16 @@ mod tests {
     #[test]
     fn rich_text_emits_one_run_per_span() {
         let text = ParagraphText::Rich(vec![
-            TextRun { text: "a".into(), bold: true, ..Default::default() },
-            TextRun { text: "b".into(), italic: true, ..Default::default() },
+            TextRun {
+                text: "a".into(),
+                bold: true,
+                ..Default::default()
+            },
+            TextRun {
+                text: "b".into(),
+                italic: true,
+                ..Default::default()
+            },
         ]);
         let mut out = Vec::new();
         emit(&text, &theme(), &Plan::default(), &mut out);

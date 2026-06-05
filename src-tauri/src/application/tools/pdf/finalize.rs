@@ -209,9 +209,7 @@ mod tests {
 
     #[test]
     fn build_document_inserts_theme_switch_only_for_overridden_page() {
-        use crate::core::documents::pdf::theme_patch::{
-            PalettePatch, RgbPatch, ThemePatch,
-        };
+        use crate::core::documents::pdf::theme_patch::{PalettePatch, RgbPatch, ThemePatch};
 
         let pages = vec![
             DraftPage {
@@ -412,7 +410,8 @@ mod tests {
                 content: "# M1 Reference\n\nCover page for the M1 exit gate. \
                           This fixture exists to lock the structural shape \
                           of a finalized PDF: page count, embedded fonts, \
-                          and the title round-trip.".to_string(),
+                          and the title round-trip."
+                    .to_string(),
             },
             PdfPageContent::Markdown {
                 content: "## Body Page\n\nA second page with a body \
@@ -427,7 +426,8 @@ mod tests {
                           that explicit page breaks (one per draft page) \
                           chain through the layout engine. Adding more \
                           words here verifies that the wrap logic still \
-                          fires inside a single page.".to_string(),
+                          fires inside a single page."
+                    .to_string(),
             },
             PdfPageContent::Text {
                 content: "Closing page (plain text). The renderer must \

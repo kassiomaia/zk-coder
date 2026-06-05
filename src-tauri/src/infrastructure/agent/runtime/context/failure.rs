@@ -282,14 +282,13 @@ pub fn select_failure_memory_body(
     current_subtask_id: Option<&str>,
     context: &[Message],
 ) -> Option<String> {
-    let scoped = memorized_failures
-        .iter()
-        .rev()
-        .find(|entry| match (entry.subtask_id.as_deref(), current_subtask_id) {
+    let scoped = memorized_failures.iter().rev().find(|entry| {
+        match (entry.subtask_id.as_deref(), current_subtask_id) {
             (None, _) => true,
             (Some(entry_id), Some(current_id)) => entry_id == current_id,
             (Some(_), None) => false,
-        });
+        }
+    });
     if let Some(entry) = scoped {
         return Some(super::render::render_failure_memory(&entry.record));
     }
